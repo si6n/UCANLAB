@@ -58772,5 +58772,843 @@
     "measurement": "Standart OEM elektriksel toleranslar: Sensör besleme 5.0V ±0.1V, Şasi direnci < 1.0 Ω.",
     "uds_routine": "UDS Service 0x22 (ReadDataByIdentifier) & UDS Service 0x14 (ClearDTC)",
     "symptoms": []
+  },
+  "P1000": {
+    "title": "[Ford/Mazda/Jaguar] OBD-II Sürüş Döngüsü / Sistem Hazırlık Testleri Tamamlanmadı",
+    "subsystem": "Üreticiye Özel Güç Aktarma & OBD İzleme Sistemleri",
+    "severity": "INFO",
+    "causes": [
+      "Akü kutup başı veya PCM besleme kablosu sökülmüş / resetlenmiş.",
+      "DTC arıza hafızası yakın zamanda bir teşhis cihazı ile silinmiş.",
+      "OBD-II sürüş döngüsü (Drive Cycle) koşulları (hızlanma, sabit sürüş, rölanti) henüz tamamlanmamış.",
+      "PCM hazır olma (readiness) monitörleri henüz veri toplayamamış."
+    ],
+    "steps": [
+      [
+        "Standart Ford OBD-II sürüş döngüsünü (Drive Cycle: 10 dk şehir içi, 15 dk otoyol sabit 90 km/s) gerçekleştirin.",
+        "Yol Testi & Sürüş Çevrimi",
+        "Kolay (Görsel)"
+      ],
+      [
+        "Diagnostik cihazı ile 'Readiness Monitors' durumunu kontrol edin; tüm monitörler 'Ready' olunca kod kendiliğinden söner.",
+        "PCM Telemetri",
+        "Kolay (Görsel)"
+      ],
+      [
+        "Başka aktif P0/P2/U0 kodları varsa önce onları giderin, çünkü aktif arızalar monitörlerin tamamlanmasını engeller.",
+        "Arıza Hafızası",
+        "Orta (Alet Gerekir)"
+      ]
+    ],
+    "measurement": "Akü voltajı > 12.4V; sürüş döngüsü sırasında motor soğutma suyu sıcaklığı > 80°C olmalıdır.",
+    "uds_routine": "OBD-II Service $01 (PID 0x01 Readiness Status) & UDS Service 0x19 (ReadDTCInformation)",
+    "symptoms": [
+      "Arıza lambası (MIL) genellikle yanmaz veya yalnızca muayene hazırlık testinde başarısız görünür.",
+      "Araç sürüş dinamiklerinde herhangi bir performans kaybı hissedilmez."
+    ]
+  },
+  "P1345": {
+    "title": "[GM/VAG/BMW/Toyota] Krank/Kam Mili Korelasyon Malfonksiyonu & Misfire",
+    "subsystem": "Üreticiye Özel Ateşleme Sistemi & Krank/Kam Mili Zamanlaması",
+    "severity": "CRITICAL_STOP",
+    "causes": [
+      "GM Vortec motorlarda distribütör dişlisinin aşınması veya takılırken 1 diş kaçık takılması (Cam Retard Offset > ±2°).",
+      "Eksantrik veya krank mili konum sensöründe (CMP/CKP) sinyal gecikmesi veya gevşek montaj.",
+      "Triger kayışı / zincirinde uzama veya otomatik gergi kılavuzunun kırılması.",
+      "BMW motorlarda Silindir 2 teklemesi ve yakıt kesme güvenliği."
+    ],
+    "steps": [
+      [
+        "Triger / zamanlama işaretlerini ve GM motorlarda distribütör montaj açısını kontrol edin.",
+        "Zamanlama Kapağı / Distribütör",
+        "Orta (Alet Gerekir)"
+      ],
+      [
+        "Teşhis cihazı ile 'Cam Retard Offset' değerini okuyun (hedef: tam 0°, tolerans: ±2°).",
+        "ECM Canlı Telemetri",
+        "Orta (Alet Gerekir)"
+      ],
+      [
+        "Krank ve eksantrik sensör sinyallerini çift kanallı osiloskopta senkronizasyon için karşılaştırın.",
+        "CKP / CMP Sinyal Hatları",
+        "İleri (Servis)"
+      ]
+    ],
+    "measurement": "Camshaft Retard Offset: 0.0° ± 2.0° (2000 RPM'de); CKP/CMP faz farkı: < 5 mikro saniye.",
+    "uds_routine": "UDS Service 0x31 (Crankshaft Position Variation Learn Routine - CASE Learn)",
+    "symptoms": [
+      "Motor çok zor marş alır veya rölantide şiddetli sarsıntı yapar.",
+      "2500 devir üzerinde tekleme ve güç kaybı.",
+      "Check Engine lambası sürekli veya yanıp sönerek yanar."
+    ]
+  },
+  "P1130": {
+    "title": "[Ford] Ön Oksijen Sensörü (HO2S-11) Sinyal Değişimi Yok - Yakıt Düzeltmesi Sınırda",
+    "subsystem": "Üreticiye Özel Yakıt & Hava Ölçümü (MAF / Lambda / Isıtıcı)",
+    "severity": "MEDIUM",
+    "causes": [
+      "Ön oksijen sensörü (HO2S Bank 1 Sensor 1) zirkonyum hücresinde yaşlanma veya kurum kirliliği.",
+      "Emme manifoldu veya vakum hortumlarında kaçak (aşırı fakir karışım).",
+      "Yakıt basınç regülatörü veya enjektör tıkanıklığı nedeniyle yetersiz yakıt beslemesi.",
+      "Sensör kablo tesisatında şasiye kısa devre veya yüksek direnç."
+    ],
+    "steps": [
+      [
+        "Emme manifoldu, PCV valfi ve vakum hatlarında duman testi ile kaçak kontrolü yapın.",
+        "Vakum Hatları",
+        "Kolay (Görsel)"
+      ],
+      [
+        "HO2S-11 canlı voltaj salınımını osiloskopta izleyin (0.1V ile 0.9V arasında saniyede en az 1-2 kez dalgalanmalıdır).",
+        "HO2S-11 Sinyal Hattı",
+        "Orta (Alet Gerekir)"
+      ],
+      [
+        "Yakıt rayı basıncını mekanik manometre ile rölanti ve gaz altında test edin.",
+        "Yakıt Rayı",
+        "İleri (Servis)"
+      ]
+    ],
+    "measurement": "HO2S sinyal salınımı 100 mV - 900 mV aralığında olmalıdır. Statik < 200 mV fakir, > 800 mV zengin kilitlenmeyi gösterir.",
+    "uds_routine": "UDS Service 0x22 (ReadDataByIdentifier - DID O2_Bank1_Sensor1) & Service 0x14",
+    "symptoms": [
+      "Check Engine (MIL) lambası yanar.",
+      "Yakıt tüketiminde %15-25 artış.",
+      "Rölantide hafif dalgalanma ve hızlanmada tereddüt."
+    ]
+  },
+  "P1131": {
+    "title": "[Ford] Ön Oksijen Sensörü (HO2S-11) Sinyal Değişimi Yok - Fakir Karışımda Kilitli",
+    "subsystem": "Üreticiye Özel Yakıt & Hava Ölçümü (MAF / Lambda / Isıtıcı)",
+    "severity": "MEDIUM",
+    "causes": [
+      "Hava akışmetre (MAF) sensörünün kirli veya yanlış kalibre olması.",
+      "Vakum hortumu çatlağı, fren servosu hortumu veya PCV borusundan kaçak emiş havası.",
+      "Yakıt pompası basınç düşüklüğü veya tıkalı yakıt filtresi.",
+      "O2 sensör sinyal kablosunda şasiye temas."
+    ],
+    "steps": [
+      [
+        "Hava filtresi sonrası boğaz kelebeğine kadar olan emiş borularını ve vakum hortumlarını kontrol edin.",
+        "Hava Emiş Hattı",
+        "Kolay (Görsel)"
+      ],
+      [
+        "MAF sensörü telini özel sprey ile temizleyin ve rölanti g/s akış değerini doğrulatın.",
+        "MAF Sensörü",
+        "Orta (Alet Gerekir)"
+      ],
+      [
+        "HO2S-11 sinyal pininden PCM soketine kadar süreklilik ve şasi izolasyonunu multimetre ile ölçün.",
+        "Tesisat Demeti",
+        "İleri (Servis)"
+      ]
+    ],
+    "measurement": "MAF rölanti değeri motor hacmine göre 2.0 - 4.5 g/s; HO2S voltajı < 0.2V seviyesinde asılı kalmamalıdır.",
+    "uds_routine": "UDS Service 0x22 (DID ShortTermFuelTrim_B1, LongTermFuelTrim_B1)",
+    "symptoms": [
+      "Motor arıza ışığı sürekli yanar.",
+      "Soğuk marşta zor çalışma ve rölantide sarsıntı.",
+      "Hızlanırken motorda tekleme ve güç düşüklüğü."
+    ]
+  },
+  "P1151": {
+    "title": "[Ford] Bank 2 Ön Oksijen Sensörü (HO2S-21) Sinyal Değişimi Yok - Fakir Karışım",
+    "subsystem": "Üreticiye Özel Yakıt & Hava Ölçümü (MAF / Lambda / Isıtıcı)",
+    "severity": "MEDIUM",
+    "causes": [
+      "Bank 2 tarafındaki silindir kapağı emme manifoldu contasında sızıntı.",
+      "Bank 2 yakıt enjektörlerinde tıkanıklık veya püskürtme bozukluğu.",
+      "HO2S-21 sensörünün yaşlanması veya ısıtıcı devresinin arızalanması.",
+      "Bank 2 egzoz manifoldu çatlağı veya conta kaçırması nedeniyle temiz havanın sensöre girmesi."
+    ],
+    "steps": [
+      [
+        "Bank 2 egzoz manifoldunda çatlak veya cıvata gevşekliği kontrolü yapın.",
+        "Egzoz Manifoldu",
+        "Kolay (Görsel)"
+      ],
+      [
+        "HO2S-21 ısıtıcı direncini multimetre ile ölçün (soğukta 3.0 - 15.0 Ω).",
+        "HO2S-21 Isıtıcı",
+        "Orta (Alet Gerekir)"
+      ],
+      [
+        "Bank 1 ve Bank 2 STFT/LTFT yakıt düzeltme değerlerini karşılaştırarak sızıntıyı lokalize edin.",
+        "PCM Canlı Veri",
+        "İleri (Servis)"
+      ]
+    ],
+    "measurement": "HO2S-21 ısıtıcı rezistansı: 3 - 15 Ω; Isıtıcı besleme voltajı: 12.0 - 14.5 VDC.",
+    "uds_routine": "UDS Service 0x22 (DID O2_Heater_B2S1) & Service 0x14",
+    "symptoms": [
+      "Check Engine lambası yanar.",
+      "Yüksek yakıt tüketimi ve egzozdan çiğ gaz kokusu.",
+      "Yük altında tekleme eğilimi."
+    ]
+  },
+  "P1260": {
+    "title": "[Ford] Hırsızlık Tespit Edildi - PATS İmmobilizer Sistemi Motoru Bloke Etti",
+    "subsystem": "Üreticiye Özel PCM / ECU Dahili İşlemci & Haberleşme Devreleri",
+    "severity": "CRITICAL_STOP",
+    "causes": [
+      "Anahtar içindeki PATS RFID transponder çipinin hasar görmesi veya kodunun silinmesi.",
+      "Kontak yuvasındaki PATS anten bobininde (transceiver) kablo kopukluğu veya arıza.",
+      "BCM / Gösterge Tablosu (IPC) ile Motor Beyni (PCM) arasındaki CAN haberleşme hattında kopukluk.",
+      "Akü voltajının aşırı düşmesi sonucu güvenlik kimlik doğrulama anahtarlarının (PATS security challenge) eşleşmemesi."
+    ],
+    "steps": [
+      [
+        "Yedek orijinal anahtar ile marş deneyerek anahtar transponder arızasını eleyin.",
+        "Kontak Anahtarı",
+        "Kolay (Görsel)"
+      ],
+      [
+        "PATS anten halkası soketini ve kontak arkası kablo bağlantılarını fiziki olarak inceleyin.",
+        "PATS Anteni",
+        "Orta (Alet Gerekir)"
+      ],
+      [
+        "CAN-Bus hattında IPC/BCM ile PCM arasındaki U0100/U0155 iletişim kodlarını tarayın ve PATS senkronizasyonu yapın.",
+        "PATS / CAN Modülü",
+        "İleri (Servis)"
+      ]
+    ],
+    "measurement": "PATS alıcı bobin direnci: 10 - 25 Ω; CAN-H / CAN-L terminasyon direnci: 60 Ω.",
+    "uds_routine": "UDS Service 0x27 (SecurityAccess) & UDS Service 0x31 (PATS Key Programming Routine)",
+    "symptoms": [
+      "Gösterge panelindeki 'THEFT' / kilit lambası hızlı şekilde yanıp söner.",
+      "Marş basar ancak motor ateşleme/enjeksiyon kilitli olduğu için kesinlikle çalışmaz.",
+      "Merkezi kilit veya uzaktan kumanda işlevlerinde uyumsuzluk."
+    ]
+  },
+  "P1450": {
+    "title": "[Ford] Yakıt Deposu Vakumu Boşaltılamıyor - EVAP Kanister Tahliye Valfi Kilitli",
+    "subsystem": "Üreticiye Özel Emisyon Kontrolü (EGR / EVAP / İkincil Hava)",
+    "severity": "MEDIUM",
+    "causes": [
+      "EVAP kanister tahliye valfinin (Purge Valve) mekanik olarak açık konumda sıkışması.",
+      "Vakum hattının emme manifoldundan sürekli depoya vakum çekmesi (depoyu büzüştürebilir).",
+      "Yakıt deposu basınç sensörünün (FTP) yanlış kalibrasyonu veya bozulması.",
+      "Kömür kanisteri (charcoal canister) çıkışındaki havalandırma hortumunun tıkanması."
+    ],
+    "steps": [
+      [
+        "Motor rölantideyken EVAP tahliye valfi soketini çekin; valf hala emiş yapıyorsa mekanik olarak açık kalmıştır, değiştirin.",
+        "EVAP Tahliye Valfi",
+        "Kolay (Görsel)"
+      ],
+      [
+        "Yakıt deposu kapağını açtığınızda aşırı 'fıslama' veya vakum çekilme sesi olup olmadığını kontrol edin.",
+        "Depo Kapağı / Boğazı",
+        "Kolay (Görsel)"
+      ],
+      [
+        "FTP sensörü canlı voltajını tarayıcıdan okuyun ve atmosferik basınç ile karşılaştırın.",
+        "FTP Sensörü",
+        "Orta (Alet Gerekir)"
+      ]
+    ],
+    "measurement": "Depo Basınç Sensörü (FTP) atmosferik rölantide: 2.5V ±0.2V; Tahliye valfi kapalıyken kaçak debisi: 0.00 CFM.",
+    "uds_routine": "UDS Service 0x2F (InputOutputControlByIdentifier - EVAP_Purge_Solenoid)",
+    "symptoms": [
+      "Yakıt ikmali yapıldıktan hemen sonra motorun boğulması ve 5-10 saniye zor marş alması.",
+      "Yakıt deposundan içe doğru büzüşme veya metal vuruntu sesi gelmesi.",
+      "Rölantide aşırı zengin karışım ve düzensiz çalışma."
+    ]
+  },
+  "P1633": {
+    "title": "[Ford] KAM (Keep Alive Memory) Besleme Voltajı Aşırı Düşük",
+    "subsystem": "Üreticiye Özel PCM / ECU Dahili İşlemci & Haberleşme Devreleri",
+    "severity": "MEDIUM",
+    "causes": [
+      "Motor bölmesi sigorta kutusundaki PCM KAM sigortasının atması veya oksitlenmesi.",
+      "Aküden PCM Pin 55/Pin 67'ye gelen sürekli +12V sabit hafıza besleme kablosunda kopukluk.",
+      "Araç aküsünün marş esnasında aşırı voltaj çökmesi yaşaması (< 9.0V).",
+      "Şasi bağlantı kablosunda korozyon veya yüksek direnç."
+    ],
+    "steps": [
+      [
+        "Motor içi sigorta kutusundaki PCM KAM / BATT sigortasını multimetre ile süreklilik modunda kontrol edin.",
+        "KAM Sigortası",
+        "Kolay (Görsel)"
+      ],
+      [
+        "Kontak kapalıyken PCM soketi ilgili sabit besleme pinindeki voltajı ölçün (kesintisiz 12V olmalıdır).",
+        "PCM Güç Pini",
+        "Orta (Alet Gerekir)"
+      ],
+      [
+        "Aküye yük testi uygulayarak marş anındaki dip voltajı kaydedin.",
+        "Akü & Kutup Başları",
+        "Orta (Alet Gerekir)"
+      ]
+    ],
+    "measurement": "PCM KAM besleme pini kontak kapalıyken: Akü voltajı (≥ 12.4V); Voltaj düşüşü: < 0.2V.",
+    "uds_routine": "UDS Service 0x22 (DID Battery_Voltage_Constant) & Service 0x14",
+    "symptoms": [
+      "Her kontak açılışında motor adaptasyon değerlerinin (rölanti, yakıt trimleri) sıfırlanması.",
+      "Marş sonrası ilk 2-3 dakika rölantide dalgalanma veya stop etme eğilimi.",
+      "Klimayı açınca rölantinin aniden çökmesi."
+    ]
+  },
+  "P1744": {
+    "title": "[Ford] Tork Konvertör Kilitleme (TCC) Solenoidi Kayma / Mekanik Arıza",
+    "subsystem": "Üreticiye Özel Otomatik Şanzıman & Tork Konvertörü",
+    "severity": "CRITICAL_STOP",
+    "causes": [
+      "Tork konvertör debriyaj sürtünme balatasının aşınması veya yanması.",
+      "Şanzıman hidrolik valf gövdesinde (Valve Body) TCC regülatör valfinin aşınması ve basınç kaçağı.",
+      "TCC kontrol solenoidi iç sargısında kısa devre veya tıkanıklık.",
+      "Şanzıman yağının aşırı kirlenmesi, metal çapak birikmesi veya yağ seviyesinin düşük olması."
+    ],
+    "steps": [
+      [
+        "Şanzıman yağ seviyesini ve yağın rengini/kokusunu (yanık kokusu, siyah renk) kontrol edin.",
+        "Şanzıman Yağ Çubuğu",
+        "Kolay (Görsel)"
+      ],
+      [
+        "Tork konvertör solenoidi sargı direncini şanzıman soketinden multimetre ile ölçün (10 - 16 Ω).",
+        "TCC Solenoidi",
+        "Orta (Alet Gerekir)"
+      ],
+      [
+        "Yol testinde PCM canlı verilerinden 'TCC Slip RPM' değerini izleyin (kilitlendiğinde slip < 20 RPM olmalıdır).",
+        "Şanzıman Telemetri",
+        "İleri (Servis)"
+      ]
+    ],
+    "measurement": "TCC Solenoid direnci: 10.0 - 16.0 Ω; Kilitli durumda TCC Kayma Hızı: < 20 d/d (RPM).",
+    "uds_routine": "UDS Service 0x22 (DID Transmission_Slip_Speed, TCC_Duty_Cycle)",
+    "symptoms": [
+      "Otoyol hızlarında (80+ km/s) motor devrinin sabit gazda dalgalanması.",
+      "Şanzıman yağı sıcaklığının aşırı yükselmesi.",
+      "Vites geçişlerinde sert vuruntu veya vitesin boşa düşme hissi."
+    ]
+  },
+  "P1133": {
+    "title": "[GM] Isıtmalı Oksijen Sensörü (HO2S) Yetersiz Sinyal Değişimi Bank 1 Sensör 1",
+    "subsystem": "Üreticiye Özel Yakıt & Hava Ölçümü (MAF / Lambda / Isıtıcı)",
+    "severity": "MEDIUM",
+    "causes": [
+      "Bank 1 Sensör 1 oksijen sensörünün tepki hızının yavaşlaması (aging/lazy O2 sensor).",
+      "Egzoz manifold contası veya kaynak yerlerinde küçük çatlaklardan hava sızıntısı.",
+      "Motor yağının veya antifrizin egzoza karışması sonucu sensör yüzeyinin silikon/fosfor zehirlenmesi.",
+      "Sensör sinyal soketinde nem ve pin gevşekliği."
+    ],
+    "steps": [
+      [
+        "Egzoz manifoldunu görsel ve duman cihazıyla kaçak testine tabi tutun.",
+        "Egzoz Manifoldu",
+        "Kolay (Görsel)"
+      ],
+      [
+        "Diagnostik cihazı ile 'Rich-to-Lean' ve 'Lean-to-Rich' geçiş sayılarını inceleyin.",
+        "ECM Canlı Veri",
+        "Orta (Alet Gerekir)"
+      ],
+      [
+        "HO2S sensör soketini temizleyin; düzelmezse sensörü OEM yenisiyle değiştirin.",
+        "HO2S Sensörü",
+        "Orta (Alet Gerekir)"
+      ]
+    ],
+    "measurement": "Sensör geçiş süresi (Response Time): < 100 ms; 100 saniyede minimum geçiş sayısı: > 30 kez.",
+    "uds_routine": "UDS Service 0x22 (DID HO2S_B1S1_Switch_Count) & Service 0x14",
+    "symptoms": [
+      "Check Engine lambası yanar.",
+      "Hafif yakıt artışı ve emisyon muayenesi başarısızlığı.",
+      "Ani gaz tepkilerinde mikro gecikme."
+    ]
+  },
+  "P1220": {
+    "title": "[GM] Gaz Kelebeği Konum Sensörü 2 (TPS 2) Devre Performans Arızası",
+    "subsystem": "Üreticiye Özel Yakıt Enjeksiyonu & Turbo / Şarj Basıncı",
+    "severity": "CRITICAL_STOP",
+    "causes": [
+      "Gaz kelebeği gövdesi içindeki TPS 2 potansiyometre pistinde aşınma veya kir.",
+      "TPS 1 ve TPS 2 sensör sinyalleri arasında ECM tarafından beklenen matematiksel toplamın (5.0V) bozulması.",
+      "Kelebek motoru kablo demetinde titreşime bağlı ara sıra kopukluk.",
+      "ECM 5V referans voltaj hattında gerilim düşüklüğü."
+    ],
+    "steps": [
+      [
+        "Gaz kelebeği soketini çıkarıp pinlerde gevşeklik, korozyon veya eğilme olup olmadığını inceleyin.",
+        "Kelebek Soketi",
+        "Kolay (Görsel)"
+      ],
+      [
+        "Kontak açıkken gaz pedalına yavaşça basıp bırakarak TPS 1 ve TPS 2 voltaj eğrilerini osiloskopla gözlemleyin.",
+        "TPS Sinyal Hatları",
+        "Orta (Alet Gerekir)"
+      ],
+      [
+        "Kelebek gövdesi iç direncini ve 5V referans hattını ölçün.",
+        "Gaz Kelebeği",
+        "İleri (Servis)"
+      ]
+    ],
+    "measurement": "TPS1 + TPS2 voltaj toplamı tüm açılarda 5.0V ±0.2V olmalıdır. 5V referans pini: 4.95 - 5.05 VDC.",
+    "uds_routine": "UDS Service 0x22 (DID Throttle_Position_1, Throttle_Position_2) & Service 0x31 (Throttle Learn)",
+    "symptoms": [
+      "Araç 'Reduced Engine Power' (Kısıtlı Motor Gücü / Koruma Modu) uyarısı verir.",
+      "Gaz pedalına basılmasına rağmen araç hızlanmaz (gaz tepkisi kesilir).",
+      "Rölanti 1200 - 1500 RPM arasında sabitlenir."
+    ]
+  },
+  "P1516": {
+    "title": "[GM] Elektronik Gaz Kelebeği Aktüatör Modülü (TAC) Pozisyon Hatası",
+    "subsystem": "Üreticiye Özel Araç Hızı / Rölanti & Gaz Kelebeği Kontrolü",
+    "severity": "CRITICAL_STOP",
+    "causes": [
+      "Gaz kelebeği pleytinde aşırı karbon ve yağ kalıntısı nedeniyle mekanik sıkışma.",
+      "Kelebek DC tahrik motorunda fırça aşınması veya sargı yanığı.",
+      "TAC kontrol modülü ile ECM arasındaki seri veri hattında voltaj paraziti.",
+      "Aşırı soğuk havalarda kelebek boğazında buzlanma."
+    ],
+    "steps": [
+      [
+        "Hava emiş borusunu sökün ve kelebek pleytini özel boğaz kelebeği spreyi ile temizleyin.",
+        "Kelebek Boğazı",
+        "Kolay (Görsel)"
+      ],
+      [
+        "Kelebek pleytini parmağınızla hafifçe itip yayın rahatça geri bırakıp bırakmadığını test edin.",
+        "Mekanik Yay",
+        "Kolay (Görsel)"
+      ],
+      [
+        "Kelebek motor soketindeki DC motor kontrol pinlerinde PWM sürüş sinyalini osiloskopla inceleyin.",
+        "TAC Motor Hatları",
+        "İleri (Servis)"
+      ]
+    ],
+    "measurement": "Hedef Pozisyon (Desired TP) ile Gerçek Pozisyon (Actual TP) farkı: < %1.5; Motor sargı direnci: 1.5 - 4.0 Ω.",
+    "uds_routine": "UDS Service 0x31 (TAC System Calibration & Throttle Clean Reset)",
+    "symptoms": [
+      "Kombide 'Reduced Engine Power' lambası ve ikazı çıkar.",
+      "Gaz pedalı tamamen tepkisiz kalır; araç en fazla 30-40 km/s hız yapabilir.",
+      "Motor rölantisi düzensizleşir."
+    ]
+  },
+  "P1682": {
+    "title": "[GM] Kontak 1 Anahtarı Devre 2 Voltaj Uyuşmazlığı",
+    "subsystem": "Üreticiye Özel PCM / ECU Dahili İşlemci & Haberleşme Devreleri",
+    "severity": "CRITICAL_STOP",
+    "causes": [
+      "Motor bölmesi sigorta kutusundaki (Underhood BEC) Güç Aktarma Rölesinin (Powertrain Relay) kontak arkı yapması.",
+      "Kontak anahtarı kontak bloğunda (Ignition Switch) aşınma sonucu Devre 1 ile Devre 2 voltaj farkı oluşması.",
+      "Sigorta kutusu altındaki soket terminallerinde gevşeklik veya korozyon.",
+      "ECM dahili voltaj karşılaştırma devresinde donanımsal arıza."
+    ],
+    "steps": [
+      [
+        "Sigorta kutusundaki Powertrain / Run-Crank rölesini çıkartıp aynı tip başka bir röleyle (örn. Korna rölesi) takas edin.",
+        "Güç Aktarma Rölesi",
+        "Kolay (Görsel)"
+      ],
+      [
+        "Kontak açıkken ECM soketindeki Ign 1 Voltage ile Run/Crank Voltage pinlerini multimetre ile ölçün.",
+        "ECM Güç Hatları",
+        "Orta (Alet Gerekir)"
+      ],
+      [
+        "Kontak anahtarı soketindeki devrelerin voltaj düşüşünü anahtarı çevirirken ölçün.",
+        "Kontak Bloğu",
+        "İleri (Servis)"
+      ]
+    ],
+    "measurement": "Ignition 1 Voltajı ile Ignition 2 Voltajı arasındaki fark < 0.5V olmalıdır; her iki hat da > 11.8 VDC.",
+    "uds_routine": "UDS Service 0x22 (DID Ignition_Circuit_1_Volt, Ignition_Circuit_2_Volt)",
+    "symptoms": [
+      "Motor bazen hiç marş basmaz veya marş bassa bile ateşleme kesilip çalışmaz.",
+      "Araç seyir halindeyken aniden stop edebilir.",
+      "Gösterge panelinde güvenlik lambası veya akü lambası yanıp söner."
+    ]
+  },
+  "P1103": {
+    "title": "[VAG] Hava Akışmetre (MAF - G70) Sinyali Aralık Dahilinde Ancak Çok Düşük",
+    "subsystem": "Üreticiye Özel Yakıt & Hava Ölçümü (MAF / Lambda / Isıtıcı)",
+    "severity": "MEDIUM",
+    "causes": [
+      "Hava akışmetre sıcak film sensör elemanının yağ veya toz tabakasıyla kaplanması.",
+      "Hava filtresi kutusu ile turbo emişi arasındaki hortumda yırtık veya kelepçe gevşekliği.",
+      "MAF sensörü toprak veya 5V referans hattında direnç artışı.",
+      "EGR valfinin açık kalarak aşırı egzoz gazı emmesi ve temiz hava emişini düşürmesi."
+    ],
+    "steps": [
+      [
+        "Hava filtresini kontrol edin; MAF sensörünü izopropil alkol veya MAF temizleme spreyi ile yıkayın.",
+        "MAF Sensörü G70",
+        "Kolay (Görsel)"
+      ],
+      [
+        "VCDS / ODIS ile Motor Bloğu Grup 002 (Hava Emiş Miktarı) değerlerini 3. viteste tam gazda kaydedin.",
+        "VAG Telemetri",
+        "Orta (Alet Gerekir)"
+      ],
+      [
+        "G70 soketinde 12V besleme, 5V referans ve sensör şasisini ölçün.",
+        "G70 Kablo Demeti",
+        "Orta (Alet Gerekir)"
+      ]
+    ],
+    "measurement": "Tam yükte (WOT) beklenen MAF değeri: Motor Gücü (HP) x 0.80 g/s. Örn: 150 HP için minimum 120 g/s.",
+    "uds_routine": "UDS Service 0x22 (DID Mass_Air_Flow_Specified, Mass_Air_Flow_Actual)",
+    "symptoms": [
+      "Araçta belirgin çekiş düşüklüğü ve üst devirlerde isteksizlik.",
+      "Yüksek yakıt tüketimi veya bazen siyah duman.",
+      "Rölantide titreme."
+    ]
+  },
+  "P1297": {
+    "title": "[VAG] Turbo ve Gaz Kelebeği Arası Bağlantıda Basınç Düşüşü (Boost Leak)",
+    "subsystem": "Üreticiye Özel Yakıt Enjeksiyonu & Turbo / Şarj Basıncı",
+    "severity": "MEDIUM",
+    "causes": [
+      "Turbo intercooler hortumunda yırtık, kelepçe gevşemesi veya intercooler peteğinde delik.",
+      "Turbo yönlendirme valfinde (Diverter Valve - DV / N249) membran yırtılması.",
+      "Krank karter havalandırma (PCV) çekvalfinin basınca dayanamayıp manifolda kaçırması.",
+      "Gaz kelebeği contasında sızıntı."
+    ],
+    "steps": [
+      [
+        "Tüm intercooler kauçuk basınç hortumlarını elle sıkarak alt kısımlarındaki yağlanma ve yarıkları arayın.",
+        "Basınç Hortumları",
+        "Kolay (Görsel)"
+      ],
+      [
+        "Emiş sistemine duman cihazı veya 0.5 bar basınç regülatörlü kaçak testi kiti bağlayıp dinleyin.",
+        "Emiş Hattı",
+        "Orta (Alet Gerekir)"
+      ],
+      [
+        "Diverter valfini (N249) söküp sarı/yeşil iç kauçuk diyaframda delik olup olmadığını kontrol edin.",
+        "Diverter Valve N249",
+        "Orta (Alet Gerekir)"
+      ]
+    ],
+    "measurement": "Kaçak testinde sistem 0.5 bar basınca ulaştığında basınç düşüşü: < 0.05 bar / 30 sn.",
+    "uds_routine": "UDS Service 0x22 (DID Boost_Pressure_Specified, Boost_Pressure_Actual)",
+    "symptoms": [
+      "Hızlanırken gaz pedalına basıldığında motor bölmesinden yüksek tonda 'fıslama' veya hava üfleme sesi.",
+      "Belirgin güç kaybı ve turbo lag süresinin uzaması.",
+      "Sert gazlamalarda koruma moduna (Limp Mode) geçiş."
+    ]
+  },
+  "P1300": {
+    "title": "[VAG] Düşük Yakıt Seviyesi Nedeniyle Ateşleme Teklemesi Algılandı",
+    "subsystem": "Üreticiye Özel Ateşleme Sistemi & Krank/Kam Mili Zamanlaması",
+    "severity": "LOW",
+    "causes": [
+      "Yakıt deposundaki benzin/dizel seviyesinin rezerv seviyesinin altına düşmesi.",
+      "Virajlarda veya frenlemelerde yakıt pompasının hava emmesi ve ray basıncının çökmesi.",
+      "Katalizörün zarar görmesini engellemek için ECU'nun tekleme algılayıp bu kodu hafızaya alması."
+    ],
+    "steps": [
+      [
+        "Yakıt deposuna en az 10-15 litre kaliteli yakıt ekleyin.",
+        "Yakıt Deposu",
+        "Kolay (Görsel)"
+      ],
+      [
+        "DTC arıza kodunu cihazla silin ve aracı rölantide çalıştırın.",
+        "Arıza Hafızası",
+        "Kolay (Görsel)"
+      ],
+      [
+        "Yakıt göstergesi doğru göstermiyorsa depo şamandırası (G sensörü) direncini kontrol edin.",
+        "Depo İçi Şamandıra",
+        "Orta (Alet Gerekir)"
+      ]
+    ],
+    "measurement": "Depo yakıt seviyesi sensörü (G): Boşta ~70 Ω, Doluda ~270 Ω.",
+    "uds_routine": "UDS Service 0x14 (DTC Clear) & OBD Service $01 (Fuel Level Input)",
+    "symptoms": [
+      "Motor teklemesi yaşanır ve ardından ECU ilgili silindire yakıtı kesebilir.",
+      "Göstergede yakıt ikaz lambası yanar.",
+      "Yokuş yukarı veya virajlı yollarda anlık gaz kesintisi."
+    ]
+  },
+  "P1556": {
+    "title": "[VAG] Şarj Basıncı Kontrolü - Negatif Sapma / Düşük Turbo Basıncı (Underboost)",
+    "subsystem": "Üreticiye Özel Yakıt Enjeksiyonu & Turbo / Şarj Basıncı",
+    "severity": "MEDIUM",
+    "causes": [
+      "N75 turbo basınç kontrol selenoid valfinde arıza veya vakum kaçağı.",
+      "VNT (Değişken Geometrili Turbo) aktüatör çubuğunun kurumdan sıkışması veya aktüatör diyaframının patlaması.",
+      "Vakum hortumlarında (fren servosundan N75'e giden hatlar) çatlak veya kırık.",
+      "Turbo kompresör kanatçıklarında fiziksel hasar."
+    ],
+    "steps": [
+      [
+        "Vakum pompası ve N75 selenoidine giden ince kumaş örgülü vakum hortumlarını kontrol edin.",
+        "Vakum Hatları",
+        "Kolay (Görsel)"
+      ],
+      [
+        "Mityvac el vakum pompası ile turbo aktüatörüne 0.6 bar vakum uygulayıp wastegate/geometri kolunun hareketini izleyin.",
+        "VNT Aktüatörü",
+        "Orta (Alet Gerekir)"
+      ],
+      [
+        "VCDS ile Grup 011 canlı verisinde İstenen Basınç (Specified) ile Gerçek Basıncı (Actual) kıyaslayın.",
+        "N75 & MAP Sensörü",
+        "İleri (Servis)"
+      ]
+    ],
+    "measurement": "N75 giriş vakumu: minimum -0.7 bar (-20 inHg); Aktüatör tam hareketi için gereken vakum: -0.6 bar.",
+    "uds_routine": "UDS Service 0x2F (Actuator Test - N75 Charge Pressure Solenoid)",
+    "symptoms": [
+      "Araç özellikle rampada veya otoyolda 100-120 km/s hızda aniden çekişten düşer (Limp Mode).",
+      "Kontağı kapatıp açınca çekiş geçici olarak düzelir.",
+      "Motor üst devirlere tırmanmakta zorlanır."
+    ]
+  },
+  "P1602": {
+    "title": "[VAG] Terminal 30 Besleme Voltajı Aşırı Düşük",
+    "subsystem": "Üreticiye Özel PCM / ECU Dahili İşlemci & Haberleşme Devreleri",
+    "severity": "INFO",
+    "causes": [
+      "Akü kutup başının sökülmesi veya gevşek olması.",
+      "Akü şarjının bitmesi veya marş esnasında voltajın 8.5V altına düşmesi.",
+      "Motor bölmesi ana sigorta kutusundaki Terminal 30 besleme barasında korozyon.",
+      "Akü ana şasi kablosunun şanzıman/gövde bağlantısında gevşeklik."
+    ],
+    "steps": [
+      [
+        "Akü kutup başlarını temizleyip uygun torkta (5 Nm) sıkın.",
+        "Akü Kutup Başları",
+        "Kolay (Görsel)"
+      ],
+      [
+        "Akü voltajını kontak kapalı ve marş anında test edin.",
+        "Akü",
+        "Kolay (Görsel)"
+      ],
+      [
+        "Kod geçmiş bir akü sökümünden kaynaklıysa arıza hafızasını silip takip edin.",
+        "Arıza Hafızası",
+        "Kolay (Görsel)"
+      ]
+    ],
+    "measurement": "Terminal 30 voltajı: > 12.2 VDC (Durgun); Marş esnasında minimum izin verilen: > 9.6 VDC.",
+    "uds_routine": "UDS Service 0x14 (ClearDTC)",
+    "symptoms": [
+      "Genellikle hissedilir bir sürüş arızası yaratmaz; akü değişiminden sonra kaydedilir.",
+      "Marş basarken gösterge ışıklarında anlık sönme veya saat/tarih sıfırlanması.",
+      "Cam otomatiklerinin ilk etapta hafızasını kaybetmesi."
+    ]
+  },
+  "P1120": {
+    "title": "[Toyota/Lexus] Gaz Pedalı Konum Sensörü (APP) Devre Arızası",
+    "subsystem": "Üreticiye Özel Güç Aktarma & Sensör / Sübap Kontrolü",
+    "severity": "CRITICAL_STOP",
+    "causes": [
+      "Gaz pedalı modülü içindeki Hall Effect veya potansiyometre devrelerinde arıza.",
+      "Pedal soketinde gevşeklik veya kablo demetinde ayak temasından kaynaklı ezilme.",
+      "ECM 5V VCC referans voltajında kısa devre.",
+      "Sensör şasi (E2) hattında direnç artışı."
+    ],
+    "steps": [
+      [
+        "Gaz pedalı üzerindeki soketi ve kablo demetini fiziki olarak kontrol edin.",
+        "Gaz Pedalı Soketi",
+        "Kolay (Görsel)"
+      ],
+      [
+        "Pedala basarken VPA1 ve VPA2 canlı voltaj değerlerini OBD cihazından izleyin (biri artarken diğeri orantılı artmalıdır).",
+        "APP Sinyal Hatları",
+        "Orta (Alet Gerekir)"
+      ],
+      [
+        "Sensör soketinde 5V referans voltajı ve gövde şasisini multimetreyle ölçün.",
+        "ECM Referans Hattı",
+        "Orta (Alet Gerekir)"
+      ]
+    ],
+    "measurement": "VPA1: Bırakıldığında 0.5 - 1.1V, Tam basıldığında 2.6 - 4.5V; VPA2: Bırakıldığında 1.2 - 2.0V, Tam basıldığında 3.4 - 5.0V.",
+    "uds_routine": "UDS Service 0x22 (DID Accelerator_Pedal_Pos_1, Accelerator_Pedal_Pos_2)",
+    "symptoms": [
+      "Araç 'Fail-Safe' moduna geçer; gaz pedalına basılsa da motor devri en fazla 1500-2000 RPM'e çıkar.",
+      "Gaz tepkisi tamamen kesilebilir veya çok uyuşuk hale gelir.",
+      "Check Engine ve VSC/TRAC lambaları birlikte yanar."
+    ]
+  },
+  "P1135": {
+    "title": "[Toyota/Lexus] Hava-Yakıt Oranı (A/F) Sensörü Isıtıcı Devresi Arızası Bank 1 Sensör 1",
+    "subsystem": "Üreticiye Özel Yakıt & Hava Ölçümü (MAF / Lambda / Isıtıcı)",
+    "severity": "MEDIUM",
+    "causes": [
+      "Bank 1 Sensör 1 geniş bant A/F sensörünün dahili ısıtıcı rezistansının yanması/kopması.",
+      "A/F sensör rölesinin (A/F Relay) kontaklarının aşınması veya sigortasının atması.",
+      "Sensör ısıtıcı kontrol transistörünün (ECM içi) aşırı akımdan hasar görmesi.",
+      "Egzoz altındaki tesisat kablosunun egzoz borusuna değerek erimesi."
+    ],
+    "steps": [
+      [
+        "Sigorta kutusundaki 15A/20A A/F HTR sigortasını ve rölesini test edin.",
+        "A/F Sigortası & Rölesi",
+        "Kolay (Görsel)"
+      ],
+      [
+        "A/F sensörü soketini ayırıp sensör tarafındaki iki siyah (veya ısıtıcı) pin arasındaki direnci ölçün.",
+        "A/F Sensör Isıtıcısı",
+        "Orta (Alet Gerekir)"
+      ],
+      [
+        "Kontak açıkken soketin tesisat tarafındaki ısıtıcı besleme pininde +12V akü voltajı olduğunu doğrulayın.",
+        "Isıtıcı Tesisatı",
+        "Orta (Alet Gerekir)"
+      ]
+    ],
+    "measurement": "A/F sensör ısıtıcı direnci (20°C oda sıcaklığında): 1.8 - 3.4 Ω (Toyota OEM geniş bant). Açık devre (> 100 kΩ) arızayı kanıtlar.",
+    "uds_routine": "UDS Service 0x22 (DID AF_Sensor_Heater_Current_B1S1)",
+    "symptoms": [
+      "Check Engine ve VSC OFF ikaz ışıkları yanar.",
+      "Soğuk çalıştırmada motorun kapalı döngüye (Closed Loop) geçmesi çok gecikir.",
+      "Yakıt tüketiminde artış."
+    ]
+  },
+  "P1349": {
+    "title": "[Toyota/Lexus] VVT (Değişken Sübap Zamanlaması) Sistem Arızası Bank 1",
+    "subsystem": "Üreticiye Özel Ateşleme Sistemi & Krank/Kam Mili Zamanlaması",
+    "severity": "CRITICAL_STOP",
+    "causes": [
+      "VVT Yağ Kontrol Valfinde (OCV Solenoid) kurum, çapak veya mekanik takılma.",
+      "OCV valfinin önündeki küçük silindir kapağı yağ mikro-filtresinin tıkanması.",
+      "Motor yağının aşırı kirlenmesi veya yanlış vizkozite kullanımı (örn. 5W-30 yerine 20W-50).",
+      "Kam mili ucundaki VVT dişli kasnağının (Camshaft Phaser) dahili kilit piminin kırılması."
+    ],
+    "steps": [
+      [
+        "Silindir kapağı yanındaki VVT OCV solenoidini sökün, 12V vererek pistonun ileri-geri vurduğunu test edin.",
+        "OCV Solenoidi",
+        "Kolay (Görsel)"
+      ],
+      [
+        "OCV'nin hemen altındaki cıvatanın arkasında bulunan küçük tel örgülü yağ filtresini söküp balata spreyiyle temizleyin.",
+        "VVT Yağ Filtresi",
+        "Orta (Alet Gerekir)"
+      ],
+      [
+        "Motor yağı seviyesini ve temizliğini kontrol edin; gerekiyorsa yağ ve yağ filtresini değiştirin.",
+        "Motor Yağı",
+        "Kolay (Görsel)"
+      ]
+    ],
+    "measurement": "OCV Solenoid sargı direnci: 6.9 - 7.9 Ω (20°C); Yağ basıncı rölantide > 1.0 bar, 3000 RPM'de > 3.0 bar.",
+    "uds_routine": "UDS Service 0x2F (Active Test - VVT Linear Control Bank 1)",
+    "symptoms": [
+      "Motor ısındıktan sonra rölantide şiddetli sarsıntı, stop etme veya avans vuruntusu.",
+      "Rölantide motor sanki tekliyormuş veya eksantrik mili dereceliymiş gibi ses çıkarır.",
+      "Hızlanırken güçte dalgalanma."
+    ]
+  },
+  "P1604": {
+    "title": "[Toyota/Lexus] Marş Alma / Çalışabilirlik Arızası (Startability Malfunction)",
+    "subsystem": "Üreticiye Özel PCM / ECU Dahili İşlemci & Haberleşme Devreleri",
+    "severity": "LOW",
+    "causes": [
+      "Motorun uzun marş sonrası çalışması (krank devrinin 500 RPM üzerine çıkmasının 2-3 saniyeden uzun sürmesi).",
+      "Yakıt basıncının bekleme anında düşmesi (kaçak yapan enjektör veya yakıt pompası geri dönüş çekvalfi).",
+      "Zayıf akü veya marş motorunun yavaş dönmesi.",
+      "Bujilerde aşınma veya immobilizer anahtar algılama gecikmesi."
+    ],
+    "steps": [
+      [
+        "Akü voltajını ve marş motoru dönme hızını (Cranking RPM > 200 olmalıdır) kontrol edin.",
+        "Akü & Marş Motoru",
+        "Kolay (Görsel)"
+      ],
+      [
+        "Yakıt ray basıncının motor stop edildikten sonra 30 dakika boyunca korunup korunmadığını manometre ile ölçün.",
+        "Yakıt Çekvalfi",
+        "Orta (Alet Gerekir)"
+      ],
+      [
+        "Bujilerin elektrot aralığını ve ateşleme bobinlerini kontrol edin.",
+        "Buji & Bobin",
+        "Orta (Alet Gerekir)"
+      ]
+    ],
+    "measurement": "Marş anı motor devri: ≥ 200 RPM; Stop sonrası 15 dk kalan yakıt basıncı: ≥ 1.5 bar (21 psi).",
+    "uds_routine": "UDS Service 0x14 (DTC Clear) & Mode 06 Data",
+    "symptoms": [
+      "Özellikle sabahları veya araç 2-3 saat bekledikten sonra marşın uzaması.",
+      "İlk çalıştırma anında hafif çiğ benzin kokusu ve sarsıntı.",
+      "Arıza lambası bazen yanmaz, sadece hafızada geçmiş kod olarak kalır."
+    ]
+  },
+  "P1083": {
+    "title": "[BMW] Yakıt Karışım Kontrolü Aşırı Fakir (Bank 1 Sensör 1) - Post-Cat Limit",
+    "subsystem": "Üreticiye Özel Yakıt & Hava Ölçümü (MAF / Lambda / Isıtıcı)",
+    "severity": "MEDIUM",
+    "causes": [
+      "BMW M54/N52 motorlarda CCV (Karter Havalandırma) hortumlarında çatlama veya kauçuk körükte yırtık.",
+      "DISA valfi o-ring contası veya flap milinden emiş havası sızıntısı.",
+      "Emme manifoldu arkasındaki vakum kör tapalarında (rubber caps) kuruma ve çatlama.",
+      "Yakıt filtresi içindeki dahili basınç regülatörünün düşük basınç üretmesi (< 3.5 bar)."
+    ],
+    "steps": [
+      [
+        "DISA valfini söküp contayı ve flap milinin boşluğunu kontrol edin.",
+        "DISA Valfi",
+        "Kolay (Görsel)"
+      ],
+      [
+        "Karter havalandırma (CCV) hortumlarını ve emiş körüklerini duman makinesi ile sızıntı testine sokun.",
+        "CCV & Vakum Sistemi",
+        "Orta (Alet Gerekir)"
+      ],
+      [
+        "Yakıt rayındaki schrader valfinden benzin basıncını ölçün (M54 için 3.5 bar sabit).",
+        "Yakıt Rayı",
+        "Orta (Alet Gerekir)"
+      ]
+    ],
+    "measurement": "Yakıt basıncı: 3.5 bar ±0.2 bar; LTFT Bank 1 adaptasyonu: < +%10 (Arıza eşiği: > +%15).",
+    "uds_routine": "UDS Service 0x22 (DID Lambda_Integrator_1, Lambda_Adaptation_Additive_1)",
+    "symptoms": [
+      "Check Engine / Service Engine Soon ışığı yanar.",
+      "Soğuk havalarda ilk çalıştırmada tekleme ve devir dalgalanması.",
+      "Gaz pedalına aniden basıldığında emişten vakum ıslık sesi gelmesi."
+    ]
+  },
+  "P1188": {
+    "title": "[BMW] Yakıt Kontrol Adaptasyonu Sınır Değer Bank 1 Sensör 1",
+    "subsystem": "Üreticiye Özel Yakıt & Hava Ölçümü (MAF / Lambda / Isıtıcı)",
+    "severity": "MEDIUM",
+    "causes": [
+      "Hava akışmetre (MAF - Siemens/Bosch) sinyalinin sıcaklıkla kayması.",
+      "Silindir kapağı subap kapak contasından emiş vakumuna kaçak.",
+      "Bank 1 yakıt enjektörlerinde mikro sızıntı veya püskürtme bozukluğu.",
+      "Egzoz manifold contası sızıntısı."
+    ],
+    "steps": [
+      [
+        "Subap kapağı contası etrafında yağ sızıntısı ve vakum emişi olup olmadığını dumanla inceleyin.",
+        "Külbütör Kapağı",
+        "Kolay (Görsel)"
+      ],
+      [
+        "MAF sensörü rölanti kg/h hava tüketimini INPA / ISTA yazılımından nominal değerle kıyaslayın.",
+        "MAF Sensörü",
+        "Orta (Alet Gerekir)"
+      ],
+      [
+        "Bank 1 lambda sensörünü osiloskop ile dinamik testten geçirin.",
+        "Ön Lambda Bank 1",
+        "İleri (Servis)"
+      ]
+    ],
+    "measurement": "M54B30 motor için rölanti hava kütlesi: 12.0 - 15.0 kg/h; Adaptasyon çarpanı: 0.95 - 1.05.",
+    "uds_routine": "UDS Service 0x22 (DID Adaptation_Value_Multiplicative_Bank1)",
+    "symptoms": [
+      "Check Engine lambası yanar.",
+      "Rölantide egzozdan hafif çiğ yakıt kokusu.",
+      "Düşük devirlerde hafif çekiş kaybı."
+    ]
   }
 }

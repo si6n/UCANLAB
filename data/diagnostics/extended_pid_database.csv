@@ -1,0 +1,113 @@
+pid,pid_hex,name,description,formula,unit,min_value,max_value,ecu_header,service,manufacturer,vehicle_model,category,data_source,confidence
+,,~Modifications by Jason Rapp for ABRP data contribution,~Modifications by Jason Rapp for ABRP data contribution,,,,,,,Hyundai/Kia/Genesis,Hyundai Kona EV & Kia Niro EV,general,torque_csv,community
+0C,010C,ICE Actual RPM,ICE Actual RPM,(64*A) + (0.25*B),rpm,0.0,5000.0,7E0,01,Toyota,Toyota_Prius_Gen2,engine,torque_csv,community
+C3,21C3,MG2 Revolution,MG2 Revolution,((256 * A) + B) - 16383,RPM,-2000.0,7000.0,7E2,21,Toyota,Toyota_Prius_Gen2,general,torque_csv,community
+C4,21C4,Accelerator Pedal Angle,Accelerator Pedal Angle,0.392 * C,%,0.0,100.0,7E2,21,Toyota,Toyota_Prius_Gen2,general,torque_csv,community
+CE,21CE,HV Battery State of Charge,HV Battery State of Charge,0.5 * A,%,40.0,80.0,7E3,21,Toyota,Toyota_Prius_Gen2,hv_battery,torque_csv,community
+CF,21CF,HV Battery Air Intake Temp,HV Battery Air Intake Temp,(2.56 * A) + (0.01 * B) - 327.68,C,-327.0,327.0,7E3,21,Toyota,Toyota_Prius_Gen2,hv_battery,torque_csv,community
+D0,21D0,Internal Resistance R01,Internal Resistance R01,0.001 * P,Ohm,0.0,10.0,7E3,21,Toyota,Toyota_Prius_Gen2,general,torque_csv,community
+D3,21D3,Cruise Control Memory Vehicle SPD,Cruise Control Memory Vehicle SPD,A,km/h,0.0,150.0,7E2,21,Toyota,Toyota_Prius_Gen2,general,torque_csv,community
+CD,21CD,ICE Actual Torque (lbs),ICE Actual Torque (lbs),(A-128) * 0.7376,lb-ft,0.0,82.0,7E0,21,Toyota,Toyota_Prius_Gen2,general,torque_csv,community
+F3,21F3,Injection period of the No. 1 cylinder,Injection period of the No. 1 cylinder,C*0.128,ms,0.0,32.64,7E0,21,Toyota,Toyota_Prius_Gen2,engine,torque_csv,community
+B7,01B7,Bat Auxiliary Battery Voltage,Bat Auxiliary Battery Voltage,(A)*(20)/(255),V,0.0,20.0,84D5F1,01,Toyota,Toyota_Prius_Gen1,hv_battery,torque_csv,community
+CA,01CA,Bat Battery Block 1 Resistance,Bat Battery Block 1 Resistance,(A),mOhm,0.0,255.0,84D5F1,01,Toyota,Toyota_Prius_Gen1,hv_battery,torque_csv,community
+A4,01A4,Bat Battery Block 1 Voltage,Bat Battery Block 1 Voltage,(256*A+B)/100,mV,0.0,20000.0,84D5F1,01,Toyota,Toyota_Prius_Gen1,hv_battery,torque_csv,community
+CC,01CC,Bat Battery Block 10 Resistance,Bat Battery Block 10 Resistance,(B),mOhm,0.0,255.0,84D5F1,01,Toyota,Toyota_Prius_Gen1,hv_battery,torque_csv,community
+A8,01A8,Bat Battery Block 10 Voltage,Bat Battery Block 10 Voltage,(256*C+D)*10,mV,0.0,20000.0,84D5F1,01,Toyota,Toyota_Prius_Gen1,hv_battery,torque_csv,community
+A9,01A9,Bat Battery Block 11 Voltage,Bat Battery Block 11 Voltage,(256*A+B)*10,mV,0.0,20000.0,84D5F1,01,Toyota,Toyota_Prius_Gen1,hv_battery,torque_csv,community
+CD,01CD,Bat Battery Block 13 Resistance,Bat Battery Block 13 Resistance,(A),mOhm,0.0,255.0,84D5F1,01,Toyota,Toyota_Prius_Gen1,hv_battery,torque_csv,community
+AA,01AA,Bat Battery Block 13 Voltage,Bat Battery Block 13 Voltage,(256*A+B)*10,mV,0.0,20000.0,84D5F1,01,Toyota,Toyota_Prius_Gen1,hv_battery,torque_csv,community
+AB,01AB,Bat Battery Block 15 Voltage,Bat Battery Block 15 Voltage,(256*A+B)*10,mV,0.0,20000.0,84D5F1,01,Toyota,Toyota_Prius_Gen1,hv_battery,torque_csv,community
+CE,01CE,Bat Battery Block 17 Resistance,Bat Battery Block 17 Resistance,(A),mOhm,0.0,255.0,84D5F1,01,Toyota,Toyota_Prius_Gen1,hv_battery,torque_csv,community
+AC,01AC,Bat Battery Block 17 Voltage,Bat Battery Block 17 Voltage,(256*A+B)*10,mV,0.0,20000.0,84D5F1,01,Toyota,Toyota_Prius_Gen1,hv_battery,torque_csv,community
+AD,01AD,Bat Battery Block 19 Voltage,Bat Battery Block 19 Voltage,(256*A+B)*10,mV,0.0,20000.0,84D5F1,01,Toyota,Toyota_Prius_Gen1,hv_battery,torque_csv,community
+A5,01A5,Bat Battery Block 3 Voltage,Bat Battery Block 3 Voltage,(256*A+B)*10,mV,0.0,20000.0,84D5F1,01,Toyota,Toyota_Prius_Gen1,hv_battery,torque_csv,community
+CB,01CB,Bat Battery Block 5 Resistance,Bat Battery Block 5 Resistance,(A),mOhm,0.0,255.0,84D5F1,01,Toyota,Toyota_Prius_Gen1,hv_battery,torque_csv,community
+A6,01A6,Bat Battery Block 5 Voltage,Bat Battery Block 5 Voltage,(256*A+B)*10,mV,0.0,20000.0,84D5F1,01,Toyota,Toyota_Prius_Gen1,hv_battery,torque_csv,community
+A7,01A7,Bat Battery Block 7 Voltage,Bat Battery Block 7 Voltage,(256*A+B)*10,mV,0.0,20000.0,84D5F1,01,Toyota,Toyota_Prius_Gen1,hv_battery,torque_csv,community
+B2,01B2,Bat Battery Inhaling Air Temperature,Bat Battery Inhaling Air Temperature,(A)+(-40),°C,-40.0,215.0,84D5F1,01,Toyota,Toyota_Prius_Gen1,hv_battery,torque_csv,community
+D0,01D0,Bat Battery Temperature Sensor 1,Bat Battery Temperature Sensor 1,(A)+(-40),°C,-40.0,215.0,84D5F1,01,Toyota,Toyota_Prius_Gen1,hv_battery,torque_csv,community
+D1,01D1,Bat Battery Temperature Sensor 4,Bat Battery Temperature Sensor 4,(A)+(-40),°C,-40.0,215.0,84D5F1,01,Toyota,Toyota_Prius_Gen1,hv_battery,torque_csv,community
+99,0199,Bat DC Inhibit Time,Bat DC Inhibit Time,(256*A+B),,0.0,65535.0,84D5F1,01,Toyota,Toyota_Prius_Gen1,general,torque_csv,community
+BC,01BC,Bat Delta State-of-Charge,Bat Delta State-of-Charge,(A)*(5),[ppth],0.0,1275.0,84D5F1,01,Toyota,Toyota_Prius_Gen1,hv_battery,torque_csv,community
+AF,01AF,Bat Highest Battery Block Number,Bat Highest Battery Block Number,(C),,0.0,255.0,84D5F1,01,Toyota,Toyota_Prius_Gen1,hv_battery,torque_csv,community
+A3,01A3,Bat HV Battery Current,Bat HV Battery Current,(-128)+(256*A+B)/(100),A,-128.0,528.0,84D5F1,01,Toyota,Toyota_Prius_Gen1,hv_battery,torque_csv,community
+9B,019B,Bat Ignition Off Time,Bat Ignition Off Time,(256*A+B),h,0.0,65535.0,84D5F1,01,Toyota,Toyota_Prius_Gen1,general,torque_csv,community
+AE,01AE,Bat Lowest Battery Block Number,Bat Lowest Battery Block Number,(C),,0.0,255.0,84D5F1,01,Toyota,Toyota_Prius_Gen1,hv_battery,torque_csv,community
+B4,01B4,Bat Main Battery high time,Bat Main Battery high time,(256*A+B),,0.0,65535.0,84D5F1,01,Toyota,Toyota_Prius_Gen1,hv_battery,torque_csv,community
+97,0197,Bat Main Battery low time,Bat Main Battery low time,(256*A+B),,0.0,65535.0,84D5F1,01,Toyota,Toyota_Prius_Gen1,hv_battery,torque_csv,community
+9C,019C,Bat No. of Battery DTCs,Bat No. of Battery DTCs,(256*A+B),,0.0,65535.0,84D5F1,01,Toyota,Toyota_Prius_Gen1,hv_battery,torque_csv,community
+91,0191,Bat State-of-Charge,Bat State-of-Charge,(A)/(2),%,0.0,125.0,84D5F1,01,Toyota,Toyota_Prius_Gen1,hv_battery,torque_csv,community
+E9,01E9,EN Abnormal Revolution Variation Cyl 1,EN Abnormal Revolution Variation Cyl 1,(A),%,0.0,255.0,8410F1,01,Toyota,Toyota_Prius_Gen1,general,torque_csv,community
+10,0110,EN Air Flow rate into Engine,EN Air Flow rate into Engine,(256*A+B),cg/s,0.0,65535.0,8410F1,01,Toyota,Toyota_Prius_Gen1,engine,torque_csv,community
+04,0104,EN Calculated Load,EN Calculated Load,(A)*(20)/(51),%,0.0,100.0,8410F1,01,Toyota,Toyota_Prius_Gen1,general,torque_csv,community
+05,0105,EN Engine Coolant Temperature,EN Engine Coolant Temperature,(A)+(-40),°C,-40.0,130.0,8410F1,01,Toyota,Toyota_Prius_Gen1,engine,torque_csv,community
+0C,010C,EN Engine Speed,EN Engine Speed,(256*A+B)/(4),rpm,0.0,7000.0,8410F1,01,Toyota,Toyota_Prius_Gen1,engine,torque_csv,community
+E4,01E4,EN Fuel Injection time for cyl #1,EN Fuel Injection time for cyl #1,(A)*(25)/(200),ms,0.0,32.0,8410F1,01,Toyota,Toyota_Prius_Gen1,engine,torque_csv,community
+03,0103,EN Fuel system status #1,EN Fuel system status #1,(A),,0.0,255.0,8410F1,01,Toyota,Toyota_Prius_Gen1,fuel,torque_csv,community
+0E,010E,EN Ignition Advance,EN Ignition Advance,(A)*(5)+(-640),deg/10{btdc},-640.0,635.0,8410F1,01,Toyota,Toyota_Prius_Gen1,general,torque_csv,community
+0F,010F,EN Intake Air Temperature,EN Intake Air Temperature,(A)+(-40),°C,-40.0,215.0,8410F1,01,Toyota,Toyota_Prius_Gen1,engine,torque_csv,community
+07,0107,EN Long term fuel % trim—Bank 1,EN Long term fuel % trim—Bank 1,(A)*(25)/(32)+(-100),%,-100.0,100.0,8410F1,01,Toyota,Toyota_Prius_Gen1,fuel,torque_csv,community
+01,0101,EN MIL illumination,EN MIL illumination,({A:7}),,0.0,1.0,8410F1,01,Toyota,Toyota_Prius_Gen1,general,torque_csv,community
+14,0114,"EN O2 Fuel Trim, Bank1 Sensor1","EN O2 Fuel Trim, Bank1 Sensor1",(B)*(25)/(32)+(-100),%,-100.0,100.0,8410F1,01,Toyota,Toyota_Prius_Gen1,fuel,torque_csv,community
+15,0115,"EN O2 Fuel Trim, Bank1 Sensor2","EN O2 Fuel Trim, Bank1 Sensor2",(B)*(25)/(32)+(-100),%,-100.0,100.0,8410F1,01,Toyota,Toyota_Prius_Gen1,fuel,torque_csv,community
+1C,011C,EN OBD standards this vehicle conforms to,EN OBD standards this vehicle conforms to,(A),,0.0,255.0,8410F1,01,Toyota,Toyota_Prius_Gen1,general,torque_csv,community
+13,0113,EN Oxygen sensors present,EN Oxygen sensors present,(A),,0.0,255.0,8410F1,01,Toyota,Toyota_Prius_Gen1,general,torque_csv,community
+06,0106,EN Short term fuel % trim-Bank 1,EN Short term fuel % trim-Bank 1,(A)*(25)/(32)+(-100),%,-100.0,100.0,8410F1,01,Toyota,Toyota_Prius_Gen1,fuel,torque_csv,community
+11,0111,EN Throttle Position,EN Throttle Position,(A)*(20)/(51),%,0.0,100.0,8410F1,01,Toyota,Toyota_Prius_Gen1,engine,torque_csv,community
+0D,010D,EN Vehicle Speed,EN Vehicle Speed,(A),km/h,0.0,255.0,8410F1,01,Toyota,Toyota_Prius_Gen1,general,torque_csv,community
+D5,01D5,HV Accelerator pedal Sensor Main,HV Accelerator pedal Sensor Main,(A)/(50),V,0.0,5.1,8416F1,01,Toyota,Toyota_Prius_Gen1,general,torque_csv,community
+D8,01D8,HV Auxiliary Battery Voltage,HV Auxiliary Battery Voltage,(A)*(20)/(255),V,0.0,20.0,8416F1,01,Toyota,Toyota_Prius_Gen1,hv_battery,torque_csv,community
+D6,01D6,HV Battery Cell Temperature Max,HV Battery Cell Temperature Max,(SIGNED(A)),°C,-128.0,127.0,8416F1,01,Toyota,Toyota_Prius_Gen1,hv_battery,torque_csv,community
+CB,01CB,HV Discharge Request to adj. SoC,HV Discharge Request to adj. SoC,(256*A+B)/(10),daW,0.0,6554.0,8416F1,01,Toyota,Toyota_Prius_Gen1,hv_battery,torque_csv,community
+21,0121,HV Distance traveled with MIL on,HV Distance traveled with MIL on,(256*A+B),km,0.0,65535.0,8416F1,01,Toyota,Toyota_Prius_Gen1,general,torque_csv,community
+CC,01CC,HV Drive Situation ID,HV Drive Situation ID,(A),,0.0,255.0,8416F1,01,Toyota,Toyota_Prius_Gen1,general,torque_csv,community
+05,0105,HV Engine Coolant Temperature,HV Engine Coolant Temperature,(A)+(-40),°C,-40.0,215.0,8416F1,01,Toyota,Toyota_Prius_Gen1,engine,torque_csv,community
+0C,010C,HV Engine Speed,HV Engine Speed,(256*A+B)/(4),rpm,0.0,7000.0,8416F1,01,Toyota,Toyota_Prius_Gen1,engine,torque_csv,community
+C7,01C7,HV Engine Speed (similar to RPM),HV Engine Speed (similar to RPM),(256*A+B),rpm,0.0,65535.0,8416F1,01,Toyota,Toyota_Prius_Gen1,engine,torque_csv,community
+D0,01D0,HV Generator Current V,HV Generator Current V,(SIGNED(A)*256+B),A,-32768.0,32767.0,8416F1,01,Toyota,Toyota_Prius_Gen1,general,torque_csv,community
+D2,01D2,HV HV Battery Current,HV HV Battery Current,(SIGNED(A)*256+B)*(2),A,-100.0,100.0,8416F1,01,Toyota,Toyota_Prius_Gen1,hv_battery,torque_csv,community
+D1,01D1,HV HV Battery Voltage,HV HV Battery Voltage,(A)*(2),V,200.0,400.0,8416F1,01,Toyota,Toyota_Prius_Gen1,hv_battery,torque_csv,community
+AA,01AA,HV INFO. Code 1,HV INFO. Code 1,(256*A+B),,0.0,65535.0,8416F1,01,Toyota,Toyota_Prius_Gen1,general,torque_csv,community
+B1,01B1,HV INFO. Code 2,HV INFO. Code 2,(256*A+B),,0.0,65535.0,8416F1,01,Toyota,Toyota_Prius_Gen1,general,torque_csv,community
+B7,01B7,HV INFO. Code 3,HV INFO. Code 3,(256*A+B),,0.0,65535.0,8416F1,01,Toyota,Toyota_Prius_Gen1,general,torque_csv,community
+BD,01BD,HV INFO. Code 4,HV INFO. Code 4,(256*A+B),,0.0,65535.0,8416F1,01,Toyota,Toyota_Prius_Gen1,general,torque_csv,community
+DF,01DF,HV INFO. Code 5,HV INFO. Code 5,(256*A+B),,0.0,65535.0,8416F1,01,Toyota,Toyota_Prius_Gen1,general,torque_csv,community
+0F,010F,HV Intake Air Temperature,HV Intake Air Temperature,(A)+(-40),°C,-40.0,215.0,8416F1,01,Toyota,Toyota_Prius_Gen1,engine,torque_csv,community
+C8,01C8,HV Master Cylinder Control Torque,HV Master Cylinder Control Torque,(SIGNED(A)*256+B)*(4),Nm,-131072.0,131068.0,8416F1,01,Toyota,Toyota_Prius_Gen1,general,torque_csv,community
+CD,01CD,HV MG1 Inverter Temperature,HV MG1 Inverter Temperature,(A)+(-50),°C,-50.0,205.0,8416F1,01,Toyota,Toyota_Prius_Gen1,general,torque_csv,community
+C4,01C4,HV MG1 RPM,HV MG1 RPM,(SIGNED(A)*256+B),rpm,-10000.0,10000.0,8416F1,01,Toyota,Toyota_Prius_Gen1,engine,torque_csv,community
+CE,01CE,HV MG1 Temperature,HV MG1 Temperature,(A)+(-50),°C,-50.0,205.0,8416F1,01,Toyota,Toyota_Prius_Gen1,general,torque_csv,community
+C2,01C2,HV MG2 RPM,HV MG2 RPM,(SIGNED(A)*256+B),rpm,-10000.0,10000.0,8416F1,01,Toyota,Toyota_Prius_Gen1,engine,torque_csv,community
+CF,01CF,HV Motor Current V,HV Motor Current V,(SIGNED(A)*256+B),A,-100.0,100.0,8416F1,01,Toyota,Toyota_Prius_Gen1,general,torque_csv,community
+C3,01C3,HV Regen Brake Execution Torque,HV Regen Brake Execution Torque,(A),Nm,0.0,255.0,8416F1,01,Toyota,Toyota_Prius_Gen1,emission,torque_csv,community
+C5,01C5,HV Request Engine Power,HV Request Engine Power,(256*A+B),daW,0.0,65535.0,8416F1,01,Toyota,Toyota_Prius_Gen1,engine,torque_csv,community
+D4,01D4,HV Shift Sensor 1 (position),HV Shift Sensor 1 (position),(A),,0.0,255.0,8416F1,01,Toyota,Toyota_Prius_Gen1,transmission,torque_csv,community
+D3,01D3,HV Shift Sensor 2,HV Shift Sensor 2,(256*A+B)/(50),V,0.0,6.0,8416F1,01,Toyota,Toyota_Prius_Gen1,transmission,torque_csv,community
+C9,01C9,HV State-of-Charge,HV State-of-Charge,(A)*(100)/(255),%,0.0,100.0,8416F1,01,Toyota,Toyota_Prius_Gen1,hv_battery,torque_csv,community
+C6,01C6,HV Target Engine Revolution,HV Target Engine Revolution,(256*A+B),rpm,0.0,7000.0,8416F1,01,Toyota,Toyota_Prius_Gen1,engine,torque_csv,community
+0D,010D,HV Vehicle Speed,HV Vehicle Speed,(A),km/h,0.0,255.0,8416F1,01,Toyota,Toyota_Prius_Gen1,general,torque_csv,community
+D7,01D7,HV Vehicle Speed (Similar to KPH),HV Vehicle Speed (Similar to KPH),(A)*(2),km/h,0.0,510.0,8416F1,01,Toyota,Toyota_Prius_Gen1,general,torque_csv,community
+CA,01CA,HV WIN Control Power,HV WIN Control Power,(B)*(8)/(5)+(-408),hW,-408.0,0.0,8416F1,01,Toyota,Toyota_Prius_Gen1,general,torque_csv,community
+2813,2813,Actual Boost Pressure,Turbocharger actual boost pressure (kPa),(A*256+B)*0.0078125,kPa,0,255,7E0,22,Ford,,engine,curated_expert,high
+1E16,1E16,DPF Soot Load,Diesel Particulate Filter soot loading (grams),(A*256+B)*0.01,g,0,100,7E0,22,Ford,,emission,curated_expert,high
+1E1A,1E1A,DPF Differential Pressure,Pressure difference across the DPF (kPa),(A*256+B)*0.01,kPa,0,50,7E0,22,Ford,,emission,curated_expert,high
+1E23,1E23,DPF Regeneration Status,DPF active regeneration status flag,A,flag,0,1,7E0,22,Ford,,emission,curated_expert,high
+4028,4028,Battery SoC (IPC),12V battery state of charge shown on instrument panel,A,%,0,100,7E0,22,Ford,,electrical,curated_expert,high
+DD01,DD01,Oil Life Remaining,Engine oil life remaining percentage,A*100/255,%,0,100,7E0,22,Ford,,maintenance,curated_expert,high
+0104,0104,Intake Air Temperature 2,Secondary intake air temperature sensor,A-40,°C,-40,215,7E0,22,GM,,engine,curated_expert,high
+1940,1940,Transmission Fluid Temperature,Automatic transmission fluid temperature,A-40,°C,-40,215,7E1,22,GM,,transmission,curated_expert,high
+0176,0176,Ethanol Fuel Percentage,Flex-fuel ethanol content sensor reading,A*100/255,%,0,100,7E0,22,GM,,fuel,curated_expert,high
+124D,124D,AC Refrigerant Pressure,A/C high-side refrigerant pressure,(A*256+B)*0.001,bar,0,40,7E0,22,GM,,hvac,curated_expert,high
+7CE1,7CE1,HV Battery SoC,High-voltage battery state of charge,A*100/255,%,0,100,7E3,22,Toyota,,hv_battery,curated_expert,high
+7CE4,7CE4,HV Battery Temperature,High-voltage battery pack temperature,A-40,°C,-40,80,7E3,22,Toyota,,hv_battery,curated_expert,high
+7CE3,7CE3,HV Battery Current,High-voltage battery current (positive=charge),((A*256+B)-32768)*0.01,A,-300,300,7E3,22,Toyota,,hv_battery,curated_expert,high
+7CE2,7CE2,HV Battery Voltage,High-voltage battery pack voltage,(A*256+B)*0.01,V,0,350,7E3,22,Toyota,,hv_battery,curated_expert,high
+F40C,F40C,DPF Soot Mass,Diesel particulate filter soot mass,(A*256+B)*0.01,g,0,100,7E0,22,VAG,,emission,curated_expert,high
+F40D,F40D,DPF Regeneration Distance,Distance since last DPF regeneration,(A*256+B),km,0,2000,7E0,22,VAG,,emission,curated_expert,high
+2031,2031,Turbo Boost Deviation,Deviation between target and actual boost pressure,((A*256+B)-32768)*0.001,bar,-1,1,7E0,22,VAG,,engine,curated_expert,high
+2101,2101,HV Battery Module Temperatures,Battery management system module temperatures,A-40,°C,-40,80,7E4,22,Hyundai/Kia,,hv_battery,curated_expert,high
+2105,2105,HV Battery Cell Voltages,Individual cell voltage readings from BMS,(A*256+B)*0.001,V,2.5,4.2,7E4,22,Hyundai/Kia,,hv_battery,curated_expert,high
+D100,D100,Engine Oil Temperature,Engine oil sump temperature,A-40,°C,-40,180,7E0,22,BMW,,engine,curated_expert,high
+D10A,D10A,Charge Air Pressure,Turbocharger charge air pressure,(A*256+B)*0.01,mbar,0,3000,7E0,22,BMW,,engine,curated_expert,high
+1203,1203,HV Battery SoH,High-voltage battery state of health,A*100/255,%,0,100,79B,22,Nissan,,hv_battery,curated_expert,high
