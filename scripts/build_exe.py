@@ -16,6 +16,33 @@ def _run_npm_build(frontend_dir: Path) -> int:
     return subprocess.call([npm, "run", "build"], cwd=str(frontend_dir))
 
 
+def _installed_can_backends() -> list[str]:
+    """Enumerate every python-can interface backend installed in this env.
+
+    N-05 R3: `can.Bus(interface=...)` imports backends dynamically via
+    importlib, which PyInstaller cannot see — bundle ALL of them.
+    """
+    try:
+        import can.interfaces
+        import pkgutil
+
+        return [m.name for m in pkgutil.iter_modules(can.interfaces.__path__)]
+    except Exception as exc:  # noqa: BLE001 — build must not die on enumeration
+        print(f"[UYARI] can.interfaces listelenemedi ({exc}); bilinen arka uclar eklenecek.")
+        return [
+            "virtual",
+            "pcan",
+            "kvaser",
+            "vector",
+            "socketcan",
+            "socketcand",
+            "serial",
+            "slcan",
+            "gs_usb",
+            "udp_multicast",
+        ]
+
+
 def build_exe() -> int:
     root_dir = Path(__file__).parent.parent.resolve()
     frontend_dir = root_dir / "src" / "ui" / "frontend"
@@ -132,6 +159,14 @@ def build_exe() -> int:
         f"--workpath={root_dir / 'build'}",
         str(entry_point),
     ]
+
+    # python-can backends are resolved at RUNTIME via importlib
+    # (can.interface._get_class_for_interface) — PyInstaller's static
+    # analysis never sees them, so every installed interface backend must
+    # be explicitly bundled or `can.Bus(interface=...)` fails inside the
+    # frozen exe with CanInterfaceNotImplementedError (N-05 R3).
+    backend_flags = [f"--hidden-import=can.interfaces.{b}" for b in sorted(_installed_can_backends())]
+    cmd = cmd[:-3] + backend_flags + cmd[-3:]  # keep distpath/workpath/entry_point last
 
     print("Komut calistiriliyor...")
     ret = subprocess.call(cmd, cwd=str(root_dir))
