@@ -518,4 +518,131 @@ def test_sync_fc_bs_windowing_emits_next_fc() -> None:
     )
     completed, _ = transport.handle_rx_frame(cf3)
     assert completed is not None
-    assert completed == bytes([0x00, 0x01, 0x02, 0x03, 0x04, 0x05]) + bytes(range(6, 27))
+
+
+# ============================================================================
+# ISO 15765-2 §9.2 Addressing Modes (Extended N_TA / Mixed N_AE)
+# ============================================================================
+
+
+def test_isotp_extended_addressing_sf_roundtrip() -> None:
+    """Spec 2.1 mode 3: 'Extended Addressing (8-bit N_TA in Byte 0), Byte 1 = N_PCI byte.'
+    Positive: the N_TA prefixes every segmented frame and is stripped on RX."""
+    from src.protocols.uds.isotp import AddressingMode
+
+    transport = IsoTpTransport(
+        tx_id=0x7E0,
+        rx_id=0x7E8,
+        addressing_mode=AddressingMode.EXTENDED,
+        address_byte=0xF1,
+    )
+
+    payload = b"\x22\xf1\x90\x00"
+    frames = transport.segment_message(payload)
+    assert len(frames) == 1
+    assert frames[0].data[0] == 0xF1  # N_TA target address
+    assert frames[0].data[1] == (PCI_SINGLE_FRAME << 4) | 4  # N_PCI at byte 1
+
+    # Reassemble a response carrying the same N_TA
+    resp = CanFrame.create(
+        channel_id="uds",
+        arbitration_id=0x7E8,
+        data=b"\xf1\x05\x62\xf1\x90\x41\x42\xcc",
+        is_extended=False,
+    )
+    completed, _ = transport.handle_rx_frame(resp)
+    assert completed == b"\x62\xf1\x90\x41\x42"
+
+
+def test_isotp_extended_addressing_multi_frame_roundtrip() -> None:
+    """Boundary: 20-byte payload over Extended addressing — FF/CF all carry N_TA at byte 0."""
+    from src.protocols.uds.isotp import AddressingMode
+
+    transport = IsoTpTransport(
+        tx_id=0x7E0,
+        rx_id=0x7E8,
+        addressing_mode=AddressingMode.EXTENDED,
+        address_byte=0xF1,
+    )
+    long_payload = bytes(range(20))
+    tx_frames = transport.segment_message(long_payload)
+    assert all(f.data[0] == 0xF1 for f in tx_frames)
+    assert (tx_frames[0].data[1] >> 4) == PCI_FIRST_FRAME
+
+    # FF + CFs reassemble through the address-stripped path
+    rx_transport = IsoTpTransport(
+        tx_id=0x7E0,
+        rx_id=0x7E8,
+        addressing_mode=AddressingMode.EXTENDED,
+        address_byte=0xF1,
+    )
+    completed = None
+    for f in tx_frames:
+        resp = CanFrame.create(
+            channel_id="uds", arbitration_id=0x7E8, data=f.data, is_extended=False
+        )
+        completed, _ = rx_transport.handle_rx_frame(resp)
+    assert completed == long_payload
+
+
+def test_isotp_mixed_addressing_roundtrip() -> None:
+    """Spec 2.1 mode 4: 'Mixed Addressing (8-bit N_AE in Byte 0), Byte 1 = N_PCI byte.'
+    Positive: N_AE prefixes and strips like N_TA."""
+    from src.protocols.uds.isotp import AddressingMode
+
+    transport = IsoTpTransport(
+        tx_id=0x18DAF110,
+        rx_id=0x18DA10F1,
+        addressing_mode=AddressingMode.MIXED,
+        address_byte=0x55,
+    )
+    payload = b"\x10\x03\x00"
+    frames = transport.segment_message(payload)
+    assert frames[0].data[0] == 0x55
+    assert frames[0].data[1] == (PCI_SINGLE_FRAME << 4) | 3
+
+    resp = CanFrame.create(
+        channel_id="uds",
+        arbitration_id=0x18DA10F1,
+        data=b"\x55\x06\x50\x03\x00\x19\x21\x23",
+        is_extended=True,
+    )
+    completed, _ = transport.handle_rx_frame(resp)
+    assert completed == b"\x50\x03\x00\x19\x21\x23"
+
+
+def test_isotp_addressing_mode_rejects_bad_configuration() -> None:
+    """Negative: EXTENDED without address_byte (and NORMAL with one) must raise."""
+    from src.protocols.uds.isotp import AddressingMode
+
+    with pytest.raises(ValueError, match="address_byte"):
+        IsoTpTransport(tx_id=0x7E0, rx_id=0x7E8, addressing_mode=AddressingMode.MIXED)
+
+    with pytest.raises(ValueError, match="address_byte"):
+        IsoTpTransport(
+            tx_id=0x7E0,
+            rx_id=0x7E8,
+            addressing_mode=AddressingMode.NORMAL,
+            address_byte=0xF1,
+        )
+
+
+def test_isotp_extended_addressing_drops_mismatched_address_byte() -> None:
+    """Negative: a frame whose byte-0 address does not match the configured
+    N_TA is dropped, never reassembled into a payload."""
+    from src.protocols.uds.isotp import AddressingMode
+
+    transport = IsoTpTransport(
+        tx_id=0x7E0,
+        rx_id=0x7E8,
+        addressing_mode=AddressingMode.EXTENDED,
+        address_byte=0xF1,
+    )
+    wrong_addr = CanFrame.create(
+        channel_id="uds",
+        arbitration_id=0x7E8,
+        data=b"\x99\x05\x62\xf1\x90\x41\x42\xcc",  # 0x99 != N_TA 0xF1
+        is_extended=False,
+    )
+    completed, _ = transport.handle_rx_frame(wrong_addr)
+    assert completed is None

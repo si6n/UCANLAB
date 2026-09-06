@@ -90,20 +90,25 @@ export class DesktopBridge {
   public static async triggerEstop(): Promise<void> {
     if (this.isNative() && window.pywebview?.api?.trigger_estop) {
       await window.pywebview.api.trigger_estop();
+      return;
     }
+    this.requireNativeOrDev();
   }
 
   public static async toggleSimulator(): Promise<boolean | null> {
     if (this.isNative() && window.pywebview?.api?.toggle_simulator) {
       return await window.pywebview.api.toggle_simulator();
     }
+    this.requireNativeOrDev();
     return null;
   }
 
   public static async selectScenario(scenario: string): Promise<void> {
     if (this.isNative() && window.pywebview?.api?.select_scenario) {
       await window.pywebview.api.select_scenario(scenario);
+      return;
     }
+    this.requireNativeOrDev();
   }
 
   public static async askCopilot(query: string): Promise<string | null> {

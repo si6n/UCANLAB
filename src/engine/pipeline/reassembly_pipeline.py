@@ -89,7 +89,7 @@ class IsoTpSession:
 
 
 def decode_vin_payload(data: bytes) -> str:
-    """Decode ASCII Vehicle Identification Number (VIN) payload from J1939 PGN 65259."""
+    """Decode ASCII Vehicle Identification Number (VIN) payload from J1939 PGN 65260."""
     clean = data.split(b"*")[0]
     return clean.decode("ascii", errors="replace").strip("\x00\xff ")
 
@@ -507,7 +507,7 @@ class ReassemblyPipeline:
                 if not frame.is_fd or len(frame.data) < 2:
                     return None
                 sf_len = frame.data[1]
-                if sf_len == 0 or sf_len > 62 or sf_len > (len(frame.data) - 2):
+                if sf_len < 8 or sf_len > 62 or sf_len > (len(frame.data) - 2):
                     return None
                 payload = bytes(frame.data[2 : 2 + sf_len])
             else:
@@ -625,6 +625,20 @@ class ReassemblyPipeline:
             with self._lock:
                 session = self._isotp_sessions.get(session_key)
                 if session is None:
+                    return None
+
+                # Check framing format consistency (CAN vs CAN-FD, standard vs extended ID)
+                if frame.is_fd != session.is_fd or frame.is_extended != session.is_extended:
+                    logger.warning(
+                        "ISO-TP Consecutive Frame format mismatch with First Frame (dropping)",
+                        extra={
+                            "rx_id": hex(frame.arbitration_id),
+                            "session_is_fd": session.is_fd,
+                            "frame_is_fd": frame.is_fd,
+                        },
+                    )
+                    self._release_isotp_session(session_key)
+                    self._dropped_or_timeout_count += 1
                     return None
 
                 # Check N_Cr timeout

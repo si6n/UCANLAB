@@ -31,6 +31,7 @@ class WindowsPowerManager:
     """
 
     _leases: ClassVar[dict[int, int]] = {}
+    _display_required: ClassVar[dict[int, bool]] = {}
     _is_active: ClassVar[bool] = False
     _lock: ClassVar[threading.Lock] = threading.Lock()
 
@@ -48,11 +49,14 @@ class WindowsPowerManager:
         with cls._lock:
             depth = cls._leases.get(tid, 0)
             cls._leases[tid] = depth + 1
-            if depth > 0:
+            prev_disp = cls._display_required.get(tid, False)
+            if keep_display_on and not prev_disp:
+                cls._display_required[tid] = True
+            elif depth > 0:
                 return True
 
         flags = ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_AWAYMODE_REQUIRED
-        if keep_display_on:
+        if keep_display_on or cls._display_required.get(tid, False):
             flags |= ES_DISPLAY_REQUIRED
 
         try:
@@ -91,6 +95,7 @@ class WindowsPowerManager:
             if depth - 1 > 0:
                 return True
             cls._leases.pop(tid, None)
+            cls._display_required.pop(tid, None)
             if not cls._leases:
                 cls._is_active = False
 

@@ -5,6 +5,7 @@ Complies with MASTER_PLAN.md Section 6.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from dataclasses import dataclass
@@ -74,6 +75,16 @@ class EncryptedKnowledgePackLoader:
                 cause=exc,
             ) from exc
 
+        # Cryptographically bind manifest file declarations to provided payload set
+        if "encrypted_files" in manifest_dict:
+            manifest_files = set(manifest_dict["encrypted_files"].keys())
+            payload_files = set(encrypted_payloads.keys())
+            if manifest_files != payload_files:
+                raise SecurityError(
+                    f"Payload files do not match manifest declarations: missing {manifest_files - payload_files}, unexpected {payload_files - manifest_files}",
+                    code="FILE_SET_MISMATCH",
+                )
+
         logger.info("Validated Knowledge Pack manifest", extra={"pack": pack_name})
 
         # 3. In-Memory Decryption of Each File
@@ -88,7 +99,18 @@ class EncryptedKnowledgePackLoader:
 
             try:
                 decrypted = self._aesgcm.decrypt(nonce, ciphertext_with_tag, None)
+                if "encrypted_files" in manifest_dict:
+                    expected_hash = manifest_dict["encrypted_files"].get(filename)
+                    if expected_hash and len(expected_hash) == 64:
+                        actual_hash = hashlib.sha256(decrypted).hexdigest()
+                        if actual_hash.lower() != expected_hash.lower():
+                            raise SecurityError(
+                                f"SHA-256 integrity mismatch for '{filename}'",
+                                code="CONTENT_TAMPERED",
+                            )
                 decrypted_memory_files[filename] = decrypted
+            except SecurityError:
+                raise
             except Exception as exc:
                 logger.error("Failed to decrypt Knowledge Pack file", extra={"file": filename, "error": str(exc)})
                 raise SecurityError(

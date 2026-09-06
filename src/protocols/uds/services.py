@@ -119,12 +119,12 @@ class UdsServiceBuilder:
         data_format_identifier: int = 0x00,
         address_and_length_format_identifier: int = 0x44,
     ) -> bytes:
-        # ALFI high nibble = memory address size in bytes, low nibble = memory
-        # size in bytes (ISO 14229-0 §9.3.1). Widths other than 1..4 (or
+        # ISO 14229-1: ALFI high nibble = memory size (length) width in bytes,
+        # low nibble = memory address width in bytes. Widths other than 1..4 (or
         # values that overflow their width) are rejected up front instead of
         # emitting an inconsistent request.
-        addr_width = (address_and_length_format_identifier >> 4) & 0x0F
-        size_width = address_and_length_format_identifier & 0x0F
+        size_width = (address_and_length_format_identifier >> 4) & 0x0F
+        addr_width = address_and_length_format_identifier & 0x0F
         if not (1 <= addr_width <= 4 and 1 <= size_width <= 4):
             raise ValueError(
                 f"Invalid ALFI 0x{address_and_length_format_identifier:02X}: "

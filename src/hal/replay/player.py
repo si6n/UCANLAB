@@ -127,6 +127,8 @@ class ReplayBus:
                         return
                     if remaining > 0.005:
                         time.sleep(remaining - 0.003)
+                    elif remaining > 0.0005:
+                        time.sleep(0.0002)
 
                 callback(frame)
 

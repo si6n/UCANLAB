@@ -132,7 +132,7 @@ class CounterDetector:
                             ),
                         )
                     ],
-                    name=f"COUNTER_B{byte_idx}_M{modulus}",
+                    name=f"COUNTER_B{byte_idx}_b{bit_in_byte}_l{length}_M{modulus}",
                 )
             )
 

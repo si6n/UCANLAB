@@ -117,7 +117,7 @@ class EmergencyStopSystem:
     and performs constant-time HMAC-SHA256 authorization verification.
     """
 
-    # B9: replay window is bounded — nonces are 32 random bytes and a challenge
+    # B9: replay window is bounded — nonces are 16 random bytes (128-bit) and a challenge
     # older than max_token_age_s can never verify again, so retaining far more
     # than a full window of recent nonces adds no protection, only memory.
     MAX_CONSUMED_NONCES: ClassVar[int] = 1024
@@ -283,6 +283,19 @@ class EmergencyStopSystem:
             )
             return self._active_challenge
 
+    def request_reset_challenge(self) -> EStopChallenge | None:
+        """Return currently active challenge if valid, or reissue a fresh one if engaged."""
+        with self._lock:
+            if not self._is_engaged:
+                return None
+            now_ns = time.monotonic_ns()
+            if (
+                self._active_challenge is None
+                or (now_ns - self._active_challenge.timestamp_monotonic_ns) > self._active_challenge.max_age_ns
+            ):
+                return self.reissue_challenge()
+            return self._active_challenge
+
     def create_reset_token(self) -> EmergencyStopToken | None:
         """Generate a valid, signed EmergencyStopToken for the currently active challenge.
 
@@ -383,15 +396,24 @@ class EmergencyStopSystem:
             now_wall_ns = time.time_ns()
             now_monotonic_ns = time.monotonic_ns()
 
+            already_engaged = self._is_engaged
             self._is_engaged = True
-            challenge_nonce = os.urandom(16)
-            self._active_challenge = EStopChallenge(
-                epoch=self._epoch,
-                nonce=challenge_nonce,
-                timestamp_monotonic_ns=now_monotonic_ns,
-                action="ESTOP_RESET",
-                max_age_ns=self._max_token_age_ns,
-            )
+
+            # If not already engaged or challenge is missing/expired, issue fresh challenge
+            if (
+                not already_engaged
+                or self._active_challenge is None
+                or (now_monotonic_ns - self._active_challenge.timestamp_monotonic_ns) > self._active_challenge.max_age_ns
+            ):
+                challenge_nonce = os.urandom(16)
+                self._active_challenge = EStopChallenge(
+                    epoch=self._epoch,
+                    nonce=challenge_nonce,
+                    timestamp_monotonic_ns=now_monotonic_ns,
+                    timestamp_wall_ns=now_wall_ns,
+                    action="ESTOP_RESET",
+                    max_age_ns=self._max_token_age_ns,
+                )
             self._last_event = EStopEvent(
                 trigger=trigger,
                 reason=reason,
@@ -570,24 +592,20 @@ class EStopResetAuthority:
     """Separate authorization component that mints E-Stop reset tokens (P1-1).
 
     ISO 26262 independence: the component that ENFORCES the E-Stop
-    (`EmergencyStopSystem`) no longer produces the credential that clears
-    it. This authority is the single, explicitly-wired holder of minting
-    rights; the desktop application constructs exactly one and routes the
-    operator-driven reset flow through it. The gateway, protocol engines,
-    and any other subsystem only ever see the verification-only
-    enforcement object.
-
-    The authority shares the SecretProvider-backed key with the
-    enforcement object (same key name), so minted tokens verify — but it
-    is a distinct object reference, and elevating an enforcement object
-    after the fact requires the deliberate constructor flag.
+    (`EmergencyStopSystem`) does not mint the credential that clears it.
+    This authority holds its own access to the SecretProvider key and
+    signs challenges directly. The shared enforcement object is NEVER elevated.
     """
 
-    def __init__(self, estop: EmergencyStopSystem) -> None:
+    def __init__(
+        self,
+        estop: EmergencyStopSystem,
+        secret_provider: SecretProvider | None = None,
+        key_name: str = DEFAULT_ESTOP_KEY_NAME,
+    ) -> None:
         self._estop = estop
-        # Elevate the shared enforcement object for minting. This is the
-        # ONLY place _allow_self_reset is set to True.
-        estop._allow_self_reset = True
+        self._key_name = key_name
+        self._secret_provider = secret_provider or estop._secret_provider
 
     @property
     def estop(self) -> EmergencyStopSystem:
@@ -597,10 +615,23 @@ class EStopResetAuthority:
     def mint_reset_token(self) -> EmergencyStopToken | None:
         """Mint a fresh, signed reset token for the active challenge.
 
-        Mirrors the operator-driven flow: challenge (re)issue is handled
-        internally; a None return means the E-Stop is not engaged.
+        Mirrors the operator-driven flow: challenge is read from the enforcement
+        object, and this authority signs it using its distinct capability.
         """
-        return self._estop.create_reset_token()
+        challenge = self._estop.request_reset_challenge()
+        if challenge is None:
+            return None
+
+        secret = self._secret_provider.get_secret(self._key_name)
+        sig = hmac.new(secret, challenge.serialize_for_signature(), hashlib.sha256).hexdigest()
+
+        return EmergencyStopToken(
+            epoch=challenge.epoch,
+            nonce=challenge.nonce.hex(),
+            timestamp_monotonic_ns=challenge.timestamp_monotonic_ns,
+            action=challenge.action,
+            signature=sig,
+        )
 
     def compute_reset_token(
         self,
@@ -609,7 +640,11 @@ class EStopResetAuthority:
         timestamp_ns: int | None = None,
         action: str = "ESTOP_RESET",
     ) -> str:
-        """Authorization helper mirroring the enforcement object's computation."""
-        return self._estop.compute_reset_token(
-            nonce=nonce, epoch=epoch, timestamp_ns=timestamp_ns, action=action
-        )
+        """Authorization helper producing a valid reset token string or signature."""
+        secret = self._secret_provider.get_secret(self._key_name)
+        if nonce is None:
+            token = self.mint_reset_token()
+            return token.to_token_string() if token is not None else ""
+
+        nonce_bytes = nonce.encode("utf-8") if isinstance(nonce, str) else (nonce or b"")
+        return hmac.new(secret, nonce_bytes, hashlib.sha256).hexdigest()

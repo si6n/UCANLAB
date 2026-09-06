@@ -544,7 +544,7 @@ def test_gateway_estop_interlock_under_flood_and_recovery() -> None:
     from src.hal.drivers.pcan_kvaser import PythonCanBus
     from src.safety.gateway import TxSafetyGateway
 
-    bus = PythonCanBus(interface="virtual", channel="stress_vbus_flood")
+    bus = PythonCanBus(interface="virtual", channel="stress_vbus_flood", listen_only=False)
     bus.connect()
     estop = EmergencyStopSystem(allow_self_reset=True)
     gateway = TxSafetyGateway(bus=bus, estop=estop, whitelist_ids={0x7E0, 0x7E8})

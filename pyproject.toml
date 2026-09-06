@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "universal-can-bus-platform"
-version = "1.0.0"
+version = "13.0.0"
 description = "Universal CAN-Bus Diagnostic & Telemetry Tool"
 readme = "README.md"
 requires-python = ">=3.11"

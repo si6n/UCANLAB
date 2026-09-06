@@ -354,3 +354,121 @@ def test_dynamic_dtc_in_copilot_session_analysis() -> None:
     assert len(report.troubleshooting_steps) > 0
     assert any("Emisyon" in s or "SCR" in s or "DPF" in s for s in report.affected_subsystems)
 
+
+def test_manufacturer_specific_p1_codes_integration() -> None:
+    """Verify manufacturer-specific P1 series codes (Ford, GM, VAG, Toyota, BMW)."""
+    from src.engine.ai.diagnostic_copilot import EXPERT_KNOWLEDGE_BASE, AiDiagnosticCopilot, FaultSeverity
+
+    # Ford PATS immobilizer
+    assert "P1260" in EXPERT_KNOWLEDGE_BASE
+    p1260 = EXPERT_KNOWLEDGE_BASE["P1260"]
+    assert "PATS" in p1260["title"]
+    assert p1260["severity"] == "CRITICAL_STOP"
+    assert any("PATS" in c for c in p1260["causes"])
+
+    # GM/VAG/BMW/Toyota CKP-CMP correlation
+    assert "P1345" in EXPERT_KNOWLEDGE_BASE
+    p1345 = EXPERT_KNOWLEDGE_BASE["P1345"]
+    assert "Krank" in p1345["title"] or "Kam" in p1345["title"] or "Correlation" in p1345["title"]
+
+    # Toyota VVT malfunction
+    assert "P1349" in EXPERT_KNOWLEDGE_BASE
+    p1349 = EXPERT_KNOWLEDGE_BASE["P1349"]
+    assert "VVT" in p1349["title"]
+    assert any("OCV" in c for c in p1349["causes"])
+
+    # Verify session analysis with P1 code
+    copilot = AiDiagnosticCopilot()
+    rep = copilot.analyze_session([{"code": "P1260"}], {}, ["PCM_0x7E0"])
+    assert rep.severity == FaultSeverity.CRITICAL_STOP
+    assert any("PATS" in c for c in rep.likely_causes)
+
+
+def test_nhtsa_recalls_database_and_search() -> None:
+    """Verify NHTSA recalls database loading, multi-criteria search, and report formatting."""
+    from src.engine.ai.diagnostic_copilot import (
+        format_nhtsa_recall_report,
+        get_nhtsa_recalls_database,
+        search_nhtsa_recalls,
+    )
+
+    db = get_nhtsa_recalls_database()
+    assert len(db) >= 200
+
+    # Search by vehicle
+    ford_recalls = search_nhtsa_recalls(make="ford", model="f-150", year=2022)
+    assert len(ford_recalls) >= 5
+
+    # Search by category
+    ev_recalls = search_nhtsa_recalls(category="Batarya")
+    assert len(ev_recalls) >= 1
+
+    # Search by keyword
+    gateway_recalls = search_nhtsa_recalls(query="trailer brake")
+    assert len(gateway_recalls) >= 1
+
+    # Format report
+    rep = format_nhtsa_recall_report(ford_recalls[0])
+    assert "NHTSA Geri Çağırma" in rep
+    assert "Sorun Özeti" in rep
+    assert "Resmi Onarım" in rep
+
+    # Missing path fallback
+    assert get_nhtsa_recalls_database("missing_file.json") == {}
+    assert search_nhtsa_recalls(make="ford", data_path="missing_file.json") == []
+
+
+def test_copilot_recall_query_intent_resolution() -> None:
+    """Verify natural language recall queries are dispatched to NHTSA knowledge base."""
+    from src.engine.ai.diagnostic_copilot import CausalBayesianInferenceEngine
+
+    # Ford F-150 recall query
+    ans_ford = CausalBayesianInferenceEngine.evaluate_diagnostic_query(
+        "Ford F-150 2022 geri çağırma bültenleri var mı?", [], {}
+    )
+    assert "NHTSA Resmi Güvenlik Geri Çağırma" in ans_ford
+    assert "Ford Motor Company" in ans_ford
+    assert "Eşleşen Kampanya" in ans_ford
+
+    # Tesla recall query
+    ans_tesla = CausalBayesianInferenceEngine.evaluate_diagnostic_query(
+        "Tesla Model 3 recall bültenleri", [], {}
+    )
+    assert "NHTSA Resmi Güvenlik Geri Çağırma" in ans_tesla
+    assert "Tesla, Inc." in ans_tesla
+
+    # Unmatched query gives informative fallback
+    ans_unmatched = CausalBayesianInferenceEngine.evaluate_diagnostic_query(
+        "Ferrari Testarossa 1984 recall", [], {}
+    )
+    assert "NHTSA Geri Çağırma Arama Sonucu" in ans_unmatched
+
+
+def test_desktop_bridge_diagnostics_integration() -> None:
+    """Verify DesktopApiBridge methods for DTC lookup, NHTSA search, and metrics."""
+    from src.ui.desktop_app import DesktopApiBridge
+
+    class DummyApp:
+        pass
+
+    bridge = DesktopApiBridge(DummyApp())
+
+    # 1. DB Metrics
+    metrics = bridge.get_diagnostic_db_metrics()
+    assert metrics["dtc_count"] >= 1800
+    assert metrics["j1939_spn_count"] >= 50
+    assert metrics["uds_did_count"] >= 30
+    assert metrics["mode06_monitor_count"] >= 15
+    assert metrics["nhtsa_recall_count"] >= 200
+
+    # 2. Direct DTC Lookup
+    dtc_p1260 = bridge.get_dtc_info("P1260")
+    assert "PATS" in dtc_p1260.get("title", "")
+    assert dtc_p1260.get("severity") == "CRITICAL_STOP"
+
+    # 3. NHTSA Search from Bridge
+    recalls = bridge.search_nhtsa_recalls(make="Ford", model="F-150", year=2022)
+    assert len(recalls) >= 5
+    assert any("22V193000" in r.get("campaign_number", "") or "TRAILER BRAKE" in r.get("component", "") for r in recalls)
+
+

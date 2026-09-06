@@ -638,6 +638,7 @@ _EXTERNAL_DATA_DIR: Path = Path(__file__).resolve().parents[3] / "data" / "diagn
 _CACHED_J1939_DB: dict[str, Any] | None = None
 _CACHED_UDS_DID_DB: dict[str, Any] | None = None
 _CACHED_MODE06_DB: dict[str, Any] | None = None
+_CACHED_EXTENDED_PID_DB: dict[str, Any] | None = None
 
 
 def load_external_dtc_database(data_path: Path | str | None = None) -> int:
@@ -738,6 +739,209 @@ def get_mode06_database(data_path: Path | str | None = None) -> dict[str, Any]:
     except Exception as exc:
         logger.warning("Failed to load Mode 06 database: %s", exc)
     return {}
+
+
+_CACHED_NHTSA_RECALLS_DB: dict[str, Any] | None = None
+
+
+def get_extended_pid_database(data_path: Path | str | None = None) -> dict[str, Any]:
+    """Load and return Extended / Enhanced OBD-II PID Database (Mode $22 + Custom).
+
+    Contains manufacturer-specific PIDs from Ford, GM, Toyota, VAG, BMW,
+    Hyundai/Kia, Nissan with scaling formulas, ECU headers, and value ranges.
+    """
+    global _CACHED_EXTENDED_PID_DB
+    if _CACHED_EXTENDED_PID_DB is not None and data_path is None:
+        return _CACHED_EXTENDED_PID_DB
+
+    target = Path(data_path) if data_path else _EXTERNAL_DATA_DIR / "extended_pid_database.json"
+    if not target.exists():
+        return {}
+
+    try:
+        content = target.read_text(encoding="utf-8", errors="replace")
+        data = json.loads(content)
+        if isinstance(data, dict):
+            # Filter out entries with empty PIDs (comment rows from CSV imports)
+            if "pids" in data:
+                data["pids"] = [p for p in data["pids"] if p.get("pid")]
+                data.setdefault("metadata", {})["total_pids"] = len(data["pids"])
+            if data_path is None:
+                _CACHED_EXTENDED_PID_DB = data
+            return data
+    except Exception as exc:
+        logger.warning("Failed to load Extended PID database: %s", exc)
+    return {}
+
+
+def search_extended_pids(
+    manufacturer: str | None = None,
+    category: str | None = None,
+    query: str | None = None,
+    service: str | None = None,
+    limit: int = 20,
+    data_path: Path | str | None = None,
+) -> list[dict[str, Any]]:
+    """Search extended PIDs by manufacturer, category, keyword, or OBD service mode.
+
+    Examples:
+        search_extended_pids(manufacturer="Ford", category="emission")
+        search_extended_pids(query="DPF soot")
+        search_extended_pids(manufacturer="Toyota", category="hv_battery")
+    """
+    db = get_extended_pid_database(data_path)
+    if not db:
+        return []
+
+    pids = db.get("pids", [])
+    mfr_clean = manufacturer.lower().strip() if manufacturer else ""
+    cat_clean = category.lower().strip() if category else ""
+    qry_clean = query.lower().strip() if query else ""
+    svc_clean = service.strip() if service else ""
+
+    results: list[dict[str, Any]] = []
+    for p in pids:
+        if mfr_clean and mfr_clean not in p.get("manufacturer", "").lower():
+            continue
+        if cat_clean and cat_clean not in p.get("category", "").lower():
+            continue
+        if svc_clean and svc_clean != p.get("service", ""):
+            continue
+        if qry_clean:
+            searchable = f"{p.get('name', '')} {p.get('description', '')} {p.get('unit', '')} {p.get('vehicle_model', '')}".lower()
+            if qry_clean not in searchable:
+                continue
+        results.append(p)
+        if len(results) >= limit:
+            break
+
+    return results
+
+
+def get_extended_pid_info(pid_hex: str, manufacturer: str | None = None) -> dict[str, Any] | None:
+    """Lookup a specific extended PID by its hex code, optionally filtered by manufacturer."""
+    db = get_extended_pid_database()
+    if not db:
+        return None
+
+    pid_clean = pid_hex.upper().strip()
+    mfr_clean = manufacturer.lower().strip() if manufacturer else ""
+
+    for p in db.get("pids", []):
+        p_hex = p.get("pid_hex", "").upper().strip()
+        p_pid = p.get("pid", "").upper().strip()
+        if pid_clean in (p_hex, p_pid):
+            if not mfr_clean or mfr_clean in p.get("manufacturer", "").lower():
+                return p
+    return None
+
+
+def get_nhtsa_recalls_database(data_path: Path | str | None = None) -> dict[str, Any]:
+    """Load and return NHTSA CAN-Bus, Electrical & Software Recalls database."""
+    global _CACHED_NHTSA_RECALLS_DB
+    if _CACHED_NHTSA_RECALLS_DB is not None and data_path is None:
+        return _CACHED_NHTSA_RECALLS_DB
+
+    target = Path(data_path) if data_path else _EXTERNAL_DATA_DIR / "nhtsa_can_recalls_database.json"
+    if not target.exists():
+        return {}
+
+    try:
+        content = target.read_text(encoding="utf-8", errors="replace")
+        data = json.loads(content)
+        if isinstance(data, dict):
+            if data_path is None:
+                _CACHED_NHTSA_RECALLS_DB = data
+            return data
+    except Exception as exc:
+        logger.warning("Failed to load NHTSA recalls database: %s", exc)
+    return {}
+
+
+def search_nhtsa_recalls(
+    make: str | None = None,
+    model: str | None = None,
+    year: int | None = None,
+    query: str | None = None,
+    category: str | None = None,
+    limit: int = 10,
+    data_path: Path | str | None = None,
+) -> list[dict[str, Any]]:
+    """Search NHTSA recalls by vehicle specification, symptom keywords, or category."""
+    db = get_nhtsa_recalls_database(data_path)
+    if not db:
+        return []
+
+    make_clean = make.lower().strip() if make else ""
+    model_clean = model.lower().strip() if model else ""
+    query_clean = query.lower().strip() if query else ""
+    cat_clean = category.lower().strip() if category else ""
+
+    results: list[dict[str, Any]] = []
+
+    for _campaign_id, rec in db.items():
+        # Match vehicle make/model/year if specified
+        if make_clean or model_clean or year:
+            vehicle_match = False
+            for v in rec.get("affected_vehicles", []):
+                v_make = v.get("make", "").lower()
+                v_model = v.get("model", "").lower()
+                v_year = v.get("year")
+
+                make_ok = not make_clean or make_clean in v_make
+                model_ok = not model_clean or model_clean in v_model
+                year_ok = not year or year == v_year
+
+                if make_ok and model_ok and year_ok:
+                    vehicle_match = True
+                    break
+            if not vehicle_match:
+                continue
+
+        # Match category if specified
+        if cat_clean and cat_clean not in rec.get("category", "").lower():
+            continue
+
+        # Match text query in summary, component, consequence, or remedy
+        if query_clean:
+            searchable = f"{rec.get('component', '')} {rec.get('summary', '')} {rec.get('consequence', '')} {' '.join(rec.get('affected_systems', []))}".lower()
+            if query_clean not in searchable:
+                continue
+
+        results.append(rec)
+        if len(results) >= limit:
+            break
+
+    return results
+
+
+def format_nhtsa_recall_report(recall: dict[str, Any]) -> str:
+    """Format an NHTSA safety recall into an actionable technician bulletin summary."""
+    lines = [
+        f"🚨 NHTSA Geri Çağırma (Recall) Kampanyası: {recall.get('campaign_number', 'Bilinmiyor')}",
+        f"🏷️ Üretici: {recall.get('manufacturer', '-')}",
+        f"📂 Kategori: {recall.get('category', '-')}",
+        f"⚙️ İlgili Komponent / Modül: {recall.get('component', '-')}",
+        f"📡 Etkilenen Sistemler: {', '.join(recall.get('affected_systems', [])) or 'Genel Ağ / Elektrik'}",
+        f"📶 OTA (Uzaktan Güncelleme): {'EVET' if recall.get('over_the_air_update') else 'HAYIR (Yetkili Servis Gereklidir)'}",
+        "",
+        "📋 Sorun Özeti:",
+        f"   {recall.get('summary', '-')}",
+        "",
+        "⚠️ Güvenlik Riski / Sonucu:",
+        f"   {recall.get('consequence', '-')}",
+        "",
+        "🔧 Resmi Onarım / Giderim Talimatı (Remedy):",
+        f"   {recall.get('remedy', '-')}",
+    ]
+    vehicles = recall.get("affected_vehicles", [])
+    if vehicles:
+        v_strs = [f"{v.get('make')} {v.get('model')} ({v.get('year')})" for v in vehicles[:5]]
+        if len(vehicles) > 5:
+            v_strs.append(f"+{len(vehicles) - 5} diğer model")
+        lines.extend(["", f"🚗 Etkilenen Araçlar: {', '.join(v_strs)}"])
+
+    return "\n".join(lines)
 
 
 # Auto-load external DTC database on module initialization
@@ -1063,6 +1267,68 @@ class CausalBayesianInferenceEngine:
                     f"3. Akü voltajının `>12.5V` olduğundan emin olun."
                 )
 
+        # 3.5 Check for NHTSA Safety Recalls & TSB Queries
+        is_recall_query = any(w in norm_query for w in ["recall", "geri cagirma", "tsb", "teknik bulten", "kampanya", "nhtsa"])
+        if is_recall_query:
+            found_year = None
+            year_match = re.search(r"\b(201[8-9]|202[0-5])\b", user_query)
+            if year_match:
+                found_year = int(year_match.group(1))
+
+            found_make = None
+            known_makes = [
+                ("ford", "ford"), ("lincoln", "lincoln"), ("tesla", "tesla"),
+                ("chevrolet", "chevrolet"), ("chevy", "chevrolet"), ("gm", "chevrolet"),
+                ("gmc", "gmc"), ("cadillac", "cadillac"), ("toyota", "toyota"),
+                ("lexus", "lexus"), ("volkswagen", "volkswagen"), ("vw", "volkswagen"),
+                ("audi", "audi"), ("bmw", "bmw"), ("hyundai", "hyundai"),
+                ("kia", "kia"), ("ram", "ram"), ("jeep", "jeep"),
+                ("mercedes", "mercedes-benz"), ("volvo", "volvo"),
+            ]
+            for kw, mname in known_makes:
+                if kw in norm_query:
+                    found_make = mname
+                    break
+
+            query_kw = None
+            for kw in [
+                "f-150", "f150", "mach-e", "mache", "explorer", "escape", "bronco",
+                "model 3", "model y", "model s", "model x",
+                "bolt", "silverado", "corvette", "lyriq", "sierra",
+                "rav4", "prius", "camry", "corolla", "highlander", "tundra",
+                "id.4", "id4", "tiguan", "atlas", "e-tron", "etron", "q5", "a4",
+                "330i", "i4", "ix", "x5",
+                "ioniq 5", "ioniq", "ev6", "telluride", "wrangler",
+                "trailer brake", "gateway", "bms", "battery", "batarya",
+                "contactor", "direksiyon", "steering", "fren", "brake",
+                "software", "yazilim", "ota", "park"
+            ]:
+                if kw in norm_query:
+                    query_kw = kw.replace("f150", "f-150").replace("mache", "mach-e").replace("id4", "id.4").replace("etron", "e-tron")
+                    break
+
+            recalls = search_nhtsa_recalls(
+                make=found_make,
+                year=found_year,
+                query=query_kw or (None if found_make else norm_query.replace("recall", "").replace("geri cagirma", "").strip()),
+                limit=3,
+            )
+
+            if recalls:
+                reports = [format_nhtsa_recall_report(r) for r in recalls]
+                header = (
+                    f"📢 **NHTSA Resmi Güvenlik Geri Çağırma (Recall) & TSB Raporu:**\n"
+                    f"🔎 **Sorgu Kriteri:** Marka: {found_make.upper() if found_make else 'Tümü'} | Yıl: {found_year or 'Tümü'} | Filtre: {query_kw or 'Genel'}\n"
+                    f"📊 **Eşleşen Kampanya:** {len(recalls)} adet listeleniyor\n\n"
+                )
+                return header + ("\n\n" + "─" * 45 + "\n\n").join(reports)
+            else:
+                return (
+                    f"ℹ️ **NHTSA Geri Çağırma Arama Sonucu:**\n\n"
+                    f"Belirtilen kriterlere uygun (`{user_query}`) CAN-Bus veya elektriksel geri çağırma kaydı bulunamadı.\n"
+                    "Lütfen araç modeli (Örn: *'Ford F-150'*, *'Tesla Model 3'*, *'VW ID.4'*) veya sistem (Örn: *'Trailer Brake'*, *'BMS'*, *'Gateway'*) belirterek tekrar deneyin."
+                )
+
         # 4. If direct DTC is identified, render structured 4-stage technician report
         target_code = direct_dtc
         is_general_fault_query = any(w in norm_query for w in ["ariza", "dtc", "hata kodu", "fault", "nedir", "analiz et", "neden"])
@@ -1167,6 +1433,22 @@ class CausalBayesianInferenceEngine:
         measurement_block = info.get("measurement", "Standart OEM elektriksel ve fiziksel toleranslar dahilindedir.")
         routine_block = info.get("uds_routine", "UDS Service 0x14 (DTC Hafızası Sıfırlama)")
 
+        # Check if there are related NHTSA recalls for this code or component
+        nhtsa_block = ""
+        related_recalls = search_nhtsa_recalls(query=code, limit=2)
+        if not related_recalls:
+            title_lower = info.get("title", "").lower()
+            for kw in ["trailer brake", "contactor", "interlock", "theft", "pats", "purge"]:
+                if kw in title_lower:
+                    related_recalls = search_nhtsa_recalls(query=kw, limit=1)
+                    break
+        if related_recalls:
+            rec_items = [
+                f"  • **Kampanya {r.get('campaign_number')} ({r.get('manufacturer')}):** {r.get('component')} — {r.get('summary', '')[:100]}..."
+                for r in related_recalls
+            ]
+            nhtsa_block = "\n\n📢 **İlgili Resmi NHTSA Güvenlik Geri Çağırma (Recall) Bültenleri:**\n" + "\n".join(rec_items)
+
         return (
             f"🚨 **[{code}] — {info.get('title', code)}**\n"
             f"🏷️ **Alt Sistem:** {info.get('subsystem', 'Genel Teşhis')} | **Öncelik:** {info.get('severity', 'MEDIUM')}\n"
@@ -1180,6 +1462,7 @@ class CausalBayesianInferenceEngine:
             f"  • `{routine_block}`\n\n"
             f"🔧 **Aşama 4: Parça Değişim & Adaptasyon Prosedürü:**\n"
             f"  • Arızalı komponenti değiştirdikten sonra kontak `Ignition ON, Engine OFF` konumunda `UDS 0x14 0xFFFFFF` komutu ile arıza hafızasını temizleyin ve 1 sürüş çevrimi (Drive Cycle) gerçekleştirin."
+            f"{nhtsa_block}"
         )
 
     @classmethod

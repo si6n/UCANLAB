@@ -77,12 +77,15 @@ class TelemetryUploader:
 
         # MED-5: Compute file size and streaming SHA-256 without loading entire file into memory
         file_size = path.stat().st_size
+        if file_size == 0:
+            raise LicenseError("Cannot upload empty telemetry file", code="EMPTY_TELEMETRY_FILE")
+
         hasher = hashlib.sha256()
         with open(path, "rb") as f:
             while chunk := f.read(64 * 1024):
                 hasher.update(chunk)
         sha256 = hasher.hexdigest()
-        total_chunks = math.ceil(file_size / self.chunk_size) if file_size > 0 else 1
+        total_chunks = math.ceil(file_size / self.chunk_size)
 
         progress = UploadProgress(total_bytes=file_size, total_chunks=total_chunks, status="uploading")
         self._emit(progress)
@@ -112,6 +115,8 @@ class TelemetryUploader:
 
         # 2. Upload chunks with seek/read to keep memory constant.
         first_unsent = progress.uploaded_chunks
+        progress.bytes_sent = min(file_size, first_unsent * self.chunk_size)
+        self._emit(progress)
         with open(path, "rb") as f:
             for index in range(total_chunks):
                 if index < first_unsent:

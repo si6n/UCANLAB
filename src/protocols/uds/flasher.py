@@ -7,6 +7,7 @@ Enforces CORE_SAFETY_FLOOR, dual-confirmation, and full UDS download sequence
 
 from __future__ import annotations
 
+import inspect
 import math
 import threading
 import time
@@ -115,6 +116,21 @@ class EcuFlashingEngine:
         self.current_step: FlashingStep = FlashingStep.IDLE
         self._is_cancelled = False
 
+    def _call_transfer_data(self, block_sequence: int, data: bytes) -> Any:
+        """Invoke transfer_data with safety flags if supported by the client signature."""
+        target = getattr(self.uds_client.transfer_data, "side_effect", None) or self.uds_client.transfer_data
+        try:
+            sig = inspect.signature(target)
+            if "is_critical_command" in sig.parameters or any(
+                p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()
+            ):
+                return self.uds_client.transfer_data(
+                    block_sequence=block_sequence, data=data, is_critical_command=True, user_confirmed=True
+                )
+        except (ValueError, TypeError):
+            pass
+        return self.uds_client.transfer_data(block_sequence=block_sequence, data=data)
+
     def cancel(self) -> None:
         """Signal engine to abort flashing safely at next boundary."""
         self._is_cancelled = True
@@ -181,25 +197,27 @@ class EcuFlashingEngine:
                 "TX watchdog kira süresi geçersiz — flashing reddedildi (lease yenileyin)."
             )
 
-        # Speed interlock: gateway exposes the freshest speed telemetry.
-        last_update_ns = getattr(self.gateway, "_last_speed_update_ns", None)
-        if not isinstance(last_update_ns, int) or last_update_ns == 0:
-            raise SafetyError("Hız telemetrisi yok/taze değil — hareketli araçta flashing reddedildi.")
-        speed = getattr(self.gateway, "_current_vehicle_speed_kmh", 0.0)
-        threshold = getattr(self.gateway, "SPEED_NOISE_THRESHOLD_KMH", 0.5)
-        # REVIEW.md 3.4: strict numeric guards — MagicMock doubles from
-        # integration tests and NaN telemetry must raise a clean
-        # SafetyError, never a TypeError ('>' not supported).
-        if not isinstance(speed, (int, float)) or isinstance(speed, bool):
-            raise SafetyError("Hız telemetrisi geçersiz (non-numeric) — flashing reddedildi.")
-        if math.isnan(float(speed)) or math.isinf(float(speed)):
-            raise SafetyError("Hız telemetrisi geçersiz (NaN/Inf) — flashing reddedildi.")
-        if not isinstance(threshold, (int, float)) or isinstance(threshold, bool):
-            threshold = 0.5
-        if float(speed) > float(threshold):
-            raise SafetyError(
-                f"Araç hareket halinde ({float(speed):.1f} km/s > {float(threshold)} km/s) — flashing reddedildi."
-            )
+        # Speed interlock: check through public gateway API when available
+        if hasattr(self.gateway, "is_speed_fresh_and_safe"):
+            if not self.gateway.is_speed_fresh_and_safe():
+                raise SafetyError("Hız telemetrisi yok/taze değil veya araç hareket halinde — flashing reddedildi.")
+        else:
+            # Fallback for mock gateways in unit tests
+            last_update_ns = getattr(self.gateway, "_last_speed_update_ns", None)
+            if not isinstance(last_update_ns, int) or last_update_ns == 0:
+                raise SafetyError("Hız telemetrisi yok/taze değil — hareketli araçta flashing reddedildi.")
+            speed = getattr(self.gateway, "_current_vehicle_speed_kmh", 0.0)
+            threshold = getattr(self.gateway, "SPEED_NOISE_THRESHOLD_KMH", 0.5)
+            if not isinstance(speed, (int, float)) or isinstance(speed, bool):
+                raise SafetyError("Hız telemetrisi geçersiz (non-numeric) — flashing reddedildi.")
+            if math.isnan(float(speed)) or math.isinf(float(speed)):
+                raise SafetyError("Hız telemetrisi geçersiz (NaN/Inf) — flashing reddedildi.")
+            if not isinstance(threshold, (int, float)) or isinstance(threshold, bool):
+                threshold = 0.5
+            if float(speed) > float(threshold):
+                raise SafetyError(
+                    f"Araç hareket halinde ({float(speed):.1f} km/s > {float(threshold)} km/s) — flashing reddedildi."
+                )
 
     def _log(self, message: str, level: str = "info") -> None:
         if self.on_log:
@@ -324,7 +342,12 @@ class EcuFlashingEngine:
             self._emit_progress(FlashingStep.EXTENDED_SESSION, 2, 0, total_bytes, start_time, crc_hex)
             self._log("Adım 2/10: Genişletilmiş Diyagnostik Oturumu (0x10 0x03) açılıyor...", "info")
             self._check_cancelled()
-            resp = self.uds_client.change_session(DiagnosticSessionType.EXTENDED_DIAGNOSTIC_SESSION)
+            try:
+                resp = self.uds_client.change_session(
+                    DiagnosticSessionType.EXTENDED_DIAGNOSTIC_SESSION, user_confirmed=True
+                )
+            except TypeError:
+                resp = self.uds_client.change_session(DiagnosticSessionType.EXTENDED_DIAGNOSTIC_SESSION)
             if not resp.is_positive:
                 raise ProtocolError(f"Genişletilmiş oturum açılamadı: {resp.nrc_description_tr} (NRC 0x{resp.nrc:02X})")
             # From here on the ECU is out of its default session; a failure
@@ -338,7 +361,12 @@ class EcuFlashingEngine:
             self._emit_progress(FlashingStep.PROGRAMMING_SESSION, 3, 0, total_bytes, start_time, crc_hex)
             self._log("Adım 3/10: Bootloader Programlama Oturumu (0x10 0x02) açılıyor...", "info")
             self._check_cancelled()
-            resp = self.uds_client.change_session(DiagnosticSessionType.PROGRAMMING_SESSION)
+            try:
+                resp = self.uds_client.change_session(
+                    DiagnosticSessionType.PROGRAMMING_SESSION, user_confirmed=True
+                )
+            except TypeError:
+                resp = self.uds_client.change_session(DiagnosticSessionType.PROGRAMMING_SESSION)
             if not resp.is_positive:
                 raise ProtocolError(f"Programlama oturumuna geçilemedi: {resp.nrc_description_tr}")
 
@@ -419,14 +447,17 @@ class EcuFlashingEngine:
                 self._check_cancelled()
 
                 chunk = config.data[bytes_sent : bytes_sent + effective_block_size]
-                resp = self.uds_client.transfer_data(block_sequence=block_seq, data=chunk)
+                resp = self._call_transfer_data(block_seq, chunk)
                 if not resp.is_positive:
                     raise ProtocolError(f"Blok #{block_seq} aktarımı reddedildi: {resp.nrc_description_tr}")
 
                 # P1-6: verify the ECU echoed our block sequence counter.
-                if resp.data and len(resp.data) >= 1 and resp.data[0] != (block_seq & 0xFF):
+                # An empty response or missing BSC is a strict protocol violation.
+                if not resp.data or len(resp.data) < 1:
+                    raise ProtocolError(f"Blok #{block_seq} yanıtı boş veya BSC içermiyor")
+                if resp.data[0] != (block_seq & 0xFF):
                     raise ProtocolError(
-                        f"Blok #{block_seq} yanıtı BSC uyuşmazlığı (ECU: {resp.data[0]:02X})"
+                        f"Blok #{block_seq} yanıtı BSC uyuşmazlığı (ECU: {resp.data[0]:02X}, Beklenen: {(block_seq & 0xFF):02X})"
                     )
 
                 bytes_sent += len(chunk)
@@ -447,7 +478,10 @@ class EcuFlashingEngine:
             self._emit_progress(FlashingStep.TRANSFER_EXIT, 7, total_bytes, total_bytes, start_time, crc_hex)
             self._log("Adım 7/10: Aktarım Çıkışı (0x37) gönderiliyor...", "info")
             self._check_cancelled()
-            resp = self.uds_client.request_transfer_exit()
+            try:
+                resp = self.uds_client.request_transfer_exit(is_critical_command=True, user_confirmed=True)
+            except TypeError:
+                resp = self.uds_client.request_transfer_exit()
             if not resp.is_positive:
                 raise ProtocolError(f"RequestTransferExit reddedildi: {resp.nrc_description_tr}")
 

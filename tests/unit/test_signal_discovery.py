@@ -225,3 +225,71 @@ def test_hypothesis_approval_workflow() -> None:
     db_approved = engine.build_dbc(approved_only=True)
     assert len(db_approved.messages) == 1
     assert any(s.name.startswith("COUNTER") for s in db_approved.messages[0].signals)
+
+
+# ============================================================================
+# Evidence Scoring & Confidence Reports (spec §1 evidence.py contract)
+# ============================================================================
+
+
+def test_evidence_scoring_definitive_crc_hypothesis() -> None:
+    """Positive: a hypothesis whose CRC evidence reaches 0.99+ scores definitive."""
+    from src.engine.discovery.evidence import score_hypothesis
+    from src.engine.discovery.hypotheses import Evidence, Hypothesis
+
+    hyp = Hypothesis(
+        htype="CHECKSUM",
+        start_bit=0,
+        length=8,
+        evidence=[
+            Evidence(kind="crc_match_ratio", value=0.995, detail="CRC-8 0x1D matched 99.5% of frames"),
+        ],
+    )
+    report = score_hypothesis(hyp)
+    assert report.verdict == "definitive"
+    assert report.is_exportable is True
+    assert any("CRC-8" in line for line in report.explanations)
+
+
+def test_evidence_scoring_weak_without_evidence() -> None:
+    """Negative: a hypothesis with no evidence scores weak and is not exportable."""
+    from src.engine.discovery.evidence import score_hypothesis
+    from src.engine.discovery.hypotheses import Hypothesis
+
+    report = score_hypothesis(Hypothesis(htype="SIGNAL", start_bit=0, length=16))
+    assert report.verdict == "weak"
+    assert report.is_exportable is False
+    assert report.weighted_score == 0.0
+
+
+def test_evidence_scoring_boundary_thresholds() -> None:
+    """Boundary: verdicts flip exactly at the spec §4 thresholds 0.90 / 0.80."""
+    from src.engine.discovery.evidence import score_hypothesis
+    from src.engine.discovery.hypotheses import Evidence, Hypothesis
+
+    def _score(value: float) -> str:
+        hyp = Hypothesis(htype="COUNTER", start_bit=0, length=4, evidence=[Evidence("monotonicity", value, "delta+1 ratio")])
+        return score_hypothesis(hyp).verdict
+
+    assert _score(1.0) == "definitive"
+    assert _score(0.90) == "candidate"
+    assert _score(0.80) == "hint"
+    assert _score(0.5) == "weak"
+
+
+def test_evidence_report_is_human_readable() -> None:
+    """Spec §3: evidence_report() yields a human-readable multi-line verdict."""
+    from src.engine.discovery.evidence import evidence_report
+    from src.engine.discovery.hypotheses import Evidence, Hypothesis
+
+    hyp = Hypothesis(
+        htype="COUNTER",
+        start_bit=8,
+        length=4,
+        evidence=[Evidence("monotonicity", 0.96, "Bayt1 karelerin %96'sında +1 artıyor (mod 16)")],
+    )
+    text = evidence_report(hyp)
+    assert "COUNTER" in text
+    assert "bits 8..11" in text
+    assert "%96" in text
+    assert "Verdict:" in text

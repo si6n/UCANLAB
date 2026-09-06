@@ -94,6 +94,19 @@ def test_request_download_alfi_widths() -> None:
     )
     assert s11 == b"\x34\x00\x11\x40\x20"
 
+    # Asymmetric ALFI (ISO 14229-1: high=size width, low=address width)
+    # 0x14 -> 1-byte size, 4-byte address
+    s14 = UdsServiceBuilder.build_request_download(
+        0x12345678, 0x50, address_and_length_format_identifier=0x14
+    )
+    assert s14 == b"\x34\x00\x14\x12\x34\x56\x78\x50"
+
+    # 0x41 -> 4-byte size, 1-byte address
+    s41 = UdsServiceBuilder.build_request_download(
+        0x80, 0x01020304, address_and_length_format_identifier=0x41
+    )
+    assert s41 == b"\x34\x00\x41\x80\x01\x02\x03\x04"
+
 
 def test_request_download_alfi_validation() -> None:
     """Invalid widths and overflow raise clean ValueError, not OverflowError."""
@@ -107,11 +120,13 @@ def test_request_download_alfi_validation() -> None:
     # Nibble > 4 is invalid
     with pytest.raises(ValueError):
         UdsServiceBuilder.build_request_download(0x1234, 0x10, address_and_length_format_identifier=0x55)
-    # Value wider than the declared width overflows cleanly
+    # Value wider than the declared width overflows cleanly (ISO 14229-1: high=size, low=addr)
+    # 0x42: size 4 bytes, addr 2 bytes -> 4-byte address 0xAABBCCDD must overflow
     with pytest.raises(ValueError):
-        UdsServiceBuilder.build_request_download(0xAABBCCDD, 0x10, address_and_length_format_identifier=0x24)
+        UdsServiceBuilder.build_request_download(0xAABBCCDD, 0x10, address_and_length_format_identifier=0x42)
+    # 0x24: size 2 bytes, addr 4 bytes -> 3-byte size 0x10000 must overflow
     with pytest.raises(ValueError):
-        UdsServiceBuilder.build_request_download(0x1000, 0x10000, address_and_length_format_identifier=0x42)
+        UdsServiceBuilder.build_request_download(0x1000, 0x10000, address_and_length_format_identifier=0x24)
 
 
 def test_parse_positive_and_negative_responses() -> None:

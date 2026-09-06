@@ -21,22 +21,42 @@ class TxPort(Protocol):
     transmission methods to allow protocol engines to send frames onto the CAN bus.
     """
 
-    async def send(self, frame: CanFrame) -> None:
+    async def send(
+        self,
+        frame: CanFrame,
+        *,
+        is_critical_command: bool = False,
+        user_confirmed: bool = False,
+        budget_category: str = "default",
+    ) -> None:
         """Transmit a CAN frame asynchronously onto the bus.
 
         Args:
             frame: Canonical CanFrame to transmit.
+            is_critical_command: Whether this frame executes a critical automotive command.
+            user_confirmed: Dual operator confirmation capability flag.
+            budget_category: Dedicated rate-limit lane name.
 
         Raises:
             PlatformError: If transmission fails or bus is in fault state.
         """
         ...
 
-    def send_sync(self, frame: CanFrame) -> None:
+    def send_sync(
+        self,
+        frame: CanFrame,
+        *,
+        is_critical_command: bool = False,
+        user_confirmed: bool = False,
+        budget_category: str = "default",
+    ) -> None:
         """Transmit a CAN frame synchronously (blocking) onto the bus.
 
         Args:
             frame: Canonical CanFrame to transmit.
+            is_critical_command: Whether this frame executes a critical automotive command.
+            user_confirmed: Dual operator confirmation capability flag.
+            budget_category: Dedicated rate-limit lane name.
 
         Raises:
             PlatformError: If transmission fails or bus is in fault state.
@@ -130,6 +150,40 @@ class SystemClockProvider:
 
     def now_wall_ns(self) -> int:
         """Return wall-clock time in nanoseconds since the epoch."""
+        return time.time_ns()
+
+
+class VirtualClock:
+    """Deterministic, manually advanced monotonic clock for timeout tests.
+
+    docs/ai_context/05 §4: tests must never sleep to exercise timeout
+    behaviour — they advance this clock instead. Only monotonic time is
+    virtualised (safety/lease math is monotonic by invariant); wall time
+    falls back to the real system clock because file/license comparisons
+    legitimately need it.
+    """
+
+    def __init__(self, start_monotonic_sec: float = 1000.0) -> None:
+        self._monotonic_sec = float(start_monotonic_sec)
+
+    def advance(self, delta_sec: float) -> None:
+        """Advance the virtual monotonic clock by delta_sec (may be negative for rollback tests)."""
+        self._monotonic_sec += float(delta_sec)
+
+    def set(self, monotonic_sec: float) -> None:
+        """Set the virtual monotonic clock to an absolute value."""
+        self._monotonic_sec = float(monotonic_sec)
+
+    def now_monotonic(self) -> float:
+        """Return virtual monotonic time in fractional seconds."""
+        return self._monotonic_sec
+
+    def now_monotonic_ns(self) -> int:
+        """Return virtual monotonic time in nanoseconds."""
+        return int(self._monotonic_sec * 1e9)
+
+    def now_wall_ns(self) -> int:
+        """Return real wall-clock time in nanoseconds (not virtualised)."""
         return time.time_ns()
 
 

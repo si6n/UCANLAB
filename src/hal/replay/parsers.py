@@ -28,13 +28,13 @@ logger = get_logger("hal.replay.parsers")
 # Standard Vector ASCII log line regex
 # Example: "   0.001250 1  18FEEE00x       Rx   d 8 01 02 03 04 05 06 07 08"
 CLASSIC_ASC_REGEX = re.compile(
-    r"^\s*(?P<time>\d+\.\d+)\s+(?P<channel>\d+)\s+(?P<id>[0-9A-Fa-f]+)(?P<ext>x)?\s+(?P<dir>Rx|Tx)\s+d\s+(?P<dlc>\d+)\s+(?P<data>(?:[0-9A-Fa-f]{2}\s*)+)"
+    r"^\s*(?P<time>\d+\.\d+)\s+(?P<channel>\d+)\s+(?P<id>[0-9A-Fa-f]+)(?P<ext>x)?\s+(?P<dir>Rx|Tx)\s+d\s+(?P<dlc>\d+)(?:\s+(?P<data>(?:[0-9A-Fa-f]{2}\s*)*))?"
 )
 
 # CAN-FD Vector ASCII log line regex
 # Example: "   0.002500 CANFD 1 Rx 123 1 0 12 12 01 02 03 04 05 06 07 08 09 0A 0B 0C"
 FD_ASC_REGEX = re.compile(
-    r"^\s*(?P<time>\d+\.\d+)\s+CANFD\s+(?P<channel>\d+)\s+(?P<dir>Rx|Tx)\s+(?P<id>[0-9A-Fa-f]+)(?P<ext>x)?\s+(?P<brs>[01])\s+(?P<esi>[01])\s+(?P<dlc>\d+)\s+(?P<len>\d+)\s+(?P<data>(?:[0-9A-Fa-f]{2}\s*)+)"
+    r"^\s*(?P<time>\d+\.\d+)\s+CANFD\s+(?P<channel>\d+)\s+(?P<dir>Rx|Tx)\s+(?P<id>[0-9A-Fa-f]+)(?P<ext>x)?\s+(?P<brs>[01])\s+(?P<esi>[01])\s+(?P<dlc>[0-9A-Fa-f]+)\s+(?P<len>\d+)(?:\s+(?P<data>(?:[0-9A-Fa-f]{2}\s*)*))?"
 )
 
 
@@ -89,7 +89,8 @@ class VectorAscParser:
             is_extended = match_classic.group("ext") == "x"
             direction = match_classic.group("dir").lower()
             dlc = int(match_classic.group("dlc"))
-            data_hex = "".join(match_classic.group("data").split())
+            raw_data = match_classic.group("data") or ""
+            data_hex = "".join(raw_data.split())
             data_bytes = bytes.fromhex(data_hex)
 
             arb_id = int(raw_id, 16)
@@ -117,9 +118,20 @@ class VectorAscParser:
             direction = match_fd.group("dir").lower()
             brs = match_fd.group("brs") == "1"
             esi = match_fd.group("esi") == "1"
-            dlc = int(match_fd.group("dlc"))
-            data_hex = "".join(match_fd.group("data").split())
+            raw_dlc_str = match_fd.group("dlc")
+            try:
+                dlc_val = int(raw_dlc_str, 10)
+                if dlc_val > 15:
+                    dlc_val = int(raw_dlc_str, 16)
+            except ValueError:
+                dlc_val = int(raw_dlc_str, 16)
+            dlc = dlc_val
+            decl_len = int(match_fd.group("len"))
+            raw_data = match_fd.group("data") or ""
+            data_hex = "".join(raw_data.split())
             data_bytes = bytes.fromhex(data_hex)
+            if len(data_bytes) != decl_len:
+                raise ValueError(f"CAN-FD declared length {decl_len} does not match actual data {len(data_bytes)} bytes")
 
             arb_id = int(raw_id, 16)
             timestamp_ns = int(time_sec * 1_000_000_000)
@@ -288,9 +300,13 @@ class VectorBlfParser:
         try:
             reader = can.BLFReader(str(path))
             for msg in reader:
-                frame = cls._convert_message(msg, channel_prefix=channel_prefix)
-                if frame is not None:
-                    frames.append(frame)
+                try:
+                    frame = cls._convert_message(msg, channel_prefix=channel_prefix)
+                    if frame is not None:
+                        frames.append(frame)
+                except (ValueError, can.CanError) as rec_exc:
+                    logger.debug("Skipping malformed BLF message", extra={"error": str(rec_exc)})
+                    continue
         except Exception as exc:
             logger.warning(
                 "Error reading BLF trace file or corrupted content",

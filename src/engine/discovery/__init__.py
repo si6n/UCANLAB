@@ -8,12 +8,14 @@ from src.engine.discovery.dbc_builder import DbcBuilder
 from src.engine.discovery.detectors.checksum import ChecksumDetector, Crc8Model
 from src.engine.discovery.detectors.counter import CounterDetector
 from src.engine.discovery.engine import SignalDiscoveryEngine
+from src.engine.discovery.evidence import ConfidenceReport, evidence_report, score_hypothesis
 from src.engine.discovery.hypotheses import Evidence, Hypothesis, IdReport
 from src.engine.discovery.segmenter import SignalSegmenter
 
 __all__ = [
     "BitStats",
     "ChecksumDetector",
+    "ConfidenceReport",
     "CounterDetector",
     "Crc8Model",
     "DbcBuilder",
@@ -22,4 +24,6 @@ __all__ = [
     "IdReport",
     "SignalDiscoveryEngine",
     "SignalSegmenter",
+    "evidence_report",
+    "score_hypothesis",
 ]

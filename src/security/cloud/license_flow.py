@@ -155,13 +155,14 @@ class LicenseFlow:
                 code="NO_DEVICE_TOKEN",
             )
 
+        sent_nonce = pysecrets.token_hex(8)
         resp = self.client.request(
             "POST",
             "/licenses/activate",
             json_body={
                 "device_token": device_token,
                 "license_ref": license_ref,
-                "nonce": pysecrets.token_hex(8),
+                "nonce": sent_nonce,
             },
         )
         if resp.status in (401, 403):
@@ -174,6 +175,11 @@ class LicenseFlow:
 
         data = resp.json()
         claims = self.verify_cloud_ticket(data["license_token"])
+        if claims.nonce and claims.nonce != sent_nonce:
+            raise LicenseError(
+                f"Cloud license anti-replay nonce mismatch (expected {sent_nonce}, got {claims.nonce})",
+                code="NONCE_MISMATCH",
+            )
 
         # Persist the signed ticket for offline re-verification within grace.
         self.client.store_license_ticket(data["license_token"])
@@ -186,7 +192,12 @@ class LicenseFlow:
     # ------------------------------------------------------------------
     # Local verification of the Ed25519 ticket (trust anchor: embedded key)
     # ------------------------------------------------------------------
-    def verify_cloud_ticket(self, token: str, expected_device_id: str | None = None) -> CloudLicenseClaims:
+    def verify_cloud_ticket(
+        self,
+        token: str,
+        expected_device_id: str | None = None,
+        is_offline: bool = False,
+    ) -> CloudLicenseClaims:
         """Verify signature + canonical schema; raise LicenseError on any flaw."""
         parts = token.strip().split(".")
         if len(parts) != 2:
@@ -273,8 +284,19 @@ class LicenseFlow:
 
         self.last_known_clock_ts = max(self.last_known_clock_ts, now)
 
+        # Check strict schema types
+        if not isinstance(data.get("features"), (list, tuple, set)):
+            raise LicenseError("Malformed features field in ticket", code="MALFORMED_SCHEMA")
+        if not isinstance(data.get("iat"), (int, float)) or not isinstance(data.get("exp"), (int, float)):
+            raise LicenseError("Malformed timestamp field in ticket", code="MALFORMED_SCHEMA")
+        if not isinstance(data.get("offline_until"), (int, float)):
+            raise LicenseError("Malformed offline_until field in ticket", code="MALFORMED_SCHEMA")
+
         if now > data["exp"]:
             raise LicenseError("Cloud license ticket has expired.", code="LICENSE_EXPIRED")
+
+        if is_offline and now > data["offline_until"]:
+            raise LicenseError("Cloud offline grace period has expired.", code="OFFLINE_GRACE_EXPIRED")
 
         return CloudLicenseClaims(
             license_id=data["license_id"],

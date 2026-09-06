@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import threading
 import time
+from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -70,15 +71,25 @@ class SafetySupervisor:
         },  # MUST NOT transition directly to ARMED_TX or ACTIVE
     }
 
-    def __init__(self, initial_state: SafetyState = SafetyState.STARTUP) -> None:
+    def __init__(
+        self,
+        initial_state: SafetyState = SafetyState.STARTUP,
+        estop: Any | None = None,
+    ) -> None:
         self._state = initial_state
+        self._estop = estop
         self._epoch: int = 0
         self._state_change_timestamp_ns: int = time.monotonic_ns()
         self._last_duration_ns: int = 0
         self._lock = threading.RLock()
         self._callbacks: list[Callable[[SafetyState, SafetyState, str], None]] = []
         self._fault_reason: str = ""
-        self._history: list[StateTransitionRecord] = []
+        self._history: deque[StateTransitionRecord] = deque(maxlen=10_000)
+
+    def bind_estop(self, estop: Any) -> None:
+        """Associate an EmergencyStopSystem instance to govern fault exits."""
+        with self._lock:
+            self._estop = estop
 
     @property
     def current_state(self) -> SafetyState:
@@ -136,16 +147,10 @@ class SafetySupervisor:
 
     @property
     def state_duration_ns(self) -> int:
-        """Nanoseconds elapsed in the current safety state calculated via monotonic clock.
-
-        Monotonic non-decreasing: the reported duration never decreases within a state,
-        even if the underlying clock jitters backwards (e.g. VM scheduling deltas).
-        """
+        """Nanoseconds elapsed in the current safety state calculated via monotonic clock."""
         with self._lock:
             current_ns = time.monotonic_ns()
-            duration = max(0, current_ns - self._state_change_timestamp_ns)
-            self._last_duration_ns = max(self._last_duration_ns, duration)
-            return self._last_duration_ns
+            return max(0, current_ns - self._state_change_timestamp_ns)
 
     def get_state_duration_ns(self) -> int:
         """Thread-safe accessor returning nanoseconds spent in the current safety state."""
@@ -183,6 +188,18 @@ class SafetySupervisor:
             now_monotonic_ns = time.monotonic_ns()
             now_utc = datetime.now(timezone.utc)
             duration_ns = max(0, now_monotonic_ns - self._state_change_timestamp_ns)
+
+            if (
+                self._estop is not None
+                and getattr(self._estop, "is_engaged", False)
+                and new_state in {SafetyState.PASSIVE, SafetyState.ARMED_TX, SafetyState.ACTIVE}
+            ):
+                err_msg = (
+                    f"Cannot transition to '{new_state.value}' while Emergency Stop is engaged. "
+                    "Reset E-Stop with valid cryptographic token first."
+                )
+                logger.critical(err_msg)
+                raise SafetyError(err_msg, code="ESTOP_ENGAGED")
 
             allowed = self.ALLOWED_TRANSITIONS.get(self._state, set())
             if new_state not in allowed:

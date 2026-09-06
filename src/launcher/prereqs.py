@@ -122,13 +122,18 @@ class PrereqChecker:
             )
         )
 
-        # 3. RP1210 Adapters (Nexiq USB-Link / Noregon DLA)
-        has_rp1210 = (sys32 / "rp121032.dll").exists() or (syswow / "rp121032.dll").exists()
+        # 3. RP1210 Adapters (Nexiq USB-Link / Noregon DLA) - 32-bit and 64-bit DLLs
+        has_rp1210 = (
+            (sys32 / "rp121032.dll").exists()
+            or (syswow / "rp121032.dll").exists()
+            or (sys32 / "RP121064.dll").exists()
+            or (sys32 / "rp121064.dll").exists()
+        )
         drivers.append(
             PrereqStatus(
                 "TMC RP1210 Diagnostic Adapter",
                 has_rp1210,
-                "rp121032.dll available" if has_rp1210 else "RP1210 driver not detected (Optional for heavy-duty)",
+                "RP1210 driver DLL available" if has_rp1210 else "RP1210 driver not detected (Optional for heavy-duty)",
                 is_critical=False,
             )
         )

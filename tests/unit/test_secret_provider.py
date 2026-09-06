@@ -232,5 +232,41 @@ def test_concurrent_secret_access(tmp_path: Path) -> None:
         t.start()
     for t in threads:
         t.join()
-
     assert not errors
+
+
+def test_machine_seed_read_failure_fails_closed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Fail-closed seed handling (AGENTS §2b): a transient OSError while reading
+    the persistent machine seed must raise SecurityError — NEVER silently mint
+    a replacement seed that would invalidate every previously sealed secret."""
+
+    storage_file = tmp_path / "secrets.bin"
+    seed_file = tmp_path / "machine_seed.bin"
+    seed_file.write_bytes(b"preexisting_seed_material_32_bytes_pad!!")
+
+    backend = LinuxSecretBackend(storage_path=storage_file)
+
+    def _boom(self: object) -> bytes:
+        raise OSError("transient disk error")
+
+    # Patch only the seed file instance's read_bytes — everything else
+    # (store, key derivation inputs) stays on the real filesystem.
+    monkeypatch.setattr(type(seed_file), "read_bytes", _boom)
+
+    with pytest.raises(SecurityError, match="could not be read"):
+        backend._get_machine_seed()
+
+
+def test_machine_seed_missing_file_mints_new_seed(tmp_path: Path) -> None:
+    """Positive/boundary: with no seed file present a fresh 32-byte seed is
+    created and persisted so the second run reuses it (F-09)."""
+    storage_file = tmp_path / "secrets.bin"
+    backend = LinuxSecretBackend(storage_path=storage_file)
+
+    seed1 = backend._get_machine_seed()
+    assert len(seed1) == 32
+
+    seed_file = tmp_path / "machine_seed.bin"
+    assert seed_file.exists()
+    seed2 = backend._get_machine_seed()
+    assert seed1 == seed2

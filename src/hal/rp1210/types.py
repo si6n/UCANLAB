@@ -45,6 +45,12 @@ class RP1210ErrorCode(IntEnum):
     ERR_PROCESS_NOT_FOUND = 161
     ERR_CANNOT_ACCESS_PORT = 162
 
+    # Standard RP1210C aliases
+    ERR_DLL_NOT_INITIALIZED = 128
+    ERR_COMM_DEVICE_NOT_FOUND = 146
+    ERR_COMM_DEVICE_NOT_RESPONDING = 142
+    ERR_ADDRESS_NEVER_CLAIMED = 155
+
     @classmethod
     def get_description(cls, code: int) -> str:
         """Return human-readable English description for RP1210 error code."""

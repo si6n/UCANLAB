@@ -108,9 +108,10 @@ class ChecksumDetector:
         hypotheses: list[Hypothesis] = []
 
         # Check candidate checksum positions: last byte, first byte, second-to-last, second
-        candidate_positions = [dlc - 1, 0]
+        pos = [dlc - 1, 0]
         if dlc >= 3:
-            candidate_positions.extend([dlc - 2, 1])
+            pos.extend([dlc - 2, 1])
+        candidate_positions = list(dict.fromkeys(pos))
 
         for target_byte in candidate_positions:
             covered_indices = [i for i in range(dlc) if i != target_byte]

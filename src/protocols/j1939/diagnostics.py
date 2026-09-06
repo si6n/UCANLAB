@@ -1,4 +1,4 @@
-"""SAE J1939-73 Diagnostic Services (DM1, DM2, DM3, DM11) and FMI 0-31 Parser.
+"""SAE J1939-73 Diagnostic Services (DM1..DM6, DM11, DM12) and FMI 0-31 Parser.
 
 Complies with SAE J1939-73 and MASTER_PLAN.md Section 4.4.
 """
@@ -9,12 +9,16 @@ from dataclasses import dataclass
 from enum import IntEnum
 
 from src.core.logging import get_logger
+from src.core.models.can_frame import CanFrame
 
 logger = get_logger("protocols.j1939.diagnostics")
 
 PGN_DM1: int = 65226  # 0xFECA (Active DTCs)
 PGN_DM2: int = 65227  # 0xFECB (Previously Active DTCs)
 PGN_DM3: int = 65228  # 0xFECC (Clear Previously Active DTCs)
+PGN_DM4: int = 65229  # 0xFECD (Freeze Frame Parameters)
+PGN_DM5: int = 65230  # 0xFECE (Diagnostic Readiness 1)
+PGN_DM6: int = 65231  # 0xFECF (Pending Emission-Related DTCs)
 PGN_DM11: int = 65235  # 0xFED3 (Clear Active DTCs)
 PGN_DM12: int = 65236  # 0xFED4 (Emissions-Related Active DTCs)
 
@@ -49,6 +53,17 @@ FMI_DESCRIPTIONS: dict[int, tuple[str, str]] = {
     17: ("Data Valid but Below Normal Range - Least Severe", "Veri Normalin Altında (Düşük Seviye)"),
     18: ("Data Valid but Below Normal Range - Moderately Severe", "Veri Normalin Altında (Orta Seviye)"),
     19: ("Received Network Data In Error", "Ağ Üzerinden Hatalı Veri Alındı"),
+    20: ("Data Drifted Out of Range (Most Severe)", "Veri Kapsama Alanı Dışına Kaydı (Kritik)"),
+    21: ("Data Drifted Out of Range (Least Severe)", "Veri Kapsama Alanı Dışına Kaydı (Düşük Seviye)"),
+    22: ("Reserved for SAE Future Use", "SAE Gelecek Kullanım İçin Rezerve"),
+    23: ("Reserved for SAE Future Use", "SAE Gelecek Kullanım İçin Rezerve"),
+    24: ("Reserved for SAE Future Use", "SAE Gelecek Kullanım İçin Rezerve"),
+    25: ("Reserved for SAE Future Use", "SAE Gelecek Kullanım İçin Rezerve"),
+    26: ("Reserved for SAE Future Use", "SAE Gelecek Kullanım İçin Rezerve"),
+    27: ("Reserved for SAE Future Use", "SAE Gelecek Kullanım İçin Rezerve"),
+    28: ("Reserved for SAE Future Use", "SAE Gelecek Kullanım İçin Rezerve"),
+    29: ("Reserved for SAE Future Use", "SAE Gelecek Kullanım İçin Rezerve"),
+    30: ("Reserved for SAE Future Use", "SAE Gelecek Kullanım İçin Rezerve"),
     31: ("Condition Exists", "Durum/Koşul Mevcut"),
 }
 
@@ -112,6 +127,18 @@ class DMMessage:
     timestamp_ns: int
 
 
+@dataclass(slots=True, frozen=True)
+class DMReadiness:
+    """Decoded DM5 (PGN 65230) Diagnostic Readiness 1 payload."""
+
+    active_rank: int
+    previously_active_rank: int
+    supported_systems: int
+    completed_systems: int
+    source_address: int
+    timestamp_ns: int
+
+
 class J1939DiagnosticService:
     """SAE J1939-73 Diagnostic Service Parser and Command Generator."""
 
@@ -163,13 +190,99 @@ class J1939DiagnosticService:
         )
 
     @classmethod
+    def dm11_request_payload(cls) -> bytes:
+        """Construct PGN 59904 (Request PGN) payload targeting DM11 (PGN 65235 / 0xFED3)."""
+        return b"\xd3\xfe\x00"
+
+    @classmethod
+    def dm3_request_payload(cls) -> bytes:
+        """Construct PGN 59904 (Request PGN) payload targeting DM3 (PGN 65228 / 0xFECC)."""
+        return b"\xcc\xfe\x00"
+
+    @classmethod
     def create_dm11_clear_active_request(cls, target_address: int = 0, source_address: int = 0xF9) -> bytes:
         """Construct PGN 59904 (Request PGN) targeting DM11 (PGN 65235 / 0xFED3)."""
-        # PGN 65235 in 3 bytes little endian: 0xD3, 0xFE, 0x00
-        return b"\xd3\xfe\x00"
+        return cls.dm11_request_payload()
+
+    @classmethod
+    def create_dm11_frame(cls, target_address: int = 0, source_address: int = 0xF9) -> CanFrame:
+        """Construct CanFrame targeting DM11 clear active DTCs."""
+        can_id = 0x18EA0000 | ((target_address & 0xFF) << 8) | (source_address & 0xFF)
+        return CanFrame.create(
+            channel_id="j1939",
+            arbitration_id=can_id,
+            data=cls.dm11_request_payload(),
+            is_extended=True,
+            direction="tx",
+        )
 
     @classmethod
     def create_dm3_clear_previously_active_request(cls, target_address: int = 0, source_address: int = 0xF9) -> bytes:
         """Construct PGN 59904 (Request PGN) targeting DM3 (PGN 65228 / 0xFECC)."""
-        # PGN 65228 in 3 bytes little endian: 0xCC, 0xFE, 0x00
-        return b"\xcc\xfe\x00"
+        return cls.dm3_request_payload()
+
+    @classmethod
+    def create_dm3_frame(cls, target_address: int = 0, source_address: int = 0xF9) -> CanFrame:
+        """Construct CanFrame targeting DM3 clear previously active DTCs."""
+        can_id = 0x18EA0000 | ((target_address & 0xFF) << 8) | (source_address & 0xFF)
+        return CanFrame.create(
+            channel_id="j1939",
+            arbitration_id=can_id,
+            data=cls.dm3_request_payload(),
+            is_extended=True,
+            direction="tx",
+        )
+
+    @classmethod
+    def create_request_frame(cls, pgn: int, target_address: int = 0, source_address: int = 0xF9) -> CanFrame:
+        """Construct a PGN 59904 (Request PGN) frame for any diagnostic PGN.
+
+        Shared builder for DM3/DM4/DM5/DM6/DM11 read and clear requests so
+        every diagnostic request frame follows one canonical ID layout:
+        priority 6, PDU format 0xEA, destination = target, source = tool.
+        """
+        if not (0 <= pgn <= 0x1FFFF):
+            raise ValueError(f"PGN out of range: {pgn}")
+        can_id = 0x18EA0000 | ((target_address & 0xFF) << 8) | (source_address & 0xFF)
+        payload = bytes((pgn & 0xFF, (pgn >> 8) & 0xFF, (pgn >> 16) & 0xFF))
+        return CanFrame.create(
+            channel_id="j1939",
+            arbitration_id=can_id,
+            data=payload,
+            is_extended=True,
+            direction="tx",
+        )
+
+    @classmethod
+    def create_dm4_request_frame(cls, target_address: int = 0, source_address: int = 0xF9) -> CanFrame:
+        """Construct a request frame for DM4 (PGN 65229, Freeze Frame Parameters)."""
+        return cls.create_request_frame(PGN_DM4, target_address, source_address)
+
+    @classmethod
+    def create_dm5_request_frame(cls, target_address: int = 0, source_address: int = 0xF9) -> CanFrame:
+        """Construct a request frame for DM5 (PGN 65230, Diagnostic Readiness 1)."""
+        return cls.create_request_frame(PGN_DM5, target_address, source_address)
+
+    @classmethod
+    def create_dm6_request_frame(cls, target_address: int = 0, source_address: int = 0xF9) -> CanFrame:
+        """Construct a request frame for DM6 (PGN 65231, Pending Emission-Related DTCs)."""
+        return cls.create_request_frame(PGN_DM6, target_address, source_address)
+
+    @staticmethod
+    def parse_dm5_readiness(data: bytes, source_address: int = 0, timestamp_ns: int = 0) -> DMReadiness:
+        """Parse DM5 (PGN 65230) Diagnostic Readiness 1 payload per SAE J1939-73.
+
+        Byte 0: active rank/support bits; Byte 1: previously-active rank;
+        Byte 2: supported systems; Byte 3: completed systems
+        (bit-per-system, bit set = supported/complete).
+        """
+        if len(data) < 4:
+            raise ValueError(f"DM5 requires >= 4 bytes, got {len(data)}")
+        return DMReadiness(
+            active_rank=data[0],
+            previously_active_rank=data[1],
+            supported_systems=data[2],
+            completed_systems=data[3],
+            source_address=source_address,
+            timestamp_ns=timestamp_ns,
+        )

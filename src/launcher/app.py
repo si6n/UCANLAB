@@ -63,6 +63,7 @@ class UniversalCanLauncher:
             current_version=self.version,
             cloud_client=self.auth_manager.client,
             public_key=pub_key,
+            require_signature=True,
         )
 
     @classmethod
@@ -71,13 +72,15 @@ class UniversalCanLauncher:
         root = Path(__file__).resolve().parent.parent.parent
 
         # 1. Check for Nuitka / PyInstaller compiled standalone executable
-        dist_exe = root / "dist" / "Universal-CAN-Tool.exe"
-        if dist_exe.is_file():
-            return dist_exe
-
-        standalone_dist = root / "dist" / "main.dist" / "Universal-CAN-Tool.exe"
-        if standalone_dist.is_file():
-            return standalone_dist
+        candidate_exes = [
+            root / "dist" / "Universal-CAN-Tool.exe",
+            root / "dist" / "Universal_CAN_Diagnostic.exe",
+            root / "dist" / "main.dist" / "Universal-CAN-Tool.exe",
+            root / "dist" / "main.dist" / "Universal_CAN_Diagnostic.exe",
+        ]
+        for candidate in candidate_exes:
+            if candidate.is_file():
+                return candidate
 
         # 2. Fallback to raw Python main.py
         return root / "src" / "main.py"
@@ -91,7 +94,8 @@ class UniversalCanLauncher:
         update_info = self.update_manager.check_for_updates(custom_manifest=custom_update_manifest)
         target_exe = self.resolve_target_executable()
 
-        can_launch = not has_critical_failures and target_exe.exists()
+        has_blocking_mandatory_update = update_info.has_update and update_info.mandatory
+        can_launch = not has_critical_failures and target_exe.exists() and not has_blocking_mandatory_update
 
         return LauncherPreflightReport(
             can_launch=can_launch,
@@ -146,7 +150,7 @@ def main() -> int:
     print("=" * 65)
     print("UNIVERSAL CAN-BUS PLATFORM - LAUNCHER PRE-FLIGHT DIAGNOSTICS")
     print("=" * 65)
-    print(f"Version: v{launcher.version} | HWID: {report.auth_status.hwid}")
+    print(f"Version: v{launcher.version} | HWID: {report.auth_status.hwid[:8]}…")
     print(f"License Tier: {report.auth_status.tier} | Active: {report.auth_status.has_valid_license}")
     print(f"Target Binary: {report.target_executable}")
     print("-" * 65)

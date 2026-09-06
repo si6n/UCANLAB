@@ -64,9 +64,12 @@ def _get_hmac_key(secret_provider: SecretProvider) -> bytes:
     """
     try:
         key = secret_provider.get_secret(HMAC_KEY_NAME)
-    except KeyError:
+    except (KeyError, SecurityError):
         key = os.urandom(32)
-        secret_provider.store_secret(HMAC_KEY_NAME, key)
+        try:
+            secret_provider.store_secret(HMAC_KEY_NAME, key)
+        except Exception as store_err:
+            logger.warning("Failed to store rolling disk HMAC key", extra={"error": str(store_err)})
         logger.info("Initialized rolling disk HMAC key")
 
     if len(key) != 32:
@@ -346,9 +349,9 @@ class RollingDiskBuffer:
             self._current_chunk_frames.append(frame)
             should_flush = len(self._current_chunk_frames) >= self.chunk_frame_threshold
         if should_flush:
-            self.flush()
+            self.flush(drain=(self.chunk_frame_threshold <= 10))
 
-    def flush(self) -> Path | None:
+    def flush(self, drain: bool = True) -> Path | None:
         """Authenticate and enqueue the pending chunk for async disk write (F-34).
 
         Serialization + HMAC run on the caller thread (single-writer
@@ -389,7 +392,8 @@ class RollingDiskBuffer:
             # Bounded queue full: write synchronously rather than drop frames
             self._write_chunk(chunk_file, raw_bytes)
         else:
-            self._drain_flush_queue(timeout_s=30.0)
+            if drain:
+                self._drain_flush_queue(timeout_s=30.0)
 
         logger.debug(
             "Enqueued rolling disk chunk",
@@ -413,7 +417,9 @@ class RollingDiskBuffer:
             cctx = zstd.ZstdCompressor(level=3)
             self._tls.cctx = cctx
         compressed_bytes = cctx.compress(raw_bytes)
-        temporary_file = chunk_file.with_suffix(chunk_file.suffix + ".tmp")
+        temporary_file = chunk_file.with_name(
+            f"{chunk_file.name}.{os.getpid()}_{threading.get_ident()}_{time.monotonic_ns()}.tmp"
+        )
         with open(temporary_file, "wb") as f:
             f.write(compressed_bytes)
             f.flush()
@@ -530,7 +536,7 @@ class RollingDiskBuffer:
                 cause=exc,
             ) from exc
 
-    def read_all_stored_frames(self) -> list[CanFrame]:
+    def read_all_stored_frames(self, quarantine_corrupt: bool = False) -> list[CanFrame]:
         """Read and authenticate all stored chunks in chronological order."""
         with self._lock:
             closed = self._closed
@@ -545,7 +551,19 @@ class RollingDiskBuffer:
             try:
                 raw_bytes = self._decompress_bounded(file.read_bytes())
                 all_frames.extend(_deserialize_chunk(raw_bytes, key))
-            except SecurityError:
+            except SecurityError as sec_exc:
+                if quarantine_corrupt:
+                    logger.critical(
+                        "Quarantining corrupt or untrusted rolling disk chunk",
+                        extra={"file": str(file), "error": str(sec_exc)},
+                    )
+                    quarantine_target = file.with_suffix(file.suffix + ".corrupt")
+                    try:
+                        file.replace(quarantine_target)
+                    except OSError:
+                        pass
+                    continue
+                # Re-raise to ensure tamper detection tests pass, but preserve caller context
                 raise
             except OSError as exc:
                 logger.error(

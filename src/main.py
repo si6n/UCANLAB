@@ -26,11 +26,16 @@ from src.ui.desktop_app import UniversalCanDesktopApp
 logger = get_logger("app.main")
 
 
-def build_bus(interface: str, channel: str, bitrate: int, listen_only: bool = False) -> AbstractBus:
+def build_bus(interface: str, channel: str, bitrate: int, listen_only: bool = True) -> AbstractBus:
     """Single bus factory for every launch path (K4-a).
 
     rp1210 uses the RP1210Bus adapter over the vendor client (device id from
     --channel, e.g. "1"); all other interfaces go through python-can.
+
+    Safe-by-default (CONTRIBUTING.md): every production wiring path opens
+    the bus listen-only unless the caller explicitly opts into active TX
+    (CLI --tx flag). Protocol engines that need to transmit reconnect
+    through this factory with listen_only=False after the operator arms TX.
     """
     if interface == "rp1210":
         from src.hal.rp1210.bus import RP1210Bus
@@ -73,7 +78,11 @@ class UniversalCanMainWindow:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Universal CAN-Bus Diagnostic & Telemetry Tool")
     parser.add_argument("--cli", action="store_true", help="Run in CLI mode instead of GUI")
-    parser.add_argument("--tx", action="store_true", help="Enable active TX in CLI mode (defaults to listen-only sniffer)")
+    parser.add_argument(
+        "--tx",
+        action="store_true",
+        help="Disable listen-only mode in CLI (WARNING: generates hardware CAN ACKs without TxSafetyGateway)",
+    )
     parser.add_argument("--channel", type=str, default="vcan0", help="CAN Channel (e.g. PCAN_USBBUS1, 0, vcan0)")
     parser.add_argument(
         "--interface",
@@ -95,6 +104,8 @@ def main() -> int:
 
     if args.cli:
         print("=== Universal CAN-Bus CLI Mode ===")
+        if args.tx:
+            print("WARNING: Active transceiver mode (--tx) generates CAN ACKs without TxSafetyGateway.")
         bus = build_bus(interface=args.interface, channel=args.channel, bitrate=args.bitrate, listen_only=not args.tx)
         bus.connect()
         print(f"Connected to {args.interface}:{args.channel} @ {args.bitrate} bps. Listening for frames...")
@@ -117,7 +128,7 @@ def main() -> int:
     if qapp_cls is not None:
         qapp = qapp_cls(sys.argv)
         bus = build_bus(interface=args.interface, channel=args.channel, bitrate=args.bitrate)
-        window = UniversalCanMainWindow(bus=bus)
+        window = UniversalCanMainWindow(bus=bus, channel=args.channel, bitrate=args.bitrate)
         window.show()
         try:
             ret = qapp.exec()

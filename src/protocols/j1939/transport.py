@@ -72,6 +72,7 @@ class ReassemblySession:
     # the J1939-21 default when buffer permits). Non-zero bounds the sender
     # to N packets per CTS exchange.
     rx_cts_window: int = 0
+    max_packets_per_cts: int = 0xFF
 
     @property
     def expected_pgn(self) -> int:
@@ -137,10 +138,12 @@ class J1939TransportProtocol:
         my_address: int = 0xF9,
         channel_id: str = "j1939_ch0",
         clock: ClockProvider | None = None,
+        rx_cts_window: int = 0,
     ) -> None:
         self.my_address = my_address
         self.channel_id = channel_id
         self.clock = clock
+        self.rx_cts_window = rx_cts_window
         # Session storage strictly keyed by (source_address, destination_address, channel_id)
         self._rx_sessions: dict[tuple[int, int, str], ReassemblySession] = {}
         # CMDT sender sessions keyed by (my_address, peer_address, pgn, channel_id)
@@ -304,7 +307,13 @@ class J1939TransportProtocol:
             self._reap_stale_sessions()
 
             if ctrl_byte == TP_CTRL_BAM:
-                # Broadcast Announce Message (DA == 255)
+                # Broadcast Announce Message must be addressed to global broadcast address DA == 255 (0xFF)
+                if da != 255:
+                    logger.warning(
+                        "Rejected J1939 TP.CM_BAM with non-broadcast destination address",
+                        extra={"da": da, "sa": sa},
+                    )
+                    return None, None
                 # B-03: If an in-flight BAM is replaced by another BAM from same SA for a DIFFERENT PGN,
                 # record partial drop and log warning cleanly.
                 old_bam = self._rx_sessions.get(session_key)
@@ -402,6 +411,8 @@ class J1939TransportProtocol:
                     oldest_key = min(self._rx_sessions.keys(), key=lambda k: self._rx_sessions[k].last_activity_time)
                     self._release_session_slot(oldest_key, self._rx_sessions[oldest_key])
 
+                rx_win = self.rx_cts_window or getattr(self, "RX_CTS_WINDOW", 0)
+                max_packets_cts = frame.data[4] if len(frame.data) >= 5 and frame.data[4] > 0 else 0xFF
                 # Establish new session with new expected_pgn
                 new_session = ReassemblySession(
                     source_address=sa,
@@ -413,7 +424,8 @@ class J1939TransportProtocol:
                     expected_sequence=1,
                     last_activity_time=self._get_now(),
                     channel_id=frame.channel_id,
-                    rx_cts_window=self.RX_CTS_WINDOW,
+                    rx_cts_window=rx_win,
+                    max_packets_per_cts=max_packets_cts,
                 )
                 self._rx_sessions[session_key] = new_session
                 self._per_sa_sessions[str(sa)] += 1
@@ -553,7 +565,7 @@ class J1939TransportProtocol:
             # the sender can continue. The receiver's grant policy is bounded by
             # its remaining buffer, expressed via rx_cts_window (0 = grant all).
             if not session.is_bam and session.destination_address == self.my_address:
-                rx_window = getattr(session, "rx_cts_window", 0)
+                rx_window = getattr(session, "rx_cts_window", 0) or getattr(self, "RX_CTS_WINDOW", 0)
                 if rx_window > 0 and (session.expected_sequence - 1) % rx_window == 0:
                     remaining_packets = session.total_packets - (session.expected_sequence - 1)
                     grant = min(rx_window, remaining_packets)
@@ -577,9 +589,13 @@ class J1939TransportProtocol:
 
     def _create_cts_frame(self, session: ReassemblySession) -> CanFrame:
         """Construct standard J1939 TP.CM_CTS frame (PGN 60416 / 0xEC00 with Control Byte 0x11)."""
+        grant = session.total_packets
+        if session.max_packets_per_cts > 0 and session.max_packets_per_cts < session.total_packets:
+            grant = min(grant, session.max_packets_per_cts)
+
         cts_data = bytearray(8)
         cts_data[0] = TP_CTRL_CTS
-        cts_data[1] = session.total_packets  # Number of packets allowed
+        cts_data[1] = max(1, grant)  # Number of packets allowed
         cts_data[2] = session.expected_sequence  # Next sequence number expected (1)
         cts_data[3] = 0xFF
         cts_data[4] = 0xFF
@@ -843,7 +859,7 @@ class J1939TransportProtocol:
                 # T4 exists for), and a lower next_seq is a retransmit
                 # request. Both are legal; only truly impossible sequences
                 # (0 or > total_packets) abort.
-                if next_seq == 0 or next_seq > session.total_packets:
+                if next_seq == 0 or next_seq > session.total_packets or next_seq > session.next_sequence:
                     abort = self._create_tx_abort_frame(session, ABORT_REASON_UNEXPECTED_CONTROL)
                     self._tx_sessions.pop(key, None)
                     return [], abort
@@ -866,7 +882,34 @@ class J1939TransportProtocol:
                 return self._emit_dt_window(session, self._get_now()), None
 
             if ctrl_byte == TP_CTRL_ACK:
-                # EndOfMsgACK: transfer complete
+                # EndOfMsgACK: verify session state, bytes, packets, and PGN before closing
+                ack_bytes = int.from_bytes(frame.data[1:3], byteorder="little")
+                ack_packets = frame.data[3]
+                ack_pgn = int.from_bytes(frame.data[5:8], byteorder="little")
+
+                if (
+                    session.state != "WAIT_ACK"
+                    or ack_bytes != session.total_bytes
+                    or ack_packets != session.total_packets
+                    or ack_pgn != session.target_pgn
+                ):
+                    logger.warning(
+                        "Malformed or out-of-order TP.CM_ACK received",
+                        extra={
+                            "state": session.state,
+                            "expected_bytes": session.total_bytes,
+                            "actual_bytes": ack_bytes,
+                            "expected_packets": session.total_packets,
+                            "actual_packets": ack_packets,
+                            "target_pgn": hex(session.target_pgn),
+                            "ack_pgn": hex(ack_pgn),
+                        },
+                    )
+                    abort = self._create_tx_abort_frame(session, ABORT_REASON_UNEXPECTED_CONTROL)
+                    self._tx_sessions.pop(key, None)
+                    return [], abort
+
+                # Valid EndOfMsgACK: transfer complete
                 self._tx_sessions.pop(key, None)
                 return [], None
 

@@ -101,3 +101,31 @@ class TestSecurityRemediation:
         assert isinstance(entropy, bytes)
         assert len(entropy) == 32  # SHA-256 output
         assert entropy != DEFAULT_DPAPI_ENTROPY
+
+    def test_cloud_test_connection_domain_whitelist(self) -> None:
+        """Verify cloud_test_connection rejects non-whitelisted domains to prevent credential exfiltration."""
+        mock_app = MagicMock()
+        bridge = DesktopApiBridge(mock_app)
+
+        # Malicious external domain
+        res = bridge.cloud_test_connection(url="https://attacker.evil.com/api")
+        assert res["success"] is False
+        assert "izin listesinde değil" in res["error"]
+
+        # Valid domain accepted
+        mock_app.cloud_client.request.return_value = MagicMock(status=200)
+        res_valid = bridge.cloud_test_connection(url="https://cloud.universalcan.io")
+        assert res_valid["success"] is True
+
+    def test_uds_client_reentrant_lock(self) -> None:
+        """Verify UdsClient operation lock is re-entrant (RLock)."""
+        from src.hal.virtual import VirtualBus
+        from src.protocols.uds.client import UdsClient
+        from tests.unit.test_reassembly_pipeline import MockTxPort
+        bus = VirtualBus(channel_id="vcan0")
+        tx_port = MockTxPort()
+        client = UdsClient(tx_id=0x7E0, rx_id=0x7E8, channel_id="vcan0", bus=bus, tx_port=tx_port)
+        # Should acquire without deadlock
+        with client._operation_lock:
+            with client._operation_lock:
+                assert True

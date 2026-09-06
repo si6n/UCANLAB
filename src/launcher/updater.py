@@ -46,7 +46,7 @@ class UpdateManager:
         current_version: str = "13.0.0",
         cloud_client: CloudClient | None = None,
         public_key: ed25519.Ed25519PublicKey | None = None,
-        require_signature: bool = False,
+        require_signature: bool = True,
     ) -> None:
         self.current_version = current_version
         self.cloud_client = cloud_client

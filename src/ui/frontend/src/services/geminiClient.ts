@@ -118,7 +118,7 @@ export class GeminiClient {
 
     // Check cached model or discover
     let modelToUse = this.cachedModel || localStorage.getItem('gemini_working_model');
-    if (!modelToUse || modelToUse.includes('2.5')) {
+    if (!modelToUse) {
       const discovery = await this.discoverAndTestModel(cleanKey);
       if (!discovery.success) {
         return { success: false, text: '', modelUsed: '', error: discovery.error };

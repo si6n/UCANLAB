@@ -50,7 +50,12 @@ class UniversalTrafficSimulator:
                 f"{ALLOWED_CHANNEL_PREFIXES} (e.g. vcan0)."
             )
 
-        self.bus = PythonCanBus(interface=self.interface, channel=self.channel, bitrate=self.bitrate)
+        # listen_only=False is explicit: the simulator's whole purpose is to
+        # broadcast synthetic traffic — but only onto sandbox virtual buses
+        # (guarded by ALLOWED_INTERFACES above).
+        self.bus = PythonCanBus(
+            interface=self.interface, channel=self.channel, bitrate=self.bitrate, listen_only=False
+        )
         # Whitelist bypass is reserved for the simulator's synthetic traffic
         # (dozens of dynamic IDs that no static whitelist can enumerate). The
         # bus is already hard-locked to virtual interfaces by the guard above,
@@ -77,7 +82,10 @@ class UniversalTrafficSimulator:
 
         try:
             while True:
-                now = time.time()
+                # docs/ai_context/01 §2: TX pacing math uses the monotonic
+                # clock — wall-clock jumps (NTP sync, suspend/resume) must
+                # never stall or burst the broadcast schedule.
+                now = time.monotonic()
                 t = self.sim_time
                 self.sim_time += interval_s
 
@@ -126,7 +134,7 @@ class UniversalTrafficSimulator:
             arbitration_id=0x0CF00400,
             data=bytes(eec1_data),
             is_extended=True,
-            direction="rx",
+            direction="tx",
             source="virtual",
         )
         self.gateway.validate_and_transmit(f_eec1)
@@ -148,7 +156,7 @@ class UniversalTrafficSimulator:
                 arbitration_id=0x1806E5F4,
                 data=bytes(bms_data),
                 is_extended=True,
-                direction="rx",
+                direction="tx",
             )
             self.gateway.validate_and_transmit(f_bms)
 
@@ -167,7 +175,7 @@ class UniversalTrafficSimulator:
                 data=bytes(fd_payload),
                 is_extended=False,
                 is_fd=True,
-                direction="rx",
+                direction="tx",
             )
             self.gateway.validate_and_transmit(f_radar)
 
@@ -184,7 +192,7 @@ class UniversalTrafficSimulator:
             arbitration_id=0x18FF0501,
             data=bytes(prop_data),
             is_extended=True,
-            direction="rx",
+            direction="tx",
             source="virtual",
         )
         self.gateway.validate_and_transmit(f_prop)
@@ -209,7 +217,7 @@ class UniversalTrafficSimulator:
             arbitration_id=0x19F20000,
             data=bytes(n2k_rapid),
             is_extended=True,
-            direction="rx",
+            direction="tx",
             source="virtual",
         )
         self.gateway.validate_and_transmit(f_n2k)
@@ -229,7 +237,7 @@ class UniversalTrafficSimulator:
             arbitration_id=0x19F50300,
             data=bytes(n2k_depth),
             is_extended=True,
-            direction="rx",
+            direction="tx",
             source="virtual",
         )
         self.gateway.validate_and_transmit(f_depth)
@@ -246,7 +254,7 @@ class UniversalTrafficSimulator:
             arbitration_id=0x18FEE100,
             data=bytes(et1_data),
             is_extended=True,
-            direction="rx",
+            direction="tx",
             source="virtual",
         )
         self.gateway.validate_and_transmit(f_et1)
@@ -273,7 +281,7 @@ class UniversalTrafficSimulator:
             arbitration_id=0x18FECA00,
             data=dm1_data,
             is_extended=True,
-            direction="rx",
+            direction="tx",
             source="virtual",
         )
         self.gateway.validate_and_transmit(f_dm1)
@@ -312,7 +320,7 @@ class UniversalTrafficSimulator:
                     arbitration_id=0x7E8,
                     data=bytes(resp),
                     is_extended=False,
-                    direction="rx",
+                    direction="tx",
                     source="virtual",
                 )
                 self.gateway.validate_and_transmit(f_uds_resp)

@@ -45,8 +45,15 @@ class _RecordingUdsClient:
             resp = queue.pop(0)
         else:
             # P1-6: default 0x34 response carries a parseable
-            # maxNumberOfBlockLength (lengthFormat 0x20: 2-byte length)
-            resp = _UdsResponse(data=bytes([0x20, 0x10, 0x00]) if name == "request_download" else b"")
+            # maxNumberOfBlockLength (lengthFormat 0x20: 2-byte length).
+            # Default 0x36 TransferData echoes the block sequence counter (ISO 14229-1).
+            if name == "request_download":
+                resp = _UdsResponse(data=bytes([0x20, 0x10, 0x00]))
+            elif name == "transfer_data":
+                block_seq = kwargs.get("block_sequence", 1)
+                resp = _UdsResponse(data=bytes([block_seq & 0xFF]))
+            else:
+                resp = _UdsResponse(data=b"")
         return resp
 
     # --- UdsClient surface used by EcuFlashingEngine ---

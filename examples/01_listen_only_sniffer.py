@@ -13,7 +13,7 @@ def main():
     supervisor.transition_to(SafetyState.SAFE, reason="Hardware stack ready")
     supervisor.enter_passive_mode("Example Listen-Only Sniffer")
 
-    bus = PythonCanBus(interface="virtual", channel="vcan0", bitrate=250000)
+    bus = PythonCanBus(interface="virtual", channel="vcan0", bitrate=250000, listen_only=True)
     bus.connect()
     print(f"Connected to {bus.channel_id} (Safety State: {supervisor.current_state.value})")
 

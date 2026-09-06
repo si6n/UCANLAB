@@ -77,9 +77,9 @@ class UdsClient:
         self.transport = IsoTpTransport(tx_id=tx_id, rx_id=rx_id, channel_id=channel_id)
         self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="uds_client")
         # M-07: UDS exchanges are stateful (session type, security seed/key
-        # ladder) — async operations are serialized so a concurrent
-        # change_session cannot corrupt another exchange's request/response.
-        self._operation_lock = threading.Lock()
+        # ladder) — async and sync operations are serialized with an RLock so
+        # concurrent calls cannot corrupt another exchange's request/response.
+        self._operation_lock = threading.RLock()
 
     def execute_async(
         self,
@@ -124,10 +124,20 @@ class UdsClient:
         """Shutdown underlying thread pool executor."""
         self._executor.shutdown(wait=wait)
 
-    def change_session(self, session_type: DiagnosticSessionType) -> UdsResponse:
+    def change_session(
+        self,
+        session_type: DiagnosticSessionType,
+        user_confirmed: bool = False,
+    ) -> UdsResponse:
         """Switch diagnostic session (0x10)."""
+        is_critical = session_type in (
+            DiagnosticSessionType.PROGRAMMING_SESSION,
+            DiagnosticSessionType.SAFETY_SYSTEM_DIAGNOSTIC_SESSION,
+        )
         req_payload = UdsServiceBuilder.build_diagnostic_session_control(session_type)
-        return self._send_and_receive(req_payload)
+        return self._send_and_receive(
+            req_payload, is_critical_command=is_critical, user_confirmed=user_confirmed
+        )
 
     def security_access_request_seed(self, level: int = 1) -> UdsResponse:
         """Request Security Access Seed (0x27)."""
@@ -174,15 +184,29 @@ class UdsClient:
         )
         return self._send_and_receive(req_payload, is_critical_command=True, user_confirmed=user_confirmed)
 
-    def transfer_data(self, block_sequence: int, data: bytes) -> UdsResponse:
-        """Transfer Data Block (0x36)."""
+    def transfer_data(
+        self,
+        block_sequence: int,
+        data: bytes,
+        is_critical_command: bool = True,
+        user_confirmed: bool = True,
+    ) -> UdsResponse:
+        """Transfer Data Block (0x36) - Memory write is safety-critical."""
         req_payload = UdsServiceBuilder.build_transfer_data(block_sequence=block_sequence, data=data)
-        return self._send_and_receive(req_payload)
+        return self._send_and_receive(
+            req_payload, is_critical_command=is_critical_command, user_confirmed=user_confirmed
+        )
 
-    def request_transfer_exit(self) -> UdsResponse:
+    def request_transfer_exit(
+        self,
+        is_critical_command: bool = True,
+        user_confirmed: bool = True,
+    ) -> UdsResponse:
         """Request Transfer Exit (0x37)."""
         req_payload = UdsServiceBuilder.build_request_transfer_exit()
-        return self._send_and_receive(req_payload)
+        return self._send_and_receive(
+            req_payload, is_critical_command=is_critical_command, user_confirmed=user_confirmed
+        )
 
     def ecu_reset(self, reset_type: int = 0x01, user_confirmed: bool = False) -> UdsResponse:
         """ECU Reset (0x11) - Critical command.
@@ -216,7 +240,8 @@ class UdsClient:
         """Send Tester Present keep-alive (0x3E)."""
         req_payload = UdsServiceBuilder.build_tester_present(suppress_response)
         if suppress_response:
-            self._send_payload(req_payload)
+            with self._operation_lock:
+                self._send_payload(req_payload)
             return None
         return self._send_and_receive(req_payload)
 
@@ -381,42 +406,55 @@ class UdsClient:
                 details={"tx_id": hex(self.tx_id), "rx_id": hex(self.rx_id)},
             )
 
-        self._send_payload(payload, is_critical_command=is_critical_command, user_confirmed=user_confirmed)
+        with self._operation_lock:
+            self._send_payload(payload, is_critical_command=is_critical_command, user_confirmed=user_confirmed)
 
-        start_time = time.monotonic()
-        deadline = start_time + timeout_s
-        max_absolute_deadline = start_time + max(timeout_s, 30.0)
-        nrc_78_count = 0
+            start_time = time.monotonic()
+            deadline = start_time + timeout_s
+            max_absolute_deadline = start_time + max(timeout_s, 30.0)
+            nrc_78_count = 0
 
-        while True:
-            now = time.monotonic()
-            remaining = deadline - now
-            if remaining <= 0 or now >= max_absolute_deadline:
-                raise ProtocolError(
-                    f"UDS Request timed out waiting for response from ECU (0x{self.rx_id:03X})",
-                    code="UDS_TIMEOUT",
-                    details={"tx_id": hex(self.tx_id), "rx_id": hex(self.rx_id), "nrc_78_count": nrc_78_count},
-                )
+            while True:
+                now = time.monotonic()
+                remaining = deadline - now
+                if remaining <= 0 or now >= max_absolute_deadline:
+                    raise ProtocolError(
+                        f"UDS Request timed out waiting for response from ECU (0x{self.rx_id:03X})",
+                        code="UDS_TIMEOUT",
+                        details={"tx_id": hex(self.tx_id), "rx_id": hex(self.rx_id), "nrc_78_count": nrc_78_count},
+                    )
 
-            rx_frame = None
-            if self.bus is not None:
-                rx_frame = self.bus.recv(timeout_s=min(0.1, max(0.001, remaining)))
+                rx_frame = None
+                if self.bus is not None:
+                    rx_frame = self.bus.recv(timeout_s=min(0.1, max(0.001, remaining)))
 
-            if rx_frame is not None and rx_frame.arbitration_id == self.rx_id:
-                completed_data, resp_frame = self.transport.handle_rx_frame(rx_frame)
-                if resp_frame is not None:
-                    # Flow control frame response - cleanly routed through TxPort
-                    self.tx_port.send_sync(resp_frame)
-                if completed_data is not None:
-                    resp = UdsServiceBuilder.parse_response(completed_data)
-                    if (
-                        not resp.is_positive
-                        and resp.nrc == UdsNrc.REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING
-                        and time.monotonic() < max_absolute_deadline
-                        and nrc_78_count < 20
-                    ):
-                        # P2* extension: ECU signalled pending; keep waiting within bounded cap (P6)
-                        nrc_78_count += 1
-                        deadline = min(time.monotonic() + P2_STAR_TIMEOUT_S, max_absolute_deadline)
-                        continue
-                    return resp
+                if rx_frame is not None and rx_frame.arbitration_id == self.rx_id:
+                    completed_data, resp_frame = self.transport.handle_rx_frame(rx_frame)
+                    if resp_frame is not None:
+                        # Flow control frame response - cleanly routed through TxPort
+                        self.tx_port.send_sync(resp_frame)
+                    if completed_data is not None:
+                        resp = UdsServiceBuilder.parse_response(completed_data)
+                        expected_sid = payload[0]
+                        if resp.service_id != expected_sid:
+                            logger.warning(
+                                "UDS response service ID mismatch (dropping mismatched/unsolicited response)",
+                                extra={
+                                    "expected_sid": hex(expected_sid),
+                                    "actual_sid": hex(resp.service_id) if resp.service_id is not None else None,
+                                    "rx_id": hex(self.rx_id),
+                                },
+                            )
+                            continue
+
+                        if (
+                            not resp.is_positive
+                            and resp.nrc == UdsNrc.REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING
+                            and time.monotonic() < max_absolute_deadline
+                            and nrc_78_count < 20
+                        ):
+                            # P2* extension: ECU signalled pending; keep waiting within bounded cap (P6)
+                            nrc_78_count += 1
+                            deadline = min(time.monotonic() + P2_STAR_TIMEOUT_S, max_absolute_deadline)
+                            continue
+                        return resp

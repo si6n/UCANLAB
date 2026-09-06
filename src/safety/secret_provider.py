@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import base64
 import ctypes
+import hashlib
 import importlib
 import json
 import os
@@ -220,31 +221,38 @@ class LinuxSecretBackend(SecretProvider):
 
     def _get_machine_seed(self) -> bytes:
         """Gather platform machine identifier for user/machine tied key derivation."""
-        candidates = [
-            Path("/etc/machine-id"),
-            Path("/var/lib/dbus/machine-id"),
-            Path("/etc/hostid"),
-        ]
-        for candidate in candidates:
-            try:
-                if candidate.is_file():
-                    content = candidate.read_bytes().strip()
-                    if content:
-                        return content
-            except OSError:
-                continue
-
-        # Deterministic fallback: a persistent random seed file (0600) — never a
-        # hardcoded constant (F-09). Second run reuses the same seed.
+        # 1. Prioritize user-isolated persistent random seed (0600)
         seed_file = self.storage_path.parent / "machine_seed.bin"
         if seed_file.exists():
             try:
                 existing = seed_file.read_bytes()
                 if existing:
                     return existing
+            except OSError as exc:
+                raise SecurityError(
+                    f"Machine seed file exists but could not be read: {exc}",
+                    code="MACHINE_SEED_UNREADABLE",
+                    cause=exc,
+                ) from exc
+
+        # 2. Gather machine-specific identity to bind together with random entropy
+        candidates = [
+            Path("/etc/machine-id"),
+            Path("/var/lib/dbus/machine-id"),
+            Path("/etc/hostid"),
+        ]
+        machine_frag = b""
+        for candidate in candidates:
+            try:
+                if candidate.is_file():
+                    content = candidate.read_bytes().strip()
+                    if content:
+                        machine_frag = content
+                        break
             except OSError:
-                pass
-        seed = os.urandom(32)
+                continue
+
+        seed = os.urandom(32) if not machine_frag else hashlib.sha256(machine_frag + os.urandom(32)).digest()
         try:
             seed_file.parent.mkdir(parents=True, exist_ok=True)
             fd = os.open(seed_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)

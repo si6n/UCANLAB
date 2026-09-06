@@ -126,8 +126,9 @@ class LicenseValidator:
                     # maximum allowed offline grace (or zero when unknown).
                     conservative_floor = 0
                     if self.MAX_OFFLINE_GRACE_SEC > 0:
+                        wall_now_s = self.clock.now_wall_ns() // 1_000_000_000
                         conservative_floor = max(
-                            0, int(time.time()) - self.MAX_OFFLINE_GRACE_SEC
+                            0, wall_now_s - self.MAX_OFFLINE_GRACE_SEC
                         )
                     self.last_online_sync_ts = conservative_floor
                     return
@@ -183,13 +184,12 @@ class LicenseValidator:
         caller-side `current_ts` parameter is gone, so anti-rollback checks
         can no longer be handed an arbitrary timestamp.
         """
-        now = self.clock.now_wall_ns() // 1_000_000_000
-
         # M-03: rollback check, drift cross-check, HWM persist, and the
         # in-memory anchor advance form ONE atomic critical section —
         # concurrent verify_token() calls must never interleave a stale
         # anchor write between the check and the update.
         with self._clock_lock:
+            now = self.clock.now_wall_ns() // 1_000_000_000
             # Anti-Clock Rollback Check
             if now < self.last_known_clock_ts:
                 logger.critical(
@@ -237,6 +237,8 @@ class LicenseValidator:
                     logger.warning(
                         "Failed to persist high water mark to disk", extra={"error": str(exc)}
                     )
+                    # Advance in-memory anchor so subsequent verification in this session detects rollbacks
+                    self.last_known_clock_ts = max(self.last_known_clock_ts, now)
             else:
                 # No persistence configured: in-memory anchor advances directly.
                 self.last_known_clock_ts = now

@@ -1,4 +1,4 @@
-"""Unit tests for SAE J1939-73 Diagnostic Services (DM1, DM2, DM11, FMI 0-31)."""
+"""Unit tests for SAE J1939-73 Diagnostic Services (DM1, DM2, DM3, DM4, DM5, DM6, DM11, FMI 0-31)."""
 
 from src.protocols.j1939.diagnostics import (
     J1939DiagnosticService,
@@ -65,3 +65,69 @@ def test_clear_diagnostic_requests() -> None:
 
     dm3_req = J1939DiagnosticService.create_dm3_clear_previously_active_request()
     assert dm3_req == b"\xcc\xfe\x00"
+
+
+def test_clear_diagnostic_frames_are_valid_can_frames() -> None:
+    """Positive: DM11/DM3 frame constructors build transmittable extended frames (P1 NameError regression)."""
+    dm11 = J1939DiagnosticService.create_dm11_frame()
+    assert dm11.arbitration_id == 0x18EA00F9
+    assert dm11.data == b"\xd3\xfe\x00"
+    assert dm11.is_extended is True
+    assert dm11.direction == "tx"
+
+    dm3 = J1939DiagnosticService.create_dm3_frame()
+    assert dm3.arbitration_id == 0x18EA00F9
+    assert dm3.data == b"\xcc\xfe\x00"
+
+
+def test_dm4_dm5_dm6_request_frames() -> None:
+    """Positive: DM4/DM5/DM6 request frames use the canonical 0x18EA layout with correct PGN payloads."""
+    dm4 = J1939DiagnosticService.create_dm4_request_frame()
+    assert dm4.arbitration_id == 0x18EA00F9
+    assert dm4.data == b"\xcd\xfe\x00"  # PGN 65229 little-endian
+
+    dm5 = J1939DiagnosticService.create_dm5_request_frame()
+    assert dm5.data == b"\xce\xfe\x00"  # PGN 65230
+
+    dm6 = J1939DiagnosticService.create_dm6_request_frame()
+    assert dm6.data == b"\xcf\xfe\x00"  # PGN 65231
+
+
+def test_create_request_frame_rejects_out_of_range_pgn() -> None:
+    """Boundary/negative: PGN above 0x1FFFF must raise, never build a bogus frame."""
+    import pytest
+
+    with pytest.raises(ValueError):
+        J1939DiagnosticService.create_request_frame(0x20000)
+
+
+def test_parse_dm5_readiness() -> None:
+    """Positive: DM5 readiness bytes decode to rank/support/completion fields."""
+    readiness = J1939DiagnosticService.parse_dm5_readiness(
+        data=b"\x00\x00\x0F\x0F",
+        source_address=0,
+        timestamp_ns=42,
+    )
+    assert readiness.active_rank == 0
+    assert readiness.previously_active_rank == 0
+    assert readiness.supported_systems == 0x0F
+    assert readiness.completed_systems == 0x0F
+    assert readiness.timestamp_ns == 42
+
+
+def test_parse_dm5_readiness_rejects_short_payload() -> None:
+    """Boundary/negative: DM5 payload shorter than 4 bytes raises ValueError."""
+    import pytest
+
+    with pytest.raises(ValueError):
+        J1939DiagnosticService.parse_dm5_readiness(data=b"\x00\x00")
+
+
+def test_fmi_table_is_complete_0_to_31() -> None:
+    """Boundary: the FMI table covers every value 0..31 (MASTER_PLAN Task 2.3 DoD)."""
+    from src.protocols.j1939.diagnostics import FMI_DESCRIPTIONS
+
+    missing = [fmi for fmi in range(32) if fmi not in FMI_DESCRIPTIONS]
+    assert missing == []
+    for entry in FMI_DESCRIPTIONS.values():
+        assert isinstance(entry, tuple) and len(entry) == 2

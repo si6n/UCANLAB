@@ -1109,11 +1109,17 @@ def test_tier3_secret_provider_rotation_during_active_estop_challenge() -> None:
 
 
 def test_tier3_uds_routine_control_with_watchdog_lease_expired_blocks_before_speed() -> None:
-    """Tier 3.9: Expired watchdog lease blocks routine control (0x31) before checking speed or dual-confirmation."""
+    """Tier 3.9: Expired watchdog lease blocks routine control (0x31) before checking speed or dual-confirmation.
+
+    Deterministic: the lease runs on an injected VirtualClock (no real sleep).
+    """
+    from src.core.contracts.ports import VirtualClock
+
     bus = MockMemoryBus()
     supervisor = SafetySupervisor(initial_state=SafetyState.ARMED_TX)
-    watchdog = TxWatchdogSupervisor(supervisor=supervisor, timeout_ms=50.0)
-    time.sleep(0.06)  # Expire watchdog lease
+    clock = VirtualClock(start_monotonic_sec=500.0)
+    watchdog = TxWatchdogSupervisor(supervisor=supervisor, timeout_ms=50.0, clock=clock)
+    clock.advance(0.06)  # Expire watchdog lease
 
     gateway = TxSafetyGateway(bus=bus, watchdog=watchdog, whitelist_ids={0x7E0})
 

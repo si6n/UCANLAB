@@ -3,11 +3,14 @@
 Matches MASTER_PLAN.md Section 7, ISO 26262 ASIL-B/D, and Saha Risk Kataloğu v1.2 Sections 4, 19, 20.
 Enforces strict 6-stage policy evaluation order:
 1. Frame Sanity & Range Validation
-2. Safety State & E-Stop Status
+2. Safety State & E-Stop Status (supervisor, watchdog lease, E-Stop)
 3. Whitelist Authorization (Fail-Closed)
 4. Speed Interlock (Stationary & Freshness)
 5. Dual Confirmation Check
 6. Rate Budget (Sliding Window in monotonic nanoseconds)
+followed by the optional E2E stamping stage (docs/ai_context/02 §1 stage 6:
+rolling counter + CRC sealing via E2ESafetyPackager when a profile is
+configured for the frame's arbitration id) before fenced dispatch.
 """
 
 from __future__ import annotations
@@ -17,12 +20,14 @@ import concurrent.futures
 import math
 import threading
 import time
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, ClassVar
 
 from src.core.errors import SafetyError
 from src.core.logging import get_logger
 from src.core.models.can_frame import CanFrame
+from src.safety.e2e.packager import E2ESafetyPackager
+from src.safety.e2e.profiles import E2EProfileConfig
 from src.safety.estop import EmergencyStopSystem, EStopTriggerSource
 from src.safety.exceptions import (
     DualConfirmationRequiredError,
@@ -108,9 +113,16 @@ class TxSafetyGateway:
         watchdog: TxWatchdogSupervisor | None = None,
         whitelist_ids: set[int] | None = None,
         whitelist_masks: Sequence[tuple[int, int]] | None = None,
+        e2e_packager: E2ESafetyPackager | None = None,
+        e2e_profiles: Mapping[int, E2EProfileConfig] | None = None,
     ) -> None:
         self.bus = bus
-        self.estop = estop or EmergencyStopSystem()
+        if estop is not None:
+            self.estop = estop
+        elif watchdog is not None and watchdog.estop is not None:
+            self.estop = watchdog.estop
+        else:
+            self.estop = EmergencyStopSystem()
         self.supervisor = supervisor
         self.watchdog = watchdog
         self.whitelist_ids: set[int] = set(whitelist_ids) if whitelist_ids is not None else set()
@@ -120,6 +132,14 @@ class TxSafetyGateway:
         self.whitelist_masks: tuple[tuple[int, int], ...] = (
             tuple(whitelist_masks) if whitelist_masks is not None else ()
         )
+        # E2E stamping stage (docs/ai_context/02 §1 stage 6 / transport_e2e
+        # spec): when configured, frames whose arbitration_id maps to an
+        # E2E profile are sealed (rolling counter + CRC) right before rate
+        # accounting, so the on-wire payload is protected end-to-end.
+        # Unconfigured IDs pass through unstamped — E2E protection is opt-in
+        # per protected stream, matching the profiles' per-stream counters.
+        self.e2e_packager = e2e_packager
+        self.e2e_profiles: Mapping[int, E2EProfileConfig] = dict(e2e_profiles) if e2e_profiles else {}
         # Fail-closed whitelist stage can only be bypassed through the
         # explicit for_testing() factory — never via a constructor flag
         # that production wiring could set by accident.
@@ -172,7 +192,7 @@ class TxSafetyGateway:
         rate budget) remain fully enforced.
         """
         instance = cls(bus=bus, estop=estop, whitelist_ids=whitelist_ids)
-        instance._whitelist_bypass_for_testing = True
+        object.__setattr__(instance, "_whitelist_bypass_for_testing", True)
         return instance
 
     def _on_estop_triggered(self, event: object) -> None:
@@ -201,6 +221,19 @@ class TxSafetyGateway:
                 return
             self._current_vehicle_speed_kmh = float(speed_kmh)
             self._last_speed_update_ns = time.monotonic_ns()
+
+    def is_speed_fresh_and_safe(self, max_age_ns: int | None = None) -> bool:
+        """Public inquiry API for preflight checks: True when speed is fresh and below threshold."""
+        timeout = max_age_ns if max_age_ns is not None else self.SPEED_VALIDITY_TIMEOUT_NS
+        with self._lock:
+            if self._last_speed_update_ns == 0:
+                return False
+            now_ns = time.monotonic_ns()
+            if (now_ns - self._last_speed_update_ns) > timeout:
+                return False
+            if math.isnan(self._current_vehicle_speed_kmh):
+                return False
+            return self._current_vehicle_speed_kmh <= self.SPEED_NOISE_THRESHOLD_KMH
 
     def validate_and_transmit(
         self,
@@ -419,6 +452,17 @@ class TxSafetyGateway:
             # the frame before it can reach the wire.
             fence_snapshot = self.estop.tx_fence
 
+            # -----------------------------------------------------------------
+            # E2E STAMPING STAGE (docs/ai_context/02 §1 stage 6)
+            # Applied only when a profile is configured for this arbitration
+            # id: the frame is sealed (rolling counter + CRC-8) and the sealed
+            # frame replaces the raw one for dispatch. Runs under the gateway
+            # lock because the packager's per-stream counters are stateful —
+            # sealing outside the lock could interleave senders on one stream.
+            # -----------------------------------------------------------------
+            if self.e2e_packager is not None and frame.arbitration_id in self.e2e_profiles:
+                frame = self.e2e_packager.package(frame, self.e2e_profiles[frame.arbitration_id])
+
         # -----------------------------------------------------------------
         # PHASE 2: FINAL E-STOP GUARD (lock-free)
         # estop.is_engaged acquires estop's own RLock (leaf lock), which does
@@ -487,7 +531,14 @@ class TxSafetyGateway:
             if budget_consumed and budget is not None:
                 budget.refund()
 
-    def send_sync(self, frame: CanFrame, budget_category: str = "default") -> None:
+    def send_sync(
+        self,
+        frame: CanFrame,
+        budget_category: str = "default",
+        *,
+        is_critical_command: bool = False,
+        user_confirmed: bool = False,
+    ) -> None:
         """Synchronously transmit frame conforming to TxPort protocol.
 
         P1-9: the optional budget_category lets protocol engines use their
@@ -495,9 +546,21 @@ class TxSafetyGateway:
         of colliding with the 100 msg/s default-lane wall. Defaults to the
         uncategorised 'default' lane for plain TxPort callers.
         """
-        self.validate_and_transmit(frame, is_critical_command=False, user_confirmed=False, budget_category=budget_category)
+        self.validate_and_transmit(
+            frame,
+            is_critical_command=is_critical_command,
+            user_confirmed=user_confirmed,
+            budget_category=budget_category,
+        )
 
-    async def send(self, frame: CanFrame) -> None:
+    async def send(
+        self,
+        frame: CanFrame,
+        *,
+        is_critical_command: bool = False,
+        user_confirmed: bool = False,
+        budget_category: str = "default",
+    ) -> None:
         """Asynchronously transmit without blocking the running event loop (F-26/E-12).
 
         The synchronous validation pipeline may perform blocking work (driver TX,
@@ -509,6 +572,7 @@ class TxSafetyGateway:
         with every other offload in the process).
         """
         import asyncio
+        import functools
 
         if self._tx_executor is None or self._tx_executor_shutdown:
             # Fail-closed: no managed pool -> no offload -> no transmission.
@@ -518,7 +582,14 @@ class TxSafetyGateway:
             )
 
         loop = asyncio.get_running_loop()
-        await loop.run_in_executor(self._tx_executor, self.send_sync, frame)
+        fn = functools.partial(
+            self.send_sync,
+            frame,
+            budget_category,
+            is_critical_command=is_critical_command,
+            user_confirmed=user_confirmed,
+        )
+        await loop.run_in_executor(self._tx_executor, fn)
 
     def shutdown(self) -> None:
         """Release the managed TX executor (MEDIUM-6). Idempotent.

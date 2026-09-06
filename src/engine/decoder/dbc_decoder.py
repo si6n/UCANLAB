@@ -205,7 +205,7 @@ class DbcSignalDecoder:
                 raw_val: int | float | None
                 if sig_def is not None and isinstance(sig_val, (int, float)):
                     if sig_def.scale == 0:
-                        raw_val = sig_def.scale  # degenerate definition; keep type
+                        raw_val = sig_val
                     else:
                         raw_val = (sig_val - sig_def.offset) / sig_def.scale
                     if isinstance(raw_val, float) and raw_val.is_integer():
@@ -228,11 +228,12 @@ class DbcSignalDecoder:
                         elif raw_val == max_val - 1:
                             is_valid = False
                             status = SignalStatus.ERROR
-                    elif not sig_def.is_signed and sig_len in _SENTINEL_CHECKS and isinstance(raw_val, int):
+                    elif not sig_def.is_signed and sig_len in _SENTINEL_CHECKS:
+                        int_candidate = int(round(raw_val))
                         # E4: full SAE J1939-71 MSB sentinel ranges (e.g. any
                         # 16-bit 0xFE** is Error, any 0xFF** is Not Available),
                         # not just the two exact endpoint values.
-                        quality = _SENTINEL_CHECKS[sig_len](raw_val)
+                        quality = _SENTINEL_CHECKS[sig_len](int_candidate)
                         if quality == SignalQuality.NOT_AVAILABLE:
                             is_valid = False
                             status = SignalStatus.NOT_AVAILABLE
@@ -280,31 +281,31 @@ class DbcSignalDecoder:
         except KeyError:
             pass
 
-        # J1939 PGN lookup for 29-bit extended frames
-        if msg is None and is_extended:
-            # Extract PGN: bits 8..25
-            pgn = (arbitration_id >> 8) & 0x3FFFF
-            pdu_format = (pgn >> 8) & 0xFF
-            masked_pgn = (pgn & 0x3FF00) if pdu_format < 240 else pgn
-
-            for candidate in self.db.messages:
-                # Candidate must be an extended frame definition (29-bit)
-                is_candidate_ext = getattr(candidate, "is_extended_frame", False) or bool(
-                    candidate.frame_id & 0x80000000
-                )
-                if not is_candidate_ext:
-                    continue
-
-                dbc_raw_id = candidate.frame_id & 0x1FFFFFFF
-                dbc_pgn = (dbc_raw_id >> 8) & 0x3FFFF
-                dbc_pf = (dbc_pgn >> 8) & 0xFF
-                cand_masked_pgn = (dbc_pgn & 0x3FF00) if dbc_pf < 240 else dbc_pgn
-
-                if cand_masked_pgn == masked_pgn:
-                    msg = candidate
-                    break
-
         with self._cache_lock:
+            # J1939 PGN lookup for 29-bit extended frames
+            if msg is None and is_extended:
+                # Extract PGN: bits 8..25
+                pgn = (arbitration_id >> 8) & 0x3FFFF
+                pdu_format = (pgn >> 8) & 0xFF
+                masked_pgn = (pgn & 0x3FF00) if pdu_format < 240 else pgn
+
+                for candidate in list(self.db.messages):
+                    # Candidate must be an extended frame definition (29-bit)
+                    is_candidate_ext = getattr(candidate, "is_extended_frame", False) or bool(
+                        candidate.frame_id & 0x80000000
+                    )
+                    if not is_candidate_ext:
+                        continue
+
+                    dbc_raw_id = candidate.frame_id & 0x1FFFFFFF
+                    dbc_pgn = (dbc_raw_id >> 8) & 0x3FFFF
+                    dbc_pf = (dbc_pgn >> 8) & 0xFF
+                    cand_masked_pgn = (dbc_pgn & 0x3FF00) if dbc_pf < 240 else dbc_pgn
+
+                    if cand_masked_pgn == masked_pgn:
+                        msg = candidate
+                        break
+
             self._message_cache[key] = msg
             if len(self._message_cache) > self.max_cache_size:
                 self._message_cache.popitem(last=False)

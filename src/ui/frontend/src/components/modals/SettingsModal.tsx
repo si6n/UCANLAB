@@ -610,8 +610,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     )}
                   </div>
 
-                  <div className="text-[10.5px] font-mono text-slate-500 truncate bg-white p-1.5 rounded border border-slate-200">
-                    HWID: <strong>{cloudStatus?.hwid || 'Hesaplanıyor...'}</strong>
+                  <div className="text-[10.5px] font-mono text-slate-500 truncate bg-white p-1.5 rounded border border-slate-200" title={cloudStatus?.hwid || ''}>
+                    HWID: <strong>{cloudStatus?.hwid ? `${cloudStatus.hwid.slice(0, 8)}…` : 'Hesaplanıyor...'}</strong>
                   </div>
 
                   <div className="flex items-center justify-between pt-1">

@@ -12,7 +12,10 @@ from typing import ClassVar
 
 import numpy as np
 
+from src.core.logging import get_logger
 from src.core.models.can_frame import CanFrame
+
+logger = get_logger("engine.buffer.ring_buffer")
 
 # Pre-defined NumPy structured dtype for fixed 80-byte frame representation
 CAN_RECORD_DTYPE = np.dtype(
@@ -50,6 +53,8 @@ class BinaryRingBuffer:
     def _get_channel_int(self, channel_id: str) -> int:
         """Map channel string to 16-bit unsigned integer ID."""
         if channel_id not in self._channel_map:
+            if len(self._channel_map) >= 0xFFFF:
+                logger.warning("RingBuffer channel map exceeded 16-bit capacity (65535 channels)")
             val = len(self._channel_map) & 0xFFFF
             self._channel_map[channel_id] = val
             self._rev_channel_map[val] = channel_id
@@ -187,8 +192,10 @@ class BinaryRingBuffer:
             return frames
 
     def clear(self) -> None:
-        """Reset ring buffer pointers."""
+        """Reset ring buffer pointers and channel mappings."""
         with self._lock:
             self._head = 0
             self._total_written = 0
             self._buffer.fill(0)
+            self._channel_map.clear()
+            self._rev_channel_map.clear()

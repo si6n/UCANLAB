@@ -10,6 +10,9 @@ from src.core.contracts.ports import TxPort
 from src.core.errors import SafetyError
 from src.core.models.can_frame import CanFrame
 from src.hal.virtual import VirtualBus
+from src.safety.e2e.packager import E2ESafetyPackager
+from src.safety.e2e.profiles import E2EProfileConfig
+from src.safety.e2e.validator import E2ESafetyValidator
 from src.safety.estop import EmergencyStopSystem, EStopTriggerSource
 from src.safety.exceptions import (
     DualConfirmationRequiredError,
@@ -33,6 +36,64 @@ def test_safety_gateway_normal_tx() -> None:
     # Transmit allowed
     assert gateway.validate_and_transmit(frame) is True
     assert len(bus.sent_frames) == 1
+    bus.disconnect()
+
+
+def test_safety_gateway_e2e_stamping_stage_seals_configured_ids() -> None:
+    """docs/ai_context/02 §1 stage 6: configured IDs leave the gateway sealed
+    with a rolling counter + CRC that the E2ESafetyValidator accepts, and the
+    counter increments across successive sends."""
+    bus = VirtualBus(channel_id="safety_vbus_e2e")
+    bus.connect()
+
+    profile = E2EProfileConfig.create_autosar_profile_1(data_id=0x0A0A)
+    gateway = TxSafetyGateway(
+        bus=bus,
+        whitelist_ids={0x500},
+        e2e_packager=E2ESafetyPackager(),
+        e2e_profiles={0x500: profile},
+    )
+
+    raw = CanFrame.create(channel_id="c0", arbitration_id=0x500, data=b"\x00\x01\x11\x22\x33\x44\x55\x66")
+    assert gateway.validate_and_transmit(raw) is True
+
+    sealed = bus.sent_frames[0]
+    # CRC byte offset 0 overwritten with a real CRC — not the raw 0x00 the
+    # caller supplied — and the counter lives at byte 1 low nibble.
+    assert sealed.data[0] != 0x00
+    assert sealed.data[1] & 0x0F == 0
+
+    validator = E2ESafetyValidator()
+    # First frame on a fresh stream: INITIAL (authentic CRC, first sighting)
+    result = validator.validate(sealed, profile)
+    assert result.verdict.value == "INITIAL"
+    assert result.is_crc_valid is True
+
+    # Second send: counter advances and the consecutive frame validates OK
+    assert gateway.validate_and_transmit(raw) is True
+    sealed2 = bus.sent_frames[1]
+    assert sealed2.data[1] & 0x0F == 1
+    result2 = validator.validate(sealed2, profile)
+    assert result2.verdict.value == "OK"
+    bus.disconnect()
+
+
+def test_safety_gateway_e2e_stamping_leaves_unconfigured_ids_unsealed() -> None:
+    """Negative/boundary: without a profile for the ID, the frame passes
+    through byte-identical — E2E protection stays opt-in per stream."""
+    bus = VirtualBus(channel_id="safety_vbus_e2e2")
+    bus.connect()
+
+    gateway = TxSafetyGateway(
+        bus=bus,
+        whitelist_ids={0x501},
+        e2e_packager=E2ESafetyPackager(),
+        e2e_profiles={0x500: E2EProfileConfig.create_autosar_profile_1(data_id=0x0A0A)},
+    )
+
+    raw = CanFrame.create(channel_id="c0", arbitration_id=0x501, data=b"\x00\x01\x11\x22\x33\x44\x55\x66")
+    assert gateway.validate_and_transmit(raw) is True
+    assert bus.sent_frames[0].data == raw.data
     bus.disconnect()
 
 

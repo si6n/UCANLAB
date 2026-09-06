@@ -62,6 +62,12 @@ class Nmea2000FastPacketDecoder:
         source_address = frame.arbitration_id & 0xFF
         pgn = (dp << 16) | (pf << 8) if pf < 240 else (dp << 16) | (pf << 8) | ps
 
+        # NMEA 2000 Fast Packet PGNs are allocated in the 126000..131071 range.
+        # Reject J1939 TP.CM / TP.DT and classic J1939 control PGNs (< 65536)
+        # to prevent cross-protocol session pollution on shared buses.
+        if pgn < 65536:
+            return None
+
         header_byte = frame.data[0]
         sequence_id = (header_byte >> 5) & 0x07
         frame_index = header_byte & 0x1F

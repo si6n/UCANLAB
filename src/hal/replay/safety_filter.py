@@ -83,11 +83,11 @@ class ReplaySafetyFilter:
         0x34,  # Request Download
         0x36,  # Transfer Data
         0x37,  # Request Transfer Exit
-        0x38,  # Link Control (baud-rate changes)
+        0x38,  # Request File Transfer
         0x3D,  # Write Memory By Address (P1-2: raw memory writes)
         0x3E,  # Tester Present (session keep-alive for the above)
         0x85,  # Control DTC Setting
-        0x87,  # Link Control (J1939 variant)
+        0x87,  # Link Control (baud-rate changes)
     }
 
     def __init__(
@@ -135,8 +135,13 @@ class ReplaySafetyFilter:
                     return self._UNKNOWN_SID  # classic nibble on an FD-length frame: malformed
                 if len(frame.data) < 3:
                     return self._UNKNOWN_SID
+                sf_dl = frame.data[1]
+                if sf_dl < 1 or len(frame.data) < sf_dl + 2:
+                    return self._UNKNOWN_SID
                 return frame.data[2]
-            # Classic SF: SID at data[1]
+            # Classic SF: low_nibble is SF_DL (must be >= 1); SID at data[1]
+            if low_nibble < 1 or len(frame.data) < low_nibble + 1:
+                return self._UNKNOWN_SID
             return frame.data[1]
 
         if pci_type == 0x1:  # First Frame
@@ -171,11 +176,21 @@ class ReplaySafetyFilter:
 
         # 29-bit Extended Frame Evaluation (J1939 / N2K)
         if frame.is_extended:
+            # Mask out EDP bit (bit 25) so EDP=1 cannot evade blocked tables (0x1FFFF)
+            edp_masked_pgn = ((frame.arbitration_id >> 8) & 0x1FFFF)
+            edp_masked_pf = (edp_masked_pgn >> 8) & 0xFF
+            edp_masked_norm = (edp_masked_pgn & 0x1FF00) if edp_masked_pf < 240 else edp_masked_pgn
+
             pgn = (frame.arbitration_id >> 8) & 0x3FFFF
             pdu_format = (pgn >> 8) & 0xFF
             masked_pgn = (pgn & 0x3FF00) if pdu_format < 240 else pgn
 
-            if self.block_address_claim and (pgn in self.BLOCKED_PGNS or masked_pgn in self.BLOCKED_PGNS):
+            if self.block_address_claim and (
+                pgn in self.BLOCKED_PGNS
+                or masked_pgn in self.BLOCKED_PGNS
+                or edp_masked_pgn in self.BLOCKED_PGNS
+                or edp_masked_norm in self.BLOCKED_PGNS
+            ):
                 return False, f"BLOCKED_J1939_PGN: {pgn} (0x{pgn:05X})"
 
             # P1-2: TSC1/XBR physically command the vehicle — gated by the
