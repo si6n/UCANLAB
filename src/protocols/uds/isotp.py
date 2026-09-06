@@ -6,6 +6,9 @@ Supports Classic CAN (8B) and CAN-FD (up to 64B) segmentation and reassembly:
 - Standard 12-bit First Frame (len <= 4095) and Extended 32-bit First Frame (len > 4095).
 - Consecutive Frames with 0..15 sequence number wrapping.
 - Flow Control (CTS, WAIT with WFTmax=16, OVERFLOW, Block Size, STmin pacing).
+- Addressing modes (ISO 15765-2 §9.2): Normal (N_PCI at byte 0), Extended
+  (8-bit N_TA in byte 0, N_PCI at byte 1), and Mixed (8-bit N_AE in byte 0,
+  N_PCI at byte 1) via AddressingMode on the synchronous IsoTpTransport.
 - Asynchronous IsoTpSender & IsoTpReceiver state machines with N_Bs / N_Cr timers.
 - Backward-compatible synchronous IsoTpTransport helper.
 
@@ -15,6 +18,7 @@ Complies with ISO 15765-2:2016, ISO 11898-1:2015, and Phase 1 Architecture.
 from __future__ import annotations
 
 import asyncio
+import enum
 import threading
 import time
 from dataclasses import dataclass, field
@@ -40,6 +44,7 @@ from src.core.models.can_frame import (
 logger = get_logger("protocols.uds.isotp")
 
 __all__ = [
+    "AddressingMode",
     "FS_CTS",
     "FS_OVERFLOW",
     "FS_WAIT",
@@ -66,6 +71,20 @@ PCI_FLOW_CONTROL: int = 0x3
 FS_CTS: int = 0
 FS_WAIT: int = 1
 FS_OVERFLOW: int = 2
+
+
+class AddressingMode(str, enum.Enum):
+    """ISO 15765-2 §9.2 network layer addressing modes.
+
+    - NORMAL: 11/29-bit normal addressing; N_PCI starts at payload byte 0.
+    - EXTENDED: 8-bit target address (N_TA) occupies byte 0, N_PCI at byte 1.
+    - MIXED: 8-bit address extension (N_AE) occupies byte 0, N_PCI at byte 1
+      (paired with 29-bit normal fixed addressing on the wire).
+    """
+
+    NORMAL = "NORMAL"
+    EXTENDED = "EXTENDED"
+    MIXED = "MIXED"
 
 
 def decode_st_min(st_min_byte: int) -> float:
@@ -143,6 +162,8 @@ class IsoTpTransport:
         rx_block_size: int = 0,
         rx_st_min: int = 0,
         max_buffer_size: int = 1_048_576,
+        addressing_mode: AddressingMode = AddressingMode.NORMAL,
+        address_byte: int | None = None,
     ) -> None:
         self.tx_id = tx_id
         self.rx_id = rx_id
@@ -151,6 +172,18 @@ class IsoTpTransport:
         self.rx_block_size = rx_block_size
         self.rx_st_min = rx_st_min
         self.max_buffer_size = max_buffer_size
+        # ISO 15765-2 §9.2: EXTENDED carries N_TA (target address) in byte 0,
+        # MIXED carries N_AE (address extension) in byte 0. NORMAL addressing
+        # keeps the N_PCI at byte 0 (no address byte on the payload).
+        self.addressing_mode = AddressingMode(addressing_mode)
+        if self.addressing_mode == AddressingMode.NORMAL:
+            if address_byte is not None:
+                raise ValueError("address_byte is only valid with EXTENDED or MIXED addressing")
+            self.address_byte: int | None = None
+        else:
+            if address_byte is None:
+                raise ValueError(f"{self.addressing_mode.value} addressing requires address_byte (N_TA/N_AE)")
+            self.address_byte = address_byte & 0xFF
         self._lock = threading.RLock()
         self._sessions: dict[tuple[int, str], IsoTpRxSession] = {}
 
@@ -171,6 +204,16 @@ class IsoTpTransport:
             else:
                 self._sessions[(val.rx_id, val.channel_id)] = val
 
+    def _wrap_npci(self, npci_payload: bytes) -> bytes:
+        """Prefix the addressing byte (N_TA/N_AE) for EXTENDED/MIXED modes."""
+        if self.address_byte is None:
+            return npci_payload
+        return bytes([self.address_byte]) + npci_payload
+
+    def _pci_offset(self) -> int:
+        """Payload index where the N_PCI byte starts (0 normal, 1 ext/mixed)."""
+        return 0 if self.addressing_mode == AddressingMode.NORMAL else 1
+
     def segment_message(self, data: bytes, is_fd: bool = False) -> list[CanFrame]:
         """Segment outgoing payload into ISO-TP CAN frames (SF, Standard FF, Extended 32-bit FF, CF)."""
         data_len = len(data)
@@ -185,7 +228,7 @@ class IsoTpTransport:
         # for SF_DL >= 8 (CAN_DL > 8). Short FD payloads previously went
         # out as `00 02 10 03` which conformant ECUs silently discard.
         if data_len <= 7:
-            sf_raw = bytes([(PCI_SINGLE_FRAME << 4) | (data_len & 0x0F)]) + data
+            sf_raw = self._wrap_npci(bytes([(PCI_SINGLE_FRAME << 4) | (data_len & 0x0F)]) + data)
             if is_fd:
                 dlc = length_to_dlc(max(len(sf_raw), 12) if len(sf_raw) > 8 else 8)
                 padded_data = pad_payload(sf_raw, dlc, pad_byte=self.pad_byte if self.pad_byte is not None else 0xCC)
@@ -205,7 +248,7 @@ class IsoTpTransport:
             ]
 
         if is_fd and data_len <= 62:
-            sf_raw = bytes([0x00, data_len]) + data
+            sf_raw = self._wrap_npci(bytes([0x00, data_len]) + data)
             dlc = length_to_dlc(len(sf_raw))
             padded_data = pad_payload(sf_raw, dlc, pad_byte=self.pad_byte if self.pad_byte is not None else 0xCC)
             return [
@@ -225,16 +268,18 @@ class IsoTpTransport:
         # ------------------------------------------------------------------
         if is_fd:
             frames: list[CanFrame] = []
+            # Addressing byte consumes one payload byte in EXTENDED/MIXED.
+            addr = self._pci_offset()
             if data_len <= 4095:
                 # Standard 12-bit First Frame
-                ff_raw = (
+                ff_raw = self._wrap_npci(
                     bytes(
                         [
                             (PCI_FIRST_FRAME << 4) | ((data_len >> 8) & 0x0F),
                             data_len & 0xFF,
                         ]
                     )
-                    + data[:62]
+                    + data[: 62 - addr]
                 )
                 ff_padded = pad_payload(ff_raw, 15, pad_byte=self.pad_byte if self.pad_byte is not None else 0xCC)
                 frames.append(
@@ -248,10 +293,12 @@ class IsoTpTransport:
                         direction="tx",
                     )
                 )
-                bytes_sent = 62
+                bytes_sent = 62 - addr
             else:
                 # Extended 32-bit First Frame
-                ff_raw = bytes([0x10, 0x00]) + data_len.to_bytes(4, byteorder="big") + data[:58]
+                ff_raw = self._wrap_npci(
+                    bytes([0x10, 0x00]) + data_len.to_bytes(4, byteorder="big") + data[: 58 - addr]
+                )
                 ff_padded = pad_payload(ff_raw, 15, pad_byte=self.pad_byte if self.pad_byte is not None else 0xCC)
                 frames.append(
                     CanFrame(
@@ -264,12 +311,12 @@ class IsoTpTransport:
                         direction="tx",
                     )
                 )
-                bytes_sent = 58
+                bytes_sent = 58 - addr
 
             seq_num = 1
             while bytes_sent < data_len:
-                chunk = data[bytes_sent : bytes_sent + 63]
-                cf_raw = bytes([(PCI_CONSECUTIVE_FRAME << 4) | (seq_num & 0x0F)]) + chunk
+                chunk = data[bytes_sent : bytes_sent + 63 - addr]
+                cf_raw = self._wrap_npci(bytes([(PCI_CONSECUTIVE_FRAME << 4) | (seq_num & 0x0F)]) + chunk)
                 cf_padded = pad_payload(cf_raw, 15, pad_byte=self.pad_byte if self.pad_byte is not None else 0xCC)
                 frames.append(
                     CanFrame(
@@ -288,37 +335,25 @@ class IsoTpTransport:
             return frames
 
         # ------------------------------------------------------------------
-        # 3. Classic CAN Single Frame (<= 7 bytes)
+        # 3. Classic CAN Multi-Frame (FF + CFs)
         # ------------------------------------------------------------------
-        if data_len <= 7:
-            sf_raw = bytes([(PCI_SINGLE_FRAME << 4) | (data_len & 0x0F)]) + data
-            padded_data = pad_payload(sf_raw, 8, pad_byte=self.pad_byte if self.pad_byte is not None else 0xCC)
-            return [
-                CanFrame(
-                    channel_id=self.channel_id,
-                    arbitration_id=self.tx_id,
-                    dlc=8,
-                    data=padded_data,
-                    is_extended=self.tx_id > 0x7FF,
-                    is_fd=False,
-                    direction="tx",
-                )
-            ]
-
-        # ------------------------------------------------------------------
-        # 4. Classic CAN Multi-Frame (FF + CFs)
-        # ------------------------------------------------------------------
+        # Addressing byte (N_TA/N_AE) consumes one payload byte in
+        # EXTENDED/MIXED modes — first-frame and consecutive-frame chunk
+        # capacities shrink by one accordingly (ISO 15765-2 §9.2.2).
+        addr = self._pci_offset()
+        ff_capacity = 6 - addr
+        cf_capacity = 7 - addr
         frames_classic: list[CanFrame] = []
         if data_len <= 4095:
             # Standard 12-bit First Frame
-            ff_raw = (
+            ff_raw = self._wrap_npci(
                 bytes(
                     [
                         (PCI_FIRST_FRAME << 4) | ((data_len >> 8) & 0x0F),
                         data_len & 0xFF,
                     ]
                 )
-                + data[:6]
+                + data[:ff_capacity]
             )
             ff_padded = pad_payload(ff_raw, 8, pad_byte=self.pad_byte if self.pad_byte is not None else 0xCC)
             frames_classic.append(
@@ -332,10 +367,10 @@ class IsoTpTransport:
                     direction="tx",
                 )
             )
-            bytes_sent = 6
+            bytes_sent = ff_capacity
         else:
             # Extended 32-bit First Frame
-            ff_raw = bytes([0x10, 0x00]) + data_len.to_bytes(4, byteorder="big") + data[:2]
+            ff_raw = self._wrap_npci(bytes([0x10, 0x00]) + data_len.to_bytes(4, byteorder="big") + data[:2])
             ff_padded = pad_payload(ff_raw, 8, pad_byte=self.pad_byte if self.pad_byte is not None else 0xCC)
             frames_classic.append(
                 CanFrame(
@@ -352,8 +387,8 @@ class IsoTpTransport:
 
         seq_num = 1
         while bytes_sent < data_len:
-            chunk = data[bytes_sent : bytes_sent + 7]
-            cf_raw = bytes([(PCI_CONSECUTIVE_FRAME << 4) | (seq_num & 0x0F)]) + chunk
+            chunk = data[bytes_sent : bytes_sent + cf_capacity]
+            cf_raw = self._wrap_npci(bytes([(PCI_CONSECUTIVE_FRAME << 4) | (seq_num & 0x0F)]) + chunk)
             cf_padded = pad_payload(cf_raw, 8, pad_byte=self.pad_byte if self.pad_byte is not None else 0xCC)
             frames_classic.append(
                 CanFrame(
@@ -370,15 +405,35 @@ class IsoTpTransport:
             seq_num = (seq_num + 1) & 0x0F
 
         return frames_classic
+
     def handle_rx_frame(self, frame: CanFrame) -> tuple[bytes | None, CanFrame | None]:
         """Process incoming CAN frame for ISO-TP reassembly (Thread-safe, B-01/CRITICAL-3).
 
         Returns: (CompletedPayload, ResponseFrame)
+
+        ISO 15765-2 §9.2 addressing: in EXTENDED/MIXED modes byte 0 is the
+        N_TA/N_AE address byte and the N_PCI starts at byte 1; the address
+        byte is verified (mismatched frames are dropped) and stripped before
+        reassembly. In NORMAL mode the N_PCI is at byte 0 as before.
         """
         if frame.arbitration_id != self.rx_id or len(frame.data) < 2:
             return None, None
 
-        pci_type = (frame.data[0] >> 4) & 0x0F
+        if self.addressing_mode != AddressingMode.NORMAL:
+            # Verify then strip the addressing byte (N_TA / N_AE)
+            if frame.data[0] != self.address_byte:
+                logger.debug(
+                    "ISO-TP frame address byte mismatch — dropping",
+                    extra={"expected": self.address_byte, "got": frame.data[0]},
+                )
+                return None, None
+            data = frame.data[1:]
+            if len(data) < 1:
+                return None, None
+        else:
+            data = frame.data
+
+        pci_type = (data[0] >> 4) & 0x0F
         now = time.monotonic()
         key = (frame.arbitration_id, frame.channel_id)
 
@@ -387,7 +442,7 @@ class IsoTpTransport:
             # 1. Single Frame (SF)
             # ------------------------------------------------------------------
             if pci_type == PCI_SINGLE_FRAME:
-                if (frame.data[0] & 0x0F) == 0:
+                if (data[0] & 0x0F) == 0:
                     # If frame is not CAN-FD, SF_DL == 0 is malformed Classic CAN frame
                     if not frame.is_fd:
                         return None, None
@@ -398,35 +453,37 @@ class IsoTpTransport:
                         return None, None
 
                     # CAN-FD Extended Single Frame (SF_DL 8..62)
-                    if len(frame.data) < 2:
+                    if len(data) < 2:
                         return None, None
-                    sf_len = frame.data[1]
+                    sf_len = data[1]
                     if sf_len < 8 or sf_len > 62:
                         return None, None
-                    if sf_len <= (len(frame.data) - 2):
+                    if sf_len <= (len(data) - 2):
                         self._sessions.pop(key, None)
-                        return bytes(frame.data[2 : 2 + sf_len]), None
+                        return bytes(data[2 : 2 + sf_len]), None
                 else:
                     # Classic CAN Single Frame (SF_DL 1..7)
-                    sf_len = frame.data[0] & 0x0F
-                    if 1 <= sf_len <= (len(frame.data) - 1):
+                    sf_len = data[0] & 0x0F
+                    if 1 <= sf_len <= (len(data) - 1):
                         self._sessions.pop(key, None)
-                        return bytes(frame.data[1 : 1 + sf_len]), None
+                        return bytes(data[1 : 1 + sf_len]), None
                 return None, None
 
             # ------------------------------------------------------------------
             # 2. First Frame (FF)
             # ------------------------------------------------------------------
             if pci_type == PCI_FIRST_FRAME:
-                if len(frame.data) >= 6 and frame.data[0] == 0x10 and frame.data[1] == 0x00:
+                if len(data) >= 6 and data[0] == 0x10 and data[1] == 0x00:
                     # Extended 32-bit First Frame
-                    total_len = int.from_bytes(frame.data[2:6], byteorder="big")
+                    total_len = int.from_bytes(data[2:6], byteorder="big")
                     if total_len <= 4095:
                         return None, None
                     header_len = 6
                 else:
-                    # Standard 12-bit First Frame
-                    total_len = ((frame.data[0] & 0x0F) << 8) | frame.data[1]
+                    # Standard 12-bit First Frame (ISO 15765-2 requires total_len >= 8)
+                    total_len = ((data[0] & 0x0F) << 8) | data[1]
+                    if total_len < 8:
+                        return None, None
                     header_len = 2
 
                 # P1: Check buffer size cap (ISO 15765-2 FS_OVERFLOW)
@@ -451,7 +508,7 @@ class IsoTpTransport:
                     )
                     return None, fc_frame
 
-                first_chunk = frame.data[header_len:]
+                first_chunk = data[header_len:]
                 if len(first_chunk) > total_len:
                     first_chunk = first_chunk[:total_len]
 
@@ -519,7 +576,7 @@ class IsoTpTransport:
                     self._sessions.pop(key, None)
                     return None, None
 
-                seq_num = frame.data[0] & 0x0F
+                seq_num = data[0] & 0x0F
                 if seq_num != session.expected_sequence_number:
                     logger.warning(
                         "ISO-TP Sequence mismatch",
@@ -529,9 +586,9 @@ class IsoTpTransport:
                     return None, None
 
                 needed = session.total_bytes - len(session.received_bytes)
-                available_payload = len(frame.data) - 1
+                available_payload = len(data) - 1
                 chunk_len = min(needed, available_payload)
-                chunk = frame.data[1 : 1 + chunk_len]
+                chunk = data[1 : 1 + chunk_len]
 
                 session.received_bytes.extend(chunk)
                 session.expected_sequence_number = (session.expected_sequence_number + 1) & 0x0F
@@ -566,8 +623,6 @@ class IsoTpTransport:
                         return None, fc_frame
 
                 return None, None
-
-        return None, None
 
         return None, None
 
@@ -683,11 +738,17 @@ class IsoTpSender:
     async def _apply_st_min(self, st_min_byte: int) -> None:
         """Execute STmin pacing delay (all variants yield to the event loop).
 
-        4.3 (REVIEW.md): the old 100-900 us range used a busy spin-wait
+        4.3 (REVIEW): the old 100-900 us range used a busy spin-wait
         (`while ... pass`) INSIDE the async sender — that froze every other
         coroutine on the thread (timers, UI pushes, FC readers) during high
         frequency transfers. Yielding costs at most one event-loop tick of
         scheduling latency (~1 ms), which is within STmin tolerance.
+
+        B10 (REVIEW): the residual spin-wait for the sub-millisecond
+        0xF1..0xF9 range is replaced with a chunked wait — the loop yields
+        to the event loop (`await asyncio.sleep(0)`) every ~200 us so other
+        coroutines keep running, while retaining high-resolution pacing that
+        Windows' 15.6 ms sleep granularity cannot provide.
         """
         if st_min_byte == 0x00:
             return
@@ -695,13 +756,20 @@ class IsoTpSender:
             delay_s = st_min_byte / 1000.0
             await asyncio.sleep(delay_s)
         elif 0xF1 <= st_min_byte <= 0xF9:
-            # 100..900 us: high-resolution hybrid wait — short spin-wait to avoid
-            # Windows timer resolution granularity (15.6 ms) blowing STmin past tolerance.
+            # 100..900 us: high-resolution pacing with periodic event-loop
+            # yields; a full busy spin would starve the loop for the whole
+            # transfer and trip N_Bs/N_Cr timers. The yield interval is
+            # below the smallest STmin (100 us) so even the fastest pacing
+            # grants the loop a tick between waits.
             delay_us = (st_min_byte - 0xF0) * 100
+            yield_every_ns = 50_000
             target_ns = time.perf_counter_ns() + (delay_us * 1000)
-            while time.perf_counter_ns() < target_ns:
-                pass
-            return
+            while True:
+                now_ns = time.perf_counter_ns()
+                if now_ns >= target_ns:
+                    break
+                if target_ns - now_ns > yield_every_ns:
+                    await asyncio.sleep(0)
         else:
             # Reserved range clamped to 127 ms
             await asyncio.sleep(0.127)
@@ -841,7 +909,7 @@ class IsoTpReceiver:
         rx_sub: RxSubscription,
         tx_id: int,
         rx_id: int,
-        channel_id: str = "uds_ch0",
+        channel_id: str | None = None,
         is_fd: bool = False,
         block_size: int = 0,
         st_min: int = 0,
@@ -874,7 +942,7 @@ class IsoTpReceiver:
             fc_payload[i] = pad
 
         return CanFrame.create(
-            channel_id=self.channel_id,
+            channel_id=self.channel_id or "uds_ch0",
             arbitration_id=self.tx_id,
             data=bytes(fc_payload),
             is_extended=self.tx_id > 0x7FF,
@@ -900,6 +968,10 @@ class IsoTpReceiver:
 
             if frame is None:
                 raise TimeoutError("Timeout waiting for ISO-TP message")
+
+            if self.channel_id is not None and frame.channel_id != self.channel_id:
+                frame = None
+                continue
 
             if frame.arbitration_id != self.rx_id or len(frame.data) < 2:
                 frame = None
@@ -1058,7 +1130,11 @@ class IsoTpReceiver:
                     # one payload byte; a lone 1-byte frame matches SF/FF paths'
                     # rejection and cannot contribute session data.
                     # P2-2: irrelevant frames do NOT refresh the N_Cr deadline.
+                    if self.channel_id is not None and cf_frame.channel_id != self.channel_id:
+                        continue
                     if cf_frame.arbitration_id != self.rx_id or len(cf_frame.data) < 2:
+                        continue
+                    if cf_frame.is_fd != self.is_fd:
                         continue
 
                     cf_pci = cf_frame.data[0] >> 4

@@ -6,6 +6,7 @@ Matches NO-GO Remediation Plan (v1.0 Release Blockers).
 from __future__ import annotations
 
 import queue
+from collections.abc import Callable
 from typing import TYPE_CHECKING, ClassVar
 
 from src.hal.base import AbstractBus
@@ -21,30 +22,93 @@ class SafeMultiplexedBus(AbstractBus):
 
     Resolves K-01: Removes physical TX capability from application layer.
     Resolves K-02: Prevents Frame Stealing by acting as an asynchronous Queue subscriber.
+
+    B1 (REVIEW): the adapter must NOT capture the physical bus instance at
+    construction time. `_reconnect_bus` swaps `app.bus` for a NEW driver
+    instance and disconnects the old one; a client holding a multiplexed bus
+    built around the old instance would then read stale `is_connected` /
+    `channel_id` metadata (TX still works — it delegates to the gateway,
+    whose `bus` is rebound; RX still works — it comes from the router). The
+    bus is therefore resolved dynamically through a provider callable on
+    every attribute access, so the adapter always reflects the live driver.
     """
 
     def __init__(
         self,
-        physical_bus: AbstractBus,
-        gateway: TxSafetyGateway,
-        router: FrameRouter,
+        physical_bus: AbstractBus | None = None,
+        gateway: TxSafetyGateway | None = None,
+        router: FrameRouter | None = None,
+        *,
+        bus_provider: Callable[[], AbstractBus] | None = None,
     ) -> None:
-        self.physical_bus = physical_bus
+        if bus_provider is None and physical_bus is None:
+            raise ValueError("SafeMultiplexedBus requires either physical_bus or bus_provider")
+        if gateway is None or router is None:
+            raise ValueError("SafeMultiplexedBus requires gateway and router")
+        if bus_provider is not None:
+            self._bus_provider = bus_provider
+        else:
+            assert physical_bus is not None  # narrowed above
+            live_bus = physical_bus
+            self._bus_provider = lambda: live_bus
         self.gateway = gateway
         self.router = router
         self._initialized = False
-        super().__init__(channel_id=physical_bus.channel_id, bitrate=physical_bus.bitrate, is_fd=physical_bus.is_fd)
+        # Resolve the live bus for the base-class fields; channel_id/bitrate
+        # stay mutable properties below so they track reconnects.
+        super().__init__(
+            channel_id=self._bus_provider().channel_id,
+            bitrate=self._bus_provider().bitrate,
+            is_fd=self._bus_provider().is_fd,
+        )
         self._initialized = True
 
         # Subscribe to FrameRouter for RX without stealing frames from hardware
-        self.sub_id, self.rx_queue = self.router.subscribe(use_queue=True)
+        sub_id, rx_queue = self.router.subscribe(use_queue=True)
+        self.sub_id: int | None = sub_id
+        self.rx_queue: queue.Queue[CanFrame] | None = rx_queue
         if self.rx_queue is None:
             raise RuntimeError("SafeMultiplexedBus failed to obtain an RX queue from FrameRouter")
 
     @property
+    def _live_bus(self) -> AbstractBus:
+        """Current physical driver instance (re-resolved on every access)."""
+        return self._bus_provider()
+
+    @property
+    def channel_id(self) -> str:
+        """Live channel identity from the current physical bus."""
+        return self._bus_provider().channel_id
+
+    @channel_id.setter
+    def channel_id(self, value: str) -> None:
+        # The base-class constructor assigns this once before the provider is
+        # meaningful; afterwards it is strictly derived from the live bus.
+        if not self._initialized:
+            self.__dict__["channel_id"] = value
+
+    @property
+    def bitrate(self) -> int:
+        return self._bus_provider().bitrate
+
+    @bitrate.setter
+    def bitrate(self, value: int) -> None:
+        if not self._initialized:
+            self.__dict__["bitrate"] = value
+
+    @property
+    def is_fd(self) -> bool:
+        return self._bus_provider().is_fd
+
+    @is_fd.setter
+    def is_fd(self, value: bool) -> None:
+        if not self._initialized:
+            self.__dict__["is_fd"] = value
+
+    @property
     def is_connected(self) -> bool:
         """Live connection state reflected directly from the underlying physical bus."""
-        return bool(self.physical_bus and self.physical_bus.is_connected)
+        return bool(self._bus_provider() and self._bus_provider().is_connected)
 
     @is_connected.setter
     def is_connected(self, value: bool) -> None:
@@ -54,8 +118,8 @@ class SafeMultiplexedBus(AbstractBus):
 
     def connect(self) -> None:
         """Physical bus connection is managed externally (e.g. by main UI)."""
-        if not self.physical_bus.is_connected:
-            self.physical_bus.connect()
+        if not self._live_bus.is_connected:
+            self._live_bus.connect()
         if self.sub_id is None:
             self.sub_id, self.rx_queue = self.router.subscribe(use_queue=True)
 
@@ -64,6 +128,7 @@ class SafeMultiplexedBus(AbstractBus):
         if self.sub_id is not None:
             self.router.unsubscribe(self.sub_id)
             self.sub_id = None
+        self.rx_queue = None
 
     def send(
         self,
@@ -79,13 +144,37 @@ class SafeMultiplexedBus(AbstractBus):
             user_confirmed=user_confirmed,
         )
 
-    def send_sync(self, frame: CanFrame) -> None:
+    def send_sync(
+        self,
+        frame: CanFrame,
+        *,
+        is_critical_command: bool = False,
+        user_confirmed: bool = False,
+        budget_category: str = "default",
+    ) -> None:
         """Synchronously transmit frame conforming to TxPort protocol."""
-        self.gateway.validate_and_transmit(frame, is_critical_command=False, user_confirmed=False)
+        self.gateway.validate_and_transmit(
+            frame,
+            is_critical_command=is_critical_command,
+            user_confirmed=user_confirmed,
+            budget_category=budget_category,
+        )
 
-    async def send_async(self, frame: CanFrame) -> None:
+    async def send_async(
+        self,
+        frame: CanFrame,
+        *,
+        is_critical_command: bool = False,
+        user_confirmed: bool = False,
+        budget_category: str = "default",
+    ) -> None:
         """Asynchronously transmit frame conforming to TxPort protocol."""
-        await self.gateway.send(frame)
+        await self.gateway.send(
+            frame,
+            is_critical_command=is_critical_command,
+            user_confirmed=user_confirmed,
+            budget_category=budget_category,
+        )
 
     DEFAULT_RECV_TIMEOUT_S: ClassVar[float] = 1.0
 

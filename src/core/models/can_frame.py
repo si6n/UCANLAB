@@ -213,9 +213,22 @@ class CanFrame:
         timestamp_ns: int | None = None,
         source: str = "physical",
     ) -> CanFrame:
-        """Convenience factory method with automatic parameter derivation."""
+        """Convenience factory method with automatic parameter derivation.
+
+        B2 (REVIEW): payloads above 8 bytes are only representable in CAN-FD.
+        Fail closed with an explicit, actionable message instead of the
+        cryptic "Classic CAN DLC cannot exceed 8" from __post_init__ — an
+        accidental is_fd omission must never silently produce a valid-looking
+        classic frame either.
+        """
         if is_extended is None:
             is_extended = arbitration_id > 0x7FF
+
+        if not is_fd and len(data) > 8:
+            raise ValueError(
+                f"Payload of {len(data)} bytes exceeds the 8-byte Classic CAN "
+                "limit — pass is_fd=True for CAN-FD frames"
+            )
 
         if dlc is None:
             dlc = length_to_dlc(len(data))

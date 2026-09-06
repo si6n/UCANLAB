@@ -1,4 +1,4 @@
-"""End-to-End Safety Wiring Harness: SafeMultiplexedBus, FrameRouter, TxWatchdogSupervisor, TxSafetyGateway.
+﻿"""End-to-End Safety Wiring Harness: SafeMultiplexedBus, FrameRouter, TxWatchdogSupervisor, TxSafetyGateway.
 
 Verifies:
 1. Composition root wiring in UniversalCanDesktopApp (Mock WebView2 + mock bus).
@@ -21,13 +21,13 @@ Verifies:
 from __future__ import annotations
 
 import queue
-import time
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
 import pytest
 
+from src.core.contracts.ports import VirtualClock
 from src.core.errors import SafetyError
 from src.core.models.can_frame import CanFrame
 from src.engine.router import FrameRouter
@@ -121,10 +121,14 @@ class SafetyWiringHarness:
         self.supervisor.transition_to(SafetyState.PASSIVE, reason="Initialization")
         self.supervisor.arm_tx()
 
+        # docs/ai_context/05 Â§4: the lease is driven by an injected
+        # VirtualClock â€” timeout tests advance the clock instead of sleeping.
+        self.clock = VirtualClock(start_monotonic_sec=1000.0)
         self.watchdog = TxWatchdogSupervisor(
             supervisor=self.supervisor,
             estop=self.estop,
             timeout_ms=watchdog_timeout_ms,
+            clock=self.clock,
         )
 
         effective_whitelist = whitelist_ids if whitelist_ids is not None else {0x7DF, 0x7E0, 0x18DA00F9}
@@ -185,7 +189,10 @@ def test_composition_root_wiring_with_mock_bus_and_webview2() -> None:
     # 3. Check SafeMultiplexedBus creation from desktop app helper
     uds_client = app.create_uds_client(tx_id=0x7E0, rx_id=0x7E8)
     assert isinstance(uds_client.bus, SafeMultiplexedBus)
-    assert uds_client.bus.physical_bus is mock_bus
+    # B1 (REVIEW): the multiplexer resolves the physical bus dynamically via
+    # its provider — it must track the app's live bus instance and survive a
+    # `_reconnect_bus` swap without going stale.
+    assert uds_client.bus._live_bus is mock_bus
     assert uds_client.bus.gateway is app.gateway
     assert uds_client.bus.router is app.router
 
@@ -290,17 +297,17 @@ def test_safety_wiring_watchdog_expiration_cascade() -> None:
     """Verify complete cascade:
 
     Watchdog lease expiration -> Supervisor FAULT -> E-Stop triggered -> Gateway blocks -> TX cutoff.
+
+    Deterministic: the lease runs on an injected VirtualClock â€” no real sleeps.
     """
     # Fast 80ms watchdog timeout for test responsiveness
     harness = SafetyWiringHarness(watchdog_timeout_ms=80.0, whitelist_ids={0x7E0})
     frame = CanFrame.create(channel_id="vcan_test", arbitration_id=0x7E0, data=b"\x02\x10\x01")
 
-    harness.start_watchdog()
-
     try:
-        # Keep alive with heartbeats for 100ms
+        # Keep alive with heartbeats across virtual time
         for _ in range(2):
-            time.sleep(0.04)
+            harness.clock.advance(0.04)
             harness.watchdog.heartbeat()
 
         # Confirm TX still permitted
@@ -308,8 +315,10 @@ def test_safety_wiring_watchdog_expiration_cascade() -> None:
         harness.safe_bus.send(frame)
         assert len(harness.bus.sent_frames) == 1
 
-        # Now simulate UI freeze / heartbeat stop: wait 180ms (> 80ms lease)
-        time.sleep(0.18)
+        # Now simulate UI freeze / heartbeat stop: advance virtual time past
+        # the 80ms lease and run one monitor iteration deterministically.
+        harness.clock.advance(0.18)
+        harness.watchdog.poll_once()
 
         # 1. Lease must be expired
         assert harness.watchdog.is_lease_valid is False
@@ -343,11 +352,12 @@ def test_safety_wiring_rx_continues_during_tx_cutoff() -> None:
     RX frames distributed via FrameRouter to SafeMultiplexedBus.recv() are NOT lost.
     """
     harness = SafetyWiringHarness(watchdog_timeout_ms=60.0, whitelist_ids={0x7E0})
-    harness.start_watchdog()
 
     try:
-        # Wait for watchdog to expire and latch FAULT + E-Stop
-        time.sleep(0.15)
+        # Advance virtual time past the lease and run one monitor iteration â€”
+        # watchdog latches FAULT + E-Stop deterministically (no real sleep).
+        harness.clock.advance(0.15)
+        harness.watchdog.poll_once()
         assert harness.supervisor.is_fault is True
         assert harness.estop.is_engaged is True
 

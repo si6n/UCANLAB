@@ -52,10 +52,18 @@ class AntiTamperGuard:
             raise SecurityError("Anti-tamper unable to probe remote debugger", code="ANTI_TAMPER_VIOLATION")
 
         try:
+            fn = windll.kernel32.CheckRemoteDebuggerPresent
+            fn.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_bool)]
+            fn.restype = ctypes.c_int
             is_present = ctypes.c_bool(False)
             current_proc = windll.kernel32.GetCurrentProcess()
-            res = windll.kernel32.CheckRemoteDebuggerPresent(current_proc, ctypes.byref(is_present))
-            if res != 0 and is_present.value:
+            res = fn(current_proc, ctypes.byref(is_present))
+            if res == 0:
+                raise SecurityError(
+                    "CheckRemoteDebuggerPresent Win32 API call failed (fail closed)",
+                    code="ANTI_TAMPER_VIOLATION",
+                )
+            if is_present.value:
                 return True
         except (AttributeError, OSError, RuntimeError) as exc:
             raise SecurityError(
@@ -66,12 +74,16 @@ class AntiTamperGuard:
 
         return False
 
-    # REVIEW.md 5.1: 200 SHA-256 digests in 50 ms was wildly optimistic —
-    # power-throttled rugged tablets, old Celeron workshop laptops and
-    # VM CPU-steal routinely exceed it, falsely labelling legitimate users
-    # as tampered. 250 ms tolerates the slowest real hardware while still
-    # catching single-stepping (which lands in the seconds range).
-    TIMING_THRESHOLD_MS: ClassVar[float] = 250.0
+    # B8 (REVIEW): 200 SHA-256 digests of an 11-byte input complete in
+    # microseconds even on power-throttled workshop hardware — a 250 ms
+    # threshold let hardware breakpoints and hypervisor single-step hooks
+    # (5-20 ms of overhead) pass undetected, providing only a false sense
+    # of security. 20 ms keeps a safety margin for worst-case CPU steal /
+    # scheduler contention on rugged tablets while catching real
+    # instrumentation. TWO consecutive breaches are still required below,
+    # so a one-off GC pause or antivirus burst cannot flag a legitimate
+    # operator.
+    TIMING_THRESHOLD_MS: ClassVar[float] = 20.0
 
     @classmethod
     def detect_timing_anomaly(cls, threshold_ms: float | None = None) -> bool:

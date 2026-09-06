@@ -10,6 +10,7 @@ import re
 import sys
 import threading
 import time
+import urllib.parse
 from concurrent.futures import TimeoutError as FuturesTimeoutError
 from pathlib import Path
 from typing import Any, ClassVar
@@ -17,11 +18,11 @@ from typing import Any, ClassVar
 import webview
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
-from src.core.errors import PlatformError
 from src.core.logging import get_logger
 from src.core.models.can_frame import CanFrame, length_to_dlc
 from src.engine.ai.diagnostic_copilot import AiDiagnosticCopilot
 from src.engine.buffer.ring_buffer import BinaryRingBuffer
+from src.engine.buffer.rolling_disk import RollingDiskBuffer
 from src.engine.pipeline.reassembly_pipeline import j1939_protocol_response_masks
 from src.engine.router import FrameRouter
 from src.hal.drivers.pcan_kvaser import PythonCanBus
@@ -43,6 +44,24 @@ from src.security.hwid.collector import generate_hardware_fingerprint
 logger = get_logger("app.desktop")
 
 DEFAULT_EMBEDDED_CLOUD_PUBLIC_KEY_B64 = "eX3vJQWpo/pKrkpi5Y+f7m5ooUCRbCyY201DTnAjz/Q="
+
+# B7 (REVIEW): production cloud endpoint. Override with UCANLAB_CLOUD_BASE_URL
+# (any HTTPS URL) or switch to the local dev server with UCANLAB_CLOUD_DEV=1.
+DEFAULT_CLOUD_BASE_URL = "https://ucan-cloud.si6n.io"
+_DEV_CLOUD_BASE_URL = "http://127.0.0.1:8000"
+
+
+def _resolve_cloud_base_url() -> str:
+    """Resolve the cloud base URL from the environment (build/deploy-time config)."""
+    import os
+
+    dev_override = str(os.environ.get("UCANLAB_CLOUD_DEV", "")).strip().lower()
+    if dev_override in ("1", "true", "yes"):
+        return _DEV_CLOUD_BASE_URL
+    explicit = str(os.environ.get("UCANLAB_CLOUD_BASE_URL", "")).strip()
+    if explicit:
+        return explicit
+    return DEFAULT_CLOUD_BASE_URL
 
 
 class DesktopApiBridge:
@@ -83,12 +102,54 @@ class DesktopApiBridge:
         try:
             val = float(speed)
             if math.isfinite(val):
-                self.app.set_simulation_speed(val)
+                clamped = max(0.01, min(10.0, val))
+                self.app.set_simulation_speed(clamped)
         except (ValueError, TypeError):
             pass
 
     def ask_copilot(self, query: str) -> str:
         return self.app.query_copilot(query)
+
+    def get_dtc_info(self, code: str) -> dict[str, Any]:
+        """Look up DTC code specifications directly from the local knowledge base."""
+        from src.engine.ai.diagnostic_copilot import EXPERT_KNOWLEDGE_BASE
+        code_clean = (code or "").strip().upper()
+        return EXPERT_KNOWLEDGE_BASE.get(code_clean, {})
+
+    def search_nhtsa_recalls(
+        self,
+        make: str | None = None,
+        model: str | None = None,
+        year: int | None = None,
+        query: str | None = None,
+        limit: int = 10,
+    ) -> list[dict[str, Any]]:
+        """Search integrated NHTSA CAN & electrical safety recalls directly from UI."""
+        from src.engine.ai.diagnostic_copilot import search_nhtsa_recalls
+        return search_nhtsa_recalls(
+            make=make or None,
+            model=model or None,
+            year=year if year and year > 1900 else None,
+            query=query or None,
+            limit=limit,
+        )
+
+    def get_diagnostic_db_metrics(self) -> dict[str, Any]:
+        """Return metric counts of all integrated diagnostic databases."""
+        from src.engine.ai.diagnostic_copilot import (
+            EXPERT_KNOWLEDGE_BASE,
+            get_j1939_spn_database,
+            get_mode06_database,
+            get_nhtsa_recalls_database,
+            get_uds_did_database,
+        )
+        return {
+            "dtc_count": len(EXPERT_KNOWLEDGE_BASE),
+            "j1939_spn_count": len(get_j1939_spn_database().get("spns", {})),
+            "uds_did_count": len(get_uds_did_database().get("dids", {})),
+            "mode06_monitor_count": len(get_mode06_database().get("monitors", {})),
+            "nhtsa_recall_count": len(get_nhtsa_recalls_database()),
+        }
 
     def export_logs(self, fmt: str) -> bool:
         """Export current session logs / telemetry frames to disk (LOW-4)."""
@@ -104,6 +165,12 @@ class DesktopApiBridge:
 
     def get_safety_state(self) -> str:
         return self.app.supervisor.current_state.value
+
+    def arm_tx(self, reason: str = "Operator armed TX via UI") -> dict[str, Any]:
+        return self.app.arm_tx(reason=reason)
+
+    def disarm_tx(self, reason: str = "Operator disarmed TX via UI") -> dict[str, Any]:
+        return self.app.disarm_tx(reason=reason)
 
     def estop_request_challenge(self) -> dict[str, Any]:
         """Issue a cryptographic reset challenge for multi-operator/independent verification."""
@@ -121,8 +188,13 @@ class DesktopApiBridge:
     # Cloud & SaaS Bridge APIs (Universal-CAN-Cloud)
     # ------------------------------------------------------------------
     def cloud_test_connection(self, url: str | None = None, session_token: str | None = None) -> dict[str, Any]:
+        # Whitelist allowed hosts for cloud connection testing to prevent credential leakage
+        allowed_domains = ("localhost", "127.0.0.1", "::1", "ucan-cloud.si6n.io", "cloud.universalcan.io")
         try:
             if url:
+                parsed = urllib.parse.urlsplit(url)
+                if parsed.hostname and parsed.hostname not in allowed_domains and not parsed.hostname.endswith(".si6n.io"):
+                    return {"success": False, "error": f"URL hedefi izin listesinde değil: {parsed.hostname}"}
                 self.app.cloud_client.set_base_url(url)
             resp = self.app.cloud_client.request("GET", "/health", health_endpoint=True)
             if resp.status == 200:
@@ -143,8 +215,12 @@ class DesktopApiBridge:
             return {"success": False, "error": str(exc)}
 
     def cloud_save_config(self, url: str, session_token: str | None = None) -> dict[str, Any]:
+        allowed_domains = ("localhost", "127.0.0.1", "::1", "ucan-cloud.si6n.io", "cloud.universalcan.io")
         try:
             if url:
+                parsed = urllib.parse.urlsplit(url)
+                if parsed.hostname and parsed.hostname not in allowed_domains and not parsed.hostname.endswith(".si6n.io"):
+                    return {"success": False, "error": f"URL hedefi izin listesinde değil: {parsed.hostname}"}
                 self.app.cloud_client.set_base_url(url)
             if session_token is not None:
                 if session_token.strip():
@@ -237,7 +313,7 @@ class DesktopApiBridge:
 
         # Reject sensitive path fragments (credentials, ssh, dpapi, windows system)
         resolved_str = str(resolved).lower()
-        sensitive_fragments = ("secrets", ".dpapi", "machine_seed", ".ssh", "id_rsa", "id_ed25519", "sam", "system32\\config")
+        sensitive_fragments = ("secrets", ".dpapi", "machine_seed", ".ssh", "id_rsa", "id_ed25519", "sam", "system32\\config", "windows\\system32", "etc\\shadow", "etc\\passwd")
         if any(frag in resolved_str for frag in sensitive_fragments):
             raise ValueError("Guvenlik politikasi: Bu dosya konumuna erisim engellendi.")
 
@@ -307,15 +383,21 @@ class UniversalCanDesktopApp:
         # F-30: composition root owns exactly ONE bus instance — injected when
         # available, created once otherwise. Settings changes reconnect it.
         # K4-a: rp1210 goes through the RP1210Bus adapter; the rest python-can.
+        # Safe-by-default (CONTRIBUTING.md): the app opens its bus listen-only;
+        # the operator must explicitly arm TX before any transmission path is
+        # unblocked by the SafetySupervisor (PASSIVE → ARMED_TX).
         if bus is not None:
             self.bus = bus
         elif interface == "rp1210":
             from src.main import build_bus
 
-            self.bus = build_bus(interface=interface, channel=channel, bitrate=bitrate)
+            self.bus = build_bus(interface=interface, channel=channel, bitrate=bitrate, listen_only=True)
         else:
             self.bus = PythonCanBus(
-                interface=self.interface_val, channel=self.channel_name, bitrate=self.bitrate_val
+                interface=self.interface_val,
+                channel=self.channel_name,
+                bitrate=self.bitrate_val,
+                listen_only=True,
             )
         self.estop = EmergencyStopSystem()
         # P1-1: mint/verify separation — exactly one reset authority exists,
@@ -323,7 +405,7 @@ class UniversalCanDesktopApp:
         # gateway, watchdog, and protocol engines below receive only the
         # verification-only enforcement object.
         self.estop_reset_authority = EStopResetAuthority(self.estop)
-        self.supervisor = SafetySupervisor(initial_state=SafetyState.STARTUP)
+        self.supervisor = SafetySupervisor(initial_state=SafetyState.STARTUP, estop=self.estop)
         self.watchdog = TxWatchdogSupervisor(supervisor=self.supervisor, estop=self.estop, timeout_ms=800.0)
         # REVIEW.md 1.1: the gateway previously started with NO whitelist,
         # so the fail-closed Stage 3 rejected every single frame — the app
@@ -348,7 +430,12 @@ class UniversalCanDesktopApp:
         )
 
         # Cloud Subsystem (Universal-CAN-Cloud)
-        self._cloud_config = CloudConfig(base_url="http://127.0.0.1:8000")
+        # B7 (REVIEW): production builds must target the real cloud endpoint.
+        # The loopback dev server is opt-in via UCANLAB_CLOUD_DEV=1 so a
+        # stock binary never silently loses license verification /
+        # telemetry upload to a nonexistent localhost server (7-day offline
+        # grace, then lockout).
+        self._cloud_config = CloudConfig(base_url=_resolve_cloud_base_url())
         self.cloud_client = CloudClient(config=self._cloud_config, secret_provider=self._secret_provider)
         try:
             pub_bytes = base64.b64decode(DEFAULT_EMBEDDED_CLOUD_PUBLIC_KEY_B64)
@@ -361,6 +448,17 @@ class UniversalCanDesktopApp:
         # F-28: real CAN ingestion pipeline — bus -> FrameRouter -> decoders -> UI
         self.router = FrameRouter()
         self.ring_buffer = BinaryRingBuffer()
+        blackbox_dir = Path("logs/blackbox")
+        try:
+            self.rolling_disk: RollingDiskBuffer | None = RollingDiskBuffer(
+                storage_dir=blackbox_dir, secret_provider=self._secret_provider
+            )
+        except Exception as exc:
+            logger.warning(
+                "Failed to initialize RollingDiskBuffer; continuing with RAM ring buffer only",
+                extra={"error": str(exc)},
+            )
+            self.rolling_disk = None
         self.j1939_tp = J1939TransportProtocol(my_address=0xF9, channel_id=self.channel_name)
         self.n2k_fp = Nmea2000FastPacketDecoder()
         self._rx_sub_id, self._rx_queue = None, None  # B-09: don't leak unconsumed 10k queue
@@ -439,9 +537,39 @@ class UniversalCanDesktopApp:
         single telemetry reader), TX goes through the TxSafetyGateway.
         """
         safe_bus = SafeMultiplexedBus(
-            physical_bus=self.bus, gateway=self.gateway, router=self.router
+            gateway=self.gateway,
+            router=self.router,
+            # B1 (REVIEW): resolve the physical bus dynamically — a UDS client
+            # captured at creation time must survive `_reconnect_bus` swapping
+            # `self.bus` for a new driver instance without going stale.
+            bus_provider=lambda: self.bus,
         )
         return UdsClient(bus=safe_bus, tx_port=self.gateway, tx_id=tx_id, rx_id=rx_id)
+
+    def arm_tx(self, reason: str = "Operator explicitly armed TX via desktop UI") -> dict[str, Any]:
+        """Explicitly transition SafetySupervisor from PASSIVE to ARMED_TX."""
+        try:
+            if self.estop.is_engaged:
+                return {"success": False, "error": "Cannot arm TX: E-Stop is currently engaged"}
+            if self._current_speed_kmh > 0.0:
+                return {"success": False, "error": "Cannot arm TX: Vehicle speed must be 0 km/h"}
+            if not self.watchdog.is_lease_valid:
+                self.watchdog.heartbeat()
+            self.supervisor.arm_tx(reason=reason)
+            return {"success": True, "state": self.supervisor.current_state.value}
+        except Exception as exc:
+            logger.error("Failed to arm TX pipeline: %s", exc, exc_info=True)
+            return {"success": False, "error": str(exc)}
+
+    def disarm_tx(self, reason: str = "Operator returned system to PASSIVE mode") -> dict[str, Any]:
+        """Transition SafetySupervisor back to PASSIVE mode."""
+        try:
+            if self.supervisor.current_state in (SafetyState.ARMED_TX, SafetyState.ACTIVE):
+                self.supervisor.transition_to(SafetyState.PASSIVE, reason=reason)
+            return {"success": True, "state": self.supervisor.current_state.value}
+        except Exception as exc:
+            logger.error("Failed to disarm TX pipeline: %s", exc, exc_info=True)
+            return {"success": False, "error": str(exc)}
 
     def trigger_estop(self) -> None:
         self._set_ui_state(_is_estop=True, _is_simulating=False, _bus_load=0)
@@ -450,17 +578,21 @@ class UniversalCanDesktopApp:
 
     def request_estop_challenge(self) -> dict[str, Any]:
         """Issue a cryptographic reset challenge for multi-operator/independent verification."""
-        challenge = self.estop.request_reset_challenge()
-        if challenge is None:
-            return {"success": False, "error": "E-Stop is not currently engaged"}
-        return {
-            "success": True,
-            "epoch": challenge.epoch,
-            "nonce": challenge.nonce.hex(),
-            "timestampMonotonicNs": challenge.timestamp_monotonic_ns,
-            "maxAgeMs": challenge.max_age_ns // 1_000_000,
-            "action": challenge.action,
-        }
+        try:
+            challenge = self.estop.request_reset_challenge()
+            if challenge is None:
+                return {"success": False, "error": "E-Stop is not currently engaged"}
+            return {
+                "success": True,
+                "epoch": challenge.epoch,
+                "nonce": challenge.nonce.hex(),
+                "timestampMonotonicNs": challenge.timestamp_monotonic_ns,
+                "maxAgeMs": challenge.max_age_ns // 1_000_000,
+                "action": challenge.action,
+            }
+        except Exception as exc:
+            logger.error("Failed to request E-Stop reset challenge", exc_info=True)
+            return {"success": False, "error": str(exc)}
 
     def reset_estop_with_token(self, token_str: str) -> dict[str, Any]:
         """Cryptographically verify and consume a reset token (multi-operator or local)."""
@@ -534,26 +666,23 @@ class UniversalCanDesktopApp:
             self._bump_stat("_error_count", 12)
             self._set_ui_state(_bus_load=88)
 
+    # Scenario -> representative DTC for the copilot's live telemetry context.
+    # One map instead of a per-scenario elif cascade duplicating scenario names.
+    SCENARIO_DTCS: ClassVar[dict[str, str]] = {
+        "misfire_p0300": "P0300",
+        "overboost": "P0234",
+        "overheat": "P0115",
+        "bus_surge": "U0100",
+        "ev_bms_telemetry": "P0A0B",
+        "marine_vessel_n2k": "SPN 520201",
+        "j1939_multi_ecu_fleet": "SPN 1087",
+        "can_fd_adas_vision": "C1A00",
+        "intermittent_wiring_fault": "U0100",
+    }
+
     def query_copilot(self, query: str) -> str:
-        dtc_list: list[str] = []
-        if self._active_scenario == "misfire_p0300":
-            dtc_list.append("P0300")
-        elif self._active_scenario == "overboost":
-            dtc_list.append("P0234")
-        elif self._active_scenario == "overheat":
-            dtc_list.append("P0115")
-        elif self._active_scenario == "bus_surge":
-            dtc_list.append("U0100")
-        elif self._active_scenario == "ev_bms_telemetry":
-            dtc_list.append("P0A0B")
-        elif self._active_scenario == "marine_vessel_n2k":
-            dtc_list.append("SPN 520201")
-        elif self._active_scenario == "j1939_multi_ecu_fleet":
-            dtc_list.append("SPN 1087")
-        elif self._active_scenario == "can_fd_adas_vision":
-            dtc_list.append("C1A00")
-        elif self._active_scenario == "intermittent_wiring_fault":
-            dtc_list.append("U0100")
+        dtc = self.SCENARIO_DTCS.get(self._active_scenario)
+        dtc_list: list[str] = [dtc] if dtc else []
 
         # F-32: the LLM call (urlopen) runs in a dedicated worker with a hard
         # timeout so a slow cloud response can never freeze the JS bridge.
@@ -616,29 +745,25 @@ class UniversalCanDesktopApp:
             return False
 
     def update_settings(self, settings: dict[str, Any]) -> None:
-        reconnect_needed = False
-        if "interface" in settings and settings["interface"] != self.interface_val:
-            self.interface_val = settings["interface"]
-            reconnect_needed = True
-        if "channel" in settings and settings["channel"] != self.channel_name:
-            self.channel_name = settings["channel"]
-            reconnect_needed = True
+        new_interface = settings.get("interface", self.interface_val)
+        new_channel = settings.get("channel", self.channel_name)
+        new_bitrate = self.bitrate_val
         if "baudRate" in settings:
             try:
-                new_bitrate = int(settings["baudRate"].split()[0]) * 1000
+                new_bitrate = int(str(settings["baudRate"]).split()[0]) * 1000
             except (ValueError, IndexError) as exc:
                 logger.warning(
                     "Ignoring unparseable baud rate setting",
                     extra={"value": settings["baudRate"], "error": str(exc)},
                 )
-            else:
-                if new_bitrate != self.bitrate_val:
-                    self.bitrate_val = new_bitrate
-                    reconnect_needed = True
+        reconnect_needed = (
+            new_interface != self.interface_val
+            or new_channel != self.channel_name
+            or new_bitrate != self.bitrate_val
+        )
         if reconnect_needed:
-            # F-30: single composition root — the one bus instance is recreated
-            # on settings change via reconnect, no second bus is ever created.
-            self._reconnect_bus()
+            # Transactional reconnect: keep previous bus intact if new settings fail
+            self._reconnect_bus(new_interface, new_channel, new_bitrate)
         if "apiKey" in settings and settings["apiKey"]:
             # F-08: the key is stored in the secret vault, never a plain attribute
             self._secret_provider.store_secret("GEMINI_API_KEY", settings["apiKey"].encode("utf-8"))
@@ -652,39 +777,54 @@ class UniversalCanDesktopApp:
             elif tok == "":
                 self.cloud_client.clear_session_token()
 
-    def _reconnect_bus(self) -> None:
-        """Rebind the single bus instance to the new interface/channel/bitrate (F-30, B-25, CRITICAL-4).
+    def _reconnect_bus(self, new_interface: str | None = None, new_channel: str | int | None = None, new_bitrate: int | None = None) -> None:
+        """Rebind the single bus instance to the new interface/channel/bitrate transactionally (F-30, B-25, CRITICAL-4).
 
         Driver validation can reject the new combination as early as the
         constructor (e.g. kvaser demands an integer channel); the previous bus
         stays bound in that case so a bad settings change never kills the app.
         K4-a: rp1210 reconnects through the shared build_bus factory.
         """
+        target_interface = new_interface or self.interface_val
+        target_channel = new_channel if new_channel is not None else self.channel_name
+        target_bitrate = new_bitrate if new_bitrate is not None else self.bitrate_val
+
         with self._bus_lock:
-            old_bus = self.bus
             try:
-                old_bus.disconnect()
-            except (OSError, RuntimeError) as exc:
-                logger.debug("Bus disconnect during reconnect failed", extra={"error": str(exc)})
-            try:
-                if self.interface_val == "rp1210":
+                if target_interface == "rp1210":
                     from src.main import build_bus
 
                     new_bus = build_bus(
-                        interface=self.interface_val, channel=self.channel_name, bitrate=self.bitrate_val
+                        interface=target_interface,
+                        channel=target_channel,
+                        bitrate=target_bitrate,
+                        listen_only=True,
                     )
                 else:
                     new_bus = PythonCanBus(
-                        interface=self.interface_val, channel=self.channel_name, bitrate=self.bitrate_val
+                        interface=target_interface,
+                        channel=target_channel,
+                        bitrate=target_bitrate,
+                        listen_only=True,
                     )
-            except (OSError, RuntimeError, ValueError, PlatformError) as exc:
+            except Exception as exc:
                 logger.warning(
-                    "CAN bus reconnect rejected the new settings; keeping previous bus",
-                    extra={"interface": self.interface_val, "channel": self.channel_name, "error": str(exc)},
+                    "CAN bus constructor rejected the new settings; keeping previous bus",
+                    extra={"interface": target_interface, "channel": target_channel, "error": str(exc)},
                 )
                 return
+
+            old_bus = self.bus
             self.bus = new_bus
             self.gateway.bus = self.bus
+            self.interface_val = target_interface
+            self.channel_name = str(target_channel)
+            self.bitrate_val = target_bitrate
+
+            try:
+                old_bus.disconnect()
+            except (OSError, RuntimeError) as exc:
+                logger.debug("Old bus disconnect during reconnect failed", extra={"error": str(exc)})
 
             # B-25: Reset channel-bound state on bus switch
             self.ring_buffer.clear()
@@ -697,8 +837,8 @@ class UniversalCanDesktopApp:
                     "CAN bus reconnected",
                     extra={"interface": self.interface_val, "channel": self.channel_name, "bitrate": self.bitrate_val},
                 )
-            except (OSError, RuntimeError, PlatformError) as exc:
-                logger.warning("CAN bus reconnect failed; DEMO-only mode", extra={"error": str(exc)})
+            except Exception as exc:
+                logger.warning("CAN bus connect failed; DEMO-only mode", extra={"error": str(exc)})
 
     def _decode_j1939_signal(self, frame: object) -> None:
         """Extract live telemetry from a routed J1939 frame (F-28)."""
@@ -744,19 +884,54 @@ class UniversalCanDesktopApp:
         except (IndexError, ValueError, AttributeError) as exc:
             logger.debug("J1939 live decode failed", extra={"error": str(exc)})
 
+    def _log_tx_echo(self, frame: object) -> None:
+        """Trace locally transmitted J1939 TP responses without polluting RX telemetry (B6).
+
+        TX loopback visibility is kept as a debug-level trace only; sniffer
+        tables, ring/disk buffers and protocol decoders treat the router as
+        a physical-RX-only feed.
+        """
+        try:
+            logger.debug(
+                "J1939 TP TX echo (not routed as RX)",
+                extra={
+                    "arbitration_id": hex(getattr(frame, "arbitration_id", 0)),
+                    "dlc": getattr(frame, "dlc", 0),
+                },
+            )
+        except Exception:  # noqa: BLE001 — tracing must never kill ingestion
+            pass
+
     def _ingest_live_frame(self, frame: object) -> None:
         """Feed one live frame through the router into decoders and UI (F-28)."""
         # Router fans out to protocol engines (J1939 TP, N2K Fast Packet)
         self.router.route_frame(frame)
         self.ring_buffer.append(frame)  # type: ignore[arg-type]
+        if self.rolling_disk is not None and isinstance(frame, CanFrame):
+            try:
+                self.rolling_disk.append(frame)
+            except Exception as exc:
+                logger.debug("RollingDiskBuffer frame ingestion failed", extra={"error": str(exc)})
         self._decode_j1939_signal(frame)
 
         # J1939 transport protocol reassembly (multi-packet) (B-12 drain)
         completed, resp = self.j1939_tp.handle_rx_frame(frame)  # type: ignore[arg-type]
         if resp is not None:
-            self.router.route_frame(resp)
+            try:
+                self.gateway.validate_and_transmit(resp)
+            except Exception as exc:
+                logger.debug("J1939 TP response physical transmit bypassed/failed", extra={"error": str(exc)})
+            # B6 (REVIEW): locally generated TX response frames go to the
+            # physical bus via the gateway only — feeding them back into the
+            # RX router inflated telemetry metrics and polluted the sniffer
+            # table / ring buffer / signal discovery with phantom RX traffic.
+            self._log_tx_echo(resp)
         for extra_resp in self.j1939_tp.take_pending_tx_frames():
-            self.router.route_frame(extra_resp)
+            try:
+                self.gateway.validate_and_transmit(extra_resp)
+            except Exception as exc:
+                logger.debug("J1939 TP extra response physical transmit bypassed/failed", extra={"error": str(exc)})
+            self._log_tx_echo(extra_resp)
 
         if completed is not None:
             # Reassembled payloads can exceed a single CAN frame; cap the
@@ -793,9 +968,13 @@ class UniversalCanDesktopApp:
         n2k_msg = self.n2k_fp.handle_rx_frame(frame)  # type: ignore[arg-type]
         if n2k_msg is not None:
             if n2k_msg.pgn == 127488 and len(n2k_msg.data) >= 3:
-                self._current_rpm = float(int.from_bytes(n2k_msg.data[1:3], "little")) * 0.25
+                raw_rpm = int.from_bytes(n2k_msg.data[1:3], "little")
+                if raw_rpm < 0xFFFF:
+                    self._current_rpm = float(raw_rpm) * 0.25
             elif n2k_msg.pgn == 128267 and len(n2k_msg.data) >= 5:
-                self._depth_meters = int.from_bytes(n2k_msg.data[1:5], "little") * 0.01
+                raw_depth = int.from_bytes(n2k_msg.data[1:5], "little")
+                if raw_depth < 0xFFFFFFFF:
+                    self._depth_meters = float(raw_depth) * 0.01
 
         self._bump_stat("_total_packets", 1)
 
@@ -1033,4 +1212,25 @@ class UniversalCanDesktopApp:
             webview.start(debug=False)
         finally:
             self._set_ui_state(_running=False)
-            self.watchdog.stop()
+            if hasattr(self, "_thread") and self._thread and self._thread.is_alive():
+                self._thread.join(timeout=2.0)
+            if hasattr(self, "gateway") and self.gateway:
+                try:
+                    self.gateway.shutdown()
+                except Exception:
+                    pass
+            if hasattr(self, "_copilot_executor") and self._copilot_executor:
+                try:
+                    self._copilot_executor.shutdown(wait=False)
+                except Exception:
+                    pass
+            if hasattr(self, "watchdog") and self.watchdog:
+                try:
+                    self.watchdog.stop()
+                except Exception:
+                    pass
+            if hasattr(self, "rolling_disk") and self.rolling_disk:
+                try:
+                    self.rolling_disk.close()
+                except Exception:
+                    pass

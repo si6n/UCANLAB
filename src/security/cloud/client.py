@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
 from typing import Any
@@ -19,6 +20,51 @@ from src.core.logging import get_logger
 from src.safety.secret_provider import SecretProvider, get_default_secret_provider
 
 logger = get_logger("security.cloud.client")
+
+
+# B4 (REVIEW): caller-supplied headers must never be able to override or
+# strip the DPAPI-managed session credentials. A malicious/buggy WebView
+# bridge call passing extra_headers={"Cookie": ...} would otherwise
+# silently replace the authenticated session cookie (session spoofing) or
+# remove authentication entirely.
+_PROTECTED_REQUEST_HEADERS: frozenset[str] = frozenset(
+    {"cookie", "authorization", "host", "content-length", "transfer-encoding", "connection"}
+)
+
+
+def _sanitize_extra_headers(extra_headers: dict[str, str] | None) -> dict[str, str]:
+    """Drop credential/transport-controlled headers from caller input."""
+    if not extra_headers:
+        return {}
+    sanitized: dict[str, str] = {}
+    for name, value in extra_headers.items():
+        if name.lower() in _PROTECTED_REQUEST_HEADERS:
+            logger.warning(
+                "Rejected caller-supplied protected header",
+                extra={"header": name},
+            )
+            continue
+        sanitized[name] = value
+    return sanitized
+
+
+class _SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Strip authentication credentials (Cookie, Authorization) on cross-origin redirects."""
+
+    def redirect_request(self, req: Any, fp: Any, code: int, msg: str, headers: Any, newurl: str) -> Any:
+        new_req = super().redirect_request(req, fp, code, msg, headers, newurl)
+        if new_req is None:
+            return None
+        orig_host = urllib.parse.urlsplit(req.full_url).netloc.lower()
+        new_host = urllib.parse.urlsplit(newurl).netloc.lower()
+        if orig_host != new_host:
+            # Cross-origin redirect: strip sensitive credentials to prevent leakage
+            new_req.headers.pop("Cookie", None)
+            new_req.headers.pop("Authorization", None)
+            if hasattr(new_req, "unredirected_hdrs"):
+                new_req.unredirected_hdrs.pop("Cookie", None)
+                new_req.unredirected_hdrs.pop("Authorization", None)
+        return new_req
 
 _SESSION_SECRET_NAME = "CLOUD_SESSION_TOKEN"
 _DEVICE_TOKEN_SECRET_NAME = "CLOUD_DEVICE_TOKEN"
@@ -33,7 +79,7 @@ _RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
 class CloudConfig:
     """Connection settings for the Universal CAN Cloud API."""
 
-    base_url: str = "http://localhost:8000"
+    base_url: str = "http://127.0.0.1:8000"
     api_prefix: str = "/api/v1"
     timeout_seconds: float = 30.0
     upload_timeout_seconds: float = 120.0
@@ -56,6 +102,8 @@ class CloudConfig:
         expose the session cookie to network interception.
         """
         if not self.require_https:
+            return
+        if not self.base_url:
             return
         url = self.base_url.strip().lower()
         if url.startswith("https://"):
@@ -227,14 +275,16 @@ class CloudClient:
             session = self._secrets.get_secret(_SESSION_SECRET_NAME).decode("utf-8")
         if session:
             headers["Cookie"] = f"ucan_session={session}"
-        if extra_headers:
-            headers.update(extra_headers)
+        # B4: sanitized AFTER the session cookie is applied — extra headers
+        # can neither replace nor strip it.
+        headers.update(_sanitize_extra_headers(extra_headers))
 
         last_exc: Exception | None = None
         for attempt in range(self.config.max_retries + 1):
             try:
                 req = urllib.request.Request(url, data=data, headers=headers, method=method)
-                with urllib.request.urlopen(req, timeout=self.config.timeout_seconds) as resp:  # nosec: B310
+                opener = urllib.request.build_opener(_SafeRedirectHandler())
+                with opener.open(req, timeout=self.config.timeout_seconds) as resp:  # nosec: B310
                     return CloudResponse(
                         status=resp.status,
                         body=resp.read(),

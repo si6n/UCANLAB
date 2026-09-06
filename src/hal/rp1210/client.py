@@ -83,9 +83,10 @@ class RP1210Client:
             return
 
         # RP1210_ClientConnect(hwnd, nDeviceID, fpchProtocol, lTxBuf, lRxBuf, nBlockOnSend) -> short
+        # HWND is pointer-sized (c_void_p) for correct 32-bit and 64-bit calling conventions
         if hasattr(self._dll, "RP1210_ClientConnect"):
             self._dll.RP1210_ClientConnect.argtypes = [
-                ctypes.c_long,
+                ctypes.c_void_p,
                 ctypes.c_short,
                 ctypes.c_char_p,
                 ctypes.c_long,
@@ -120,6 +121,16 @@ class RP1210Client:
             ]
             self._dll.RP1210_ReadMessage.restype = ctypes.c_short
 
+        # RP1210_SendCommand(nCommandNumber, nClientID, fpchClientInfo, nInfoSize) -> short
+        if hasattr(self._dll, "RP1210_SendCommand"):
+            self._dll.RP1210_SendCommand.argtypes = [
+                ctypes.c_short,
+                ctypes.c_short,
+                ctypes.c_char_p,
+                ctypes.c_short,
+            ]
+            self._dll.RP1210_SendCommand.restype = ctypes.c_short
+
         # RP1210_GetErrorMsg(nErrorCode, fpchDescription) -> short
         if hasattr(self._dll, "RP1210_GetErrorMsg"):
             self._dll.RP1210_GetErrorMsg.argtypes = [ctypes.c_short, ctypes.c_char_p]
@@ -128,18 +139,19 @@ class RP1210Client:
     def connect(self, tx_buffer_size: int = 8000, rx_buffer_size: int = 8000) -> int:
         """Establish client connection to the RP1210 adapter.
 
-        Y-07: the protocol string travels as an explicitly NUL-terminated
-        C buffer — never rely on CPython's incidental bytes termination.
+        B11 (REVIEW): `ctypes.create_string_buffer` already guarantees a
+        NUL-terminated C buffer sized len(input)+1; the manual `+ b"\\x00"`
+        appended a second trailing NUL byte. Healthy vendor DLLs stop at
+        the first NUL, but strict RP1210 implementations can reject strings
+        with embedded/trailing NULs — pass the protocol bytes exactly once.
         """
         if not self._dll:
             raise HardwareError("DLL not loaded")
 
-        proto_buf = ctypes.create_string_buffer(
-            self.protocol.encode("ascii") + b"\x00"
-        )
+        proto_buf = ctypes.create_string_buffer(self.protocol.encode("ascii"))
         with self._lifecycle_lock:
             client_id = self._dll.RP1210_ClientConnect(
-                0,
+                None,
                 ctypes.c_short(self.device_id),
                 proto_buf,
                 ctypes.c_long(tx_buffer_size),
@@ -252,6 +264,8 @@ class RP1210Client:
             err_code = abs(ret)
             if err_code == RP1210ErrorCode.ERR_RX_QUEUE_FULL:
                 logger.warning("RP1210 RX Queue is full; frame drops may occur")
+                if hasattr(self, "metrics") and hasattr(self.metrics, "dropped_frames"):
+                    self.metrics.dropped_frames += 1
                 return None
 
             err_desc = self.get_error_message(err_code)
@@ -260,6 +274,29 @@ class RP1210Client:
                 code="HARDWARE_READ_FAILED",
                 details={"error_code": err_code, "description": err_desc},
             )
+
+    def send_command(self, command_number: int, client_info: bytes = b"") -> int:
+        """Execute RP1210_SendCommand for device/filter/protocol configuration."""
+        with self._lifecycle_lock:
+            if not self._dll or not hasattr(self._dll, "RP1210_SendCommand"):
+                return 0
+            if self.client_id is None:
+                raise HardwareError("RP1210 client is not connected")
+            client_id_snap = self.client_id
+            info_buf = ctypes.create_string_buffer(client_info)
+            ret = self._dll.RP1210_SendCommand(
+                ctypes.c_short(command_number),
+                ctypes.c_short(client_id_snap),
+                info_buf,
+                ctypes.c_short(len(client_info)),
+            )
+            if ret != RP1210ErrorCode.NO_ERRORS:
+                err_desc = self.get_error_message(ret)
+                logger.warning(
+                    "RP1210_SendCommand returned non-zero",
+                    extra={"cmd": command_number, "error_code": ret, "desc": err_desc},
+                )
+            return int(ret)
 
     def get_error_message(self, error_code: int) -> str:
         """Fetch descriptive error string from RP1210 DLL or fallback dictionary."""

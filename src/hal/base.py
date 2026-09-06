@@ -33,6 +33,11 @@ class BusMetrics:
     rx_frames: int = 0
     tx_frames: int = 0
     error_frames: int = 0
+    # Remote Transmission Request frames are protocol-legal Classic CAN
+    # traffic (ISO 11898-1), not hardware errors — count them separately so a
+    # busy RTR bus can never inflate error_frames toward the BUS_OFF
+    # threshold (B5/REVIEW: 128+ dropped RTRs used to trip a fake bus-off).
+    rtr_frames: int = 0
     dropped_frames: int = 0
     bus_load_percent: float = 0.0
     bitrate: int = 250000

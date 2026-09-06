@@ -106,6 +106,43 @@ def test_classic_can_dlc_limit() -> None:
         )
 
 
+def test_create_rejects_gt8_byte_payload_without_fd_with_actionable_error() -> None:
+    # B2 (REVIEW): CanFrame.create() must fail closed with an explicit,
+    # actionable message when a >8-byte payload arrives without is_fd=True —
+    # never a cryptic DLC-capacity error and never a silent classic frame.
+    with pytest.raises(ValueError, match="is_fd=True"):
+        CanFrame.create(
+            channel_id="c0",
+            arbitration_id=0x123,
+            data=bytes(9),
+        )
+    with pytest.raises(ValueError, match="8-byte Classic CAN limit"):
+        CanFrame.create(
+            channel_id="c0",
+            arbitration_id=0x123,
+            data=bytes(64),
+        )
+    # The same payload with the FD flag is valid and derives DLC 15.
+    fd_frame = CanFrame.create(
+        channel_id="c0",
+        arbitration_id=0x123,
+        data=bytes(64),
+        is_fd=True,
+    )
+    assert fd_frame.is_fd is True
+    assert fd_frame.dlc == 15
+
+
+def test_create_exactly_8_bytes_classic_still_valid() -> None:
+    frame = CanFrame.create(
+        channel_id="c0",
+        arbitration_id=0x123,
+        data=bytes(8),
+    )
+    assert frame.is_fd is False
+    assert frame.dlc == 8
+
+
 def test_dlc_conversion_tables() -> None:
     for dlc_val in range(16):
         expected_len = DLC_TO_LENGTH[dlc_val]

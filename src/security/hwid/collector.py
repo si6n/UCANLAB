@@ -18,6 +18,7 @@ import re
 import subprocess
 import sys
 import uuid
+from pathlib import Path
 
 from src.core.logging import get_logger
 
@@ -57,10 +58,33 @@ def _run_powershell(command: str) -> str:
         logger.warning("Rejected non-conforming PowerShell command", extra={"command": command[:80]})
         return ""
     try:
-        import os
-        system_root = os.environ.get("SystemRoot", "C:\\Windows")
-        system_ps = os.path.join(system_root, "System32", "WindowsPowerShell", "v1.0", "powershell.exe")
-        ps_executable = system_ps if os.path.isfile(system_ps) else "powershell"
+        # B3 (REVIEW): never resolve the PowerShell path from %SystemRoot% —
+        # a compromised parent process can set SystemRoot (or pollute PATH)
+        # and plant a fake powershell.exe that harvests the DPAPI-backed
+        # fingerprint inputs. Resolve strictly through the Win32
+        # GetSystemDirectoryW API and refuse to execute anything else.
+        import ctypes
+
+        buf = ctypes.create_unicode_buffer(260)
+        get_system_dir = ctypes.windll.kernel32.GetSystemDirectoryW
+        if not get_system_dir(buf, len(buf)):
+            logger.warning("GetSystemDirectoryW failed; refusing to spawn PowerShell")
+            return ""
+        system_dir = buf.value
+        if not system_dir:
+            logger.warning("GetSystemDirectoryW returned empty path; refusing to spawn PowerShell")
+            return ""
+        # GetSystemDirectoryW already returns "<root>\System32"; the classic
+        # PowerShell 5.1 binary lives under its WindowsPowerShell\v1.0 subtree.
+        ps_executable = str(
+            Path(system_dir, "WindowsPowerShell", "v1.0", "powershell.exe").resolve()
+        )
+        # Belt & braces: the resolved binary must live inside the real system
+        # directory tree (no symlink/substitution escape).
+        resolved_system_dir = str(Path(system_dir).resolve())
+        if not ps_executable.startswith(resolved_system_dir) or not Path(ps_executable).is_file():
+            logger.warning("PowerShell not found inside the system directory; refusing fallback")
+            return ""
 
         cmd = [
             ps_executable,

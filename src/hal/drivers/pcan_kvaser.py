@@ -30,7 +30,7 @@ class PythonCanBus(AbstractBus):
         bitrate: int = 250000,
         data_bitrate: int | None = None,
         is_fd: bool = False,
-        listen_only: bool = False,
+        listen_only: bool = True,
         **kwargs: Any,
     ) -> None:
         super().__init__(channel_id=f"{interface}_{channel}", bitrate=bitrate, is_fd=is_fd)
@@ -43,6 +43,8 @@ class PythonCanBus(AbstractBus):
         # H-H-001: send()/recv()/disconnect() race guard — a send in flight
         # while another thread tears the driver down would hit a freed handle.
         self._lifecycle_lock = threading.Lock()
+        self._active_sends = 0
+        self._send_cond = threading.Condition(self._lifecycle_lock)
 
     def connect(self) -> None:
         """Initialize physical transceiver connection via python-can.
@@ -121,6 +123,11 @@ class PythonCanBus(AbstractBus):
     def disconnect(self) -> None:
         """Shutdown CAN bus and release transceiver handles."""
         with self._lifecycle_lock:
+            self.is_connected = False
+            # Wait briefly for in-flight sends to finish before releasing driver handle
+            while self._active_sends > 0:
+                self._send_cond.wait(timeout=0.06)
+
             if self._bus is not None:
                 try:
                     self._bus.shutdown()
@@ -128,17 +135,13 @@ class PythonCanBus(AbstractBus):
                     logger.warning("Error during CAN bus shutdown", extra={"error": str(exc)})
                 finally:
                     self._bus = None
-                    self.is_connected = False
                     self.metrics.state = BusState.DISCONNECTED
 
     def send(self, frame: CanFrame) -> None:
         """Transmit CanFrame on physical bus.
 
-        H6: the handle snapshot is taken under the lock and the actual
-        driver send runs OUTSIDE it (the recv pattern) with an explicit
-        short timeout. A blocking send (SocketCAN ENOBUFS / full TX FIFO)
-        must never hold the lifecycle lock hostage: an E-Stop disconnect()
-        on the same lock would then stall the emergency teardown.
+        H6: the handle snapshot is taken under the lock, and active send count
+        tracked so disconnect() cleanly drains in-flight sends before shutdown().
         """
         with self._lifecycle_lock:
             if not self.is_connected or self._bus is None:
@@ -148,35 +151,27 @@ class PythonCanBus(AbstractBus):
                 raise HardwareError("Cannot send: CAN bus is opened in Listen-Only (passive) mode")
 
             bus_snapshot = self._bus
+            self._active_sends += 1
 
         try:
             msg = can.Message(
                 arbitration_id=frame.arbitration_id,
                 is_extended_id=frame.is_extended,
-                data=frame.data,
+                data=frame.padded_data,
                 is_fd=frame.is_fd,
                 bitrate_switch=frame.brs,
                 error_state_indicator=frame.esi,
                 check=True,
             )
-        except (can.CanError, ValueError) as exc:
-            self.metrics.error_frames += 1
-            raise TransportError(
-                f"Hardware frame construction failed: {exc}",
-                code="TRANSPORT_FRAME_INVALID",
-                cause=exc,
-            ) from exc
-
-        try:
             # Timeout guards a wedged vendor driver; supported by socketcan &
             # most native backends.
             bus_snapshot.send(msg, timeout=0.05)
             self.metrics.tx_frames += 1
-        except can.CanError as exc:
+        except (can.CanError, ValueError) as exc:
             self.metrics.error_frames += 1
             raise TransportError(
-                f"Hardware frame transmission failed: {exc}",
-                code="TRANSPORT_TX_FAILED",
+                f"Hardware frame construction/transmission failed: {exc}",
+                code="TRANSPORT_FRAME_INVALID",
                 cause=exc,
             ) from exc
         except TypeError as exc:
@@ -186,6 +181,11 @@ class PythonCanBus(AbstractBus):
                 code="TRANSPORT_FRAME_INVALID",
                 cause=exc,
             ) from exc
+        finally:
+            with self._lifecycle_lock:
+                self._active_sends -= 1
+                if self._active_sends == 0:
+                    self._send_cond.notify_all()
 
     # H7: consecutive error frames before the driver is flagged BUS_OFF
     # and the gateway E-Stop path (BUS_OFF_DETECTED) is informed.
@@ -231,9 +231,12 @@ class PythonCanBus(AbstractBus):
             return None
 
         # H3: remote request frames — no payload, cannot satisfy the DLC
-        # invariant; drop them like error frames.
+        # invariant, so they must be dropped; but they are legal Classic CAN
+        # traffic (ISO 11898-1), NOT hardware errors. Count them in their own
+        # metric so a healthy bus full of RTR polls never inflates
+        # error_frames toward ERROR_FRAMES_BUS_OFF_THRESHOLD (B5).
         if msg.is_remote_frame:
-            self.metrics.error_frames += 1
+            self.metrics.rtr_frames += 1
             return None
 
         self.metrics.rx_frames += 1
