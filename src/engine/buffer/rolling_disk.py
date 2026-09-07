@@ -83,6 +83,28 @@ def _checked_u64(value: int, field_name: str) -> int:
     return value
 
 
+def _check_frame(frame: CanFrame) -> None:
+    """Validate frame serializability WITHOUT packing (hot-path admission check).
+
+    Perf: append() used to run _serialize_frame (a full struct.pack) purely to
+    validate, then flush() packed the same bytes again — 2x serialization per
+    frame on the RX path. This check enforces the exact same invariants as
+    _serialize_frame's raises, without building the 113-byte record.
+    """
+    if len(frame.channel_id.encode("utf-8")) > CHANNEL_ID_SIZE:
+        raise ValueError(f"channel_id exceeds {CHANNEL_ID_SIZE} UTF-8 bytes")
+    if len(frame.data) > DATA_SIZE:
+        raise ValueError(f"CAN payload exceeds {DATA_SIZE} bytes")
+    if not -(1 << 63) <= frame.sequence < (1 << 63):
+        raise ValueError("sequence must fit in a signed 64-bit integer")
+    if not 0 <= frame.timestamp_ns <= 0xFFFFFFFFFFFFFFFF:
+        raise ValueError("timestamp_ns must fit in an unsigned 64-bit integer")
+    if frame.hardware_timestamp_ns is not None and not 0 <= frame.hardware_timestamp_ns <= 0xFFFFFFFFFFFFFFFF:
+        raise ValueError("hardware_timestamp_ns must fit in an unsigned 64-bit integer")
+    if frame.host_timestamp_ns is not None and not 0 <= frame.host_timestamp_ns <= 0xFFFFFFFFFFFFFFFF:
+        raise ValueError("host_timestamp_ns must fit in an unsigned 64-bit integer")
+
+
 def _serialize_frame(frame: CanFrame) -> bytes:
     channel = frame.channel_id.encode("utf-8")
     if len(channel) > CHANNEL_ID_SIZE:
@@ -333,9 +355,12 @@ class RollingDiskBuffer:
         would raise ValueError from serialization at flush time and kill the
         ingestion loop. Reject it here, before it enters the chunk, and keep
         the blackbox recording — one bad frame must not stop the recorder.
+
+        Perf: admission runs _check_frame (pure field-range checks, no
+        struct.pack); the actual bytes are built once, at flush() time.
         """
         try:
-            _serialize_frame(frame)
+            _check_frame(frame)
         except ValueError as exc:
             with self._lock:
                 self._rejected_frames += 1

@@ -52,13 +52,11 @@ class BinaryRingBuffer:
 
     def _get_channel_int(self, channel_id: str) -> int:
         """Map channel string to 16-bit unsigned integer ID."""
-        if channel_id not in self._channel_map:
-            if len(self._channel_map) >= 0xFFFF:
-                logger.warning("RingBuffer channel map exceeded 16-bit capacity (65535 channels)")
-            val = len(self._channel_map) & 0xFFFF
-            self._channel_map[channel_id] = val
-            self._rev_channel_map[val] = channel_id
-        return self._channel_map[channel_id]
+        with self._lock:
+            val = self._channel_map.get(channel_id)
+            if val is None:
+                return self._intern_channel_unlocked(channel_id)
+            return val
 
     def _get_channel_str(self, channel_int: int) -> str:
         """Map 16-bit integer ID back to channel string."""
@@ -68,6 +66,13 @@ class BinaryRingBuffer:
         """Write one frame record at the head position and advance.
 
         Caller must hold self._lock. Returns the assigned sequence number.
+
+        Perf: a single structured-array tuple assignment replaces eight
+        per-field NumPy scalar writes (each a separate __setitem__ call);
+        channel lookup is one dict access instead of a guarded method call.
+        The data tail beyond data_len is deliberately NOT zeroed here —
+        readers slice records with data_len (see get_latest_frames), so the
+        stale tail bytes are never observable.
         """
         idx = self._head
         flags = (
@@ -78,25 +83,44 @@ class BinaryRingBuffer:
             | ((1 if frame.direction == "tx" else 0) << 4)
         )
 
-        data_len = min(len(frame.data), 64)
-        rec = self._buffer[idx]
-        rec["timestamp_ns"] = frame.timestamp_ns
-        rec["arbitration_id"] = frame.arbitration_id
-        rec["dlc"] = frame.dlc
-        rec["flags"] = flags
-        rec["data_len"] = data_len
-        rec["reserved"] = 0
-        rec["channel_id_int"] = self._get_channel_int(frame.channel_id)
+        data = frame.data
+        data_len = len(data)
+        if data_len > 64:
+            data_len = 64
 
-        if data_len > 0:
-            rec["data"][:data_len] = np.frombuffer(frame.data[:data_len], dtype=np.uint8)
-        if data_len < 64:
-            rec["data"][data_len:].fill(0)
+        channel_id = frame.channel_id
+        ch_int = self._channel_map.get(channel_id)
+        if ch_int is None:
+            ch_int = self._intern_channel_unlocked(channel_id)
+
+        padded = data.ljust(64, b"\x00") if data_len < 64 else data[:64]
+        self._buffer[idx] = (
+            frame.timestamp_ns,
+            frame.arbitration_id,
+            frame.dlc,
+            flags,
+            data_len,
+            0,
+            ch_int,
+            np.frombuffer(padded, dtype=np.uint8),
+        )
 
         seq = self._total_written
         self._head = (self._head + 1) % self.capacity
         self._total_written += 1
         return seq
+
+    def _intern_channel_unlocked(self, channel_id: str) -> int:
+        """Register a new channel string and return its 16-bit integer ID.
+
+        Caller must hold self._lock.
+        """
+        if len(self._channel_map) >= 0xFFFF:
+            logger.warning("RingBuffer channel map exceeded 16-bit capacity (65535 channels)")
+        val = len(self._channel_map) & 0xFFFF
+        self._channel_map[channel_id] = val
+        self._rev_channel_map[val] = channel_id
+        return val
 
     def append(self, frame: CanFrame) -> int:
         """Append a single CanFrame into contiguous memory. Returns write sequence."""

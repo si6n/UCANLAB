@@ -48,12 +48,22 @@ class FrameRouter:
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._subscriptions: dict[int, Subscription] = {}
+        # Perf (C-8): immutable routing snapshot — route_frame() fans frames
+        # out over this tuple WITHOUT taking the lock or copying the dict.
+        # Mutators (subscribe/unsubscribe/restore/clear) rebuild the snapshot
+        # under the lock (copy-on-write). Subscriptions change at setup/teardown
+        # rates, frames at bus rates — the trade favors the hot path.
+        self._route_snapshot: tuple[Subscription, ...] = ()
         self._next_sub_id: int = 1
         self._total_routed: int = 0
         self._total_dropped: int = 0
         # E-2: (sub_id, monotonic-second) of the last drop log per subscriber
         self._last_drop_log: dict[int, float] = {}
         self._drop_counts_since_log: dict[int, int] = {}
+
+    def _rebuild_snapshot_locked(self) -> None:
+        """Refresh the lock-free routing snapshot. Caller must hold the lock."""
+        self._route_snapshot = tuple(self._subscriptions.values())
 
     def subscribe(
         self,
@@ -82,22 +92,30 @@ class FrameRouter:
                 channel_id=channel_id,
             )
             self._subscriptions[sub_id] = sub
+            self._rebuild_snapshot_locked()
 
         return sub_id, fq
 
     def unsubscribe(self, sub_id: int) -> bool:
         """Remove an existing subscription by ID."""
         with self._lock:
-            return self._subscriptions.pop(sub_id, None) is not None
+            removed = self._subscriptions.pop(sub_id, None) is not None
+            if removed:
+                self._rebuild_snapshot_locked()
+            return removed
 
     def route_frame(self, frame: CanFrame) -> int:
         """Dispatch an ingested frame to all matching subscribers.
 
         Returns the number of subscribers that accepted the frame.
+
+        Perf (C-8): iterates the immutable copy-on-write snapshot — no lock
+        acquisition, no per-frame list(values()) copy. In-flight frames may
+        see a subscription removed microseconds earlier; that is the same
+        linearization the old lock+copy provided, at a fraction of the cost.
         """
-        with self._lock:
-            subscribers = list(self._subscriptions.values())
-            self._total_routed += 1
+        subscribers = self._route_snapshot
+        self._total_routed += 1
 
         matched_count = 0
         for sub in subscribers:
@@ -187,6 +205,7 @@ class FrameRouter:
         """Remove all active subscriptions."""
         with self._lock:
             self._subscriptions.clear()
+            self._rebuild_snapshot_locked()
 
     @property
     def subscription_count(self) -> int:

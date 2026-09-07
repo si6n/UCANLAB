@@ -104,7 +104,9 @@ def test_ingest_oversized_reassembled_message_does_not_crash() -> None:
 
     app._ingest_live_frame(_make_tp_frame())  # must not raise
 
-    assert app._total_packets == 1
+    # C-9 (perf): the packet counter is bumped per TICK by the telemetry
+    # loop (drained count), no longer per frame inside _ingest_live_frame.
+    # The survival assertion above is the actual E1 regression guard.
 
 
 def test_ingest_reassembled_message_with_hostile_pgn_does_not_crash() -> None:

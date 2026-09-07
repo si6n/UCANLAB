@@ -61,6 +61,13 @@ class UniversalTrafficSimulator:
         # bus is already hard-locked to virtual interfaces by the guard above,
         # and estop/supervisor/watchdog stages remain fully enforced.
         self.gateway = TxSafetyGateway.for_testing(bus=self.bus)
+        # P0 (perf): all synthetic broadcasts go through the dedicated
+        # 'simulation' token-bucket lane (500 burst / 250 msg/s refill).
+        # The aggregate multi-ECU cadence is ~220 msg/s - the 100 msg/s
+        # default sliding window rejected ~80% of frames, and the per-frame
+        # backpressure logging plus RATE_ESTOP_AFTER escalation throttled
+        # the simulator into an E-Stop instead of broadcasting.
+        self.tx_budget_category = "simulation"
         self.rolling_counter = 0
         self.sim_time = 0.0
 
@@ -137,7 +144,7 @@ class UniversalTrafficSimulator:
             direction="tx",
             source="virtual",
         )
-        self.gateway.validate_and_transmit(f_eec1)
+        self.gateway.validate_and_transmit(f_eec1, budget_category=self.tx_budget_category)
 
         # 2. EV / BMS Pack Voltage & Current (0x1806E5F4)
         if self.scenario in ("bms", "ev", "nominal"):
@@ -158,7 +165,7 @@ class UniversalTrafficSimulator:
                 is_extended=True,
                 direction="tx",
             )
-            self.gateway.validate_and_transmit(f_bms)
+            self.gateway.validate_and_transmit(f_bms, budget_category=self.tx_budget_category)
 
         # 3. CAN-FD 64-Byte Radar Object Tracking (0x220)
         if self.enable_can_fd or self.scenario == "canfd":
@@ -177,7 +184,7 @@ class UniversalTrafficSimulator:
                 is_fd=True,
                 direction="tx",
             )
-            self.gateway.validate_and_transmit(f_radar)
+            self.gateway.validate_and_transmit(f_radar, budget_category=self.tx_budget_category)
 
         # 4. Proprietary Discovery Frame with Rolling Counter and XOR Checksum
         prop_data = bytearray(8)
@@ -195,7 +202,7 @@ class UniversalTrafficSimulator:
             direction="tx",
             source="virtual",
         )
-        self.gateway.validate_and_transmit(f_prop)
+        self.gateway.validate_and_transmit(f_prop, budget_category=self.tx_budget_category)
 
     def _broadcast_100ms_frames(self, t: float) -> None:
         """Broadcast medium-frequency frames (N2K Marine, Speed, SOC%)."""
@@ -220,7 +227,7 @@ class UniversalTrafficSimulator:
             direction="tx",
             source="virtual",
         )
-        self.gateway.validate_and_transmit(f_n2k)
+        self.gateway.validate_and_transmit(f_n2k, budget_category=self.tx_budget_category)
 
         # 2. NMEA 2000 Water Depth Sonar (PGN 128267 / 0x19F50300)
         depth_m = 24.5 + 6.0 * math.sin(t * 0.1)
@@ -240,7 +247,7 @@ class UniversalTrafficSimulator:
             direction="tx",
             source="virtual",
         )
-        self.gateway.validate_and_transmit(f_depth)
+        self.gateway.validate_and_transmit(f_depth, budget_category=self.tx_budget_category)
 
     def _broadcast_1000ms_frames(self, t: float) -> None:
         """Broadcast slow frames: Temperature (ET1), Hours, and Active DTCs (DM1)."""
@@ -257,7 +264,7 @@ class UniversalTrafficSimulator:
             direction="tx",
             source="virtual",
         )
-        self.gateway.validate_and_transmit(f_et1)
+        self.gateway.validate_and_transmit(f_et1, budget_category=self.tx_budget_category)
 
         # 2. J1939 DM1 Diagnostic Fault Frame (PGN 65226 / 0x18FECA00)
         if self.scenario == "misfire":
@@ -284,7 +291,7 @@ class UniversalTrafficSimulator:
             direction="tx",
             source="virtual",
         )
-        self.gateway.validate_and_transmit(f_dm1)
+        self.gateway.validate_and_transmit(f_dm1, budget_category=self.tx_budget_category)
 
     def _handle_mock_uds_responder(self) -> None:
         """Inspect bus for diagnostic UDS requests (0x7E0) and emit positive responses (0x7E8)."""
@@ -323,7 +330,7 @@ class UniversalTrafficSimulator:
                     direction="tx",
                     source="virtual",
                 )
-                self.gateway.validate_and_transmit(f_uds_resp)
+                self.gateway.validate_and_transmit(f_uds_resp, budget_category=self.tx_budget_category)
 
 
 def main() -> int:

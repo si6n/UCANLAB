@@ -89,13 +89,25 @@ class TxSafetyGateway:
     # to an E-Stop. A single burst = backpressure; a sustained pattern =
     # runaway sender and must fail hard.
     RATE_ESTOP_AFTER: ClassVar[int] = 5
+    # P0 (perf): backpressure WARN output is rate-limited to one summary per
+    # second — a throttled sender hammering the window used to emit one
+    # log record per rejected frame, flooding stdout I/O and slowing the
+    # very loop that should back off (positive feedback).
+    _RATE_LOG_INTERVAL_NS: ClassVar[int] = 1_000_000_000
 
     # Per-category token buckets (F-18): protocol bursts such as a J1939 BAM
     # transfer (<=255 packets) must fit inside a single burst budget.
+    # P0 (perf): the 'simulation' lane carries synthetic multi-ECU traffic
+    # (4x50 Hz + 2x10 Hz + 2x1 Hz ~= 220 msg/s aggregate) which the 100 msg/s
+    # default sliding window rejected at ~80% rate — with per-frame WARN
+    # output and eventual RATE_ESTOP_AFTER escalation, the simulator was
+    # throttling itself into an E-Stop. Capacity 500/refill 250 sustains the
+    # generator's real cadence while still bounding a runaway loop.
     BUDGETS: ClassVar[dict[str, tuple[int, float]]] = {
         "diagnostic": (10, 10.0),
         "calibration": (5, 5.0),
         "protocol_burst": (255, 100.0),
+        "simulation": (500, 250.0),
         "default": (100, 100.0),
     }
 
@@ -148,6 +160,9 @@ class TxSafetyGateway:
         self._tx_timestamps: "collections.deque[tuple[int, int, int]]" = collections.deque()
         # P1-9: consecutive-rejection counter for sustained-overload detection
         self._rate_overload_streak: int = 0
+        # P0 (perf): rate-limited backpressure logging state
+        self._last_rate_log_ns: int = 0
+        self._rate_log_suppressed: int = 0
         # HIGH-1: monotonically increasing per-call sequence number. Combined
         # with the thread id it makes every stamp uniquely identifiable, so a
         # rollback removes EXACTLY the caller's own reservation — never the
@@ -415,10 +430,22 @@ class TxSafetyGateway:
                             f"Sustained TX rate overload ({self._rate_overload_streak} consecutive rejections)",
                         )
                     else:
-                        logger.warning(
-                            "TX rate limit exceeded — frame rejected (backpressure)",
-                            extra={"streak": self._rate_overload_streak},
-                        )
+                        # P0 (perf): one backpressure summary per second —
+                        # per-frame WARNINGs at burst rate flooded the log
+                        # I/O and slowed the sender further (positive
+                        # feedback, mirroring the FrameRouter E-2 fix).
+                        if (now_ns - self._last_rate_log_ns) >= self._RATE_LOG_INTERVAL_NS:
+                            logger.warning(
+                                "TX rate limit exceeded — frames rejected (backpressure)",
+                                extra={
+                                    "streak": self._rate_overload_streak,
+                                    "suppressed_since_last": self._rate_log_suppressed,
+                                },
+                            )
+                            self._last_rate_log_ns = now_ns
+                            self._rate_log_suppressed = 0
+                        else:
+                            self._rate_log_suppressed += 1
                     raise RateLimitExceededError("Transmission rate limit exceeded (100 msg/s)")
                 self._rate_overload_streak = 0
 

@@ -903,10 +903,14 @@ class UniversalCanDesktopApp:
             pass
 
     def _ingest_live_frame(self, frame: object) -> None:
-        """Feed one live frame through the router into decoders and UI (F-28)."""
+        """Feed one live frame through the router into decoders and UI (F-28).
+
+        Perf (C-9): the ring buffer write is deferred to the caller's tick
+        batch (append_batch, single lock acquisition per ~200 frames) —
+        _telemetry_loop collects tick_frames and flushes once per tick.
+        """
         # Router fans out to protocol engines (J1939 TP, N2K Fast Packet)
         self.router.route_frame(frame)
-        self.ring_buffer.append(frame)  # type: ignore[arg-type]
         if self.rolling_disk is not None and isinstance(frame, CanFrame):
             try:
                 self.rolling_disk.append(frame)
@@ -976,8 +980,6 @@ class UniversalCanDesktopApp:
                 if raw_depth < 0xFFFFFFFF:
                     self._depth_meters = float(raw_depth) * 0.01
 
-        self._bump_stat("_total_packets", 1)
-
     def _push_frames_to_ui_batch(self, frames: list[object]) -> None:
         """Stream a tick's frames to the frontend in ONE evaluate_js call (E13).
 
@@ -1037,8 +1039,12 @@ class UniversalCanDesktopApp:
                 try:
                     with self._bus_lock:
                         bus = self.bus
+                    # Perf (C-9): the first recv paces the tick against
+                    # frame arrival; every subsequent drain call is
+                    # non-blocking (timeout 0) so an empty queue costs ~0
+                    # instead of a 10 ms park per frame at high speed mults.
                     while drained < 200:
-                        frame = bus.recv(timeout_s=0.01)
+                        frame = bus.recv(timeout_s=0.01 if drained == 0 else 0.0)
                         if frame is None:
                             break
                         self._ingest_live_frame(frame)
@@ -1051,6 +1057,11 @@ class UniversalCanDesktopApp:
 
                 if drained == 0:
                     continue
+                # Perf (C-9): ring buffer batch write — one lock acquisition
+                # per tick instead of one per frame.
+                self.ring_buffer.append_batch(tick_frames)  # type: ignore[arg-type]
+                # Perf (C-9): packet counter bumped once per tick, not per frame
+                self._bump_stat("_total_packets", drained)
                 # E13: one JS evaluation per tick for the whole batch
                 self._push_frames_to_ui_batch(tick_frames)
                 # Live bus load estimate from routed frame rate

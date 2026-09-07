@@ -23,8 +23,9 @@ def _installed_can_backends() -> list[str]:
     importlib, which PyInstaller cannot see — bundle ALL of them.
     """
     try:
-        import can.interfaces
         import pkgutil
+
+        import can.interfaces
 
         return [m.name for m in pkgutil.iter_modules(can.interfaces.__path__)]
     except Exception as exc:  # noqa: BLE001 — build must not die on enumeration
