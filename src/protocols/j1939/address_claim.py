@@ -6,12 +6,14 @@ Complies with SAE J1939-81 and MASTER_PLAN.md Section 4.2.
 from __future__ import annotations
 
 import threading
+import time
 from dataclasses import dataclass
 from enum import Enum
 from typing import ClassVar
 
 from src.core.logging import get_logger
 from src.core.models.can_frame import CanFrame
+from src.protocols.j1939.pgn import parse_j1939_id
 
 logger = get_logger("protocols.j1939.address_claim")
 
@@ -111,6 +113,13 @@ class AddressClaimEngine:
         # and the timer callback concurrently; RLock because the confirmation
         # timer callback re-enters engine state.
         self._engine_lock = threading.RLock()
+        # M-26 (P2-7): generation counter + arming deadline. A Timer callback
+        # already queued behind _engine_lock contention could no longer be
+        # cancelled by Timer.cancel(); without the generation check it would
+        # instantly finalize a FRESH claim the engine just started (or an
+        # address it moved to after contention) before its window elapsed.
+        self._claim_generation: int = 0
+        self._claim_window_deadline_ns: int = 0
 
     @property
     def is_address_claimed(self) -> bool:
@@ -161,17 +170,46 @@ class AddressClaimEngine:
     CLAIM_CONFIRM_WINDOW_MS: ClassVar[float] = 250.0  # F-31 (J1939-81 250 ms window)
 
     def _arm_claim_confirmation_timer(self) -> None:
-        """Start the daemon-thread timer that finalizes an uncontested claim (F-31)."""
+        """Start the daemon-thread timer that finalizes an uncontested claim (F-31).
+
+        M-26 (P2-7): every arming bumps the generation and records the wall
+        deadline; confirm_claimed() rejects callbacks whose generation does
+        not match or whose window has not actually elapsed yet — a stale
+        (uncancellable, lock-queued) Timer must never confirm a fresh claim
+        early.
+        """
+        self._claim_generation += 1
+        self._claim_window_deadline_ns = time.monotonic_ns() + int(self.CLAIM_CONFIRM_WINDOW_MS * 1_000_000)
         if self._claim_timer is not None:
             self._claim_timer.cancel()
-        self._claim_timer = threading.Timer(
-            self.CLAIM_CONFIRM_WINDOW_MS / 1000.0, self.confirm_claimed
+        timer = threading.Timer(
+            self.CLAIM_CONFIRM_WINDOW_MS / 1000.0, self._confirm_claimed_guarded, args=(self._claim_generation,)
         )
-        self._claim_timer.daemon = True
-        self._claim_timer.start()
+        self._claim_timer = timer
+        timer.daemon = True
+        timer.start()
+
+    def _confirm_claimed_guarded(self, generation: int) -> None:
+        """Timer entry: enforce the generation/deadline before finalizing."""
+        with self._engine_lock:
+            # A newer claim superseded this timer (re-arm after contention or
+            # a fresh start_claiming) — ignore.
+            if generation != self._claim_generation:
+                return
+            # Early-fire guard: a Timer scheduled just before a re-arm can
+            # fire before the new window has elapsed (scheduling jitter);
+            # the deadline check keeps the 250 ms window honest. The 25 ms
+            # tolerance absorbs OS timer resolution (Windows ~15 ms) so a
+            # legitimately-elapsed window is never rejected.
+            if time.monotonic_ns() < self._claim_window_deadline_ns - 25_000_000:
+                return
+            self._finalize_claim()
 
     def cancel_pending_claim_timer(self) -> None:
         """Cancel any in-flight claim confirmation timer (contention received)."""
+        # M-26 (P2-7): bump the generation so an already-queued callback is
+        # rejected even though Timer.cancel() cannot unqueue it.
+        self._claim_generation += 1
         if self._claim_timer is not None:
             self._claim_timer.cancel()
             self._claim_timer = None
@@ -181,12 +219,11 @@ class AddressClaimEngine:
         if not frame.is_extended or len(frame.data) < 8:
             return None
 
-        # Extract PGN and Source Address from 29-bit CAN ID with PDU1/PDU2 distinction
-        dp = (frame.arbitration_id >> 24) & 0x01
-        pf = (frame.arbitration_id >> 16) & 0xFF
-        ps = (frame.arbitration_id >> 8) & 0xFF
-        source_address = frame.arbitration_id & 0xFF
-        pgn = (dp << 16) | (pf << 8) if pf < 240 else (dp << 16) | (pf << 8) | ps
+        # Extract PGN and Source Address from 29-bit CAN ID with PDU1/PDU2
+        # distinction — M-12 (P2-6): shared parser preserves EDP/DP bits;
+        # the old hand-rolled math dropped EDP, mis-deriving the PGN for
+        # EDP-set frames.
+        pgn, source_address, _da, _priority = parse_j1939_id(frame.arbitration_id)
 
         # Check if frame is an Address Claim message (PGN 60928 / 0xEE00)
         if pgn != PGN_ADDRESS_CLAIM:
@@ -272,8 +309,20 @@ class AddressClaimEngine:
             )
 
     def confirm_claimed(self) -> None:
-        """Call after claim contention timeout (250 ms) without collision to finalize claim."""
+        """Call after claim contention timeout (250 ms) without collision to finalize claim.
+
+        M-26 (P2-7): manual confirmation (tests / explicit callers) bypasses
+        the generation guard but still requires an ELAPSED window — calling it
+        during a live claim window is a bug in the caller and is ignored
+        until the window has actually expired.
+        """
         with self._engine_lock:
-            if self.state == AddressClaimState.CLAIMING and self.current_address != NULL_ADDRESS:
-                self.state = AddressClaimState.CLAIMED
-                logger.info("Address Claim Confirmed", extra={"sa": self.current_address})
+            if time.monotonic_ns() < self._claim_window_deadline_ns:
+                return
+            self._finalize_claim()
+
+    def _finalize_claim(self) -> None:
+        """Internal state transition to CLAIMED (caller holds _engine_lock)."""
+        if self.state == AddressClaimState.CLAIMING and self.current_address != NULL_ADDRESS:
+            self.state = AddressClaimState.CLAIMED
+            logger.info("Address Claim Confirmed", extra={"sa": self.current_address})

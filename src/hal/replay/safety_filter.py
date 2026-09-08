@@ -23,16 +23,25 @@ class ReplaySafetyFilter:
     # previous table wrote the hex digits of one PGN next to the decimal of
     # another (e.g. 0x0FED5 == 65237, not DM4's 65229), so DM3/DM4/DM5/DM11
     # were never actually blocked while ET1 (65262) was blocked instead.
-    BLOCKED_PGNS: ClassVar[set[int]] = {
+    # M-22 (P2-9): the table is SPLIT by policy. The old single set hung
+    # Address Claim AND every diagnostic-evidence-wipe PGN off the same
+    # block_address_claim flag — an operator disabling address-claim
+    # blocking (e.g. to replay a capture containing claims for analysis)
+    # silently re-enabled DM3/DM4/DM5/DM11 (DTC evidence wipe) too.
+    ADDRESS_CLAIM_PGNS: ClassVar[set[int]] = {
         0x0EE00,  # 60928: Address Claimed / Cannot Claim (J1939-81)
         0x0FED8,  # 65240: Commanded Address
         0x0EA00,  # 59904: Request PGN (arbitrary PGN trigger)
+    }
+    DIAGNOSTIC_WRITE_PGNS: ClassVar[set[int]] = {
         0x0FECB,  # 65227: DM2 — Previously Active DTCs (diagnostic state churn)
         0x0FECC,  # 65228: DM3 — Diagnostic Data Clear (DTC evidence wipe)
         0x0FECD,  # 65229: DM4 — Freeze Frame Clear (write path)
         0x0FECE,  # 65230: DM5 — Diagnostic Readiness Clear (write path)
         0x0FED3,  # 65235: DM11 — Diagnostic Data Clear (write path)
     }
+    # Backwards-compatible union (see is_frame_safe for the split checks).
+    BLOCKED_PGNS: ClassVar[set[int]] = ADDRESS_CLAIM_PGNS | DIAGNOSTIC_WRITE_PGNS
 
     # D5: J1939-21 transport PGNs. TP.CM carries control bytes that command
     # peer-side session behaviour (RTS/CTS/Abort) and TP.DT can tunnel any
@@ -185,13 +194,24 @@ class ReplaySafetyFilter:
             pdu_format = (pgn >> 8) & 0xFF
             masked_pgn = (pgn & 0x3FF00) if pdu_format < 240 else pgn
 
+            # M-22 (P2-9): address-claiming PGNs answer to
+            # block_address_claim; diagnostic-evidence-wipe PGNs answer to
+            # block_diagnostic_write — the two policies are independent.
             if self.block_address_claim and (
-                pgn in self.BLOCKED_PGNS
-                or masked_pgn in self.BLOCKED_PGNS
-                or edp_masked_pgn in self.BLOCKED_PGNS
-                or edp_masked_norm in self.BLOCKED_PGNS
+                pgn in self.ADDRESS_CLAIM_PGNS
+                or masked_pgn in self.ADDRESS_CLAIM_PGNS
+                or edp_masked_pgn in self.ADDRESS_CLAIM_PGNS
+                or edp_masked_norm in self.ADDRESS_CLAIM_PGNS
             ):
                 return False, f"BLOCKED_J1939_PGN: {pgn} (0x{pgn:05X})"
+
+            if self.block_diagnostic_write and (
+                pgn in self.DIAGNOSTIC_WRITE_PGNS
+                or masked_pgn in self.DIAGNOSTIC_WRITE_PGNS
+                or edp_masked_pgn in self.DIAGNOSTIC_WRITE_PGNS
+                or edp_masked_norm in self.DIAGNOSTIC_WRITE_PGNS
+            ):
+                return False, f"BLOCKED_DIAGNOSTIC_WRITE_PGN: {pgn} (0x{pgn:05X})"
 
             # P1-2: TSC1/XBR physically command the vehicle — gated by the
             # (formerly dead) block_actuator_routines flag, default ON.

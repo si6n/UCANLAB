@@ -97,12 +97,26 @@ def calculate_crc8_update(
     current_crc: int,
     data: bytes | bytearray | Sequence[int],
     table: Sequence[int] = CRC8_TABLE_0X1D,
+    final_xor: int = 0,
 ) -> int:
-    """Progressively update a running CRC-8 accumulator without applying final XOR."""
-    crc = current_crc & 0xFF
+    """Progressively update a running CRC-8 accumulator.
+
+    L-15 (P3-6): the accumulator may carry the final XOR (one-shot callers
+    feed `calculate_crc8`'s result back in); XOR the accumulator with
+    final_xor at entry and exit so incremental and one-shot computations
+    agree for any final_xor value. The default 0 keeps legacy raw-accumulator
+    semantics byte-for-byte identical.
+    """
+    crc = (current_crc & 0xFF) ^ (final_xor & 0xFF)
     for byte in data:
         crc = table[crc ^ (byte & 0xFF)]
-    return crc & 0xFF
+    return (crc ^ (final_xor & 0xFF)) & 0xFF
+
+
+# L-15 (P3-6): memoized tables for arbitrary polynomials — every
+# calculate_crc8 call with a non-builtin poly used to regenerate the full
+# 256-entry table.
+_CRC8_TABLE_CACHE: dict[int, tuple[int, ...]] = {}
 
 
 def calculate_crc8(
@@ -119,7 +133,11 @@ def calculate_crc8(
         elif poly == POLYNOMIAL_0X2F:
             table = CRC8_TABLE_0X2F
         else:
-            table = generate_crc8_table(poly)
+            cached = _CRC8_TABLE_CACHE.get(poly)
+            if cached is None:
+                cached = tuple(generate_crc8_table(poly))
+                _CRC8_TABLE_CACHE[poly] = cached
+            table = cached
 
     crc = init_val & 0xFF
     for byte in data:

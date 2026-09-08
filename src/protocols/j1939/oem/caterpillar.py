@@ -426,10 +426,13 @@ class CaterpillarDecoder(BaseOemDecoder):
             self.CMD_MANUAL_DPF_REGEN: "Manual DPF Regeneration Trigger",
         }
 
-        if cmd_id not in cmd_names and da != 0x00:
+        # M-24 (P2-8): positive disambiguation — an unknown command id must
+        # never be claimed (see Cummins for the full rationale; the old
+        # `and da != 0x00` guard let engine-addressed unknowns through).
+        if cmd_id not in cmd_names:
             return None
 
-        cmd_name = cmd_names.get(cmd_id, f"CAT Routine 0x{cmd_id:02X}")
+        cmd_name = cmd_names[cmd_id]
         target_cyl = data[1] if len(data) > 1 else 0
         param = (data[2] | (data[3] << 8)) if len(data) >= 4 else 0
 

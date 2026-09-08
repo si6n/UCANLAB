@@ -46,7 +46,12 @@ _FLAG_RESERVED_MASK = 0xFF80
 
 _ERROR_STATE_TO_CODE = {"active": 0, "passive": 1, "bus_off": 2}
 _CODE_TO_ERROR_STATE = {value: key for key, value in _ERROR_STATE_TO_CODE.items()}
-_SOURCE_TO_CODE = {"physical": 0, "replay": 1, "virtual": 2, "injected": 3}
+# M-21 (P2-19): "synthetic" joins the source map — CanFrame.VALID_SOURCES
+# includes it, and a frame carrying that source raised a bare KeyError from
+# _serialize_frame, killing the flush/close path (guards only caught
+# ValueError). Wire format stays v2-compatible: the source field is one
+# byte and codes 0..3 decode exactly as before; 4 is the new entry.
+_SOURCE_TO_CODE = {"physical": 0, "replay": 1, "virtual": 2, "injected": 3, "synthetic": 4}
 _CODE_TO_SOURCE = {value: key for key, value in _SOURCE_TO_CODE.items()}
 
 HMAC_KEY_NAME = "ROLLING_DISK_HMAC_KEY"
@@ -361,7 +366,10 @@ class RollingDiskBuffer:
         """
         try:
             _check_frame(frame)
-        except ValueError as exc:
+        except (ValueError, KeyError) as exc:
+            # M-21 (P2-19): KeyError joins the guard — an unmapped
+            # error_state/source value must reject the frame, not kill the
+            # ingestion loop at flush time.
             with self._lock:
                 self._rejected_frames += 1
             logger.warning(
@@ -394,11 +402,12 @@ class RollingDiskBuffer:
         key = _get_hmac_key(self._secret_provider)
         try:
             raw_bytes = self._serialize_chunk(frames, key)
-        except ValueError as exc:
+        except (ValueError, KeyError, struct.error) as exc:
             # E10 defense-in-depth: append() already validates frames, but a
             # frame mutated after admission must not kill the ingestion loop —
             # drop the whole pending chunk (it cannot be partially trusted)
-            # and keep recording the next one.
+            # and keep recording the next one. M-21 (P2-19): KeyError and
+            # struct.error join the guard for the same reason.
             with self._lock:
                 self._rejected_frames += len(frames)
             logger.error(

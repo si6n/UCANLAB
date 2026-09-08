@@ -62,6 +62,7 @@ def test_oem_registry_initialization_and_lookup() -> None:
 
 def test_oem_registry_dynamic_registration_and_unregistration() -> None:
     """Test custom decoder registration and unregistration in OemJ1939Registry."""
+
     class CustomDecoder(BaseOemDecoder):
         @property
         def name(self) -> str:
@@ -310,3 +311,43 @@ def test_truncated_frames_and_unsupported_pgns() -> None:
         is_extended=False,
     )
     assert registry.decode_frame(frame_std) is None
+
+
+# ============================================================================
+# M-24 (P2-8): unknown Proprietary A command ids must never be claimed
+# ============================================================================
+
+
+def test_unknown_proprietary_a_command_not_claimed_by_any_oem() -> None:
+    """M-24 (REVIEW M-25): PGN 61184 with an UNKNOWN command byte used to be
+    claimed by the first decoder (Cummins) as a generic 'Proprietary
+    Routine' with HIGH confidence whenever DA == 0x00 (Engine) — the DA
+    escape hatch in the guard never triggered. Every decoder must now
+    require a POSITIVE command match; unknown ids decode to None."""
+    registry = OemJ1939Registry()
+
+    # Unknown command 0x77 addressed to the engine (DA=0x00) — the exact
+    # case that used to be misattributed to Cummins.
+    frame_unknown = CanFrame.create(
+        channel_id="can0",
+        # Priority 6, PGN 61184 (PDU1), DA 0x00, SA 0xF9
+        arbitration_id=0x18EF00F9,
+        data=bytes([0x77, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]),
+        is_extended=True,
+    )
+    assert registry.decode_frame(frame_unknown) is None
+
+    # Known Cummins command still decodes with attribution.
+    from src.protocols.j1939.oem.cummins import CumminsDecoder
+
+    regen_cmd = getattr(CumminsDecoder, "CMD_DPF_FORCED_REGEN_START", None)
+    if regen_cmd is not None:
+        frame_regen = CanFrame.create(
+            channel_id="can0",
+            arbitration_id=0x18EF00F9,
+            data=bytes([regen_cmd, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]),
+            is_extended=True,
+        )
+        decoded = registry.decode_frame(frame_regen)
+        assert decoded is not None
+        assert decoded.manufacturer == "Cummins"

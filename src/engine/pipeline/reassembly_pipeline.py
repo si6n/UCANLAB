@@ -20,6 +20,7 @@ from src.core.models.can_frame import CanFrame, length_to_dlc
 from src.engine.decoder.dbc_decoder import DbcSignalDecoder, DecodedMessage
 from src.engine.router import FrameRouter
 from src.protocols.j1939.diagnostics import PGN_DM1, PGN_DM2, J1939DiagnosticService
+from src.protocols.j1939.pgn import build_j1939_id, pgn_from_id
 from src.protocols.j1939.transport import (
     PGN_TP_CM,
     PGN_TP_DT,
@@ -344,12 +345,8 @@ class ReassemblyPipeline:
 
     def _try_process_j1939(self, frame: CanFrame) -> ReassembledMessage | None:
         """Inspect and handle J1939 TP.CM (PGN 60416) or TP.DT (PGN 60160) frames."""
-        # Extract 29-bit J1939 PGN
-        dp = (frame.arbitration_id >> 24) & 0x01
-        pf = (frame.arbitration_id >> 16) & 0xFF
-        ps = (frame.arbitration_id >> 8) & 0xFF
-
-        pgn = (dp << 16) | (pf << 8) if pf < 240 else (dp << 16) | (pf << 8) | ps
+        # Extract 29-bit J1939 PGN — M-12 (P2-6): shared parser (EDP-aware).
+        pgn = pgn_from_id(frame.arbitration_id)
 
         if pgn not in (PGN_TP_CM, PGN_TP_DT):
             return None
@@ -381,18 +378,10 @@ class ReassemblyPipeline:
         src_addr = completed_msg.source_address
         dst_addr = completed_msg.destination_address
 
-        # Reconstruct canonical 29-bit CAN ID (B-06)
-        dp = (target_pgn >> 16) & 0x01
-        pf = (target_pgn >> 8) & 0xFF
-        if pf < 240:
-            # PDU1: PS is Destination Address
-            pgn_field = (dp << 16) | (pf << 8) | (dst_addr & 0xFF)
-        else:
-            # PDU2: Broadcast PS is already part of PGN
-            pgn_field = target_pgn & 0x3FFFF
-        priority = 6
-        arb_id = ((priority & 0x07) << 26) | (pgn_field << 8) | (src_addr & 0xFF)
-        arb_id &= 0x1FFFFFFF
+        # Reconstruct canonical 29-bit CAN ID (B-06) — M-12 (P2-6): shared
+        # builder preserves EDP/DP bits from the target PGN; the old
+        # hand-rolled math dropped EDP entirely.
+        arb_id = build_j1939_id(pgn=target_pgn, sa=src_addr, da=dst_addr, priority=6)
 
         # Diagnostics / Identification payload parsing
         diagnostics_parsed: Any = None

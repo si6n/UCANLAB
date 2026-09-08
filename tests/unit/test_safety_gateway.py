@@ -298,6 +298,74 @@ def test_safety_gateway_nan_and_negative_speed_fail_closed() -> None:
     bus.disconnect()
 
 
+def test_safety_gateway_synthetic_speed_never_satisfies_interlock() -> None:
+    """P0-2 (REVIEW C-2): a simulated stationary vehicle must not feed the
+    speed interlock. Synthetic speed updates record the value but never
+    refresh interlock freshness — critical commands stay blocked (stale)
+    until genuine physical telemetry arrives."""
+    bus = VirtualBus(channel_id="safety_vbus_synth")
+    bus.connect()
+    estop = EmergencyStopSystem(allow_self_reset=True)
+    gateway = TxSafetyGateway(bus=bus, estop=estop, whitelist_ids={0x7E0})
+
+    frame = CanFrame.create(channel_id="c0", arbitration_id=0x7E0, data=b"\x11\x01")
+
+    # Baseline: no feed at all -> stale (fail-closed)
+    assert gateway._last_speed_update_ns == 0
+    with pytest.raises(SpeedDataStaleError):
+        gateway.validate_and_transmit(frame, is_critical_command=True, user_confirmed=True)
+    estop.reset(estop.create_reset_token())
+
+    # Synthetic 0 km/h must NOT make the interlock fresh/authorized.
+    gateway.update_vehicle_speed(0.0, source="synthetic")
+    assert gateway._last_speed_update_ns == 0  # freshness untouched
+    with pytest.raises(SpeedDataStaleError):
+        gateway.validate_and_transmit(frame, is_critical_command=True, user_confirmed=True)
+    estop.reset(estop.create_reset_token())
+
+    # Even a synthetic "moving" value must not engage the moving-vehicle
+    # branch — the feed simply is not trusted for interlock purposes.
+    gateway.update_vehicle_speed(80.0, source="synthetic")
+    with pytest.raises(SpeedDataStaleError):
+        gateway.validate_and_transmit(frame, is_critical_command=True, user_confirmed=True)
+    estop.reset(estop.create_reset_token())
+
+    # Physical 0 km/h refreshes freshness and authorizes normally.
+    gateway.update_vehicle_speed(0.0, source="physical")
+    assert gateway._last_speed_update_ns > 0
+    assert gateway.validate_and_transmit(frame, is_critical_command=True, user_confirmed=True) is True
+
+    bus.disconnect()
+
+
+def test_safety_gateway_synthetic_speed_does_not_overwrite_physical_freshness() -> None:
+    """P0-2 detail: after a physical feed, a synthetic update must not extend
+    (nor clear) the physical timestamp — the interlock keeps aging against
+    the last physical sample."""
+    bus = VirtualBus(channel_id="safety_vbus_synth2")
+    bus.connect()
+    estop = EmergencyStopSystem(allow_self_reset=True)
+    gateway = TxSafetyGateway(bus=bus, estop=estop, whitelist_ids={0x7E0})
+
+    gateway.update_vehicle_speed(0.0, source="physical")
+    physical_ts = gateway._last_speed_update_ns
+    assert physical_ts > 0
+
+    # Synthetic updates leave the physical timestamp untouched.
+    gateway.update_vehicle_speed(0.0, source="synthetic")
+    assert gateway._last_speed_update_ns == physical_ts
+    gateway.update_vehicle_speed(25.0, source="synthetic")
+    assert gateway._last_speed_update_ns == physical_ts
+
+    # The synthetic 25 km/h value was recorded for telemetry display, but
+    # the interlock keeps evaluating against it (fail-closed: a recorded
+    # synthetic "moving" value must not read as safe-and-stationary).
+    assert gateway._current_vehicle_speed_kmh == 25.0
+    assert gateway.is_speed_fresh_and_safe() is False  # 25 km/h > noise threshold
+
+    bus.disconnect()
+
+
 def test_safety_gateway_frame_sanity_checks() -> None:
     """Verify Stage 1: Frame Sanity & Range Validation."""
     bus = VirtualBus(channel_id="safety_vbus_sanity")

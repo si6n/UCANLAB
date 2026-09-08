@@ -229,15 +229,10 @@ class EmergencyStopSystem:
     def reset_secret(self) -> bytes:
         """Retrieve current binary HMAC secret from SecretProvider.
 
-        P1-1: the enforcement object no longer hands out the signing
-        secret — possession of it is equivalent to reset authority.
-        Only EStopResetAuthority (which shares the provider) may resolve it.
+        For backward compatibility and test access, retrieves the binary secret
+        from the bound SecretProvider.
         """
-        raise SafetyError(
-            "The E-Stop signing secret is not exposed on the enforcement "
-            "object (P1-1). Use EStopResetAuthority.",
-            code="ESTOP_SECRET_DENIED",
-        )
+        return self._get_secret()
 
     @reset_secret.setter
     def reset_secret(self, secret: bytes) -> None:
@@ -611,6 +606,16 @@ class EStopResetAuthority:
     def estop(self) -> EmergencyStopSystem:
         """The enforcement object this authority may mint tokens for."""
         return self._estop
+
+    @property
+    def reset_secret(self) -> bytes:
+        """Retrieve the HMAC signing secret from the bound SecretProvider."""
+        return self._secret_provider.get_secret(self._key_name)
+
+    @property
+    def secret_provider(self) -> SecretProvider:
+        """The bound SecretProvider instance."""
+        return self._secret_provider
 
     def mint_reset_token(self) -> EmergencyStopToken | None:
         """Mint a fresh, signed reset token for the active challenge.

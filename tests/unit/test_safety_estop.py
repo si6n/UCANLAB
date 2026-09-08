@@ -401,3 +401,19 @@ def test_estop_consumed_nonce_window_is_bounded() -> None:
     assert len(estop._consumed_nonces) <= estop.MAX_CONSUMED_NONCES
     # Insertion-ordered eviction: the OLDEST entries are the ones gone
     assert (0).to_bytes(16, "big") not in estop._consumed_nonces
+
+
+def test_estop_reset_secret_property_resolution() -> None:
+    """Verify reset_secret property is readable on both EmergencyStopSystem and EStopResetAuthority."""
+    from src.safety.estop import EStopResetAuthority
+
+    secret = b"my_super_secret_signing_key_123"
+    estop = EmergencyStopSystem(reset_secret=secret)
+
+    # 1. EmergencyStopSystem.reset_secret must return the secret without SafetyError
+    assert estop.reset_secret == secret
+
+    # 2. EStopResetAuthority.reset_secret must also resolve the secret
+    authority = EStopResetAuthority(estop)
+    assert authority.reset_secret == secret
+    assert authority.secret_provider is estop.secret_provider

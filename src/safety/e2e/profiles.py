@@ -55,6 +55,10 @@ class E2EStatus(str, Enum):
     WRONG_SEQUENCE = "WRONG_SEQUENCE"
     CRC_ERROR = "CRC_ERROR"
     INITIAL = "INITIAL"
+    # H-3 (P1-10): payload shorter than the profile's offsets is a
+    # malformed/runt frame — reported as a formal verdict instead of raising
+    # ValueError out of the RX validation path.
+    LENGTH_ERROR = "LENGTH_ERROR"
 
 
 @dataclass(slots=True, frozen=True)
@@ -87,6 +91,16 @@ class E2EProfileConfig:
             raise ValueError(f"crc_byte_offset must be non-negative, got {self.crc_byte_offset}")
         if self.counter_byte_offset < 0:
             raise ValueError(f"counter_byte_offset must be non-negative, got {self.counter_byte_offset}")
+        # M-4 (P1-10): classic-CAN E2E profiles must keep both offsets inside
+        # the 8-byte payload — a profile with crc_byte_offset >= 8 silently
+        # lengthened frames in the packager and then raised a raw ValueError
+        # out of CanFrame.create instead of a configuration error.
+        if max(self.crc_byte_offset, self.counter_byte_offset) >= 8:
+            raise ValueError(
+                f"E2E profile offsets exceed the 8-byte classic CAN payload "
+                f"(crc_byte_offset={self.crc_byte_offset}, "
+                f"counter_byte_offset={self.counter_byte_offset})"
+            )
         # B14: the packager writes the counter first and the CRC second —
         # with both offsets equal the CRC silently overwrites the counter and
         # every receiver flags the stream as a sequence jump.

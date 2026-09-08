@@ -487,10 +487,12 @@ class DetroitDecoder(BaseOemDecoder):
             0x0B: "Detroit SCR Dosing Valve Override",
         }
 
-        if cmd_id not in dd_cmds and da != 0x00 and da != 0x27:
+        # M-24 (P2-8): positive disambiguation — unknown command ids are
+        # never claimed (see Cummins for the full rationale).
+        if cmd_id not in dd_cmds:
             return None
 
-        cmd_name = dd_cmds.get(cmd_id, f"Detroit Routine 0x{cmd_id:02X}")
+        cmd_name = dd_cmds[cmd_id]
         signals: dict[str, DecodedSignal] = {
             "service_command_id": DecodedSignal(
                 name="service_command_id",

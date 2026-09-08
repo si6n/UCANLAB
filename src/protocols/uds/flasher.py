@@ -116,8 +116,16 @@ class EcuFlashingEngine:
         self.current_step: FlashingStep = FlashingStep.IDLE
         self._is_cancelled = False
 
-    def _call_transfer_data(self, block_sequence: int, data: bytes) -> Any:
-        """Invoke transfer_data with safety flags if supported by the client signature."""
+    def _call_transfer_data(self, block_sequence: int, data: bytes, user_confirmed: bool = False) -> Any:
+        """Invoke transfer_data with safety flags if supported by the client signature.
+
+        P1-1 (REVIEW M-8/H-4): the operator's dual confirmation is granted
+        ONCE per flashing session via FlashingConfig.user_confirmed (asserted
+        at step 1 and bound to 0x34/0x31/0x11) and forwarded to every 0x36
+        block — the old hardcoded user_confirmed=True lied to the gateway's
+        Stage-5 check on every block, making the dual-confirmation gate a
+        no-op for the one service that writes flash.
+        """
         target = getattr(self.uds_client.transfer_data, "side_effect", None) or self.uds_client.transfer_data
         try:
             sig = inspect.signature(target)
@@ -125,7 +133,10 @@ class EcuFlashingEngine:
                 p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()
             ):
                 return self.uds_client.transfer_data(
-                    block_sequence=block_sequence, data=data, is_critical_command=True, user_confirmed=True
+                    block_sequence=block_sequence,
+                    data=data,
+                    is_critical_command=True,
+                    user_confirmed=user_confirmed,
                 )
         except (ValueError, TypeError):
             pass
@@ -376,7 +387,7 @@ class EcuFlashingEngine:
                 sec_level = config.effective_programming_security_level
                 self._log(f"Adım 4/10: Güvenlik Erişimi (0x27 Level {sec_level}) doğrulanıyor...", "info")
                 self._check_cancelled()
-                seed_resp = self.uds_client.security_access_request_seed(level=sec_level)
+                seed_resp = self.uds_client.security_access_request_seed(level=sec_level, user_confirmed=config.user_confirmed)
                 if not seed_resp.is_positive:
                     raise ProtocolError(f"Güvenlik tohumu alınamadı: {seed_resp.nrc_description_tr}")
 
@@ -402,7 +413,9 @@ class EcuFlashingEngine:
                     # the key to the seed.
                     key_bytes = config.security_key or b""
 
-                key_resp = self.uds_client.security_access_send_key(level=sec_level, key=key_bytes)
+                key_resp = self.uds_client.security_access_send_key(
+                    level=sec_level, key=key_bytes, user_confirmed=config.user_confirmed
+                )
                 if not key_resp.is_positive:
                     raise ProtocolError(f"Güvenlik anahtarı reddedildi: {key_resp.nrc_description_tr}")
                 self._log("Güvenlik kilidi başarıyla açıldı.", "info")
@@ -447,7 +460,7 @@ class EcuFlashingEngine:
                 self._check_cancelled()
 
                 chunk = config.data[bytes_sent : bytes_sent + effective_block_size]
-                resp = self._call_transfer_data(block_seq, chunk)
+                resp = self._call_transfer_data(block_seq, chunk, user_confirmed=config.user_confirmed)
                 if not resp.is_positive:
                     raise ProtocolError(f"Blok #{block_seq} aktarımı reddedildi: {resp.nrc_description_tr}")
 
@@ -479,7 +492,9 @@ class EcuFlashingEngine:
             self._log("Adım 7/10: Aktarım Çıkışı (0x37) gönderiliyor...", "info")
             self._check_cancelled()
             try:
-                resp = self.uds_client.request_transfer_exit(is_critical_command=True, user_confirmed=True)
+                resp = self.uds_client.request_transfer_exit(
+                    is_critical_command=True, user_confirmed=config.user_confirmed
+                )
             except TypeError:
                 resp = self.uds_client.request_transfer_exit()
             if not resp.is_positive:

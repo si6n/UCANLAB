@@ -136,12 +136,20 @@ class SafeMultiplexedBus(AbstractBus):
         *,
         is_critical_command: bool = False,
         user_confirmed: bool = False,
+        budget_category: str = "default",
     ) -> None:
-        """Enforce CORE_SAFETY_FLOOR on every transmission."""
+        """Enforce CORE_SAFETY_FLOOR on every transmission.
+
+        M-2 (P2-5): budget_category is forwarded, not dropped — the legacy
+        signature silently pushed every uncategorised caller onto the
+        default 100 msg/s lane, so a protocol burst sent through send()
+        could trip the gateway's sustained-overload E-Stop.
+        """
         self.gateway.validate_and_transmit(
             frame,
             is_critical_command=is_critical_command,
             user_confirmed=user_confirmed,
+            budget_category=budget_category,
         )
 
     def send_sync(
@@ -183,9 +191,19 @@ class SafeMultiplexedBus(AbstractBus):
 
         A `None` timeout falls back to the bounded default (F-23) — the queue
         never blocks forever, so callers stay responsive.
+
+        M-2 (P2-5): after disconnect() the subscription is gone; returning
+        None forever made a disconnected multiplexed bus indistinguishable
+        from a silent bus, hiding the teardown from callers. Raise instead
+        (fail-closed), matching the AbstractBus contract used by drivers.
         """
         if self.rx_queue is None:
-            return None
+            from src.core.errors import HardwareError
+
+            raise HardwareError(
+                "SafeMultiplexedBus is disconnected (no active router subscription)",
+                code="MULTIPLEXED_BUS_DISCONNECTED",
+            )
 
         effective_timeout = timeout_s if timeout_s is not None else self.DEFAULT_RECV_TIMEOUT_S
         try:

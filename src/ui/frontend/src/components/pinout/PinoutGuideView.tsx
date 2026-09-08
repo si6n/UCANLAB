@@ -44,7 +44,7 @@ export const PinoutGuideView: React.FC = () => {
       {/* Header */}
       <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-card flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600">
+          <div className="w-10 h-10 rounded-lg bg-brand-50 border border-brand-200 flex items-center justify-center text-brand-600">
             <Share2 className="w-5 h-5" />
           </div>
           <div>
@@ -57,7 +57,7 @@ export const PinoutGuideView: React.FC = () => {
           <button
             onClick={() => setConnectorType('OBD2')}
             className={`px-3 py-1 rounded-md font-semibold transition-all ${
-              connectorType === 'OBD2' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              connectorType === 'OBD2' ? 'bg-white text-brand-600 shadow-xs' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             OBD-II (16-Pin J1962)
@@ -65,7 +65,7 @@ export const PinoutGuideView: React.FC = () => {
           <button
             onClick={() => setConnectorType('J1939')}
             className={`px-3 py-1 rounded-md font-semibold transition-all ${
-              connectorType === 'J1939' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              connectorType === 'J1939' ? 'bg-white text-brand-600 shadow-xs' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             J1939 Deutsch 9-Pin
@@ -91,9 +91,9 @@ export const PinoutGuideView: React.FC = () => {
                   onClick={() => setSelectedPin(p.pin)}
                   className={`p-2.5 rounded-lg border font-mono text-xs font-bold transition-all ${
                     selectedPin === p.pin
-                      ? 'ring-2 ring-blue-400 bg-blue-600 text-white border-white'
+                      ? 'ring-2 ring-brand-400 bg-brand-600 text-white border-white'
                       : p.type === 'CAN'
-                      ? 'bg-blue-900/60 border-blue-500 text-blue-300 hover:bg-blue-800'
+                      ? 'bg-brand-900/60 border-brand-500 text-brand-300 hover:bg-brand-800'
                       : p.type === 'PWR'
                       ? 'bg-rose-900/60 border-rose-500 text-rose-300 hover:bg-rose-800'
                       : p.type === 'GND'
@@ -101,7 +101,7 @@ export const PinoutGuideView: React.FC = () => {
                       : 'bg-slate-950 border-slate-800 text-slate-500 hover:bg-slate-900'
                   }`}
                 >
-                  <div className="text-[10px] opacity-75">#{p.pin}</div>
+                  <div className="text-xs opacity-75">#{p.pin}</div>
                   <div>{p.type}</div>
                 </button>
               ))}
@@ -115,9 +115,9 @@ export const PinoutGuideView: React.FC = () => {
                   onClick={() => setSelectedPin(p.pin)}
                   className={`p-2.5 rounded-lg border font-mono text-xs font-bold transition-all ${
                     selectedPin === p.pin
-                      ? 'ring-2 ring-blue-400 bg-blue-600 text-white border-white'
+                      ? 'ring-2 ring-brand-400 bg-brand-600 text-white border-white'
                       : p.type === 'CAN'
-                      ? 'bg-blue-900/60 border-blue-500 text-blue-300 hover:bg-blue-800'
+                      ? 'bg-brand-900/60 border-brand-500 text-brand-300 hover:bg-brand-800'
                       : p.type === 'PWR'
                       ? 'bg-rose-900/60 border-rose-500 text-rose-300 hover:bg-rose-800'
                       : p.type === 'GND'
@@ -125,7 +125,7 @@ export const PinoutGuideView: React.FC = () => {
                       : 'bg-slate-950 border-slate-800 text-slate-500 hover:bg-slate-900'
                   }`}
                 >
-                  <div className="text-[10px] opacity-75">#{p.pin}</div>
+                  <div className="text-xs opacity-75">#{p.pin}</div>
                   <div>{p.type}</div>
                 </button>
               ))}
@@ -133,11 +133,11 @@ export const PinoutGuideView: React.FC = () => {
           </div>
 
           {/* 120 Ohm Termination Rule Card */}
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-3.5 flex items-start space-x-3 text-xs text-blue-900">
-            <Info className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+          <div className="bg-brand-50 border border-brand-200 rounded-xl p-3.5 flex items-start space-x-3 text-xs text-brand-900">
+            <Info className="w-5 h-5 text-brand-600 shrink-0 mt-0.5" />
             <div className="space-y-1">
               <div className="font-bold">120Ω Sonlandırma Direnci Kuralı:</div>
-              <p className="text-blue-800 leading-relaxed">
+              <p className="text-brand-800 leading-relaxed">
                 ISO 11898 standardına göre CAN-H ve CAN-L sinyal hatlarının fiziksel iki ucunda 120Ω paralel direnç bulunmalıdır. Sistem kapalıyken Pin 6 ile Pin 14 arasında multimetre ile ölçülen eşdeğer direnç <strong>60Ω</strong> olmalıdır.
               </p>
             </div>
@@ -152,11 +152,11 @@ export const PinoutGuideView: React.FC = () => {
 
           <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
             <div className="flex items-center justify-between">
-              <span className="font-mono text-base font-bold text-blue-600">
+              <span className="font-mono text-base font-bold text-brand-600">
                 Pin #{currentPinInfo.pin}
               </span>
               <span className={`text-xs px-2.5 py-1 rounded-md font-bold ${
-                currentPinInfo.type === 'CAN' ? 'bg-blue-100 text-blue-800' : currentPinInfo.type === 'PWR' ? 'bg-rose-100 text-rose-800' : 'bg-slate-200 text-slate-800'
+                currentPinInfo.type === 'CAN' ? 'bg-brand-100 text-brand-800' : currentPinInfo.type === 'PWR' ? 'bg-rose-100 text-rose-800' : 'bg-slate-200 text-slate-800'
               }`}>
                 {currentPinInfo.type}
               </span>
@@ -164,7 +164,7 @@ export const PinoutGuideView: React.FC = () => {
 
             <div>
               <div className="text-xs font-bold text-slate-800">{currentPinInfo.name}</div>
-              <div className="text-xs font-mono font-semibold text-emerald-600 mt-0.5">
+              <div className="text-xs font-mono font-semibold text-signal-600 mt-0.5">
                 Voltaj: {currentPinInfo.voltage}
               </div>
             </div>
@@ -177,11 +177,11 @@ export const PinoutGuideView: React.FC = () => {
           <div className="space-y-2 pt-2 text-xs text-slate-600">
             <div className="font-bold text-slate-800">Doğrulama İpuçları:</div>
             <div className="flex items-center space-x-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              <CheckCircle2 className="w-4 h-4 text-signal-600" />
               <span>Kontak açıkken Pin 16'da +12V akü voltajı okunmalıdır.</span>
             </div>
             <div className="flex items-center space-x-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              <CheckCircle2 className="w-4 h-4 text-signal-600" />
               <span>Pin 4 ve Pin 5 şasiye &lt; 0.1V dirençle bağlı olmalıdır.</span>
             </div>
             <div className="flex items-center space-x-2">

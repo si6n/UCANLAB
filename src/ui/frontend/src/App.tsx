@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Header } from './components/Header';
-import { SubNav } from './components/SubNav';
+import { Sidebar } from './components/Sidebar';
 import { CanSnifferTable } from './components/dashboard/CanSnifferTable';
 import { SignalOscilloscope } from './components/dashboard/SignalOscilloscope';
 import { AiCopilotPanel } from './components/dashboard/AiCopilotPanel';
@@ -16,7 +16,8 @@ import {
   ScenarioType, 
   ActiveTab, 
   ChatMessage, 
-  DiagnosticState 
+  DiagnosticState,
+  CopilotAction
 } from './types/can';
 import { CANSimulatorEngine } from './services/canSimulator';
 import { DiagnosticEngine } from './services/diagnosticEngine';
@@ -27,7 +28,10 @@ export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [channel, setChannel] = useState('vcan0');
   const [baudRate, setBaudRate] = useState('250 kbps');
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem('gemini_api_key') || '');
+  // H-11 (P1-9): API keys are no longer persisted in localStorage — the
+  // WebView profile stores it unencrypted; the backend vault is the only
+  // at-rest copy. The renderer keeps a transient session value only.
+  const [apiKey, setApiKey] = useState('');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Vertical Resizer State for Dashboard (Sniffer vs Oscilloscope)
@@ -54,11 +58,12 @@ export const App: React.FC = () => {
   const [simulator] = useState(() => new CANSimulatorEngine());
   const [diagnosticEngine] = useState(() => {
     const engine = new DiagnosticEngine();
-    const savedGemini = localStorage.getItem('gemini_api_key');
-    const savedOpenai = localStorage.getItem('openai_api_key');
+    // H-11 (P1-9): legacy plaintext keys are scrubbed once and never read
+    // back; only the non-sensitive provider preference persists.
+    localStorage.removeItem('gemini_api_key');
+    localStorage.removeItem('openai_api_key');
+    localStorage.removeItem('cloud_session_token');
     const savedProvider = (localStorage.getItem('ai_provider') as 'gemini' | 'openai') || 'gemini';
-    if (savedGemini) engine.setApiKey(savedGemini);
-    if (savedOpenai) engine.setOpenAiApiKey(savedOpenai);
     engine.setAiProvider(savedProvider);
     return engine;
   });
@@ -203,6 +208,9 @@ export const App: React.FC = () => {
 
   // Handlers
   const handleToggleSimulator = async () => {
+    // P0-1 (REVIEW C-1): the simulator toggle may no longer clear a latched
+    // E-Stop — the backend refuses the toggle while engaged, and the local
+    // E-Stop flag is never cleared implicitly here either.
     const isNativeResult = await DesktopBridge.toggleSimulator();
     const nextState = isNativeResult !== null ? isNativeResult : simulator.toggleRunning();
     setIsSimulating(nextState);
@@ -213,7 +221,6 @@ export const App: React.FC = () => {
       setBusLoad(0);
       setFrameRate(0);
     }
-    if (isEstopActive) setIsEstopActive(false);
   };
 
   const handleEstop = async () => {
@@ -226,10 +233,12 @@ export const App: React.FC = () => {
   };
 
   const handleSelectScenario = async (scenario: ScenarioType) => {
+    // P0-1 (REVIEW C-1): a scenario switch no longer clears the local E-Stop
+    // flag implicitly — the backend keeps the latch engaged and only the
+    // challenge/response reset flow may clear it.
     await DesktopBridge.selectScenario(scenario);
     simulator.setScenario(scenario);
     setActiveScenario(scenario);
-    setIsEstopActive(false);
     setIsSimulating(true);
     simulator.resume();
   };
@@ -284,6 +293,48 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleExecuteAction = async (action: CopilotAction) => {
+    setIsAiLoading(true);
+    try {
+      const res = await DesktopBridge.executeDiagnosticAction(action, true);
+      const statusIcon = res.success ? '✅' : '❌';
+      const detailText = res.message || res.error || (res.success ? 'İşlem başarıyla tamamlandı.' : 'İşlem başarısız oldu.');
+      let resultText = `**${statusIcon} Teşhis Aksiyonu Sonucu: ${action.label}**\n\n` +
+        `• **Durum:** ${res.success ? 'Başarılı' : 'Başarısız'}\n` +
+        `• **Detay:** ${detailText}`;
+
+      if (res.data && Object.keys(res.data).length > 0) {
+        resultText += `\n• **Dönen Veri:** \`${JSON.stringify(res.data)}\``;
+      }
+
+      const resultMsg: ChatMessage = {
+        id: `action-res-${Date.now()}`,
+        sender: 'copilot',
+        timestamp: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
+        text: resultText
+      };
+
+      setChatMessages((prev) => [...prev, resultMsg]);
+
+      // If DTCs were cleared or scenario reset, trigger rescan to update UI state
+      if (action.action_type === 'uds_clear_dtc' || action.action_type === 'j1939_clear_dtc') {
+        if (res.success) {
+          handleRescan();
+        }
+      }
+    } catch (err: any) {
+      const errMsg: ChatMessage = {
+        id: `action-err-${Date.now()}`,
+        sender: 'copilot',
+        timestamp: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
+        text: `❌ **Aksiyon Yürütülemedi:** ${err?.message || 'Bilinmeyen hata'}`
+      };
+      setChatMessages((prev) => [...prev, errMsg]);
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
+
   const handleAskCopilotAboutFrame = (frame: CANFrame) => {
     const prompt = `Lütfen şu CAN karesini detaylı analiz et:\n\n` +
       `• CAN ID: ${frame.canIdHex} (${frame.frameType})\n` +
@@ -298,128 +349,133 @@ export const App: React.FC = () => {
     setChannel(settings.channel);
     setBaudRate(settings.baudRate);
     setApiKey(settings.apiKey || settings.geminiApiKey || settings.openaiApiKey || '');
-    
+
+    // H-11 (P1-9): keys flow to the in-memory engine and the backend vault
+    // (via updateSettings) only — never to localStorage.
     if (settings.provider) {
       diagnosticEngine.setAiProvider(settings.provider);
       localStorage.setItem('ai_provider', settings.provider);
     }
     if (settings.geminiApiKey !== undefined) {
       diagnosticEngine.setApiKey(settings.geminiApiKey);
-      localStorage.setItem('gemini_api_key', settings.geminiApiKey);
     }
     if (settings.openaiApiKey !== undefined) {
       diagnosticEngine.setOpenAiApiKey(settings.openaiApiKey);
-      localStorage.setItem('openai_api_key', settings.openaiApiKey);
     }
     await DesktopBridge.updateSettings(settings);
   };
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-[#F8FAFC] text-slate-800 overflow-hidden select-none">
-      {/* 1. Sticky Header Bar */}
-      <Header
-        channel={channel}
-        baudRate={baudRate}
-        busLoad={busLoad}
-        totalPackets={totalPackets}
-        isSimulating={isSimulating}
-        isEstopActive={isEstopActive}
-        activeScenario={activeScenario}
-        simulationSpeed={simulationSpeed}
-        onToggleSimulator={handleToggleSimulator}
-        onSelectScenario={handleSelectScenario}
-        onEstop={handleEstop}
-        onChangeSpeed={handleChangeSpeed}
-        onInjectFault={handleInjectFault}
-        onOpenSettings={() => setIsSettingsOpen(true)}
-      />
-
-      {/* 2. Sub-Navigation Bar */}
-      <SubNav
+    <div className="flex h-screen w-screen overflow-hidden bg-[#FAFBFC] text-slate-800 select-none">
+      {/* 1. Vertical Left Sidebar Navigation */}
+      <Sidebar
         activeTab={activeTab}
         onSelectTab={setActiveTab}
+        channel={channel}
+        isSimulating={isSimulating}
+        isEstopActive={isEstopActive}
       />
 
-      {/* 3. Main Views Container */}
-      <main className="flex-1 overflow-hidden p-3">
-        {activeTab === 'dashboard' && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 h-full">
-            {/* Left 60% Panel: Sniffer (Top) + Resizer + Oscilloscope (Bottom) */}
-            <div 
-              ref={leftPanelRef}
-              className="lg:col-span-7 flex flex-col h-full overflow-hidden"
-            >
-              {/* Top: Sniffer Table */}
-              <div 
-                style={{ height: `${snifferHeightPercent}%` }}
-                className="min-h-[160px] overflow-hidden"
-              >
-                <CanSnifferTable
-                  frames={frames}
-                  isStreaming={isSimulating}
-                  frameRate={frameRate}
-                  totalDisplayedCount={frames.length}
-                  errorFrameCount={errorCount}
-                  onToggleStreaming={handleToggleSimulator}
-                  onClearBuffer={handleClearBuffer}
-                  onAskCopilot={handleAskCopilotAboutFrame}
-                />
-              </div>
+      {/* 2. Main Column: Sticky Topbar + Content Area */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <Header
+          channel={channel}
+          baudRate={baudRate}
+          busLoad={busLoad}
+          totalPackets={totalPackets}
+          isSimulating={isSimulating}
+          isEstopActive={isEstopActive}
+          activeScenario={activeScenario}
+          simulationSpeed={simulationSpeed}
+          onToggleSimulator={handleToggleSimulator}
+          onSelectScenario={handleSelectScenario}
+          onEstop={handleEstop}
+          onChangeSpeed={handleChangeSpeed}
+          onInjectFault={handleInjectFault}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+        />
 
-              {/* Draggable Vertical Splitter Handle */}
-              <div
-                onMouseDown={() => setIsDraggingVertical(true)}
-                className={`h-2.5 my-1 rounded cursor-row-resize flex items-center justify-center transition-all ${
-                  isDraggingVertical 
-                    ? 'bg-blue-200 ring-2 ring-blue-400/40' 
-                    : 'bg-slate-200/80 hover:bg-blue-100'
-                }`}
-                title="Yukarı / Aşağı sürükleyerek Sniffer ve Osiloskop boyutunu ayarlayın"
-              >
-                <div className={`w-12 h-1 rounded-full transition-colors ${
-                  isDraggingVertical ? 'bg-blue-600' : 'bg-slate-400'
-                }`}></div>
-              </div>
+        {/* 3. Main Views Container */}
+        <main className="relative flex-1 overflow-hidden p-4">
+            {activeTab === 'dashboard' && (
+              <div className="grid h-full grid-cols-1 gap-3 lg:grid-cols-12">
+                {/* Left: Sniffer (top) + thin resize divider + Oscilloscope (bottom) */}
+                <div
+                  ref={leftPanelRef}
+                  className="flex h-full min-h-0 flex-col lg:col-span-7"
+                >
+                  <div
+                    style={{ height: `${snifferHeightPercent}%` }}
+                    className="flex min-h-[140px] flex-col overflow-hidden"
+                  >
+                    <CanSnifferTable
+                      frames={frames}
+                      isStreaming={isSimulating}
+                      frameRate={frameRate}
+                      totalDisplayedCount={frames.length}
+                      errorFrameCount={errorCount}
+                      onToggleStreaming={handleToggleSimulator}
+                      onClearBuffer={handleClearBuffer}
+                      onAskCopilot={handleAskCopilotAboutFrame}
+                    />
+                  </div>
 
-              {/* Bottom: Signal Oscilloscope */}
-              <div 
-                style={{ height: `calc(${100 - snifferHeightPercent}% - 14px)` }}
-                className="min-h-[160px] overflow-hidden"
-              >
-                <SignalOscilloscope
-                  currentPoint={currentTelemetry}
-                  history={telemetryHistory}
-                  onAskCopilot={handleSendMessage}
-                />
-              </div>
-            </div>
+                  {/* Thin draggable divider */}
+                  <div
+                    onMouseDown={() => setIsDraggingVertical(true)}
+                    className={`group relative my-2 h-px shrink-0 cursor-row-resize transition-colors ${
+                      isDraggingVertical ? 'bg-brand-500' : 'bg-slate-200 hover:bg-brand-400'
+                    }`}
+                    title="Sniffer ve Osiloskop boyutunu ayarlamak için sürükleyin"
+                  >
+                    <div className="absolute inset-x-0 -top-2 h-5" />
+                    <div
+                      className={`absolute left-1/2 top-1/2 h-0.5 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full transition-colors ${
+                        isDraggingVertical ? 'bg-brand-600' : 'bg-slate-300 group-hover:bg-brand-500'
+                      }`}
+                    />
+                  </div>
 
-            {/* Right 40% Panel: AI Diagnostic Copilot */}
-            <div className="lg:col-span-5 h-full overflow-hidden">
-              <AiCopilotPanel
-                diagnosticState={diagnosticState}
-                chatMessages={chatMessages}
-                isAiLoading={isAiLoading}
-                onRescan={handleRescan}
-                onSendMessage={handleSendMessage}
+                  <div
+                    style={{ height: `calc(${100 - snifferHeightPercent}% - 20px)` }}
+                    className="flex min-h-[140px] flex-col overflow-hidden"
+                  >
+                    <SignalOscilloscope
+                      currentPoint={currentTelemetry}
+                      history={telemetryHistory}
+                      onAskCopilot={handleSendMessage}
+                    />
+                  </div>
+                </div>
+
+                {/* Right: AI Diagnostic Copilot */}
+                <div className="h-full overflow-hidden lg:col-span-5">
+                  <AiCopilotPanel
+                    diagnosticState={diagnosticState}
+                    chatMessages={chatMessages}
+                    isAiLoading={isAiLoading}
+                    onRescan={handleRescan}
+                    onSendMessage={handleSendMessage}
+                    onExecuteAction={handleExecuteAction}
+                  />
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'signal_discovery' && (
+              <SignalDiscoveryView
+                latestFrame={frames[frames.length - 1] || null}
+                frames={frames}
+                onStimulusChange={(lvl) => simulator.setStimulusLevel(lvl)}
+                onAskCopilot={handleSendMessage}
               />
-            </div>
-          </div>
-        )}
+            )}
 
-        {activeTab === 'signal_discovery' && (
-          <SignalDiscoveryView 
-            latestFrame={frames[frames.length - 1] || null}
-            frames={frames}
-            onStimulusChange={(lvl) => simulator.setStimulusLevel(lvl)}
-            onAskCopilot={handleSendMessage}
-          />
-        )}
-
-        {activeTab === 'ecu_flashing' && <EcuFlashingView />}
-        {activeTab === 'pinout_guide' && <PinoutGuideView />}
-        {activeTab === 'reports' && <ReportsExportView frames={frames} />}
-      </main>
+            {activeTab === 'ecu_flashing' && <EcuFlashingView />}
+            {activeTab === 'pinout_guide' && <PinoutGuideView />}
+            {activeTab === 'reports' && <ReportsExportView frames={frames} />}
+        </main>
+      </div>
 
       {/* Settings Modal */}
       <SettingsModal

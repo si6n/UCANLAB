@@ -472,3 +472,338 @@ def test_desktop_bridge_diagnostics_integration() -> None:
     assert any("22V193000" in r.get("campaign_number", "") or "TRAILER BRAKE" in r.get("component", "") for r in recalls)
 
 
+def test_copilot_dbc_queries_found_and_not_found() -> None:
+    """Verify copilot correctly identifies present DBCs and explicitly states when DBC is not found."""
+    from src.engine.ai.diagnostic_copilot import CausalBayesianInferenceEngine
+
+    # Found DBC
+    res_golf = CausalBayesianInferenceEngine.evaluate_diagnostic_query("golf dbc var mı?", [], {})
+    assert "Eşleşen DBC Dosyaları" in res_golf
+    assert "vw_golf_mk4.dbc" in res_golf
+    assert "Sinyal" in res_golf
+
+    # Unknown DBC
+    res_unknown = CausalBayesianInferenceEngine.evaluate_diagnostic_query("ferrari f40 dbc", [], {})
+    assert "DBC Bulunamadı" in res_unknown
+    assert "ferrari f40" in res_unknown
+    assert "data/dbc/" in res_unknown
+
+    # DBC catalog overview
+    res_list = CausalBayesianInferenceEngine.evaluate_diagnostic_query("mevcut dbc listesi", [], {})
+    assert "Kayıtlı DBC Kütüphanesi Özeti" in res_list
+    assert "Binek Araçlar" in res_list
+
+
+def test_copilot_unknown_codes_and_can_ids() -> None:
+    """Verify copilot explicitly informs user when a DTC, SPN, or CAN ID is not found."""
+    from src.engine.ai.diagnostic_copilot import CausalBayesianInferenceEngine
+
+    # Unknown DTC
+    res_dtc = CausalBayesianInferenceEngine.evaluate_diagnostic_query("P1999 arızası nedir?", [], {})
+    assert "Arıza Kodu Bulunamadı" in res_dtc
+    assert "[P1999]" in res_dtc
+    assert "Güç Aktarımı" in res_dtc
+
+    # Unknown SPN
+    res_spn = CausalBayesianInferenceEngine.evaluate_diagnostic_query("SPN 999999 hatası", [], {})
+    assert "[SPN 999999] Kaydı Bulunamadı" in res_spn
+
+    # Unknown CAN ID
+    res_id = CausalBayesianInferenceEngine.evaluate_diagnostic_query("0x123 CAN ID nedir?", [], {})
+    assert "CAN ID Tanımsız" in res_id
+    assert "0X123" in res_id
+
+    # Known Standard OBD ID
+    res_obd = CausalBayesianInferenceEngine.evaluate_diagnostic_query("0x7DF CAN ID", [], {})
+    assert "0x7DF" in res_obd
+    assert "Standart OBD-II" in res_obd
+
+
+def test_copilot_unmatched_query_concise_guidance() -> None:
+    """Verify unmatched arbitrary queries return honest concise guidance rather than fake telemetry."""
+    from src.engine.ai.diagnostic_copilot import CausalBayesianInferenceEngine
+
+    res = CausalBayesianInferenceEngine.evaluate_diagnostic_query("bugün hava nasıl olacak?", [], {})
+    assert "Bilgi Bulunamadı" in res
+    assert "Desteklenen Sorgu Formatları" in res
+    assert len(res.splitlines()) <= 12
+
+
+def test_action_trigger_extraction_and_metadata() -> None:
+    """Verify Copilot action trigger generation, attachment, and parsing."""
+    from src.engine.ai.diagnostic_copilot import (
+        CausalBayesianInferenceEngine,
+        attach_action_triggers,
+        extract_action_triggers,
+        make_j1939_dm1_action,
+        make_j1939_dm11_action,
+        make_uds_clear_dtc_action,
+        make_uds_ecu_reset_action,
+        make_uds_read_vin_action,
+        make_uds_routine_action,
+        make_uds_session_action,
+        parse_action_triggers_from_text,
+    )
+
+    act_dtc = make_uds_clear_dtc_action(0xFFFFFF)
+    assert act_dtc["action_type"] == "uds_clear_dtc"
+    assert act_dtc["requires_confirmation"] is True
+    assert "0x14" in act_dtc["label"]
+
+    act_vin = make_uds_read_vin_action()
+    assert act_vin["action_type"] == "uds_read_did"
+    assert act_vin["params"].get("did") == 0xF190
+
+    act_sess = make_uds_session_action(0x03)
+    assert act_sess["action_type"] == "uds_session_control"
+    assert act_sess["params"].get("session_type") == 0x03
+
+    act_rout = make_uds_routine_action(0x0203)
+    assert act_rout["action_type"] == "uds_routine"
+
+    act_reset = make_uds_ecu_reset_action(0x01)
+    assert act_reset["action_type"] == "uds_ecu_reset"
+
+    act_dm11 = make_j1939_dm11_action()
+    assert act_dm11["action_type"] == "j1939_clear_dtc"
+    assert act_dm11["requires_confirmation"] is True
+
+    act_dm1 = make_j1939_dm1_action()
+    assert act_dm1["action_type"] == "j1939_dm1_query"
+
+    # Test attachment & parsing
+    raw_text = "Test diagnostics message"
+    attached = attach_action_triggers(raw_text, [act_dtc, act_vin])
+    assert "<!--ACTIONS:" in attached
+    extracted_text, parsed_actions = parse_action_triggers_from_text(attached)
+    assert extracted_text.strip() == raw_text
+    assert len(parsed_actions) == 2
+    assert parsed_actions[0]["action_type"] == "uds_clear_dtc"
+    assert parsed_actions[1]["action_type"] == "uds_read_did"
+
+    # Test automated attachment in evaluate_diagnostic_query
+    res_dtc = CausalBayesianInferenceEngine.evaluate_diagnostic_query("P0300 arıza kodu var", [], {})
+    assert "<!--ACTIONS:" in res_dtc
+    acts = extract_action_triggers(res_dtc)
+    assert any(a["action_type"] == "uds_clear_dtc" for a in acts)
+
+    # Test J1939 automated action triggers
+    res_j1939 = CausalBayesianInferenceEngine.evaluate_diagnostic_query("J1939 SPN 100 FMI 1", [], {})
+    assert "<!--ACTIONS:" in res_j1939
+    j1939_acts = extract_action_triggers(res_j1939)
+    assert any(a["action_type"] == "j1939_clear_dtc" for a in j1939_acts)
+    assert any(a["action_type"] == "j1939_dm1_query" for a in j1939_acts)
+
+
+def test_can_packet_explainer_uds_and_j1939() -> None:
+    """Verify packet explainer produces concise 2-3 lines explanations for UDS and J1939 payloads."""
+    from src.engine.ai.diagnostic_copilot import CausalBayesianInferenceEngine
+
+    # 1. UDS Read VIN (0x22 F190)
+    vin_expl = CausalBayesianInferenceEngine.explain_can_packet(0x7E0, bytes([0x03, 0x22, 0xF1, 0x90]))
+    assert "UDS 0x22" in vin_expl
+    assert "VIN" in vin_expl
+    assert len(vin_expl.splitlines()) <= 5
+
+    # 2. UDS Negative Response (0x7F 0x22 0x31)
+    nrc_expl = CausalBayesianInferenceEngine.explain_can_packet(0x7E8, bytes([0x03, 0x7F, 0x22, 0x31]))
+    assert "NRC 0x31" in nrc_expl
+    assert "0x22" in nrc_expl
+    assert "requestOutOfRange" in nrc_expl or "sınırların dışında" in nrc_expl
+
+    # 3. UDS Clear DTCs (0x14)
+    clear_expl = CausalBayesianInferenceEngine.explain_can_packet(0x7E0, bytes([0x04, 0x14, 0xFF, 0xFF, 0xFF]))
+    assert "UDS 0x14" in clear_expl
+    assert "ClearDiagnosticInformation" in clear_expl
+
+    # 4. J1939 EEC1 (PGN 61444)
+    # Engine speed raw: 0x1000 = 4096 -> 4096 * 0.125 = 512.0 rpm
+    eec1_expl = CausalBayesianInferenceEngine.explain_can_packet(
+        0x18F00400,
+        bytes([0xF0, 0x7D, 0x82, 0x00, 0x10, 0x00, 0x00, 0x00]),
+    )
+    assert "EEC1" in eec1_expl or "61444" in eec1_expl
+    assert "512 RPM" in eec1_expl or "Motor Devri" in eec1_expl
+
+    # 5. J1939 CCVS (PGN 65265)
+    # Wheel speed raw: 0x1000 = 4096 -> 4096 / 256 = 16.0 km/h
+    ccvs_expl = CausalBayesianInferenceEngine.explain_can_packet(
+        0x18FEF100,
+        bytes([0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00]),
+    )
+    assert "CCVS" in ccvs_expl or "65265" in ccvs_expl
+    assert "16.0" in ccvs_expl
+
+    # 6. Natural query invoking packet explainer
+    query_res = CausalBayesianInferenceEngine.evaluate_diagnostic_query(
+        "Lütfen şu paketi açıkla: 0x7E0 DLC 4 Data: 03 22 F1 90", [], {}
+    )
+    assert "0x7E0" in query_res
+    assert "UDS 0x22" in query_res
+
+
+def test_traffic_anomaly_awareness() -> None:
+    """Verify Copilot detects high bus load, error frames, and babbling nodes with concise feedback."""
+    from src.engine.ai.diagnostic_copilot import (
+        AiDiagnosticCopilot,
+        CausalBayesianInferenceEngine,
+        explain_traffic_metrics,
+        extract_action_triggers,
+    )
+
+    # 1. Direct explain_traffic_metrics helper
+    high_load_metrics = {
+        "bus_load_percent": 88.5,
+        "error_count": 42,
+        "recent_frame_rate": 2400.0,
+        "status": "warning",
+        "babbling_node": "0x120 (1250 fps)",
+    }
+    traffic_exp = explain_traffic_metrics(high_load_metrics, "CAN veri yolu trafiği durumu nedir?")
+    assert "Veri Yolu Trafik Analizi" in traffic_exp
+    assert "%88.5" in traffic_exp
+    assert "42" in traffic_exp
+    assert "0x120" in traffic_exp
+    assert len(traffic_exp.splitlines()) <= 5
+
+    # 2. evaluate_diagnostic_query with bus_metrics
+    query_traffic = CausalBayesianInferenceEngine.evaluate_diagnostic_query(
+        "Trafik ve bus load analizi yap",
+        [],
+        {},
+        bus_metrics=high_load_metrics,
+    )
+    assert "Veri Yolu Trafik Analizi" in query_traffic
+    assert "%88.5" in query_traffic
+
+    # 3. analyze_live_telemetry with bus_metrics integration
+    copilot = AiDiagnosticCopilot()
+    analysis = copilot.analyze_live_telemetry(
+        rpm=1500.0,
+        boost_bar=1.2,
+        coolant_temp=85.0,
+        dtc_codes=["P0300"],
+        user_prompt="Trafik durumu",
+        bus_metrics=high_load_metrics,
+    )
+    assert "88.5" in analysis or "Trafik" in analysis
+    # Actions should be attached
+    acts = extract_action_triggers(analysis)
+    assert len(acts) > 0
+
+
+def test_direct_actionable_diagnostic_intent_queries() -> None:
+    """Verify Copilot recognizes direct diagnostic action requests and attaches structured action triggers."""
+    from src.engine.ai.diagnostic_copilot import (
+        CausalBayesianInferenceEngine,
+        parse_action_triggers_from_text,
+    )
+
+    # 1. VIN Read query
+    vin_res = CausalBayesianInferenceEngine.evaluate_diagnostic_query("aracın şasi numarasını (vin) oku", [], {})
+    clean_vin, vin_acts = parse_action_triggers_from_text(vin_res)
+    assert "0x22" in clean_vin or "VIN" in clean_vin
+    assert any(a["action_type"] == "uds_read_did" and a["params"].get("did") == 0xF190 for a in vin_acts)
+
+    # 2. Clear DTC query
+    clear_res = CausalBayesianInferenceEngine.evaluate_diagnostic_query("tüm hata kodlarını sil ve hafızayı temizle", [], {})
+    clean_clr, clr_acts = parse_action_triggers_from_text(clear_res)
+    assert "0x14" in clean_clr or "DTC" in clean_clr
+    assert any(a["action_type"] == "uds_clear_dtc" for a in clr_acts)
+
+    # 3. Session switch query
+    sess_res = CausalBayesianInferenceEngine.evaluate_diagnostic_query("genişletilmiş teşhis oturumuna geç (0x10 extended)", [], {})
+    clean_sess, sess_acts = parse_action_triggers_from_text(sess_res)
+    assert "0x10" in clean_sess
+    assert any(a["action_type"] == "uds_session_control" for a in sess_acts)
+
+    # 4. ECU Reset query
+    reset_res = CausalBayesianInferenceEngine.evaluate_diagnostic_query("motor beynine hard ecu reset at", [], {})
+    clean_rst, rst_acts = parse_action_triggers_from_text(reset_res)
+    assert "0x11" in clean_rst or "Reset" in clean_rst
+    assert any(a["action_type"] == "uds_ecu_reset" for a in rst_acts)
+
+    # 5. J1939 DM11 Clear query
+    dm11_res = CausalBayesianInferenceEngine.evaluate_diagnostic_query("j1939 dm11 arıza sil", [], {})
+    clean_dm11, dm11_acts = parse_action_triggers_from_text(dm11_res)
+    assert "DM11" in clean_dm11 or "65235" in clean_dm11
+    assert any(a["action_type"] == "j1939_clear_dtc" for a in dm11_acts)
+
+    # 6. J1939 DM1 Active Faults query
+    dm1_res = CausalBayesianInferenceEngine.evaluate_diagnostic_query("ağır vasıta j1939 dm1 aktif arıza oku", [], {})
+    clean_dm1, dm1_acts = parse_action_triggers_from_text(dm1_res)
+    assert "DM1" in clean_dm1 or "65226" in clean_dm1
+    assert any(a["action_type"] == "j1939_dm1_query" for a in dm1_acts)
+
+
+def test_extended_uds_and_j1939_packet_explanations() -> None:
+    """Verify packet explainer supports extended UDS services and commercial J1939 telemetry PGNs."""
+    from src.engine.ai.diagnostic_copilot import explain_can_packet
+
+    # 1. UDS 0x19 ReadDTCInformation
+    t19, a19 = explain_can_packet(0x7E0, bytes([0x03, 0x19, 0x02, 0xFF]))
+    assert "0x19 ReadDTCInformation" in t19
+    assert any(a["action_type"] == "uds_clear_dtc" for a in a19)
+
+    # 2. UDS 0x11 ECUReset
+    t11, a11 = explain_can_packet(0x7E0, bytes([0x02, 0x11, 0x01]))
+    assert "0x11 ECUReset" in t11
+    assert any(a["action_type"] == "uds_ecu_reset" for a in a11)
+
+    # 3. UDS 0x27 SecurityAccess
+    t27, a27 = explain_can_packet(0x7E0, bytes([0x02, 0x27, 0x01]))
+    assert "0x27 SecurityAccess" in t27
+    assert "Request Seed" in t27
+
+    # 4. UDS 0x2E WriteDataByIdentifier
+    t2e, a2e = explain_can_packet(0x7E0, bytes([0x05, 0x2E, 0xF1, 0x90, 0x41, 0x42]))
+    assert "0x2E WriteDataByIdentifier" in t2e
+    assert "F190" in t2e
+
+    # 5. UDS 0x3E TesterPresent
+    t3e, a3e = explain_can_packet(0x7E0, bytes([0x02, 0x3E, 0x80]))
+    assert "0x3E TesterPresent" in t3e
+
+    # 6. UDS Positive Responses: 0x50, 0x51, 0x59, 0x67, 0x71
+    t50, _ = explain_can_packet(0x7E8, bytes([0x02, 0x50, 0x03]))
+    assert "0x10 DiagnosticSessionControl" in t50 and "Onaylandı" in t50
+    t51, _ = explain_can_packet(0x7E8, bytes([0x02, 0x51, 0x01]))
+    assert "0x11 ECUReset" in t51 and "Başarılı" in t51
+    t59, a59 = explain_can_packet(0x7E8, bytes([0x03, 0x59, 0x02, 0xFF]))
+    assert "0x19 ReadDTCInformation" in t59
+    assert len(a59) > 0
+    t67, _ = explain_can_packet(0x7E8, bytes([0x02, 0x67, 0x01]))
+    assert "0x27 SecurityAccess" in t67 and "Kilit Açıldı" in t67
+    t71, _ = explain_can_packet(0x7E8, bytes([0x04, 0x71, 0x01, 0xD0, 0x01]))
+    assert "0x31 RoutineControl" in t71 and "Yürütüldü" in t71
+
+    # 7. J1939 ET1 (PGN 65249 - Coolant Temp SPN 110: 85°C -> raw 125 = 0x7D)
+    tet1, _ = explain_can_packet(0x18FEE100, bytes([125, 0, 0, 0, 0, 0, 0, 0]))
+    assert "ET1" in tet1 or "65249" in tet1
+    assert "85°C" in tet1
+
+    # 8. J1939 EFL_P1 (PGN 65263 - Oil Pressure SPN 100: 4.0 Bar = 400 kPa -> raw 100 = 0x64 at byte 3)
+    tefl, _ = explain_can_packet(0x18FEEF00, bytes([0, 0, 0, 100, 0, 0, 0, 0]))
+    assert "EFL_P1" in tefl or "65263" in tefl
+    assert "4.00 Bar" in tefl or "400 kPa" in tefl
+
+    # 9. J1939 AMB (PGN 65269 - Ambient Temp SPN 171)
+    tamb, _ = explain_can_packet(0x18FEF500, bytes([0, 0, 0, 0, 0, 0, 0, 0]))
+    assert "AMB" in tamb or "65269" in tamb
+
+
+def test_traffic_anomaly_report_punctuation_cleanliness() -> None:
+    """Verify traffic anomaly report does not produce double period formatting flaws."""
+    from src.engine.ai.diagnostic_copilot import explain_traffic_metrics
+
+    rep = explain_traffic_metrics({
+        "bus_load_percent": 82,
+        "error_count": 7,
+        "total_packets": 1420,
+    })
+    assert ".." not in rep
+    assert "%82" in rep
+    assert "7 adet" in rep
+
+
+

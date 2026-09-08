@@ -227,8 +227,12 @@ class LicenseValidator:
                     self.high_water_mark_path.parent.mkdir(parents=True, exist_ok=True)
                     ts_part = f"{now}:{self.last_online_sync_ts}"
                     mac = hmac.new(self._hwm_key, ts_part.encode("utf-8"), hashlib.sha256).hexdigest()
+                    # L-14 (P3-5): unique temp name — the fixed ".tmp"
+                    # suffix let a concurrent verification interleave/torn
+                    # the two writers' partial files before either rename.
                     tmp_path = self.high_water_mark_path.with_suffix(
-                        self.high_water_mark_path.suffix + ".tmp"
+                        self.high_water_mark_path.suffix
+                        + f".tmp-{os.getpid()}-{time.monotonic_ns()}"
                     )
                     tmp_path.write_text(f"{ts_part}.{mac}", encoding="utf-8")
                     tmp_path.replace(self.high_water_mark_path)

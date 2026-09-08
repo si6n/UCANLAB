@@ -83,6 +83,17 @@ class UdsServiceBuilder:
         return bytes([UdsServiceId.READ_DATA_BY_IDENTIFIER, (did >> 8) & 0xFF, did & 0xFF])
 
     @classmethod
+    def build_clear_diagnostic_information(cls, dtc_group: int = 0xFFFFFF) -> bytes:
+        return bytes(
+            [
+                UdsServiceId.CLEAR_DIAGNOSTIC_INFORMATION,
+                (dtc_group >> 16) & 0xFF,
+                (dtc_group >> 8) & 0xFF,
+                dtc_group & 0xFF,
+            ]
+        )
+
+    @classmethod
     def build_write_data_by_identifier(cls, did: int, data: bytes) -> bytes:
         return bytes([UdsServiceId.WRITE_DATA_BY_IDENTIFIER, (did >> 8) & 0xFF, did & 0xFF]) + data
 

@@ -63,10 +63,20 @@ class RP1210Bus(AbstractBus):
         bitrate: int = 250000,
         dll_name: str | None = None,
         client: RP1210Client | None = None,
+        listen_only: bool = True,
     ) -> None:
         super().__init__(channel_id=f"rp1210_dev{device_id}", bitrate=bitrate, is_fd=False)
         self.device_id = device_id
         self.protocol = protocol
+        # P0-3 (REVIEW C-4): listen_only semantics for the RP1210 backend.
+        # The RP1210 API has no standardized listen-only connect flag; the
+        # only universally reliable passive guarantee this adapter can give
+        # is refusing to transmit at all. `listen_only=True` (the default)
+        # therefore opens the client session for RX but hard-blocks send().
+        # An operator who needs TX must explicitly construct/connect with
+        # listen_only=False after arming the gateway path — mirroring the
+        # pcan/kvaser PASSIVE verification (HARDWARE_LISTEN_ONLY_UNSUPPORTED).
+        self.listen_only = listen_only
         # Client may be injected for testing (a pre-mocked RP1210Client);
         # otherwise the real vendor DLL is loaded from System32 (D7 order).
         # H-C-004: the DLL entry point must match the process bitness.
@@ -102,10 +112,17 @@ class RP1210Bus(AbstractBus):
                 cause=exc,
             ) from exc
         self.is_connected = True
-        self.metrics.state = BusState.ACTIVE
+        # P0-3: mirror the pcan/kvaser state model — a listen_only session is
+        # PASSIVE (RX-only), an explicitly armed TX session is ACTIVE.
+        self.metrics.state = BusState.PASSIVE if self.listen_only else BusState.ACTIVE
         logger.info(
             "RP1210 bus connected",
-            extra={"device_id": self.device_id, "protocol": self.protocol, "bitrate": self.bitrate},
+            extra={
+                "device_id": self.device_id,
+                "protocol": self.protocol,
+                "bitrate": self.bitrate,
+                "listen_only": self.listen_only,
+            },
         )
 
     def disconnect(self) -> None:
@@ -127,6 +144,16 @@ class RP1210Bus(AbstractBus):
         """
         if not self.is_connected:
             raise HardwareError("Cannot send: RP1210 bus is not connected")
+        # P0-3 (REVIEW C-4): listen-only sessions hard-block TX. The RP1210
+        # API has no vendor-portable listen-only connect mode, so refusing
+        # send() is the only fail-closed guarantee that the adapter never
+        # produces ACKs / transmissions against a live vehicle bus unless
+        # the operator explicitly opened a TX session (listen_only=False).
+        if self.listen_only:
+            raise HardwareError(
+                "Cannot send: RP1210 bus is opened in Listen-Only (passive) mode",
+                code="HARDWARE_LISTEN_ONLY_TX_BLOCKED",
+            )
         if frame.is_fd:
             raise HardwareError(
                 "RP1210 classic CAN adapters do not support CAN-FD frames",
@@ -183,10 +210,27 @@ class RP1210Bus(AbstractBus):
                 continue
 
             if raw is not None:
-                is_strict_29bit = self.protocol.strip().lower() in self._STRICT_29BIT_PROTOCOLS
-                min_len = 5 if is_strict_29bit else 2
+                # P0-3/H-2: derive the admission threshold from the layout
+                # that will actually be used. iso15765/iso_tp speak the
+                # 29-bit 4+1 layout, so a 2-4 byte vendor packet under those
+                # protocols must be dropped as a runt — the old
+                # strict-29bit-only threshold let it fall through to the
+                # 11-bit decoder and fabricated telemetry.
+                min_len = 5 if self._uses_extended_id_layout else 2
                 if len(raw) >= min_len:
-                    frame = self._decode_rp1210_packet(raw)
+                    try:
+                        frame = self._decode_rp1210_packet(raw)
+                    except ValueError as exc:
+                        # H-1: a malformed DLC (9..15 on non-FD) or otherwise
+                        # invalid CanFrame input raises ValueError out of the
+                        # decoder — count and continue polling instead of
+                        # killing the whole RX session with an unhandled error.
+                        logger.warning(
+                            "RP1210 packet rejected by frame decoder; dropped",
+                            extra={"error": str(exc), "length": len(raw)},
+                        )
+                        self.metrics.dropped_frames += 1
+                        frame = None
                     if frame is not None:
                         self.metrics.rx_frames += 1
                         return frame
@@ -232,6 +276,18 @@ class RP1210Bus(AbstractBus):
                 self.metrics.dropped_frames += 1
                 return None
 
+            # H-1: classic CAN carries only DLC 0..8. A wire byte of 9..15
+            # (FD-style DLC codes) would construct a non-FD CanFrame whose
+            # DLC invariant raises ValueError — reject here and count the
+            # drop instead of letting the error escape into the RX loop.
+            if dlc > 8:
+                logger.warning(
+                    "RP1210 extended packet declares classic-invalid DLC; dropped",
+                    extra={"declared_dlc": dlc},
+                )
+                self.metrics.dropped_frames += 1
+                return None
+
             return CanFrame(
                 channel_id=self.channel_id,
                 arbitration_id=arb_id,
@@ -258,6 +314,15 @@ class RP1210Bus(AbstractBus):
             logger.warning(
                 "RP1210 packet shorter than declared DLC; dropped",
                 extra={"declared_dlc": dlc, "actual": len(payload)},
+            )
+            self.metrics.dropped_frames += 1
+            return None
+
+        # H-1: same classic-DLC bound on the 11-bit layout.
+        if dlc > 8:
+            logger.warning(
+                "RP1210 classic packet declares classic-invalid DLC; dropped",
+                extra={"declared_dlc": dlc},
             )
             self.metrics.dropped_frames += 1
             return None

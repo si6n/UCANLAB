@@ -123,6 +123,25 @@ class E2ESafetyValidator:
             state.total_frames += 1
             state.last_timestamp_ns = ts
 
+            # H-3 (P1-10): a runt/short payload cannot satisfy the profile's
+            # offset layout. extract_crc/extract_counter raise bare ValueError
+            # on such payloads — previously the exception escaped validate_raw
+            # and killed whichever RX path called it. Report a formal
+            # LENGTH_ERROR verdict instead (fail-closed, no raise).
+            min_len = max(profile.crc_byte_offset, profile.counter_byte_offset) + 1
+            if len(data) < min_len:
+                state.last_verdict = E2EStatus.LENGTH_ERROR
+                return E2EValidationResult(
+                    verdict=E2EStatus.LENGTH_ERROR,
+                    expected_crc=-1,
+                    actual_crc=-1,
+                    counter=-1,
+                    previous_counter=state.last_counter,
+                    delta=-1,
+                    stream_key=stream_key,
+                    timestamp_ns=ts,
+                )
+
             actual_crc = extract_crc(data, profile)
             counter = extract_counter(data, profile)
             expected_crc = compute_checksum(data, profile, arbitration_id=arbitration_id, dlc=dlc)

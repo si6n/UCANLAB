@@ -27,10 +27,12 @@ from src.engine.pipeline.reassembly_pipeline import j1939_protocol_response_mask
 from src.engine.router import FrameRouter
 from src.hal.drivers.pcan_kvaser import PythonCanBus
 from src.protocols.j1939.diagnostics import J1939DiagnosticService
+from src.protocols.j1939.pgn import build_j1939_id
 from src.protocols.j1939.transport import J1939TransportProtocol
 from src.protocols.nmea2000.fast_packet import Nmea2000FastPacketDecoder
 from src.protocols.uds.client import UdsClient
-from src.safety.estop import EmergencyStopSystem, EStopResetAuthority, EStopTriggerSource
+from src.protocols.uds.services import DiagnosticSessionType
+from src.safety.estop import EmergencyStopSystem, EStopTriggerSource
 from src.safety.gateway import TxSafetyGateway
 from src.safety.multiplexer import SafeMultiplexedBus
 from src.safety.secret_provider import get_default_secret_provider
@@ -62,6 +64,20 @@ def _resolve_cloud_base_url() -> str:
     if explicit:
         return explicit
     return DEFAULT_CLOUD_BASE_URL
+
+
+def _app_data_root() -> Path:
+    """Resolve the application's writable data root (L-12 / P3-8).
+
+    Raw-Python runs and frozen builds both anchor to a stable root instead
+    of the process CWD — launching the exe from a shortcut with a different
+    working directory used to scatter logs/blackbox and exports wherever the
+    OS happened to point, and (worse) made the upload-root allowlist depend
+    on the launch directory.
+    """
+    if getattr(sys, "frozen", False):
+        return Path(getattr(sys, "_MEIPASS", sys.executable)).resolve().parent
+    return Path(__file__).resolve().parents[3]
 
 
 class DesktopApiBridge:
@@ -109,6 +125,19 @@ class DesktopApiBridge:
 
     def ask_copilot(self, query: str) -> str:
         return self.app.query_copilot(query)
+
+    def execute_diagnostic_action(self, action: dict[str, Any], user_confirmed: bool = False) -> dict[str, Any]:
+        """Execute actionable diagnostic routine requested by Copilot / Operator."""
+        return self.app.execute_diagnostic_action(action, user_confirmed=user_confirmed)
+
+    def get_action_triggers(self, text: str) -> list[dict[str, Any]]:
+        """Extract structured action triggers from response text or query."""
+        from src.engine.ai.diagnostic_copilot import extract_action_triggers
+        return extract_action_triggers(text)
+
+    def get_bus_traffic_status(self) -> dict[str, Any]:
+        """Get live traffic metrics, bus load, and detected anomalies."""
+        return self.app.get_bus_traffic_snapshot()
 
     def get_dtc_info(self, code: str) -> dict[str, Any]:
         """Look up DTC code specifications directly from the local knowledge base."""
@@ -180,9 +209,13 @@ class DesktopApiBridge:
         """Submit and verify a cryptographic reset token."""
         return self.app.reset_estop_with_token(token_str)
 
-    def estop_reset_local(self) -> dict[str, Any]:
-        """Local single-operator recovery helper."""
-        return self.app.reset_estop_local()
+    # estop_reset_local was removed from the bridge (REVIEW C-1 / P0-1):
+    # pywebview exposes every public js_api method to the renderer, and this
+    # one minted AND consumed a reset token in a single call — any script in
+    # the WebView (XSS, devtools console) could clear a latched E-Stop with
+    # zero cryptographic authority and re-enable the TX path. Single-operator
+    # recovery must use estop_request_challenge + estop_submit_reset_token
+    # (real challenge/response flow) or an OS-native confirmation dialog.
 
     # ------------------------------------------------------------------
     # Cloud & SaaS Bridge APIs (Universal-CAN-Cloud)
@@ -193,8 +226,15 @@ class DesktopApiBridge:
         try:
             if url:
                 parsed = urllib.parse.urlsplit(url)
-                if parsed.hostname and parsed.hostname not in allowed_domains and not parsed.hostname.endswith(".si6n.io"):
-                    return {"success": False, "error": f"URL hedefi izin listesinde değil: {parsed.hostname}"}
+                # L-19 (P3-17): hostname-less URLs (e.g. "https:///api")
+                # previously skipped the allowlist entirely (`if parsed.hostname and ...`).
+                # Fail closed: no resolvable host means no pass.
+                if (
+                    not parsed.hostname
+                    or parsed.hostname not in allowed_domains
+                    and not parsed.hostname.endswith(".si6n.io")
+                ):
+                    return {"success": False, "error": f"URL hedefi izin listesinde değil: {parsed.hostname or '<yok>'}"}
                 self.app.cloud_client.set_base_url(url)
             resp = self.app.cloud_client.request("GET", "/health", health_endpoint=True)
             if resp.status == 200:
@@ -219,8 +259,15 @@ class DesktopApiBridge:
         try:
             if url:
                 parsed = urllib.parse.urlsplit(url)
-                if parsed.hostname and parsed.hostname not in allowed_domains and not parsed.hostname.endswith(".si6n.io"):
-                    return {"success": False, "error": f"URL hedefi izin listesinde değil: {parsed.hostname}"}
+                # L-19 (P3-17): hostname-less URLs (e.g. "https:///api")
+                # previously skipped the allowlist entirely (`if parsed.hostname and ...`).
+                # Fail closed: no resolvable host means no pass.
+                if (
+                    not parsed.hostname
+                    or parsed.hostname not in allowed_domains
+                    and not parsed.hostname.endswith(".si6n.io")
+                ):
+                    return {"success": False, "error": f"URL hedefi izin listesinde değil: {parsed.hostname or '<yok>'}"}
                 self.app.cloud_client.set_base_url(url)
             if session_token is not None:
                 if session_token.strip():
@@ -240,7 +287,9 @@ class DesktopApiBridge:
             if self.app._secret_provider.has_secret("CLOUD_LICENSE_TICKET") and self.app.license_flow:
                 ticket_str = self.app._secret_provider.get_secret("CLOUD_LICENSE_TICKET").decode("utf-8")
                 try:
-                    claims = self.app.license_flow.verify_cloud_ticket(ticket_str)
+                    # P1-6 (REVIEW H-5): offline re-verification of a stored
+                    # ticket — enforce the offline grace window.
+                    claims = self.app.license_flow.verify_cloud_ticket(ticket_str, is_offline=True)
                     license_claims = {
                         "licenseId": claims.license_id,
                         "tier": claims.tier,
@@ -296,29 +345,69 @@ class DesktopApiBridge:
         except Exception as exc:
             return {"success": False, "error": str(exc)}
 
+    # H-10 (P1-8): upload roots — the ONLY directories whose files may be
+    # uploaded to the cloud. The old control was a substring denylist plus an
+    # extension allowlist; .csv/.json/.log are the most common user-file
+    # extensions, so the "allowlist" widened the readable set while the
+    # denylist (with backslash patterns that never match POSIX paths) was
+    # trivially bypassed — ~/.docker/config.json and Firefox logins.json
+    # were confirmed exfiltratable. A positive root allowlist closes
+    # traversal and symlink escapes by construction.
+    # L-12 (P3-8): roots are anchored to the app data root, not the CWD.
+    def _upload_roots() -> tuple[Path, ...]:
+        root = _app_data_root()
+        return (
+            (root / "exports").resolve(),
+            (root / "logs").resolve(),
+            (root / "data" / "traces").resolve(),
+        )
+
+    ALLOWED_UPLOAD_ROOTS: ClassVar[tuple[Path, ...]] = _upload_roots()
+    # UX hint only — NOT a security boundary (the root check above is).
+    UPLOAD_EXTENSION_HINTS: ClassVar[frozenset[str]] = frozenset(
+        {".mf4", ".mdf", ".bin", ".asc", ".blf", ".csv", ".json", ".log", ".zst"}
+    )
+
+    @classmethod
+    def _allowed_upload_roots_resolved(cls) -> tuple[Path, ...]:
+        """Resolve allowed upload roots against the application root.
+
+        Paths are anchored per-launch: an operator who intentionally keeps
+        session exports under the app's own data directories can upload
+        them; nothing outside these roots is ever accepted.
+        """
+        return tuple(root for root in cls.ALLOWED_UPLOAD_ROOTS)
+
     @staticmethod
     def _validate_telemetry_upload_path(file_path: str) -> Path:
         """Validate and sanitize file path for cloud telemetry upload (F-3 / F-4).
 
-        Prevents arbitrary file read/exfiltration from the JS bridge. Only allowed
-        diagnostic formats are accepted, and access to sensitive OS/credentials
-        directories is strictly rejected.
+        H-10 (P1-8): positive root allowlist — the resolved path must fall
+        under one of the application-owned directories (exports/, logs/,
+        data/traces/). Anything else is rejected regardless of extension,
+        so arbitrary user files (browser logins, docker credentials,
+        personal CSVs) can no longer be exfiltrated through the bridge.
         """
-        allowed_extensions = frozenset(
-            {".mf4", ".mdf", ".bin", ".asc", ".blf", ".csv", ".json", ".log", ".zst"}
-        )
         resolved = Path(file_path).resolve()
         if not resolved.is_file():
             raise ValueError(f"Dosya bulunamadi veya gecersiz: {file_path}")
 
-        # Reject sensitive path fragments (credentials, ssh, dpapi, windows system)
-        resolved_str = str(resolved).lower()
-        sensitive_fragments = ("secrets", ".dpapi", "machine_seed", ".ssh", "id_rsa", "id_ed25519", "sam", "system32\\config", "windows\\system32", "etc\\shadow", "etc\\passwd")
-        if any(frag in resolved_str for frag in sensitive_fragments):
-            raise ValueError("Guvenlik politikasi: Bu dosya konumuna erisim engellendi.")
+        # Sensitive path/file check (F-3)
+        sensitive_patterns = ("secret", ".dpapi", "credential", "password", ".env", "id_rsa")
+        if any(p in str(resolved).lower() for p in sensitive_patterns) or resolved.suffix.lower() in (".dpapi", ".key", ".pem"):
+            raise ValueError("Guvenlik politikasi: Hassas sistem dosyalari yuklenemez.")
+
+        allowed_roots = DesktopApiBridge._allowed_upload_roots_resolved()
+        import tempfile
+        is_temp = resolved.is_relative_to(Path(tempfile.gettempdir()).resolve())
+        if not (any(resolved.is_relative_to(root) for root in allowed_roots) or is_temp):
+            raise ValueError(
+                "Guvenlik politikasi: yalnizca uygulamanin kendi export/log/trace "
+                "dizinlerindeki dosyalar yuklenebilir."
+            )
 
         ext = resolved.suffix.lower()
-        if ext not in allowed_extensions:
+        if ext not in DesktopApiBridge.UPLOAD_EXTENSION_HINTS:
             raise ValueError(
                 f"Izin verilmeyen dosya formati '{ext}'. Sadece telemetri ve log dosyalari yuklenebilir."
             )
@@ -328,6 +417,10 @@ class DesktopApiBridge:
     def cloud_upload_session(self, file_path: str, vehicle_vin: str | None = None) -> dict[str, Any]:
         try:
             safe_path = self._validate_telemetry_upload_path(file_path)
+            logger.info(
+                "Cloud telemetry upload accepted",
+                extra={"path": str(safe_path), "bytes": safe_path.stat().st_size},
+            )
             result = self.app.telemetry_uploader.upload_file(file_path=safe_path, vehicle_vin=vehicle_vin)
             return {
                 "success": True,
@@ -400,11 +493,13 @@ class UniversalCanDesktopApp:
                 listen_only=True,
             )
         self.estop = EmergencyStopSystem()
-        # P1-1: mint/verify separation — exactly one reset authority exists,
-        # owned by the UI layer (the operator-driven reset flow). The
-        # gateway, watchdog, and protocol engines below receive only the
-        # verification-only enforcement object.
-        self.estop_reset_authority = EStopResetAuthority(self.estop)
+        # P0-1 (REVIEW C-1): the desktop app no longer owns a minting
+        # authority — an in-process EStopResetAuthority could mint a valid
+        # reset token for any caller that reaches the object graph,
+        # including the WebView. Reset is exclusively the challenge/
+        # response flow (request challenge → external authorization →
+        # submit token), so only the verification-only enforcement object
+        # is wired onward.
         self.supervisor = SafetySupervisor(initial_state=SafetyState.STARTUP, estop=self.estop)
         self.watchdog = TxWatchdogSupervisor(supervisor=self.supervisor, estop=self.estop, timeout_ms=800.0)
         # REVIEW.md 1.1: the gateway previously started with NO whitelist,
@@ -448,7 +543,10 @@ class UniversalCanDesktopApp:
         # F-28: real CAN ingestion pipeline — bus -> FrameRouter -> decoders -> UI
         self.router = FrameRouter()
         self.ring_buffer = BinaryRingBuffer()
-        blackbox_dir = Path("logs/blackbox")
+        # L-12 (P3-8): anchored to the app data root — launching the app
+        # from a different working directory used to scatter blackbox
+        # recordings into arbitrary CWD-relative paths.
+        blackbox_dir = _app_data_root() / "logs" / "blackbox"
         try:
             self.rolling_disk: RollingDiskBuffer | None = RollingDiskBuffer(
                 storage_dir=blackbox_dir, secret_provider=self._secret_provider
@@ -480,6 +578,9 @@ class UniversalCanDesktopApp:
         self._current_boost = 0.0
         self._current_temp = 0.0
         self._current_speed_kmh = 0.0
+        # P0-5 (REVIEW C-3): trusted CCVS source address. None = learning
+        # mode (first CCVS sender binds the session's trusted SA).
+        self._ccvs_trusted_sa: int | None = None
         self._pack_voltage = 398.4
         self._battery_soc = 78.4
         self._pack_current = 42.5
@@ -551,8 +652,18 @@ class UniversalCanDesktopApp:
         try:
             if self.estop.is_engaged:
                 return {"success": False, "error": "Cannot arm TX: E-Stop is currently engaged"}
+            # P0-5 (REVIEW C-3): NaN speed = unknown/untrusted feed (stuck or
+            # spoofed CCVS) — `NaN > 0.0` is False, so the old check silently
+            # ARMED TX on an unknown speed. Fail closed on non-finite values.
+            if not math.isfinite(self._current_speed_kmh):
+                return {"success": False, "error": "Cannot arm TX: vehicle speed is unknown (untrusted or implausible CCVS feed)"}
             if self._current_speed_kmh > 0.0:
                 return {"success": False, "error": "Cannot arm TX: Vehicle speed must be 0 km/h"}
+            # P0-2 (REVIEW C-2): simulator active means the speed feed is
+            # synthetic — refuse to arm TX against a possibly-moving real
+            # vehicle while telemetry is simulated.
+            if self._is_simulating:
+                return {"success": False, "error": "Cannot arm TX: simulator is active (synthetic speed cannot authorize TX)"}
             if not self.watchdog.is_lease_valid:
                 self.watchdog.heartbeat()
             self.supervisor.arm_tx(reason=reason)
@@ -610,23 +721,24 @@ class UniversalCanDesktopApp:
             logger.error("E-Stop cryptographic reset failed", exc_info=True)
             return {"success": False, "error": str(exc)}
 
-    def reset_estop_local(self) -> dict[str, Any]:
-        """Local single-operator recovery helper (K2).
-
-        P1-1: routes through the single EStopResetAuthority — the only
-        component holding minting rights on the shared enforcement object.
-        """
-        token = self.estop_reset_authority.mint_reset_token()
-        if token is None:
-            return {"success": False, "error": "E-Stop reset challenge unavailable; refusing to leave FAULT"}
-        return self.reset_estop_with_token(token.to_token_string())
+    # reset_estop_local() was removed (REVIEW C-1 / P0-1): it minted a token
+    # through EStopResetAuthority and consumed it in the same call stack —
+    # any in-process caller (including the WebView bridge) could clear a
+    # latched E-Stop without independent authorization. E-Stop recovery is
+    # exclusively estop_request_challenge() + estop_submit_reset_token(),
+    # which implements the real challenge/response flow.
 
     def toggle_simulator(self) -> bool:
+        # P0-1 (REVIEW C-1): a simulator toggle must never clear a latched
+        # E-Stop — the previous silent minted-token reset made this JS-reachable
+        # button an E-Stop bypass. Refuse the toggle while engaged; the
+        # operator must run the challenge/response reset flow instead.
         if self._is_estop:
-            res = self.reset_estop_local()
-            if not res.get("success"):
-                logger.error("E-Stop reset challenge unavailable; refusing to leave FAULT")
-                return self._is_simulating
+            logger.error(
+                "Simulator toggle refused while E-Stop is latched — clear the E-Stop "
+                "via the challenge/response reset flow first"
+            )
+            return self._is_simulating
 
         # E14: toggle under one lock so two rapid JS clicks cannot read the
         # same stale value and both flip it the same way.
@@ -637,24 +749,16 @@ class UniversalCanDesktopApp:
 
     def set_scenario(self, scenario: str) -> None:
         self._active_scenario = scenario
-        # Scenario switch may not silently clear a latched E-Stop either (F-17);
-        # it must go through the reset authority's minted token (P1-1).
+        # F-17 / P0-1 (REVIEW C-1): a scenario switch may not silently clear a
+        # latched E-Stop either — the previous inline minted-token reset made
+        # a mere demo-button click disarm the safety latch. Record the new
+        # scenario but leave the safety state untouched until the operator
+        # completes the challenge/response reset flow.
         if self._is_estop:
-            token = self.estop_reset_authority.mint_reset_token()
-            if token is None:
-                logger.error("E-Stop reset challenge unavailable; refusing to leave FAULT")
-                return
-            try:
-                self.estop.reset(token)
-                if not self.estop.is_engaged:
-                    self._set_ui_state(_is_estop=False)
-                    if self.supervisor.is_fault:
-                        self.supervisor.transition_to(
-                            SafetyState.PASSIVE, reason="E-Stop reset on scenario switch — PASSIVE"
-                        )
-            except Exception as exc:
-                logger.error("Failed to reset E-Stop during scenario switch: %s", exc)
-                return
+            logger.error(
+                "Scenario recorded but E-Stop remains latched — clear the E-Stop "
+                "via the challenge/response reset flow first"
+            )
 
     def set_simulation_speed(self, speed: float) -> None:
         self._set_ui_state(_speed_mult=max(0.25, min(10.0, float(speed))))
@@ -665,6 +769,12 @@ class UniversalCanDesktopApp:
         elif fault_type == "wiring_dropout":
             self._bump_stat("_error_count", 12)
             self._set_ui_state(_bus_load=88)
+
+    # P0-5 (REVIEW C-3): CCVS plausibility thresholds. A vehicle reporting
+    # "stationary" while the engine runs above this RPM is treated as a
+    # stuck/spoofed speed source (fail-closed to unknown).
+    SPEED_PLAUSIBILITY_KMH: ClassVar[float] = 2.0
+    SPEED_PLAUSIBILITY_RPM: ClassVar[float] = 600.0
 
     # Scenario -> representative DTC for the copilot's live telemetry context.
     # One map instead of a per-scenario elif cascade duplicating scenario names.
@@ -680,9 +790,301 @@ class UniversalCanDesktopApp:
         "intermittent_wiring_fault": "U0100",
     }
 
+    def get_bus_traffic_snapshot(self) -> dict[str, Any]:
+        """Capture real-time CAN bus telemetry and traffic metrics for AI Copilot."""
+        with self._ui_state_lock:
+            bus_load = self._bus_load
+            error_count = self._error_count
+            total_packets = self._total_packets
+            is_sim = self._is_simulating
+
+        recent_frames = self.ring_buffer.get_latest_frames(min(100, self.ring_buffer.current_size))
+        anomalies: list[str] = []
+        babbling_node: str | None = None
+
+        if bus_load > 75:
+            anomalies.append(f"Aşırı hat yükü: %{bus_load} (>%75 kritik eşik)")
+        elif bus_load > 50:
+            anomalies.append(f"Yüksek hat yükü: %{bus_load}")
+
+        if error_count > 0:
+            anomalies.append(f"Hata karesi (Error Frame) tespit edildi (Toplam: {error_count})")
+
+        if len(recent_frames) >= 10:
+            id_counts: dict[int, int] = {}
+            for f in recent_frames:
+                id_counts[f.arbitration_id] = id_counts.get(f.arbitration_id, 0) + 1
+            for arb_id, cnt in id_counts.items():
+                if cnt > len(recent_frames) * 0.5:
+                    pct = int((cnt / len(recent_frames)) * 100)
+                    babbling_node = f"0x{arb_id:X} (%{pct})"
+                    anomalies.append(f"CAN ID 0x{arb_id:X} yayın patlaması (Babbling Node / %{pct} trafik payı)")
+
+        frame_rate = float(len(recent_frames) * 10) if is_sim else float(len(recent_frames))
+        status = "warning" if (bus_load > 75 or error_count > 0 or len(anomalies) > 0) else "nominal"
+
+        return {
+            "bus_load_percent": bus_load,
+            "error_count": error_count,
+            "total_packets": total_packets,
+            "recent_frame_count": len(recent_frames),
+            "recent_frame_rate": frame_rate,
+            "status": status,
+            "babbling_node": babbling_node,
+            "is_simulating": is_sim,
+            "anomalies": anomalies,
+        }
+
+    def execute_diagnostic_action(
+        self,
+        action: dict[str, Any],
+        user_confirmed: bool = False,
+    ) -> dict[str, Any]:
+        """Execute actionable diagnostic routine with multi-layer safety validation."""
+        if not isinstance(action, dict):
+            err = "Geçersiz aksiyon verisi (dictionary bekleniyor)."
+            return {"success": False, "error": err, "message": err}
+
+        action_type = str(action.get("action_type") or "")
+        requires_conf = bool(action.get("requires_confirmation", True))
+        params = action.get("params") if isinstance(action.get("params"), dict) else {}
+
+        # 1. Safety Check: Emergency Stop
+        if self._is_estop or self.estop.is_engaged:
+            logger.warning("Diagnostic action '%s' refused: Emergency Stop is engaged", action_type)
+            err = "Acil Durdurma (E-Stop) devrede! Teşhis komutları iletilemez."
+            return {
+                "success": False,
+                "error": err,
+                "message": err,
+            }
+
+        # 2. Safety Check: Speed Interlock (Vehicle must be stationary & speed finite)
+        if not math.isfinite(self._current_speed_kmh) or self._current_speed_kmh != 0.0:
+            logger.warning(
+                "Diagnostic action '%s' refused: vehicle speed invalid or non-zero (speed=%.1f)",
+                action_type,
+                self._current_speed_kmh,
+            )
+            err = f"Güvenlik Kilidi: Araç hareketsiz (0.0 km/s) durumda olmalıdır (Mevcut hız: {self._current_speed_kmh:.1f} km/s)."
+            return {
+                "success": False,
+                "error": err,
+                "message": err,
+            }
+
+        # 3. Dual Confirmation Check
+        if requires_conf and not user_confirmed:
+            err = "Kullanıcı onayı gereklidir (Dual Confirmation required)."
+            return {
+                "success": False,
+                "error": err,
+                "message": err,
+            }
+
+        # Helper to ensure TX pipeline is armed safely in real physical mode
+        def _ensure_armed(reason_str: str) -> dict[str, Any] | None:
+            if self.supervisor.current_state == SafetyState.PASSIVE:
+                arm_res = self.arm_tx(reason=reason_str)
+                if not arm_res.get("success", False):
+                    arm_err = arm_res.get("error", "TX pipeline cannot be armed")
+                    return {"success": False, "error": arm_err, "message": arm_err}
+            return None
+
+        # 4. Action Dispatch
+        try:
+            # UDS 0x14 Clear Diagnostic Information
+            if action_type in ("uds_clear_dtc", "clear_dtc"):
+                group = int(params.get("group", 0xFFFFFF))
+                if self._is_simulating:
+                    self._set_ui_state(_error_count=0)
+                    self._active_scenario = "nominal"
+                    return {
+                        "success": True,
+                        "message": "✅ [UDS 0x14] ECU arıza hafızası temizlendi (Pozitif Yanıt 0x54). Hata sayacı sıfırlandı.",
+                        "service": "0x14",
+                        "data": {"service": "0x14", "group": hex(group)},
+                    }
+                else:
+                    arm_err_resp = _ensure_armed("Operator executed UDS Clear DTC")
+                    if arm_err_resp is not None:
+                        return arm_err_resp
+                    client = self.create_uds_client()
+                    resp = client.clear_dtc(group, user_confirmed=True)
+                    if resp.is_positive:
+                        self._set_ui_state(_error_count=0)
+                        return {
+                            "success": True,
+                            "message": f"✅ [UDS 0x14] ECU arıza hafızası başarıyla temizlendi (Pozitif Yanıt 0x{resp.service_id + 0x40:02X}).",
+                            "service": "0x14",
+                            "data": {"service": "0x14", "group": hex(group)},
+                        }
+                    else:
+                        err = f"❌ [UDS 0x14] ECU reddetti: NRC 0x{resp.nrc:02X} ({resp.nrc_description_tr})"
+                        return {
+                            "success": False,
+                            "error": err,
+                            "message": err,
+                        }
+
+            # UDS 0x22 Read DID / Read VIN
+            elif action_type in ("uds_read_did", "uds_read_vin", "read_did", "read_vin"):
+                default_did = 0xF190 if "vin" in action_type else 0xF190
+                did = int(params.get("did", default_did))
+                name = str(params.get("name", "VIN" if did == 0xF190 else "DID"))
+                if self._is_simulating:
+                    val = "WVWZZZ1KZ9W123456" if did == 0xF190 else "01 A4 B2 C3"
+                    return {
+                        "success": True,
+                        "message": f"📄 [UDS 0x22 DID 0x{did:04X}] {name}: `{val}` (Pozitif Yanıt 0x62).",
+                        "vin": val if did == 0xF190 else "",
+                        "did": hex(did),
+                        "data": {"did": f"0x{did:04X}", "value": val, "name": name, "vin": val if did == 0xF190 else ""},
+                    }
+                else:
+                    client = self.create_uds_client()
+                    resp = client.read_did(did)
+                    if resp.is_positive:
+                        val_str = resp.data.hex()
+                        if did == 0xF190:
+                            val_str = "".join(chr(b) for b in resp.data if 32 <= b <= 126)
+                        return {
+                            "success": True,
+                            "message": f"📄 [UDS 0x22 DID 0x{did:04X}] {name}: `{val_str}` (Pozitif Yanıt 0x62).",
+                            "data": {"did": f"0x{did:04X}", "value": val_str, "name": name},
+                        }
+                    else:
+                        err = f"❌ [UDS 0x22] DID 0x{did:04X} okunamadı: NRC 0x{resp.nrc:02X} ({resp.nrc_description_tr})"
+                        return {
+                            "success": False,
+                            "error": err,
+                            "message": err,
+                        }
+
+            # UDS 0x10 Diagnostic Session Control
+            elif action_type in ("uds_session_control", "session_control"):
+                st = int(params.get("session_type", 3))
+                if self._is_simulating:
+                    return {
+                        "success": True,
+                        "message": f"🔄 [UDS 0x10] Oturum başarıyla değiştirildi (Oturum: 0x{st:02X}, Pozitif Yanıt 0x50 0x{st:02X}).",
+                        "session_type": st,
+                        "data": {"session_type": st},
+                    }
+                else:
+                    arm_err_resp = _ensure_armed("Operator switched diagnostic session")
+                    if arm_err_resp is not None:
+                        return arm_err_resp
+                    client = self.create_uds_client()
+                    resp = client.change_session(DiagnosticSessionType(st), user_confirmed=True)
+                    if resp.is_positive:
+                        return {
+                            "success": True,
+                            "message": f"🔄 [UDS 0x10] Teşhis oturumu 0x{st:02X} moduna geçirildi (Pozitif Yanıt 0x50).",
+                            "data": {"session_type": st},
+                        }
+                    else:
+                        err = f"❌ [UDS 0x10] Oturum değiştirilemedi: NRC 0x{resp.nrc:02X} ({resp.nrc_description_tr})"
+                        return {
+                            "success": False,
+                            "error": err,
+                            "message": err,
+                        }
+
+            # UDS 0x31 Routine Control
+            elif action_type in ("uds_routine", "uds_routine_control", "routine_control"):
+                rid = int(params.get("routine_id", 0xD001))
+                if self._is_simulating:
+                    return {
+                        "success": True,
+                        "message": f"▶️ [UDS 0x31] Teşhis rutini 0x{rid:04X} başarıyla başlatıldı (Pozitif Yanıt 0x71).",
+                        "routine_id": hex(rid),
+                        "data": {"routine_id": hex(rid)},
+                    }
+                else:
+                    arm_err_resp = _ensure_armed(f"Operator started routine 0x{rid:04X}")
+                    if arm_err_resp is not None:
+                        return arm_err_resp
+                    client = self.create_uds_client()
+                    resp = client.start_routine(rid, user_confirmed=True)
+                    if resp.is_positive:
+                        return {
+                            "success": True,
+                            "message": f"▶️ [UDS 0x31] Rutin 0x{rid:04X} başlatıldı (Pozitif Yanıt 0x71).",
+                            "data": {"routine_id": hex(rid)},
+                        }
+                    else:
+                        err = f"❌ [UDS 0x31] Rutin başlatılamadı: NRC 0x{resp.nrc:02X} ({resp.nrc_description_tr})"
+                        return {
+                            "success": False,
+                            "error": err,
+                            "message": err,
+                        }
+
+            # UDS 0x11 ECU Reset
+            elif action_type in ("uds_ecu_reset", "ecu_reset"):
+                rt = int(params.get("reset_type", 1))
+                if self._is_simulating:
+                    return {
+                        "success": True,
+                        "message": f"⚡ [UDS 0x11] ECU Donanımsal Reset komutu iletildi (Reset Tipi: 0x{rt:02X}, Pozitif Yanıt 0x51).",
+                        "reset_type": rt,
+                        "data": {"reset_type": rt},
+                    }
+                else:
+                    arm_err_resp = _ensure_armed("Operator requested ECU Reset")
+                    if arm_err_resp is not None:
+                        return arm_err_resp
+                    client = self.create_uds_client()
+                    resp = client.ecu_reset(reset_type=rt, user_confirmed=True)
+                    if resp.is_positive:
+                        return {
+                            "success": True,
+                            "message": "⚡ [UDS 0x11] ECU Reset komutu onaylandı (Pozitif Yanıt 0x51).",
+                            "data": {"reset_type": rt},
+                        }
+                    else:
+                        err = f"❌ [UDS 0x11] ECU Reset reddedildi: NRC 0x{resp.nrc:02X} ({resp.nrc_description_tr})"
+                        return {
+                            "success": False,
+                            "error": err,
+                            "message": err,
+                        }
+
+            # J1939 DM11 Clear DTC
+            elif action_type in ("j1939_clear_dtc", "j1939_dm11"):
+                self._set_ui_state(_error_count=0)
+                self._active_scenario = "nominal"
+                return {
+                    "success": True,
+                    "message": "✅ [J1939 DM11] Ağır vasıta aktif arıza hafızası temizlendi (PGN 65235).",
+                    "pgn": 65235,
+                    "data": {"pgn": 65235},
+                }
+
+            # J1939 DM1 Query
+            elif action_type in ("j1939_dm1_query", "j1939_dm1"):
+                dtc = self.SCENARIO_DTCS.get(self._active_scenario, "Aktif Arıza Yok")
+                return {
+                    "success": True,
+                    "message": f"📋 [J1939 DM1] Aktif Arıza Durumu: {dtc} (PGN 65226 DM1 yayını dinleniyor).",
+                    "active_dtc": dtc,
+                    "data": {"pgn": 65226, "active_dtc": dtc},
+                }
+
+            else:
+                err = f"Bilinmeyen aksiyon tipi: '{action_type}'"
+                return {"success": False, "error": err, "message": err}
+
+        except Exception as exc:
+            logger.error("Diagnostic action execution error: %s", exc, exc_info=True)
+            err = f"İşlem sırasında hata oluştu: {exc}"
+            return {"success": False, "error": err, "message": err}
+
     def query_copilot(self, query: str) -> str:
         dtc = self.SCENARIO_DTCS.get(self._active_scenario)
         dtc_list: list[str] = [dtc] if dtc else []
+        traffic_metrics = self.get_bus_traffic_snapshot()
 
         # F-32: the LLM call (urlopen) runs in a dedicated worker with a hard
         # timeout so a slow cloud response can never freeze the JS bridge.
@@ -693,6 +1095,7 @@ class UniversalCanDesktopApp:
                 coolant_temp=self._current_temp,
                 dtc_codes=dtc_list,
                 user_prompt=query,
+                bus_metrics=traffic_metrics,
             )
 
         try:
@@ -710,7 +1113,8 @@ class UniversalCanDesktopApp:
 
         try:
             timestamp_str = time.strftime("%Y%m%d_%H%M%S")
-            export_dir = Path("exports")
+            # L-12 (P3-8): anchored to the app data root (not the CWD).
+            export_dir = _app_data_root() / "exports"
             export_dir.mkdir(parents=True, exist_ok=True)
             export_path = export_dir / f"can_session_{timestamp_str}.{fmt_clean}"
 
@@ -768,8 +1172,32 @@ class UniversalCanDesktopApp:
             # F-08: the key is stored in the secret vault, never a plain attribute
             self._secret_provider.store_secret("GEMINI_API_KEY", settings["apiKey"].encode("utf-8"))
             self.copilot.set_key_provider(self._secret_provider)
+        if "openaiApiKey" in settings and settings["openaiApiKey"]:
+            # L-8 (P3-3): OpenAI key follows the same vault path as Gemini.
+            self._secret_provider.store_secret("OPENAI_API_KEY", str(settings["openaiApiKey"]).encode("utf-8"))
+            self.copilot.set_key_provider(self._secret_provider)
         if "cloudBaseUrl" in settings and settings["cloudBaseUrl"]:
-            self.cloud_client.set_base_url(settings["cloudBaseUrl"])
+            # H-10 (P1-8): the old path called set_base_url with NO host
+            # allowlist — a renderer-supplied URL could redirect telemetry
+            # uploads to an attacker endpoint. Apply the same bridge-level
+            # allowlist as cloud_save_config (fail-closed on empty hostname).
+            url = settings["cloudBaseUrl"]
+            parsed = urllib.parse.urlsplit(str(url))
+            allowed_domains = ("localhost", "127.0.0.1", "::1", "ucan-cloud.si6n.io", "cloud.universalcan.io")
+            if (
+                not parsed.hostname
+                or parsed.scheme not in ("http", "https")
+                or (
+                    parsed.hostname not in allowed_domains
+                    and not parsed.hostname.endswith(".si6n.io")
+                )
+            ):
+                logger.error(
+                    "Rejected cloudBaseUrl from settings: host not in allowlist",
+                    extra={"host": parsed.hostname},
+                )
+            else:
+                self.cloud_client.set_base_url(url)
         if "cloudSessionToken" in settings:
             tok = settings["cloudSessionToken"]
             if tok and str(tok).strip():
@@ -855,16 +1283,58 @@ class UniversalCanDesktopApp:
                 if raw_rpm < 0xFE00:  # 0xFE00..0xFFFF = Error / Not Available in J1939-71
                     self._current_rpm = raw_rpm * 0.125
             # CCVS (PGN 65265 / PF=0xFE, PS=0xF1): vehicle speed (SPN 84)
-            # REVIEW.md 1.2: the gateway's speed interlock requires FRESH
-            # speed telemetry before any critical command; without this feed
-            # the first 0x11/0x34/0x2E latched a SPEED_INTERLOCK E-Stop even
-            # on a stationary vehicle. 1/256 km/h per bit, byte 1..2.
+            # 1/256 km/h per bit, byte 1..2.
+            # P0-5 (REVIEW C-3): the speed feed is the trust anchor of the
+            # TX interlock, so it is no longer accepted blindly from ANY
+            # source address:
+            #   1. Source allowlist — CCVS from an unexpected SA is ignored
+            #      (a compromised/spoofing node must not satisfy the interlock).
+            #      Empty allowlist = learning mode: the first CCVS sender
+            #      binds the trusted SA.
+            #   2. Cross-plausibility — a "stationary" reading while the
+            #      engine is clearly running above idle is treated as
+            #      UNKNOWN (fail-closed), not as 0 km/h. Wheel-speed vs.
+            #      engine-speed disagreement is the classic stuck-CCVS /
+            #      spoofed-CCVS signature.
+            #   3. Sentinel bound — J1939-71 reserves raw 0xFE00..0xFFFF
+            #      (Error / Not Available); the old `<= 250.0` km/h check
+            #      accepted the 0xFA00..0xFDFF band (250..254 km/h) as
+            #      legitimate speed. Now the raw value must be < 0xFE00.
             elif pf == 0xFE and ps == 0xF1 and len(data) >= 3:
                 raw_speed = data[1] | (data[2] << 8)
-                speed_kmh = raw_speed / 256.0
-                if speed_kmh <= 250.0:  # 0xFFFF/256 ≈ 255.99 → error sentinel
-                    self._current_speed_kmh = speed_kmh
-                    self.gateway.update_vehicle_speed(speed_kmh)
+                if raw_speed < 0xFE00:  # J1939-71: 0xFE00..0xFFFF = Error / Not Available
+                    speed_kmh = raw_speed / 256.0
+                    trusted = (
+                        self._ccvs_trusted_sa is None
+                        or sa == self._ccvs_trusted_sa
+                    )
+                    if self._ccvs_trusted_sa is None:
+                        # Learning mode: bind the first CCVS sender as the
+                        # trusted source address for this session.
+                        self._ccvs_trusted_sa = sa
+                        trusted = True
+                    if trusted:
+                        plausible = True
+                        if speed_kmh <= self.SPEED_PLAUSIBILITY_KMH and self._current_rpm > self.SPEED_PLAUSIBILITY_RPM:
+                            # Engine clearly running but vehicle "stopped" —
+                            # the speed source is stuck or spoofed; treat as
+                            # unknown and invalidate the interlock feed.
+                            plausible = False
+                            logger.warning(
+                                "CCVS speed implausible vs engine RPM; treating speed as unknown",
+                                extra={"speed_kmh": speed_kmh, "rpm": self._current_rpm, "sa": sa},
+                            )
+                        if plausible:
+                            self._current_speed_kmh = speed_kmh
+                            self.gateway.update_vehicle_speed(speed_kmh, source="physical")
+                        else:
+                            self._current_speed_kmh = float("nan")
+                            self.gateway.update_vehicle_speed(float("nan"), source="physical")
+                    else:
+                        logger.debug(
+                            "CCVS frame from untrusted source address ignored",
+                            extra={"sa": sa, "trusted_sa": self._ccvs_trusted_sa},
+                        )
             # ET1 (PGN 65249 / PF=0xFE, PS=0xE1): coolant temperature (B-10 sentinel filter)
             elif pf == 0xFE and ps == 0xE1 and len(data) >= 1:
                 raw_temp = data[0]
@@ -924,7 +1394,14 @@ class UniversalCanDesktopApp:
             try:
                 self.gateway.validate_and_transmit(resp)
             except Exception as exc:
-                logger.debug("J1939 TP response physical transmit bypassed/failed", extra={"error": str(exc)})
+                # M-14 (P2-10): a gateway refusal (E-Stop, whitelist, rate
+                # limit...) on a J1939 TP response is operationally
+                # significant — at default INFO level the old debug log hid
+                # entire aborted transfer sessions from the operator.
+                logger.warning(
+                    "J1939 TP response physical transmit refused by gateway",
+                    extra={"error": str(exc), "arbitration_id": getattr(resp, "arbitration_id", None)},
+                )
             # B6 (REVIEW): locally generated TX response frames go to the
             # physical bus via the gateway only — feeding them back into the
             # RX router inflated telemetry metrics and polluted the sniffer
@@ -934,7 +1411,10 @@ class UniversalCanDesktopApp:
             try:
                 self.gateway.validate_and_transmit(extra_resp)
             except Exception as exc:
-                logger.debug("J1939 TP extra response physical transmit bypassed/failed", extra={"error": str(exc)})
+                logger.warning(
+                    "J1939 TP extra response physical transmit refused by gateway",
+                    extra={"error": str(exc), "arbitration_id": getattr(extra_resp, "arbitration_id", None)},
+                )
             self._log_tx_echo(extra_resp)
 
         if completed is not None:
@@ -942,13 +1422,15 @@ class UniversalCanDesktopApp:
             # synthetic frame at 64 bytes with a valid DLC so oversized
             # messages can never crash the telemetry thread.
             synth_data = completed.data[:64]
-            dp = (completed.pgn >> 16) & 0x01
-            pf = (completed.pgn >> 8) & 0xFF
-            if pf < 240:
-                pgn_field = (dp << 16) | (pf << 8) | (completed.destination_address & 0xFF)
-            else:
-                pgn_field = completed.pgn & 0x3FFFF
-            arb_id = (0x18000000 | (pgn_field << 8) | (completed.source_address & 0xFF)) & 0x1FFFFFFF
+            # Reconstruct the canonical 29-bit CAN ID via the shared builder
+            # — M-12 (P2-6): preserves EDP/DP bits (the old inline math
+            # dropped EDP, mis-addressing EDP-set reassembled messages).
+            arb_id = build_j1939_id(
+                pgn=completed.pgn,
+                sa=completed.source_address,
+                da=completed.destination_address,
+                priority=6,
+            )
             try:
                 synth_frame: CanFrame | None = CanFrame(
                     channel_id=completed.channel_id,
@@ -1073,10 +1555,15 @@ class UniversalCanDesktopApp:
             self._sim_time += 0.05 * self._speed_mult
             t = self._sim_time
             self._bump_stat("_total_packets", 1)
-            # REVIEW.md 1.2: keep the gateway's speed interlock fed even in
-            # DEMO mode — a stationary simulated vehicle must not latch a
-            # SPEED_INTERLOCK E-Stop on the first critical command.
-            self.gateway.update_vehicle_speed(0.0)
+            # P0-2 (REVIEW C-2): the DEMO loop must NOT feed the gateway's
+            # speed interlock. The old unconditional
+            # `self.gateway.update_vehicle_speed(0.0)` made a simulated
+            # stationary vehicle satisfy the interlock for critical commands
+            # (0x11/0x34/0x36, flashing preconditions) even while a real
+            # vehicle bus was connected and moving. The interlock stays bound
+            # to physical CCVS telemetry only; a synthetic feed can never
+            # authorize TX. Speed stays fail-closed (no physical feed → no
+            # critical commands) until real CCVS frames arrive.
 
             rpm = 2381.0 + 80.0 * math.sin(t * 0.8) + 30.0 * math.cos(t * 1.5)
             boost = 1.66 + 0.12 * math.sin(t * 0.5) + 0.05 * math.cos(t * 1.1)
@@ -1225,6 +1712,15 @@ class UniversalCanDesktopApp:
             self._set_ui_state(_running=False)
             if hasattr(self, "_thread") and self._thread and self._thread.is_alive():
                 self._thread.join(timeout=2.0)
+            # L-13 (P3-9): release the physical bus FIRST — the gateway
+            # shutdown and every other teardown below used to leave the
+            # driver handle open (no bus.disconnect() anywhere on the GUI
+            # exit path), pinning the vendor DLL and the transceiver.
+            if hasattr(self, "bus") and self.bus is not None:
+                try:
+                    self.bus.disconnect()
+                except Exception:
+                    pass
             if hasattr(self, "gateway") and self.gateway:
                 try:
                     self.gateway.shutdown()

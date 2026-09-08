@@ -1,4 +1,4 @@
-"""Cloud client configuration & authenticated HTTP transport.
+﻿"""Cloud client configuration & authenticated HTTP transport.
 
  The desktop -> cloud session is a browser-independent HttpOnly cookie the
  operator acquires by logging into the web portal; the desktop stores the
@@ -13,9 +13,9 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, ClassVar
 
-from src.core.errors import LicenseError, SecurityError
+from src.core.errors import LicenseError, SecurityError, TransportError
 from src.core.logging import get_logger
 from src.safety.secret_provider import SecretProvider, get_default_secret_provider
 
@@ -97,8 +97,8 @@ class CloudConfig:
     def _validate_scheme(self) -> None:
         """Fail closed on insecure transport (SEC-C-001).
 
-        Only https:// URLs — or loopback (localhost / 127.0.0.1 / [::1]) for
-        local development — are accepted. Any other http:// endpoint would
+        Only https:// URLs â€” or loopback (localhost / 127.0.0.1 / [::1]) for
+        local development â€” are accepted. Any other http:// endpoint would
         expose the session cookie to network interception.
         """
         if not self.require_https:
@@ -135,7 +135,7 @@ class CloudConfig:
                 return ipaddress.ip_address(hostname).is_loopback
             except ValueError:
                 return hostname == "localhost"
-        except Exception:  # noqa: BLE001 — malformed URL is not loopback
+        except Exception:  # noqa: BLE001 â€” malformed URL is not loopback
             return False
 
     def endpoint(self, path: str, *, health_endpoint: bool = False) -> str:
@@ -159,7 +159,7 @@ class CloudResponse:
 class CloudClient:
     """Minimal authenticated HTTP client for the cloud REST API.
 
-    Session strategy (MASTER_PLAN §3.2):
+    Session strategy (MASTER_PLAN Â§3.2):
       1. The operator logs into the web portal once and pastes the session
          token into the desktop settings; it is stored under DPAPI.
       2. Device-scoped calls (telemetry upload, activation) prefer the
@@ -174,8 +174,44 @@ class CloudClient:
         self.config = config or CloudConfig()
         self._secrets = secret_provider or get_default_secret_provider()
 
+    # M-20 (P2-11): hard cap on response bodies. API JSON responses are a
+    # few KB; telemetry upload acknowledgements even less. A compromised or
+    # buggy endpoint streaming gigabytes must not OOM the diagnostic tool.
+    MAX_RESPONSE_BODY_BYTES: ClassVar[int] = 8 * 1024 * 1024  # 8 MiB
+
+    @classmethod
+    def _read_body_bounded(cls, resp: Any) -> bytes:
+        """Read an HTTP response body with a hard size cap (fail-closed)."""
+        # 1. Refuse up front when the server declares an oversized body.
+        content_length = resp.headers.get("Content-Length")
+        if content_length is not None:
+            try:
+                declared = int(content_length)
+            except ValueError:
+                declared = -1
+            if declared > cls.MAX_RESPONSE_BODY_BYTES:
+                raise TransportError(
+                    f"Response body too large: declared {declared} bytes "
+                    f"(limit {cls.MAX_RESPONSE_BODY_BYTES})"
+                )
+        # 2. Stream in chunks and stop hard at the cap even without a
+        # Content-Length (chunked transfer, lying header).
+        chunks: list[bytes] = []
+        total = 0
+        while True:
+            chunk = resp.read(65536)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > cls.MAX_RESPONSE_BODY_BYTES:
+                raise TransportError(
+                    f"Response body exceeded {cls.MAX_RESPONSE_BODY_BYTES} bytes mid-stream"
+                )
+            chunks.append(chunk)
+        return b"".join(chunks)
+
     def set_base_url(self, url: str) -> None:
-        """Change the API base URL — re-validated (3FABLE-H2).
+        """Change the API base URL â€” re-validated (3FABLE-H2).
 
         Assigning `client.config.base_url = url` bypassed CloudConfig's
         __post_init__ scheme check (dataclass attribute assignment never
@@ -275,7 +311,7 @@ class CloudClient:
             session = self._secrets.get_secret(_SESSION_SECRET_NAME).decode("utf-8")
         if session:
             headers["Cookie"] = f"ucan_session={session}"
-        # B4: sanitized AFTER the session cookie is applied — extra headers
+        # B4: sanitized AFTER the session cookie is applied â€” extra headers
         # can neither replace nor strip it.
         headers.update(_sanitize_extra_headers(extra_headers))
 
@@ -287,7 +323,11 @@ class CloudClient:
                 with opener.open(req, timeout=self.config.timeout_seconds) as resp:  # nosec: B310
                     return CloudResponse(
                         status=resp.status,
-                        body=resp.read(),
+                        # M-20 (P2-11): bounded read â€” a hostile or
+                        # misbehaving endpoint must not be able to stream an
+                        # unbounded body into memory. Enforce Content-Length
+                        # up front and cap the streamed bytes either way.
+                        body=self._read_body_bounded(resp),
                         headers={k: v for k, v in resp.headers.items()},
                     )
             except urllib.error.HTTPError as exc:
@@ -320,7 +360,7 @@ class CloudClient:
                 try:
                     delay = max(delay, float(retry_after))
                 except (TypeError, ValueError):
-                    pass  # non-numeric Retry-After (HTTP-date) — fall back to backoff
+                    pass  # non-numeric Retry-After (HTTP-date) â€” fall back to backoff
         # SEC-C-007: Cap maximum sleep delay to prevent DoS lockup from malicious/misconfigured server
         delay = min(delay, self.config.max_retry_backoff_seconds)
         _time.sleep(delay)

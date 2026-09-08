@@ -104,7 +104,7 @@ export const ReportsExportView: React.FC<ReportsExportViewProps> = ({ frames }) 
       {/* Header */}
       <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-card flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600">
+          <div className="w-10 h-10 rounded-lg bg-brand-50 border border-brand-200 flex items-center justify-center text-brand-600">
             <FileText className="w-5 h-5" />
           </div>
           <div>
@@ -120,7 +120,7 @@ export const ReportsExportView: React.FC<ReportsExportViewProps> = ({ frames }) 
               type="text"
               value={vinInput}
               onChange={(e) => setVinInput(e.target.value)}
-              className="ml-1.5 px-2 py-1 border border-slate-200 rounded font-mono text-xs font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="ml-1.5 px-2 py-1 border border-slate-200 rounded font-mono text-xs font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-brand-500"
             />
           </div>
           <div className="text-xs font-mono font-semibold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
@@ -130,7 +130,7 @@ export const ReportsExportView: React.FC<ReportsExportViewProps> = ({ frames }) 
       </div>
 
       {/* Cloud Ingest Hero Banner Card */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-xl p-5 shadow-lg space-y-4">
+      <div className="bg-gradient-to-r from-brand-600 to-brand-700 text-white rounded-xl p-5 shadow-lg space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-start space-x-3">
             <div className="w-11 h-11 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center text-white shrink-0">
@@ -139,12 +139,12 @@ export const ReportsExportView: React.FC<ReportsExportViewProps> = ({ frames }) 
             <div>
               <div className="flex items-center space-x-2">
                 <h3 className="text-sm font-bold tracking-tight">Universal-CAN-Cloud SaaS Telemetri Yükleme</h3>
-                <span className="bg-white/20 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
+                <span className="bg-white/20 text-white text-xs font-bold px-2 py-0.5 rounded-full uppercase">
                   Parçalı Resumable
                 </span>
               </div>
-              <p className="text-xs text-blue-100 mt-1 max-w-2xl leading-relaxed">
-                CAN telemetri oturumunu 5 MB parçalar halinde MinIO S3 arşivine aktarır. ARQ Worker arka planda Zstandard (.mf4.zst) sıkıştırması yapar ve sinyalleri TimescaleDB zaman serisine işler.
+              <p className="mt-1 max-w-2xl text-xs leading-relaxed text-brand-100">
+                Telemetri oturumu 5 MB parçalar halinde bulut arşivine aktarılır ve zaman serisi olarak işlenir.
               </p>
             </div>
           </div>
@@ -152,12 +152,12 @@ export const ReportsExportView: React.FC<ReportsExportViewProps> = ({ frames }) 
           <button
             onClick={handleUploadToCloud}
             disabled={cloudUploading}
-            className="px-4 py-2.5 bg-white hover:bg-slate-100 text-blue-700 rounded-lg text-xs font-bold shadow-md flex items-center justify-center space-x-2 transition-all shrink-0 active:scale-95 disabled:opacity-60"
+            className="px-4 py-2.5 bg-white hover:bg-slate-100 text-brand-700 rounded-lg text-xs font-bold shadow-md flex items-center justify-center space-x-2 transition-all shrink-0 active:scale-95 disabled:opacity-60"
           >
             {cloudUploading ? (
-              <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+              <Loader2 className="w-4 h-4 animate-spin text-brand-600" />
             ) : (
-              <Cloud className="w-4 h-4 text-blue-600" />
+              <Cloud className="w-4 h-4 text-brand-600" />
             )}
             <span>{cloudUploading ? 'Buluta Yükleniyor...' : 'Seansı Buluta Yükle'}</span>
           </button>
@@ -166,7 +166,7 @@ export const ReportsExportView: React.FC<ReportsExportViewProps> = ({ frames }) 
         {/* Progress bar during upload */}
         {uploadProgress && (
           <div className="bg-black/20 border border-white/15 rounded-lg p-3 space-y-2 text-xs">
-            <div className="flex justify-between text-[11px] font-semibold text-blue-100">
+            <div className="flex justify-between text-xs font-semibold text-brand-100">
               <span>Durum: {uploadProgress.status.toUpperCase()}</span>
               <span>
                 %{uploadProgress.percent.toFixed(0)} ({uploadProgress.uploadedChunks}/{uploadProgress.totalChunks || 1} Parça)
@@ -174,7 +174,7 @@ export const ReportsExportView: React.FC<ReportsExportViewProps> = ({ frames }) 
             </div>
             <div className="w-full bg-white/20 rounded-full h-2 overflow-hidden">
               <div
-                className="bg-emerald-400 h-2 rounded-full transition-all duration-300"
+                className="bg-signal-400 h-2 rounded-full transition-all duration-300"
                 style={{ width: `${Math.max(5, uploadProgress.percent)}%` }}
               />
             </div>
@@ -183,14 +183,14 @@ export const ReportsExportView: React.FC<ReportsExportViewProps> = ({ frames }) 
 
         {/* Result & Success Banner */}
         {cloudUploadResult && (
-          <div className="bg-emerald-500/20 border border-emerald-300/40 rounded-lg p-3 flex items-center justify-between text-xs text-emerald-100 animate-in fade-in">
+          <div className="bg-signal-500/20 border border-signal-300/40 rounded-lg p-3 flex items-center justify-between text-xs text-signal-100 animate-in fade-in">
             <div className="flex items-center space-x-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-300 shrink-0" />
+              <CheckCircle2 className="w-4 h-4 text-signal-300 shrink-0" />
               <span>
                 <strong>Telemetri oturumu yüklendi!</strong> Seans ID: <code className="font-mono bg-white/10 px-1.5 py-0.5 rounded">{cloudUploadResult.sessionId}</code> (Durum: {cloudUploadResult.status})
               </span>
             </div>
-            <span className="text-[11px] font-bold bg-emerald-400 text-emerald-950 px-2.5 py-0.5 rounded-full">
+            <span className="text-xs font-bold bg-signal-400 text-emerald-950 px-2.5 py-0.5 rounded-full">
               SaaS Hazır
             </span>
           </div>
@@ -207,14 +207,14 @@ export const ReportsExportView: React.FC<ReportsExportViewProps> = ({ frames }) 
 
       {/* Success Notification Banner for Local Exports */}
       {lastExport && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 flex items-center justify-between shadow-xs animate-in fade-in slide-in-from-top-1">
-          <div className="flex items-center space-x-2.5 text-xs text-emerald-800 font-medium">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+        <div className="bg-signal-50 border border-signal-200 rounded-xl p-3.5 flex items-center justify-between shadow-xs animate-in fade-in slide-in-from-top-1">
+          <div className="flex items-center space-x-2.5 text-xs text-signal-800 font-medium">
+            <CheckCircle2 className="w-4 h-4 text-signal-600 shrink-0" />
             <div>
-              <strong>{lastExport.format}</strong> başarıyla üretildi ve bilgisayarınıza indirildi! (Dosya: <code className="font-mono bg-emerald-100/70 px-1.5 py-0.5 rounded text-emerald-900">{lastExport.filename}</code> • {(lastExport.sizeBytes / 1024).toFixed(1)} KB)
+              <strong>{lastExport.format}</strong> başarıyla üretildi ve bilgisayarınıza indirildi! (Dosya: <code className="font-mono bg-signal-100/70 px-1.5 py-0.5 rounded text-signal-900">{lastExport.filename}</code> • {(lastExport.sizeBytes / 1024).toFixed(1)} KB)
             </div>
           </div>
-          <span className="text-[11px] text-emerald-700 font-semibold bg-emerald-100 px-2 py-0.5 rounded-full">
+          <span className="text-xs text-signal-700 font-semibold bg-signal-100 px-2 py-0.5 rounded-full">
             İndirildi
           </span>
         </div>
@@ -225,7 +225,7 @@ export const ReportsExportView: React.FC<ReportsExportViewProps> = ({ frames }) 
         {/* 1. CSV / Excel Card */}
         <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-card flex flex-col justify-between space-y-4 hover:border-slate-300 transition-colors">
           <div className="space-y-2">
-            <div className="w-10 h-10 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
+            <div className="w-10 h-10 rounded-lg bg-signal-50 border border-signal-200 flex items-center justify-center text-signal-600">
               <FileSpreadsheet className="w-5 h-5" />
             </div>
             <h3 className="text-xs font-bold text-slate-900">Excel & CSV Telemetri Tablosu</h3>
@@ -236,7 +236,7 @@ export const ReportsExportView: React.FC<ReportsExportViewProps> = ({ frames }) 
 
           <button
             onClick={() => handleExport(() => ExportService.exportToCsv(frames))}
-            className="w-full flex items-center justify-center space-x-2 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors active:scale-[0.99]"
+            className="w-full flex items-center justify-center space-x-2 py-2 px-3 bg-signal-600 hover:bg-signal-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors active:scale-[0.99]"
           >
             <Download className="w-4 h-4" />
             <span>CSV Dosyasını İndir</span>
@@ -246,18 +246,18 @@ export const ReportsExportView: React.FC<ReportsExportViewProps> = ({ frames }) 
         {/* 2. Vector ASC Card */}
         <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-card flex flex-col justify-between space-y-4 hover:border-slate-300 transition-colors">
           <div className="space-y-2">
-            <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600">
+            <div className="w-10 h-10 rounded-lg bg-brand-50 border border-brand-200 flex items-center justify-center text-brand-600">
               <FileText className="w-5 h-5" />
             </div>
             <h3 className="text-xs font-bold text-slate-900">Vector CANoe / CANalyzer (.ASC)</h3>
             <p className="text-xs text-slate-500 leading-relaxed">
-              Otomotiv standardı Vector ASC formatında tam trace logu üretir. CANoe veya PCAN ile tekrar oynatılabilir.
+              Otomotiv standardı trace logu; CANoe veya PCAN ile tekrar oynatılabilir.
             </p>
           </div>
 
           <button
             onClick={() => handleExport(() => ExportService.exportToAsc(frames))}
-            className="w-full flex items-center justify-center space-x-2 py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors active:scale-[0.99]"
+            className="w-full flex items-center justify-center space-x-2 py-2 px-3 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors active:scale-[0.99]"
           >
             <Download className="w-4 h-4" />
             <span>Vector ASC İndir</span>
@@ -267,7 +267,7 @@ export const ReportsExportView: React.FC<ReportsExportViewProps> = ({ frames }) 
         {/* 3. ASAM MDF4 (.MF4) Card */}
         <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-card flex flex-col justify-between space-y-4 hover:border-slate-300 transition-colors">
           <div className="space-y-2">
-            <div className="w-10 h-10 rounded-lg bg-cyan-50 border border-cyan-200 flex items-center justify-center text-cyan-700">
+            <div className="w-10 h-10 rounded-lg bg-brand-50 border border-brand-200 flex items-center justify-center text-brand-700">
               <Database className="w-5 h-5" />
             </div>
             <h3 className="text-xs font-bold text-slate-900">ASAM MDF4 Telemetri (.MF4)</h3>
@@ -278,7 +278,7 @@ export const ReportsExportView: React.FC<ReportsExportViewProps> = ({ frames }) 
 
           <button
             onClick={() => handleExport(() => ExportService.exportToMdf4(frames))}
-            className="w-full flex items-center justify-center space-x-2 py-2 px-3 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors active:scale-[0.99]"
+            className="w-full flex items-center justify-center space-x-2 py-2 px-3 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors active:scale-[0.99]"
           >
             <Download className="w-4 h-4" />
             <span>ASAM MDF4 İndir</span>
@@ -288,7 +288,7 @@ export const ReportsExportView: React.FC<ReportsExportViewProps> = ({ frames }) 
         {/* 4. JSON Dump Card */}
         <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-card flex flex-col justify-between space-y-4 hover:border-slate-300 transition-colors">
           <div className="space-y-2">
-            <div className="w-10 h-10 rounded-lg bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600">
+            <div className="w-10 h-10 rounded-lg bg-brand-50 border border-brand-200 flex items-center justify-center text-brand-600">
               <Code className="w-5 h-5" />
             </div>
             <h3 className="text-xs font-bold text-slate-900">Ham JSON / AI Model Çıktısı</h3>
@@ -299,7 +299,7 @@ export const ReportsExportView: React.FC<ReportsExportViewProps> = ({ frames }) 
 
           <button
             onClick={() => handleExport(() => ExportService.exportToJson(frames))}
-            className="w-full flex items-center justify-center space-x-2 py-2 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors active:scale-[0.99]"
+            className="w-full flex items-center justify-center space-x-2 py-2 px-3 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors active:scale-[0.99]"
           >
             <Download className="w-4 h-4" />
             <span>JSON İndir</span>
@@ -309,18 +309,18 @@ export const ReportsExportView: React.FC<ReportsExportViewProps> = ({ frames }) 
         {/* 5. Google Earth KML Card */}
         <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-card flex flex-col justify-between space-y-4 hover:border-slate-300 transition-colors">
           <div className="space-y-2">
-            <div className="w-10 h-10 rounded-lg bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600">
+            <div className="w-10 h-10 rounded-lg bg-brand-50 border border-brand-200 flex items-center justify-center text-brand-600">
               <MapPin className="w-5 h-5" />
             </div>
             <h3 className="text-xs font-bold text-slate-900">Google Earth GPS Rotası (.KML)</h3>
             <p className="text-xs text-slate-500 leading-relaxed">
-              Marin veya araç güzergah telemetrisini Google Earth 3D haritalarında görselleştirmek için KML dosyası.
+              Araç güzergah telemetrisini Google Earth 3D haritalarında gösterir.
             </p>
           </div>
 
           <button
             onClick={() => handleExport(() => ExportService.exportToKml(frames))}
-            className="w-full flex items-center justify-center space-x-2 py-2 px-3 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors active:scale-[0.99]"
+            className="w-full flex items-center justify-center space-x-2 py-2 px-3 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors active:scale-[0.99]"
           >
             <Download className="w-4 h-4" />
             <span>KML Rotası İndir</span>
@@ -354,15 +354,15 @@ export const ReportsExportView: React.FC<ReportsExportViewProps> = ({ frames }) 
         <div className="text-xs font-bold text-slate-800">Standart & Güvenlik Doğrulamaları:</div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-slate-600">
           <div className="flex items-center space-x-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            <CheckCircle2 className="w-4 h-4 text-signal-600" />
             <span>ISO 14229 (UDS) & ISO 15765-2 Uyumlu</span>
           </div>
           <div className="flex items-center space-x-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            <CheckCircle2 className="w-4 h-4 text-signal-600" />
             <span>SAE J1939 Ağır Vasıta & NMEA 2000 Destekli</span>
           </div>
           <div className="flex items-center space-x-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            <CheckCircle2 className="w-4 h-4 text-signal-600" />
             <span>SHA-256 Kriptografik Oturum Bütünlüğü</span>
           </div>
         </div>

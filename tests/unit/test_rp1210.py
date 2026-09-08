@@ -134,9 +134,12 @@ def test_rp1210_bus_lifecycle() -> None:
     assert not bus.is_connected
     assert bus.metrics.state == BusState.DISCONNECTED
 
+    # P0-3: default construction is listen-only — PASSIVE, never an
+    # ACK-producing ACTIVE session against a live vehicle bus.
+    assert bus.listen_only is True
     bus.connect()
     assert bus.is_connected
-    assert bus.metrics.state == BusState.ACTIVE
+    assert bus.metrics.state == BusState.PASSIVE
 
     # Idempotent disconnect + reconnect
     bus.disconnect()
@@ -145,11 +148,17 @@ def test_rp1210_bus_lifecycle() -> None:
     bus.disconnect()  # second disconnect must not raise
     bus.connect()
     assert bus.is_connected
+    assert bus.metrics.state == BusState.PASSIVE
+
+
+def _make_tx_bus(mock: _MockRP1210Client | None = None, protocol: str = "J1939") -> RP1210Bus:
+    """TX-capable bus for wire-format tests (P0-3: default is listen-only)."""
+    return RP1210Bus(device_id=1, protocol=protocol, client=mock or _MockRP1210Client(), listen_only=False)
 
 
 def test_rp1210_bus_send_wire_format() -> None:
     mock = _MockRP1210Client()
-    bus = _make_bus(mock, protocol="CAN")  # classic 11-bit stack
+    bus = _make_tx_bus(mock, protocol="CAN")  # classic 11-bit stack
     bus.connect()
 
     frame = CanFrame.create(
@@ -174,7 +183,7 @@ def test_rp1210_bus_send_29bit_j1939_wire_format() -> None:
     to 0x110, retargeting the frame at the wrong ECU.
     """
     mock = _MockRP1210Client()
-    bus = _make_bus(mock)
+    bus = _make_tx_bus(mock)
     bus.connect()
 
     frame = CanFrame.create(
@@ -211,7 +220,7 @@ def test_rp1210_bus_recv_29bit_j1939_roundtrip() -> None:
 def test_rp1210_bus_send_rejects_11bit_on_29bit_stack() -> None:
     """An 11-bit frame on a J1939 stack is a wiring error — fail closed."""
     mock = _MockRP1210Client()
-    bus = _make_bus(mock)
+    bus = _make_tx_bus(mock)
     bus.connect()
 
     frame = CanFrame.create(
@@ -268,7 +277,7 @@ def test_rp1210_client_read_message_validates_buffer_size() -> None:
 
 def test_rp1210_bus_send_requires_connection_and_classic_frames() -> None:
     mock = _MockRP1210Client()
-    bus = _make_bus(mock)
+    bus = _make_tx_bus(mock)
 
     # Not connected -> structured error, not raw client error
     with pytest.raises(HardwareError):
@@ -348,6 +357,14 @@ def test_build_bus_routes_rp1210_and_rejects_bad_device() -> None:
     assert bus.bitrate == 500000
     mock_client.assert_called_once()
 
+    # P0-3 (REVIEW C-4): build_bus must FORWARD listen_only — the factory
+    # previously dropped the flag so every RP1210 adapter opened ACTIVE.
+    with mock.patch("src.hal.rp1210.bus.RP1210Client"):
+        passive = build_bus(interface="rp1210", channel="3", bitrate=500000, listen_only=True)
+        active = build_bus(interface="rp1210", channel="3", bitrate=500000, listen_only=False)
+    assert passive.listen_only is True
+    assert active.listen_only is False
+
     # Non-rp1210 interfaces still go through python-can
     from src.hal.drivers.pcan_kvaser import PythonCanBus
 
@@ -359,7 +376,7 @@ def test_build_bus_routes_rp1210_and_rejects_bad_device() -> None:
 def test_rp1210_bus_allows_11bit_on_iso15765_stack() -> None:
     """11-bit frames (such as OBD 0x7DF / UDS 0x7E0) must be allowed on ISO 15765."""
     mock = _MockRP1210Client()
-    bus = _make_bus(mock, protocol="iso15765")
+    bus = _make_tx_bus(mock, protocol="iso15765")
     bus.connect()
 
     frame = CanFrame.create(
@@ -372,3 +389,82 @@ def test_rp1210_bus_allows_11bit_on_iso15765_stack() -> None:
     assert (header >> 4) & 0x7FF == 0x7DF
     assert header & 0x0F == 3
     assert packet[2:] == b"\x02\x01\x00"
+
+
+# ============================================================================
+# P0-3 / H-1 / H-2 regressions (REVIEW C-4, RP1210 RX robustness)
+# ============================================================================
+
+
+def test_rp1210_listen_only_blocks_tx() -> None:
+    """P0-3 (REVIEW C-4): a listen-only RP1210 session must refuse send().
+
+    The RP1210 API has no portable listen-only connect flag; refusing TX is
+    the only fail-closed guarantee that the adapter never produces ACKs
+    against a live vehicle bus unless TX was explicitly armed.
+    """
+    mock = _MockRP1210Client()
+    bus = _make_bus(mock)  # default listen_only=True
+    bus.connect()
+
+    frame = CanFrame.create(channel_id=bus.channel_id, arbitration_id=0x18DAF110, data=b"\x02\x10\x00", is_extended=True)
+    with pytest.raises(HardwareError, match="Listen-Only"):
+        bus.send(frame)
+    assert mock.sent == []  # nothing reached the wire
+
+    # An explicitly armed TX session (listen_only=False) transmits again.
+    tx_bus = RP1210Bus(device_id=1, protocol="J1939", client=mock, listen_only=False)
+    tx_bus.connect()
+    tx_bus.send(frame)
+    assert len(mock.sent) == 1
+
+
+def test_rp1210_listen_only_state_is_passive() -> None:
+    """P0-3: the metrics state must reflect the listen-only semantics."""
+    mock = _MockRP1210Client()
+    bus = _make_bus(mock)
+    bus.connect()
+    assert bus.metrics.state == BusState.PASSIVE
+
+    tx_bus = RP1210Bus(device_id=1, protocol="J1939", client=_MockRP1210Client(), listen_only=False)
+    tx_bus.connect()
+    assert tx_bus.metrics.state == BusState.ACTIVE
+
+
+def test_rp1210_recv_drops_dlc9_classic_invalid_packet() -> None:
+    """H-1 regression: a wire DLC of 9..15 on the non-FD 29-bit layout must
+    be dropped and counted, never raise ValueError out of recv() and kill
+    the RX session."""
+    mock = _MockRP1210Client()
+    bus = _make_bus(mock)
+    bus.connect()
+
+    # Extended layout: 4-byte LE id + DLC=9 (classic-invalid) + 9 payload bytes
+    wire = 0x18EBFF10 .to_bytes(4, "little") + bytes([9]) + b"\x01" * 9
+    mock.rx_queue.append(wire)
+
+    assert bus.recv(timeout_s=0.05) is None  # dropped, not raised
+    assert bus.metrics.dropped_frames == 1
+    assert bus.is_connected  # RX session survived
+
+    # Next well-formed frame still decodes
+    good = 0x18DAF110 .to_bytes(4, "little") + bytes([3]) + b"\x02\x10\x00"
+    mock.rx_queue.append(good)
+    frame = bus.recv(timeout_s=0.1)
+    assert frame is not None and frame.arbitration_id == 0x18DAF110
+
+
+def test_rp1210_recv_iso15765_runt_packets_dropped_not_misparsed() -> None:
+    """H-2 regression: 2-4 byte vendor packets under iso15765/iso_tp must be
+    dropped as runts — the old admission threshold let them fall through to
+    the 11-bit decoder and fabricated telemetry from garbage bytes."""
+    mock = _MockRP1210Client()
+    bus = _make_bus(mock, protocol="iso15765")
+    bus.connect()
+
+    for runt in (b"\x10", b"\x10\x02", b"\x00\x00\x10"):
+        mock.rx_queue.append(runt)
+        assert bus.recv(timeout_s=0.05) is None  # dropped, never decoded
+
+    assert bus.metrics.dropped_frames == 3
+    assert bus.metrics.rx_frames == 0  # nothing was fabricated as an 11-bit frame

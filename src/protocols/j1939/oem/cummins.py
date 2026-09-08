@@ -395,11 +395,15 @@ class CumminsDecoder(BaseOemDecoder):
             self.CMD_CYLINDER_CUTOUT_TEST: "Cylinder Cut-out Diagnostic Test",
         }
 
-        # If cmd_id is not in Cummins list and DA is not Engine (0x00), don't falsely claim
-        if cmd_id not in cmd_names and da != 0x00:
+        # M-24 (P2-8): positive disambiguation — an unknown command id must
+        # NEVER be claimed. The old guard only declined when the DA was not
+        # the Engine (0x00), so every unknown Proprietary A command targeted
+        # at the engine was reported as Cummins (first-match) with a generic
+        # "Proprietary Routine" name and HIGH confidence.
+        if cmd_id not in cmd_names:
             return None
 
-        cmd_name = cmd_names.get(cmd_id, f"Proprietary Routine 0x{cmd_id:02X}")
+        cmd_name = cmd_names[cmd_id]
         target_cyl = data[1] if len(data) > 1 else 0
         token = (data[2] | (data[3] << 8)) if len(data) >= 4 else 0
 

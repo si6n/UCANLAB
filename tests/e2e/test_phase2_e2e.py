@@ -45,6 +45,7 @@ from src.protocols.uds.services import (
 )
 from src.safety.estop import EmergencyStopSystem, EStopTriggerSource
 from src.safety.gateway import TxSafetyGateway
+from src.safety.secret_provider import EphemeralSecretBackend
 from src.safety.state_machine import SafetyState, SafetySupervisor
 from src.safety.watchdog import TxWatchdogSupervisor
 
@@ -1087,16 +1088,19 @@ def test_tier3_rate_budget_exhausted_and_moving_vehicle() -> None:
 
 def test_tier3_secret_provider_rotation_during_active_estop_challenge() -> None:
     """Tier 3.8: SecretProvider key rotation invalidates tokens computed with old secret key."""
-    provider = InMemorySecretProvider({"ESTOP_KEY": b"initial_secret_key_32_bytes_len!"})
-    estop = EmergencyStopSystem(reset_secret=provider.get_secret("ESTOP_KEY"), allow_self_reset=True)
+    provider = EphemeralSecretBackend({"ESTOP_KEY": b"initial_secret_key_32_bytes_len!"})
+    estop = EmergencyStopSystem(
+        secret_provider=provider,
+        key_name="ESTOP_KEY",
+        allow_self_reset=True,
+    )
 
     estop.trigger(EStopTriggerSource.USER_UI_BUTTON, reason="Test rotation")
     old_token = estop.compute_reset_token()
 
     # Rotate secret in provider and update E-Stop
     new_secret = b"rotated_new_secret_key_32_bytes!"
-    provider.set_secret("ESTOP_KEY", new_secret)
-    estop.reset_secret = provider.get_secret("ESTOP_KEY")
+    provider.store_secret("ESTOP_KEY", new_secret)
 
     # Old token fails
     with pytest.raises(SafetyError, match="Invalid E-Stop reset token"):
@@ -1217,14 +1221,18 @@ def test_tier4_scenario1_full_diagnostic_session_stationary_vehicle() -> None:
     bus.inject_rx(
         CanFrame.create(channel_id="mock_vbus_0", arbitration_id=0x7E8, data=b"\x02\x50\x03\x00\x00\x00\x00\x00")
     )
-    resp_session = client.change_session(DiagnosticSessionType.EXTENDED_DIAGNOSTIC_SESSION)
+    # P1-1: critical services (session/security access/memory write) require
+    # the operator's dual confirmation — default is NOT-granted.
+    resp_session = client.change_session(
+        DiagnosticSessionType.EXTENDED_DIAGNOSTIC_SESSION, user_confirmed=True
+    )
     assert resp_session.is_positive is True
 
     # 2. Security Access - Request Seed (0x27 0x01)
     bus.inject_rx(
         CanFrame.create(channel_id="mock_vbus_0", arbitration_id=0x7E8, data=b"\x06\x67\x01\x11\x22\x33\x44\x00")
     )
-    resp_seed = client.security_access_request_seed(level=1)
+    resp_seed = client.security_access_request_seed(level=1, user_confirmed=True)
     assert resp_seed.is_positive is True
     seed = resp_seed.data[1:5]
     assert seed == b"\x11\x22\x33\x44"
@@ -1234,7 +1242,7 @@ def test_tier4_scenario1_full_diagnostic_session_stationary_vehicle() -> None:
     bus.inject_rx(
         CanFrame.create(channel_id="mock_vbus_0", arbitration_id=0x7E8, data=b"\x02\x67\x02\x00\x00\x00\x00\x00")
     )
-    resp_key = client.security_access_send_key(level=2, key=key)
+    resp_key = client.security_access_send_key(level=2, key=key, user_confirmed=True)
     assert resp_key.is_positive is True
 
     # 4. Read VIN DID (0x22 0xF190) Single-Frame

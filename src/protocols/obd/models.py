@@ -85,6 +85,15 @@ class UdsDidDefinition:
 
     def decode(self, raw_bytes: bytes) -> Any:
         """Decode raw payload bytes into physical value according to definition."""
+        # L-7 (P3-2): an empty payload carries no signal — reject it. The old
+        # numeric branch turned `int.from_bytes(b"") == 0` into
+        # `0 * scaling + offset` (e.g. silently -40.0 °C), a fabricated
+        # measurement presented as valid telemetry.
+        if not raw_bytes:
+            raise ValueError(
+                f"DID 0x{self.did:04X} ({self.name}) received an empty payload — "
+                "no measurement can be decoded"
+            )
         if self.length is not None and len(raw_bytes) < self.length:
             raise ValueError(
                 f"DID 0x{self.did:04X} ({self.name}) requires at least {self.length} bytes, "

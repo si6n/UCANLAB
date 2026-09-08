@@ -49,7 +49,16 @@ class LauncherAuthManager:
         public_key: ed25519.Ed25519PublicKey | None = None,
     ) -> None:
         self.secrets = secret_provider or get_default_secret_provider()
-        self.client = cloud_client or CloudClient(config=CloudConfig(), secret_provider=self.secrets)
+        # P1-6/E7: the launcher previously constructed the client with a bare
+        # CloudConfig() whose default base_url is the loopback dev server —
+        # production launches sent device tokens and license refs to
+        # http://127.0.0.1:8000. Resolve the production endpoint through the
+        # same env-aware helper the desktop app uses.
+        from src.ui.desktop_app import _resolve_cloud_base_url
+
+        self.client = cloud_client or CloudClient(
+            config=CloudConfig(base_url=_resolve_cloud_base_url()), secret_provider=self.secrets
+        )
 
         if public_key is not None:
             self.public_key = public_key
@@ -82,7 +91,12 @@ class LauncherAuthManager:
 
         ticket_str = self.secrets.get_secret("CLOUD_LICENSE_TICKET").decode("utf-8")
         try:
-            claims = self.flow.verify_cloud_ticket(ticket_str)
+            # P1-6 (REVIEW H-5): this is OFFLINE re-verification of a stored
+            # ticket — pass is_offline=True so the backend-granted grace
+            # window (offline_until) is actually enforced. The old default
+            # (False) made the grace check dead code: an expired-grace
+            # ticket was accepted forever as long as `exp` had not passed.
+            claims = self.flow.verify_cloud_ticket(ticket_str, is_offline=True)
             return AuthStatus(
                 is_authenticated=has_session,
                 has_valid_license=True,

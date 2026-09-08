@@ -44,6 +44,9 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "main.py" = ["E402"]
 "src/main.py" = ["E402"]
+# Launcher entry-point: sys.path bootstrap must precede first-party imports
+# (same pattern as src/main.py — direct `python src/launcher/app.py` runs).
+"src/launcher/app.py" = ["E402"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["src", "scripts", "tests"]

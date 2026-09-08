@@ -63,7 +63,14 @@ class VirtualChannelEngine:
         fuel_rate_lph: float,
         speed_over_ground_knots: float,
     ) -> float | None:
-        """Calculate Marine Fuel Economy in Liters per Nautical Mile (L/NM)."""
+        """Calculate Marine Fuel Economy in Liters per Nautical Mile (L/NM).
+
+        L-6 (P3-1): NaN fails closed — NaN comparisons are always False, so
+        the threshold checks alone let NaN leak into the division and
+        produced NaN telemetry instead of None.
+        """
+        if not (math.isfinite(fuel_rate_lph) and math.isfinite(speed_over_ground_knots)):
+            return None
         if speed_over_ground_knots < 0.5 or fuel_rate_lph < 0:
             return None
         return round(fuel_rate_lph / speed_over_ground_knots, 3)
@@ -74,7 +81,12 @@ class VirtualChannelEngine:
         fuel_rate_lph: float,
         vehicle_speed_kmh: float,
     ) -> float | None:
-        """Calculate Road Vehicle Fuel Consumption in Liters per 100 Kilometers (L/100km)."""
+        """Calculate Road Vehicle Fuel Consumption in Liters per 100 Kilometers (L/100km).
+
+        L-6 (P3-1): NaN fails closed (see marine efficiency).
+        """
+        if not (math.isfinite(fuel_rate_lph) and math.isfinite(vehicle_speed_kmh)):
+            return None
         if vehicle_speed_kmh < 1.0 or fuel_rate_lph < 0:
             return None
         return round((fuel_rate_lph * 100.0) / vehicle_speed_kmh, 2)
@@ -92,7 +104,16 @@ class VirtualChannelEngine:
         Formula:
             Theoretical Speed (knots) = ((Engine RPM / Gear Ratio) * Pitch (inches)) / 1215.22
             Slip % = (1.0 - (Boat Speed / Theoretical Speed)) * 100.0
+
+        L-6 (P3-1): NaN fails closed (see marine efficiency).
         """
+        if not (
+            math.isfinite(engine_rpm)
+            and math.isfinite(gear_ratio)
+            and math.isfinite(prop_pitch_inches)
+            and math.isfinite(boat_speed_knots)
+        ):
+            return None
         if engine_rpm <= 100 or gear_ratio <= 0 or prop_pitch_inches <= 0 or boat_speed_knots < 0:
             return None
 

@@ -114,10 +114,27 @@ class BinaryRingBuffer:
         """Register a new channel string and return its 16-bit integer ID.
 
         Caller must hold self._lock.
+
+        L-13 (P3-10): the 16-bit ID space is CLOSED at 65535 channels — the
+        old wrap (`len(map) & 0xFFFF`) silently aliased new channels onto
+        existing IDs, corrupting every trace and export that referenced
+        them. Excess channels now share the overflow slot but the condition
+        is raised loudly instead of wrapping silently.
         """
         if len(self._channel_map) >= 0xFFFF:
-            logger.warning("RingBuffer channel map exceeded 16-bit capacity (65535 channels)")
-        val = len(self._channel_map) & 0xFFFF
+            # Fail loud, not silent: log once per overflowing channel but
+            # keep the buffer alive (a telemetry storm of unique channel
+            # strings must not kill recording). All overflow channels alias
+            # the 0xFFFF sentinel so corrupted exports are at least
+            # detectable as channel 65535.
+            if channel_id not in self._channel_map:
+                logger.error(
+                    "RingBuffer channel map exceeded 16-bit capacity — aliasing to sentinel 0xFFFF",
+                    extra={"channel_id": channel_id, "capacity": 0xFFFF},
+                )
+            self._channel_map[channel_id] = 0xFFFF
+            return 0xFFFF
+        val = len(self._channel_map)
         self._channel_map[channel_id] = val
         self._rev_channel_map[val] = channel_id
         return val
@@ -126,6 +143,9 @@ class BinaryRingBuffer:
         """Append a single CanFrame into contiguous memory. Returns write sequence."""
         with self._lock:
             return self._store_frame_unlocked(frame)
+
+    # Friendly alias for compatibility with queue/buffer abstractions
+    push = append
 
     def append_batch(self, frames: list[CanFrame]) -> int:
         """Append a batch under a single lock acquisition. Returns total written."""

@@ -82,6 +82,15 @@ export interface DtcInfo {
   oscilloscopeNote: string;
 }
 
+export interface CopilotAction {
+  id: string;
+  label: string;
+  action_type: string;
+  params?: Record<string, any>;
+  requires_confirmation?: boolean;
+  confirm_text?: string;
+}
+
 export interface ChatMessage {
   id: string;
   sender: 'user' | 'copilot';
@@ -89,9 +98,15 @@ export interface ChatMessage {
   text: string;
   isDtcCard?: boolean;
   dtcInfo?: DtcInfo;
+  actions?: CopilotAction[];
 }
 
-export type ActiveTab = 'dashboard' | 'signal_discovery' | 'ecu_flashing' | 'pinout_guide' | 'reports';
+export type ActiveTab =
+  | 'dashboard'
+  | 'signal_discovery'
+  | 'ecu_flashing'
+  | 'pinout_guide'
+  | 'reports';
 
 export interface DiagnosticState {
   healthStatus: 'standby' | 'nominal' | 'warning' | 'critical';

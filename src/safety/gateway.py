@@ -216,18 +216,31 @@ class TxSafetyGateway:
             self.supervisor.trigger_fault("E-Stop engagement triggered from hardware/software event")
         with self._lock:
             self._tx_timestamps.clear()
+            # M-11 (P2-1): reset the overload streak that caused this E-Stop.
+            # The streak survived the latch — after the operator completed the
+            # authenticated reset, the very first burst re-latched the E-Stop
+            # immediately, making the rate-limit condition effectively
+            # un-clearable without a process restart.
+            self._rate_overload_streak = 0
 
     def _on_safety_state_changed(self, old_state: object, new_state: object, reason: str) -> None:
         if getattr(new_state, "value", str(new_state)) == "FAULT":
             with self._lock:
                 self._tx_timestamps.clear()
 
-    def update_vehicle_speed(self, speed_kmh: float) -> None:
+    def update_vehicle_speed(self, speed_kmh: float, *, source: str = "physical") -> None:
         """Update live vehicle speed for dynamic interlock enforcement.
 
         Always timestamps with time.monotonic_ns() on reception to prevent
         clock domain skew. NaN, negative or non-finite values are treated as
         corrupted telemetry and invalidate freshness to 0 (fail-closed).
+
+        P0-2 (REVIEW C-2): `source` binds provenance to the interlock. Only
+        `"physical"` (hardware-derived telemetry) may satisfy the speed
+        interlock; `"synthetic"` (simulator/scenario values) is recorded for
+        telemetry purposes but never refreshes interlock freshness — a
+        simulated stationary vehicle must not authorize critical commands
+        while a real vehicle is connected and moving.
         """
         with self._lock:
             if not math.isfinite(speed_kmh) or speed_kmh < 0.0:
@@ -235,7 +248,11 @@ class TxSafetyGateway:
                 self._last_speed_update_ns = 0
                 return
             self._current_vehicle_speed_kmh = float(speed_kmh)
-            self._last_speed_update_ns = time.monotonic_ns()
+            if source == "physical":
+                self._last_speed_update_ns = time.monotonic_ns()
+            # Synthetic updates leave _last_speed_update_ns untouched so the
+            # interlock keeps its physical last-known-good timestamp (or its
+            # fail-closed zero when no physical feed ever arrived).
 
     def is_speed_fresh_and_safe(self, max_age_ns: int | None = None) -> bool:
         """Public inquiry API for preflight checks: True when speed is fresh and below threshold."""

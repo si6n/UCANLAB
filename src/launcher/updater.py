@@ -8,9 +8,12 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import urllib.error
+import urllib.parse
 import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass
+from http.client import HTTPResponse
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +24,28 @@ from src.core.logging import get_logger
 from src.security.cloud.client import CloudClient
 
 logger = get_logger("launcher.updater")
+
+# E1 (P1-7): hosts allowed to serve update binaries. The cloud manifest
+# names a download_url; a compromised manifest response must not be able to
+# pivot the launcher's fetch onto an attacker-controlled origin.
+ALLOWED_UPDATE_HOSTS: tuple[str, ...] = (
+    "ucan-cloud.si6n.io",
+    "cloud.universalcan.io",
+)
+
+
+class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """E1 (P1-7): update downloads must not follow HTTP redirects.
+
+    A 30x on the update URL allowed a man-in-the-middle (or a hostile
+    manifest) to pivot the download from https://cdn... to http:// or an
+    arbitrary host. The hash/signature checks still guard content
+    integrity, but the download itself must stay on the pinned origin —
+    scheme downgrade and arbitrary-origin fetch fail closed instead.
+    """
+
+    def redirect_request(self, req: Any, fp: Any, code: Any, msg: Any, hdrs: Any, newurl: Any) -> None:  # type: ignore[override]
+        return None
 
 
 @dataclass(slots=True, frozen=True)
@@ -181,6 +206,17 @@ class UpdateManager:
             )
             return False
 
+        # E1 (P1-7): pin the download origin — scheme AND host. A compromised
+        # /updates/latest response must not pivot the fetch onto an
+        # arbitrary origin (SSRF) or a downgrade host.
+        parsed = urllib.parse.urlsplit(update_info.download_url)
+        if parsed.scheme != "https" or parsed.hostname not in ALLOWED_UPDATE_HOSTS:
+            logger.error(
+                "Update download rejected: download host is not in the pinned allowlist",
+                extra={"host": parsed.hostname, "allowed": list(ALLOWED_UPDATE_HOSTS)},
+            )
+            return False
+
         # L-C-002: hash-less packages fail closed (supply-chain guard)
         if not update_info.sha256_hash:
             logger.error(
@@ -200,15 +236,35 @@ class UpdateManager:
         try:
             temp_dest = dest.with_suffix(".tmp_download")
             req = urllib.request.Request(update_info.download_url, headers={"User-Agent": "UniversalCAN-Launcher/13.0"})
-            with urllib.request.urlopen(req, timeout=60) as response, open(temp_dest, "wb") as out_file:  # nosec: B310
+            # E1 (P1-7): opener with redirect following DISABLED — see
+            # _NoRedirectHandler. A 30x raises HTTPError here (fail closed)
+            # instead of silently fetching from wherever it points.
+            opener = urllib.request.build_opener(_NoRedirectHandler)
+            # M-20 (P2-11): hard cap on the downloaded package — the manifest
+            # declares its size; a redirect-then-inflate endpoint must not
+            # stream an unbounded body to disk.
+            MAX_PACKAGE_BYTES = 2 * 1024 * 1024 * 1024  # 2 GiB
+            with opener.open(req, timeout=60) as response, open(temp_dest, "wb") as out_file:  # nosec: B310
+                assert isinstance(response, HTTPResponse)  # noqa: S101 — narrowing for type checkers
                 total_size = int(response.headers.get("Content-Length", update_info.package_size_bytes or 0))
+                if total_size > MAX_PACKAGE_BYTES:
+                    logger.error("Update rejected: declared package size exceeds cap", extra={"declared": total_size})
+                    return False
                 bytes_downloaded = 0
+                aborted = False
                 while chunk := response.read(65536):
                     out_file.write(chunk)
                     bytes_downloaded += len(chunk)
+                    if bytes_downloaded > MAX_PACKAGE_BYTES:
+                        logger.error("Update aborted: package exceeded size cap mid-stream")
+                        aborted = True
+                        break
                     if progress_callback and total_size > 0:
                         pct = round((bytes_downloaded / total_size) * 100, 1)
                         progress_callback(bytes_downloaded, total_size, pct)
+            if aborted:
+                temp_dest.unlink(missing_ok=True)
+                return False
 
             if not self.verify_file_sha256(temp_dest, update_info.sha256_hash):
                 temp_dest.unlink(missing_ok=True)

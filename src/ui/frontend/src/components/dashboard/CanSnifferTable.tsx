@@ -216,13 +216,13 @@ export const CanSnifferTable: React.FC<CanSnifferTableProps> = ({
     if (frame.colorPalette && frame.colorPalette[index]) {
       switch (frame.colorPalette[index]) {
         case 'blue':
-          colorClass = 'text-blue-600 font-bold';
+          colorClass = 'text-brand-600 font-bold';
           break;
         case 'indigo':
-          colorClass = 'text-indigo-600 font-bold';
+          colorClass = 'text-brand-600 font-bold';
           break;
         case 'emerald':
-          colorClass = 'text-emerald-600 font-bold';
+          colorClass = 'text-signal-600 font-bold';
           break;
         case 'amber':
           colorClass = 'text-amber-600 font-bold';
@@ -234,9 +234,9 @@ export const CanSnifferTable: React.FC<CanSnifferTableProps> = ({
           colorClass = 'text-slate-600 font-medium';
       }
     } else {
-      if (index === 0 || index === 3) colorClass = 'text-blue-600 font-bold';
-      else if (index === 1 || index === 2) colorClass = 'text-indigo-600 font-bold';
-      else if (index === 4) colorClass = 'text-emerald-600 font-bold';
+      if (index === 0 || index === 3) colorClass = 'text-brand-600 font-bold';
+      else if (index === 1 || index === 2) colorClass = 'text-brand-600 font-bold';
+      else if (index === 4) colorClass = 'text-signal-600 font-bold';
       else colorClass = 'text-slate-600 font-medium';
     }
 
@@ -253,15 +253,13 @@ export const CanSnifferTable: React.FC<CanSnifferTableProps> = ({
       <div className="px-3.5 py-2 bg-white border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center space-x-2.5">
           <div className="w-6 h-6 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700">
-            <Terminal className="w-3.5 h-3.5 text-blue-600 stroke-[2.2]" />
+            <Terminal className="w-3.5 h-3.5 text-brand-600 stroke-[2.2]" />
           </div>
           <div className="flex items-center space-x-2">
-            <span className="text-xs font-bold text-slate-900 tracking-normal">
-              Canlı Veri Akışı (Sniffer)
+            <span className="text-xs font-bold tracking-tight text-slate-900">
+              Sniffer
             </span>
-            <span className="bg-slate-100 text-slate-600 border border-slate-200 text-[10.5px] font-mono px-2 py-0.5 rounded font-medium">
-              {frameRate} kare/sn
-            </span>
+            <span className="font-mono text-xs text-slate-500">{frameRate} kare/sn</span>
           </div>
         </div>
 
@@ -270,12 +268,12 @@ export const CanSnifferTable: React.FC<CanSnifferTableProps> = ({
           {ignoredCanIds.size > 0 && (
             <button
               onClick={handleClearIgnored}
-              className="flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-200 text-[11px] text-slate-600 font-medium transition-colors"
+              className="flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-200 text-xs text-slate-600 font-medium transition-colors"
               title="Gizlenen filtreleri sıfırla"
             >
               <EyeOff className="w-3 h-3 text-slate-500" />
               <span>{ignoredCanIds.size} Gizlendi</span>
-              <XCircle className="w-3 h-3 text-slate-400 hover:text-slate-600 ml-0.5" />
+              <XCircle className="w-3 h-3 text-slate-500 hover:text-slate-600 ml-0.5" />
             </button>
           )}
 
@@ -303,13 +301,13 @@ export const CanSnifferTable: React.FC<CanSnifferTableProps> = ({
 
           {/* Search Filter Input */}
           <div className="relative">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+            <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={filterQuery}
               onChange={(e) => setFilterQuery(e.target.value)}
               placeholder="CAN ID veya Hex filtrele..."
-              className="pl-8 pr-3 py-1 text-xs font-mono bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 w-36 md:w-48 transition-all"
+              className="pl-8 pr-3 py-1 text-xs font-mono bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 w-36 md:w-48 transition-all"
             />
           </div>
 
@@ -318,7 +316,7 @@ export const CanSnifferTable: React.FC<CanSnifferTableProps> = ({
             className={`flex items-center space-x-1 px-2.5 py-1 rounded-lg border text-xs font-medium transition-colors ${
               isStreaming
                 ? 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
-                : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
+                : 'bg-signal-50 border-signal-200 text-signal-700 hover:bg-signal-100'
             }`}
           >
             {isStreaming ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
@@ -337,8 +335,8 @@ export const CanSnifferTable: React.FC<CanSnifferTableProps> = ({
             onClick={() => setAutoScroll(!autoScroll)}
             className={`p-1 rounded-lg border text-xs transition-colors ${
               autoScroll
-                ? 'bg-blue-50 border-blue-200 text-blue-600'
-                : 'bg-slate-50 border-slate-200 text-slate-400 hover:text-slate-600'
+                ? 'bg-brand-50 border-brand-200 text-brand-600'
+                : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-600'
             }`}
             title="Otomatik Kaydır"
           >
@@ -350,10 +348,10 @@ export const CanSnifferTable: React.FC<CanSnifferTableProps> = ({
       {/* Table Container */}
       <div 
         ref={tableContainerRef}
-        className="flex-1 overflow-y-auto overflow-x-auto text-[11px] font-mono select-text bg-white"
+        className="flex-1 overflow-y-auto overflow-x-auto text-xs font-mono select-text bg-white"
       >
         <table className="w-full text-left border-collapse">
-          <thead className="sticky top-0 bg-slate-50/95 backdrop-blur-xs border-b border-slate-200 text-[10.5px] font-semibold text-slate-600 tracking-normal z-10">
+          <thead className="sticky top-0 bg-slate-50/95 backdrop-blur-xs border-b border-slate-200 text-xs font-semibold text-slate-600 tracking-normal z-10">
             <tr>
               <th className="py-1.5 px-3 w-24">Zaman (s)</th>
               <th className="py-1.5 px-2.5 w-16">Kanal</th>
@@ -361,18 +359,18 @@ export const CanSnifferTable: React.FC<CanSnifferTableProps> = ({
               <th className="py-1.5 px-2 w-14">Tip</th>
               <th className="py-1.5 px-2 w-12 text-center">Yön</th>
               <th className="py-1.5 px-2 w-10 text-center">DLC</th>
-              <th className="py-1.5 px-3 flex-1 min-w-[200px]">Veri (Hex Payload)</th>
-              <th className="py-1.5 px-3 w-24">ASCII</th>
+              <th className="py-1.5 px-3 w-[210px] whitespace-nowrap">Veri (Hex Payload)</th>
+              <th className="py-1.5 px-3 whitespace-nowrap">ASCII</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {filteredFrames.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-12 text-center text-slate-400 font-sans text-xs">
+                <td colSpan={8} className="py-12 text-center text-slate-500 font-sans text-xs">
                   <div className="flex flex-col items-center justify-center space-y-2">
                     <Terminal className="w-8 h-8 text-slate-300 stroke-1" />
                     <span className="font-semibold text-slate-600">CAN hattı dinleniyor...</span>
-                    <span className="text-[11px] text-slate-400">Canlı donanım bağlantısı kurulduğunda veya simülasyon başlatıldığında paketler burada akacaktır.</span>
+                    <span className="text-xs text-slate-500">Canlı donanım bağlantısı kurulduğunda veya simülasyon başlatıldığında paketler burada akacaktır.</span>
                   </div>
                 </td>
               </tr>
@@ -395,54 +393,50 @@ export const CanSnifferTable: React.FC<CanSnifferTableProps> = ({
                   <td className="py-1 px-3 text-slate-500 font-mono">
                     {frame.timeFormatted}
                   </td>
-                  <td className="py-1 px-2.5 text-blue-600 font-medium">
+                  <td className="py-1 px-2.5 text-brand-600 font-medium">
                     {frame.channel}
                   </td>
-                  <td className="py-1 px-3 font-bold">
-                    {anomaly === 'critical' ? (
-                      <div className="flex items-center space-x-1 text-rose-700">
-                        <AlertTriangle className="w-3.5 h-3.5 text-rose-600 animate-pulse shrink-0" />
-                        <span>{frame.canIdHex}</span>
-                        <span className="text-[8.5px] bg-rose-200 text-rose-900 font-extrabold px-1 rounded">DTC</span>
-                      </div>
-                    ) : anomaly === 'warning' ? (
-                      <div className="flex items-center space-x-1 text-amber-700">
-                        <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                        <span>{frame.canIdHex}</span>
-                      </div>
-                    ) : (
-                      <span className="text-blue-700">{frame.canIdHex}</span>
-                    )}
-                  </td>
-                  <td className="py-1 px-2 text-slate-500">
-                    {frame.isCanFd || frame.frameType === 'FD' ? (
-                      <span className="bg-purple-100 text-purple-800 text-[9px] font-bold px-1.5 py-0.5 rounded border border-purple-200">
-                        FD
-                      </span>
-                    ) : (
-                      frame.frameType
-                    )}
-                  </td>
-                  <td className="py-1 px-2 text-center">
-                    <span
-                      className={`inline-block px-1.5 py-0.5 rounded text-[9.5px] font-bold ${
-                        frame.dir === 'RX'
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
-                          : 'bg-amber-50 text-amber-700 border border-amber-200/60'
-                      }`}
-                    >
-                      {frame.dir}
-                    </span>
-                  </td>
+                <td className="py-1 px-3 font-bold">
+                  {anomaly === 'critical' ? (
+                    <div className="flex items-center space-x-1 text-rose-700">
+                      <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                      <span>{frame.canIdHex}</span>
+                      <span className="font-sans text-xs font-semibold text-rose-700">DTC</span>
+                    </div>
+                  ) : anomaly === 'warning' ? (
+                    <div className="flex items-center space-x-1 text-amber-700">
+                      <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <span>{frame.canIdHex}</span>
+                    </div>
+                  ) : (
+                    <span className="text-brand-700">{frame.canIdHex}</span>
+                  )}
+                </td>
+                <td className="py-1 px-2 text-slate-500">
+                  {frame.isCanFd || frame.frameType === 'FD' ? (
+                    <span className="font-semibold text-brand-700">FD</span>
+                  ) : (
+                    frame.frameType
+                  )}
+                </td>
+                <td className="py-1 px-2 text-center text-xs font-semibold">
+                  <span
+                    className={
+                      frame.dir === 'RX' ? 'text-signal-700' : 'text-amber-700'
+                    }
+                  >
+                    {frame.dir}
+                  </span>
+                </td>
                   <td className="py-1 px-2 text-center text-slate-600 font-semibold">
                     {frame.dlc}
                   </td>
-                  <td className="py-1 px-3 space-x-1.5 whitespace-nowrap">
+                  <td className="py-1 px-3 space-x-1.5 whitespace-nowrap w-[210px]">
                     {frame.dataHex.map((byte, idx) => 
                       renderColoredByte(byte, idx, frame)
                     )}
                   </td>
-                  <td className="py-1 px-3 text-slate-400 tracking-wider">
+                  <td className="py-1 px-3 text-slate-500 tracking-wider whitespace-nowrap">
                     {frame.ascii}
                   </td>
                 </tr>
@@ -453,7 +447,7 @@ export const CanSnifferTable: React.FC<CanSnifferTableProps> = ({
       </div>
 
       {/* Sniffer Footer Metrics */}
-      <div className="px-3.5 py-1.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-[10.5px] text-slate-500 font-mono">
+      <div className="px-3.5 py-1.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500 font-mono">
         <div className="flex items-center space-x-4">
           <span>Toplam Gösterilen: <strong className="text-slate-700">{totalDisplayedCount}</strong></span>
           <span>
@@ -464,9 +458,9 @@ export const CanSnifferTable: React.FC<CanSnifferTableProps> = ({
           </span>
           <span>Hata Kareleri (Bus Errors): <strong className={errorFrameCount > 0 ? 'text-rose-600' : 'text-slate-700'}>{errorFrameCount}</strong></span>
         </div>
-        <div className="flex items-center space-x-1.5 text-emerald-600 font-sans font-medium">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-          <span>Tam Tampon Modu (Sağ tık ile menüyü açın)</span>
+        <div className="flex items-center space-x-1.5 text-xs text-slate-500 font-sans">
+          <span className="w-1.5 h-1.5 rounded-full bg-signal-500"></span>
+          <span>Sağ tık ile kare menüsünü açın</span>
         </div>
       </div>
 
@@ -484,8 +478,8 @@ export const CanSnifferTable: React.FC<CanSnifferTableProps> = ({
         >
           {/* Header Info */}
           <div className="px-3 py-1.5 border-b border-slate-100 flex items-center justify-between">
-            <span className="font-mono font-bold text-blue-700">{contextMenu.frame.canIdHex}</span>
-            <span className="text-[10px] text-slate-400 font-mono">{contextMenu.frame.channel} • {contextMenu.frame.dir}</span>
+            <span className="font-mono font-bold text-brand-700">{contextMenu.frame.canIdHex}</span>
+            <span className="text-xs text-slate-500 font-mono">{contextMenu.frame.channel} • {contextMenu.frame.dir}</span>
           </div>
 
           <div className="py-1">
@@ -496,9 +490,9 @@ export const CanSnifferTable: React.FC<CanSnifferTableProps> = ({
                   onAskCopilot(contextMenu.frame);
                   setContextMenu(null);
                 }}
-                className="w-full px-3 py-1.5 flex items-center space-x-2 hover:bg-blue-50 text-blue-700 font-semibold transition-colors text-left"
+                className="w-full px-3 py-1.5 flex items-center space-x-2 hover:bg-brand-50 text-brand-700 font-semibold transition-colors text-left"
               >
-                <Bot className="w-4 h-4 text-blue-600 shrink-0" />
+                <Bot className="w-4 h-4 text-brand-600 shrink-0" />
                 <span>AI Copilot'a Analiz Ettir</span>
               </button>
             )}
@@ -533,7 +527,7 @@ export const CanSnifferTable: React.FC<CanSnifferTableProps> = ({
               onClick={() => copyToClipboard(contextMenu.frame.canIdHex, 'CAN ID')}
               className="w-full px-3 py-1.5 flex items-center space-x-2 hover:bg-slate-50 text-slate-700 transition-colors text-left"
             >
-              <Copy className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <Copy className="w-3.5 h-3.5 text-slate-500 shrink-0" />
               <span>CAN ID Kopyala</span>
             </button>
 
@@ -542,7 +536,7 @@ export const CanSnifferTable: React.FC<CanSnifferTableProps> = ({
               onClick={() => copyToClipboard(contextMenu.frame.dataHex.join(' '), 'Hex Payload')}
               className="w-full px-3 py-1.5 flex items-center space-x-2 hover:bg-slate-50 text-slate-700 transition-colors text-left"
             >
-              <Code2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <Code2 className="w-3.5 h-3.5 text-slate-500 shrink-0" />
               <span>Hex Payload Kopyala</span>
             </button>
 
@@ -554,7 +548,7 @@ export const CanSnifferTable: React.FC<CanSnifferTableProps> = ({
               }}
               className="w-full px-3 py-1.5 flex items-center space-x-2 hover:bg-slate-50 text-slate-700 transition-colors text-left"
             >
-              <Copy className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <Copy className="w-3.5 h-3.5 text-slate-500 shrink-0" />
               <span>Tüm Satırı Kopyala (.ASC)</span>
             </button>
           </div>
@@ -564,7 +558,7 @@ export const CanSnifferTable: React.FC<CanSnifferTableProps> = ({
       {/* Copied Toast Alert */}
       {copiedToast && (
         <div className="absolute bottom-10 right-4 z-50 bg-slate-900/90 backdrop-blur-md text-white text-xs font-sans px-3 py-1.5 rounded-lg shadow-lg flex items-center space-x-2 animate-in fade-in slide-in-from-bottom-2 duration-150">
-          <Check className="w-3.5 h-3.5 text-emerald-400" />
+          <Check className="w-3.5 h-3.5 text-signal-400" />
           <span>{copiedToast}</span>
         </div>
       )}

@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import csv
 import json
+import os
+import time
 from pathlib import Path
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data" / "diagnostics"
@@ -484,6 +486,33 @@ NEW_SPNS: dict[str, dict] = {
 }
 
 
+def _check() -> int:
+    """L-17 (P3-13): --check mode — validate the script's invariants without
+    writing anything (usable from CI). Returns the number of violations."""
+    db = json.loads(JSON_PATH.read_text(encoding="utf-8"))
+    fmi_defs = db["fmi_definitions"]
+    violations = 0
+    for key, entry in NEW_SPNS.items():
+        if key in db["spns"]:
+            continue
+        if str(entry["spn"]) != key.split("_")[1]:
+            print(f"VIOLATION: {key} key/syn mismatch (spn={entry['spn']})")
+            violations += 1
+        for fmi in entry["fault_matrix"]:
+            if fmi not in fmi_defs:
+                print(f"VIOLATION: {key} references unknown FMI {fmi}")
+                violations += 1
+    return violations
+
+
+def _atomic_write(path, data: bytes) -> None:
+    """L-17 (P3-13): tmp + os.replace so a crash mid-write can never
+    truncate the knowledge base the copilot loads at startup."""
+    tmp = path.with_suffix(path.suffix + f".tmp-{os.getpid()}-{time.monotonic_ns()}")
+    tmp.write_bytes(data)
+    os.replace(tmp, path)
+
+
 def apply() -> None:
     db = json.loads(JSON_PATH.read_text(encoding="utf-8"))
     fmi_defs = db["fmi_definitions"]
@@ -494,9 +523,13 @@ def apply() -> None:
         if key in spns:
             print(f"skip (exists): {key}")
             continue
-        assert str(entry["spn"]) == key.split("_")[1], key
+        # L-17: real exceptions instead of assert — `python -O` strips
+        # asserts and let a corrupt expansion reach the DB.
+        if str(entry["spn"]) != key.split("_")[1]:
+            raise ValueError(f"{key}: key/syn mismatch (spn={entry['spn']})")
         for fmi in entry["fault_matrix"]:
-            assert fmi in fmi_defs, f"{key}: FMI {fmi} not in fmi_definitions"
+            if fmi not in fmi_defs:
+                raise ValueError(f"{key}: FMI {fmi} not in fmi_definitions")
         # Expand FMI tuples into the canonical object shape.
         entry["fault_matrix"] = {
             fmi: {
@@ -519,8 +552,10 @@ def apply() -> None:
         "ISO 11783 / J1939-71 public scaling tables - temperature/pressure bit encodings",
     ]
 
+    # L-17: LF line endings preserved (the old \n→\r\n rewrite churned the
+    # whole file in every diff) and written atomically.
     text = json.dumps(db, indent=2, ensure_ascii=False)
-    JSON_PATH.write_bytes(text.replace("\n", "\r\n").encode("utf-8"))
+    _atomic_write(JSON_PATH, text.encode("utf-8"))
     print(f"JSON: +{added} SPNs -> total {len(spns)}")
 
     # Regenerate the CSV twin in the existing column layout.
@@ -535,12 +570,23 @@ def apply() -> None:
                 f"{e['associated_pgn']} ({e['pgn_acronym']})", fm["fmi_name"],
                 fm["severity"], fm["diagnostic_action"],
             ])
-    with CSV_PATH.open("w", encoding="utf-8-sig", newline="") as f:
-        w = csv.writer(f)
-        w.writerow(header)
-        w.writerows(rows)
+    import io
+    buf = io.StringIO(newline="")
+    w = csv.writer(buf)
+    w.writerow(header)
+    w.writerows(rows)
+    _atomic_write(CSV_PATH, buf.getvalue().encode("utf-8-sig"))
     print(f"CSV: {len(rows)} fault rows")
 
 
 if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Expand the J1939 SPN/FMI database")
+    parser.add_argument("--check", action="store_true", help="Validate invariants without writing (CI mode)")
+    args = parser.parse_args()
+    if args.check:
+        bad = _check()
+        print(f"check: {bad} violations")
+        raise SystemExit(1 if bad else 0)
     apply()

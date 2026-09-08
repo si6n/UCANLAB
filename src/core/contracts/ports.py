@@ -205,16 +205,37 @@ class InMemorySecretProvider:
 
 
 class InMemoryTxPort:
-    """In-memory transmission port recording frames for test verification."""
+    """In-memory transmission port recording frames for test verification.
+
+    L-18 (P3-16): signature-aligned with the TxPort protocol — the old
+    bare `send(frame)` raised TypeError the moment a protocol engine passed
+    the protocol-mandated safety kwargs (is_critical_command / user_confirmed
+    / budget_category). The test recorder ignores the flags and records
+    everything, exactly as before.
+    """
 
     def __init__(self) -> None:
         self.sent_frames: list[CanFrame] = []
 
-    async def send(self, frame: CanFrame) -> None:
+    async def send(
+        self,
+        frame: CanFrame,
+        *,
+        is_critical_command: bool = False,
+        user_confirmed: bool = False,
+        budget_category: str = "default",
+    ) -> None:
         """Record frame asynchronously."""
         self.sent_frames.append(frame)
 
-    def send_sync(self, frame: CanFrame) -> None:
+    def send_sync(
+        self,
+        frame: CanFrame,
+        *,
+        is_critical_command: bool = False,
+        user_confirmed: bool = False,
+        budget_category: str = "default",
+    ) -> None:
         """Record frame synchronously."""
         self.sent_frames.append(frame)
 

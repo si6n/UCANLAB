@@ -498,10 +498,13 @@ class ScaniaDecoder(BaseOemDecoder):
             0x14: "Scania Retarder Calibration Mode",
         }
 
-        if cmd_id not in scania_cmds and da != 0x00 and da != 0x10 and da != 0x27:
+        # M-24 (P2-8): positive disambiguation — unknown command ids are
+        # never claimed (the old DA-based guard let engine/EMS/retarder-
+        # addressed unknowns through as generic Scania services).
+        if cmd_id not in scania_cmds:
             return None
 
-        cmd_name = scania_cmds.get(cmd_id, f"Scania Service 0x{cmd_id:02X}")
+        cmd_name = scania_cmds[cmd_id]
         signals: dict[str, DecodedSignal] = {
             "service_command_id": DecodedSignal(
                 name="service_command_id",

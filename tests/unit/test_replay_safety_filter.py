@@ -114,11 +114,13 @@ def test_dm4_dm5_correct_pgn_values_blocked() -> None:
     ok4, r4 = f.is_frame_safe(dm4)
     ok5, r5 = f.is_frame_safe(dm5)
     ok11, r11 = f.is_frame_safe(dm11)
-    assert not ok2 and "BLOCKED_J1939_PGN" in r2
-    assert not ok3 and "BLOCKED_J1939_PGN" in r3
-    assert not ok4 and "BLOCKED_J1939_PGN" in r4
-    assert not ok5 and "BLOCKED_J1939_PGN" in r5
-    assert not ok11 and "BLOCKED_J1939_PGN" in r11
+    # M-22 (P2-9): DM clear-family PGNs answer to the diagnostic-write policy
+    # (their own flag) — address-claim blocking must not gate DTC evidence.
+    assert not ok2 and "BLOCKED_DIAGNOSTIC_WRITE_PGN" in r2
+    assert not ok3 and "BLOCKED_DIAGNOSTIC_WRITE_PGN" in r3
+    assert not ok4 and "BLOCKED_DIAGNOSTIC_WRITE_PGN" in r4
+    assert not ok5 and "BLOCKED_DIAGNOSTIC_WRITE_PGN" in r5
+    assert not ok11 and "BLOCKED_DIAGNOSTIC_WRITE_PGN" in r11
 
 
 def test_tsc1_xbr_actuation_pgns_blocked() -> None:

@@ -1,4 +1,4 @@
-﻿"""Universal CAN-Bus Platform - Desktop Launcher & Bootstrap Controller.
+"""Universal CAN-Bus Platform - Desktop Launcher & Bootstrap Controller.
 
 Coordinates pre-flight environment checks, cloud authentication / HWID binding,
 update validation, and secure execution of the core diagnostic application.
@@ -13,6 +13,11 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+# Ensure project root is in sys.path when invoked directly as python src/launcher/app.py
+_PROJECT_ROOT = str(Path(__file__).resolve().parent.parent.parent)
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
 
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
@@ -73,6 +78,8 @@ class UniversalCanLauncher:
 
         # 1. Check for Nuitka / PyInstaller compiled standalone executable
         candidate_exes = [
+            root / "dist" / "ucanlab.exe",
+            root / "dist" / "main.dist" / "ucanlab.exe",
             root / "dist" / "Universal-CAN-Tool.exe",
             root / "dist" / "Universal_CAN_Diagnostic.exe",
             root / "dist" / "main.dist" / "Universal-CAN-Tool.exe",

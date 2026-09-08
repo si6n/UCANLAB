@@ -40,6 +40,8 @@ declare global {
         toggle_simulator: () => Promise<boolean>;
         select_scenario: (name: string) => Promise<void>;
         ask_copilot: (query: string) => Promise<string>;
+        execute_diagnostic_action?: (action: Record<string, any>, userConfirmed: boolean) => Promise<{ success: boolean; message?: string; error?: string; [key: string]: any }>;
+        get_bus_traffic_status?: () => Promise<Record<string, any>>;
         export_logs: (format: string) => Promise<boolean>;
         save_settings: (settings: Record<string, any>) => Promise<void>;
         inject_fault?: (faultType: string) => Promise<void>;
@@ -47,7 +49,6 @@ declare global {
         // E-Stop Cryptographic Challenge / Multi-Operator APIs
         estop_request_challenge?: () => Promise<{ success: boolean; epoch?: number; nonce?: string; timestampMonotonicNs?: number; maxAgeMs?: number; action?: string; error?: string }>;
         estop_submit_reset_token?: (tokenStr: string) => Promise<{ success: boolean; error?: string }>;
-        estop_reset_local?: () => Promise<{ success: boolean; error?: string }>;
         // Cloud APIs
         cloud_test_connection?: (url?: string, sessionToken?: string) => Promise<{ success: boolean; status?: number; user?: any; error?: string }>;
         cloud_save_config?: (url: string, sessionToken?: string) => Promise<{ success: boolean; error?: string }>;
@@ -118,6 +119,94 @@ export class DesktopBridge {
     return null;
   }
 
+  public static async executeDiagnosticAction(
+    action: Record<string, any>,
+    userConfirmed: boolean = false
+  ): Promise<{ success: boolean; message?: string; error?: string; [key: string]: any }> {
+    if (this.isNative() && window.pywebview?.api?.execute_diagnostic_action) {
+      return await window.pywebview.api.execute_diagnostic_action(action, userConfirmed);
+    }
+    // Browser / Dev fallback:
+    if (action.action_type === 'uds_clear_dtc') {
+      return {
+        success: true,
+        message: '✅ [UDS 0x14] ECU arıza hafızası temizlendi (Pozitif Yanıt 0x54). Hata sayacı sıfırlandı.',
+        service: '0x14',
+      };
+    }
+    if (action.action_type === 'uds_read_did') {
+      const did = action.params?.did || 0xF190;
+      if (did === 0xF190) {
+        return {
+          success: true,
+          message: '📄 [UDS 0x22 DID 0xF190] Araç VIN Numarası: `WVWZZZ1KZ9W123456` (Pozitif Yanıt 0x62).',
+          vin: 'WVWZZZ1KZ9W123456',
+        };
+      }
+      return {
+        success: true,
+        message: `📄 [UDS 0x22 DID 0x${did.toString(16).toUpperCase()}] Veri okundu: 01 A4 B2 C3 (Pozitif Yanıt 0x62).`,
+      };
+    }
+    if (action.action_type === 'uds_session_control') {
+      const st = action.params?.session_type || 3;
+      return {
+        success: true,
+        message: `🔄 [UDS 0x10] Teşhis oturumu 0x0${st} moduna geçirildi (Pozitif Yanıt 0x50).`,
+      };
+    }
+    if (action.action_type === 'j1939_clear_dtc') {
+      return {
+        success: true,
+        message: '✅ [J1939 DM11] Ağır vasıta aktif arızaları temizlendi (PGN 65235).',
+      };
+    }
+    if (action.action_type === 'j1939_dm1_query') {
+      return {
+        success: true,
+        message: '📋 [J1939 DM1] Aktif Arıza Durumu: Nominal (0 DTC - PGN 65226).',
+      };
+    }
+    if (action.action_type === 'uds_routine') {
+      const rid = action.params?.routine_id ? `0x${Number(action.params.routine_id).toString(16).toUpperCase()}` : '0xD001';
+      return {
+        success: true,
+        message: `▶️ [UDS 0x31] Teşhis rutini ${rid} başarıyla başlatıldı (Pozitif Yanıt 0x71).`,
+        routine_id: rid,
+      };
+    }
+    if (action.action_type === 'uds_ecu_reset') {
+      const rt = action.params?.reset_type || 1;
+      return {
+        success: true,
+        message: `⚡ [UDS 0x11] ECU Donanımsal Reset komutu iletildi (Reset Tipi: 0x0${rt}, Pozitif Yanıt 0x51).`,
+        reset_type: rt,
+      };
+    }
+    return {
+      success: true,
+      message: `▶️ [${action.label || 'Diagnostik Eylem'}] İşlem başarıyla tamamlandı.`,
+    };
+  }
+
+  public static async getBusTrafficStatus(): Promise<Record<string, any> | null> {
+    if (this.isNative() && window.pywebview?.api?.get_bus_traffic_status) {
+      return await window.pywebview.api.get_bus_traffic_status();
+    }
+    // Browser / Dev fallback
+    return {
+      bus_load_percent: 32,
+      error_count: 0,
+      total_packets: 1250,
+      recent_frame_count: 50,
+      recent_frame_rate: 500,
+      status: 'nominal',
+      babbling_node: null,
+      is_simulating: true,
+      anomalies: [],
+    };
+  }
+
   public static async injectFault(faultType: string): Promise<void> {
     if (this.isNative() && window.pywebview?.api?.inject_fault) {
       await window.pywebview.api.inject_fault(faultType);
@@ -146,13 +235,11 @@ export class DesktopBridge {
     return { success: true };
   }
 
-  public static async estopResetLocal(): Promise<{ success: boolean; error?: string }> {
-    if (this.isNative() && window.pywebview?.api?.estop_reset_local) {
-      return await window.pywebview.api.estop_reset_local();
-    }
-    this.requireNativeOrDev(); // safety-critical: no silent mock
-    return { success: true };
-  }
+  // estopResetLocal() removed (REVIEW C-1 / P0-1): the backend bridge method
+  // was deleted — a single JS call could mint and consume an E-Stop reset
+  // token, clearing a latched E-Stop with zero authorization. Recovery is
+  // exclusively the challenge/response flow: estopRequestChallenge() →
+  // (out-of-band authorization) → estopSubmitResetToken().
 
   public static async updateSettings(settings: Record<string, any>): Promise<void> {
     if (this.isNative() && window.pywebview?.api?.save_settings) {

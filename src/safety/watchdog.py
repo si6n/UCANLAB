@@ -6,7 +6,6 @@ Complies with Saha Risk Kataloğu v1.2 Sections 20, 36.5, 38.
 from __future__ import annotations
 
 import threading
-import time
 from typing import TYPE_CHECKING, ClassVar
 
 from src.core.contracts.ports import SystemClockProvider
@@ -46,6 +45,13 @@ class TxWatchdogSupervisor:
         self._is_running = False
         self._thread: threading.Thread | None = None
         self._lock = threading.Lock()
+        # P0-4 (REVIEW H-4): wakeable stop signal. The old monitor loop
+        # parked in time.sleep(0.050) with a literal `while True:` condition
+        # that never consulted _is_running — stop() could only wait 1 s for
+        # a thread that NEVER exits, and a stop()/start() cycle leaked a
+        # second immortal monitor. This Event both breaks the loop promptly
+        # and makes the sleep interruptible.
+        self._stop_event = threading.Event()
 
         if self.supervisor:
             self.supervisor.register_callback(self._on_safety_state_changed)
@@ -79,6 +85,16 @@ class TxWatchdogSupervisor:
         with self._lock:
             if self._is_running:
                 return
+            # P0-4: a previous monitor thread that has not fully exited yet
+            # (stop() raced its final iteration) must not be superseded by a
+            # second live monitor — two threads evaluating lease expiry can
+            # both reach trigger_fault/estop.trigger.
+            if self._thread is not None and self._thread.is_alive():
+                logger.error(
+                    "TX Watchdog monitor thread still alive; refusing to start a second monitor"
+                )
+                return
+            self._stop_event.clear()
             self._is_running = True
             self._last_heartbeat_time = self.clock.now_monotonic()
             self._thread = threading.Thread(
@@ -96,9 +112,15 @@ class TxWatchdogSupervisor:
         """Stop the watchdog monitor."""
         with self._lock:
             self._is_running = False
+        # Signal OUTSIDE the lock: the monitor may be waiting on the event
+        # (wake immediately) or holding the lock inside _monitor_loop_once.
+        self._stop_event.set()
         if self._thread and self._thread.is_alive():
             self._thread.join(timeout=1.0)
             if self._thread.is_alive():
+                # The loop can no longer spin forever (it breaks on
+                # _is_running/_stop_event), so surviving past the join means
+                # the thread is wedged inside a trigger callback — escalate.
                 logger.error("TX Watchdog monitor thread failed to exit within 1.0s timeout")
         logger.info("TX Watchdog Supervisor stopped")
 
@@ -113,7 +135,14 @@ class TxWatchdogSupervisor:
         self._monitor_loop_once(force=True)
 
     def _monitor_loop_once(self, force: bool = False) -> None:
-        """Single supervision check, isolated so tests can drive it deterministically."""
+        """Single supervision check, isolated so tests can drive it deterministically.
+
+        M-15 (P2-2): the trigger callbacks (supervisor.trigger_fault /
+        estop.trigger) run OUTSIDE self._lock. The watchdog lock is a plain
+        (non-reentrant) threading.Lock; any callback that re-enters the
+        watchdog (heartbeat from within the fault path) would have
+        deadlocked the whole monitor thread while it held the lock.
+        """
         with self._lock:
             if not self._is_running and not force:
                 return
@@ -132,11 +161,15 @@ class TxWatchdogSupervisor:
             if (self.clock.now_monotonic() - self._last_heartbeat_time) <= self.timeout_sec:
                 return
 
+            expired = True  # decision made under the lock; triggers fire below
+
+        if expired:
             logger.critical(
                 "TX Watchdog Lease Expired! Revoking all TX authorization.",
                 extra={"elapsed_ms": elapsed_ms, "timeout_ms": timeout_ms},
             )
-            # Revoke TX in state machine with primary root cause
+            # Revoke TX in state machine with primary root cause — outside
+            # the watchdog lock (callbacks may re-enter the watchdog).
             try:
                 self.supervisor.trigger_fault(
                     f"WATCHDOG_TIMEOUT: Lease expired after {elapsed_ms:.1f} ms without heartbeat",
@@ -144,7 +177,8 @@ class TxWatchdogSupervisor:
             except Exception as sup_exc:  # noqa: BLE001
                 logger.critical("Failed to trigger supervisor fault during watchdog timeout", extra={"error": str(sup_exc)})
 
-            # Engage hardware/software E-Stop (fail-safe cutoff)
+            # Engage hardware/software E-Stop (fail-safe cutoff) — outside
+            # the watchdog lock for the same reason.
             if self.estop:
                 try:
                     self.estop.trigger(
@@ -161,9 +195,15 @@ class TxWatchdogSupervisor:
         trigger must never silently kill the monitor thread and leave TX
         authorization open forever. If the loop itself dies despite the
         guards, the finally-block revokes TX authority as a last resort.
+
+        P0-4 (REVIEW H-4): the loop condition is `while self._is_running` and
+        the park is an interruptible Event.wait — stop() now actually
+        terminates the thread instead of timing out against an immortal
+        `while True:` loop, and a stop()/start() cycle can never produce two
+        concurrent monitors.
         """
         try:
-            while True:
+            while self._is_running:
                 try:
                     self._monitor_loop_once()
                 except Exception as exc:  # noqa: BLE001
@@ -172,7 +212,8 @@ class TxWatchdogSupervisor:
                         extra={"error": str(exc)},
                     )
 
-                time.sleep(self.CHECK_INTERVAL_SEC)
+                if self._stop_event.wait(self.CHECK_INTERVAL_SEC):
+                    break  # stop() signaled — exit promptly
         except BaseException as exc:  # loop machinery itself failed
             logger.critical(
                 "TX Watchdog monitor loop terminated abnormally — revoking TX authorization",
@@ -180,8 +221,12 @@ class TxWatchdogSupervisor:
             )
         finally:
             # Last-resort safety: never leave TX authority open when the
-            # supervisor thread is gone.
+            # supervisor thread is gone — EXCEPT during an orderly stop()
+            # where the caller intentionally ended supervision (the legacy
+            # code fired WATCHDOG_MONITOR_DIED on every shutdown, which made
+            # the fault path the normal teardown path).
             if self._is_running:
+                self._is_running = False
                 try:
                     self.supervisor.trigger_fault("WATCHDOG_MONITOR_DIED: monitor thread exited unexpectedly")
                 except Exception:  # noqa: BLE001

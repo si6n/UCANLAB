@@ -502,7 +502,12 @@ class IsoTpTransport:
                         channel_id=frame.channel_id,
                         arbitration_id=self.tx_id,
                         data=bytes(fc_data),
-                        is_extended=frame.is_extended,
+                        # M-6 (P1-12): the FC's addressing must derive from the
+                        # TRANSMIT id, not the received frame — a mixed setup
+                        # (11-bit tx_id, 29-bit rx_id) otherwise emitted the FC
+                        # as an extended frame carrying an 11-bit request ID
+                        # the ECU never receives.
+                        is_extended=self.tx_id > 0x7FF,
                         is_fd=frame.is_fd,
                         direction="tx",
                     )
@@ -547,7 +552,8 @@ class IsoTpTransport:
                     channel_id=frame.channel_id,
                     arbitration_id=self.tx_id,
                     data=bytes(fc_data),
-                    is_extended=frame.is_extended,
+                    # M-6 (P1-12): addressing derives from tx_id (see OVERFLOW site).
+                    is_extended=self.tx_id > 0x7FF,
                     is_fd=frame.is_fd,
                     direction="tx",
                 )
@@ -616,7 +622,8 @@ class IsoTpTransport:
                             channel_id=frame.channel_id,
                             arbitration_id=self.tx_id,
                             data=bytes(fc_data),
-                            is_extended=frame.is_extended,
+                            # M-6 (P1-12): addressing derives from tx_id (see OVERFLOW site).
+                            is_extended=self.tx_id > 0x7FF,
                             is_fd=frame.is_fd,
                             direction="tx",
                         )

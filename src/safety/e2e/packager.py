@@ -111,7 +111,11 @@ class E2ESafetyPackager:
 
             inject_counter(payload, counter_to_use, profile)
 
-            effective_dlc = dlc if dlc is not None else len(payload)
+            # M-3 (P1-10): the DLC must be a DLC CODE (0..15), not a byte
+            # count — the RX side passes the real frame DLC, so a >15-byte
+            # payload here desynchronized the two CRC computations for every
+            # profile with include_dlc_in_crc=True.
+            effective_dlc = dlc if dlc is not None else length_to_dlc(len(payload))
             crc_val = compute_checksum(
                 data=payload,
                 config=profile,

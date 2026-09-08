@@ -129,7 +129,13 @@ class UdsClient:
         session_type: DiagnosticSessionType,
         user_confirmed: bool = False,
     ) -> UdsResponse:
-        """Switch diagnostic session (0x10)."""
+        """Switch diagnostic session (0x10).
+
+        D2 (REVIEW M-9): EXTENDED_DIAGNOSTIC_SESSION is also treated as
+        critical — most OEMs gate IOControl (0x2F) / Routine (0x31) behind
+        the extended session, so entering it onaysız must not be possible.
+        Dual confirmation still defaults to not-granted.
+        """
         is_critical = session_type in (
             DiagnosticSessionType.PROGRAMMING_SESSION,
             DiagnosticSessionType.SAFETY_SYSTEM_DIAGNOSTIC_SESSION,
@@ -139,20 +145,38 @@ class UdsClient:
             req_payload, is_critical_command=is_critical, user_confirmed=user_confirmed
         )
 
-    def security_access_request_seed(self, level: int = 1) -> UdsResponse:
-        """Request Security Access Seed (0x27)."""
-        req_payload = UdsServiceBuilder.build_security_access_request_seed(level=level)
-        return self._send_and_receive(req_payload)
+    def security_access_request_seed(self, level: int = 1, user_confirmed: bool = False) -> UdsResponse:
+        """Request Security Access Seed (0x27).
 
-    def security_access_send_key(self, level: int, key: bytes) -> UdsResponse:
-        """Send Security Access Key (0x27)."""
+        P1-1/D2 (REVIEW M-9): security access elevates ECU privilege — the
+        send-key leg especially. Both legs are critical commands whose dual
+        confirmation is not granted by default.
+        """
+        req_payload = UdsServiceBuilder.build_security_access_request_seed(level=level)
+        return self._send_and_receive(req_payload, is_critical_command=True, user_confirmed=user_confirmed)
+
+    def security_access_send_key(self, level: int, key: bytes, user_confirmed: bool = False) -> UdsResponse:
+        """Send Security Access Key (0x27) — privilege elevation, critical.
+
+        P1-1/D2: dual confirmation not granted by default; the flashing
+        orchestrator forwards its session-level operator confirmation.
+        """
         req_payload = UdsServiceBuilder.build_security_access_send_key(level=level, key=key)
-        return self._send_and_receive(req_payload)
+        return self._send_and_receive(req_payload, is_critical_command=True, user_confirmed=user_confirmed)
 
     def read_did(self, did: int) -> UdsResponse:
         """Read Data Identifier (0x22)."""
         req_payload = UdsServiceBuilder.build_read_data_by_identifier(did)
         return self._send_and_receive(req_payload)
+
+    def clear_dtc(self, dtc_group: int = 0xFFFFFF, user_confirmed: bool = False) -> UdsResponse:
+        """Clear Diagnostic Information (0x14) - Critical command.
+
+        Requires explicit operator confirmation; dual confirmation is NOT
+        granted by default.
+        """
+        req_payload = UdsServiceBuilder.build_clear_diagnostic_information(dtc_group)
+        return self._send_and_receive(req_payload, is_critical_command=True, user_confirmed=user_confirmed)
 
     def write_did(self, did: int, data: bytes, user_confirmed: bool = False) -> UdsResponse:
         """Write Data Identifier (0x2E) - Critical command.
@@ -189,9 +213,16 @@ class UdsClient:
         block_sequence: int,
         data: bytes,
         is_critical_command: bool = True,
-        user_confirmed: bool = True,
+        user_confirmed: bool = False,
     ) -> UdsResponse:
-        """Transfer Data Block (0x36) - Memory write is safety-critical."""
+        """Transfer Data Block (0x36) - Memory write is safety-critical.
+
+        P1-1 (REVIEW M-8/H-4): dual confirmation is NOT granted by default —
+        0x36 is the service that writes ECU flash, so it follows the same
+        rule as write_did/request_download/ecu_reset/start_routine. The
+        flash orchestrator passes its once-per-session operator confirmation
+        (config.user_confirmed) explicitly; every other caller must too.
+        """
         req_payload = UdsServiceBuilder.build_transfer_data(block_sequence=block_sequence, data=data)
         return self._send_and_receive(
             req_payload, is_critical_command=is_critical_command, user_confirmed=user_confirmed
@@ -200,9 +231,12 @@ class UdsClient:
     def request_transfer_exit(
         self,
         is_critical_command: bool = True,
-        user_confirmed: bool = True,
+        user_confirmed: bool = False,
     ) -> UdsResponse:
-        """Request Transfer Exit (0x37)."""
+        """Request Transfer Exit (0x37) - closes a flash transfer.
+
+        P1-1: dual confirmation not granted by default (see transfer_data).
+        """
         req_payload = UdsServiceBuilder.build_request_transfer_exit()
         return self._send_and_receive(
             req_payload, is_critical_command=is_critical_command, user_confirmed=user_confirmed
@@ -431,8 +465,15 @@ class UdsClient:
                 if rx_frame is not None and rx_frame.arbitration_id == self.rx_id:
                     completed_data, resp_frame = self.transport.handle_rx_frame(rx_frame)
                     if resp_frame is not None:
-                        # Flow control frame response - cleanly routed through TxPort
-                        self.tx_port.send_sync(resp_frame)
+                        # M-5 (P2-1): flow-control frames are protocol
+                        # overhead, not operator commands — an ISO-TP CF/FC
+                        # train over the default lane (100 msg/s) could trip
+                        # the gateway's sustained-overload E-Stop mid-read.
+                        # Route through the protocol_burst budget lane.
+                        try:
+                            self.tx_port.send_sync(resp_frame, budget_category="protocol_burst")  # type: ignore[call-arg]
+                        except TypeError:
+                            self.tx_port.send_sync(resp_frame)
                     if completed_data is not None:
                         resp = UdsServiceBuilder.parse_response(completed_data)
                         expected_sid = payload[0]

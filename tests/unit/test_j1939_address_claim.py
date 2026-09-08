@@ -81,6 +81,10 @@ def test_address_claim_win_contention() -> None:
     assert defense_frame.arbitration_id == 0x18EEFFF9
     assert defense_frame.data == my_name.to_bytes()
 
+    # M-26 (P2-7): the re-assert armed a FRESH 250 ms window — a manual
+    # confirm inside the window is now ignored (early-claim guard). Wait for
+    # the window to elapse, then confirm.
+    time.sleep(0.30)
     engine.confirm_claimed()
     assert engine.is_address_claimed is True
     assert engine.state.value == AddressClaimState.CLAIMED.value
@@ -252,3 +256,55 @@ def test_self_echo_claim_is_ignored() -> None:
     assert resp is None  # no re-assert ping-pong
     assert engine.current_address == 0xF9  # we stay put
     assert engine.state == AddressClaimState.CLAIMING  # claim flow undisturbed
+
+
+# ============================================================================
+# M-26 (P2-7): stale-timer + early-fire guards
+# ============================================================================
+
+
+def test_stale_confirm_callback_cannot_finalize_fresh_claim() -> None:
+    """M-26: a timer callback queued behind lock contention (already
+    'cancelled' logically) must NEVER confirm a claim started afterwards —
+    the generation counter rejects it outright."""
+    engine = AddressClaimEngine(name=_tool_name(identity=100), preferred_address=0xF9)
+    engine.start_claiming()  # arms generation N
+    stale_generation = engine._claim_generation
+
+    # Contention arrives: timer cancelled (generation bumped to N+1), engine
+    # wins arbitration and re-arms a FRESH window (generation N+2).
+    competitor = _tool_name(identity=50)  # higher number -> we win
+    comp_frame = CanFrame.create(
+        channel_id="j1939_ch0",
+        arbitration_id=0x18EEFFF9,
+        data=competitor.to_bytes(),
+        is_extended=True,
+    )
+    reassert = engine.handle_rx_frame(comp_frame)
+    assert reassert is not None
+    assert engine.state == AddressClaimState.CLAIMING
+    assert engine._claim_generation != stale_generation
+
+    # The STALE callback (generation N) now fires — e.g. it was already
+    # sitting in the RLock queue when cancel() was called. It must be a
+    # no-op: the fresh claim's 250 ms window has not elapsed.
+    engine._confirm_claimed_guarded(stale_generation)
+    assert engine.state == AddressClaimState.CLAIMING  # NOT confirmed early
+
+    # After the real window elapses, the fresh claim finalizes normally.
+    time.sleep(0.30)
+    assert engine.state == AddressClaimState.CLAIMED
+
+
+def test_manual_confirm_during_window_is_ignored() -> None:
+    """M-26: confirm_claimed() called DURING a live claim window is a caller
+    bug — ignored until the window has actually elapsed (no early claim)."""
+    engine = AddressClaimEngine(name=_tool_name(identity=100), preferred_address=0xF9)
+    engine.start_claiming()
+
+    engine.confirm_claimed()  # immediately: window just armed
+    assert engine.state == AddressClaimState.CLAIMING
+
+    time.sleep(0.30)
+    engine.confirm_claimed()  # window elapsed: manual confirmation valid
+    assert engine.state == AddressClaimState.CLAIMED

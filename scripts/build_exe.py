@@ -66,17 +66,26 @@ def build_exe() -> int:
     # 2. Package into Ultra-Fast & Compact Standalone .EXE using PyInstaller
     print("[2/2] Tek parca Windows .EXE derleniyor...")
     entry_point = root_dir / "src" / "main.py"
-    data_arg = f"{frontend_dist};src/ui/frontend/dist"
+    data_args = [f"{frontend_dist};src/ui/frontend/dist"]
+    # H-9 (P1-11): bundle the external diagnostic databases — without them
+    # the frozen exe silently loses ~98% of the DTC knowledge base (1836 of
+    # 1870 codes), the J1939 SPN/FMI matrix, NHTSA recalls, extended PIDs
+    # and Mode $06 tests, with only a debug-level trace.
+    diagnostics_dir = root_dir / "data" / "diagnostics"
+    if diagnostics_dir.is_dir():
+        data_args.append(f"{diagnostics_dir};data/diagnostics")
+    else:
+        print("[UYARI] data/diagnostics bulunamadi — exe duyarlik DB'siz derlenecek.")
 
     cmd = [
         sys.executable,
         "-m",
         "PyInstaller",
-        "--name=Universal_CAN_Diagnostic",
+        "--name=ucanlab",
         "--onefile",
         "--noconsole",
         "--clean",
-        f"--add-data={data_arg}",
+        *[f"--add-data={arg}" for arg in data_args],
         # N-05/F-36: guarantee safety & security modules are bundled — the
         # runtime import graph is analysed from src/, root added to search path
         f"--paths={root_dir}",
@@ -172,13 +181,70 @@ def build_exe() -> int:
     print("Komut calistiriliyor...")
     ret = subprocess.call(cmd, cwd=str(root_dir))
     if ret == 0:
-        exe_path = root_dir / "dist" / "Universal_CAN_Diagnostic.exe"
+        exe_path = root_dir / "dist" / "ucanlab.exe"
         print("==================================================")
-        print("TEBRIKLER! .EXE dosyaniz basariyla olusturuldu:")
+        print("TEBRIKLER! uCAN Lab .EXE dosyaniz basariyla olusturuldu:")
+        print(f"Dosya Konumu: {exe_path}")
+        print("==================================================")
+    return ret
+
+
+def build_launcher() -> int:
+    """Package the Launcher into standalone ucanlab_launcher.exe."""
+    root_dir = Path(__file__).parent.parent.resolve()
+    launcher_entry = root_dir / "src" / "launcher" / "app.py"
+
+    print("==================================================")
+    print(">>> uCAN Lab - Launcher EXE Builder")
+    print("==================================================")
+
+    cmd = [
+        sys.executable,
+        "-m",
+        "PyInstaller",
+        "--name=ucanlab_launcher",
+        "--onefile",
+        "--noconsole",
+        "--clean",
+        f"--paths={root_dir}",
+        "--hidden-import=src.launcher.app",
+        "--hidden-import=src.launcher.auth",
+        "--hidden-import=src.launcher.prereqs",
+        "--hidden-import=src.launcher.updater",
+        "--hidden-import=src.security.hwid.collector",
+        "--hidden-import=src.security.cloud.client",
+        "--hidden-import=src.security.cloud.license_flow",
+        "--hidden-import=src.safety.secret_provider",
+        "--hidden-import=cryptography",
+        f"--distpath={root_dir / 'dist'}",
+        f"--workpath={root_dir / 'build'}",
+        str(launcher_entry),
+    ]
+
+    ret = subprocess.call(cmd, cwd=str(root_dir))
+    if ret == 0:
+        exe_path = root_dir / "dist" / "ucanlab_launcher.exe"
+        print("==================================================")
+        print("Launcher .EXE basariyla olusturuldu:")
         print(f"Dosya Konumu: {exe_path}")
         print("==================================================")
     return ret
 
 
 if __name__ == "__main__":
-    sys.exit(build_exe())
+    import argparse
+
+    parser = argparse.ArgumentParser(description="uCAN Lab EXE Builder")
+    parser.add_argument("--launcher-only", action="store_true", help="Only build ucanlab_launcher.exe")
+    parser.add_argument("--all", action="store_true", help="Build both ucanlab.exe and ucanlab_launcher.exe")
+    args = parser.parse_args()
+
+    if args.launcher_only:
+        sys.exit(build_launcher())
+    elif args.all:
+        ret1 = build_exe()
+        if ret1 != 0:
+            sys.exit(ret1)
+        sys.exit(build_launcher())
+    else:
+        sys.exit(build_exe())

@@ -1,4 +1,4 @@
-import { ChatMessage, DiagnosticState, ScenarioType, TelemetryPoint } from '../types/can';
+import { ChatMessage, CopilotAction, DiagnosticState, ScenarioType, TelemetryPoint } from '../types/can';
 import { KNOWN_DTCS } from './canSimulator';
 import { DesktopBridge } from './bridge';
 import { GeminiClient } from './geminiClient';
@@ -816,11 +816,13 @@ Canlı Araç Durumu:
         const geminiRes = await GeminiClient.generateContent(this.geminiApiKey, query, sysContext);
         if (geminiRes.success && geminiRes.text.trim().length > 0) {
           const modelTitle = geminiRes.modelUsed ? geminiRes.modelUsed.replace(/^models\//, '') : 'Gemini 2.0 Flash';
+          const parsedGemini = this.parseActionMetadata(geminiRes.text.trim());
           return {
             id: `msg-${Date.now()}`,
             sender: 'copilot',
             timestamp,
-            text: `✨ **Google ${modelTitle} (Bulut Zekası):**\n\n${geminiRes.text.trim()}`
+            text: `✨ **Google ${modelTitle} (Bulut Zekası):**\n\n${parsedGemini.cleanText}`,
+            actions: parsedGemini.actions,
           };
         } else if (geminiRes.error) {
           console.warn('Gemini API error response:', geminiRes.error);
@@ -833,11 +835,13 @@ Canlı Araç Durumu:
     // 2. Check if Python Desktop Bridge is present and returns a deep answer
     const nativeRes = await DesktopBridge.askCopilot(query);
     if (nativeRes && !nativeRes.includes("Girdiğiniz sorgu (") && !nativeRes.includes("sorunuz için uzman")) {
+      const parsed = this.parseActionMetadata(nativeRes);
       return {
         id: `msg-${Date.now()}`,
         sender: 'copilot',
         timestamp,
-        text: nativeRes
+        text: parsed.cleanText,
+        actions: parsed.actions,
       };
     }
 
@@ -1183,5 +1187,111 @@ Canlı Araç Durumu:
         `2. Saha semptomu belirtebilirsiniz (Örn: *'kara duman atıyor dip gazda bayılıyor'*, *'120 ohm testi'*, *'EV batarya izolasyon hatası'*, *'marin motorda impeller aşırı ısınması'*).\n` +
         `3. Sniffer tablosundaki herhangi bir pakete **sağ tıklayarak 'AI Copilot\\'a Analiz Ettir'** seçeneğini kullanabilirsiniz.`
     };
+  }
+
+  public parseActionMetadata(rawText: string): { cleanText: string; actions: CopilotAction[] } {
+    const actionMatch = rawText.match(/<!--ACTIONS:(.*?)-->/s);
+    let actions: CopilotAction[] = [];
+    let cleanText = rawText;
+
+    if (actionMatch) {
+      cleanText = rawText.replace(/<!--ACTIONS:.*?-->/s, '').trim();
+      try {
+        const parsed = JSON.parse(actionMatch[1].trim());
+        if (Array.isArray(parsed)) {
+          actions = parsed;
+        }
+      } catch (err) {
+        console.warn('Failed to parse actions JSON metadata:', err);
+      }
+    }
+
+    if (actions.length === 0) {
+      actions = this.extractDynamicActions(rawText);
+    }
+
+    return { cleanText, actions };
+  }
+
+  public extractDynamicActions(text: string): CopilotAction[] {
+    const lower = text.toLowerCase();
+    const actions: CopilotAction[] = [];
+
+    if (lower.includes('0x14') || lower.includes('dtc temizle') || lower.includes('hafızasını sil') || lower.includes('hata kodlarını sil')) {
+      actions.push({
+        id: 'act_uds_0x14_clear_dtc',
+        label: '▶️ UDS 0x14 DTC Temizle',
+        action_type: 'uds_clear_dtc',
+        params: { group: 0xFFFFFF },
+        requires_confirmation: true,
+        confirm_text: 'Aktif ve geçmiş tüm DTC arıza kodları ECU hafızasından silinecektir. Devam edilsin mi?',
+      });
+    }
+
+    if (lower.includes('f190') || lower.includes('vin oku') || lower.includes('şasi no')) {
+      actions.push({
+        id: 'act_uds_0x22_f190_vin',
+        label: '▶️ UDS 0x22 F190 VIN Oku',
+        action_type: 'uds_read_did',
+        params: { did: 0xF190, name: 'VIN' },
+        requires_confirmation: false,
+      });
+    }
+
+    if (lower.includes('extended session') || lower.includes('0x10 0x03')) {
+      actions.push({
+        id: 'act_uds_0x10_session_3',
+        label: '▶️ UDS 0x10 Extended Session (0x03)',
+        action_type: 'uds_session_control',
+        params: { session_type: 3 },
+        requires_confirmation: true,
+        confirm_text: 'Genişletilmiş teşhis oturumuna (0x03) geçilecek. Onaylıyor musunuz?',
+      });
+    }
+
+    if (lower.includes('dm11') || lower.includes('65235')) {
+      actions.push({
+        id: 'act_j1939_dm11_clear',
+        label: '▶️ J1939 DM11 Arıza Temizle',
+        action_type: 'j1939_clear_dtc',
+        params: { pgn: 65235 },
+        requires_confirmation: true,
+        confirm_text: 'Ağır vasıta J1939 aktif arıza kayıtları silinecektir. Onaylıyor musunuz?',
+      });
+    }
+
+    if (lower.includes('dm1') || lower.includes('65226')) {
+      actions.push({
+        id: 'act_j1939_dm1_query',
+        label: '▶️ J1939 DM1 Arıza Oku',
+        action_type: 'j1939_dm1_query',
+        params: { pgn: 65226 },
+        requires_confirmation: false,
+      });
+    }
+
+    if (lower.includes('0x31') || lower.includes('rutin') || lower.includes('routine')) {
+      actions.push({
+        id: 'act_uds_0x31_routine_d001',
+        label: '▶️ UDS 0x31 Teşhis Rutini (0xD001)',
+        action_type: 'uds_routine',
+        params: { routine_id: 0xD001 },
+        requires_confirmation: true,
+        confirm_text: '0xD001 nolu teşhis rutini başlatılacaktır. Onaylıyor musunuz?',
+      });
+    }
+
+    if (lower.includes('0x11') || lower.includes('ecu reset') || lower.includes('hard reset')) {
+      actions.push({
+        id: 'act_uds_0x11_ecu_reset',
+        label: '▶️ UDS 0x11 ECU Reset',
+        action_type: 'uds_ecu_reset',
+        params: { reset_type: 1 },
+        requires_confirmation: true,
+        confirm_text: 'ECU donanımsal olarak yeniden başlatılacaktır (Hard Reset). Onaylıyor musunuz?',
+      });
+    }
+
+    return actions;
   }
 }

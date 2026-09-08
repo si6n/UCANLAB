@@ -112,3 +112,60 @@ def test_live_ui_pulse_never_expires_watchdog() -> None:
         assert supervisor.current_state != SafetyState.FAULT
     finally:
         watchdog.stop()
+
+
+# ============================================================================
+# P0-4 (REVIEW H-4): monitor thread lifecycle regressions
+# The old loop ran `while True:` with a plain time.sleep(0.050) — stop()
+# always hit the 1s join timeout, the thread never died, and a stop()/start()
+# cycle produced TWO concurrent monitors both able to trigger_fault/estop.
+# ============================================================================
+
+
+def test_stop_actually_terminates_monitor_thread() -> None:
+    supervisor = SafetySupervisor(initial_state=SafetyState.SAFE)
+    supervisor.transition_to(SafetyState.PASSIVE)
+
+    watchdog = TxWatchdogSupervisor(supervisor=supervisor, timeout_ms=800.0)
+    watchdog.start()
+    thread = watchdog._thread
+    assert thread is not None and thread.is_alive()
+
+    watchdog.stop()
+    # The monitor must exit promptly (well under the old 1s join timeout).
+    assert not thread.is_alive()
+
+
+def test_stop_start_cycle_leaves_exactly_one_monitor() -> None:
+    supervisor = SafetySupervisor(initial_state=SafetyState.SAFE)
+    supervisor.transition_to(SafetyState.PASSIVE)
+
+    watchdog = TxWatchdogSupervisor(supervisor=supervisor, timeout_ms=800.0)
+    watchdog.start()
+    watchdog.stop()
+    watchdog.start()
+
+    try:
+        # Exactly one live monitor thread after the cycle — no leaked
+        # immortal pre-P0-4 monitor supervising alongside the new one.
+        live = [t for t in __import__("threading").enumerate() if t.name == "tx_watchdog_supervisor"]
+        assert len(live) == 1
+    finally:
+        watchdog.stop()
+
+
+def test_orderly_stop_does_not_fire_monitor_died_fault() -> None:
+    """stop() is an orderly teardown — it must not trigger the
+    WATCHDOG_MONITOR_DIED last-resort fault that used to fire on every
+    shutdown because the thread could never exit before the join timeout."""
+    supervisor = SafetySupervisor(initial_state=SafetyState.SAFE)
+    supervisor.transition_to(SafetyState.PASSIVE)
+    supervisor.arm_tx()
+
+    watchdog = TxWatchdogSupervisor(supervisor=supervisor, timeout_ms=800.0)
+    watchdog.start()
+    time.sleep(0.15)
+    watchdog.stop()
+
+    assert supervisor.current_state != SafetyState.FAULT
+    assert "WATCHDOG_MONITOR_DIED" not in (supervisor.fault_reason or "")

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -39,6 +40,19 @@ class FaultSeverity(Enum):
     CRITICAL_STOP = "CRITICAL_STOP"
 
 
+def map_severity_or_default(raw: Any) -> FaultSeverity:
+    """Parse a severity string from an LLM response without raising (L-9).
+
+    An LLM may emit an unmodeled severity word — failing the entire
+    analysis on enum conversion would discard a otherwise valid report, so
+    unknown values fall back to MEDIUM (visible urgency, not silent).
+    """
+    try:
+        return FaultSeverity(str(raw))
+    except ValueError:
+        return FaultSeverity.MEDIUM
+
+
 @dataclass(slots=True)
 class TroubleshootingStep:
     """Actionable step recommended by the AI."""
@@ -63,6 +77,606 @@ class DiagnosticAnalysisReport:
     telemetry_correlations: list[str]
     ai_model_used: str = "Yerel Otomotiv Uzman Motoru (Çevrimdışı)"
     timestamp_ns: int = field(default_factory=time.time_ns)
+
+
+@dataclass(slots=True)
+class CopilotActionTrigger:
+    """Structured actionable diagnostic routine trigger metadata for UI buttons."""
+
+    id: str
+    label: str
+    action_type: str  # "uds_clear_dtc", "uds_read_did", "uds_session_control", "uds_routine", "uds_ecu_reset", "j1939_clear_dtc", "j1939_dm1_query"
+    params: dict[str, Any] = field(default_factory=dict)
+    requires_confirmation: bool = True
+    confirm_text: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "label": self.label,
+            "action_type": self.action_type,
+            "params": self.params,
+            "requires_confirmation": self.requires_confirmation,
+            "confirm_text": self.confirm_text,
+        }
+
+
+def make_uds_clear_dtc_action(group: int = 0xFFFFFF) -> dict[str, Any]:
+    return CopilotActionTrigger(
+        id="act_uds_0x14_clear_dtc",
+        label="▶️ UDS 0x14 DTC Temizle",
+        action_type="uds_clear_dtc",
+        params={"group": group},
+        requires_confirmation=True,
+        confirm_text="Aktif ve geçmiş tüm DTC arıza kodları ECU hafızasından silinecektir. Devam edilsin mi?",
+    ).to_dict()
+
+
+def make_uds_read_vin_action() -> dict[str, Any]:
+    return CopilotActionTrigger(
+        id="act_uds_0x22_f190_vin",
+        label="▶️ UDS 0x22 F190 VIN Oku",
+        action_type="uds_read_did",
+        params={"did": 0xF190, "name": "VIN"},
+        requires_confirmation=False,
+    ).to_dict()
+
+
+def make_uds_session_action(session_type: int = 3) -> dict[str, Any]:
+    session_names = {1: "Default", 2: "Programming", 3: "Extended", 4: "Safety"}
+    s_name = session_names.get(session_type, hex(session_type))
+    return CopilotActionTrigger(
+        id=f"act_uds_0x10_session_{session_type}",
+        label=f"▶️ UDS 0x10 {s_name} Session",
+        action_type="uds_session_control",
+        params={"session_type": session_type},
+        requires_confirmation=True,
+        confirm_text=f"Teşhis oturumu '{s_name} (0x{session_type:02X})' moduna geçirilecektir. Onaylıyor musunuz?",
+    ).to_dict()
+
+
+def make_uds_routine_action(routine_id: int, name: str = "") -> dict[str, Any]:
+    lbl = f"▶️ UDS 0x31 Rutin (0x{routine_id:04X})" if not name else f"▶️ UDS 0x31 {name}"
+    return CopilotActionTrigger(
+        id=f"act_uds_0x31_routine_{routine_id:04x}",
+        label=lbl,
+        action_type="uds_routine",
+        params={"routine_id": routine_id, "name": name},
+        requires_confirmation=True,
+        confirm_text=f"0x{routine_id:04X} nolu diagnostik rutin çalıştırılacaktır. Onaylıyor musunuz?",
+    ).to_dict()
+
+
+def make_uds_ecu_reset_action(reset_type: int = 1) -> dict[str, Any]:
+    return CopilotActionTrigger(
+        id="act_uds_0x11_ecu_reset",
+        label="▶️ UDS 0x11 ECU Reset",
+        action_type="uds_ecu_reset",
+        params={"reset_type": reset_type},
+        requires_confirmation=True,
+        confirm_text="ECU donanımsal olarak yeniden başlatılacaktır (Hard Reset). Onaylıyor musunuz?",
+    ).to_dict()
+
+
+def make_j1939_dm11_action() -> dict[str, Any]:
+    return CopilotActionTrigger(
+        id="act_j1939_dm11_clear",
+        label="▶️ J1939 DM11 Arıza Temizle",
+        action_type="j1939_clear_dtc",
+        params={"pgn": 65235},
+        requires_confirmation=True,
+        confirm_text="Ağır vasıta J1939 aktif arıza kayıtları (DM11 PGN 65235) silinecektir. Onaylıyor musunuz?",
+    ).to_dict()
+
+
+def make_j1939_dm1_action() -> dict[str, Any]:
+    return CopilotActionTrigger(
+        id="act_j1939_dm1_query",
+        label="▶️ J1939 DM1 Arıza Oku",
+        action_type="j1939_dm1_query",
+        params={"pgn": 65226},
+        requires_confirmation=False,
+    ).to_dict()
+
+
+def attach_action_triggers(text: str, actions: list[dict[str, Any]]) -> str:
+    """Append structured JSON metadata comment to copilot response text."""
+    if not actions:
+        return text
+    unique_actions: list[dict[str, Any]] = []
+    seen_ids: set[str] = set()
+    for a in actions:
+        aid = a.get("id")
+        if aid and aid not in seen_ids:
+            seen_ids.add(aid)
+            unique_actions.append(a)
+    if not unique_actions:
+        return text
+    meta_json = json.dumps(unique_actions, ensure_ascii=False)
+    return f"{text}\n<!--ACTIONS:{meta_json}-->"
+
+
+def parse_action_triggers_from_text(text: str) -> tuple[str, list[dict[str, Any]]]:
+    """Parse out structured action triggers from text comment, or extract if not found."""
+    match = re.search(r"<!--ACTIONS:(.*?)-->", text, re.DOTALL)
+    if match:
+        clean_text = text[: match.start()].rstrip() + text[match.end() :]
+        try:
+            actions = json.loads(match.group(1).strip())
+            if isinstance(actions, list):
+                return clean_text, actions
+        except Exception:
+            pass
+    return text, extract_action_triggers(text)
+
+
+def extract_action_triggers(text: str, user_query: str = "") -> list[dict[str, Any]]:
+    """Scan response text and user query for actionable diagnostic recommendations."""
+    combined = f"{user_query} {text}".lower()
+    actions: list[dict[str, Any]] = []
+    seen_types: set[str] = set()
+
+    if any(k in combined for k in ["0x14", "dtc temizle", "clear dtc", "hata kodlarını sil", "hafızasını sil", "hafızasını temizle", "kodlarını temizle"]):
+        actions.append(make_uds_clear_dtc_action())
+        seen_types.add("uds_clear_dtc")
+
+    if any(k in combined for k in ["f190", "vin oku", "şasi no", "read vin", "chassis number"]):
+        actions.append(make_uds_read_vin_action())
+        seen_types.add("uds_read_did")
+
+    if any(k in combined for k in ["extended session", "genişletilmiş oturum", "0x10 0x03", "0x10"]):
+        if "uds_session_control" not in seen_types:
+            actions.append(make_uds_session_action(3))
+            seen_types.add("uds_session_control")
+
+    if "0x31" in combined or "routine" in combined or "rutin" in combined:
+        m = re.search(r"\b0x([0-9a-f]{4})\b", combined)
+        rid = int(m.group(1), 16) if m else 0xD001
+        actions.append(make_uds_routine_action(rid))
+        seen_types.add("uds_routine")
+
+    if "dm11" in combined or "pgn 65235" in combined:
+        actions.append(make_j1939_dm11_action())
+        seen_types.add("j1939_clear_dtc")
+    if "dm1" in combined or "pgn 65226" in combined:
+        if "j1939_dm1_query" not in seen_types:
+            actions.append(make_j1939_dm1_action())
+            seen_types.add("j1939_dm1_query")
+
+    return actions
+
+
+def explain_traffic_metrics(bus_metrics: dict[str, Any], user_query: str = "") -> str:
+    """Generate concise 2-3 line CAN traffic and anomaly diagnostic report."""
+    bus_load = bus_metrics.get("bus_load_percent", 0)
+    error_count = bus_metrics.get("error_count", 0)
+    anomalies = list(bus_metrics.get("anomalies", []))
+    total_pkts = bus_metrics.get("total_packets", 0)
+    babbling = bus_metrics.get("babbling_node")
+    if babbling and not any(str(babbling) in a for a in anomalies):
+        anomalies.append(f"Babbling Node: {babbling}")
+
+    if bus_load > 75 or error_count > 5 or anomalies:
+        status_tag = "⚠️ **KRİTİK ANOMALİ ALARMI**"
+        line1 = f"📊 **Veri Yolu Trafik Analizi & Anomali Raporu ({status_tag}):**"
+        line2 = f"• **Veri Yolu Yükü:** %{bus_load} (Eşik >%75) | Hata Karesi: {error_count} adet | Toplam: {total_pkts} paket"
+        anom_desc = " • ".join(anomalies).rstrip(".") if anomalies else "Hat üzerinde yüksek yük veya hata karesi patlaması mevcut"
+        line3 = f"• **Teşhis:** {anom_desc}. 120Ω sonlandırma direncini ve fiziksel katman voltajlarını (CAN-H/CAN-L) inceleyin."
+    else:
+        line1 = "📊 **Veri Yolu Trafik Analizi & Hat Durumu:**"
+        line2 = f"• **Veri Yolu Yükü:** %{bus_load} (Nominal) | Hata Karesi: {error_count} adet | Toplam: {total_pkts} paket"
+        line3 = "• **Teşhis:** CAN veri yolu nominal hız ve frekansta çalışıyor. Anomali veya babbling node tespit edilmedi."
+    return f"{line1}\n{line2}\n{line3}"
+
+
+def extract_hex_payload_from_query(query: str) -> list[int]:
+    """Extract byte values from query string."""
+    match = re.search(r"(?:Hex Payload|Payload|Data|Veri)\s*[:=]?\s*([0-9A-Fa-f\s]{2,})", query, re.IGNORECASE)
+    candidate = match.group(1) if match else query
+    cleaned = re.sub(r"\b0x[0-9A-Fa-f]{3,8}\b", "", candidate)
+    tokens = re.findall(r"\b[0-9A-Fa-f]{2}\b", cleaned)
+    return [int(t, 16) for t in tokens]
+
+
+_FALLBACK_DBC_DECODER: Any = None
+_FALLBACK_DBC_LOCK = threading.Lock()
+
+
+def _get_fallback_dbc_decoder() -> Any:
+    """Lazy-load DBC decoder for fallback signal decoding."""
+    global _FALLBACK_DBC_DECODER
+    if _FALLBACK_DBC_DECODER is not None:
+        return _FALLBACK_DBC_DECODER
+    with _FALLBACK_DBC_LOCK:
+        if _FALLBACK_DBC_DECODER is not None:
+            return _FALLBACK_DBC_DECODER
+        try:
+            from src.engine.decoder.dbc_decoder import DbcSignalDecoder
+            cand = _DBC_DATA_DIR / "heavy_duty" / "j1939_canboat.dbc"
+            if cand.exists():
+                _FALLBACK_DBC_DECODER = DbcSignalDecoder.from_dbc_file(cand)
+                return _FALLBACK_DBC_DECODER
+        except Exception as exc:
+            logger.debug("Fallback DBC decoder initialization skipped: %s", exc)
+        return None
+
+
+def explain_can_packet(
+    can_id_hex_or_int: str | int,
+    payload: bytes | list[int] | str = b"",
+) -> tuple[str, list[dict[str, Any]]]:
+    """Break down a CAN frame payload into a concise 2-3 line explanation with action triggers."""
+    if isinstance(can_id_hex_or_int, str):
+        cleaned_id = can_id_hex_or_int.strip().lower()
+        if cleaned_id.startswith("0x"):
+            can_id = int(cleaned_id, 16)
+        else:
+            can_id = int(cleaned_id, 16) if all(c in "0123456789abcdef" for c in cleaned_id) else 0
+    else:
+        can_id = int(can_id_hex_or_int)
+
+    if isinstance(payload, str):
+        payload_bytes = [int(t, 16) for t in re.findall(r"\b[0-9A-Fa-f]{2}\b", payload)]
+    elif isinstance(payload, bytes):
+        payload_bytes = list(payload)
+    else:
+        payload_bytes = list(payload)
+
+    # 1. UDS Diagnostics (0x7DF or 0x7E0..0x7EF)
+    if (0x7E0 <= can_id <= 0x7EF) or can_id == 0x7DF:
+        if payload_bytes:
+            sid_idx = 0
+            # Common ISO 15765-2 Single Frame PCI check (byte 0 = length)
+            if len(payload_bytes) > 1 and payload_bytes[1] in {
+                0x10, 0x11, 0x14, 0x19, 0x22, 0x27, 0x28, 0x2E, 0x31, 0x3E,
+                0x50, 0x51, 0x54, 0x59, 0x62, 0x67, 0x71, 0x7F, 0x01,
+            }:
+                sid_idx = 1
+            elif payload_bytes[0] not in {
+                0x10, 0x11, 0x14, 0x19, 0x22, 0x27, 0x28, 0x2E, 0x31, 0x3E,
+                0x50, 0x51, 0x54, 0x59, 0x62, 0x67, 0x71, 0x7F, 0x01,
+            } and len(payload_bytes) > 1:
+                sid_idx = 1
+
+            sid = payload_bytes[sid_idx]
+
+            # 0x10 Diagnostic Session Control
+            if sid == 0x10:
+                subfn = payload_bytes[sid_idx + 1] if len(payload_bytes) > sid_idx + 1 else 1
+                sub_names = {1: "Default", 2: "Programming", 3: "Extended", 4: "Safety System"}
+                s_name = sub_names.get(subfn & 0x7F, f"0x{subfn:02X}")
+                line1 = f"📦 **UDS Teşhis Paketi (ID: 0x{can_id:03X} / SID 0x10):**"
+                line2 = f"• **Servis:** `0x10 DiagnosticSessionControl` — {s_name} Session (0x{subfn:02X})"
+                line3 = f"• **Anlam:** ECU'dan {s_name} oturumuna geçiş talep ediliyor."
+                actions = [make_uds_session_action(subfn & 0x7F)]
+                return (f"{line1}\n{line2}\n{line3}", actions)
+
+            # 0x11 ECU Reset
+            if sid == 0x11:
+                rt = payload_bytes[sid_idx + 1] if len(payload_bytes) > sid_idx + 1 else 1
+                rt_names = {1: "Hard Reset", 2: "Key Off/On Reset", 3: "Soft Reset"}
+                rt_name = rt_names.get(rt & 0x7F, f"Reset Tipi 0x{rt:02X}")
+                line1 = f"📦 **UDS Teşhis Paketi (ID: 0x{can_id:03X} / SID 0x11):**"
+                line2 = f"• **Servis:** `0x11 ECUReset` — {rt_name} (0x{rt:02X})"
+                line3 = "• **Anlam:** ECU işlemcisinin donanımsal/yazılımsal yeniden başlatılması talep ediliyor."
+                actions = [make_uds_ecu_reset_action(rt & 0x7F)]
+                return (f"{line1}\n{line2}\n{line3}", actions)
+
+            # 0x14 Clear Diagnostic Information
+            if sid == 0x14:
+                dtc_grp = 0xFFFFFF
+                if len(payload_bytes) >= sid_idx + 4:
+                    dtc_grp = (payload_bytes[sid_idx + 1] << 16) | (payload_bytes[sid_idx + 2] << 8) | payload_bytes[sid_idx + 3]
+                line1 = f"📦 **UDS Teşhis Paketi (ID: 0x{can_id:03X} / SID 0x14):**"
+                line2 = f"• **Servis:** `0x14 ClearDiagnosticInformation` (DTC Grup: 0x{dtc_grp:06X})"
+                line3 = "• **Anlam:** ECU hafızasındaki aktif ve geçmiş tüm DTC arıza kodlarının silinmesi talep ediliyor."
+                actions = [make_uds_clear_dtc_action(dtc_grp)]
+                return (f"{line1}\n{line2}\n{line3}", actions)
+
+            # 0x19 Read DTC Information
+            if sid == 0x19:
+                subfn = payload_bytes[sid_idx + 1] if len(payload_bytes) > sid_idx + 1 else 2
+                mask = payload_bytes[sid_idx + 2] if len(payload_bytes) > sid_idx + 2 else 0xFF
+                sub_names = {
+                    1: "reportNumberOfDTCByStatusMask",
+                    2: "reportDTCByStatusMask",
+                    4: "reportDTCSnapshotRecordByDTCNumber",
+                    6: "reportDTCExtendedDataRecordByDTCNumber",
+                }
+                sub_name = sub_names.get(subfn, f"SubFunction 0x{subfn:02X}")
+                line1 = f"📦 **UDS Teşhis Paketi (ID: 0x{can_id:03X} / SID 0x19):**"
+                line2 = f"• **Servis:** `0x19 ReadDTCInformation` — {sub_name} (Maske: 0x{mask:02X})"
+                line3 = "• **Anlam:** ECU hata belleğindeki kayıtlı DTC arıza kodları ve durum maskesi sorgulanıyor."
+                actions = [make_uds_clear_dtc_action()]
+                return (f"{line1}\n{line2}\n{line3}", actions)
+
+            # 0x22 Read Data By Identifier
+            if sid == 0x22:
+                did = (payload_bytes[sid_idx + 1] << 8 | payload_bytes[sid_idx + 2]) if len(payload_bytes) >= sid_idx + 3 else 0
+                known_dids = {
+                    0xF190: "VIN (Araç Şasi Numarası)",
+                    0xF187: "Yedek Parça Numarası",
+                    0xF189: "ECU Yazılım Versiyonu",
+                    0xF197: "Sistem Adı",
+                    0x1102: "Common Rail Yakıt Basıncı",
+                    0x4100: "EV Batarya Hücre Voltaj Haritası",
+                    0x4101: "EV Min/Max Hücre Voltajı",
+                    0x4102: "HVIL Sensör Voltajı",
+                    0x4105: "Batarya Sıcaklık Dağılımı",
+                }
+                did_name = known_dids.get(did, f"DID 0x{did:04X}")
+                line1 = f"📦 **UDS Teşhis Paketi (ID: 0x{can_id:03X} / SID 0x22):**"
+                line2 = f"• **Servis:** `0x22 ReadDataByIdentifier` — 0x{did:04X} ({did_name})"
+                line3 = f"• **Anlam:** ECU'dan {did_name} parametresinin anlık telemetri değeri sorgulanıyor."
+                actions = [make_uds_read_vin_action()] if did == 0xF190 else []
+                return (f"{line1}\n{line2}\n{line3}", actions)
+
+            # 0x27 Security Access
+            if sid == 0x27:
+                sec_sub = payload_bytes[sid_idx + 1] if len(payload_bytes) > sid_idx + 1 else 1
+                sec_mode = "Request Seed" if (sec_sub % 2 == 1) else "Send Key"
+                line1 = f"📦 **UDS Güvenlik Paketi (ID: 0x{can_id:03X} / SID 0x27):**"
+                line2 = f"• **Servis:** `0x27 SecurityAccess` — {sec_mode} (Seviye 0x{sec_sub:02X})"
+                line3 = "• **Anlam:** ECU'nun korumalı teşhis ve programlama alanlarına erişim anahtarı doğrulanıyor."
+                return (f"{line1}\n{line2}\n{line3}", [])
+
+            # 0x28 Communication Control
+            if sid == 0x28:
+                ctrl_type = payload_bytes[sid_idx + 1] if len(payload_bytes) > sid_idx + 1 else 0
+                c_names = {0: "enableRxAndTx", 1: "enableRxAndDisableTx", 3: "disableRxAndTx"}
+                c_name = c_names.get(ctrl_type, f"0x{ctrl_type:02X}")
+                line1 = f"📦 **UDS Teşhis Paketi (ID: 0x{can_id:03X} / SID 0x28):**"
+                line2 = f"• **Servis:** `0x28 CommunicationControl` — {c_name}"
+                line3 = "• **Anlam:** CAN veri yolu üzerindeki normal mesaj iletimi geçici olarak durduruluyor/açılıyor."
+                return (f"{line1}\n{line2}\n{line3}", [])
+
+            # 0x2E Write Data By Identifier
+            if sid == 0x2E:
+                did = (payload_bytes[sid_idx + 1] << 8 | payload_bytes[sid_idx + 2]) if len(payload_bytes) >= sid_idx + 3 else 0
+                data_hex = " ".join(f"{b:02X}" for b in payload_bytes[sid_idx + 3:])
+                line1 = f"📦 **UDS Yazma Paketi (ID: 0x{can_id:03X} / SID 0x2E):**"
+                line2 = f"• **Servis:** `0x2E WriteDataByIdentifier` — DID 0x{did:04X}"
+                line3 = f"• **Anlam:** ECU parametresi üzerine yeni değer yazılıyor (Veri: `{data_hex or 'Boş'}`)."
+                return (f"{line1}\n{line2}\n{line3}", [])
+
+            # 0x31 Routine Control
+            if sid == 0x31:
+                ctrl_type = payload_bytes[sid_idx + 1] if len(payload_bytes) > sid_idx + 1 else 1
+                rid = (payload_bytes[sid_idx + 2] << 8 | payload_bytes[sid_idx + 3]) if len(payload_bytes) >= sid_idx + 4 else 0
+                ctrl_names = {1: "Start Routine", 2: "Stop Routine", 3: "Request Routine Results"}
+                line1 = f"📦 **UDS Teşhis Paketi (ID: 0x{can_id:03X} / SID 0x31):**"
+                line2 = f"• **Servis:** `0x31 RoutineControl` — {ctrl_names.get(ctrl_type, 'Routine')} (ID: 0x{rid:04X})"
+                line3 = f"• **Anlam:** ECU üzerinde 0x{rid:04X} nolu teşhis veya kalibrasyon rutini yürütülüyor."
+                actions = [make_uds_routine_action(rid)]
+                return (f"{line1}\n{line2}\n{line3}", actions)
+
+            # 0x3E Tester Present
+            if sid == 0x3E:
+                subfn = payload_bytes[sid_idx + 1] if len(payload_bytes) > sid_idx + 1 else 0
+                suppress = bool(subfn & 0x80)
+                line1 = f"📦 **UDS Keep-Alive Paketi (ID: 0x{can_id:03X} / SID 0x3E):**"
+                line2 = f"• **Servis:** `0x3E TesterPresent` (Yanıt Bastırma={suppress})"
+                line3 = "• **Anlam:** Tanı oturumunun zaman aşımına uğramasını önlemek için periyodik sinyal iletiliyor."
+                return (f"{line1}\n{line2}\n{line3}", [])
+
+            # 0x7F Negative Response
+            if sid == 0x7F:
+                rej_sid = payload_bytes[sid_idx + 1] if len(payload_bytes) > sid_idx + 1 else 0
+                nrc = payload_bytes[sid_idx + 2] if len(payload_bytes) > sid_idx + 2 else 0
+                nrc_hex = f"0x{nrc:02X}"
+                nrc_info = UDS_NRC_CATALOG.get(nrc_hex, {"name": "Genel Red", "cause": "ECU işlemi reddetti", "action": "Ön koşulları kontrol edin"})
+                line1 = f"🛑 **UDS Negatif Yanıt (ID: 0x{can_id:03X} / NRC {nrc_hex}):**"
+                line2 = f"• **Reddedilen Servis:** `0x{rej_sid:02X}` | Hata: {nrc_info['name']}"
+                line3 = f"• **Neden:** {nrc_info['cause']}. Çözüm: {nrc_info['action']}"
+                return (f"{line1}\n{line2}\n{line3}", [])
+
+            # 0x50 Positive Response (Diagnostic Session Control)
+            if sid == 0x50:
+                st = payload_bytes[sid_idx + 1] if len(payload_bytes) > sid_idx + 1 else 1
+                line1 = f"✅ **UDS Pozitif Yanıt (ID: 0x{can_id:03X} / SID 0x50):**"
+                line2 = f"• **Servis:** `0x10 DiagnosticSessionControl` Onaylandı (Oturum: 0x{st:02X})"
+                line3 = "• **Sonuç:** ECU talep edilen teşhis oturumuna başarıyla geçti."
+                return (f"{line1}\n{line2}\n{line3}", [])
+
+            # 0x51 Positive Response (ECU Reset)
+            if sid == 0x51:
+                rt = payload_bytes[sid_idx + 1] if len(payload_bytes) > sid_idx + 1 else 1
+                line1 = f"✅ **UDS Pozitif Yanıt (ID: 0x{can_id:03X} / SID 0x51):**"
+                line2 = f"• **Servis:** `0x11 ECUReset` Başarılı (Reset Tipi: 0x{rt:02X})"
+                line3 = "• **Sonuç:** ECU yeniden başlatma komutunu kabul etti ve sıfırlanıyor."
+                return (f"{line1}\n{line2}\n{line3}", [])
+
+            # 0x54 Positive Response (Clear DTC)
+            if sid == 0x54:
+                line1 = f"✅ **UDS Pozitif Yanıt (ID: 0x{can_id:03X} / SID 0x54):**"
+                line2 = "• **Servis:** `0x14 ClearDiagnosticInformation` Başarıyla Tamamlandı"
+                line3 = "• **Sonuç:** ECU hata hafızası sıfırlandı. Arıza kodları başarıyla temizlendi."
+                return (f"{line1}\n{line2}\n{line3}", [])
+
+            # 0x59 Positive Response (Read DTC Information)
+            if sid == 0x59:
+                subfn = payload_bytes[sid_idx + 1] if len(payload_bytes) > sid_idx + 1 else 2
+                mask = payload_bytes[sid_idx + 2] if len(payload_bytes) > sid_idx + 2 else 0
+                line1 = f"✅ **UDS Pozitif Yanıt (ID: 0x{can_id:03X} / SID 0x59):**"
+                line2 = f"• **Servis:** `0x19 ReadDTCInformation` Başarılı Yanıt (Durum Maskesi: 0x{mask:02X})"
+                line3 = "• **İçerik:** ECU arıza kodları raporlandı. Arıza temizleme için UDS 0x14 kullanılabilir."
+                actions = [make_uds_clear_dtc_action()]
+                return (f"{line1}\n{line2}\n{line3}", actions)
+
+            # 0x62 Positive Response (Read DID)
+            if sid == 0x62:
+                did = (payload_bytes[sid_idx + 1] << 8 | payload_bytes[sid_idx + 2]) if len(payload_bytes) >= sid_idx + 3 else 0
+                data_tail = payload_bytes[sid_idx + 3:]
+                val_str = ""
+                if did == 0xF190 and data_tail:
+                    ascii_str = "".join(chr(b) for b in data_tail if 32 <= b <= 126)
+                    val_str = f" Araç VIN: `{ascii_str}` |" if ascii_str else ""
+                line1 = f"✅ **UDS Pozitif Yanıt (ID: 0x{can_id:03X} / SID 0x62):**"
+                line2 = f"• **Servis:** `0x22 Read DID 0x{did:04X}` Başarılı Yanıt"
+                line3 = f"• **İçerik:**{val_str} Veri baytları: `{' '.join(f'{b:02X}' for b in data_tail[:8])}`"
+                return (f"{line1}\n{line2}\n{line3}", [])
+
+            # 0x67 Positive Response (Security Access)
+            if sid == 0x67:
+                line1 = f"✅ **UDS Pozitif Yanıt (ID: 0x{can_id:03X} / SID 0x67):**"
+                line2 = "• **Servis:** `0x27 SecurityAccess` Kilit Açıldı (Security Unlocked)"
+                line3 = "• **Sonuç:** Güvenlik katmanı doğrulandı. Korumalı rutin ve yazma işlemleri aktif."
+                return (f"{line1}\n{line2}\n{line3}", [])
+
+            # 0x71 Positive Response (Routine Control)
+            if sid == 0x71:
+                rid = (payload_bytes[sid_idx + 2] << 8 | payload_bytes[sid_idx + 3]) if len(payload_bytes) >= sid_idx + 4 else 0
+                line1 = f"✅ **UDS Pozitif Yanıt (ID: 0x{can_id:03X} / SID 0x71):**"
+                line2 = f"• **Servis:** `0x31 RoutineControl` Başarıyla Yürütüldü (RID: 0x{rid:04X})"
+                line3 = "• **Sonuç:** Teşhis rutini başarıyla tamamlandı."
+                return (f"{line1}\n{line2}\n{line3}", [])
+
+            # OBD-II Mode 01
+            if sid == 0x01:
+                pid = payload_bytes[sid_idx + 1] if len(payload_bytes) > sid_idx + 1 else 0
+                pids = {
+                    0x04: ("Hesaplanan Motor Yükü", lambda b: f"%{b[0]*100/255:.1f}" if len(b) > 0 else ""),
+                    0x05: ("Motor Soğutma Sıvısı Sıcaklığı (ECT)", lambda b: f"{b[0] - 40}°C" if len(b) > 0 else ""),
+                    0x0B: ("Emme Manifoldu Basıncı (MAP)", lambda b: f"{b[0]} kPa" if len(b) > 0 else ""),
+                    0x0C: ("Motor Devri (RPM)", lambda b: f"{(b[0]*256 + b[1])/4:.0f} RPM" if len(b) > 1 else ""),
+                    0x0D: ("Araç Hızı (Speed)", lambda b: f"{b[0]} km/s" if len(b) > 0 else ""),
+                    0x0F: ("Emme Havası Sıcaklığı (IAT)", lambda b: f"{b[0] - 40}°C" if len(b) > 0 else ""),
+                    0x11: ("Gaz Kelebeği Pozisyonu", lambda b: f"%{b[0]*100/255:.1f}" if len(b) > 0 else ""),
+                }
+                p_name, calc = pids.get(pid, (f"PID 0x{pid:02X}", lambda b: ""))
+                val_txt = calc(payload_bytes[sid_idx + 2:]) if len(payload_bytes) > sid_idx + 2 else ""
+                val_s = f" — Değer: {val_txt}" if val_txt else ""
+                line1 = f"📡 **OBD-II Canlı Telemetri Sorgusu (ID: 0x{can_id:03X}):**"
+                line2 = f"• **Servis:** `Mode 01 PID 0x{pid:02X}` — {p_name}"
+                line3 = f"• **Anlam:** Standart OBD-II canlı parametre talebi{val_s}."
+                return (f"{line1}\n{line2}\n{line3}", [])
+
+    # 2. J1939 Extended 29-bit Frames
+    if can_id > 0x7FF:
+        pgn = (can_id >> 8) & 0x3FFFF
+        pf = (can_id >> 16) & 0xFF
+        if pf < 240:
+            pgn = pgn & 0x3FF00
+
+        # PGN 61444 EEC1
+        if pgn == 61444:
+            rpm_val = ((payload_bytes[4] << 8 | payload_bytes[3]) * 0.125) if len(payload_bytes) >= 5 else 0.0
+            torque_val = (payload_bytes[2] - 125) if len(payload_bytes) >= 3 else 0
+            line1 = f"🚛 **SAE J1939 Paket Analizi (ID: 0x{can_id:08X} - PGN 61444 / EEC1):**"
+            line2 = "• **Sistem:** Elektronik Motor Denetleyicisi 1 (Electronic Engine Controller 1)"
+            line3 = f"• **Çözülen Sinyaller:** Motor Devri: `{rpm_val:.0f} RPM`, Aktüel Motor Torku: `%{torque_val}`."
+            return (f"{line1}\n{line2}\n{line3}", [])
+
+        # PGN 65265 CCVS
+        if pgn == 65265:
+            speed_kmh = ((payload_bytes[2] << 8 | payload_bytes[1]) / 256.0) if len(payload_bytes) >= 3 else 0.0
+            line1 = f"🚛 **SAE J1939 Paket Analizi (ID: 0x{can_id:08X} - PGN 65265 / CCVS):**"
+            line2 = "• **Sistem:** Seyir Kontrolü & Araç Hızı (Cruise Control & Vehicle Speed)"
+            line3 = f"• **Çözülen Sinyaller:** Tekerlek Tabanlı Araç Hızı: `{speed_kmh:.1f} km/s`."
+            return (f"{line1}\n{line2}\n{line3}", [])
+
+        # PGN 65226 DM1
+        if pgn == 65226:
+            line1 = f"🚛 **SAE J1939 Paket Analizi (ID: 0x{can_id:08X} - PGN 65226 / DM1):**"
+            line2 = "• **Sistem:** Aktif Diyagnostik Hata Kodları (Active Diagnostic Trouble Codes)"
+            line3 = "• **Anlam:** Araçtaki aktif arıza lambası (MIL/AWL) ve mevcut SPN/FMI hata durumunu bildirir."
+            actions = [make_j1939_dm1_action()]
+            return (f"{line1}\n{line2}\n{line3}", actions)
+
+        # PGN 65235 DM11
+        if pgn == 65235:
+            line1 = f"🚛 **SAE J1939 Paket Analizi (ID: 0x{can_id:08X} - PGN 65235 / DM11):**"
+            line2 = "• **Sistem:** Aktif Arıza Kodlarını Temizleme (Diagnostic Data Clear)"
+            line3 = "• **Anlam:** ECU hafızasındaki aktif arıza kodlarının sıfırlanmasını talep eder."
+            actions = [make_j1939_dm11_action()]
+            return (f"{line1}\n{line2}\n{line3}", actions)
+
+        # PGN 65249 ET1 (Engine Temperature 1)
+        if pgn == 65249:
+            coolant_t = (payload_bytes[0] - 40) if len(payload_bytes) >= 1 else 0
+            line1 = f"🚛 **SAE J1939 Paket Analizi (ID: 0x{can_id:08X} - PGN 65249 / ET1):**"
+            line2 = "• **Sistem:** Motor Sıcaklığı 1 (Engine Temperature 1)"
+            line3 = f"• **Çözülen Sinyaller:** Motor Soğutma Sıvısı Sıcaklığı (SPN 110): `{coolant_t}°C`."
+            return (f"{line1}\n{line2}\n{line3}", [])
+
+        # PGN 65263 EFL_P1 (Engine Fluid Level/Pressure 1)
+        if pgn == 65263:
+            oil_press_kpa = (payload_bytes[3] * 4) if len(payload_bytes) >= 4 else 0
+            oil_bar = oil_press_kpa / 100.0
+            line1 = f"🚛 **SAE J1939 Paket Analizi (ID: 0x{can_id:08X} - PGN 65263 / EFL_P1):**"
+            line2 = "• **Sistem:** Motor Sıvı Seviye ve Basınçları 1 (Engine Fluid Level/Pressure 1)"
+            line3 = f"• **Çözülen Sinyaller:** Motor Yağ Basıncı (SPN 100): `{oil_bar:.2f} Bar` ({oil_press_kpa} kPa)."
+            return (f"{line1}\n{line2}\n{line3}", [])
+
+        # PGN 65262 ET2 (Engine Temperature 2)
+        if pgn == 65262:
+            oil_temp = (((payload_bytes[3] << 8 | payload_bytes[2]) * 0.03125) - 273) if len(payload_bytes) >= 4 else 0.0
+            line1 = f"🚛 **SAE J1939 Paket Analizi (ID: 0x{can_id:08X} - PGN 65262 / ET2):**"
+            line2 = "• **Sistem:** Motor Sıcaklığı 2 (Engine Temperature 2)"
+            line3 = f"• **Çözülen Sinyaller:** Motor Yağ Sıcaklığı (SPN 175): `{oil_temp:.1f}°C`."
+            return (f"{line1}\n{line2}\n{line3}", [])
+
+        # PGN 65269 AMB (Ambient Conditions)
+        if pgn == 65269:
+            amb_temp = (((payload_bytes[4] << 8 | payload_bytes[3]) * 0.03125) - 273) if len(payload_bytes) >= 5 else 0.0
+            line1 = f"🚛 **SAE J1939 Paket Analizi (ID: 0x{can_id:08X} - PGN 65269 / AMB):**"
+            line2 = "• **Sistem:** Ortam Çevre Koşulları (Ambient Conditions)"
+            line3 = f"• **Çözülen Sinyaller:** Dış Ortam Hava Sıcaklığı (SPN 171): `{amb_temp:.1f}°C`."
+            return (f"{line1}\n{line2}\n{line3}", [])
+
+        # PGN 65257 LFE (Fuel Economy)
+        if pgn == 65257:
+            fuel_rate = ((payload_bytes[1] << 8 | payload_bytes[0]) * 0.05) if len(payload_bytes) >= 2 else 0.0
+            line1 = f"🚛 **SAE J1939 Paket Analizi (ID: 0x{can_id:08X} - PGN 65257 / LFE):**"
+            line2 = "• **Sistem:** Yakıt Ekonomisi (Fuel Economy / Liquid Fuel Economy)"
+            line3 = f"• **Çözülen Sinyaller:** Anlık Yakıt Tüketim Debisi (SPN 183): `{fuel_rate:.1f} L/h`."
+            return (f"{line1}\n{line2}\n{line3}", [])
+
+    # 3. Known Standard Diagnostic IDs without payload
+    if can_id == 0x7DF:
+        return ("📡 **CAN ID 0x7DF:** Standart OBD-II Fonksiyonel Yayın İsteği (Tüm bağlı ECU'lara eşzamanlı genel sorgu).", [])
+    if 0x7E0 <= can_id <= 0x7E7:
+        ecu_name = "Motor (ECM/PCM)" if can_id == 0x7E0 else ("Şanzıman (TCM)" if can_id == 0x7E1 else f"ECU_{can_id - 0x7E0}")
+        return (f"📡 **CAN ID 0x{can_id:03X}:** ISO 15765-4 Standart OBD-II / UDS Fiziksel İstek Hattı ({ecu_name}).", [])
+    if 0x7E8 <= can_id <= 0x7EF:
+        ecu_name = "Motor (ECM/PCM)" if can_id == 0x7E8 else ("Şanzıman (TCM)" if can_id == 0x7E9 else f"ECU_{can_id - 0x7E8}")
+        return (f"📡 **CAN ID 0x{can_id:03X}:** ISO 15765-4 Standart OBD-II / UDS Fiziksel Yanıt Hattı ({ecu_name}).", [])
+
+    # 4. DBC Fallback Signal Decoding for any frame with payload
+    if payload_bytes:
+        decoder = _get_fallback_dbc_decoder()
+        if decoder is not None:
+            try:
+                from src.core.models.can_frame import CanFrame
+                is_ext = can_id > 0x7FF
+                cf = CanFrame(
+                    arbitration_id=can_id,
+                    is_extended=is_ext,
+                    dlc=len(payload_bytes),
+                    data=bytes(payload_bytes[:8]),
+                    channel_id="ch0",
+                )
+                decoded_msg = decoder.decode_frame(cf)
+                if decoded_msg and decoded_msg.signals:
+                    sig_strs = [
+                        f"{s.name}: `{s.value}` {s.unit}".strip()
+                        for s in list(decoded_msg.signals.values())[:3]
+                    ]
+                    line1 = f"📦 **DBC Çözümlenmiş Mesaj (ID: 0x{can_id:X} - {decoded_msg.message_name}):**"
+                    line2 = f"• **Sinyaller:** {', '.join(sig_strs)}"
+                    line3 = f"• **Detay:** Vector DBC veritabanı ile {len(decoded_msg.signals)} adet sinyal başarıyla çözümlendi."
+                    return (f"{line1}\n{line2}\n{line3}", [])
+            except Exception:
+                pass
+
+    # 5. Fallback for unrecognized frame
+    hex_str = " ".join(f"{b:02X}" for b in payload_bytes) if payload_bytes else "Boş"
+    return (
+        f"⚠️ **CAN ID Tanımsız (0X{can_id:X}):**\n"
+        f"Bu mesaj kimliği için yerel veritabanında veya protokol motorunda kayıtlı bir sinyal tanımı bulunamadı.\n"
+        f"• Sniffer tablosundan canlı veri uzunluğunu (DLC={len(payload_bytes)}) ve bayt değişimlerini (`{hex_str}`) inceleyebilirsiniz.",
+        [],
+    )
 
 
 # ============================================================================
@@ -634,7 +1248,26 @@ EXPERT_KNOWLEDGE_BASE: dict[str, dict[str, Any]] = {
 # DYNAMIC DIAGNOSTIC DATABASE LOADER & TELEMETRY ACCESSORS
 # ============================================================================
 
-_EXTERNAL_DATA_DIR: Path = Path(__file__).resolve().parents[3] / "data" / "diagnostics"
+def _resolve_external_data_dir() -> Path:
+    """Resolve the external diagnostics data directory (H-9 / P1-11).
+
+    Frozen PyInstaller builds resolve `__file__` inside the _MEIPASS
+    extraction directory, so a bare `Path(__file__).parents[3]` misses the
+    bundled data — silently degrading the DTC knowledge base from ~1870 to
+    34 hardcoded rules. Prefer the frozen bundle root first, then fall back
+    to the repository layout.
+    """
+    import sys
+
+    if getattr(sys, "frozen", False):
+        frozen_root = Path(getattr(sys, "_MEIPASS", sys.executable)).resolve()
+        frozen_dir = frozen_root / "data" / "diagnostics"
+        if frozen_dir.is_dir():
+            return frozen_dir
+    return Path(__file__).resolve().parents[3] / "data" / "diagnostics"
+
+
+_EXTERNAL_DATA_DIR: Path = _resolve_external_data_dir()
 _CACHED_J1939_DB: dict[str, Any] | None = None
 _CACHED_UDS_DID_DB: dict[str, Any] | None = None
 _CACHED_MODE06_DB: dict[str, Any] | None = None
@@ -649,7 +1282,10 @@ def load_external_dtc_database(data_path: Path | str | None = None) -> int:
     """
     target = Path(data_path) if data_path else _EXTERNAL_DATA_DIR / "dtc_database.json"
     if not target.exists():
-        logger.debug("External DTC database not found at %s, using built-in rules", target)
+        # H-9 (P1-11): missing DB is a DEGRADED mode, not business as usual —
+        # debug level hid the loss of ~98% of the knowledge base in frozen
+        # builds. Surface it at WARNING so operators can notice.
+        logger.warning("External DTC database not found at %s — knowledge base degraded to built-in rules", target)
         return 0
 
     try:
@@ -683,6 +1319,7 @@ def get_j1939_spn_database(data_path: Path | str | None = None) -> dict[str, Any
 
     target = Path(data_path) if data_path else _EXTERNAL_DATA_DIR / "j1939_spn_fmi_database.json"
     if not target.exists():
+        logger.warning("J1939 SPN/FMI database not found at %s — J1939 fault decoding degraded", target)
         return {}
 
     try:
@@ -705,6 +1342,7 @@ def get_uds_did_database(data_path: Path | str | None = None) -> dict[str, Any]:
 
     target = Path(data_path) if data_path else _EXTERNAL_DATA_DIR / "uds_did_database.json"
     if not target.exists():
+        logger.warning("UDS DID database not found at %s — DID telemetry catalog degraded", target)
         return {}
 
     try:
@@ -727,6 +1365,7 @@ def get_mode06_database(data_path: Path | str | None = None) -> dict[str, Any]:
 
     target = Path(data_path) if data_path else _EXTERNAL_DATA_DIR / "obd_mode06_database.json"
     if not target.exists():
+        logger.warning("Mode $06 database not found at %s — monitor test data degraded", target)
         return {}
 
     try:
@@ -756,6 +1395,7 @@ def get_extended_pid_database(data_path: Path | str | None = None) -> dict[str, 
 
     target = Path(data_path) if data_path else _EXTERNAL_DATA_DIR / "extended_pid_database.json"
     if not target.exists():
+        logger.warning("Extended PID database not found at %s — enhanced PID queries degraded", target)
         return {}
 
     try:
@@ -836,6 +1476,74 @@ def get_extended_pid_info(pid_hex: str, manufacturer: str | None = None) -> dict
     return None
 
 
+_CACHED_DBC_CATALOG: dict[str, Any] | None = None
+_DBC_DATA_DIR: Path = Path(__file__).resolve().parents[3] / "data" / "dbc"
+
+
+def get_dbc_catalog(catalog_path: Path | str | None = None) -> dict[str, Any]:
+    """Load and return DBC catalog metadata."""
+    global _CACHED_DBC_CATALOG
+    if _CACHED_DBC_CATALOG is not None and catalog_path is None:
+        return _CACHED_DBC_CATALOG
+
+    target = Path(catalog_path) if catalog_path else _DBC_DATA_DIR / "catalog.json"
+    if not target.exists():
+        return {}
+
+    try:
+        content = target.read_text(encoding="utf-8", errors="replace")
+        data = json.loads(content)
+        if isinstance(data, dict):
+            if catalog_path is None:
+                _CACHED_DBC_CATALOG = data
+            return data
+    except Exception as exc:
+        logger.warning("Failed to load DBC catalog: %s", exc)
+    return {}
+
+
+def search_dbc_catalog(query: str, catalog_path: Path | str | None = None) -> list[dict[str, Any]]:
+    """Search available DBC files by keyword or model name."""
+    cat = get_dbc_catalog(catalog_path)
+    if not cat:
+        return []
+
+    norm = AutomotiveTokenizer.normalize_text(query).replace("dbc", "").strip()
+    words = [
+        w for w in norm.split()
+        if len(w) > 1 and w not in ("can", "file", "dosya", "dosyasi", "var", "mi", "mu", "nedir", "hangi", "katalog", "hakkinda", "bilgi", "ver")
+    ]
+    results: list[dict[str, Any]] = []
+    seen: set[str] = set()
+
+    for cat_name, cat_data in cat.get("categories", {}).items():
+        title = cat_data.get("title", cat_name)
+        protocol = cat_data.get("protocol", "CAN")
+        for f in cat_data.get("files", []):
+            fname = f.get("filename", "")
+            fname_lower = fname.lower()
+            if fname in seen:
+                continue
+
+            matched = False
+            if norm and (norm in fname_lower or fname_lower in norm):
+                matched = True
+            elif words and all(w in fname_lower for w in words):
+                matched = True
+
+            if matched:
+                seen.add(fname)
+                results.append({
+                    "filename": fname,
+                    "category": title,
+                    "protocol": protocol,
+                    "messages_count": f.get("messages_count", 0),
+                    "signals_count": f.get("signals_count", 0),
+                })
+
+    return results
+
+
 def get_nhtsa_recalls_database(data_path: Path | str | None = None) -> dict[str, Any]:
     """Load and return NHTSA CAN-Bus, Electrical & Software Recalls database."""
     global _CACHED_NHTSA_RECALLS_DB
@@ -844,6 +1552,7 @@ def get_nhtsa_recalls_database(data_path: Path | str | None = None) -> dict[str,
 
     target = Path(data_path) if data_path else _EXTERNAL_DATA_DIR / "nhtsa_can_recalls_database.json"
     if not target.exists():
+        logger.warning("NHTSA recalls database not found at %s — recall lookups degraded", target)
         return {}
 
     try:
@@ -916,32 +1625,32 @@ def search_nhtsa_recalls(
 
 
 def format_nhtsa_recall_report(recall: dict[str, Any]) -> str:
-    """Format an NHTSA safety recall into an actionable technician bulletin summary."""
-    lines = [
-        f"🚨 NHTSA Geri Çağırma (Recall) Kampanyası: {recall.get('campaign_number', 'Bilinmiyor')}",
-        f"🏷️ Üretici: {recall.get('manufacturer', '-')}",
-        f"📂 Kategori: {recall.get('category', '-')}",
-        f"⚙️ İlgili Komponent / Modül: {recall.get('component', '-')}",
-        f"📡 Etkilenen Sistemler: {', '.join(recall.get('affected_systems', [])) or 'Genel Ağ / Elektrik'}",
-        f"📶 OTA (Uzaktan Güncelleme): {'EVET' if recall.get('over_the_air_update') else 'HAYIR (Yetkili Servis Gereklidir)'}",
-        "",
-        "📋 Sorun Özeti:",
-        f"   {recall.get('summary', '-')}",
-        "",
-        "⚠️ Güvenlik Riski / Sonucu:",
-        f"   {recall.get('consequence', '-')}",
-        "",
-        "🔧 Resmi Onarım / Giderim Talimatı (Remedy):",
-        f"   {recall.get('remedy', '-')}",
-    ]
-    vehicles = recall.get("affected_vehicles", [])
-    if vehicles:
-        v_strs = [f"{v.get('make')} {v.get('model')} ({v.get('year')})" for v in vehicles[:5]]
-        if len(vehicles) > 5:
-            v_strs.append(f"+{len(vehicles) - 5} diğer model")
-        lines.extend(["", f"🚗 Etkilenen Araçlar: {', '.join(v_strs)}"])
+    """Format an NHTSA safety recall into a concise, actionable summary."""
+    camp = recall.get("campaign_number", "Bilinmiyor")
+    mfr = recall.get("manufacturer", "-")
+    comp = recall.get("component", "-")
+    ota = "OTA Güncelleme" if recall.get("over_the_air_update") else "Servis Onarımı"
+    summary = (recall.get("summary") or "-").strip()
+    if len(summary) > 160:
+        summary = summary[:157] + "..."
+    remedy = (recall.get("remedy") or "-").strip()
+    if len(remedy) > 140:
+        remedy = remedy[:137] + "..."
 
-    return "\n".join(lines)
+    vehicles = recall.get("affected_vehicles", [])
+    v_info = ""
+    if vehicles:
+        first = vehicles[0]
+        v_info = f" | {first.get('make', '')} {first.get('model', '')} ({first.get('year', '')})"
+        if len(vehicles) > 1:
+            v_info += f" (+{len(vehicles) - 1} model)"
+
+    return (
+        f"🚨 **NHTSA Geri Çağırma (Recall): {camp}** ({mfr}{v_info})\n"
+        f"• **Modül:** {comp} [{ota}]\n"
+        f"• **📋 Sorun Özeti:** {summary}\n"
+        f"• **🔧 Resmi Onarım:** {remedy}"
+    )
 
 
 # Auto-load external DTC database on module initialization
@@ -1116,122 +1825,211 @@ class AutomotiveTokenizer:
 class CausalBayesianInferenceEngine:
     """Exact probabilistic inference calculating P(Fault_i | Evidence) and synthesizing 4-stage technician reports."""
 
+    @staticmethod
+    def explain_can_packet(
+        can_id_hex_or_int: str | int,
+        payload: bytes | list[int] | str = b"",
+    ) -> str:
+        text, actions = explain_can_packet(can_id_hex_or_int, payload)
+        return attach_action_triggers(text, actions)
+
+    @staticmethod
+    def explain_traffic_metrics(
+        bus_metrics: dict[str, Any],
+        user_query: str = "",
+    ) -> str:
+        return explain_traffic_metrics(bus_metrics, user_query)
+
     @classmethod
     def evaluate_diagnostic_query(
         cls,
         user_query: str,
         active_dtcs: list[dict[str, Any]],
-        telemetry: dict[str, float],
+        telemetry: dict[str, Any],
+        bus_metrics: dict[str, Any] | None = None,
     ) -> str:
         """Generate comprehensive 4-stage master technician report."""
+        if bus_metrics:
+            telemetry = {**telemetry, **bus_metrics}
         intents = AutomotiveTokenizer.extract_semantic_intents(user_query)
         norm_query = AutomotiveTokenizer.normalize_text(user_query)
+
+        # 0. CAN Traffic & Bus Load Anomaly Awareness
+        is_traffic_query = any(w in norm_query for w in ["trafik", "hat yuku", "bus load", "anomali", "error frame", "hata karesi", "patlama", "babbling"])
+        if is_traffic_query and any(w in norm_query for w in ["durum", "nasil", "yuku", "yuzde", "load", "anomali", "rapor", "analiz", "hat", "hata"]):
+            traffic_rep = explain_traffic_metrics(telemetry, user_query)
+            actions = [make_uds_clear_dtc_action()]
+            return attach_action_triggers(traffic_rep, actions)
+
+        # 0.1 Direct Diagnostic Action Requests (UDS & J1939 Actionable Triggers)
+        has_dtc_in_query = bool(re.search(r"\b([PBUC][0-9A-F]{4})\b", user_query, re.IGNORECASE))
+        has_spn_in_query = bool(re.search(r"\bspn\s*([0-9]+)\b", norm_query))
+
+        # J1939 DM11 Clear DTC request
+        is_dm11_action = any(w in norm_query for w in ["dm11", "j1939 ariza sil", "agir vasita ariza sil", "j1939 temizle", "pgn 65235"])
+        if is_dm11_action and not has_dtc_in_query:
+            text = (
+                "🚛 **SAE J1939 DM11 (PGN 65235 - Diagnostic Data Clear):**\n"
+                "• **Protokol:** Ağır vasıta ticari araçlarda aktif ve geçmiş DM1 arıza kayıtlarını siler.\n"
+                "• **İşlem:** Aşağıdaki eylem butonuna tıklayarak DM11 silme komutunu gönderebilirsiniz."
+            )
+            return attach_action_triggers(text, [make_j1939_dm11_action()])
+
+        # J1939 DM1 Query request
+        is_dm1_action = any(w in norm_query for w in ["dm1 oku", "j1939 dm1", "agir vasita ariza oku", "aktif ariza oku", "dm1 sorgula"])
+        if is_dm1_action and not has_spn_in_query:
+            text = (
+                "🚛 **SAE J1939 DM1 (PGN 65226 - Active Diagnostic Trouble Codes):**\n"
+                "• **Protokol:** Ağır vasıta hattında aktif arıza lambaları (MIL, Red Stop, Amber) ve SPN/FMI kayıtlarını dinler.\n"
+                "• **İşlem:** Aşağıdaki eylem butonuna tıklayarak DM1 durumunu sorgulayabilirsiniz."
+            )
+            return attach_action_triggers(text, [make_j1939_dm1_action()])
+
+        # VIN Read request
+        is_vin_action = any(w in norm_query for w in ["vin oku", "sasi no oku", "sasi numarasi oku", "read vin", "chassis number", "f190 oku"]) or (
+            ("vin" in norm_query or "sasi" in norm_query) and any(w in norm_query for w in ["nasil", "oku", "nereden", "ogren", "sorgula", "nedir"])
+        )
+        if is_vin_action and not has_dtc_in_query:
+            text = (
+                "📄 **UDS 0x22 ReadDataByIdentifier (DID 0xF190 - VIN):**\n"
+                "• **Servis:** Araç Şasi Numarası (VIN) doğrudan motor veya gövde kontrol ünitesinden okunur.\n"
+                "• **İşlem:** Aşağıdaki eylem butonuna tıklayarak UDS 0x22 F190 sorgusunu yürütebilirsiniz."
+            )
+            return attach_action_triggers(text, [make_uds_read_vin_action()])
+
+        # Clear DTC request (generic UDS)
+        is_clear_action = any(w in norm_query for w in ["dtc temizle", "ariza sil", "arizalari sil", "hata kodlarini sil", "hafizayi sil", "hafizayi temizle", "clear dtc", "hata sil", "0x14"])
+        if is_clear_action and not has_dtc_in_query and not has_spn_in_query and not is_dm11_action:
+            text = (
+                "🧹 **UDS 0x14 ClearDiagnosticInformation (DTC Temizle):**\n"
+                "• **Servis:** ECU hata hafızasındaki aktif ve geçmiş tüm DTC arıza kayıtları sıfırlanır.\n"
+                "• **Güvenlik:** Çift operatör onayı ve aracın duruyor olması (0.0 km/s) zorunludur.\n"
+                "• **İşlem:** Aşağıdaki onaylı butona tıklayarak temizleme komutunu iletebilirsiniz."
+            )
+            return attach_action_triggers(text, [make_uds_clear_dtc_action()])
+
+        # Diagnostic Session Control request
+        is_session_action = any(w in norm_query for w in ["oturum degistir", "extended session", "genisletilmis oturum", "session degistir", "0x10"])
+        if is_session_action and not has_dtc_in_query and not has_spn_in_query:
+            text = (
+                "🔄 **UDS 0x10 DiagnosticSessionControl (Extended Session):**\n"
+                "• **Servis:** ECU teşhis oturumu Genişletilmiş Oturum (0x03 Extended) moduna geçirilir.\n"
+                "• **Amaç:** Gelişmiş test rutinleri (0x31) ve yazma işlemleri için gereklidir.\n"
+                "• **İşlem:** Aşağıdaki eylem butonuna tıklayarak oturumu değiştirebilirsiniz."
+            )
+            return attach_action_triggers(text, [make_uds_session_action(3)])
+
+        # ECU Reset request
+        is_reset_action = any(w in norm_query for w in ["ecu reset", "beyin reset", "hard reset", "beyni sifirla", "0x11"])
+        if is_reset_action and not has_dtc_in_query:
+            text = (
+                "⚡ **UDS 0x11 ECUReset (Hard Reset):**\n"
+                "• **Servis:** ECU mikrodenetleyicisi donanımsal olarak baştan başlatılır.\n"
+                "• **Güvenlik:** Araç duruyor olmalı ve kullanıcı onayı gereklidir.\n"
+                "• **İşlem:** Aşağıdaki eylem butonuna tıklayarak ECU Reset komutunu iletebilirsiniz."
+            )
+            return attach_action_triggers(text, [make_uds_ecu_reset_action(1)])
 
         # 0. CAN Frame Forensics (e.g. from right-click context menu or frame questions)
         is_error_frame = "(ERR)" in user_query or "Error Frame" in user_query or "isErrorFrame" in user_query or "hata karesi" in norm_query or "0x00000000" in user_query or "0x0000000" in user_query
         if is_error_frame and not re.search(r"\b([PBUC][0-9A-F]{4})\b", user_query, re.IGNORECASE):
             return (
-                "🔴 **CAN Fiziksel Katman Hata Karesi (CAN Physical Layer Error Frame / Bus Error):**\n\n"
-                "• **Mesaj Tipi:** Donanımsal Hata Karesi (Active Error Flag)\n"
-                "• **Protokol:** ISO 11898-2 Fiziksel Katman Denetimi\n"
-                "• **Açıklama:** Bu bir standart veri paketi (Data Frame) değildir. CAN denetleyicisi fiziksel iletim hattında bir anomali yakaladığında hatta ardışık 6 dominant bit basarak (Active Error Flag) hatalı mesajın iletimini sonlandırır.\n\n"
-                "🔍 **Olası Fiziksel Hata Nedenleri:**\n"
-                "1. **Bit Stuffing Hatası:** 5 ardışık aynı bitten sonra zıt stuffing bitinin gelmemesi.\n"
-                "2. **CRC / Checksum Hatası:** Yoldaki elektriksel gürültü veya parazit sebebiyle sağlama toplamının bozulması.\n"
-                "3. **ACK (Onay) Hatası:** Veri yolunda mesajı onaylayacak başka aktif bir düğümün bulunmaması.\n"
-                "4. **Hat Sonlandırma / Empedans:** 120Ω sonlandırma dirençlerinin takılı olmaması veya açık devre olması (Hat yansımaları).\n\n"
-                "🛠️ **Usta Teknisyen Saha Kontrol Adımları:**\n"
-                "1. **Direnç Testi:** OBD-II Pin 6 (CAN-H) ve Pin 14 (CAN-L) arasını multimetre ile ölçün (Nominal: 60.0 Ω ±3Ω).\n"
-                "2. **Voltaj Testi:** Şasiye göre CAN-H (2.5V - 3.5V) ve CAN-L (2.5V - 1.5V) diferansiyel seviyelerini osiloskopta inceleyin.\n"
-                "3. **Kablo Tesisatı:** Şasiye temas eden ezilmiş kabloları veya gevşek soket klemenslerini izole edin."
+                "🔴 **CAN Hata Karesi (Error Frame / Bus Error):**\n"
+                "• **Durum:** Fiziksel katman hatası (Bit Stuffing veya CRC hatası / Active Error Flag) nedeniyle çerçeve iletimi durduruldu.\n"
+                "• **Olası Nedenler:** Hat paraziti, sonlandırma direnci eksikliği veya yanlış baudrate.\n"
+                "• **Hızlı Test:** OBD Pin 6 (CAN-H) ve Pin 14 (CAN-L) arası direnci ölçün (Nominal: 60.0 Ω ±3Ω / 120Ω sonlandırma)."
             )
 
+        # 0.2 Specific CAN Packet / Hex Payload Explainer
+        payload_bytes = extract_hex_payload_from_query(user_query)
+
+        # 0.5. DBC File & Signal Map Queries
+        is_dbc_query = any(w in norm_query for w in ["dbc", "sinyal haritasi", "can veritabani", "sinyal listesi"])
+        if is_dbc_query:
+            if any(w in norm_query for w in ["nedir", "ne demek", "nasil"]) and len(norm_query.split()) <= 4:
+                return (
+                    "📦 **DBC (CAN Database) Nedir?**\n"
+                    "• CAN veri yolundaki ham bit/bayt mesajlarını fiziksel değerlere (RPM, Hız, Sıcaklık) çeviren sinyal haritasıdır.\n"
+                    "• Projemizde 180+ hazır DBC (Binek, Ağır Vasıta J1939, Marin N2K, EV BMS) bulunmaktadır."
+                )
+            if any(w in norm_query for w in ["liste", "mevcut", "hangi", "neler var", "katalog"]) and len(norm_query.split()) <= 5:
+                return (
+                    "📦 **Kayıtlı DBC Kütüphanesi Özeti:**\n"
+                    "• **Binek Araçlar:** 148 dosya (VW, BMW, Toyota, Ford, Honda, Hyundai vb.)\n"
+                    "• **EV & Batarya (BMS):** 17 dosya (Tesla, Nissan Leaf, Kona EV, BYD vb.)\n"
+                    "• **Ağır Vasıta (J1939):** 8 dosya (Actros, Scania, Volvo, Cummins, Cat)\n"
+                    "• **Marin & Tarım:** 5 dosya (NMEA 2000, ISOBUS)\n"
+                    "💡 Belirli bir model aramak için: *'golf dbc'*, *'bmw dbc'*, *'tesla dbc'*"
+                )
+
+            matched_dbcs = search_dbc_catalog(user_query)
+            if matched_dbcs:
+                res_lines = [f"📦 **Eşleşen DBC Dosyaları ({len(matched_dbcs)} adet):**"]
+                for d in matched_dbcs[:4]:
+                    res_lines.append(f"• **{d['filename']}** ({d['category']})\n  ↳ {d['messages_count']} Mesaj, {d['signals_count']} Sinyal [{d['protocol']}]")
+                if len(matched_dbcs) > 4:
+                    res_lines.append(f"*(+{len(matched_dbcs) - 4} diğer dosya)*")
+                return "\n".join(res_lines)
+            else:
+                clean_term = re.sub(r"\b(dbc|can|dosyasi|var|mi|araniyor|icin|hakkinda|bilgi|ver)\b", "", norm_query).strip()
+                return (
+                    f"❌ **DBC Bulunamadı:** '{clean_term or user_query}' ile eşleşen bir DBC dosyası veritabanında mevcut değil.\n"
+                    f"💡 Kütüphanemizde 180+ hazır DBC bulunmaktadır. Kendi .dbc dosyanızı `data/dbc/` klasörüne ekleyebilirsiniz."
+                )
+
         can_id_match = re.search(r"(?:CAN ID|can_id|id)\s*[:=]?\s*(0x[0-9A-Fa-f]+)", user_query, re.IGNORECASE)
+        if not can_id_match and not any(w in norm_query for w in ["nrc", "negatif", "dtc", "sid", "did", "servis"]):
+            can_id_match = re.search(r"\b(0x[0-9A-Fa-f]{3,8})\b", user_query, re.IGNORECASE)
         can_id_hex = can_id_match.group(1).upper() if can_id_match else ""
 
+        # Specific Packet Explainer for CAN frame with payload or diagnostic intent
+        if can_id_hex and payload_bytes:
+            if not any(k in can_id_hex for k in ["1808E5", "1807E5", "1809E5", "18F020"]):
+                expl_text, actions = explain_can_packet(can_id_hex, payload_bytes)
+                return attach_action_triggers(expl_text, actions)
+        elif not can_id_hex and payload_bytes and len(payload_bytes) >= 2 and any(w in norm_query for w in ["payload", "paket", "veri", "byte", "bayt", "hex"]):
+            expl_text, actions = explain_can_packet(0x7E0, payload_bytes)
+            return attach_action_triggers(expl_text, actions)
+
         # EV BMS Specific Frames
-        # AI-C-001 fix: these frames describe WHAT the ID carries, not live
-        # measurements. Fabricated voltage/SOC/isolation numbers previously
-        # looked like real telemetry; real values flow through the
-        # frame -> decoder -> signal pipeline (the `telemetry` mapping) and
-        # are injected below when available.
         if "1808E5" in can_id_hex or "0x1808E5F4" in user_query:
             cell_min = telemetry.get("bms_cell_voltage_min_v")
             cell_max = telemetry.get("bms_cell_voltage_max_v")
-            lines = [
-                "⚡ **EV BMS Batarya Hücre Voltajları & Dengeleme (0x1808E5F4 - PGN 61447):**\n\n",
-                "• **Protokol:** ISO 11898-2 (EV Yüksek Voltaj BMS Ağı)\n",
-                "• **Kaynak Düğüm:** Batarya Yönetim Sistemi (BMS ECU - 0xF4)\n",
-            ]
-            if cell_min is not None and cell_max is not None:
-                delta_mv = (cell_max - cell_min) * 1000.0
-                lines.append(f"• **Min Hücre Voltajı:** {cell_min:.3f} V (ölçüm)\n")
-                lines.append(f"• **Max Hücre Voltajı:** {cell_max:.3f} V (ölçüm)\n")
-                lines.append(f"• **Hücre Voltaj Farkı (Delta V):** {delta_mv:.0f} mV\n\n")
-                lines.append(
-                    "📊 **Sistem Durumu:** Yukarıdaki değerler canlı telemetri süzgecinden "
-                    "okunmuştur; hücre dengesi nominal aralıkta (<30 mV) tutulmalıdır.\n"
-                )
-            else:
-                lines.append(
-                    "\n⚠️ **Canlı ölçüm yok:** Bu oturumda bu kare için çözülmüş sinyal bulunamadı. "
-                    "Gerçek hücre voltajları için aracı CAN ağına bağlayın ve BMS süzgecini etkinleştirin.\n"
-                )
-            return "".join(lines)
+            meas = f"Min={cell_min:.3f}V, Max={cell_max:.3f}V (Delta V={(cell_max-cell_min)*1000:.0f}mV) (ölçüm)" if (cell_min is not None and cell_max is not None) else "Canlı ölçüm yok"
+            return (
+                f"⚡ **EV BMS Hücre Voltajları (0x1808E5F4 - PGN 61447):**\n"
+                f"• **Protokol:** ISO 11898-2 (EV Yüksek Voltaj BMS)\n"
+                f"• **Ölçüm Durumu:** {meas}\n"
+                f"• **Hedef:** Hücre voltaj farkı <30 mV olmalıdır."
+            )
 
         if "1807E5" in can_id_hex or "0x1807E5F4" in user_query:
             soc = telemetry.get("bms_soc_percent")
             soh = telemetry.get("bms_soh_percent")
-            lines = [
-                "⚡ **EV BMS Şarj & Sağlık Durumu (0x1807E5F4 - PGN 61446):**\n\n",
-                "• **Protokol:** ISO 11898-2 (EV Yüksek Voltaj BMS)\n",
-            ]
-            if soc is not None:
-                lines.append(f"• **Batarya Şarj Seviyesi (SOC):** %{soc:.1f} (ölçüm)\n")
-            else:
-                lines.append("• **Batarya Şarj Seviyesi (SOC):** canlı ölçüm bekleniyor\n")
-            if soh is not None:
-                lines.append(f"• **Batarya Sağlık Durumu (SOH):** %{soh:.1f} (ölçüm)\n\n")
-                lines.append("✅ Değerler canlı telemetri süzgecinden okunmuştur.\n")
-            else:
-                lines.append(
-                    "\n⚠️ **Canlı ölçüm yok:** SOH/SOC değerleri bu oturumda çözülmedi. "
-                    "Bu kare, batarya şarj ve sağlık sinyallerini taşır; gerçek değerler için BMS telemetrisini etkinleştirin.\n"
-                )
-            return "".join(lines)
+            meas = f"SOC=%{soc:.1f}, SOH=%{soh:.1f}" if soc is not None and soh is not None else "Canlı ölçüm bekleniyor"
+            return (
+                f"⚡ **EV BMS Şarj & Sağlık (0x1807E5F4 - PGN 61446):**\n"
+                f"• **Protokol:** ISO 11898-2 (BMS ECU 0xF4)\n"
+                f"• **Durum:** {meas}"
+            )
 
         if "1809E5" in can_id_hex or "0x1809E5F4" in user_query:
             bat_temp = telemetry.get("bms_pack_temp_c")
-            lines = [
-                "⚡ **EV BMS & İnverter Termal Yönetimi (0x1809E5F4 - PGN 61448):**\n\n",
-                "• **Protokol:** ISO 11898-2 (EV Yüksek Voltaj BMS)\n",
-            ]
-            if bat_temp is not None:
-                lines.append(f"• **Batarya Paketi Ortalama Sıcaklığı:** {bat_temp:.1f}°C (ölçüm)\n\n")
-                lines.append("✅ Değer canlı telemetri süzgecinden okunmuştur.\n")
-            else:
-                lines.append(
-                    "⚠️ **Canlı ölçüm yok:** Bu kare paket sıcaklığı ve termal yönetim sinyallerini "
-                    "taşır; gerçek değerler için BMS telemetrisini bağlayın.\n"
-                )
-            return "".join(lines)
+            temp_str = f"{bat_temp:.1f}°C" if bat_temp is not None else "Canlı ölçüm bekleniyor"
+            return (
+                f"⚡ **EV BMS Termal Yönetimi (0x1809E5F4 - PGN 61448):**\n"
+                f"• **Paket Sıcaklığı:** {temp_str}\n"
+                f"• **Hedef:** Nominal çalışma aralığı 20°C - 35°C."
+            )
 
         if "18F020" in can_id_hex or "0x18F020F4" in user_query:
             isolation = telemetry.get("bms_hv_isolation_mohm")
-            lines = [
-                "⚡ **EV BMS Yüksek Voltaj İzolasyonu & Kontaktör Güvenliği (0x18F020F4):**\n\n",
-            ]
-            if isolation is not None:
-                lines.append(f"• **HV İzolasyon Direnci:** {isolation:.1f} MΩ (ölçüm, eşik >500 Ω/V)\n\n")
-                lines.append("✅ Değer canlı telemetri süzgecinden okunmuştur.\n")
-            else:
-                lines.append(
-                    "• Bu kare ana kontaktör durumları, ön şarj rölesi ve HV izolasyon "
-                    "izleme sinyallerini taşır.\n\n"
-                    "⚠️ **Canlı ölçüm yok:** Kontaktör ve izolasyon değerleri bu oturumda "
-                    "çözülmedi; gerçek durum için BMS telemetrisini bağlayın.\n"
-                )
-            return "".join(lines)
+            iso_str = f"{isolation:.1f} MΩ (Nominal >500 Ω/V)" if isolation is not None else "Canlı ölçüm bekleniyor"
+            return (
+                f"⚡ **EV BMS Yüksek Voltaj İzolasyonu (0x18F020F4):**\n"
+                f"• **İzolasyon Direnci:** {iso_str}\n"
+                f"• **Kontrol:** Kontaktör durumları ve şasi kaçak izleme."
+            )
 
         # 1. Direct DTC code match in prompt (P0xxx, C1xxx, U0xxx, B0xxx)
         dtc_match = re.search(r"\b([PBUC][0-9A-F]{4})\b", user_query, re.IGNORECASE)
@@ -1249,7 +2047,12 @@ class CausalBayesianInferenceEngine:
                 spn_entry = j1939_db.get("spns", {}).get(f"SPN_{spn_num}")
                 if spn_entry:
                     return cls._format_j1939_technician_report(spn_entry, norm_query, telemetry)
-
+                else:
+                    return (
+                        f"⚠️ **[SPN {spn_num}] Kaydı Bulunamadı:**\n"
+                        f"Bu SPN parametresi yerel J1939 veritabanında kayıtlı değil.\n"
+                        f"• Üreticiye özel (Proprietary) bir PGN/SPN olabilir. SAE J1939-71 kataloğundan teyit edin."
+                    )
 
         # 3. Check for UDS NRC codes (e.g. NRC 0x22, NRC 0x33, NRC 0x78)
         nrc_match = re.search(r"\b(?:nrc|negatif yanit)\s*(?:0x)?([0-9a-f]{2})\b", norm_query)
@@ -1258,14 +2061,13 @@ class CausalBayesianInferenceEngine:
             if nrc_hex in UDS_NRC_CATALOG:
                 nrc_info = UDS_NRC_CATALOG[nrc_hex]
                 return (
-                    f"🛑 **ISO 14229 UDS Negatif Yanıt Analizi ({nrc_hex} - {nrc_info['name']})**\n\n"
-                    f"• **Teknik Neden:** {nrc_info['cause']}\n"
-                    f"• **Çözüm / Saha Eylemi:** {nrc_info['action']}\n\n"
-                    f"🛠️ **Usta Teknisyen Tavsiyesi:**\n"
-                    f"1. Oturum durumunu kontrol edin (`0x10 0x03` Extended Session gerekliliği).\n"
-                    f"2. Araç durur vaziyette ve motor kapalı (`Ignition ON, Engine OFF`) olmalıdır.\n"
-                    f"3. Akü voltajının `>12.5V` olduğundan emin olun."
+                    f"🛑 **UDS Negatif Yanıt ({nrc_hex} - {nrc_info['name']}):**\n"
+                    f"• **Neden:** {nrc_info['cause']}\n"
+                    f"• **Çözüm:** {nrc_info['action']}\n"
+                    f"• **Ön Koşul:** `0x10 0x03` Extended Session, Kontak AÇIK/Motor KAPALI (Ignition ON, Engine OFF), Akü >12.5V."
                 )
+            else:
+                return f"⚠️ **[NRC {nrc_hex}] Tanımsız:** Standart ISO 14229 kataloğunda bu negatif yanıt kodu tanımlı değil."
 
         # 3.5 Check for NHTSA Safety Recalls & TSB Queries
         is_recall_query = any(w in norm_query for w in ["recall", "geri cagirma", "tsb", "teknik bulten", "kampanya", "nhtsa"])
@@ -1318,15 +2120,32 @@ class CausalBayesianInferenceEngine:
                 reports = [format_nhtsa_recall_report(r) for r in recalls]
                 header = (
                     f"📢 **NHTSA Resmi Güvenlik Geri Çağırma (Recall) & TSB Raporu:**\n"
-                    f"🔎 **Sorgu Kriteri:** Marka: {found_make.upper() if found_make else 'Tümü'} | Yıl: {found_year or 'Tümü'} | Filtre: {query_kw or 'Genel'}\n"
-                    f"📊 **Eşleşen Kampanya:** {len(recalls)} adet listeleniyor\n\n"
+                    f"🔎 **Kriter:** {found_make.upper() if found_make else 'Tümü'} | Yıl: {found_year or 'Tümü'} | Eşleşen Kampanya: {len(recalls)} adet\n\n"
                 )
-                return header + ("\n\n" + "─" * 45 + "\n\n").join(reports)
+                return header + ("\n\n" + "─" * 40 + "\n\n").join(reports)
             else:
                 return (
-                    f"ℹ️ **NHTSA Geri Çağırma Arama Sonucu:**\n\n"
-                    f"Belirtilen kriterlere uygun (`{user_query}`) CAN-Bus veya elektriksel geri çağırma kaydı bulunamadı.\n"
-                    "Lütfen araç modeli (Örn: *'Ford F-150'*, *'Tesla Model 3'*, *'VW ID.4'*) veya sistem (Örn: *'Trailer Brake'*, *'BMS'*, *'Gateway'*) belirterek tekrar deneyin."
+                    f"ℹ️ **NHTSA Geri Çağırma Arama Sonucu:**\n"
+                    f"Belirtilen kriterlere uygun (`{user_query}`) geri çağırma kaydı bulunamadı.\n"
+                    "Lütfen araç modeli (Örn: *'Ford F-150'*, *'Tesla Model 3'*) belirterek deneyin."
+                )
+
+        # 3.8 CAN ID Specific lookup if not matched above
+        if can_id_hex and not direct_dtc:
+            val = int(can_id_hex, 16)
+            if val == 0x7DF:
+                return "📡 **CAN ID 0x7DF:** Standart OBD-II Fonksiyonel Yayın İsteği (Tüm bağlı ECU'lara eşzamanlı genel sorgu)."
+            elif 0x7E0 <= val <= 0x7E7:
+                ecu_name = "Motor (ECM/PCM)" if val == 0x7E0 else ("Şanzıman (TCM)" if val == 0x7E1 else f"ECU_{val - 0x7E0}")
+                return f"📡 **CAN ID {can_id_hex}:** ISO 15765-4 Standart OBD-II / UDS Fiziksel İstek Hattı ({ecu_name})."
+            elif 0x7E8 <= val <= 0x7EF:
+                ecu_name = "Motor (ECM/PCM)" if val == 0x7E8 else ("Şanzıman (TCM)" if val == 0x7E9 else f"ECU_{val - 0x7E8}")
+                return f"📡 **CAN ID {can_id_hex}:** ISO 15765-4 Standart OBD-II / UDS Fiziksel Yanıt Hattı ({ecu_name})."
+            else:
+                return (
+                    f"⚠️ **CAN ID Tanımsız ({can_id_hex}):**\n"
+                    f"Bu mesaj kimliği için yerel veritabanında veya protokol motorunda kayıtlı bir sinyal tanımı bulunamadı.\n"
+                    f"• Sniffer tablosundan canlı veri uzunluğunu (DLC) ve bayt değişimlerini inceleyebilirsiniz."
                 )
 
         # 4. If direct DTC is identified, render structured 4-stage technician report
@@ -1342,8 +2161,25 @@ class CausalBayesianInferenceEngine:
                 elif code_str in EXPERT_KNOWLEDGE_BASE:
                     target_code = code_str
 
-        if target_code and target_code in EXPERT_KNOWLEDGE_BASE:
-            return cls._format_4stage_technician_report(target_code, telemetry)
+        if target_code:
+            if target_code in EXPERT_KNOWLEDGE_BASE:
+                return cls._format_4stage_technician_report(target_code, telemetry)
+            else:
+                cat_char = target_code[0].upper()
+                is_oem = len(target_code) > 1 and target_code[1] in ("1", "2")
+                cat_desc = {
+                    "P": "Güç Aktarımı (Powertrain)",
+                    "C": "Şasi / ABS / ESP (Chassis)",
+                    "B": "Gövde / Konfor (Body)",
+                    "U": "Ağ / CAN İletişimi (Network)",
+                }.get(cat_char, "Bilinmeyen")
+                oem_note = "Üreticiye Özel (OEM-Specific)" if is_oem else "Standart SAE"
+                return (
+                    f"⚠️ **[{target_code}] Arıza Kodu Bulunamadı:**\n"
+                    f"Bu kod yerel teşhis kütüphanesinde kayıtlı değil.\n"
+                    f"• **Kategori:** {cat_desc} ({oem_note})\n"
+                    f"• **Tavsiye:** Aracın yetkili servis kılavuzunu inceleyin veya UDS `0x19 0x02` servisi ile çevre koşullarını (Freeze Frame) okuyun."
+                )
 
         # 5. Semantic Intent Matching using Causal Graph
         if intents.get("EV_HV_BATTERY", 0.0) >= 0.5 or any(w in norm_query for w in ["izolasyon", "hvil", "batarya", "megger", "precharge", "turtle"]):
@@ -1386,8 +2222,6 @@ class CausalBayesianInferenceEngine:
             return cls._format_4stage_technician_report("P0300", telemetry)
 
         if intents.get("TURBO_BOOST", 0.0) >= 0.5 or any(w in norm_query for w in ["turbo", "overboost", "underboost", "kara duman", "bayiliyor", "cekis"]):
-            if "kara duman" in norm_query or "siyah duman" in norm_query or "bayil" in norm_query:
-                return cls._format_4stage_technician_report("P0234", telemetry)
             return cls._format_4stage_technician_report("P0234", telemetry)
 
         if intents.get("OVERHEAT_COOLING", 0.0) >= 0.5 or any(w in norm_query for w in ["hararet", "termostat", "radyator", "fan", "su kaynatiyor", "ust kapak contasi"]):
@@ -1396,46 +2230,48 @@ class CausalBayesianInferenceEngine:
         if "u0100" in norm_query or "iletisim koptu" in norm_query or "beyin cevap vermiyor" in norm_query:
             return cls._format_4stage_technician_report("U0100", telemetry)
 
-        # 6. Fallback General Comprehensive Diagnosis
-        rpm = telemetry.get("EngineSpeed", 0.0)
-        boost = telemetry.get("BoostPressure", 0.0)
-        temp = telemetry.get("CoolantTemp", 85.0)
-
-        return (
-            f"🧠 **Çevrimdışı AI Teşhis Başmühendisi (Edge Inference Engine v13.0):**\n\n"
-            f"• **Anlık Telemetri:** Motor: **{rpm:.0f} RPM** | Turbo: **{boost:.2f} Bar** | Sıcaklık: **{temp:.1f}°C**\n"
-            f"• **Durum:** Sistem hazır ve CAN veri yolu sürekli taranıyor.\n\n"
-            f"🛠️ **Hızlı Teşhis Rehberi:**\n"
-            f"1. Doğrudan arıza kodu sorabilirsiniz (Örn: *'P0AA6'*, *'SPN 100 FMI 1'*, *'NRC 0x22'*).\n"
-            f"2. Saha semptomu belirtebilirsiniz (Örn: *'kara duman atıyor dip gazda bayılıyor'*, *'120 ohm testi'*, *'EV batarya izolasyon hatası'*, *'marin motorda impeller aşırı ısınması'*).\n"
-            f"3. Sniffer tablosundaki herhangi bir pakete **sağ tıklayarak 'AI Copilot\\'a Analiz Ettir'** seçeneğini kullanabilirsiniz."
+        # 6. Fallback General Diagnosis (Honest about lack of data, concise and simplified)
+        fallback_text = (
+            f"ℹ️ **Bilgi Bulunamadı:** '{user_query[:60]}' hakkında yerel teşhis veritabanında doğrudan bir eşleşme bulunamadı.\n\n"
+            f"💡 **Desteklenen Sorgu Formatları:**\n"
+            f"• **Arıza Kodları:** *P0300*, *U0100*, *C0035*, *P1260*\n"
+            f"• **Ağır Vasıta SPN:** *SPN 100 FMI 1*, *SPN 641*\n"
+            f"• **DBC Dosyaları:** *golf dbc*, *tesla dbc*, *j1939 dbc*\n"
+            f"• **Geri Çağırma / TSB:** *Ford F-150 recall*, *Tesla Model 3 kampanya*\n"
+            f"• **Fiziksel Katman:** *120 ohm testi*, *CAN hata karesi*"
         )
+        extracted = extract_action_triggers(user_query)
+        if extracted:
+            return attach_action_triggers(fallback_text, extracted)
+        return fallback_text
 
     @classmethod
     def _format_4stage_technician_report(cls, code: str, telemetry: dict[str, float]) -> str:
-        """Format an industry-standard 4-stage master technician field guide."""
+        """Format an industry-standard 4-stage master technician field guide in concise format."""
         info = EXPERT_KNOWLEDGE_BASE[code]
         rpm = telemetry.get("EngineSpeed", 0.0)
         boost = telemetry.get("BoostPressure", 0.0)
         temp = telemetry.get("CoolantTemp", 85.0)
 
-        causes_formatted = "\n".join(f"  • {c}" for c in info.get("causes", [])) or "  • İlgili alt sistem elektriksel veya mekanik parametre sapması."
+        causes = info.get("causes", [])
+        top_causes = causes[:2] if causes else ["İlgili alt sistem elektriksel veya mekanik parametre sapması."]
+        causes_formatted = "\n".join(f"  • {c}" for c in top_causes)
+
+        steps = info.get("steps", [])
         steps_lines: list[str] = []
-        for idx, s in enumerate(info.get("steps", [])):
-            if len(s) >= 3:
-                steps_lines.append(f"  {idx + 1}. **[{s[2]}]** {s[0]} *(Hedef: {s[1]})*")
-            elif len(s) == 2:
+        for idx, s in enumerate(steps[:2]):
+            if len(s) >= 2:
                 steps_lines.append(f"  {idx + 1}. {s[0]} *(Hedef: {s[1]})*")
             elif len(s) == 1:
                 steps_lines.append(f"  {idx + 1}. {s[0]}")
-        steps_formatted = "\n".join(steps_lines) if steps_lines else "  • Standart OEM arıza teşhis adımlarını uygulayın."
+        steps_formatted = "\n".join(steps_lines) if steps_lines else "  • Tesisat ve sensör bağlantılarını kontrol edin."
 
-        measurement_block = info.get("measurement", "Standart OEM elektriksel ve fiziksel toleranslar dahilindedir.")
-        routine_block = info.get("uds_routine", "UDS Service 0x14 (DTC Hafızası Sıfırlama)")
+        measurement_block = info.get("measurement", "Nominal voltaj ve şasi dirençlerini test edin.")
+        routine_block = info.get("uds_routine", "UDS Service 0x14 (DTC Temizleme)")
 
-        # Check if there are related NHTSA recalls for this code or component
+        # Check if there are related NHTSA recalls for this code (max 1)
         nhtsa_block = ""
-        related_recalls = search_nhtsa_recalls(query=code, limit=2)
+        related_recalls = search_nhtsa_recalls(query=code, limit=1)
         if not related_recalls:
             title_lower = info.get("title", "").lower()
             for kw in ["trailer brake", "contactor", "interlock", "theft", "pats", "purge"]:
@@ -1443,31 +2279,33 @@ class CausalBayesianInferenceEngine:
                     related_recalls = search_nhtsa_recalls(query=kw, limit=1)
                     break
         if related_recalls:
-            rec_items = [
-                f"  • **Kampanya {r.get('campaign_number')} ({r.get('manufacturer')}):** {r.get('component')} — {r.get('summary', '')[:100]}..."
-                for r in related_recalls
-            ]
-            nhtsa_block = "\n\n📢 **İlgili Resmi NHTSA Güvenlik Geri Çağırma (Recall) Bültenleri:**\n" + "\n".join(rec_items)
+            r = related_recalls[0]
+            nhtsa_block = f"\n📢 **NHTSA Geri Çağırma:** {r.get('campaign_number')} ({r.get('manufacturer')}) — {r.get('component')}"
 
-        return (
-            f"🚨 **[{code}] — {info.get('title', code)}**\n"
-            f"🏷️ **Alt Sistem:** {info.get('subsystem', 'Genel Teşhis')} | **Öncelik:** {info.get('severity', 'MEDIUM')}\n"
-            f"📊 **Canlı Telemetri Durumu:** {rpm:.0f} RPM | {boost:.2f} Bar | {temp:.1f}°C\n\n"
-            f"🔍 **Kök Neden & Arıza Mekanizması:**\n{causes_formatted}\n\n"
-            f"📋 **4-AŞAMALI USTA TEKNİSYEN SAHA ONARIM KILAVUZU:**\n\n"
-            f"**Aşama 1: Görsel & Mekanik Kontrol:**\n{steps_formatted}\n\n"
-            f"⚡ **Aşama 2: Kesin Multimetre & Osiloskop Toleransları:**\n"
-            f"  • {measurement_block}\n\n"
-            f"💻 **Aşama 3: UDS / J1939 Özel Teşhis Rutinleri:**\n"
-            f"  • `{routine_block}`\n\n"
-            f"🔧 **Aşama 4: Parça Değişim & Adaptasyon Prosedürü:**\n"
-            f"  • Arızalı komponenti değiştirdikten sonra kontak `Ignition ON, Engine OFF` konumunda `UDS 0x14 0xFFFFFF` komutu ile arıza hafızasını temizleyin ve 1 sürüş çevrimi (Drive Cycle) gerçekleştirin."
+        telemetry_str = f" | {rpm:.0f} RPM, {boost:.2f} Bar, {temp:.1f}°C" if rpm > 0 or boost > 0 else ""
+
+        report_text = (
+            f"🚨 **[{code}] — {info.get('title', code)}** *(Öncelik: {info.get('severity', 'MEDIUM')})*\n"
+            f"🏷️ **Alt Sistem:** {info.get('subsystem', 'Genel Teşhis')}{telemetry_str}\n\n"
+            f"🔍 **Olası Nedenler:**\n{causes_formatted}\n\n"
+            f"📋 **4-AŞAMALI USTA TEKNİSYEN SAHA ONARIM KILAVUZU:**\n"
+            f"**Aşama 1: Görsel & Mekanik Kontrol:**\n{steps_formatted}\n"
+            f"⚡ **Aşama 2: Kesin Multimetre & Osiloskop Toleransları:**\n  • {measurement_block}\n"
+            f"💻 **Aşama 3: UDS / J1939 Özel Teşhis Rutinleri:**\n  • `{routine_block}`\n"
+            f"🔧 **Aşama 4: Parça Değişim & Adaptasyon Prosedürü:**\n  • Parça değişimi sonrası kontak açıkken `UDS 0x14` ile arıza hafızasını temizleyin."
             f"{nhtsa_block}"
         )
+        actions = [make_uds_clear_dtc_action()]
+        if "0x31" in routine_block:
+            m = re.search(r"0x([0-9a-fA-F]{4})", routine_block)
+            if m:
+                actions.append(make_uds_routine_action(int(m.group(1), 16)))
+        actions.extend(extract_action_triggers(report_text))
+        return attach_action_triggers(report_text, actions)
 
     @classmethod
     def _format_j1939_technician_report(cls, spn_entry: dict[str, Any], query: str, telemetry: dict[str, float]) -> str:
-        """Format a heavy-duty commercial vehicle J1939 SPN & FMI diagnostic guide."""
+        """Format a heavy-duty commercial vehicle J1939 SPN & FMI diagnostic guide in concise format."""
         spn = spn_entry.get("spn", 0)
         name = spn_entry.get("name", "Bilinmeyen SPN")
         title_tr = spn_entry.get("title_tr", name)
@@ -1495,28 +2333,22 @@ class CausalBayesianInferenceEngine:
                     }
             if fmi_tree:
                 fmi_info_str = (
-                    f"\n⚡ **FMI {fmi_num}: {fmi_tree.get('fmi_name', '')}**\n"
-                    f"• **Arıza Başlığı / Modu:** {fmi_tree.get('fault_title', fmi_tree.get('description_tr', ''))}\n"
-                    f"• **Teknisyen Eylemi:** {fmi_tree.get('diagnostic_action', fmi_tree.get('action', ''))}\n"
-                    f"• **Öncelik Seviyesi:** {fmi_tree.get('severity', 'MEDIUM')}\n"
+                    f"⚡ **FMI {fmi_num} ({fmi_tree.get('fmi_name', '')}):** "
+                    f"{fmi_tree.get('fault_title', fmi_tree.get('description_tr', ''))}\n"
+                    f"• **Eylem:** {fmi_tree.get('diagnostic_action', fmi_tree.get('action', 'Sensör devresini kontrol edin.'))}\n\n"
                 )
 
-        rpm = telemetry.get("EngineSpeed", 0.0)
-        boost = telemetry.get("BoostPressure", 0.0)
-        temp = telemetry.get("CoolantTemp", 85.0)
-
-        return (
+        report_text = (
             f"🚛 **[SPN {spn}] — {title_tr} ({name})**\n"
-            f"🏷️ **Alt Sistem:** {subsystem} | **İlgili PGN:** {pgn}\n"
-            f"📊 **Birim / Çalışma Aralığı:** {range_str}\n"
-            f"📊 **Canlı Telemetri Durumu:** {rpm:.0f} RPM | {boost:.2f} Bar | {temp:.1f}°C\n"
-            f"📝 **Açıklama:** {desc}\n"
-            f"{fmi_info_str}\n"
+            f"🏷️ **Alt Sistem:** {subsystem} | **PGN:** {pgn} | **Aralık:** {range_str}\n"
+            f"📝 **Açıklama:** {desc[:140] + ('...' if len(desc) > 140 else '')}\n\n"
+            f"{fmi_info_str}"
             f"📋 **SAE J1939-73 Saha Teşhis Adımları:**\n"
-            f"1. PGN {pgn} için canlı CAN trafiğini sniffer ekranında filtreleyerek mesaj güncelleme periyodunu doğrulayın.\n"
-            f"2. DM1 (PGN 65226) aktif arıza lambasını (MIL/Amber/Red Stop) teyit edin.\n"
-            f"3. Sensör besleme voltajını ve kablo demetini multimetre ile test edin."
+            f"1. CAN hattında PGN {pgn} periyodunu ve DM1 aktif arıza lambasını kontrol edin.\n"
+            f"2. Sensör besleme voltajını (5V/12V) ve şasi hattını multimetre ile test edin."
         )
+        actions = [make_j1939_dm1_action(), make_j1939_dm11_action()]
+        return attach_action_triggers(report_text, actions)
 
 
 
@@ -1536,7 +2368,10 @@ class AiDiagnosticCopilot:
         secret_provider: SecretProvider | None = None,
     ) -> None:
         self._gemini_api_key = gemini_api_key
-        self.openai_api_key = openai_api_key
+        # L-8 (P3-3): the OpenAI key is no longer a public plaintext
+        # attribute (it leaked through repr()/pickling and survived
+        # set_key_provider). Same vault-property pattern as the Gemini key.
+        self._openai_api_key = openai_api_key
         self.provider = provider
         self._key_provider: SecretProvider | None = secret_provider
 
@@ -1546,8 +2381,9 @@ class AiDiagnosticCopilot:
         The key is never stored as a plain attribute and never logged.
         """
         self._key_provider = secret_provider
-        # Drop any previously held plain-text key
+        # Drop any previously held plain-text key (L-8: BOTH providers now)
         self._gemini_api_key = None
+        self._openai_api_key = None
 
     @property
     def gemini_api_key(self) -> str | None:
@@ -1558,6 +2394,16 @@ class AiDiagnosticCopilot:
             except KeyError:
                 return None
         return self._gemini_api_key
+
+    @property
+    def openai_api_key(self) -> str | None:
+        """Resolve the OpenAI key from the vault; plain ctor key only as legacy fallback (L-8)."""
+        if self._key_provider is not None:
+            try:
+                return self._key_provider.get_secret("OPENAI_API_KEY").decode("utf-8")
+            except KeyError:
+                return None
+        return self._openai_api_key
 
     @staticmethod
     def _clean_and_parse_json(raw_text: str) -> dict[str, Any]:
@@ -1852,23 +2698,28 @@ class AiDiagnosticCopilot:
         coolant_temp: float,
         dtc_codes: list[str],
         user_prompt: str,
+        bus_metrics: dict[str, Any] | None = None,
     ) -> str:
         """Helper for live interactive prompt query with deep reasoning."""
         # 1. Live Gemini API call if configured
         if self.gemini_api_key and len(self.gemini_api_key.strip()) > 10:
             try:
+                bus_info = ""
+                if bus_metrics:
+                    bus_info = f", Hat Yükü=%{bus_metrics.get('bus_load_percent', 0)}, Hata Karesi={bus_metrics.get('error_count', 0)}"
                 prompt_text = (
-                    "Sen 'Universal CAN-Bus Diagnostic & Telemetry Tool' profesyonel araç teşhis yazılımının içerisindeki yerleşik AI Teşhis Başmühendisisin.\n"
-                    "Kullanıcı zaten CAN veri yoluna doğrudan bağlı ve canlı paketleri bu cihaz ile okuyor!\n\n"
+                    "Sen 'Universal CAN-Bus Diagnostic & Telemetry Tool' profesyonel teşhis yazılımının yerleşik AI asistanısın.\n"
+                    "Kullanıcı doğrudan CAN hattına bağlı ve canlı paketleri inceliyor.\n\n"
                     "KESİN KURALLAR:\n"
-                    "1. ASLA 'aracı servise götürün' veya 'DTC'yi başka bir teşhis cihazı ile okuyun' DEME! Çünkü kullanıcı ZATEN bu teşhis cihazını kullanıyor ve arıza verisini doğrudan CAN hattından canlı okuyor.\n"
-                    "2. Doğrudan net, maddeli ve sahada uygulanabilir 4 aşamalı fiziksel onarım adımları ver (Görsel kontrol, multimetre ohm/volt ölçümü, osiloskop dalgası, UDS servis 0x14/0x31).\n\n"
+                    "1. KISA VE BASİTLEŞTİRİLMİŞ YANIT VER: Giriş/çıkış laf kalabalığı ve uzun teorik paragraflar KESİNLİKLE YASAKTIR. En fazla 3-4 kısa maddede doğrudan çözümü ve kontrol noktasını söyle.\n"
+                    "2. BİLMEDİĞİN KONUDA DÜRÜST OL: Sorulan DBC dosyası, araç modeli, ECU, CAN ID veya parametre hakkında kesin bilgin/kaydın yoksa 'Bu konu/DBC hakkında veritabanında yeterli bilgi bulunamadı' de. Asla uydurma veri üretme.\n"
+                    "3. ASLA 'aracı servise götürün' veya 'başka teşhis cihazı kullanın' deme, kullanıcı zaten profesyonel teşhis donanımına bağlı.\n\n"
                     f"Kullanıcı Sorusu: {user_prompt}\n"
-                    f"Canlı Telemetri: Motor={rpm:.0f} RPM, Turbo={boost_bar:.2f} Bar, Sıcaklık={coolant_temp:.1f}°C, Aktif DTC={', '.join(dtc_codes) if dtc_codes else '0 DTC'}"
+                    f"Canlı Telemetri: Motor={rpm:.0f} RPM, Turbo={boost_bar:.2f} Bar, Sıcaklık={coolant_temp:.1f}°C, Aktif DTC={', '.join(dtc_codes) if dtc_codes else 'Yok'}{bus_info}"
                 )
                 payload = {
                     "contents": [{"parts": [{"text": prompt_text}]}],
-                    "generationConfig": {"temperature": 0.3, "maxOutputTokens": 2048},
+                    "generationConfig": {"temperature": 0.2, "maxOutputTokens": 512},
                 }
                 data = json.dumps(payload).encode("utf-8")
                 headers = {
@@ -1881,7 +2732,9 @@ class AiDiagnosticCopilot:
                     parts = resp_json.get("candidates", [{}])[0].get("content", {}).get("parts", [])
                     answer = "".join(p.get("text", "") for p in parts if not p.get("thought", False)).strip()
                     if answer:
-                        return f"✨ **Google Gemini 2.0 Flash (Bulut Zekası):**\n\n{answer}"
+                        actions = extract_action_triggers(answer, user_prompt)
+                        ans_with_act = attach_action_triggers(answer, actions)
+                        return f"✨ **Google Gemini 2.0 Flash (Bulut Zekası):**\n\n{ans_with_act}"
             except Exception as e:
                 # M-02: sanitized — the raw exception text may include the
                 # request URL carrying the API key (CWE-532).
@@ -1891,7 +2744,12 @@ class AiDiagnosticCopilot:
                 )
 
         # 2. Fully Offline Deterministic Causal Bayesian Inference
-        telemetry = {"EngineSpeed": rpm, "BoostPressure": boost_bar, "CoolantTemp": coolant_temp}
+        telemetry: dict[str, Any] = {
+            "EngineSpeed": rpm,
+            "BoostPressure": boost_bar,
+            "CoolantTemp": coolant_temp,
+            **(bus_metrics or {}),
+        }
         active_dtc_objs = [{"code": c} for c in dtc_codes]
         return CausalBayesianInferenceEngine.evaluate_diagnostic_query(user_prompt, active_dtc_objs, telemetry)
 
@@ -1947,7 +2805,9 @@ class AiDiagnosticCopilot:
             ]
             return DiagnosticAnalysisReport(
                 summary=parsed.get("summary", "Gemini Analizi Tamamlandı."),
-                severity=FaultSeverity(parsed.get("severity", "MEDIUM")),
+                # L-9 (P3-4): map unknown severity strings to MEDIUM instead
+                # of raising ValueError out of the cloud analysis.
+                severity=map_severity_or_default(parsed.get("severity", "MEDIUM")),
                 root_cause_probability=parsed.get("root_cause_probability", "Yüksek"),
                 likely_causes=parsed.get("likely_causes", []),
                 troubleshooting_steps=steps,
@@ -1987,7 +2847,7 @@ class AiDiagnosticCopilot:
             "}"
         )
         models_to_try = ["gpt-4o-mini", "gpt-4o", "gpt-3.5-turbo"]
-        last_error = None
+        last_error: Exception | None = None
         for model in models_to_try:
             try:
                 payload = {
@@ -2020,7 +2880,10 @@ class AiDiagnosticCopilot:
                     ]
                     return DiagnosticAnalysisReport(
                         summary=parsed.get("summary", "OpenAI Analizi Tamamlandı."),
-                        severity=FaultSeverity(parsed.get("severity", "MEDIUM")),
+                        # L-9 (P3-4): map unknown severity strings to MEDIUM
+                        # instead of raising ValueError out of the whole
+                        # cloud analysis.
+                        severity=map_severity_or_default(parsed.get("severity", "MEDIUM")),
                         root_cause_probability=parsed.get("root_cause_probability", "Yüksek"),
                         likely_causes=parsed.get("likely_causes", []),
                         troubleshooting_steps=steps,
@@ -2029,9 +2892,27 @@ class AiDiagnosticCopilot:
                         telemetry_correlations=parsed.get("telemetry_correlations", []),
                         ai_model_used=f"OpenAI {model} (ChatGPT Bulut Zekası)",
                     )
-            except Exception as exc:
+            except urllib.error.HTTPError as exc:
+                # L-9 (P3-4): classify HTTP failures — auth/quota errors will
+                # NOT get better by trying the next model; retrying burned
+                # 36 s and 3 requests. Fail over to the local expert now.
+                last_error = exc
+                if exc.code in (401, 403):
+                    logger.warning("OpenAI request rejected (auth) — switching to local expert", extra={"status": exc.code})
+                    break
+                if exc.code == 429:
+                    logger.warning("OpenAI rate limited — switching to local expert", extra={"status": exc.code})
+                    break
+                continue
+            except Exception as exc:  # noqa: BLE001
                 last_error = exc
                 continue
 
-        logger.warning(f"All OpenAI models failed: {last_error}")
+        # L-9 (P3-4): log the exception TYPE + safe message, never the raw
+        # repr — HTTPError/URLError reprs can embed request URLs and
+        # Authorization fragments, violating the file's own sanitize policy.
+        logger.warning(
+            "All OpenAI models failed — falling back to local expert",
+            extra={"error_type": type(last_error).__name__ if last_error else None},
+        )
         return self._analyze_local_expert(active_dtcs, telemetry_snapshot, active_ecus)

@@ -136,8 +136,19 @@ class TestCloudClientHeaderSanitization:
             def __exit__(self, *args: object) -> None:
                 pass
 
-            def read(self) -> bytes:
-                return self.body
+            _pos = 0
+
+            def read(self, size: int = -1) -> bytes:
+                # M-20 (P2-11): the client reads the body in bounded chunks
+                # via read(n) — a stateful cursor mirrors the real
+                # HTTPResponse API (each read consumes, EOF returns b"").
+                if size is None or size < 0:
+                    chunk = self.body[self._pos :]
+                    self._pos = len(self.body)
+                    return chunk
+                chunk = self.body[self._pos : self._pos + size]
+                self._pos += len(chunk)
+                return chunk
 
         class _FakeOpener:
             def open(self, req, timeout=None):  # noqa: ANN001, ANN202

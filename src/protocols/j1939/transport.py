@@ -22,6 +22,7 @@ from src.core.exceptions import (
 )
 from src.core.logging import get_logger
 from src.core.models.can_frame import CanFrame
+from src.protocols.j1939.pgn import parse_j1939_id
 
 logger = get_logger("protocols.j1939.transport")
 
@@ -37,7 +38,14 @@ TP_CTRL_ABORT: int = 0xFF
 
 
 def ctrl_targets_sender(frame: CanFrame) -> bool:
-    """True when a TP.CM frame's control byte addresses a sender role (CTS/ACK/Abort)."""
+    """True when a TP.CM frame's control byte addresses a sender role (CTS/ACK/Abort).
+
+    L-4 (P3-7): length-guarded — the function is module-public; a caller
+    passing a short frame would otherwise raise IndexError instead of
+    getting a boolean classification.
+    """
+    if len(frame.data) < 1:
+        return False
     return frame.data[0] in (TP_CTRL_CTS, TP_CTRL_ACK, TP_CTRL_ABORT)
 
 
@@ -186,20 +194,11 @@ class J1939TransportProtocol:
         if not frame.is_extended or len(frame.data) < 8:
             return None, None
 
-        # 29-bit CAN ID decomposition
-        dp = (frame.arbitration_id >> 24) & 0x01
-        pf = (frame.arbitration_id >> 16) & 0xFF
-        ps = (frame.arbitration_id >> 8) & 0xFF
-        sa = frame.arbitration_id & 0xFF
-
-        if pf < 240:
-            # PDU1 format (Point-to-Point): Destination Address is PS
-            da = ps
-            pgn = (dp << 16) | (pf << 8)
-        else:
-            # PDU2 format (Broadcast): DA is Global (255)
-            da = 255
-            pgn = (dp << 16) | (pf << 8) | ps
+        # 29-bit CAN ID decomposition — M-12 (P2-6): shared parser preserves
+        # EDP/DP; the old hand-rolled math dropped EDP, mis-deriving the PGN
+        # for EDP-set frames and corrupting TP session keying.
+        pgn, sa, da_opt, _priority = parse_j1939_id(frame.arbitration_id)
+        da = da_opt if da_opt is not None else 255
 
         # Check for TP.CM (PGN 60416 / 0xEC00)
         if pgn == PGN_TP_CM:

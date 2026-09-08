@@ -6,7 +6,30 @@ izler: içerik üretilmez, kamuya açık kaynaklar ve resmî belgeler referans a
 
 ## j1939_spn_fmi_database (JSON + CSV)
 
-### v1.2.0 — 2026-09-06 (5 mevcut kayıtta PGN düzeltmesi)
+### v1.3.0 — 2026-09-06 (OEM tablo hasadı birleştirmesi: 87 → 423 SPN)
+
+`CAN-DTC-Collector/spn_gap_hunter` ofisinin `oem_table_harvester.py` çıktısı
+birleştirildi (kullanıcı onayıyla). Kaynak: DieselLaptops'un 97 OEM arıza-kodu
+tablo sayfası (Detroit DD13/15/16 tüm yıl aralıkları, Cummins ISX15/B6.7,
+PACCAR MX-13, Volvo, Mack...) — **26.434 SPN/FMI satırı, 618 benzersiz SPN,
+tamamı ücretsiz erişim (0 BrightData kredisi)**.
+
+- **+336 yeni SPN** (Tier A: 8/8 motor ailesi tarafından doğrulanmış adaylar).
+  Her kayıt: konsensüs isim (çoklu-OEM oy birliği), `oem_field_evidence`
+  (aile sayısı + FMI bazlı saha anlamları), fmi_definitions'a bağlı arıza
+  matrisi. Türkçe başlıklar kural-tabanlı sözlükle üretildi (`tr_quality`
+  notu: tam çeviri için ayrı dil denetimi turu önerilir).
+- **64 mevcut SPN** için `oem_field_evidence` zenginleştirmesi (OEM saha
+  anlamları FMI bazında).
+- PGN ataması: 15 SPN canboat YAML eşleşmesiyle; geri kalanlarda
+  `pgn_acronym="TBD"` (özel PGN geçişi bekliyor).
+- Etiket düzeltmeleri konsensüsle teyit: 3480 = Fuel Compensation Pressure,
+  3482 = AFT Fuel Shutoff Valve 1, 3483 = AFT Regeneration Status,
+  3471 = Hydrocarbon Doser Circuit (önceki turdaki J1939DA beklenti
+  etiketleriyle çeliştiği için bu SPN'ler merge EDİLMEDİ, yalnızca mevcut
+  DB'ye girenler alındı).
+
+## v1.2.0 — 2026-09-06 (5 mevcut kayıtta PGN düzeltmesi)
 
 İlk 53 kaydın SPN↔PGN etiketleri, canboat `database/j1939/pgns` YAML'ları ve
 bu depodaki `data/dbc/heavy_duty/j1939_canboat.dbc` (aynı upstream'in DBC

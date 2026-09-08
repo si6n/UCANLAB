@@ -34,6 +34,8 @@ def run_nuitka_build(onefile: bool = False, console: bool = False) -> int:
     frontend_dir = root_dir / "src" / "ui" / "frontend"
     frontend_dist = frontend_dir / "dist"
     dbc_dir = root_dir / "data" / "dbc"
+    # H-9 (P1-11): external diagnostic databases must ship in the bundle.
+    diagnostics_dir = root_dir / "data" / "diagnostics"
 
     if not entry_point.is_file():
         raise FileNotFoundError(f"Entry point not found: {entry_point}")
@@ -57,7 +59,7 @@ def run_nuitka_build(onefile: bool = False, console: bool = False) -> int:
         "--lto=yes",
         "--msvc=latest",
         "--jobs=8",
-        "--output-filename=Universal-CAN-Tool.exe",
+        "--output-filename=ucanlab.exe",
         f"--output-dir={output_dir}",
         f"--windows-console-mode={console_mode}",
         "--include-package=src",
@@ -68,6 +70,11 @@ def run_nuitka_build(onefile: bool = False, console: bool = False) -> int:
 
     if dbc_dir.is_dir():
         cmd.append(f"--include-data-dir={dbc_dir}=data/dbc")
+
+    # H-9 (P1-11): without data/diagnostics the compiled binary silently
+    # drops ~98% of the DTC knowledge base to debug-level fallbacks.
+    if diagnostics_dir.is_dir():
+        cmd.append(f"--include-data-dir={diagnostics_dir}=data/diagnostics")
 
     icon_file = root_dir / "assets" / "icon.ico"
     if icon_file.is_file():
@@ -92,7 +99,7 @@ def run_nuitka_build(onefile: bool = False, console: bool = False) -> int:
     # Emit a SHA-256 manifest next to the artifact for tamper-evident
     # distribution (also covers the PyInstaller path via dist/ contents).
     try:
-        exe_path = output_dir / "Universal-CAN-Tool.exe"
+        exe_path = output_dir / "ucanlab.exe"
         if exe_path.is_file():
             digest = hashlib.sha256(exe_path.read_bytes()).hexdigest()
             (output_dir / "SHA256SUMS").write_text(f"{digest}  {exe_path.name}\n", encoding="utf-8")

@@ -198,7 +198,14 @@ class LicenseFlow:
         expected_device_id: str | None = None,
         is_offline: bool = False,
     ) -> CloudLicenseClaims:
-        """Verify signature + canonical schema; raise LicenseError on any flaw."""
+        """Verify signature + canonical schema; raise LicenseError on any flaw.
+
+        P1-6 (REVIEW H-5): `is_offline` is enforced by the CALLER stating
+        its verification mode. Offline re-verification (stored ticket, no
+        network round-trip) MUST pass is_offline=True so the backend-granted
+        grace window (`offline_until`) is actually applied; an online
+        activation response keeps the default False.
+        """
         parts = token.strip().split(".")
         if len(parts) != 2:
             raise LicenseError("Invalid cloud ticket format", code="INVALID_TICKET_FORMAT")
@@ -227,6 +234,12 @@ class LicenseFlow:
             raise LicenseError("Incomplete cloud ticket schema", code="INCOMPLETE_SCHEMA")
         if data["iss"] != "universal-can-cloud" or data["aud"] != "diagnostic-desktop-app":
             raise LicenseError("Ticket issuer/audience mismatch", code="ISSUER_MISMATCH")
+        # P1-6 (REVIEW H-5): an empty nonce skips the anti-replay comparison
+        # downstream (`if claims.nonce and ...` is falsy) — require a
+        # non-empty string here so a ticket issued without a nonce is
+        # rejected at schema level instead of silently replayable.
+        if not isinstance(data.get("nonce"), str) or not data["nonce"]:
+            raise LicenseError("Cloud ticket carries no anti-replay nonce", code="MISSING_NONCE")
 
         kid = data["kid"]
         verification_key = self._resolve_key(kid)
@@ -243,9 +256,19 @@ class LicenseFlow:
                 cause=exc,
             ) from exc
 
-        # Enforce H1 device binding check
+        # Enforce H1 device binding check.
+        # P1-6 (REVIEW H-5): the binding check is fail-closed — the old
+        # `if target_device_id and ...` skipped the check entirely when no
+        # device id was stored (fresh install, cleared vault, deleted DPAPI
+        # blob), accepting tickets cloned from ANY other machine.
         target_device_id = expected_device_id or self.client.get_device_id()
-        if target_device_id and data["device_id"] != target_device_id:
+        if not target_device_id:
+            raise LicenseError(
+                "No registered device id on record — register this device before "
+                "verifying a cloud ticket (device binding cannot be skipped).",
+                code="NO_DEVICE_ID",
+            )
+        if data["device_id"] != target_device_id:
             logger.error(
                 "Cloud ticket device binding mismatch",
                 extra={"ticket_device_id": data["device_id"], "registered_device_id": target_device_id},

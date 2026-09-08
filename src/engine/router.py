@@ -55,6 +55,11 @@ class FrameRouter:
         # rates, frames at bus rates — the trade favors the hot path.
         self._route_snapshot: tuple[Subscription, ...] = ()
         self._next_sub_id: int = 1
+        # L-16 (P3-11): dedicated counter lock. The counters were mutated
+        # without any lock; multiple ingest threads racing `+=` lost
+        # increments (metrics only — never frame delivery, which iterates
+        # the immutable copy-on-write snapshot and needs no lock).
+        self._stats_lock = threading.Lock()
         self._total_routed: int = 0
         self._total_dropped: int = 0
         # E-2: (sub_id, monotonic-second) of the last drop log per subscriber
@@ -115,7 +120,8 @@ class FrameRouter:
         linearization the old lock+copy provided, at a fraction of the cost.
         """
         subscribers = self._route_snapshot
-        self._total_routed += 1
+        with self._stats_lock:  # L-16: metrics-scope lock, hot path safe
+            self._total_routed += 1
 
         matched_count = 0
         for sub in subscribers:

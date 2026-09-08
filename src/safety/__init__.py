@@ -3,6 +3,7 @@
 from src.safety.estop import (
     EmergencyStopSystem,
     EStopEvent,
+    EStopResetAuthority,
     EStopTriggerSource,
 )
 from src.safety.exceptions import (
@@ -21,6 +22,7 @@ from src.safety.watchdog import TxWatchdogSupervisor
 __all__ = [
     "DualConfirmationRequiredError",
     "EStopEvent",
+    "EStopResetAuthority",
     "EStopTriggerSource",
     "EmergencyStopSystem",
     "FrameSanityError",

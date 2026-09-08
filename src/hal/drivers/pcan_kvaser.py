@@ -120,13 +120,32 @@ class PythonCanBus(AbstractBus):
                     cause=exc,
                 ) from exc
 
+    # H-8 (P1-4): bounded drain — a wedged vendor send must never hold the
+    # lifecycle lock (and thus every subsequent send/connect/disconnect)
+    # hostage forever.
+    DISCONNECT_DRAIN_TIMEOUT_S: ClassVar[float] = 2.0
+
     def disconnect(self) -> None:
         """Shutdown CAN bus and release transceiver handles."""
         with self._lifecycle_lock:
             self.is_connected = False
-            # Wait briefly for in-flight sends to finish before releasing driver handle
+            # H-8 (P1-4): wait for in-flight sends with a TOTAL monotonic
+            # deadline, not per-iteration timeouts — the old
+            # `while > 0: wait(0.06)` loop spun forever if a vendor send
+            # ignored its timeout and never decremented _active_sends.
+            drain_deadline = time.monotonic() + self.DISCONNECT_DRAIN_TIMEOUT_S
             while self._active_sends > 0:
-                self._send_cond.wait(timeout=0.06)
+                remaining = drain_deadline - time.monotonic()
+                if remaining <= 0:
+                    logger.error(
+                        "In-flight sends did not drain within deadline; forcing shutdown",
+                        extra={"stranded_sends": self._active_sends},
+                    )
+                    # Forcing the counter to zero releases the drain loop;
+                    # the vendor shutdown() below still runs best-effort.
+                    self._active_sends = 0
+                    break
+                self._send_cond.wait(timeout=min(0.06, remaining))
 
             if self._bus is not None:
                 try:

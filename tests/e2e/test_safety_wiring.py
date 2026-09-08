@@ -212,8 +212,11 @@ def test_composition_root_wiring_with_mock_bus_and_webview2() -> None:
     ):
         app.run()
 
-    # Bus should be connected and watchdog started & stopped
-    assert mock_bus.is_connected is True
+    # L-13 (P3-9): the exit path now releases the physical bus FIRST —
+    # after run() returns, the driver handle must be CLOSED (the old exit
+    # path left the transceiver/DLL pinned), the loop stopped, and the
+    # watchdog stopped.
+    assert mock_bus.is_connected is False
     assert app._running is False
     assert app.watchdog._is_running is False
 
@@ -386,7 +389,9 @@ def test_safety_wiring_desktop_api_bridge_estop_and_recovery_flow() -> None:
     1. Trigger E-Stop from UI bridge.
     2. Verify watchdog/supervisor/gateway all reflect FAULT & E-Stop state.
     3. Verify SafeMultiplexedBus blocks TX.
-    4. Recover via local reset token.
+    4. Recover via the challenge/response reset flow (P0-1: the local
+       minted-token shortcut was removed from the bridge — recovery must go
+       through estop_request_challenge + estop_submit_reset_token).
     5. Transition to ARMED_TX and resume transmission.
     """
     mock_bus = MockCanBus(channel_id="vcan_bridge", bitrate=500000)
@@ -416,8 +421,28 @@ def test_safety_wiring_desktop_api_bridge_estop_and_recovery_flow() -> None:
         safe_bus.send(frame)
     assert len(mock_bus.sent_frames) == 1
 
-    # 4. Recover via cryptographic local reset helper
-    reset_res = bridge.estop_reset_local()
+    # P0-1 regression: the removed local shortcut must stay gone. The bridge
+    # exposes no estop_reset_local, and the simulator toggle / scenario
+    # switch may NOT clear a latched E-Stop.
+    assert not hasattr(bridge, "estop_reset_local")
+    assert not hasattr(app, "reset_estop_local")
+    before_toggle = app._is_simulating
+    assert bridge.toggle_simulator() == before_toggle  # refused while latched
+    bridge.select_scenario("misfire_p0300")
+    assert app._active_scenario == "misfire_p0300"
+    assert app.estop.is_engaged is True  # scenario switch did not clear it
+
+    # 4. Recover via the cryptographic challenge/response flow
+    challenge_res = bridge.estop_request_challenge()
+    assert challenge_res.get("success") is True
+    # Independently mint the authorized token from the challenge (models the
+    # out-of-band authorization operator, e.g. a second station signing it).
+    from src.safety.estop import EStopResetAuthority
+
+    authority = EStopResetAuthority(app.estop)
+    token = authority.mint_reset_token()
+    assert token is not None
+    reset_res = bridge.estop_submit_reset_token(token.to_token_string())
     assert reset_res.get("success") is True
     assert app.estop.is_engaged is False
     assert app.supervisor.current_state == SafetyState.PASSIVE

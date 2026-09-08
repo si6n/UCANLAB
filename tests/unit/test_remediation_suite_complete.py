@@ -239,7 +239,9 @@ def test_replay_safety_filter_edp_bit_masked() -> None:
     )
     is_safe, reason = filt.is_frame_safe(frame_edp)
     assert is_safe is False
-    assert "BLOCKED_J1939_PGN" in reason
+    # M-22 (P2-9): DM11 is a diagnostic-write PGN — blocked under its own
+    # policy table (EDP masking applies to both tables as before).
+    assert "BLOCKED_DIAGNOSTIC_WRITE_PGN" in reason
 
 
 # ==============================================================================

@@ -12,6 +12,7 @@ from typing import ClassVar
 
 from src.core.logging import get_logger
 from src.core.models.can_frame import CanFrame
+from src.protocols.j1939.pgn import parse_j1939_id
 
 logger = get_logger("protocols.nmea2000.fast_packet")
 
@@ -55,12 +56,10 @@ class Nmea2000FastPacketDecoder:
         if not frame.is_extended or len(frame.data) < 2:
             return None
 
-        # Extract PGN with PDU1/PDU2 distinction
-        dp = (frame.arbitration_id >> 24) & 0x01
-        pf = (frame.arbitration_id >> 16) & 0xFF
-        ps = (frame.arbitration_id >> 8) & 0xFF
-        source_address = frame.arbitration_id & 0xFF
-        pgn = (dp << 16) | (pf << 8) if pf < 240 else (dp << 16) | (pf << 8) | ps
+        # Extract PGN with PDU1/PDU2 distinction — M-12 (P2-6): shared
+        # parser preserves the EDP bit that the old hand-rolled math
+        # dropped, mis-keying NMEA 2000 sessions whose PGNs set EDP.
+        pgn, source_address, _da, _priority = parse_j1939_id(frame.arbitration_id)
 
         # NMEA 2000 Fast Packet PGNs are allocated in the 126000..131071 range.
         # Reject J1939 TP.CM / TP.DT and classic J1939 control PGNs (< 65536)

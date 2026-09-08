@@ -46,7 +46,12 @@ def build_bus(interface: str, channel: str, bitrate: int, listen_only: bool = Tr
             raise ValueError(
                 f"rp1210 interface requires a numeric device id, got {channel!r}"
             ) from exc
-        return RP1210Bus(device_id=device_id, bitrate=bitrate)
+        # P0-3 (REVIEW C-4): forward listen_only — the old call dropped the
+        # flag entirely, so every RP1210 adapter opened as an ACTIVE
+        # transceiver (ACK-producing) even when every layer above believed it
+        # was passive. RP1210Bus now honors the flag by hard-blocking send()
+        # in listen-only mode (fail-closed).
+        return RP1210Bus(device_id=device_id, bitrate=bitrate, listen_only=listen_only)
     return PythonCanBus(interface=interface, channel=channel, bitrate=bitrate, listen_only=listen_only)
 
 # Global placeholder for Qt testing hooks
@@ -78,11 +83,6 @@ class UniversalCanMainWindow:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Universal CAN-Bus Diagnostic & Telemetry Tool")
     parser.add_argument("--cli", action="store_true", help="Run in CLI mode instead of GUI")
-    parser.add_argument(
-        "--tx",
-        action="store_true",
-        help="Disable listen-only mode in CLI (WARNING: generates hardware CAN ACKs without TxSafetyGateway)",
-    )
     parser.add_argument("--channel", type=str, default="vcan0", help="CAN Channel (e.g. PCAN_USBBUS1, 0, vcan0)")
     parser.add_argument(
         "--interface",
@@ -103,10 +103,15 @@ def main() -> int:
     )
 
     if args.cli:
-        print("=== Universal CAN-Bus CLI Mode ===")
-        if args.tx:
-            print("WARNING: Active transceiver mode (--tx) generates CAN ACKs without TxSafetyGateway.")
-        bus = build_bus(interface=args.interface, channel=args.channel, bitrate=args.bitrate, listen_only=not args.tx)
+        # H-3 (P1-2): the --tx flag was removed. It opened the physical bus
+        # as an ACTIVE transceiver (ACK-producing) with no TxSafetyGateway,
+        # no whitelist, and no supervisor anywhere in the CLI path — an
+        # operator could affect a live vehicle bus by merely sniffing with
+        # the wrong flag. The CLI is a passive monitor: listen-only, always.
+        # Interactive TX belongs to the desktop app, whose every outbound
+        # frame passes the single audited gateway choke-point.
+        print("=== Universal CAN-Bus CLI Mode (Listen-Only) ===")
+        bus = build_bus(interface=args.interface, channel=args.channel, bitrate=args.bitrate, listen_only=True)
         bus.connect()
         print(f"Connected to {args.interface}:{args.channel} @ {args.bitrate} bps. Listening for frames...")
         try:

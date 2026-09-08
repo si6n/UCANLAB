@@ -16,6 +16,7 @@ import json
 import os
 import sys
 import threading
+import time
 from abc import ABC, abstractmethod
 from ctypes import wintypes
 from pathlib import Path
@@ -261,7 +262,21 @@ class LinuxSecretBackend(SecretProvider):
             os.chmod(seed_file, 0o600)
             logger.info("Generated persistent random machine seed for secret backend")
         except OSError as exc:
-            logger.warning("Failed to persist machine seed; using ephemeral seed", extra={"error": str(exc)})
+            # H-6 (P1-5): an unpersisted seed is NOT a soft failure. The old
+            # code logged a warning and returned an in-memory seed while
+            # _save_all_secrets reported success — the next launch (or, per
+            # the same defect, even a later read in the SAME session) derived
+            # keys from a different ephemeral seed and every stored secret
+            # became permanently undecryptable, with the blackbox HMAC key
+            # additionally quarantining all prior chunks. Fail closed so the
+            # caller knows persistence is broken BEFORE writing secrets
+            # against a seed that will not survive.
+            raise SecurityError(
+                "Machine seed could not be persisted — refusing to encrypt secrets "
+                "against an ephemeral seed that would make them undecryptable",
+                code="MACHINE_SEED_UNWRITABLE",
+                cause=exc,
+            ) from exc
         return seed
 
     def _load_all_secrets(self) -> dict[str, bytes]:
@@ -335,8 +350,13 @@ class LinuxSecretBackend(SecretProvider):
             ciphertext = aesgcm.encrypt(nonce, payload, self.MAGIC_HEADER + salt)
             blob = self.MAGIC_HEADER + salt + nonce + ciphertext
 
-            # Write file atomically with 0600 permissions
-            temp_file = self.storage_path.with_suffix(".tmp")
+            # Write file atomically with 0600 permissions.
+            # L-14 (P3-5): the temp name is unique per write — the fixed
+            # ".tmp" name let two concurrent writers interleave partial
+            # blobs into the same file before either rename.
+            temp_file = self.storage_path.with_suffix(
+                f".tmp-{os.getpid()}-{threading.get_ident()}-{time.monotonic_ns()}"
+            )
 
             # Create file with 0600 flags if supported
             flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
@@ -591,7 +611,11 @@ class WindowsDPAPISecretBackend(SecretProvider):
         """Save JSON storage file atomically."""
         try:
             self.storage_path.parent.mkdir(parents=True, exist_ok=True)
-            temp_path = self.storage_path.with_suffix(".tmp")
+            # L-14 (P3-5): unique temp name — concurrent writers must not
+            # interleave partial files under one fixed ".tmp" path.
+            temp_path = self.storage_path.with_suffix(
+                f".tmp-{os.getpid()}-{threading.get_ident()}-{time.monotonic_ns()}"
+            )
             temp_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
             temp_path.replace(self.storage_path)
         except Exception as exc:
