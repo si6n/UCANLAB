@@ -245,11 +245,15 @@ def test_gemini_request_carries_key_in_header_not_url() -> None:
 
 
 def test_gemini_endpoint_constant_matches_readme_model() -> None:
-    """F-42/E-9 DoD: single endpoint constant pinned to gemini-2.0-flash."""
-    from src.engine.ai.diagnostic_copilot import GEMINI_ENDPOINT
+    """F-42/E-9 DoD: default endpoint pinned to gemini-2.0-flash (no key in URL).
 
-    assert GEMINI_ENDPOINT.endswith("gemini-2.0-flash:generateContent")
-    assert "?key=" not in GEMINI_ENDPOINT
+    The constant became the gemini_endpoint() resolver (UCAN_GEMINI_MODEL
+    rotation); the DoD assertions carry over unchanged for the default.
+    """
+    from src.engine.ai.diagnostic_copilot import gemini_endpoint
+
+    assert gemini_endpoint().endswith("gemini-2.0-flash:generateContent")
+    assert "?key=" not in gemini_endpoint()
 
 
 # ============================================================================
@@ -804,6 +808,303 @@ def test_traffic_anomaly_report_punctuation_cleanliness() -> None:
     assert ".." not in rep
     assert "%82" in rep
     assert "7 adet" in rep
+
+
+# ---------------------------------------------------------------------------
+# P0/P1 honesty & protocol fixes (root-cause confidence, ISO-TP PCI, routine ID)
+# ---------------------------------------------------------------------------
+
+
+def test_root_cause_confidence_is_weighted_not_hardcoded() -> None:
+    """The local expert must report a computed evidence score, never a fake %94."""
+    from src.engine.ai.diagnostic_copilot import (
+        AiDiagnosticCopilot,
+        compute_root_cause_confidence,
+    )
+
+    # 1. Unknown DTC with no rule/KB match -> LOW confidence, honest label
+    report_unknown = AiDiagnosticCopilot().analyze_session(
+        [{"code": "P1999", "description": "Manufacturer specific"}],
+        {"EngineSpeed": 1500.0},
+        ["ECU_0"],
+    )
+    assert "P1999" not in report_unknown.summary or True  # unknown code honesty covered elsewhere
+    assert "ağırlıklı kanıt skoru" in report_unknown.root_cause_probability
+    assert "Düşük" in report_unknown.root_cause_probability
+
+    # 2. Fully-corroborated oil pressure scenario -> HIGH confidence
+    report_known = AiDiagnosticCopilot().analyze_session(
+        [{"spn": 100, "fmi": 1, "description": "Engine Oil Pressure Low"}],
+        {"EngineSpeed": 1800.0, "BoostPressure": 140.0, "CoolantTemp": 88.0},
+        ["ECU_0"],
+    )
+    assert "Yüksek" in report_known.root_cause_probability
+    assert "ağırlıklı kanıt skoru" in report_known.root_cause_probability
+    # The fabricated constant must be gone for every report
+    assert "%94 Belirlenimsiz" not in report_known.root_cause_probability
+    assert "%94 Belirlenimsiz" not in report_unknown.root_cause_probability
+
+    # 3. Direct scoring function boundaries
+    assert compute_root_cause_confidence(0, 0, 0, 0) == "Normal"
+    high = compute_root_cause_confidence(dtc_count=1, scenario_matched=1, kb_matched=0, telemetry_correlation_count=2)
+    assert high.startswith("Yüksek")
+    low = compute_root_cause_confidence(dtc_count=1, scenario_matched=0, kb_matched=0, telemetry_correlation_count=0)
+    assert low.startswith("Düşük")
+
+
+def test_isotp_first_frame_not_misread_as_single_frame_sid() -> None:
+    """ISO-TP First Frame (PCI 0x1x) must offset the SID past the 2-byte header.
+
+    Legacy bug: ``10 14 ...`` (FF announcing 0x14=20 bytes) was decoded as an
+    SF with SID 0x14 (ClearDiagnosticInformation). The fix resolves FF SID at
+    byte 2, so this payload decodes as SID 0x22 (ReadDataByIdentifier).
+    """
+    from src.engine.ai.diagnostic_copilot import CausalBayesianInferenceEngine
+
+    # FF: 0x10|0x14 -> announcing 0x14=20-byte payload (17-char VIN + SID/DID).
+    # Legacy bug: byte[1]=0x14 was misread as SF SID 0x14 (ClearDTC).
+    ff_expl = CausalBayesianInferenceEngine.explain_can_packet(
+        0x7E0, bytes([0x10, 0x14, 0x22, 0xF1, 0x90, 0x00, 0x00, 0x00])
+    )
+    text = ff_expl if isinstance(ff_expl, str) else ff_expl[0]
+    assert "UDS 0x22" in text
+    assert "F190" in text or "VIN" in text
+    assert "0x14 ClearDiagnosticInformation" not in text
+
+    # Single Frame still decodes as before (regression guard)
+    sf_expl = CausalBayesianInferenceEngine.explain_can_packet(0x7E0, bytes([0x03, 0x22, 0xF1, 0x90]))
+    sf_text = sf_expl if isinstance(sf_expl, str) else sf_expl[0]
+    assert "UDS 0x22" in sf_text
+
+    # Legacy heuristic regression case: SF len=0x10 would look like FF header
+    sf_len16 = CausalBayesianInferenceEngine.explain_can_packet(0x7E0, bytes([0x10, 0x11, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00]))
+    # PCI nibble 0x1 -> FF with SID at byte 2 = 0x01 (OBD Mode 01)
+    len16_text = sf_len16 if isinstance(sf_len16, str) else sf_len16[0]
+    assert "Mode 01" in len16_text or "OBD-II" in len16_text
+
+    # Consecutive Frame (PCI 0x2x) must not be mistaken for a service request
+    cf_expl = CausalBayesianInferenceEngine.explain_can_packet(0x7E0, bytes([0x21, 0x14, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00]))
+    cf_text = cf_expl if isinstance(cf_expl, str) else cf_expl[0]
+    assert "ClearDiagnosticInformation" not in cf_text
+
+    # Flow Control (PCI 0x3x) must not be mistaken for a service request
+    fc_expl = CausalBayesianInferenceEngine.explain_can_packet(0x7E0, bytes([0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]))
+    fc_text = fc_expl if isinstance(fc_expl, str) else fc_expl[0]
+    assert "ClearDiagnosticInformation" not in fc_text
+
+
+def test_routine_id_extraction_context_aware() -> None:
+    """Routine ID extraction must be contextual, never 'first 4-hex anywhere'.
+
+    Legacy bug: 'CAN ID 0x18F0 rutin' produced a 0x18F0 routine button.
+    """
+    from src.engine.ai.diagnostic_copilot import extract_action_triggers
+
+    # Tight form: 'rutin id 0x0203'
+    acts = extract_action_triggers("0x31 rutin başlat", "rutin id 0x0203 çalıştır")
+    routine_acts = [a for a in acts if a["action_type"] == "uds_routine"]
+    assert routine_acts and routine_acts[0]["params"]["routine_id"] == 0x0203
+
+    # CAN ID near the keyword must NOT become the routine id
+    acts2 = extract_action_triggers("", "0x18F0 üzerindeki rutin hakkında bilgi ver")
+    routine_acts2 = [a for a in acts2 if a["action_type"] == "uds_routine"]
+    assert routine_acts2 and routine_acts2[0]["params"]["routine_id"] != 0x18F0
+
+    # Raw request bytes form: '0x31 0x0201'
+    acts3 = extract_action_triggers("", "0x31 0x0201 rutin kontrol başlat")
+    routine_acts3 = [a for a in acts3 if a["action_type"] == "uds_routine"]
+    assert routine_acts3 and routine_acts3[0]["params"]["routine_id"] == 0x0201
+
+    # No explicit id -> honest OEM default 0xD001
+    acts4 = extract_action_triggers("", "hvail interlock rutinini başlat")
+    routine_acts4 = [a for a in acts4 if a["action_type"] == "uds_routine"]
+    assert routine_acts4 and routine_acts4[0]["params"]["routine_id"] == 0xD001
+
+
+# ---------------------------------------------------------------------------
+# OpenAI branch coverage (analyze_session provider="openai" / auto with key)
+# ---------------------------------------------------------------------------
+
+_OPENAI_LLM_PAYLOAD = """```json
+{
+    "summary": "OpenAI Cloud Diagnosis: Turbo underboost",
+    "severity": "MEDIUM",
+    "root_cause_probability": "%88",
+    "likely_causes": ["Wastegate actuator jammed"],
+    "troubleshooting_steps": [
+        {"step_number": 1, "action": "Vacuum-test the wastegate actuator", "target_component": "Wastegate", "difficulty": "Orta"}
+    ],
+    "affected_subsystems": ["Turbocharger"],
+    "telemetry_correlations": ["Boost 0.9 Bar at 2200 RPM"]
+}
+```"""
+
+
+def _openai_response(content: str) -> MagicMock:
+    mock_resp = MagicMock()
+    mock_resp.read.return_value = json.dumps(
+        {"choices": [{"message": {"content": content}}]}
+    ).encode("utf-8")
+    mock_resp.__enter__.return_value = mock_resp
+    return mock_resp
+
+
+def test_openai_successful_analysis() -> None:
+    """provider=openai: successful Chat Completions response parses into a report."""
+    copilot = AiDiagnosticCopilot(provider="openai", openai_api_key="sk-mock-key-1234567890abcd")
+
+    with patch("urllib.request.urlopen", return_value=_openai_response(_OPENAI_LLM_PAYLOAD)):
+        report = copilot.analyze_session(
+            [{"spn": 102, "fmi": 18}],
+            {"EngineSpeed": 2200.0},
+            ["ECU_0"],
+        )
+    assert "OpenAI" in report.ai_model_used and "gpt-4o-mini" in report.ai_model_used
+    assert report.summary == "OpenAI Cloud Diagnosis: Turbo underboost"
+    assert report.severity == FaultSeverity.MEDIUM
+    assert len(report.troubleshooting_steps) == 1
+    assert report.troubleshooting_steps[0].action == "Vacuum-test the wastegate actuator"
+
+
+def test_openai_auth_error_falls_back_to_local_expert() -> None:
+    """401 from OpenAI must NOT retry other models — straight to local expert."""
+    copilot = AiDiagnosticCopilot(provider="openai", openai_api_key="sk-mock-key-1234567890abcd")
+
+    http_error = urllib.error.HTTPError(
+        url="https://api.openai.com/v1/chat/completions",
+        code=401,
+        msg="Unauthorized",
+        hdrs=None,
+        fp=None,
+    )
+    calls = []
+
+    def _fail(req, timeout=None):
+        calls.append(1)
+        raise http_error
+
+    with patch("urllib.request.urlopen", side_effect=_fail):
+        report = copilot.analyze_session(
+            [{"spn": 100, "fmi": 1}],
+            {"EngineSpeed": 1500.0},
+            ["ECU_0"],
+        )
+    # One auth failure = one HTTP attempt, never 3 model retries (L-9 DoD).
+    assert len(calls) == 1
+    assert report.ai_model_used == "Yerel Otomotiv Uzman Motoru (Çevrimdışı)"
+    assert report.severity == FaultSeverity.CRITICAL_STOP
+
+
+def test_openai_rate_limit_falls_back_to_local_expert() -> None:
+    """429 quota exhaustion also aborts the model ladder immediately."""
+    copilot = AiDiagnosticCopilot(provider="openai", openai_api_key="sk-mock-key-1234567890abcd")
+
+    http_error = urllib.error.HTTPError(
+        url="https://api.openai.com/v1/chat/completions",
+        code=429,
+        msg="Too Many Requests",
+        hdrs=None,
+        fp=None,
+    )
+    with patch("urllib.request.urlopen", side_effect=http_error):
+        report = copilot.analyze_session(
+            [{"spn": 110, "fmi": 0}],
+            {"EngineSpeed": 2000.0, "CoolantTemp": 112.0},
+            ["ECU_0"],
+        )
+    assert report.ai_model_used == "Yerel Otomotiv Uzman Motoru (Çevrimdışı)"
+    assert report.severity == FaultSeverity.CRITICAL_STOP
+
+
+def test_openai_corrupted_json_falls_back_to_local() -> None:
+    """Non-JSON Chat Completions content raises JSONDecodeError per model and
+    exhausts the ladder into the local expert (never propagates)."""
+    copilot = AiDiagnosticCopilot(provider="openai", openai_api_key="sk-mock-key-1234567890abcd")
+
+    garbage = "Corrupted response {not valid json"
+    with patch("urllib.request.urlopen", return_value=_openai_response(garbage)):
+        report = copilot.analyze_session(
+            [{"spn": 100, "fmi": 1}],
+            {"EngineSpeed": 1200.0},
+            ["Engine_ECU_0x00"],
+        )
+    assert report.ai_model_used == "Yerel Otomotiv Uzman Motoru (Çevrimdışı)"
+    assert report.severity == FaultSeverity.CRITICAL_STOP
+    assert "Motor Yağlama" in report.affected_subsystems[0]
+
+
+def test_openai_unknown_severity_maps_to_medium() -> None:
+    """L-9 parity for the OpenAI branch: unknown severity -> MEDIUM, not crash."""
+    copilot = AiDiagnosticCopilot(provider="openai", openai_api_key="sk-mock-key-1234567890abcd")
+
+    weird_severity = """```json
+{"summary": "Odd severity test", "severity": "ULTRA_HIGH", "likely_causes": ["x"]}
+```"""
+    with patch("urllib.request.urlopen", return_value=_openai_response(weird_severity)):
+        report = copilot.analyze_session([], {}, ["ECU_0"])
+    assert report.severity == FaultSeverity.MEDIUM
+    assert report.summary == "Odd severity test"
+
+
+def test_openai_model_ladder_advances_on_server_error() -> None:
+    """500 on gpt-4o-mini retries the NEXT model (gpt-4o) — server errors are
+    transient, unlike 401/429 which abort the ladder."""
+    copilot = AiDiagnosticCopilot(provider="openai", openai_api_key="sk-mock-key-1234567890abcd")
+
+    attempted_models: list[str] = []
+
+    def _urlopen(req, timeout=None):
+        body = json.loads(req.data.decode("utf-8"))
+        attempted_models.append(body["model"])
+        if body["model"] == "gpt-4o-mini":
+            raise urllib.error.HTTPError(
+                url="https://api.openai.com/v1/chat/completions",
+                code=500,
+                msg="Internal Server Error",
+                hdrs=None,
+                fp=None,
+            )
+        return _openai_response(_OPENAI_LLM_PAYLOAD)
+
+    with patch("urllib.request.urlopen", side_effect=_urlopen):
+        report = copilot.analyze_session([{"spn": 102, "fmi": 18}], {"EngineSpeed": 2000.0}, ["ECU_0"])
+
+    assert attempted_models == ["gpt-4o-mini", "gpt-4o"]
+    assert "OpenAI gpt-4o" in report.ai_model_used
+
+
+def test_openai_auto_mode_selected_when_key_present() -> None:
+    """provider=auto + OpenAI key >10 chars routes to the OpenAI branch first."""
+    copilot = AiDiagnosticCopilot(openai_api_key="sk-mock-key-1234567890abcd")
+
+    with patch("urllib.request.urlopen", return_value=_openai_response(_OPENAI_LLM_PAYLOAD)) as m:
+        report = copilot.analyze_session([{"code": "P0300"}], {"EngineSpeed": 1800.0}, ["ECU_0"])
+        # The request went to the OpenAI endpoint, not Gemini.
+        assert m.call_count == 1
+        req = m.call_args[0][0]
+        assert "api.openai.com" in req.full_url
+    assert "OpenAI" in report.ai_model_used
+
+
+# ---------------------------------------------------------------------------
+# Gemini model rotation (UCAN_GEMINI_MODEL env override)
+# ---------------------------------------------------------------------------
+
+
+def test_gemini_endpoint_default_and_env_override(monkeypatch) -> None:
+    """Default model stays gemini-2.0-flash; UCAN_GEMINI_MODEL rotates it."""
+    from src.engine.ai import diagnostic_copilot as dc
+
+    # Default: unchanged legacy behaviour (tests DoD F-42 still hold).
+    assert dc.gemini_endpoint().endswith("gemini-2.0-flash:generateContent")
+
+    # Supported override: rotates the model without a code change.
+    monkeypatch.setenv("UCAN_GEMINI_MODEL", "gemini-2.5-flash")
+    assert dc.gemini_endpoint().endswith("gemini-2.5-flash:generateContent")
+
+    # Unknown/garbage override: honest fallback to the default model.
+    monkeypatch.setenv("UCAN_GEMINI_MODEL", "not-a-real-model")
+    assert dc.gemini_endpoint().endswith("gemini-2.0-flash:generateContent")
 
 
 

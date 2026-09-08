@@ -7,6 +7,7 @@ inference, Turkish/English automotive NLP tokenization, and optional live Google
 from __future__ import annotations
 
 import json
+import os
 import re
 import threading
 import time
@@ -25,10 +26,30 @@ logger = get_logger("engine.ai_copilot")
 # Single endpoint constant — the API key travels in the x-goog-api-key
 # header, never in the URL (CWE-598). Keep the model name in sync with
 # README (F-42 / E-9).
-GEMINI_ENDPOINT = (
-    "https://generativelanguage.googleapis.com/v1beta/models/"
-    "gemini-2.0-flash:generateContent"
+#
+# Model rotation without a code change: UCAN_GEMINI_MODEL overrides the
+# default (e.g. "gemini-2.5-flash"). The endpoint is derived lazily so the
+# override applies process-wide; invalid values simply keep the default.
+DEFAULT_GEMINI_MODEL = "gemini-2.0-flash"
+
+_GEMINI_MODEL_CANDIDATES = (
+    "gemini-2.0-flash",
+    "gemini-2.5-flash",
+    "gemini-2.5-pro",
+    "gemini-1.5-flash",
 )
+
+
+def _resolve_gemini_model() -> str:
+    override = os.environ.get("UCAN_GEMINI_MODEL", "").strip()
+    if override and override in _GEMINI_MODEL_CANDIDATES:
+        return override
+    return DEFAULT_GEMINI_MODEL
+
+
+def gemini_endpoint() -> str:
+    """Resolved Gemini generateContent endpoint (model from env override)."""
+    return f"https://generativelanguage.googleapis.com/v1beta/models/{_resolve_gemini_model()}:generateContent"
 
 
 class FaultSeverity(Enum):
@@ -210,6 +231,33 @@ def parse_action_triggers_from_text(text: str) -> tuple[str, list[dict[str, Any]
     return text, extract_action_triggers(text)
 
 
+# P1 fix: context-aware routine identifier patterns. The legacy scanner
+# grabbed the FIRST 4-digit hex anywhere in the text, so a query like
+# "CAN ID 0x18F0 rutin" produced a bogus routine button. Order: tight
+# "routine/rutin id 0xNNNN" forms, then a bounded window after the keyword,
+# then raw request bytes "0x31 0xNNNN", then bare hex after the keyword.
+_ROUTINE_ID_PATTERNS: tuple[str, ...] = (
+    r"(?:routine|rutin|rid)\s*(?:id)?\s*[:=]?\s*0x([0-9a-f]{4})\b",
+    r"(?:routine|rutin)\s+(?:id)?\s*(?:0x)?([0-9a-f]{4})\b",
+    r"(?:routine|rutin)[^0-9a-f]{0,30}?0x([0-9a-f]{4})\b",
+    r"0x31\s+0x([0-9a-f]{4})\b",
+)
+
+
+def _extract_routine_id(combined_text: str) -> int:
+    """Extract the routine identifier from lowered copilot text, honestly.
+
+    Returns the OEM default 0xD001 (HVIL interlock loopback) when no
+    explicit routine identifier is stated — same legacy default the
+    desktop bridge expects.
+    """
+    for pattern in _ROUTINE_ID_PATTERNS:
+        m = re.search(pattern, combined_text)
+        if m:
+            return int(m.group(1), 16)
+    return 0xD001
+
+
 def extract_action_triggers(text: str, user_query: str = "") -> list[dict[str, Any]]:
     """Scan response text and user query for actionable diagnostic recommendations."""
     combined = f"{user_query} {text}".lower()
@@ -230,8 +278,7 @@ def extract_action_triggers(text: str, user_query: str = "") -> list[dict[str, A
             seen_types.add("uds_session_control")
 
     if "0x31" in combined or "routine" in combined or "rutin" in combined:
-        m = re.search(r"\b0x([0-9a-f]{4})\b", combined)
-        rid = int(m.group(1), 16) if m else 0xD001
+        rid = _extract_routine_id(combined)
         actions.append(make_uds_routine_action(rid))
         seen_types.add("uds_routine")
 
@@ -269,6 +316,45 @@ def explain_traffic_metrics(bus_metrics: dict[str, Any], user_query: str = "") -
     return f"{line1}\n{line2}\n{line3}"
 
 
+# Weighted evidence kinds for local-expert root-cause confidence, mirroring
+# engine/discovery/evidence.py methodology (P0 honesty fix: replaces the old
+# hardcoded "%94 Belirlenimsiz Güvenilirlik" placeholder). Rule scenario and
+# knowledge-base matches are complementary identification evidence — a DTC
+# explained by a rule does not also require a KB hit.
+ROOT_CAUSE_EVIDENCE_WEIGHTS: dict[str, float] = {
+    "identification": 0.50,
+    "telemetry_correlation": 0.30,
+    "dtc_context": 0.20,
+}
+
+
+def compute_root_cause_confidence(
+    dtc_count: int,
+    scenario_matched: int,
+    kb_matched: int,
+    telemetry_correlation_count: int,
+) -> str:
+    """Compute an honest weighted root-cause confidence label for the offline expert.
+
+    Each evidence kind is normalised to 0..1, weighted, and the weighted mean
+    is taken over the total weight — so a full rule+telemetry match scores
+    high while an unknown DTC with no corroboration scores near zero.
+    """
+    if dtc_count <= 0:
+        return "Normal"
+    identified = scenario_matched + kb_matched
+    entries = {
+        "identification": min(1.0, identified / dtc_count),
+        "telemetry_correlation": min(1.0, telemetry_correlation_count / 2.0),
+        "dtc_context": min(1.0, dtc_count / 2.0),
+    }
+    total_weight = sum(ROOT_CAUSE_EVIDENCE_WEIGHTS.values())
+    weighted_sum = sum(ROOT_CAUSE_EVIDENCE_WEIGHTS[kind] * value for kind, value in entries.items())
+    score = weighted_sum / total_weight
+    label = "Yüksek" if score >= 0.65 else ("Orta" if score >= 0.35 else "Düşük")
+    return f"{label} (%{score * 100:.0f} ağırlıklı kanıt skoru)"
+
+
 def extract_hex_payload_from_query(query: str) -> list[int]:
     """Extract byte values from query string."""
     match = re.search(r"(?:Hex Payload|Payload|Data|Veri)\s*[:=]?\s*([0-9A-Fa-f\s]{2,})", query, re.IGNORECASE)
@@ -301,6 +387,46 @@ def _get_fallback_dbc_decoder() -> Any:
         return None
 
 
+# ISO 15765-2 (ISO-TP) UDS service identifiers recognised by the packet
+# explainer — requests and positive/negative responses.
+_UDS_KNOWN_SIDS: frozenset[int] = frozenset(
+    {
+        0x10, 0x11, 0x14, 0x19, 0x22, 0x27, 0x28, 0x2E, 0x31, 0x3E,
+        0x50, 0x51, 0x54, 0x59, 0x62, 0x67, 0x71, 0x7F, 0x01,
+    }
+)
+
+
+def _resolve_uds_sid_index(payload_bytes: list[int]) -> int:
+    """Resolve the byte offset of the UDS SID inside an ISO-TP framed payload.
+
+    ISO 15765-2 PCI types (upper nibble of byte 0):
+      0x0 = Single Frame (SF)  -> SID at byte 1
+      0x1 = First Frame (FF)  -> SID at byte 2 (bytes 0-1 are PCI+length)
+      0x2 = Consecutive Frame (CF) -> no reliable SID position
+      0x3 = Flow Control (FC) -> not a service payload
+
+    P1 fix: the legacy heuristic could misread a First Frame such as
+    ``10 14 ...`` as SF with SID 0x14 (ClearDiagnosticInformation). With the
+    explicit PCI nibble check, multi-frame requests are offset correctly and
+    CF/FC fragments are never mistaken for fresh service requests.
+    """
+    if not payload_bytes:
+        return 0
+    pci_type = (payload_bytes[0] >> 4) & 0xF
+    if pci_type == 0x0 and len(payload_bytes) > 1:
+        return 1  # Single Frame: [0|len, SID, ...]
+    if pci_type == 0x1 and len(payload_bytes) > 2:
+        return 2  # First Frame: [0x1x, len_hi, len_lo, SID, ...]
+    if pci_type in (0x2, 0x3):
+        return 0  # CF fragment / FC frame — no reliable SID position
+    # Unframed payload (e.g. raw physical request): SID at byte 0 unless
+    # byte 0 is not a known SID while byte 1 is.
+    if payload_bytes[0] not in _UDS_KNOWN_SIDS and len(payload_bytes) > 1 and payload_bytes[1] in _UDS_KNOWN_SIDS:
+        return 1
+    return 0
+
+
 def explain_can_packet(
     can_id_hex_or_int: str | int,
     payload: bytes | list[int] | str = b"",
@@ -325,18 +451,7 @@ def explain_can_packet(
     # 1. UDS Diagnostics (0x7DF or 0x7E0..0x7EF)
     if (0x7E0 <= can_id <= 0x7EF) or can_id == 0x7DF:
         if payload_bytes:
-            sid_idx = 0
-            # Common ISO 15765-2 Single Frame PCI check (byte 0 = length)
-            if len(payload_bytes) > 1 and payload_bytes[1] in {
-                0x10, 0x11, 0x14, 0x19, 0x22, 0x27, 0x28, 0x2E, 0x31, 0x3E,
-                0x50, 0x51, 0x54, 0x59, 0x62, 0x67, 0x71, 0x7F, 0x01,
-            }:
-                sid_idx = 1
-            elif payload_bytes[0] not in {
-                0x10, 0x11, 0x14, 0x19, 0x22, 0x27, 0x28, 0x2E, 0x31, 0x3E,
-                0x50, 0x51, 0x54, 0x59, 0x62, 0x67, 0x71, 0x7F, 0x01,
-            } and len(payload_bytes) > 1:
-                sid_idx = 1
+            sid_idx = _resolve_uds_sid_index(payload_bytes)
 
             sid = payload_bytes[sid_idx]
 
@@ -1274,6 +1389,39 @@ _CACHED_MODE06_DB: dict[str, Any] | None = None
 _CACHED_EXTENDED_PID_DB: dict[str, Any] | None = None
 
 
+def _validate_dtc_entry_shape(code: str, info: Any) -> bool:
+    """Shape-validate one external DTC entry before merging (M-17 / P2-16).
+
+    A hostile or corrupted external DB must not inject garbage into the
+    expert base: `steps` must be a list of 2-3 element sequences of strings
+    (a bare string used to be character-indexed by the consumer), `severity`
+    must be a known level, and the required top-level fields must be present.
+    """
+    if not isinstance(info, dict):
+        return False
+    for required_field in ("title", "subsystem", "severity"):
+        val = info.get(required_field)
+        if not isinstance(val, str) or not val.strip():
+            return False
+    severity = info.get("severity")
+    if severity not in ("INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL", "CRITICAL_STOP"):
+        return False
+    steps = info.get("steps")
+    if steps is not None:
+        if not isinstance(steps, (list, tuple)):
+            return False
+        for s in steps:
+            if not isinstance(s, (list, tuple)) or not 2 <= len(s) <= 3:
+                return False
+            if not all(isinstance(part, str) for part in s):
+                return False
+    causes = info.get("causes")
+    if causes is not None and not isinstance(causes, (list, tuple)):
+        return False
+    _ = code  # validated by caller (dict key, always str from JSON)
+    return True
+
+
 def load_external_dtc_database(data_path: Path | str | None = None) -> int:
     """Dynamically load and merge external DTC catalog into EXPERT_KNOWLEDGE_BASE.
 
@@ -1296,14 +1444,22 @@ def load_external_dtc_database(data_path: Path | str | None = None) -> int:
             return 0
 
         added = 0
+        rejected = 0
         for code, info in data.items():
-            if not isinstance(info, dict):
+            # M-17 (P2-16): shape validation BEFORE merge — garbage entries
+            # are counted and skipped, never merged.
+            if not _validate_dtc_entry_shape(code, info):
+                rejected += 1
                 continue
             # Preserve existing rich hand-crafted rules
             if code not in EXPERT_KNOWLEDGE_BASE:
                 EXPERT_KNOWLEDGE_BASE[code] = info
                 added += 1
 
+        if rejected:
+            logger.warning(
+                "External DTC database: %d entries rejected by shape validation", rejected
+            )
         logger.info("Merged %d external DTC codes into EXPERT_KNOWLEDGE_BASE (total: %d)", added, len(EXPERT_KNOWLEDGE_BASE))
         return added
     except Exception as exc:
@@ -1653,8 +1809,26 @@ def format_nhtsa_recall_report(recall: dict[str, Any]) -> str:
     )
 
 
-# Auto-load external DTC database on module initialization
-load_external_dtc_database()
+# M-18 (P2-17): the external DTC database loads lazily on first use instead
+# of at module import — the bare module-scope call parsed 2.3 MB of JSON
+# (~0.4 s I/O) on EVERY process start, including CLI invocations that never
+# touch diagnostics. ensure_external_dtc_database_loaded() is idempotent and
+# thread-safe; direct load_external_dtc_database(data_path=...) callers
+# (tests) bypass the cache deliberately.
+_DTC_DB_LOAD_LOCK = threading.Lock()
+_DTC_DB_LOADED = False
+
+
+def ensure_external_dtc_database_loaded() -> None:
+    """Idempotent, thread-safe lazy load of the external DTC database."""
+    global _DTC_DB_LOADED
+    if _DTC_DB_LOADED:
+        return
+    with _DTC_DB_LOAD_LOCK:
+        if _DTC_DB_LOADED:
+            return
+        load_external_dtc_database()
+        _DTC_DB_LOADED = True
 
 # ============================================================================
 # COMPLETE ISO 14229 UDS NEGATIVE RESPONSE CODE (NRC) CATALOG
@@ -1849,6 +2023,9 @@ class CausalBayesianInferenceEngine:
         bus_metrics: dict[str, Any] | None = None,
     ) -> str:
         """Generate comprehensive 4-stage master technician report."""
+        # M-18 (P2-17): knowledge bases load lazily at first diagnostic use
+        # (idempotent) instead of at module import.
+        ensure_external_dtc_database_loaded()
         if bus_metrics:
             telemetry = {**telemetry, **bus_metrics}
         intents = AutomotiveTokenizer.extract_semantic_intents(user_query)
@@ -2451,6 +2628,8 @@ class AiDiagnosticCopilot:
         telemetry_snapshot: dict[str, float],
         active_ecus: list[str],
     ) -> DiagnosticAnalysisReport:
+        # M-18 (P2-17): lazy knowledge-base load at first analysis use.
+        ensure_external_dtc_database_loaded()
         dtc_count = len(active_dtcs)
         rpm = telemetry_snapshot.get("EngineSpeed", 0.0)
         raw_boost = telemetry_snapshot.get("BoostPressure", 0.0)
@@ -2463,9 +2642,13 @@ class AiDiagnosticCopilot:
         correlations: list[str] = []
         affected: list[str] = []
         severity = FaultSeverity.LOW
+        # Evidence counters feeding the honest weighted confidence score (P0).
+        scenario_matched_count = 0
+        kb_matched_count = 0
 
         # Scenario 1: Oil Pressure Fault (SPN 100)
         if any(d.get("spn") == 100 for d in active_dtcs):
+            scenario_matched_count += sum(1 for d in active_dtcs if d.get("spn") == 100)
             severity = FaultSeverity.CRITICAL_STOP
             affected.append("Motor Yağlama & Yatak Sistemi")
             likely_causes.append(
@@ -2492,7 +2675,9 @@ class AiDiagnosticCopilot:
             )
 
         # Scenario 2: EV Battery Isolation Fault (P0AA6 / P0A0B)
-        if any(str(d.get("code", "")).upper() in {"P0AA6", "P0A0B", "P0A80", "P0A93"} for d in active_dtcs):
+        ev_codes = {"P0AA6", "P0A0B", "P0A80", "P0A93"}
+        if any(str(d.get("code", "")).upper() in ev_codes for d in active_dtcs):
+            scenario_matched_count += sum(1 for d in active_dtcs if str(d.get("code", "")).upper() in ev_codes)
             severity = FaultSeverity.CRITICAL_STOP
             affected.append("EV Yüksek Voltaj Güvenlik & Batarya")
             likely_causes.append("Yüksek voltaj izolasyon direnci düşüklüğü veya HVIL interlock güvenlik hattı kesintisi.")
@@ -2515,6 +2700,9 @@ class AiDiagnosticCopilot:
             correlations.append("Yüksek voltaj güvenlik kilidi devrede; kontaktörler ark yapmadan otomatik açıldı.")
 
         # Scenario 3: Cylinder Injector Faults (SPN 651 - SPN 656)
+        injector_count = sum(1 for d in active_dtcs if isinstance(d.get("spn"), int) and 651 <= d.get("spn", 0) <= 656)
+        if injector_count > 0:
+            scenario_matched_count += injector_count
         for d in active_dtcs:
             spn = d.get("spn")
             if isinstance(spn, int) and 651 <= spn <= 656:
@@ -2533,6 +2721,11 @@ class AiDiagnosticCopilot:
 
         # Scenario 4: DPF Differential Pressure (SPN 3251 / SPN 3719)
         if any(d.get("spn") in {3251, 3719} or "DPF" in str(d.get("description", "")).upper() for d in active_dtcs):
+            scenario_matched_count += sum(
+                1
+                for d in active_dtcs
+                if d.get("spn") in {3251, 3719} or "DPF" in str(d.get("description", "")).upper()
+            )
             severity = FaultSeverity.MEDIUM
             affected.append("Egzoz & DPF Sistemi")
             likely_causes.append("DPF partikül filtresi aşırı kurum yükü veya fark basınç sensörü arızası.")
@@ -2546,7 +2739,9 @@ class AiDiagnosticCopilot:
             )
 
         # Scenario 5: Misfire / Tekleme (P0300, P0301-P0304)
-        if any(str(d.get("code", "")).upper().startswith("P030") for d in active_dtcs):
+        misfire_count = sum(1 for d in active_dtcs if str(d.get("code", "")).upper().startswith("P030"))
+        if misfire_count > 0:
+            scenario_matched_count += misfire_count
             if severity != FaultSeverity.CRITICAL_STOP:
                 severity = FaultSeverity.MEDIUM
             affected.append("Silindir Ateşleme & Enjeksiyon")
@@ -2562,7 +2757,13 @@ class AiDiagnosticCopilot:
             correlations.append(f"Motor {rpm:.0f} RPM devirde silindir teklemesi nedeniyle tork dalgalanması yaşıyor.")
 
         # Scenario 6: Overboost / Underboost (P0234, P0299, SPN 102)
-        if any(str(d.get("code", "")).upper() in {"P0234", "P0299"} or d.get("spn") == 102 for d in active_dtcs) or boost_bar > 2.5:
+        turbo_count = sum(
+            1
+            for d in active_dtcs
+            if str(d.get("code", "")).upper() in {"P0234", "P0299"} or d.get("spn") == 102
+        )
+        if turbo_count > 0 or boost_bar > 2.5:
+            scenario_matched_count += turbo_count
             if severity != FaultSeverity.CRITICAL_STOP:
                 severity = FaultSeverity.MEDIUM
             affected.append("Aşırı Doldurma & Turboşarj")
@@ -2578,7 +2779,13 @@ class AiDiagnosticCopilot:
             correlations.append(f"Turbo basıncı {boost_bar:.2f} Bar seviyesinde; hedef basınç aralığından sapma var.")
 
         # Scenario 7: Overheat / Termal Sorunlar (P0115, SPN 110)
-        if coolant_temp > 103.0 or any(str(d.get("code", "")).upper() == "P0115" or d.get("spn") == 110 for d in active_dtcs):
+        heat_count = sum(
+            1
+            for d in active_dtcs
+            if str(d.get("code", "")).upper() == "P0115" or d.get("spn") == 110
+        )
+        if coolant_temp > 103.0 or heat_count > 0:
+            scenario_matched_count += heat_count
             if coolant_temp > 108.0 or any(d.get("spn") == 110 and d.get("fmi") == 0 for d in active_dtcs):
                 severity = FaultSeverity.CRITICAL_STOP
             elif severity != FaultSeverity.CRITICAL_STOP:
@@ -2624,6 +2831,7 @@ class AiDiagnosticCopilot:
             spn_candidate = f"SPN{d.get('spn')}" if d.get("spn") else ""
             match_key = code_candidate if code_candidate in EXPERT_KNOWLEDGE_BASE else (spn_candidate if spn_candidate in EXPERT_KNOWLEDGE_BASE else None)
             if match_key:
+                kb_matched_count += 1
                 info = EXPERT_KNOWLEDGE_BASE[match_key]
                 subsys = info.get("subsystem", "Genel Teşhis")
                 if subsys not in affected:
@@ -2682,7 +2890,12 @@ class AiDiagnosticCopilot:
         return DiagnosticAnalysisReport(
             summary=summary,
             severity=severity,
-            root_cause_probability="Yüksek (%94 Belirlenimsel Güvenilirlik)" if dtc_count > 0 else "Normal",
+            root_cause_probability=compute_root_cause_confidence(
+                dtc_count=dtc_count,
+                scenario_matched=scenario_matched_count,
+                kb_matched=kb_matched_count,
+                telemetry_correlation_count=len(correlations),
+            ),
             likely_causes=likely_causes,
             troubleshooting_steps=steps,
             affected_subsystems=affected if affected else ["CAN Veri Yolu & Genel Telemetri"],
@@ -2701,6 +2914,8 @@ class AiDiagnosticCopilot:
         bus_metrics: dict[str, Any] | None = None,
     ) -> str:
         """Helper for live interactive prompt query with deep reasoning."""
+        # M-18 (P2-17): lazy knowledge-base load at first analysis use.
+        ensure_external_dtc_database_loaded()
         # 1. Live Gemini API call if configured
         if self.gemini_api_key and len(self.gemini_api_key.strip()) > 10:
             try:
@@ -2726,7 +2941,7 @@ class AiDiagnosticCopilot:
                     "Content-Type": "application/json",
                     "x-goog-api-key": self.gemini_api_key.strip(),
                 }
-                req = urllib.request.Request(GEMINI_ENDPOINT, data=data, headers=headers)
+                req = urllib.request.Request(gemini_endpoint(), data=data, headers=headers)
                 with urllib.request.urlopen(req, timeout=8.0) as resp:  # nosec: B310
                     resp_json = json.loads(resp.read().decode("utf-8"))
                     parts = resp_json.get("candidates", [{}])[0].get("content", {}).get("parts", [])
@@ -2789,7 +3004,7 @@ class AiDiagnosticCopilot:
             "Content-Type": "application/json",
             "x-goog-api-key": self.gemini_api_key.strip(),
         }
-        req = urllib.request.Request(GEMINI_ENDPOINT, data=data, headers=headers)
+        req = urllib.request.Request(gemini_endpoint(), data=data, headers=headers)
         with urllib.request.urlopen(req, timeout=10.0) as resp:  # nosec: B310
             resp_data = json.loads(resp.read().decode("utf-8"))
             candidate = resp_data["candidates"][0]["content"]["parts"][0]["text"]
