@@ -136,6 +136,13 @@ class EncryptedKnowledgePackLoader:
                 try:
                     decrypted = self._aesgcm.decrypt(nonce, ciphertext_with_tag, None)
                     expected_hash = declared.get(filename)
+                    if expected_hash is None:
+                        # Unreachable after the FILE_SET_MISMATCH binding, but
+                        # keep the invariant locally instead of asserting.
+                        raise SecurityError(
+                            f"Manifest declaration missing for '{filename}'",
+                            code="FILE_SET_MISMATCH",
+                        )
                     actual_hash = hashlib.sha256(decrypted).hexdigest()
                     if actual_hash.lower() != expected_hash.lower():
                         raise SecurityError(

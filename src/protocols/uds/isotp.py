@@ -1060,13 +1060,15 @@ class IsoTpReceiver:
                 # the CF loop already dropped mismatched CFs, so an FD FF
                 # used to be accepted (FC CTS emitted) and then every CF was
                 # silently discarded until the 1 s N_Cr timeout. Symmetric
-                # fail-closed on both frame types.
+                # fail-closed on both frame types: drop and wait for the
+                # next frame (same discipline as the channel/id guards above).
                 if frame.is_fd != self.is_fd:
                     logger.debug(
                         "Ignoring First Frame with mismatched CAN-FD mode",
                         extra={"frame_is_fd": frame.is_fd, "receiver_is_fd": self.is_fd},
                     )
-                    return None
+                    frame = None
+                    continue
                 if len(frame.data) >= 6 and frame.data[0] == 0x10 and frame.data[1] == 0x00:
                     # Extended 32-bit First Frame
                     total_len = int.from_bytes(frame.data[2:6], byteorder="big")

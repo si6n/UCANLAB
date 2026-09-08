@@ -313,3 +313,43 @@ def test_parse_response_accepts_canonical_positive_echo() -> None:
     resp = UdsServiceBuilder.parse_response(b"\x50\x03\x00\x32")
     assert resp.is_positive is True
     assert resp.service_id == 0x10
+
+
+# ============================================================================
+# L-7b (micro): numeric DID decode requires well-defined integer widths
+# ============================================================================
+
+
+def test_numeric_did_with_unsupported_width_fails_closed() -> None:
+    """L-7b: a length-less numeric DID with a 3-byte payload must be
+    rejected — the old generic `int.from_bytes` fabricated meaningless
+    values (e.g. 66011) instead of failing."""
+    from src.protocols.obd.models import UdsDidDefinition
+
+    did_def = UdsDidDefinition(
+        did=0xF999,
+        name="OddWidthDid",
+        description="Test DID with no declared length",
+        length=None,
+        unit="-",
+        data_format="numeric",
+    )
+    # 3-byte payload: not 1/2/4 — unsupported for inferred numeric decode.
+    with pytest.raises(ValueError, match="1/2/4-byte payload"):
+        did_def.decode(bytes([0x01, 0x02, 0x03]))
+
+
+def test_numeric_did_with_declared_exotic_width_still_decodes() -> None:
+    """L-7b: explicit-length numeric DIDs keep the generic big-endian decode —
+    the width was declared by the DID author, not inferred from the wire."""
+    from src.protocols.obd.models import UdsDidDefinition
+
+    did_def = UdsDidDefinition(
+        did=0xF998,
+        name="Declared3ByteDid",
+        description="Test DID with an explicit 3-byte length",
+        length=3,
+        unit="-",
+        data_format="numeric",
+    )
+    assert did_def.decode(bytes([0x01, 0x02, 0x03])) == float(0x010203)

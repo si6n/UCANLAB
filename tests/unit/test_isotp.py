@@ -642,7 +642,74 @@ def test_isotp_extended_addressing_drops_mismatched_address_byte() -> None:
         channel_id="uds",
         arbitration_id=0x7E8,
         data=b"\x99\x05\x62\xf1\x90\x41\x42\xcc",  # 0x99 != N_TA 0xF1
-        is_extended=False,
     )
     completed, _ = transport.handle_rx_frame(wrong_addr)
     assert completed is None
+
+
+# ============================================================================
+# M-33 / P2-24 & M-32 / P2-25 regressions
+# ============================================================================
+
+
+def test_isotp_receiver_drops_fd_mismatched_first_frame() -> None:
+    """P2-24: an FD First Frame arriving at a classic-mode receiver must be
+    dropped at admission (no FC CTS emitted), waiting for the next frame —
+    the old behavior emitted CTS and then silently discarded every CF until
+    the N_Cr timeout."""
+    import asyncio
+
+    tx_port = InMemoryTxPort()
+    rx_q: asyncio.Queue[CanFrame] = asyncio.Queue()
+    rx_sub = QueueRxSubscription(rx_q)
+
+    receiver = IsoTpReceiver(
+        channel_id="uds",
+        tx_id=0x7E0,
+        rx_id=0x7E8,
+        tx_port=tx_port,
+        rx_sub=rx_sub,
+        is_fd=False,  # classic receiver
+    )
+
+    # FD-mode First Frame: 12-bit length 16 bytes, FD payload > 8
+    fd_ff = CanFrame.create(
+        channel_id="uds",
+        arbitration_id=0x7E8,
+        data=bytes([0x10, 0x10, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B]),
+        is_fd=True,
+    )
+
+    async def scenario() -> None:
+        await rx_q.put(fd_ff)
+        # After the dropped FF, a well-formed classic SF must still decode —
+        # the receiver must not be wedged by the mismatch.
+        await rx_q.put(
+            CanFrame.create(channel_id="uds", arbitration_id=0x7E8, data=b"\x02\x50\x03")
+        )
+        result = await asyncio.wait_for(receiver.receive(timeout_s=1.0), timeout=2.0)
+        assert result == b"\x50\x03"
+
+    asyncio.run(scenario())
+
+    # No FC was ever emitted for the mismatched FD FF (the admission guard
+    # fired before the CTS build).
+    assert len(tx_port.sent_frames) == 0
+
+
+def test_isotp_classic_extended_addressing_over_4095_raises() -> None:
+    """P2-25: >4095-byte payloads in classic frames with EXTENDED addressing
+    are not representable — the structured IsoTpError replaces the bare
+    pad ValueError that fired mid-segmentation."""
+    from src.protocols.uds.isotp import AddressingMode, IsoTpError
+
+    transport = IsoTpTransport(
+        tx_id=0x7E0,
+        rx_id=0x7E8,
+        addressing_mode=AddressingMode.EXTENDED,
+        address_byte=0xF1,
+    )
+    # 4096 bytes: requires the 32-bit FF form, which does not fit classic
+    # frames once the address byte is present.
+    with pytest.raises(IsoTpError, match="CAN FD"):
+        transport.segment_message(b"\x36" * 4096)

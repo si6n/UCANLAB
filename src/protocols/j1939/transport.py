@@ -192,6 +192,19 @@ class J1939TransportProtocol:
     def handle_rx_frame(self, frame: CanFrame) -> tuple[CompletedMessage | None, CanFrame | None]:
         """Process incoming frame according to SAE J1939-21 PDU format rules."""
         if not frame.is_extended or len(frame.data) < 8:
+            # M-34 (micro): J1939-22/FD padded TP frames (CAN-FD transport
+            # carrying >8-byte payloads) currently fall into this guard and
+            # vanish without a trace. Log at DEBUG (hot path — every
+            # non-extended or short frame on a mixed bus passes here) so a
+            # J1939-22 capture is diagnosable instead of silently empty.
+            logger.debug(
+                "Dropping non-J1939-21-transport frame (11-bit or short/DL)",
+                extra={
+                    "is_extended": frame.is_extended,
+                    "data_len": len(frame.data),
+                    "arbitration_id": frame.arbitration_id,
+                },
+            )
             return None, None
 
         # 29-bit CAN ID decomposition — M-12 (P2-6): shared parser preserves
