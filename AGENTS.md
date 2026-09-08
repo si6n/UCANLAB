@@ -48,7 +48,7 @@ Any agent modifying or interacting with transmission, flashing, or diagnostic in
 6. **Speed Interlock Provenance** (REVIEW C-2/C-3/P0-2):
    - Only physical CCVS telemetry (SA allowlisted, plausibility-checked, sentinel-bounded) may satisfy the TX speed interlock. Synthetic/simulated speed feeds are recorded for display but can never authorize critical commands.
 7. **Wiring Gate (LATENT Defect Lock)** (REVIEW Faz 4):
-   - Several engine/protocol components carry verified-but-unwired defect fixes and are NOT wired into any production path today: `E2ESafetyValidator`/`E2ESafetyPackager`, `EcuFlashingEngine` (`flasher.py`), `AddressClaimEngine`, `OemJ1939Registry`, `ActiveDiagnosticPoller`, `ReassemblyPipeline`, `engine/discovery/**`, `engine/exporters/**`.
+   - Several engine/protocol components carry verified-but-unwired defect fixes and are NOT wired into any production path today: `E2ESafetyValidator`/`E2ESafetyPackager`, `EcuFlashingEngine` (`flasher.py`), `AddressClaimEngine`, `OemJ1939Registry`, `ActiveDiagnosticPoller`, `ReassemblyPipeline`, `engine/discovery/**`, and `engine/exporters/**` (except `MatExporter`, wired into `export_logs("mat")`; `KmlExporter`/`Mdf4Exporter` await GPS/MDF signal-history plumbing).
    - BEFORE wiring any of these into a live RX/TX/telemetry path, the agent MUST review the P2-7/P2-8/H-KA/P1-10/P2-22/M-18 remediation notes in the corresponding source files and their regression tests, and MUST wire them through the `TxSafetyGateway` choke-point where they transmit. A pull request that activates one of these components without addressing its known defect notes must be rejected.
 
 ---

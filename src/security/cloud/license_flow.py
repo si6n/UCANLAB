@@ -14,8 +14,12 @@ from __future__ import annotations
 
 import base64
 import json
+import math
+import os
 import secrets as pysecrets
+import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from cryptography.exceptions import InvalidSignature
@@ -77,6 +81,7 @@ class LicenseFlow:
         trusted_keys: dict[str, ed25519.Ed25519PublicKey] | None = None,
         boot_realtime: float | None = None,
         boot_monotonic: float | None = None,
+        hwm_path: Path | None = None,
     ) -> None:
         self.client = client
         self.public_key = public_key
@@ -88,7 +93,12 @@ class LicenseFlow:
         import time
         self.boot_realtime: float = boot_realtime if boot_realtime is not None else time.time()
         self.boot_monotonic: float = boot_monotonic if boot_monotonic is not None else time.monotonic()
-        self.last_known_clock_ts: float = self.boot_realtime
+        # M-19 (P2-13): persistent anti-rollback high-water mark. The old
+        # in-memory anchor reset on every restart — a clock rollback performed
+        # while the app was closed defeated rollback detection entirely.
+        # hwm_path=None keeps the legacy in-memory-only behavior (tests).
+        self._hwm_path: Path | None = hwm_path
+        self.last_known_clock_ts: float = self._load_persistent_hwm(self.boot_realtime)
 
     def _resolve_key(self, kid: str) -> ed25519.Ed25519PublicKey:
         """Select the verification key for a ticket's key id (kid).
@@ -104,6 +114,80 @@ class LicenseFlow:
                 code="UNKNOWN_KEY_ID",
             )
         return key
+
+    # ------------------------------------------------------------------
+    # M-19 (P2-13): persistent anti-rollback high-water mark
+    # ------------------------------------------------------------------
+
+    def _hmac_key(self) -> bytes:
+        """Derive the HWM integrity key from the client's secret provider.
+
+        A random per-machine key stored in the OS-backed vault (DPAPI /
+        machine-seed AES-GCM) — tampering with the HWM file requires
+        compromising the vault itself.
+        """
+        secrets = getattr(self.client, "_secrets", None)
+        try:
+            if secrets is not None and secrets.has_secret("LICENSE_HWM_KEY"):
+                return secrets.get_secret("LICENSE_HWM_KEY")
+        except KeyError:
+            pass
+        import hashlib
+        import os
+
+        derived = hashlib.sha256(b"ucanlab-license-hwm" + os.urandom(32)).digest()
+        if secrets is not None:
+            try:
+                secrets.store_secret("LICENSE_HWM_KEY", derived)
+            except Exception:  # noqa: BLE001 — vault unavailable: in-memory HWM only
+                pass
+        return derived
+
+    def _load_persistent_hwm(self, fallback: float) -> float:
+        """Load the last persisted wall-clock HWM (fail-open to boot time
+        on absence; corrupted/tampered files also fail to boot time)."""
+        if self._hwm_path is None or not self._hwm_path.exists():
+            return fallback
+        try:
+            import hashlib
+            import hmac as _hmac
+
+            text = self._hwm_path.read_text(encoding="utf-8").strip()
+            ts_part, _, mac = text.rpartition(".")
+            if not ts_part or not mac:
+                return fallback
+            expected = _hmac.new(self._hmac_key(), ts_part.encode("utf-8"), hashlib.sha256).hexdigest()
+            if not _hmac.compare_digest(expected, mac):
+                logger.error("License HWM file failed integrity check — resetting to boot time")
+                return fallback
+            hwm_ts = float(ts_part.split(":", 1)[0])
+            if not math.isfinite(hwm_ts) or hwm_ts <= 0:
+                return fallback
+            return max(fallback, hwm_ts)
+        except (OSError, ValueError):
+            return fallback
+
+    def _persist_hwm(self, ts: float) -> None:
+        """Persist the HWM atomically with an HMAC integrity tag."""
+        if self._hwm_path is None:
+            return
+        try:
+            import hashlib
+            import hmac as _hmac
+
+            self._hwm_path.parent.mkdir(parents=True, exist_ok=True)
+            key = self._hmac_key()
+            ts_part = f"{ts}"
+            mac = _hmac.new(key, ts_part.encode("utf-8"), hashlib.sha256).hexdigest()
+            tmp = self._hwm_path.with_suffix(
+                self._hwm_path.suffix + f".tmp-{os.getpid()}-{time.monotonic_ns()}"
+            )
+            tmp.write_text(f"{ts_part}.{mac}", encoding="utf-8")
+            os.replace(tmp, self._hwm_path)
+        except OSError as exc:
+            # Persistence failure must not break verification; the in-memory
+            # anchor still guards this session.
+            logger.warning("Failed to persist license HWM", extra={"error": str(exc)})
 
     # ------------------------------------------------------------------
     # POST /api/v1/devices/register
@@ -306,6 +390,7 @@ class LicenseFlow:
             )
 
         self.last_known_clock_ts = max(self.last_known_clock_ts, now)
+        self._persist_hwm(self.last_known_clock_ts)
 
         # Check strict schema types
         if not isinstance(data.get("features"), (list, tuple, set)):

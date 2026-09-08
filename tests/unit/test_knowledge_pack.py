@@ -25,11 +25,19 @@ def test_knowledge_pack_in_memory_decryption_flow() -> None:
     enc_dbc = EncryptedKnowledgePackLoader.encrypt_pack_file(aes_key, dbc_content)
     enc_script = EncryptedKnowledgePackLoader.encrypt_pack_file(aes_key, script_content)
 
+    # L-21 (P3-15): the manifest MUST carry real 64-hex SHA-256 digests —
+    # placeholder hashes are rejected by the loader now (mandatory
+    # integrity verification, no key-less packs).
+    import hashlib
+
     manifest_dict = {
         "pack_name": "Volvo_Penta_Marine_D4_D6",
         "version": "1.0.0",
         "target_protocol": "VOLVO",
-        "encrypted_files": {"engine.dbc": "abc", "diag.py": "def"},
+        "encrypted_files": {
+            "engine.dbc": hashlib.sha256(dbc_content).hexdigest(),
+            "diag.py": hashlib.sha256(script_content).hexdigest(),
+        },
     }
     manifest_bytes = json.dumps(manifest_dict).encode("utf-8")
     manifest_sig = priv_key.sign(manifest_bytes)
@@ -45,6 +53,46 @@ def test_knowledge_pack_in_memory_decryption_flow() -> None:
     assert len(decrypted_files) == 2
     assert decrypted_files["engine.dbc"] == dbc_content
     assert decrypted_files["diag.py"] == script_content
+
+    # L-21: close() scrubs the key material.
+    loader.close()
+    assert bytes(loader._aes_key) == bytes(32)
+
+
+def test_knowledge_pack_placeholder_hash_rejected() -> None:
+    """L-21 (P3-15): a manifest with short/invalid digests must be rejected
+    outright — the old code silently skipped integrity verification for any
+    hash that was not exactly 64 chars."""
+    priv_key = ed25519.Ed25519PrivateKey.generate()
+    pub_key = priv_key.public_key()
+    aes_key = os.urandom(32)
+
+    manifest_dict = {
+        "pack_name": "LegacyPack",
+        "encrypted_files": {"engine.dbc": "abc"},
+    }
+    manifest_bytes = json.dumps(manifest_dict).encode("utf-8")
+    manifest_sig = priv_key.sign(manifest_bytes)
+
+    loader = EncryptedKnowledgePackLoader(public_key=pub_key, aes_key=aes_key)
+    with pytest.raises(SecurityError, match="valid 64-hex SHA-256"):
+        loader.load_pack_from_bytes(manifest_bytes, manifest_sig, {"engine.dbc": b"\x00" * 40})
+
+
+def test_knowledge_pack_keyless_manifest_rejected() -> None:
+    """L-21 (P3-15): a manifest without an encrypted_files declaration must
+    be rejected — it previously bypassed BOTH the file-set binding and the
+    per-file integrity check."""
+    priv_key = ed25519.Ed25519PrivateKey.generate()
+    pub_key = priv_key.public_key()
+    aes_key = os.urandom(32)
+
+    manifest_bytes = json.dumps({"pack_name": "NoDeclaration"}).encode("utf-8")
+    manifest_sig = priv_key.sign(manifest_bytes)
+
+    loader = EncryptedKnowledgePackLoader(public_key=pub_key, aes_key=aes_key)
+    with pytest.raises(SecurityError, match="no encrypted_files"):
+        loader.load_pack_from_bytes(manifest_bytes, manifest_sig, {})
 
 
 def test_knowledge_pack_tampered_manifest_fails() -> None:

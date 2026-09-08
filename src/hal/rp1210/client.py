@@ -40,20 +40,39 @@ class RP1210Client:
         self._load_dll()
 
     def _load_dll(self) -> None:
-        """Dynamically load RP1210 64-bit or 32-bit DLL with safe error wrapping."""
-        # D7: absolute system paths come FIRST and the bare DLL name is never
-        # loaded — ctypes' default search order includes the process working
-        # directory, so a planted DLL there could shadow the real vendor
-        # driver in System32. Only trusted system directories are probed.
-        dll_candidates = [
-            os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "System32", self.dll_name),
-            os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "SysWOW64", self.dll_name),
-        ]
+        """Dynamically load RP1210 64-bit or 32-bit DLL with safe error wrapping.
+
+        D7/L-20 (P2-27): system directories are resolved via the Win32 API
+        (GetSystemDirectoryW / GetWindowsDirectoryW), NOT the WINDIR
+        environment variable — an attacker-controlled environment block
+        must not be able to redirect DLL loading to a planted driver.
+        """
+        candidates: list[str] = []
+        if sys.platform == "win32":
+            try:
+                buf = ctypes.create_unicode_buffer(260)
+                res = ctypes.windll.kernel32.GetSystemDirectoryW(buf, 260)
+                if res and 0 < res < 260:
+                    candidates.append(os.path.join(buf.value, self.dll_name))
+                buf2 = ctypes.create_unicode_buffer(260)
+                res2 = ctypes.windll.kernel32.GetWindowsDirectoryW(buf2, 260)
+                if res2 and 0 < res2 < 260:
+                    candidates.append(os.path.join(buf2.value, "SysWOW64", self.dll_name))
+            except Exception:  # noqa: BLE001 — API unavailable: fall back to hard defaults
+                candidates = [
+                    os.path.join("C:\\Windows", "System32", self.dll_name),
+                    os.path.join("C:\\Windows", "SysWOW64", self.dll_name),
+                ]
+        else:
+            candidates = [
+                os.path.join("C:\\Windows", "System32", self.dll_name),
+                os.path.join("C:\\Windows", "SysWOW64", self.dll_name),
+            ]
 
         loaded = False
         last_err: Exception | None = None
 
-        for path in dll_candidates:
+        for path in candidates:
             try:
                 # Use WinDLL on Windows for stdcall convention
                 if sys.platform == "win32":
@@ -70,8 +89,25 @@ class RP1210Client:
             raise HardwareError(
                 f"RP1210 DLL '{self.dll_name}' could not be loaded. Please ensure the vendor driver is installed.",
                 code="HARDWARE_DLL_NOT_FOUND",
-                details={"dll_name": self.dll_name, "candidates": dll_candidates},
+                details={"dll_name": self.dll_name, "candidates": candidates},
                 cause=last_err,
+            )
+
+        # L-20 (P2-27): verify the entry points the client actually calls —
+        # loading a wrong-architecture or non-RP1210 DLL fails HERE with a
+        # structured error instead of AttributeError mid-connect.
+        required_exports = (
+            "RP1210_ClientConnect",
+            "RP1210_ClientDisconnect",
+            "RP1210_SendMessage",
+            "RP1210_ReadMessage",
+        )
+        missing = [name for name in required_exports if not hasattr(self._dll, name)]
+        if missing:
+            raise HardwareError(
+                "Loaded DLL does not export the required RP1210 entry points",
+                code="HARDWARE_DLL_INVALID",
+                details={"dll_name": self.dll_name, "missing": missing},
             )
 
         # Setup ctypes function signatures
@@ -263,9 +299,10 @@ class RP1210Client:
             # Error code returned (negative)
             err_code = abs(ret)
             if err_code == RP1210ErrorCode.ERR_RX_QUEUE_FULL:
+                # L-20 (P2-27): RP1210Client owns no metrics object (the
+                # counters live on RP1210Bus) — the old hasattr guard was
+                # dead code that never counted anything.
                 logger.warning("RP1210 RX Queue is full; frame drops may occur")
-                if hasattr(self, "metrics") and hasattr(self.metrics, "dropped_frames"):
-                    self.metrics.dropped_frames += 1
                 return None
 
             err_desc = self.get_error_message(err_code)
@@ -276,10 +313,20 @@ class RP1210Client:
             )
 
     def send_command(self, command_number: int, client_info: bytes = b"") -> int:
-        """Execute RP1210_SendCommand for device/filter/protocol configuration."""
+        """Execute RP1210_SendCommand for device/filter/protocol configuration.
+
+        L-20 (P2-27): a DLL without the SendCommand export now fails LOUDLY
+        — the old `return 0` reported success for configuration that never
+        happened (silent misconfiguration of filters/baud).
+        """
         with self._lifecycle_lock:
-            if not self._dll or not hasattr(self._dll, "RP1210_SendCommand"):
-                return 0
+            if not self._dll:
+                raise HardwareError("RP1210 DLL is not loaded", code="HARDWARE_DLL_NOT_FOUND")
+            if not hasattr(self._dll, "RP1210_SendCommand"):
+                raise HardwareError(
+                    "Vendor DLL does not export RP1210_SendCommand — configuration command cannot be executed",
+                    code="HARDWARE_DLL_INVALID",
+                )
             if self.client_id is None:
                 raise HardwareError("RP1210 client is not connected")
             client_id_snap = self.client_id

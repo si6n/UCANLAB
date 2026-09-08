@@ -370,6 +370,18 @@ class IsoTpTransport:
             bytes_sent = ff_capacity
         else:
             # Extended 32-bit First Frame
+            # M-32 (P2-25): a classic 32-bit FF is only feasible when the
+            # PCI (2) + length (4) + addressing (addr) + data (2) fits the
+            # 8-byte payload — i.e. only NORMAL addressing (addr == 0). In
+            # EXTENDED/MIXED modes the padded classic frame would exceed 8
+            # bytes and pad_payload raised a bare ValueError mid-segmentation;
+            # ISO 15765-2 §9.2.3 requires CAN FD for such transfers. Fail
+            # closed with the structured protocol error instead.
+            if addr > 0:
+                raise IsoTpError(
+                    "Classic-frame ISO-TP cannot carry >4095-byte payloads in "
+                    "EXTENDED/MIXED addressing — use CAN FD for this transfer"
+                )
             ff_raw = self._wrap_npci(bytes([0x10, 0x00]) + data_len.to_bytes(4, byteorder="big") + data[:2])
             ff_padded = pad_payload(ff_raw, 8, pad_byte=self.pad_byte if self.pad_byte is not None else 0xCC)
             frames_classic.append(
@@ -383,6 +395,7 @@ class IsoTpTransport:
                     direction="tx",
                 )
             )
+            # addr == 0 here, so the FF payload carries exactly 2 data bytes.
             bytes_sent = 2
 
         seq_num = 1
@@ -1042,6 +1055,18 @@ class IsoTpReceiver:
             # 2. First Frame (FF)
             # --------------------------------------------------------------
             if pci_type == PCI_FIRST_FRAME:
+                # M-33 (P2-24): an FF whose frame format does not match this
+                # receiver's configured mode must be dropped at admission —
+                # the CF loop already dropped mismatched CFs, so an FD FF
+                # used to be accepted (FC CTS emitted) and then every CF was
+                # silently discarded until the 1 s N_Cr timeout. Symmetric
+                # fail-closed on both frame types.
+                if frame.is_fd != self.is_fd:
+                    logger.debug(
+                        "Ignoring First Frame with mismatched CAN-FD mode",
+                        extra={"frame_is_fd": frame.is_fd, "receiver_is_fd": self.is_fd},
+                    )
+                    return None
                 if len(frame.data) >= 6 and frame.data[0] == 0x10 and frame.data[1] == 0x00:
                     # Extended 32-bit First Frame
                     total_len = int.from_bytes(frame.data[2:6], byteorder="big")

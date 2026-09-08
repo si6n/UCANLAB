@@ -58,6 +58,9 @@ class UniversalCanLauncher:
 
     def __init__(self, current_version: str = "13.0.0") -> None:
         self.version = current_version
+        # M-25 (P2-14): stable project root for the mandatory-update
+        # obligation record.
+        self.root_dir = Path(__file__).resolve().parent.parent.parent
         self.auth_manager = LauncherAuthManager()
         try:
             pub_bytes = base64.b64decode(DEFAULT_EMBEDDED_CLOUD_PUBLIC_KEY_B64)
@@ -102,7 +105,29 @@ class UniversalCanLauncher:
         target_exe = self.resolve_target_executable()
 
         has_blocking_mandatory_update = update_info.has_update and update_info.mandatory
+        # M-25 (P2-14): a FAILED update check is not a green light. If the
+        # launcher has a recorded mandatory-update obligation (persisted from
+        # a previous successful check), an unreachable update server must
+        # not clear it — that is exactly the offline-attack window the gate
+        # exists for. Without a recorded obligation the failure stays
+        # non-blocking (a fresh install behind a flaky network must still
+        # start), but the report carries check_succeeded=False so the UI can
+        # surface the degraded state.
+        if not update_info.check_succeeded:
+            recorded = self._load_recorded_mandatory_obligation()
+            if recorded is not None:
+                has_blocking_mandatory_update = True
+                logger.error(
+                    "Update check failed while a mandatory update obligation is on record — launch blocked",
+                    extra={"recorded_min_version": recorded},
+                )
         can_launch = not has_critical_failures and target_exe.exists() and not has_blocking_mandatory_update
+
+        if update_info.check_succeeded and update_info.has_update and update_info.mandatory:
+            self._record_mandatory_obligation(update_info.latest_version)
+        elif update_info.check_succeeded and update_info.has_update and not update_info.mandatory:
+            # Obligation cleared only by a SUCCESSFUL check that says so.
+            self._clear_mandatory_obligation()
 
         return LauncherPreflightReport(
             can_launch=can_launch,
@@ -111,6 +136,36 @@ class UniversalCanLauncher:
             update_info=update_info,
             target_executable=target_exe,
         )
+
+    # ------------------------------------------------------------------
+    # M-25 (P2-14): persisted mandatory-update obligation
+    # ------------------------------------------------------------------
+
+    def _obligation_path(self) -> Path:
+        return self.root_dir / "dist" / "launcher_mandatory_update.txt"
+
+    def _load_recorded_mandatory_obligation(self) -> str | None:
+        try:
+            path = self._obligation_path()
+            if not path.exists():
+                return None
+            return path.read_text(encoding="utf-8").strip() or None
+        except OSError:
+            return None
+
+    def _record_mandatory_obligation(self, min_version: str) -> None:
+        try:
+            path = self._obligation_path()
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(min_version, encoding="utf-8")
+        except OSError as exc:
+            logger.warning("Failed to record mandatory update obligation", extra={"error": str(exc)})
+
+    def _clear_mandatory_obligation(self) -> None:
+        try:
+            self._obligation_path().unlink(missing_ok=True)
+        except OSError:
+            pass
 
     def launch_main_app(self, extra_args: list[str] | None = None) -> int:
         """Spawn the core application executable with integrity checks."""

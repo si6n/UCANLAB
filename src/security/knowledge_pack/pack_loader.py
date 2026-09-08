@@ -43,8 +43,16 @@ class EncryptedKnowledgePackLoader:
         if len(aes_key) != 32:
             raise ValueError(f"AES-256-GCM key must be exactly 32 bytes, got {len(aes_key)}")
         self.public_key = public_key
-        self._aes_key = aes_key
-        self._aesgcm = AESGCM(self._aes_key)
+        # L-21 (P3-15): the raw key is kept in a bytearray so the loader's
+        # close() can scrub it — a plain bytes object is immutable and would
+        # survive in the heap until GC moves it (best-effort scrub, same
+        # standard as every other secrets holder in this codebase).
+        self._aes_key = bytearray(aes_key)
+        self._aesgcm = AESGCM(bytes(self._aes_key))
+
+    def close(self) -> None:
+        """Best-effort scrub of the AES key material (L-21 / P3-15)."""
+        secure_zero_memory(self._aes_key)
 
     def load_pack_from_bytes(
         self,
@@ -75,49 +83,85 @@ class EncryptedKnowledgePackLoader:
                 cause=exc,
             ) from exc
 
-        # Cryptographically bind manifest file declarations to provided payload set
-        if "encrypted_files" in manifest_dict:
-            manifest_files = set(manifest_dict["encrypted_files"].keys())
-            payload_files = set(encrypted_payloads.keys())
-            if manifest_files != payload_files:
+        # L-21 (P3-15): the file declaration is MANDATORY and every entry
+        # must carry a valid 64-hex SHA-256. The old `if "encrypted_files" in
+        # manifest_dict` guards let a key-less manifest skip BOTH the
+        # file-set binding and the per-file integrity check entirely — a
+        # stripped manifest was indistinguishable from an unchecked pack.
+        declared = manifest_dict.get("encrypted_files")
+        if not isinstance(declared, dict) or not declared:
+            raise SecurityError(
+                "Knowledge Pack manifest declares no encrypted_files — integrity "
+                "verification requires a non-empty file declaration",
+                code="MANIFEST_MISSING_DECLARATION",
+            )
+        for rel_path, expected_hash in declared.items():
+            if (
+                not isinstance(rel_path, str)
+                or not isinstance(expected_hash, str)
+                or len(expected_hash) != 64
+                or any(c not in "0123456789abcdefABCDEF" for c in expected_hash)
+            ):
                 raise SecurityError(
-                    f"Payload files do not match manifest declarations: missing {manifest_files - payload_files}, unexpected {payload_files - manifest_files}",
-                    code="FILE_SET_MISMATCH",
+                    f"Knowledge Pack manifest entry '{rel_path}' lacks a valid 64-hex SHA-256",
+                    code="MANIFEST_MALFORMED_HASH",
                 )
+
+        # Cryptographically bind manifest file declarations to provided payload set
+        manifest_files = set(declared.keys())
+        payload_files = set(encrypted_payloads.keys())
+        if manifest_files != payload_files:
+            raise SecurityError(
+                f"Payload files do not match manifest declarations: missing {manifest_files - payload_files}, unexpected {payload_files - manifest_files}",
+                code="FILE_SET_MISMATCH",
+            )
 
         logger.info("Validated Knowledge Pack manifest", extra={"pack": pack_name})
 
         # 3. In-Memory Decryption of Each File
         decrypted_memory_files: dict[str, bytes] = {}
+        # L-21: mutable staging buffers so plaintext can be scrubbed when a
+        # later file fails (partial-decryption failure must not leave prior
+        # plaintexts lingering in the heap).
+        staged: dict[str, bytearray] = {}
 
-        for filename, enc_data in encrypted_payloads.items():
-            if len(enc_data) < 28:  # 12B nonce + 16B tag minimum
-                raise SecurityError(f"Ciphertext too short for '{filename}'", code="CORRUPT_CIPHERTEXT")
+        try:
+            for filename, enc_data in encrypted_payloads.items():
+                if len(enc_data) < 28:  # 12B nonce + 16B tag minimum
+                    raise SecurityError(f"Ciphertext too short for '{filename}'", code="CORRUPT_CIPHERTEXT")
 
-            nonce = enc_data[:12]
-            ciphertext_with_tag = enc_data[12:]
+                nonce = enc_data[:12]
+                ciphertext_with_tag = enc_data[12:]
 
-            try:
-                decrypted = self._aesgcm.decrypt(nonce, ciphertext_with_tag, None)
-                if "encrypted_files" in manifest_dict:
-                    expected_hash = manifest_dict["encrypted_files"].get(filename)
-                    if expected_hash and len(expected_hash) == 64:
-                        actual_hash = hashlib.sha256(decrypted).hexdigest()
-                        if actual_hash.lower() != expected_hash.lower():
-                            raise SecurityError(
-                                f"SHA-256 integrity mismatch for '{filename}'",
-                                code="CONTENT_TAMPERED",
-                            )
-                decrypted_memory_files[filename] = decrypted
-            except SecurityError:
-                raise
-            except Exception as exc:
-                logger.error("Failed to decrypt Knowledge Pack file", extra={"file": filename, "error": str(exc)})
-                raise SecurityError(
-                    f"Decryption failed for '{filename}' (wrong key or corrupted pack).",
-                    code="DECRYPTION_FAILED",
-                    cause=exc,
-                ) from exc
+                try:
+                    decrypted = self._aesgcm.decrypt(nonce, ciphertext_with_tag, None)
+                    expected_hash = declared.get(filename)
+                    actual_hash = hashlib.sha256(decrypted).hexdigest()
+                    if actual_hash.lower() != expected_hash.lower():
+                        raise SecurityError(
+                            f"SHA-256 integrity mismatch for '{filename}'",
+                            code="CONTENT_TAMPERED",
+                        )
+                    staged[filename] = bytearray(decrypted)
+                except SecurityError:
+                    raise
+                except Exception as exc:
+                    logger.error("Failed to decrypt Knowledge Pack file", extra={"file": filename, "error": str(exc)})
+                    raise SecurityError(
+                        f"Decryption failed for '{filename}' (wrong key or corrupted pack).",
+                        code="DECRYPTION_FAILED",
+                        cause=exc,
+                    ) from exc
+        except BaseException:
+            # Scrub every staged plaintext before propagating the failure.
+            for buf in staged.values():
+                secure_zero_memory(buf)
+            raise
+
+        # Hand off immutable copies; the staging buffers are scrubbed after.
+        decrypted_memory_files = {name: bytes(buf) for name, buf in staged.items()}
+        for buf in staged.values():
+            secure_zero_memory(buf)
 
         logger.info(
             "Successfully decrypted Knowledge Pack in-memory", extra={"files_count": len(decrypted_memory_files)}

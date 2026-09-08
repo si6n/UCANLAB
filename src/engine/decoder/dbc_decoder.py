@@ -217,7 +217,15 @@ class DbcSignalDecoder:
                 is_valid = True
                 status = SignalStatus.VALID
 
-                if sig_def is not None and isinstance(raw_val, (int, float)):
+                # M-29 (P2-20): J1939-71 MSB sentinels are a 29-bit J1939
+                # convention ONLY. The old code applied them to every
+                # unsigned DBC signal, so a plain 11-bit standard-CAN signal
+                # legitimately carrying 251..255 (or 16-bit 0xFE**/0xFF**)
+                # was spuriously marked NOT_AVAILABLE/ERROR — e.g. a 0xFF
+                # "255 rpm fan duty" or a 65535-tick counter.
+                frame_is_j1939 = frame.is_extended
+
+                if frame_is_j1939 and sig_def is not None and isinstance(raw_val, (int, float)):
                     sig_len = sig_def.length
                     if not sig_def.is_signed and sig_len in {2, 4}:
                         # Discrete 2/4-bit indicators: max-1 = Error, max = Not Available

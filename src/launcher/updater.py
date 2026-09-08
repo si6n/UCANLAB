@@ -61,6 +61,12 @@ class UpdateInfo:
     package_size_bytes: int = 0
     release_notes: str = ""
     mandatory: bool = False
+    # M-25 (P2-14): tri-state result of the update CHECK itself. The old
+    # flow reported every failed check (offline, DNS poisoning, proxy) as
+    # "no update", which satisfied the mandatory-update gate downstream —
+    # fail-open. Callers must treat check_succeeded=False as "unknown",
+    # not "clear".
+    check_succeeded: bool = True
 
 
 class UpdateManager:
@@ -114,12 +120,23 @@ class UpdateManager:
             )
 
         if not self.cloud_client:
-            return UpdateInfo(has_update=False, current_version=self.current_version, latest_version=self.current_version)
+            # M-25 (P2-14): unknown, not "no update" — see UpdateInfo.
+            return UpdateInfo(
+                has_update=False,
+                current_version=self.current_version,
+                latest_version=self.current_version,
+                check_succeeded=False,
+            )
 
         try:
             resp = self.cloud_client.request("GET", "/updates/latest")
             if resp.status != 200:
-                return UpdateInfo(has_update=False, current_version=self.current_version, latest_version=self.current_version)
+                return UpdateInfo(
+                    has_update=False,
+                    current_version=self.current_version,
+                    latest_version=self.current_version,
+                    check_succeeded=False,
+                )
 
             data = resp.json()
             latest_v = data.get("version", self.current_version)
@@ -138,7 +155,12 @@ class UpdateManager:
             )
         except Exception as exc:
             logger.warning("Update check failed", extra={"error": str(exc)})
-            return UpdateInfo(has_update=False, current_version=self.current_version, latest_version=self.current_version)
+            return UpdateInfo(
+                has_update=False,
+                current_version=self.current_version,
+                latest_version=self.current_version,
+                check_succeeded=False,
+            )
 
     @classmethod
     def verify_file_sha256(cls, file_path: Path | str, expected_hash: str) -> bool:

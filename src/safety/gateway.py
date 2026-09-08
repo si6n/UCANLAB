@@ -419,6 +419,30 @@ class TxSafetyGateway:
                     details={"category": budget_category},
                 )
 
+            # M-23 (P2-4): the simulation lane's generous budget (500/250)
+            # exists for the DEMO generator's synthetic multi-ECU traffic. A
+            # frame only qualifies when BOTH the bus is virtual AND the frame
+            # itself is synthetic — the old check trusted the caller's
+            # category string alone, so a mis-wired producer could pump 250
+            # msg/s of live-bus traffic through the simulator lane.
+            if budget_category == "simulation":
+                # Lazy import: gateway → HAL import at module scope would
+                # create a cycle for VirtualBus (a HAL leaf).
+                from src.hal.virtual import VirtualBus as _VirtualBus
+
+                bus_is_virtual = getattr(self.bus, "interface", None) == "virtual" or isinstance(
+                    self.bus, _VirtualBus
+                )
+                frame_is_synthetic = getattr(frame, "source", None) in ("virtual", "synthetic")
+                if not (bus_is_virtual and frame_is_synthetic):
+                    raise FrameSanityError(
+                        "TX budget 'simulation' is reserved for synthetic frames on a virtual bus",
+                        details={
+                            "frame_source": getattr(frame, "source", None),
+                            "bus_interface": getattr(self.bus, "interface", None),
+                        },
+                    )
+
             if budget_category == "default":
                 # Default lane: sliding window only (single meter)
                 while self._tx_timestamps:

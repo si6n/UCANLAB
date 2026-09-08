@@ -643,12 +643,43 @@ class ActiveDiagnosticPoller:
             self._thread.start()
 
     def stop(self) -> None:
-        """Stop the active diagnostic poller background task."""
+        """Stop the active diagnostic poller background task.
+
+        M-31 (P2-22): thread-safe shutdown. asyncio.Event.set() and
+        Task.cancel() are NOT thread-safe — calling them from another thread
+        (the normal case: UI thread stops a poller running on the background
+        loop) could leave the loop parked in `await self._stop_event.wait()`
+        forever, leaking the loop AND its thread. All loop-owned objects are
+        now touched via call_soon_threadsafe when a foreign thread stops us.
+        """
         self._running = False
-        self._stop_event.set()
+
+        loop: asyncio.AbstractEventLoop | None = None
         if self._loop_task is not None:
-            self._loop_task.cancel()
-            self._loop_task = None
+            loop = self._loop_task.get_loop()
+
+        try:
+            running_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            running_loop = None
+
+        if loop is not None and loop.is_running():
+            if running_loop is loop:
+                # Same-loop caller: direct (already on the loop's thread).
+                self._stop_event.set()
+                if self._loop_task is not None:
+                    self._loop_task.cancel()
+            else:
+                # Foreign thread: schedule the stop on the loop's own thread.
+                loop.call_soon_threadsafe(self._stop_event.set)
+                task = self._loop_task
+                if task is not None:
+                    loop.call_soon_threadsafe(task.cancel)
+        else:
+            # Loop already dead — no one to notify.
+            self._stop_event.set()
+
+        self._loop_task = None
         if hasattr(self, "_thread") and self._thread is not None and self._thread.is_alive():
             self._thread.join(timeout=0.5)
             self._thread = None

@@ -287,44 +287,45 @@ export const EcuFlashingView: React.FC = () => {
  '------------------------------------------------------------',
  '[DEMO] Simülasyon modu: aşağıdaki adımlar örnek amaçlıdır, gerçek ECU\'ya veri yazılmaz.',
  '[FLASH_START] ECU Yeniden Programlama Dizisi Başlatıldı...',
- '[SAFETY] Hız Kilidi Kontrolü: Araç Hızı == 0 km/h (Doğrulandı)',
- '[SESSION] UDS 0x10 0x03 Genişletilmiş Diyagnostik Oturumu Başlatıldı (Positive Response 0x50 0x03 OK)',
- '[SECURITY] UDS 0x27 0x01 Seed-Key Talebi -> Seed: 0xA4F92B1C -> Key Doğrulandı (0x27 0x02 OK)',
- '[SESSION] UDS 0x10 0x02 Programlama (Bootloader) Oturumu Aktif Edildi',
- '[DOWNLOAD] UDS 0x34 RequestDownload Gönderildi (Bellek: 0x00080000, Boyut: ' + selectedFile.sizeFormatted + ')'
- ];
- setLogs(initialFlashLogs);
+  '[SIM] Hız Kilidi Kontrolü: Araç Hızı == 0 km/h (Simülasyon senaryosu)',
+  '[SIM] UDS 0x10 0x03 Genişletilmiş Diyagnostik Oturumu (SIMÜLE EDİLDİ — 0x50 0x03)',
+  '[SIM] UDS 0x27 0x01 Seed-Key (SIMÜLE EDİLDİ — sabit demo seed 0xA4F92B1C)',
+  '[SIM] UDS 0x10 0x02 Programlama Oturumu (SIMÜLE EDİLDİ)',
+  '[SIM] UDS 0x34 RequestDownload (SIMÜLE EDİLDİ — Bellek: 0x00080000, Boyut: ' + selectedFile.sizeFormatted + ')'
+  ];
+  setLogs(initialFlashLogs);
 
- let current = 0;
- const interval = setInterval(() => {
- current += 2;
- setProgress(current);
- const sectorIdx = Math.min(15, Math.floor((current / 100) * 16));
- setStatusText(`Sektör SEC_${sectorIdx} Yazılıyor... (%${current})`);
+  let current = 0;
+  const interval = setInterval(() => {
+  current += 2;
+  setProgress(current);
+  const sectorIdx = Math.min(15, Math.floor((current / 100) * 16));
+  setStatusText(`[SIM] Sektör SEC_${sectorIdx} yazma adımı (%${current})`);
 
- if (current % 20 === 0) {
- const blockAddr = (0x00080000 + Math.floor((current / 100) * selectedFile.sizeBytes)).toString(16).toUpperCase();
- setLogs(prev => [
- ...prev, 
- `[WRITE] UDS 0x36 TransferData: Blok 0x${blockAddr} (Sektör SEC_${sectorIdx}) yazıldı ve CRC doğrulandı.`
- ]);
- }
+  if (current % 20 === 0) {
+  const blockAddr = (0x00080000 + Math.floor((current / 100) * selectedFile.sizeBytes)).toString(16).toUpperCase();
+  setLogs(prev => [
+  ...prev,
+  `[SIM] UDS 0x36 TransferData adımı: Blok 0x${blockAddr} (Sektör SEC_${sectorIdx}) — simüle edilmiş, CRC hesaplanmadı.`
+  ]);
+  }
 
- if (current >= 100) {
- clearInterval(interval);
- setIsFlashing(false);
- setStatusText(`${selectedFile.name} Başarıyla Yüklendi!`);
- setLogs(prev => [
- ...prev,
- '[EXIT] UDS 0x37 RequestTransferExit Başarılı (0x77 OK)',
- '[CHECKSUM] UDS 0x31 RoutineControl CRC32: 0x9B4C2A (Donanımsal Sağlama Eşleşti)',
- '[RESET] UDS 0x11 0x01 ECU Hard Reset Başarılı (ECU Yeniden Başlatıldı)',
- `[DEMO] ${selectedFile.name} simülasyonu tamamlandı (%100).`,
- '[DEMO] Bu bir SİMÜLASYON sonucudur — gerçek bir araçta flash işlemi yapılmadı.'
- ]);
- }
- }, 100);
- };
+  if (current >= 100) {
+  clearInterval(interval);
+  setIsFlashing(false);
+  // P3-14 (REVIEW L-11): honest completion text — nothing was flashed.
+  setStatusText(`Simülasyon tamamlandı: ${selectedFile.name} — ECU'ya YAZILMADI`);
+  setLogs(prev => [
+  ...prev,
+  '[SIM] UDS 0x37 RequestTransferExit adımı (SIMÜLE EDİLDİ)',
+  '[SIM] UDS 0x31 RoutineControl CRC adımı (SIMÜLE EDİLDİ — CRC hesaplanmadı)',
+  '[SIM] UDS 0x11 0x01 ECU Hard Reset adımı (SIMÜLE EDİLDİ — ECU yeniden başlatılmadı)',
+  `[DEMO] ${selectedFile.name} simülasyonu tamamlandı (%100).`,
+  '[DEMO] Bu bir SİMÜLASYON sonucudur — gerçek bir araçta flash işlemi yapılmadı.'
+  ]);
+  }
+  }, 100);
+  };
 
  const resetSession = () => {
  setProgress(0);

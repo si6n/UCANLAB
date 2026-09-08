@@ -45,6 +45,9 @@ class PythonCanBus(AbstractBus):
         self._lifecycle_lock = threading.Lock()
         self._active_sends = 0
         self._send_cond = threading.Condition(self._lifecycle_lock)
+        # M-30 (P2-21): consecutive-error window — resets on any successful
+        # RX so a recovered bus leaves BUS_OFF instead of staying latched.
+        self._consecutive_error_frames = 0
 
     def connect(self) -> None:
         """Initialize physical transceiver connection via python-can.
@@ -245,7 +248,11 @@ class PythonCanBus(AbstractBus):
         if msg.is_error_frame:
             self.metrics.error_frames += 1
             # H7: sustained error frames indicate bus-off conditions
-            if self.metrics.error_frames >= self.ERROR_FRAMES_BUS_OFF_THRESHOLD:
+            # M-30 (P2-21): count CONSECUTIVE errors — a physical bus that
+            # recovers must not stay BUS_OFF latched for the process
+            # lifetime on the strength of old errors.
+            self._consecutive_error_frames += 1
+            if self._consecutive_error_frames >= self.ERROR_FRAMES_BUS_OFF_THRESHOLD:
                 self.metrics.state = BusState.BUS_OFF
             return None
 
@@ -258,6 +265,14 @@ class PythonCanBus(AbstractBus):
             self.metrics.rtr_frames += 1
             return None
 
+        # M-30 (P2-21): a successfully received frame proves the bus
+        # recovered — reset the consecutive-error window and leave
+        # BUS_OFF-latched state (the event was logged; the condition is gone).
+        if self._consecutive_error_frames > 0:
+            self._consecutive_error_frames = 0
+            if self.metrics.state == BusState.BUS_OFF:
+                logger.info("Bus recovered from BUS_OFF — resuming normal reception")
+                self.metrics.state = BusState.PASSIVE if self.listen_only else BusState.ACTIVE
         self.metrics.rx_frames += 1
         ts_ns = int(msg.timestamp * 1_000_000_000) if msg.timestamp else time.time_ns()
 

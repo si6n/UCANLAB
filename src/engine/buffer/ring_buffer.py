@@ -200,40 +200,52 @@ class BinaryRingBuffer:
             return old_part, new_part
 
     def get_latest_frames(self, count: int) -> list[CanFrame]:
-        """Fetch latest N frames in chronological order."""
-        with self._lock:
-            available = min(self._total_written, self.capacity)
-            n = min(count, available)
-            if n <= 0:
-                return []
+        """Fetch latest N frames in chronological order.
 
-            # Calculate slice indices
-            start_seq = self._total_written - n
-            frames: list[CanFrame] = []
+        H-13 (P2-15): the CanFrame construction happens OUTSIDE the buffer
+        lock. The old implementation materialized up to `capacity` (300k)
+        Python objects under self._lock, stalling every telemetry append for
+        seconds during exports; the snapshot is now taken via
+        get_latest_view(copy=True) — two fast NumPy copies under the lock —
+        and the object construction runs lock-free.
+        """
+        # Lock scope 1: bounded, two-array snapshot only.
+        old_part, new_part = self.get_latest_view(count, copy=True)
 
-            for seq in range(start_seq, self._total_written):
-                idx = seq % self.capacity
-                rec = self._buffer[idx]
-                flags = int(rec["flags"])
-                data_len = int(rec["data_len"])
-                raw_data = rec["data"][:data_len].tobytes()
+        # Total available (cheap re-read, no lock needed for the bound).
+        available = min(self._total_written, self.capacity)
+        n = min(count, available)
+        if n <= 0:
+            return []
 
-                frame = CanFrame(
-                    channel_id=self._get_channel_str(int(rec["channel_id_int"])),
-                    arbitration_id=int(rec["arbitration_id"]),
-                    dlc=int(rec["dlc"]),
-                    data=raw_data,
-                    is_extended=bool(flags & 0x01),
-                    is_fd=bool(flags & 0x02),
-                    brs=bool(flags & 0x04),
-                    esi=bool(flags & 0x08),
-                    direction="tx" if bool(flags & 0x10) else "rx",
-                    timestamp_ns=int(rec["timestamp_ns"]),
-                    sequence=seq,
-                )
-                frames.append(frame)
+        # Chronological order: old tail segment first, then new head segment.
+        records = list(old_part) + list(new_part)
+        records = records[-n:]
 
-            return frames
+        # Lock-free materialization.
+        frames: list[CanFrame] = []
+        base_seq = self._total_written - n
+        for offset, rec in enumerate(records):
+            flags = int(rec["flags"])
+            data_len = int(rec["data_len"])
+            raw_data = rec["data"][:data_len].tobytes()
+
+            frame = CanFrame(
+                channel_id=self._get_channel_str(int(rec["channel_id_int"])),
+                arbitration_id=int(rec["arbitration_id"]),
+                dlc=int(rec["dlc"]),
+                data=raw_data,
+                is_extended=bool(flags & 0x01),
+                is_fd=bool(flags & 0x02),
+                brs=bool(flags & 0x04),
+                esi=bool(flags & 0x08),
+                direction="tx" if bool(flags & 0x10) else "rx",
+                timestamp_ns=int(rec["timestamp_ns"]),
+                sequence=base_seq + offset,
+            )
+            frames.append(frame)
+
+        return frames
 
     def clear(self) -> None:
         """Reset ring buffer pointers and channel mappings."""

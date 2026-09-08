@@ -521,8 +521,15 @@ class UniversalCanDesktopApp:
         self._secret_provider = get_default_secret_provider()
         # F-32: copilot LLM calls run off the UI/bridge thread
         self._copilot_executor = concurrent.futures.ThreadPoolExecutor(
-            max_workers=1, thread_name_prefix="copilot_query"
+            # M-28 (P2-18): two workers so a wedged LLM request (uncancellable
+            # urlopen) cannot starve every subsequent query behind the old
+            # single-thread pool.
+            max_workers=2, thread_name_prefix="copilot_query"
         )
+        # M-28 (P2-18): track the in-flight future so a timeout CANCELS it
+        # instead of leaving it to occupy a worker slot forever.
+        self._copilot_inflight: concurrent.futures.Future[str] | None = None
+        self._copilot_inflight_lock = threading.Lock()
 
         # Cloud Subsystem (Universal-CAN-Cloud)
         # B7 (REVIEW): production builds must target the real cloud endpoint.
@@ -537,7 +544,16 @@ class UniversalCanDesktopApp:
             self._cloud_pubkey = ed25519.Ed25519PublicKey.from_public_bytes(pub_bytes)
         except Exception:
             self._cloud_pubkey = None
-        self.license_flow = LicenseFlow(self.cloud_client, self._cloud_pubkey) if self._cloud_pubkey else None
+        # M-19 (P2-13): persistent HWM — anti-rollback survives restarts.
+        self.license_flow = (
+            LicenseFlow(
+                self.cloud_client,
+                self._cloud_pubkey,
+                hwm_path=_app_data_root() / "logs" / "license_hwm.txt",
+            )
+            if self._cloud_pubkey
+            else None
+        )
         self.telemetry_uploader = TelemetryUploader(self.cloud_client, progress_callback=self._on_upload_progress)
 
         # F-28: real CAN ingestion pipeline — bus -> FrameRouter -> decoders -> UI
@@ -1099,15 +1115,31 @@ class UniversalCanDesktopApp:
             )
 
         try:
-            return self._copilot_executor.submit(_run_query).result(timeout=15.0)
+            future = self._copilot_executor.submit(_run_query)
+            with self._copilot_inflight_lock:
+                self._copilot_inflight = future
+            try:
+                return future.result(timeout=15.0)
+            finally:
+                # M-28 (P2-18): always drop the in-flight handle; on timeout
+                # also try to cancel (a not-yet-started query is abandoned; a
+                # running urlopen still ends by its own 10/12 s socket
+                # timeout — the worker is not occupied indefinitely).
+                with self._copilot_inflight_lock:
+                    self._copilot_inflight = None
+                if not future.done():
+                    future.cancel()
         except FuturesTimeoutError:
             logger.warning("Copilot query timed out", extra={"query": query[:50]})
             return "⚠️ AI yanıtı zaman aşımına uğradı (15 s). Lütfen tekrar deneyin."
 
     def export_logs(self, fmt: str) -> bool:
-        """Export session telemetry and frames to disk in JSON or CSV format (LOW-4)."""
+        """Export session telemetry and frames to disk (LOW-4).
+
+        Formats: json/csv (raw frames) and mat (P2-26: live decoded signals
+        via MatExporter — engine/exporters/ is no longer dead code)."""
         fmt_clean = fmt.strip().lower()
-        if fmt_clean not in {"json", "csv"}:
+        if fmt_clean not in {"json", "csv", "mat"}:
             logger.warning("Unsupported export format requested: %s", fmt)
             return False
 
@@ -1141,6 +1173,28 @@ class UniversalCanDesktopApp:
                     writer.writerow(["channel_id", "arbitration_id", "dlc", "data_hex", "is_extended", "is_fd", "timestamp_ns"])
                     for f in frames:
                         writer.writerow([f.channel_id, hex(f.arbitration_id), f.dlc, f.data.hex(), f.is_extended, f.is_fd, f.timestamp_ns])
+            elif fmt_clean == "mat":
+                # P2-26: wire the MATLAB exporter into the live path. Per-ID
+                # activity channels derived from the raw frame history (the
+                # app keeps scalar snapshots, not signal history, so raw
+                # per-arbitration-id time series are the honest dataset).
+                from src.engine.exporters.mat_exporter import MatExporter
+
+                t0_ns = frames[0].timestamp_ns if frames else 0
+                per_id: dict[int, tuple[list[float], list[float]]] = {}
+                for f in frames:
+                    ts_s = max(0.0, (f.timestamp_ns - t0_ns) / 1e9)
+                    cur = per_id.setdefault(f.arbitration_id, ([], []))
+                    cur[0].append(ts_s)
+                    cur[1].append(float(f.arbitration_id))
+                signals_data = {
+                    f"arb_0x{arb:X}": (ts_list, val_list, "id")
+                    for arb, (ts_list, val_list) in per_id.items()
+                }
+                if not signals_data:
+                    logger.warning("Nothing to export: session ring buffer is empty")
+                    return False
+                MatExporter.export_signals(export_path, signals_data)
 
             logger.info("Session logs successfully exported", extra={"path": str(export_path), "count": len(frames)})
             return True
