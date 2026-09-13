@@ -239,7 +239,7 @@ class LicenseFlow:
                 code="NO_DEVICE_TOKEN",
             )
 
-        sent_nonce = pysecrets.token_hex(8)
+        sent_nonce = pysecrets.token_hex(16)
         resp = self.client.request(
             "POST",
             "/licenses/activate",

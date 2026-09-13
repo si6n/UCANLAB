@@ -118,24 +118,34 @@ class ActrosDecoder(BaseOemDecoder):
             )
 
         # Byte 2: Mercedes BlueTec Regeneration Mode (uint8)
+        # REVIEW hardening: sentinel-first, map-miss (0x05+) invalid.
         raw_mode = data[2]
-        mode_valid = True
-        mode_status = SignalStatus.VALID
         if raw_mode == 0xFF:
-            mode_valid = False
-            mode_status = SignalStatus.NOT_AVAILABLE
+            signals["mercedes_bluetec_regeneration_mode"] = DecodedSignal(
+                name="mercedes_bluetec_regeneration_mode",
+                value=None,
+                unit="enum",
+                raw_value=raw_mode,
+                is_valid=False,
+                status=SignalStatus.NOT_AVAILABLE,
+            )
         elif raw_mode == 0xFE:
-            mode_valid = False
-            mode_status = SignalStatus.ERROR
+            signals["mercedes_bluetec_regeneration_mode"] = DecodedSignal(
+                name="mercedes_bluetec_regeneration_mode",
+                value=None,
+                unit="enum",
+                raw_value=raw_mode,
+                is_valid=False,
+                status=SignalStatus.ERROR,
+            )
+        else:
+            from src.protocols.j1939.oem.registry import resolve_enum
 
-        signals["mercedes_bluetec_regeneration_mode"] = DecodedSignal(
-            name="mercedes_bluetec_regeneration_mode",
-            value=self.REGEN_MODE_MAP.get(raw_mode, f"Modus (0x{raw_mode:02X})"),
-            unit="enum",
-            raw_value=raw_mode,
-            is_valid=mode_valid,
-            status=mode_status,
-        )
+            signals["mercedes_bluetec_regeneration_mode"] = resolve_enum(
+                self.REGEN_MODE_MAP,
+                raw_mode,
+                signal_name="mercedes_bluetec_regeneration_mode",
+            )
 
         # Byte 3..4: Mercedes AdBlue Dosierrate Istwert (uint16 LE, 0.01 g/s, 0.0 offset)
         raw_dosing = data[3] | (data[4] << 8)
@@ -283,24 +293,34 @@ class ActrosDecoder(BaseOemDecoder):
         signals: dict[str, DecodedSignal] = {}
 
         # Byte 0: Mercedes HPEB Motorbremse Stufe (uint8)
+        # REVIEW hardening: sentinel-first, map-miss invalid.
         raw_stage = data[0]
-        stage_valid = True
-        stage_status = SignalStatus.VALID
         if raw_stage == 0xFF:
-            stage_valid = False
-            stage_status = SignalStatus.NOT_AVAILABLE
+            signals["mercedes_hpeb_motorbremse_stufe"] = DecodedSignal(
+                name="mercedes_hpeb_motorbremse_stufe",
+                value=None,
+                unit="enum",
+                raw_value=raw_stage,
+                is_valid=False,
+                status=SignalStatus.NOT_AVAILABLE,
+            )
         elif raw_stage == 0xFE:
-            stage_valid = False
-            stage_status = SignalStatus.ERROR
+            signals["mercedes_hpeb_motorbremse_stufe"] = DecodedSignal(
+                name="mercedes_hpeb_motorbremse_stufe",
+                value=None,
+                unit="enum",
+                raw_value=raw_stage,
+                is_valid=False,
+                status=SignalStatus.ERROR,
+            )
+        else:
+            from src.protocols.j1939.oem.registry import resolve_enum
 
-        signals["mercedes_hpeb_motorbremse_stufe"] = DecodedSignal(
-            name="mercedes_hpeb_motorbremse_stufe",
-            value=self.HPEB_STAGE_MAP.get(raw_stage, f"Stufe ({raw_stage})"),
-            unit="enum",
-            raw_value=raw_stage,
-            is_valid=stage_valid,
-            status=stage_status,
-        )
+            signals["mercedes_hpeb_motorbremse_stufe"] = resolve_enum(
+                self.HPEB_STAGE_MAP,
+                raw_stage,
+                signal_name="mercedes_hpeb_motorbremse_stufe",
+            )
 
         # Byte 1: Mercedes Retarder Bremsmomentanforderung (uint8, 0.4 %, 0.0 offset)
         raw_demand = data[1]

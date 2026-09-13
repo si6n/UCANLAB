@@ -239,6 +239,55 @@ export class ReverseEngineeringEngine {
   }
 
   /**
+   * Dynamic cross-correlation lag scan: find the lag (ms) maximizing |Pearson r|
+   * between the raw series and the stimulus series.
+   * Positive lag: raw signal follows the stimulus by that many ms.
+   */
+  public static estimateTimeLagMs(
+    timestampsSec: number[],
+    rawValues: number[],
+    stimulusValues: number[],
+    maxLagMs = 500
+  ): { lagMs: number; pearsonAtLag: number } {
+    const n = Math.min(timestampsSec.length, rawValues.length, stimulusValues.length);
+    if (n < 8) return { lagMs: 0, pearsonAtLag: 0 };
+
+    const meanDtMs =
+      n > 1
+        ? ((timestampsSec[n - 1] - timestampsSec[0]) / (n - 1)) * 1000
+        : 0;
+    if (meanDtMs <= 0) return { lagMs: 0, pearsonAtLag: 0 };
+
+    const maxOffset = Math.max(1, Math.floor(maxLagMs / meanDtMs));
+    let bestLag = 0;
+    let bestAbsR = 0;
+
+    for (let offset = 0; offset <= maxOffset; offset++) {
+      // Positive offset: raw[i] aligns with stimulus[i - offset] (raw lags stimulus)
+      const rPos = this.calculatePearson(
+        rawValues.slice(offset),
+        stimulusValues.slice(0, n - offset)
+      );
+      if (Math.abs(rPos) > bestAbsR) {
+        bestAbsR = Math.abs(rPos);
+        bestLag = offset;
+      }
+      if (offset > 0) {
+        const rNeg = this.calculatePearson(
+          rawValues.slice(0, n - offset),
+          stimulusValues.slice(offset)
+        );
+        if (Math.abs(rNeg) > bestAbsR) {
+          bestAbsR = Math.abs(rNeg);
+          bestLag = -offset;
+        }
+      }
+    }
+
+    return { lagMs: parseFloat((bestLag * meanDtMs).toFixed(0)), pearsonAtLag: parseFloat(bestAbsR.toFixed(4)) };
+  }
+
+  /**
    * Calculate Linear Regression: R², Slope (Scale), and Intercept (Offset).
    */
   public static calculateLinearRegression(raw: number[], stimulus: number[]): { r2: number; slope: number; intercept: number } {
@@ -361,6 +410,11 @@ export class ReverseEngineeringEngine {
         const pearsonR = this.calculatePearson(rawValues, stimulusTargets);
         const spearmanRho = this.calculateSpearman(rawValues, stimulusTargets);
         const reg = this.calculateLinearRegression(rawValues, stimulusTargets);
+        const { lagMs } = this.estimateTimeLagMs(
+          canFrames.map(f => f.timestampSec),
+          rawValues,
+          stimulusTargets
+        );
 
         // Check Baseline vs Recovery
         const baselineFrames = canFrames.filter(f => f.phase === 'BASELINE');
@@ -417,7 +471,13 @@ export class ReverseEngineeringEngine {
           bitLength: hyp.bitLength,
           endian: hyp.endian,
           isSigned: hyp.isSigned,
-          scale: reg.slope > 0 ? reg.slope : parseFloat((targetConfig.expectedMax / Math.max(1, deltaMax)).toFixed(4)),
+          // REVIEW (negative slope): a measured NEGATIVE slope used to be
+          // replaced by a synthetic positive scale — the exported DBC then
+          // decoded the signal inverted vs. reality. Keep the measured
+          // slope (DBC scale may be negative) so inversely proportional
+          // signals decode correctly; the synthetic fallback only applies
+          // when the regression has no usable slope at all.
+          scale: reg.slope !== 0 ? reg.slope : parseFloat((targetConfig.expectedMax / Math.max(1, deltaMax)).toFixed(4)),
           offset: reg.intercept || 0,
           unit: targetConfig.unit,
           minObserved: minRaw,
@@ -425,7 +485,7 @@ export class ReverseEngineeringEngine {
           deltaMax,
           pearsonR,
           spearmanRho,
-          timeLagMs: 35,
+          timeLagMs: lagMs,
           regressionR2: reg.r2,
           monotonicityScore: Math.abs(spearmanRho),
           recoveryDelta: parseFloat(recoveryDelta.toFixed(2)),
@@ -455,16 +515,26 @@ export class ReverseEngineeringEngine {
    * Generate valid Vector .DBC syntax string for a verified signal candidate.
    */
   public static generateDbcString(candidate: SignalCandidate, messageName = 'Discovered_Message'): string {
-    const canIdDec = parseInt(candidate.canIdHex, 16);
+    const idNum = parseInt(candidate.canIdHex, 16);
+    // REVIEW (DBC ID convention): cantools/Vector mark 29-bit messages by
+    // setting bit31 of the BO_ id — the old plain decimal form re-imported
+    // every discovered J1939 message as an 11-bit frame, breaking DBC round-trip.
+    const canIdDec = idNum > 0x7FF ? (idNum | 0x80000000) >>> 0 : idNum;
     const endianBit = candidate.endian === 'Intel' ? '1' : '0';
     const signChar = candidate.isSigned ? '-' : '+';
-    
+    // REVIEW (negative scale): physical = raw * scale + offset. With a
+    // negative scale (inversely proportional signals) the DBC range must
+    // swap — [0|negative] is invalid (min > max) and cantools rejects it.
+    const physAt = (raw: number) => raw * candidate.scale + candidate.offset;
+    const physMin = candidate.scale >= 0 ? physAt(0) : physAt(candidate.maxObserved);
+    const physMax = candidate.scale >= 0 ? physAt(candidate.maxObserved) : physAt(0);
+
     return `VERSION "1.0"\n\n` +
       `NS_ :\n\n` +
       `BS_:\n\n` +
       `BU_: ECU TESTER\n\n` +
       `BO_ ${canIdDec} ${messageName}: 8 ECU\n` +
-      ` SG_ ${candidate.signalName} : ${candidate.startBit}|${candidate.bitLength}@${endianBit}${signChar} (${candidate.scale},${candidate.offset}) [0|${candidate.maxObserved * candidate.scale}] "${candidate.unit}" Vector__XXX\n\n` +
+      ` SG_ ${candidate.signalName} : ${candidate.startBit}|${candidate.bitLength}@${endianBit}${signChar} (${candidate.scale},${candidate.offset}) [${physMin}|${physMax}] "${candidate.unit}" Vector__XXX\n\n` +
       `CM_ SG_ ${canIdDec} ${candidate.signalName} "Reverse engineered by Universal CAN-Bus AI Signal Discovery (Confidence: ${(candidate.confidenceScore * 100).toFixed(1)}%)";\n`;
   }
 }

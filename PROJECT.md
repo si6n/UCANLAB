@@ -39,6 +39,9 @@ The Universal CAN-Bus Diagnostic & Telemetry Tool is built on a Python 3.11+ Hex
 | 23 | Cloud Client — HTTP Transport & Credential Store | DPAPI-backed session/device token storage, retrying HTTP transport (429/5xx backoff, Retry-After), health check (MASTER_PLAN §3.2) | M6 | MASTER_PLAN Task 5.3/5.4 |
 | 24 | Cloud Client — Device Registration & Ed25519 License Activation | HWID registration, device_token acquisition, canonical ticket verification with embedded public key (13-field schema, iss/aud/exp) | M6 | MASTER_PLAN §3.1 |
 | 25 | Cloud Client — Resumable Telemetry Upload | 5 MB chunked MDF4 upload (sessions -> chunks -> complete), SHA-256 declaration, progress callbacks, resume support | M6 | MASTER_PLAN §16 |
+| 26 | AI Layer Fully-Offline (F-AI-ISO) | Cloud-LLM narration layer REMOVED (operator decision, M7): no API keys, no network calls from `src/engine/ai/**` (AST-locked incl. `urllib`/`http`/`socket`), severity authority is the deterministic expert engine only, action triggers minted only from operator input / deterministic DTC mappings; adversarial suite `tests/safety/test_ai_tx_isolation.py` runs in the existing CI pytest job | M7 | P0 roadmap |
+| 27 | P1 Diagnostic Data Model (F-DATA-MODEL) | Frozen `SignalSample` / `DiagnosticEvent` + `VehicleSession` container in `src/core/models/diagnostics.py`; sentinel rejection (NaN/Inf), DISCOVERED confidence gating, raw-VIN fail-closed (only `mask_vin_in_text` output accepted) | M7 | P1 roadmap |
+| 28 | Golden-Traces Case Format (F-GOLDEN-CASES) | Repair-verified diagnostic case schema v1 (`data/golden_traces/cases/schema.json`, stdlib-validated by `src/engine/ai/golden_cases.py`); fail-closed unknown-field/VIN/draft rules; draft cases excluded from calibration; seed case `volvo_penta_d4_300_nonstart.json` awaits user-supplied field data | M7 | P1 roadmap |
 
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
@@ -49,6 +52,7 @@ The Universal CAN-Bus Diagnostic & Telemetry Tool is built on a Python 3.11+ Hex
 | M4 | Checksum & Rolling Counter (E2E Safety) Engine | Features 16, 17, 18, 19, 20, 21 | none | DONE |
 | M5 | E2E Integration & Full Test Suite (100% Pass) | Feature 22 (Full verification of M1-M4, all existing 822 + new tests) | M1, M2, M3, M4 | DONE |
 | M6 | Universal-CAN-Cloud Client Integration | Features 23, 24, 25 (client side of cloud Tasks 5.3/5.4) | none | DONE |
+| M7 | P0+P1 AI Diagnostic Foundation | Features 26, 27, 28 (AI TX isolation, diagnostic data model, Golden-Traces case format) | none | DONE |
 
 ## Interface Contracts
 

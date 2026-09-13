@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import argparse
 import math
+import os
+import secrets
 import sys
 import time
 
@@ -60,6 +62,11 @@ class UniversalTrafficSimulator:
         # (dozens of dynamic IDs that no static whitelist can enumerate). The
         # bus is already hard-locked to virtual interfaces by the guard above,
         # and estop/supervisor/watchdog stages remain fully enforced.
+        # TEST-ONLY: for_testing bypass must never run outside the sandboxed
+        # test harness — gate on UCANLAB_TEST_MODE=1.
+        assert os.getenv("UCANLAB_TEST_MODE") == "1", (
+            "demo traffic generator is TEST-ONLY; set UCANLAB_TEST_MODE=1"
+        )
         self.gateway = TxSafetyGateway.for_testing(bus=self.bus)
         # P0 (perf): all synthetic broadcasts go through the dedicated
         # 'simulation' token-bucket lane (500 burst / 250 msg/s refill).
@@ -318,9 +325,14 @@ class UniversalTrafficSimulator:
                 elif sid == 0x14:  # ClearDiagnosticInformation
                     resp[0] = 0x01
                 elif sid == 0x27:  # SecurityAccess (Return Seed)
+                    # TEST-ONLY: demo responder must never run outside the sandboxed
+                    # test harness — fixed seeds would train/condition real tooling.
+                    assert os.getenv("UCANLAB_TEST_MODE") == "1", (
+                        "demo UDS responder seed is TEST-ONLY; set UCANLAB_TEST_MODE=1"
+                    )
                     resp[0] = 0x06
                     resp[2] = data[2] if len(data) > 2 else 0x01
-                    resp[3:7] = b"\x12\x34\x56\x78"  # Seed
+                    resp[3:7] = secrets.token_bytes(4)  # TEST-ONLY random seed
 
                 f_uds_resp = CanFrame.create(
                     channel_id=self.channel,

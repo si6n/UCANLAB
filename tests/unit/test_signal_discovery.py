@@ -73,6 +73,87 @@ def test_counter_detector_mod16_and_mod256() -> None:
     assert mod16_hyp.confidence >= 0.95
 
 
+def test_counter_detector_motorola_16bit() -> None:
+    """HIGH-2: Big-Endian (Motorola) 16-bit rolling counter, MSB in byte 0."""
+    payloads = [i.to_bytes(2, "big") + b"\x00\x00" for i in range(50)]
+
+    hypotheses = CounterDetector.detect(payloads, dlc=4)
+    be16 = [h for h in hypotheses if h.length == 16 and not h.is_little_endian]
+    assert be16, "Big-Endian 16-bit counter not detected"
+    assert be16[0].start_bit == 0
+    assert be16[0].params["modulus"] == 65536
+    assert be16[0].confidence >= 0.95
+
+    # A non-counter big-endian series must not produce a confident BE hypothesis
+    noise = [((i * 257) % 65536).to_bytes(2, "big") + b"\x00\x00" for i in range(50)]
+    noise_hyps = CounterDetector.detect(noise, dlc=4)
+    assert not any(h.length == 16 and not h.is_little_endian and h.confidence >= 0.9 for h in noise_hyps)
+
+
+def test_counter_detector_bit_packed_12bit() -> None:
+    """HIGH-2: bit-packed 12-bit counter at nibble offset 4 (bits 4..15)."""
+    payloads = [((i % 4096) << 4).to_bytes(2, "little") + b"\x00\x00" for i in range(50)]
+
+    hypotheses = CounterDetector.detect(payloads, dlc=4)
+    c12 = [h for h in hypotheses if h.length == 12 and h.confidence >= 0.9]
+    assert c12, "12-bit packed counter not detected"
+    assert c12[0].start_bit == 4
+    assert c12[0].params["modulus"] == 4096
+
+
+def test_crc_model_catalog_check_values() -> None:
+    """All CRC models must match the public check catalogue for '123456789'.
+
+    Locks the Maxim/Dallas CRC-8 double-reflection fix: the old code
+    pre-reflected input bytes against a reflected table and produced
+    0xA7 instead of the catalog 0xA1.
+    """
+    data = b"123456789"
+    expected = {
+        "CRC-8/AUTOSAR": 0xDF,
+        "CRC-8/SAE-J1850": 0x4B,
+        "CRC-8/SMBUS": 0xF4,
+        "CRC-8/MAXIM-DOW": 0xA1,
+        "CRC-8/HITAG": 0xB4,
+        "CRC-8/GSM-A": 0x37,
+        "CRC-16/CCITT-FALSE": 0x29B1,
+        "CRC-16/XMODEM": 0x31C3,
+        "CRC-16/KERMIT": 0x2189,
+        "CRC-16/IBM-ARC": 0xBB3D,
+        "CRC-16/MODBUS": 0x4B37,
+        "CRC-32/ISO-HDLC": 0xCBF43926,
+    }
+    for model in (*ChecksumDetector.CRC8_MODELS, *ChecksumDetector.CRC16_MODELS, *ChecksumDetector.CRC32_MODELS):
+        assert model.calculate(data) == expected[model.name], model.name
+
+
+def test_checksum_detector_crc16_modbus_and_crc32() -> None:
+    """CRC-16 (LSB-first stored) and CRC-32 detection end-to-end."""
+    modbus = next(m for m in ChecksumDetector.CRC16_MODELS if m.name == "CRC-16/MODBUS")
+    payloads16 = []
+    for i in range(40):
+        body = bytes([(i * 7) & 0xFF, 0x11, 0x22, 0x33, 0x44, 0x55])
+        payloads16.append(body + modbus.calculate(body).to_bytes(2, "little"))
+
+    hyps16 = ChecksumDetector.detect(payloads16, dlc=8)
+    mod_hyp = next(
+        (h for h in hyps16 if h.params.get("algorithm") == "CRC-16/MODBUS" and h.length == 16), None
+    )
+    assert mod_hyp is not None
+    assert mod_hyp.confidence == 1.0
+
+    crc32 = ChecksumDetector.CRC32_MODELS[0]
+    payloads32 = []
+    for i in range(40):
+        body = bytes([(i * 7) & 0xFF, 0x11, 0x22, 0x33, 0x44, 0x55])
+        payloads32.append(body + crc32.calculate(body).to_bytes(4, "little"))
+
+    hyps32 = ChecksumDetector.detect(payloads32, dlc=10)
+    h32 = next((h for h in hyps32 if h.params.get("algorithm") == "CRC-32/ISO-HDLC"), None)
+    assert h32 is not None
+    assert h32.confidence == 1.0
+
+
 def test_checksum_detector_xor_and_crc8_autosar() -> None:
     crc_model = Crc8Model.create("CRC-8/AUTOSAR", poly=0x2F, init=0xFF, xorout=0xFF)
 
@@ -122,6 +203,41 @@ def test_signal_segmenter_16bit_signal() -> None:
     assert sig16.is_little_endian is True
     assert sig16.min_value == 800.0
     assert sig16.max_value == 800.0 + 39 * 20
+
+
+def test_signal_segmenter_bit_packed_12bit() -> None:
+    """HIGH-2: packed 12-bit signal candidate at nibble offset 4 (bits 4..15)."""
+    payloads = []
+    for i in range(40):
+        packed = ((1000 + i * 7) & 0xFFF) << 4  # 12-bit value, low 4 bits constant
+        payloads.append(packed.to_bytes(2, "little") + b"\x00\x00")
+
+    hypotheses = SignalSegmenter.segment(payloads, dlc=4)
+    c12 = [h for h in hypotheses if h.length == 12 and h.start_bit == 4]
+    assert c12, "12-bit packed signal candidate not emitted"
+    assert c12[0].min_value == 1000.0
+    assert c12[0].max_value == 1000.0 + 39 * 7
+
+
+def test_analyze_id_populates_bit_classes() -> None:
+    """HIGH-3: analyze_id wires compute_flip_rates/classify_bits into the report."""
+    engine = SignalDiscoveryEngine()
+    frames = [
+        CanFrame.create(
+            channel_id="ch0",
+            arbitration_id=0x1F0,
+            data=bytes([i % 2, 0xAA, 0x00, 0x00]),
+            timestamp_ns=i * 10_000_000,
+        )
+        for i in range(20)
+    ]
+    engine.ingest_frames(frames)
+    report = engine.analyze_id(0x1F0)
+
+    assert len(report.bit_classes) == 4 * 8
+    assert report.bit_classes[0] == "NOISY"  # toggles every frame
+    assert report.bit_classes[8] == "CONST"  # byte 1 constant 0xAA
+    assert report.bit_classes[31] == "CONST"
 
 
 def test_dbc_builder_and_file_export() -> None:

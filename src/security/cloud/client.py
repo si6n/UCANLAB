@@ -49,16 +49,42 @@ def _sanitize_extra_headers(extra_headers: dict[str, str] | None) -> dict[str, s
 
 
 class _SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
-    """Strip authentication credentials (Cookie, Authorization) on cross-origin redirects."""
+    """Strip authentication credentials (Cookie, Authorization) on cross-origin redirects.
+
+    REVIEW (scheme downgrade): origin equality used to compare netloc only —
+    an HTTPS->HTTP redirect on the SAME host kept the session cookie and
+    Authorization header, silently moving credentials onto cleartext
+    transport. The comparison now covers scheme, hostname and effective
+    port; any mismatch (including a scheme downgrade) strips credentials.
+    """
+
+    @staticmethod
+    def _origin(url: str) -> tuple[str, str, int] | None:
+        try:
+            parts = urllib.parse.urlsplit(url)
+        except ValueError:
+            return None
+        scheme = (parts.scheme or "").lower()
+        if scheme not in ("http", "https"):
+            return None
+        host = (parts.hostname or "").lower()
+        try:
+            port = parts.port if parts.port is not None else (443 if scheme == "https" else 80)
+        except ValueError:
+            return None
+        return (scheme, host, port)
 
     def redirect_request(self, req: Any, fp: Any, code: int, msg: str, headers: Any, newurl: str) -> Any:
         new_req = super().redirect_request(req, fp, code, msg, headers, newurl)
         if new_req is None:
             return None
-        orig_host = urllib.parse.urlsplit(req.full_url).netloc.lower()
-        new_host = urllib.parse.urlsplit(newurl).netloc.lower()
-        if orig_host != new_host:
-            # Cross-origin redirect: strip sensitive credentials to prevent leakage
+        orig = self._origin(req.full_url)
+        new = self._origin(newurl)
+        same_origin = orig is not None and new is not None and orig == new
+        if not same_origin:
+            # Cross-origin OR scheme/port downgrade redirect: strip sensitive
+            # credentials to prevent leakage (an https->http downgrade on the
+            # same host is a credential-transport downgrade, not a no-op).
             new_req.headers.pop("Cookie", None)
             new_req.headers.pop("Authorization", None)
             if hasattr(new_req, "unredirected_hdrs"):
@@ -178,6 +204,7 @@ class CloudClient:
     # few KB; telemetry upload acknowledgements even less. A compromised or
     # buggy endpoint streaming gigabytes must not OOM the diagnostic tool.
     MAX_RESPONSE_BODY_BYTES: ClassVar[int] = 8 * 1024 * 1024  # 8 MiB
+    MAX_ERROR_BODY_BYTES: ClassVar[int] = 64 * 1024  # 64 KiB for HTTPError bodies
 
     @classmethod
     def _read_body_bounded(cls, resp: Any) -> bytes:
@@ -209,6 +236,24 @@ class CloudClient:
                 )
             chunks.append(chunk)
         return b"".join(chunks)
+
+    @classmethod
+    def _read_error_body_bounded(cls, exc: Any) -> bytes:
+        """Read an HTTPError body capped at 64KB (error path must not OOM)."""
+        fp = getattr(exc, "fp", None)
+        if fp is None:
+            return b""
+        chunks: list[bytes] = []
+        total = 0
+        while True:
+            chunk = fp.read(8192)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > cls.MAX_ERROR_BODY_BYTES:
+                break
+            chunks.append(chunk)
+        return b"".join(chunks)[: cls.MAX_ERROR_BODY_BYTES]
 
     def set_base_url(self, url: str) -> None:
         """Change the API base URL â€” re-validated (3FABLE-H2).
@@ -331,7 +376,10 @@ class CloudClient:
                         headers={k: v for k, v in resp.headers.items()},
                     )
             except urllib.error.HTTPError as exc:
-                body = exc.read() if exc.fp else b""
+                try:
+                    body = self._read_error_body_bounded(exc)
+                except TransportError:
+                    body = b""
                 if exc.code in _RETRY_STATUSES and attempt < self.config.max_retries:
                     self._sleep_backoff(attempt, exc.headers)
                     continue

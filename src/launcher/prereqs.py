@@ -6,7 +6,6 @@ and CAN interface hardware drivers (PCAN, Kvaser, RP1210, Vector).
 
 from __future__ import annotations
 
-import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -89,6 +88,26 @@ class PrereqChecker:
             is_critical=True,
         )
 
+    @staticmethod
+    def _system_root() -> Path:
+        """Resolve the Windows system root via GetSystemDirectoryW (collector.py model)."""
+        if sys.platform != "win32":
+            return Path(r"C:\Windows")
+        try:
+            import ctypes as _ctypes
+
+            _buf = _ctypes.create_unicode_buffer(260)
+            _get = _ctypes.windll.kernel32.GetSystemDirectoryW
+            if _get(_buf, len(_buf)):
+                _sysdir = Path(_buf.value).resolve()
+                # GetSystemDirectoryW returns <root>\System32 -> parent is the root.
+                _root = _sysdir.parent
+                if _root.is_dir():
+                    return _root
+        except Exception:
+            pass
+        return Path(r"C:\Windows")
+
     @classmethod
     def check_can_drivers(cls) -> list[PrereqStatus]:
         """Detect installed CAN interface hardware driver DLLs."""
@@ -96,8 +115,9 @@ class PrereqChecker:
         if sys.platform != "win32":
             return [PrereqStatus("CAN Hardware Drivers", True, "SocketCAN / Virtual CAN ready", is_critical=False)]
 
-        sys32 = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32"
-        syswow = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "SysWOW64"
+        _root = cls._system_root()
+        sys32 = _root / "System32"
+        syswow = _root / "SysWOW64"
 
         # 1. PEAK PCAN-Basic
         has_pcan = (sys32 / "PCANBasic.dll").exists() or (syswow / "PCANBasic.dll").exists()

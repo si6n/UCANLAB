@@ -18,19 +18,28 @@ from src.core.models.can_frame import CanFrame
 logger = get_logger("engine.buffer.ring_buffer")
 
 # Pre-defined NumPy structured dtype for fixed 80-byte frame representation
-CAN_RECORD_DTYPE = np.dtype(
-    [
-        ("timestamp_ns", np.uint64),
-        ("arbitration_id", np.uint32),
-        ("dlc", np.uint8),
-        ("flags", np.uint8),  # bit0: is_extended, bit1: is_fd, bit2: brs, bit3: esi, bit4: is_tx
-        ("data_len", np.uint8),
-        ("reserved", np.uint8),
-        ("channel_id_int", np.uint16),
-        ("data", np.uint8, (64,)),
-    ],
-    align=True,
-)
+# REVIEW (provenance round-trip): the record used to drop source and
+# error_state entirely — a replay/bus-off frame re-emerged as
+# physical/active and the reconstructed `sequence` was the buffer write
+# index, not the original. flags bits 5/6/7 now carry
+# source (2 bits: physical/replay/virtual/injected|synthetic map below)
+# and bit 7 error_state (0 active, 1 bus_off); sequence stays a buffer
+# write index (documented) because the original per-frame sequence is not
+# recoverable without widening the 80-byte record — the reconstruction
+# now marks `source` and `error_state` faithfully.
+_SOURCE_TO_FLAG_BITS = {"physical": 0, "replay": 1, "virtual": 2, "injected": 3, "synthetic": 3}
+_FLAG_BITS_TO_SOURCE = {0: "physical", 1: "replay", 2: "virtual", 3: "injected"}
+_CAN_RECORD_DTYPE_FIELDS = [
+    ("timestamp_ns", np.uint64),
+    ("arbitration_id", np.uint32),
+    ("dlc", np.uint8),
+    ("flags", np.uint8),  # bit0: is_extended, bit1: is_fd, bit2: brs, bit3: esi, bit4: is_tx, bit5-6: source, bit7: bus_off
+    ("data_len", np.uint8),
+    ("reserved", np.uint8),
+    ("channel_id_int", np.uint16),
+    ("data", np.uint8, (64,)),
+]
+CAN_RECORD_DTYPE = np.dtype(_CAN_RECORD_DTYPE_FIELDS, align=True)
 
 
 class BinaryRingBuffer:
@@ -39,8 +48,8 @@ class BinaryRingBuffer:
     DEFAULT_CAPACITY: ClassVar[int] = 300_000  # 60 seconds @ 5,000 msg/s
 
     def __init__(self, capacity: int = DEFAULT_CAPACITY) -> None:
-        if capacity <= 0:
-            raise ValueError(f"Ring buffer capacity must be positive, got {capacity}")
+        if not isinstance(capacity, int) or isinstance(capacity, bool) or not (1 <= capacity <= 1_000_000):
+            raise ValueError(f"Ring buffer capacity must be in range 1..1000000, got {capacity}")
 
         self.capacity = capacity
         self._buffer = np.zeros(capacity, dtype=CAN_RECORD_DTYPE)
@@ -48,6 +57,8 @@ class BinaryRingBuffer:
         self._rev_channel_map: dict[int, str] = {}
         self._head = 0  # Write pointer (modulo capacity)
         self._total_written = 0  # Monotonically increasing counter
+        # REVIEW 3-MEDIUM: channels refused a 16-bit slot (aliased to 0xFFFF)
+        self._channel_overflow_count = 0
         self._lock = threading.Lock()
 
     def _get_channel_int(self, channel_id: str) -> int:
@@ -81,6 +92,10 @@ class BinaryRingBuffer:
             | ((1 if frame.brs else 0) << 2)
             | ((1 if frame.esi else 0) << 3)
             | ((1 if frame.direction == "tx" else 0) << 4)
+            # REVIEW (provenance): source + bus_off survive the round-trip
+            # (physical/replay/virtual/injected; bus_off vs active).
+            | (_SOURCE_TO_FLAG_BITS.get(frame.source, 0) << 5)
+            | ((1 if frame.error_state == "bus_off" else 0) << 7)
         )
 
         data = frame.data
@@ -126,12 +141,15 @@ class BinaryRingBuffer:
             # keep the buffer alive (a telemetry storm of unique channel
             # strings must not kill recording). All overflow channels alias
             # the 0xFFFF sentinel so corrupted exports are at least
-            # detectable as channel 65535.
+            # detectable as channel 65535. REVIEW 3-MEDIUM: each overflow
+            # increments the exposed counter (channel_map_stats) so the
+            # operator gets a net capacity/overrun report.
             if channel_id not in self._channel_map:
                 logger.error(
                     "RingBuffer channel map exceeded 16-bit capacity — aliasing to sentinel 0xFFFF",
                     extra={"channel_id": channel_id, "capacity": 0xFFFF},
                 )
+                self._channel_overflow_count += 1
             self._channel_map[channel_id] = 0xFFFF
             return 0xFFFF
         val = len(self._channel_map)
@@ -166,7 +184,7 @@ class BinaryRingBuffer:
 
     def get_latest_view(
         self, count: int, *, copy: bool = True
-    ) -> tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray, int]:
         """Wrap-around safe view access over the shared buffer storage.
 
         E-C-001 (TOCTOU): with the default ``copy=True`` the returned parts
@@ -175,13 +193,19 @@ class BinaryRingBuffer:
         preserves the genuine zero-copy views (F-33/E-13) for hot-path
         consumers that read under the same lock discipline.
 
-        Returns (oldest_part, newest_part).
+        REVIEW TOCTOU fix: returns ``(oldest_part, newest_part,
+        total_written_snapshot)`` — the writer counter is captured in the
+        SAME critical section as the parts so consumers can derive coherent
+        sequence labels instead of re-reading it lock-free later (a
+        concurrent append between the two reads shifted every exported
+        frame's ``sequence``).
         """
         with self._lock:
             available = min(self._total_written, self.capacity)
             n = min(count, available)
+            total_written_snapshot = self._total_written
             if n <= 0:
-                return self._buffer[0:0], self._buffer[0:0]
+                return self._buffer[0:0], self._buffer[0:0], total_written_snapshot
 
             start_seq = self._total_written - n
             s0 = start_seq % self.capacity
@@ -196,8 +220,8 @@ class BinaryRingBuffer:
                 old_part, new_part = self._buffer[s0:], self._buffer[:e0]
 
             if copy:
-                return old_part.copy(), new_part.copy()
-            return old_part, new_part
+                return old_part.copy(), new_part.copy(), total_written_snapshot
+            return old_part, new_part, total_written_snapshot
 
     def get_latest_frames(self, count: int) -> list[CanFrame]:
         """Fetch latest N frames in chronological order.
@@ -208,13 +232,15 @@ class BinaryRingBuffer:
         seconds during exports; the snapshot is now taken via
         get_latest_view(copy=True) — two fast NumPy copies under the lock —
         and the object construction runs lock-free.
-        """
-        # Lock scope 1: bounded, two-array snapshot only.
-        old_part, new_part = self.get_latest_view(count, copy=True)
 
-        # Total available (cheap re-read, no lock needed for the bound).
-        available = min(self._total_written, self.capacity)
-        n = min(count, available)
+        REVIEW TOCTOU fix: ``n`` and ``base_seq`` are derived from the SAME
+        snapshot's total_written, never from a later lock-free re-read.
+        """
+        # Lock scope: bounded, two-array snapshot + coherent writer counter.
+        old_part, new_part, total_written_snapshot = self.get_latest_view(count, copy=True)
+
+        # n is derived from the snapshot's writer state, not a fresh re-read.
+        n = min(count, min(total_written_snapshot, self.capacity))
         if n <= 0:
             return []
 
@@ -222,9 +248,9 @@ class BinaryRingBuffer:
         records = list(old_part) + list(new_part)
         records = records[-n:]
 
-        # Lock-free materialization.
+        # Lock-free materialization, sequence labels coherent with the snapshot.
         frames: list[CanFrame] = []
-        base_seq = self._total_written - n
+        base_seq = total_written_snapshot - n
         for offset, rec in enumerate(records):
             flags = int(rec["flags"])
             data_len = int(rec["data_len"])
@@ -240,6 +266,11 @@ class BinaryRingBuffer:
                 brs=bool(flags & 0x04),
                 esi=bool(flags & 0x08),
                 direction="tx" if bool(flags & 0x10) else "rx",
+                # REVIEW (provenance): source + error_state are restored
+                # from the flag bits instead of falling back to the
+                # physical/active defaults.
+                error_state="bus_off" if bool(flags & 0x80) else "active",
+                source=_FLAG_BITS_TO_SOURCE.get((flags >> 5) & 0x03, "physical"),
                 timestamp_ns=int(rec["timestamp_ns"]),
                 sequence=base_seq + offset,
             )
@@ -255,3 +286,21 @@ class BinaryRingBuffer:
             self._buffer.fill(0)
             self._channel_map.clear()
             self._rev_channel_map.clear()
+            self._channel_overflow_count = 0
+
+    @property
+    def channel_map_stats(self) -> dict[str, int]:
+        """REVIEW 3-MEDIUM: explicit channel-map capacity report.
+
+        The 16-bit map closes at 65535 entries (L-13); overflow channels are
+        aliased to the 0xFFFF sentinel. Exposes the exact live/overflow split
+        so operators and exports can detect aliasing instead of guessing.
+        """
+        with self._lock:
+            live = sum(1 for v in self._channel_map.values() if v != 0xFFFF)
+            return {
+                "capacity": 0xFFFF,
+                "live_channels": live,
+                "overflow_channels": self._channel_overflow_count,
+                "aliased_to_sentinel": len(self._channel_map) - live,
+            }

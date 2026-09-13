@@ -34,7 +34,12 @@ class ReplaySafetyFilter:
         0x0EA00,  # 59904: Request PGN (arbitrary PGN trigger)
     }
     DIAGNOSTIC_WRITE_PGNS: ClassVar[set[int]] = {
-        0x0FECB,  # 65227: DM2 — Previously Active DTCs (diagnostic state churn)
+        # REVIEW 1-L3: DM2 (65227) REMOVED — it is a read-only broadcast
+        # of previously-active DTCs; replaying its data frame has no
+        # write/erase effect on any ECU (erasure is requested via PGN
+        # 59904 Request, which stays blocked). Blocking DM2 data replay
+        # also blocked legitimate fault-history telemetry analysis and
+        # inflated blocked-reason metrics (false positive).
         0x0FECC,  # 65228: DM3 — Diagnostic Data Clear (DTC evidence wipe)
         0x0FECD,  # 65229: DM4 — Freeze Frame Clear (write path)
         0x0FECE,  # 65230: DM5 — Diagnostic Readiness Clear (write path)
@@ -67,6 +72,13 @@ class ReplaySafetyFilter:
     }
 
     # Standard Diagnostic Request Arbitration IDs (11-bit)
+    # MEDIUM-1: 0x7E8–0x7EF (ECU RESPONSE IDs) join the set. Replaying
+    # crafted frames there spoofs the live tester's expectations (fake
+    # "security access granted", fake "routine finished OK", fake flash
+    # data) and previously bypassed every check — responses never matched
+    # the request-only table. Responses are additionally default-blocked
+    # outright (see ECU_RESPONSE_11BIT_IDS): a replayed response is spoofed
+    # evidence by definition.
     DIAGNOSTIC_11BIT_IDS: ClassVar[set[int]] = {
         0x7DF,  # Functional Broadcast Request
         0x7E0,
@@ -77,6 +89,29 @@ class ReplaySafetyFilter:
         0x7E5,
         0x7E6,
         0x7E7,  # Physical Request
+        0x7E8,  # ECU Response — spoofing protection (MEDIUM-1)
+        0x7E9,
+        0x7EA,
+        0x7EB,
+        0x7EC,
+        0x7ED,
+        0x7EE,
+        0x7EF,  # ECU Response
+    }
+
+    # ECU Response IDs (11-bit): 0x7E0+k requests, 0x7E8+k responses.
+    # MEDIUM-1: replaying ANY frame here counterfeits the live ECU's voice
+    # (fake "security access granted" 0x67, fake "routine complete" 0x71).
+    # A replayed response is by definition spoofed evidence — default-block.
+    ECU_RESPONSE_11BIT_IDS: ClassVar[set[int]] = {
+        0x7E8,
+        0x7E9,
+        0x7EA,
+        0x7EB,
+        0x7EC,
+        0x7ED,
+        0x7EE,
+        0x7EF,
     }
 
     # Prohibited Diagnostic Service Identifiers (UDS SIDs)
@@ -118,6 +153,10 @@ class ReplaySafetyFilter:
         self.total_blocked: int = 0
         self.blocked_reasons: dict[str, int] = {}
 
+        # CRITICAL-1: per-arbitration-ID ISO-TP session ledger:
+        # arb_id -> (SID the First Frame carried, payload bytes the CFs still owe).
+        self._iso_tp_pending: dict[int, tuple[int, int]] = {}
+
     def _extract_uds_sid(self, frame: CanFrame) -> int | None:
         """Extract the UDS SID from an ISO 15765-2 encoded frame (P1-4).
 
@@ -155,7 +194,12 @@ class ReplaySafetyFilter:
 
         if pci_type == 0x1:  # First Frame
             if (
-                frame.data[0] == 0x10
+                # CRITICAL-1: without the is_fd gate, a CLASSIC FF with
+                # FF_DL=256 (data=[0x10, 0x00, ...]) was misread as the FD
+                # escape form and its SID taken from data[6] — a prohibited
+                # SID sitting at data[2] slipped through unchecked.
+                frame.is_fd
+                and frame.data[0] == 0x10
                 and frame.data[1] == 0x00
                 and len(frame.data) >= 6
             ):
@@ -174,6 +218,62 @@ class ReplaySafetyFilter:
     # Sentinel for "a diagnostic frame we cannot prove safe" — never a
     # member of PROHIBITED_UDS_SIDS by construction (negative int).
     _UNKNOWN_SID: ClassVar[int] = -1
+
+    def _register_first_frame(self, frame: CanFrame, sid: int) -> None:
+        """CRITICAL-1: open a session ledger entry for an ISO-TP First Frame.
+
+        CF/FC frames carry no SID, so blocking the FF alone never helped:
+        the CFs carrying the actual request bytes sailed straight through.
+        Recording (SID, remaining payload length) here makes every following
+        CF/FC on the same arbitration ID answer for its FF's session.
+        """
+        ff_dl = ((frame.data[0] & 0x0F) << 8) | frame.data[1]
+        # Classic FF carries 6 payload bytes; the FD escape form carries 10.
+        # Same is_fd gate as _extract_uds_sid so both agree on the layout.
+        carried = (
+            10
+            if (frame.is_fd and frame.data[0] == 0x10 and frame.data[1] == 0x00 and len(frame.data) >= 6)
+            else 6
+        )
+        self._iso_tp_pending[frame.arbitration_id] = (sid, max(0, ff_dl - carried))
+
+    def _prohibited_sid(self, sid: int) -> bool:
+        """Fail-closed SID verdict shared by the FF and CF/FC gates."""
+        return (
+            sid == self._UNKNOWN_SID
+            or sid in self.PROHIBITED_UDS_SIDS
+            or (self.block_actuator_routines and sid in self.ACTUATOR_UDS_SIDS)
+        )
+
+    def _check_iso_tp_cf_fc(self, frame: CanFrame, is_diagnostic: bool) -> tuple[bool, str]:
+        """CRITICAL-1: gate ISO-TP CF (PCI 0x2) / FC (PCI 0x3) frames.
+
+        Fail-closed order:
+          1. Tunneling ON (default): CF/FC on diagnostic IDs are blocked
+             outright — a replayed CF/FC can only mean a live ECU is being
+             herded through somebody else's session.
+          2. Tunneling OFF (analysis mode): the session ledger still holds
+             the FF's SID — CFs belonging to a PROHIBITED session are
+             blocked; benign sessions pass until the FF_DL is accounted for.
+        """
+        if not frame.data or not is_diagnostic:
+            return True, ""
+        pci_type = (frame.data[0] >> 4) & 0x0F
+        if pci_type not in (0x2, 0x3):
+            return True, ""
+        if self.block_transport_tunneling:
+            return False, f"BLOCKED_TP_TUNNEL: CF/FC on diagnostic ID 0x{frame.arbitration_id:X}"
+        if frame.arbitration_id in self._iso_tp_pending:
+            sid, remaining = self._iso_tp_pending[frame.arbitration_id]
+            if self._prohibited_sid(sid):
+                return False, f"PROHIBITED_ISO_TP_SESSION_SID: 0x{sid:02X}"
+            if pci_type == 0x2:  # FC carries no payload bytes
+                carried = len(frame.data) - 1
+                if remaining - carried <= 0:
+                    del self._iso_tp_pending[frame.arbitration_id]  # session complete
+                else:
+                    self._iso_tp_pending[frame.arbitration_id] = (sid, remaining - carried)
+        return True, ""
 
     def is_frame_safe(self, frame: CanFrame) -> tuple[bool, str]:
         """Evaluate if a frame is safe to be transmitted onto a CAN bus during replay."""
@@ -229,34 +329,40 @@ class ReplaySafetyFilter:
                 return False, f"BLOCKED_TP_TUNNEL: {pgn} (0x{pgn:05X})"
 
             # ISO-TP / UDS over 29-bit (e.g. 0x18DAxxF1)
-            if self.block_diagnostic_write and pdu_format in {0xDA, 0xDB} and len(frame.data) >= 2:
-                sid = self._extract_uds_sid(frame)
-                prohibited = (
-                    sid is not None
-                    and (
-                        sid == self._UNKNOWN_SID
-                        or sid in self.PROHIBITED_UDS_SIDS
-                        or (self.block_actuator_routines and sid in self.ACTUATOR_UDS_SIDS)
-                    )
-                )
-                if prohibited:
-                    return False, f"PROHIBITED_29BIT_UDS_SID: 0x{sid:02X}"
+            if self.block_diagnostic_write and pdu_format in {0xDA, 0xDB}:
+                safe, reason = self._check_iso_tp_cf_fc(frame, is_diagnostic=True)
+                if not safe:
+                    return False, reason
+                if len(frame.data) >= 2:
+                    sid = self._extract_uds_sid(frame)
+                    if sid is not None:
+                        # CRITICAL-1: register the session BEFORE judging it —
+                        # a prohibited FF that is blocked without a ledger entry
+                        # would leave its CFs unaccounted for in tunneling-OFF
+                        # (analysis) mode, re-opening the exact CF bypass.
+                        if (frame.data[0] >> 4) & 0x0F == 0x1:
+                            self._register_first_frame(frame, sid)
+                        if self._prohibited_sid(sid):
+                            return False, f"PROHIBITED_29BIT_UDS_SID: 0x{sid:02X}"
 
         # 11-bit Standard Frame Evaluation (OBD-II / UDS)
         else:
-            if self.block_diagnostic_write and frame.arbitration_id in self.DIAGNOSTIC_11BIT_IDS:
+            # MEDIUM-1: a replayed frame on an ECU response ID is spoofed
+            # evidence by definition — block before any SID whitelisting.
+            if self.block_diagnostic_write and frame.arbitration_id in self.ECU_RESPONSE_11BIT_IDS:
+                return False, f"BLOCKED_ECU_RESPONSE_SPOOF: 0x{frame.arbitration_id:X}"
+            is_diag_id = frame.arbitration_id in self.DIAGNOSTIC_11BIT_IDS
+            if self.block_diagnostic_write and is_diag_id:
+                safe, reason = self._check_iso_tp_cf_fc(frame, is_diagnostic=True)
+                if not safe:
+                    return False, reason
                 if len(frame.data) >= 2:
                     sid = self._extract_uds_sid(frame)
-                    prohibited = (
-                        sid is not None
-                        and (
-                            sid == self._UNKNOWN_SID
-                            or sid in self.PROHIBITED_UDS_SIDS
-                            or (self.block_actuator_routines and sid in self.ACTUATOR_UDS_SIDS)
-                        )
-                    )
-                    if prohibited:
-                        return False, f"PROHIBITED_11BIT_UDS_SID: 0x{sid:02X}"
+                    if sid is not None:
+                        if (frame.data[0] >> 4) & 0x0F == 0x1:
+                            self._register_first_frame(frame, sid)
+                        if self._prohibited_sid(sid):
+                            return False, f"PROHIBITED_11BIT_UDS_SID: 0x{sid:02X}"
 
         return True, ""
 
@@ -270,8 +376,8 @@ class ReplaySafetyFilter:
                 "Replay Safety Filter BLOCKED unsafe frame",
                 extra={
                     "arbitration_id": hex(frame.arbitration_id),
-                    "reason": reason,
-                    "data": frame.data.hex(),
+                    "reason": str(reason)[:500],
+                    "data": frame.data.hex()[:16] + ("..." if len(frame.data.hex()) > 16 else ""),
                 },
             )
             return None

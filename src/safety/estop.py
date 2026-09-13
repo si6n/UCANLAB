@@ -33,6 +33,25 @@ logger = get_logger("safety.estop")
 DEFAULT_ESTOP_KEY_NAME: str = "ESTOP_HMAC_SECRET"
 DEFAULT_TOKEN_MAX_AGE_NS: int = 30_000_000_000  # 30 seconds
 
+# Token input bounds (fail-closed, memory/CPU DoS hardening).
+MAX_TOKEN_STRING_LEN: int = 512
+NONCE_HEX_LEN: int = 32  # 16 bytes -> 32 hex chars
+SIG_HEX_LEN: int = 64  # SHA-256 -> 64 hex chars
+ALLOWED_TOKEN_ACTIONS: frozenset[str] = frozenset({"ESTOP_RESET"})
+MAX_TOKEN_EPOCH: int = 2**63 - 1
+MAX_TOKEN_TIMESTAMP_NS: int = 2**63 - 1
+# Failed-reset backoff: exponential, capped.
+RESET_BACKOFF_BASE_SEC: float = 0.2
+RESET_BACKOFF_CAP_SEC: float = 5.0
+
+
+def _is_hex(value: str) -> bool:
+    try:
+        int(value, 16)
+        return True
+    except ValueError:
+        return False
+
 
 class EStopTriggerSource(Enum):
     """10 Distinct E-Stop Triggers."""
@@ -93,20 +112,38 @@ class EmergencyStopToken:
 
     @classmethod
     def from_token_string(cls, token_str: str) -> EmergencyStopToken:
-        """Parse token from canonical string format."""
-        parts = token_str.strip().split(":")
+        """Parse token from canonical string format (fail-closed bounds)."""
+        raw = token_str.strip()
+        if len(raw) > MAX_TOKEN_STRING_LEN:
+            raise ValueError(f"Token string exceeds {MAX_TOKEN_STRING_LEN} char limit ({len(raw)})")
+        parts = raw.split(":")
         if len(parts) != 5:
             raise ValueError(f"Invalid token format, expected 5 colon-separated fields (got {len(parts)})")
         try:
-            return cls(
-                epoch=int(parts[0]),
-                nonce=parts[1],
-                timestamp_monotonic_ns=int(parts[2]),
-                action=parts[3],
-                signature=parts[4],
-            )
+            epoch = int(parts[0])
+            nonce_hex = parts[1]
+            ts = int(parts[2])
+            action = parts[3]
+            sig = parts[4]
         except (ValueError, IndexError) as exc:
             raise ValueError(f"Malformed token fields: {exc}") from exc
+        if not (0 <= epoch <= MAX_TOKEN_EPOCH):
+            raise ValueError(f"Token epoch out of range: {epoch}")
+        if len(nonce_hex) != NONCE_HEX_LEN or not _is_hex(nonce_hex):
+            raise ValueError(f"Token nonce must be {NONCE_HEX_LEN} hex chars")
+        if not (0 <= ts <= MAX_TOKEN_TIMESTAMP_NS):
+            raise ValueError(f"Token timestamp out of range: {ts}")
+        if action not in ALLOWED_TOKEN_ACTIONS:
+            raise ValueError(f"Token action not allowlisted: {action!r}")
+        if len(sig) != SIG_HEX_LEN or not _is_hex(sig):
+            raise ValueError(f"Token signature must be {SIG_HEX_LEN} hex chars")
+        return cls(
+            epoch=epoch,
+            nonce=nonce_hex,
+            timestamp_monotonic_ns=ts,
+            action=action,
+            signature=sig,
+        )
 
 
 class EmergencyStopSystem:
@@ -172,6 +209,12 @@ class EmergencyStopSystem:
         self._tx_fence: int = 0
         self._tx_send_lock = threading.Lock()
         self._lock = threading.RLock()
+        # Failed-reset hardening: consecutive failure counter + backoff deadline.
+        self._failed_reset_attempts: int = 0
+        self._reset_backoff_until_ns: int = 0
+        # Abort/flush hooks: gateway registers a driver abort/flush callback
+        # so trigger() can request HAL-level cancellation after fencing.
+        self._abort_hooks: list[Callable[[], None]] = []
 
     @property
     def is_engaged(self) -> bool:
@@ -214,6 +257,24 @@ class EmergencyStopSystem:
         """
         return self._tx_send_lock
 
+    def advance_tx_fence(self, reason: str) -> None:
+        """Advance the TX fence generation without engaging the E-Stop.
+
+        REVIEW (bus rebind TOCTOU): a controlled HAL bus swap is a state
+        transition that validated frames must not survive — a frame
+        validated against the old channel must never dispatch onto the new
+        one. Gateway rebind_bus calls this while holding tx_send_lock so the
+        PHASE-3 fence re-check rejects in-flight frames fail-closed. The
+        bump never takes tx_send_lock itself (leaf-lock discipline), so it
+        is safe to call with the send lock already held.
+        """
+        with self._lock:
+            self._tx_fence += 1
+        logger.warning(
+            "E-Stop TX fence advanced (non-engagement state transition)",
+            extra={"reason": reason, "tx_fence": self._tx_fence},
+        )
+
     @property
     def active_challenge(self) -> EStopChallenge | None:
         """Return the currently active cryptographic challenge."""
@@ -225,23 +286,8 @@ class EmergencyStopSystem:
         """Return the bound SecretProvider instance."""
         return self._secret_provider
 
-    @property
-    def reset_secret(self) -> bytes:
-        """Retrieve current binary HMAC secret from SecretProvider.
-
-        For backward compatibility and test access, retrieves the binary secret
-        from the bound SecretProvider.
-        """
-        return self._get_secret()
-
-    @reset_secret.setter
-    def reset_secret(self, secret: bytes) -> None:
-        """Update binary HMAC secret in SecretProvider."""
-        with self._lock:
-            self._secret_provider.store_secret(self._key_name, bytes(secret))
-
     def _get_secret(self) -> bytes:
-        """Internal secret resolver."""
+        """Internal secret resolver (private — no public accessor by design)."""
         try:
             return self._secret_provider.get_secret(self._key_name)
         except Exception as exc:
@@ -380,6 +426,15 @@ class EmergencyStopSystem:
         with self._lock:
             self._callbacks.append(callback)
 
+    def register_abort_hook(self, hook: Callable[[], None]) -> None:
+        """Register a driver abort/flush hook invoked after fence publication on trigger().
+
+        Gateway wires its HAL abort/flush here so an engagement can request
+        driver-queue cancellation. Hooks run outside locks with isolation.
+        """
+        with self._lock:
+            self._abort_hooks.append(hook)
+
     def trigger(
         self,
         trigger: EStopTriggerSource,
@@ -416,11 +471,23 @@ class EmergencyStopSystem:
                 system_speed_kmh=vehicle_speed_kmh,
             )
             # CRITICAL-1: every engagement invalidates all in-flight validated
-            # frames — the fence generation advances atomically with the
-            # engagement under the estop lock.
+            # frames. The fence bump stays under the estop _lock and MUST NOT
+            # take tx_send_lock: a dispatch may block holding tx_send_lock
+            # inside driver I/O (see gateway test
+            # test_estop_callback_does_not_block_on_slow_driver_io) — if
+            # trigger() waited on tx_send_lock, the engagement itself would
+            # deadlock behind the in-flight send and the E-Stop callback
+            # would never fire. Coordination with the send path is via (a)
+            # the PHASE-3 fenced re-check in the gateway (any COMPLETED
+            # transition bumps the generation and kills validated frames
+            # still waiting for the fence) and (b) abort/flush hooks below
+            # that request HAL queue cancellation for the already-dispatched
+            # frame. Residual window (engagement landing between fence check
+            # and bus write) is documented at the gateway PHASE-3 site.
             self._tx_fence += 1
             event_snapshot = self._last_event
             callbacks_snapshot = list(self._callbacks)
+            abort_snapshot = list(self._abort_hooks)
 
         logger.critical(
             "EMERGENCY STOP ENGAGED",
@@ -438,20 +505,77 @@ class EmergencyStopSystem:
                 cb(event_snapshot)
             except Exception as exc:
                 logger.error("Error in E-Stop callback", extra={"error": str(exc)})
+        # Driver abort/flush hooks: request HAL queue cancellation outside locks.
+        for hook in abort_snapshot:
+            try:
+                hook()
+            except Exception as exc:
+                logger.error("Error in E-Stop abort hook", extra={"error": str(exc)})
+
+    def _reset_failure(self, reason: str, sig_prefix: str = "") -> SafetyError:
+        """Record a failed reset: counter + exponential backoff + audit log.
+
+        The first consecutive failure does NOT arm the cooldown (tolerates a
+        single operator typo / stale-token retry); persistence (>=2) is
+        throttled with exponential backoff capped at RESET_BACKOFF_CAP_SEC.
+        Sustained online guessing is still rate-limited; a lone mistake is not
+        punished with a lockout.
+        """
+        self._failed_reset_attempts += 1
+        backoff_sec = 0.0
+        if self._failed_reset_attempts >= 2:
+            # Cap the exponent BEFORE shifting: 0.2 * 2**5 = 6.4 > 5.0 cap, so
+            # shifts beyond 5 never change the result but would overflow float
+            # (and int->float conversion) under hammering.
+            shift = min(self._failed_reset_attempts - 2, 5)
+            backoff_sec = min(RESET_BACKOFF_BASE_SEC * (2**shift), RESET_BACKOFF_CAP_SEC)
+            self._reset_backoff_until_ns = time.monotonic_ns() + int(backoff_sec * 1_000_000_000)
+        level = "CRITICAL" if self._failed_reset_attempts >= 5 else "WARNING"
+        if level == "CRITICAL":
+            logger.critical(
+                "E-Stop reset denied (repeated failures)",
+                extra={
+                    "reason": reason,
+                    "attempts": self._failed_reset_attempts,
+                    "backoff_sec": round(backoff_sec, 3),
+                    "sig_prefix": sig_prefix[:8],
+                    "epoch": self._epoch,
+                },
+            )
+        else:
+            logger.warning(
+                "E-Stop reset denied",
+                extra={
+                    "reason": reason,
+                    "attempts": self._failed_reset_attempts,
+                    "backoff_sec": round(backoff_sec, 3),
+                    "sig_prefix": sig_prefix[:8],
+                    "epoch": self._epoch,
+                },
+            )
+        return SafetyError(reason, code="ESTOP_RESET_DENIED")
+
+    @property
+    def failed_reset_attempts(self) -> int:
+        """Consecutive failed reset counter (reset on success)."""
+        with self._lock:
+            return self._failed_reset_attempts
 
     def reset(self, authorization_token: str | EmergencyStopToken) -> None:
         """Manual reset of E-Stop requiring a valid replay-protected challenge-response token."""
+        # Phase 1: verify + mutate engagement state under _lock (no tx_send_lock nesting).
+        needs_fence_bump = False
         with self._lock:
             if not self._is_engaged:
                 return  # No-op when not engaged
 
             if self._active_challenge is None:
-                raise SafetyError("No active E-Stop challenge available", code="ESTOP_RESET_DENIED")
+                raise self._reset_failure("No active E-Stop challenge available")
 
             challenge = self._active_challenge
             now_monotonic_ns = time.monotonic_ns()
 
-            # 1. Parse token input
+            # 1. Parse token input (fail-closed bounds; raw strings capped too).
             token_epoch: int
             token_nonce_hex: str
             token_ts: int
@@ -464,10 +588,26 @@ class EmergencyStopSystem:
                 token_ts = authorization_token.timestamp_monotonic_ns
                 token_action = authorization_token.action
                 sig = authorization_token.signature
+                # Field bounds for object path (same limits as string parsing).
+                if not (0 <= token_epoch <= MAX_TOKEN_EPOCH):
+                    raise self._reset_failure(f"Token epoch out of range: {token_epoch}", sig)
+                if len(token_nonce_hex) != NONCE_HEX_LEN or not _is_hex(token_nonce_hex):
+                    raise self._reset_failure("E-Stop token nonce mismatch", token_nonce_hex)
+                if not (0 <= token_ts <= MAX_TOKEN_TIMESTAMP_NS):
+                    raise self._reset_failure("E-Stop reset token timestamp expired", sig)
+                if token_action not in ALLOWED_TOKEN_ACTIONS:
+                    raise self._reset_failure("Invalid E-Stop token action", sig)
+                if len(sig) != SIG_HEX_LEN or not _is_hex(sig):
+                    raise self._reset_failure("Invalid E-Stop reset token", sig)
             elif isinstance(authorization_token, str):
                 token_str = authorization_token.strip()
                 if not token_str:
-                    raise SafetyError("Invalid E-Stop reset token", code="ESTOP_RESET_DENIED")
+                    raise self._reset_failure("Invalid E-Stop reset token")
+                if len(token_str) > MAX_TOKEN_STRING_LEN:
+                    raise self._reset_failure(
+                        f"E-Stop reset token exceeds {MAX_TOKEN_STRING_LEN} char limit",
+                        token_str,
+                    )
 
                 if ":" in token_str:
                     try:
@@ -478,63 +618,58 @@ class EmergencyStopSystem:
                         token_action = parsed.action
                         sig = parsed.signature
                     except ValueError as exc:
-                        raise SafetyError(
+                        raise self._reset_failure(
                             f"Malformed E-Stop reset token structure: {exc}",
-                            code="ESTOP_RESET_DENIED",
-                            cause=exc,
+                            token_str,
                         ) from exc
                 else:
                     # Raw signature submitted against current active challenge
+                    if len(token_str) > MAX_TOKEN_STRING_LEN:
+                        raise self._reset_failure("E-Stop reset token exceeds length limit", token_str)
                     token_epoch = challenge.epoch
                     token_nonce_hex = challenge.nonce.hex()
                     token_ts = challenge.timestamp_monotonic_ns
                     token_action = challenge.action
                     sig = token_str
             else:
-                raise SafetyError(
+                raise self._reset_failure(
                     f"Unsupported token type: {type(authorization_token).__name__}",
-                    code="ESTOP_RESET_DENIED",
                 )
 
             # 2. Anti-Replay: Check if nonce was already consumed
             if challenge.nonce in self._consumed_nonces:
-                raise SafetyError(
+                raise self._reset_failure(
                     "E-Stop token nonce has already been consumed (Replay Attack)",
-                    code="ESTOP_RESET_DENIED",
+                    sig,
                 )
 
             # 3. Epoch verification
             if token_epoch != challenge.epoch or token_epoch != self._epoch:
-                raise SafetyError(
+                raise self._reset_failure(
                     "E-Stop token epoch mismatch (Replay or Stale Trigger)",
-                    code="ESTOP_RESET_DENIED",
+                    sig,
                 )
 
             # 4. Action verification
             if token_action != "ESTOP_RESET":
-                raise SafetyError("Invalid E-Stop token action", code="ESTOP_RESET_DENIED")
+                raise self._reset_failure("Invalid E-Stop token action", sig)
 
             # 5. Nonce match verification
             if token_nonce_hex.lower() != challenge.nonce.hex().lower():
-                raise SafetyError("E-Stop token nonce mismatch", code="ESTOP_RESET_DENIED")
+                raise self._reset_failure("E-Stop token nonce mismatch", sig)
 
             # 6. TTL / Expiration Check (using monotonic clock)
             age_ns = now_monotonic_ns - challenge.timestamp_monotonic_ns
             if age_ns > challenge.max_age_ns or age_ns < 0:
                 self._active_challenge = None
-                raise SafetyError("E-Stop reset token expired", code="ESTOP_RESET_DENIED")
+                raise self._reset_failure("E-Stop reset token expired", sig)
 
             token_age_ns = now_monotonic_ns - token_ts
             if token_age_ns > challenge.max_age_ns or token_age_ns < 0:
                 self._active_challenge = None
-                raise SafetyError("E-Stop reset token timestamp expired", code="ESTOP_RESET_DENIED")
+                raise self._reset_failure("E-Stop reset token timestamp expired", sig)
 
             # 7. Constant-Time HMAC Signature Verification
-            # P1-11: parse to bytes FIRST — hmac.compare_digest rejects
-            # non-ASCII str inputs with a bare TypeError (crashing the UI
-            # reset flow); a malformed hex signature must surface as a
-            # SafetyError instead. Comparing bytes also removes the .lower()
-            # dance entirely.
             secret = self._get_secret()
             structured_payload = challenge.serialize_for_signature()
             expected_sig_bytes = hmac.new(secret, structured_payload, hashlib.sha256).digest()
@@ -542,33 +677,38 @@ class EmergencyStopSystem:
             try:
                 sig_bytes = bytes.fromhex(sig.strip())
             except ValueError as exc:
-                raise SafetyError(
+                raise self._reset_failure(
                     f"Invalid E-Stop reset token signature format: {exc}",
-                    code="ESTOP_RESET_DENIED",
-                    cause=exc,
+                    sig,
                 ) from exc
 
             is_valid = hmac.compare_digest(sig_bytes, expected_sig_bytes)
 
-            if not is_valid:
-                raise SafetyError("Invalid E-Stop reset token", code="ESTOP_RESET_DENIED")
+            if is_valid:
+                pass  # valid operator credential bypasses the guess-throttle below
+            elif now_monotonic_ns < self._reset_backoff_until_ns:
+                raise self._reset_failure("E-Stop reset rate-limited (backoff active)", sig)
+            else:
+                raise self._reset_failure("Invalid E-Stop reset token", sig)
 
             # 8. Success: Consume nonce, advance epoch, disengage E-Stop
-            # B9: bounded replay window — see _record_consumed_nonce for why
-            # eviction is safe against replay.
             self._record_consumed_nonce(challenge.nonce)
             self._is_engaged = False
-            # B10: keep the engagement audit record — only the challenge state
-            # is cleared; last_event remains the "why did we stop" evidence.
             self._active_challenge = None
             self._epoch += 1
-            # CRITICAL-1: an authorized reset is also a TX state transition —
-            # any frame validated before the reset (against the engaged or
-            # the pre-engagement generation) must not be dispatched after it.
-            self._tx_fence += 1
+            self._failed_reset_attempts = 0
+            self._reset_backoff_until_ns = 0
+            success_epoch = self._epoch
+            needs_fence_bump = True
+
+        # Phase 2: fence publication under tx_send_lock only (consistent ordering).
+        if needs_fence_bump:
+            with self._tx_send_lock:
+                with self._lock:
+                    self._tx_fence += 1
             logger.warning(
                 "Emergency Stop successfully reset by authorized operator",
-                extra={"epoch": self._epoch},
+                extra={"epoch": success_epoch},
             )
 
     def _record_consumed_nonce(self, nonce: bytes) -> None:

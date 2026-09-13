@@ -25,16 +25,47 @@ from src.core.models.can_frame import CanFrame, dlc_to_length, length_to_dlc
 
 logger = get_logger("hal.replay.parsers")
 
+MAX_TRACE_LINE_CHARS: int = 4096
+MAX_TRACE_FILE_BYTES: int = 256 * 1024 * 1024
+MAX_TRACE_FRAMES: int = 5_000_000
+
+
+def _resolve_trace_path(file_path: str | Path) -> Path:
+    path = Path(file_path)
+    if path.is_symlink():
+        raise ValueError(f"Trace file must not be a symlink: {file_path!r}")
+    resolved = path.resolve()
+    if resolved.is_symlink():
+        raise ValueError(f"Trace file must not be a symlink: {file_path!r}")
+    if not resolved.exists():
+        raise FileNotFoundError(f"Trace file not found: {path}")
+    try:
+        if resolved.stat().st_size > MAX_TRACE_FILE_BYTES:
+            raise ValueError(
+                f"Trace file exceeds {MAX_TRACE_FILE_BYTES} bytes: {path}"
+            )
+    except OSError as exc:
+        raise FileNotFoundError(f"Trace file not found: {path}") from exc
+    return resolved
+
+
+def _check_frame_cap(count: int) -> None:
+    if count >= MAX_TRACE_FRAMES:
+        raise ValueError(f"Trace frame cap exceeded ({MAX_TRACE_FRAMES})")
+
+
 # Standard Vector ASCII log line regex
 # Example: "   0.001250 1  18FEEE00x       Rx   d 8 01 02 03 04 05 06 07 08"
+# ReDoS guard: data group is bounded (classic <= 8 payload bytes).
 CLASSIC_ASC_REGEX = re.compile(
-    r"^\s*(?P<time>\d+\.\d+)\s+(?P<channel>\d+)\s+(?P<id>[0-9A-Fa-f]+)(?P<ext>x)?\s+(?P<dir>Rx|Tx)\s+d\s+(?P<dlc>\d+)(?:\s+(?P<data>(?:[0-9A-Fa-f]{2}\s*)*))?"
+    r"^\s*(?P<time>\d+\.\d+)\s+(?P<channel>\d+)\s+(?P<id>[0-9A-Fa-f]+)(?P<ext>x)?\s+(?P<dir>Rx|Tx)\s+d\s+(?P<dlc>\d+)(?:\s+(?P<data>(?:[0-9A-Fa-f]{2}[ \t]*){0,8}))?"
 )
 
 # CAN-FD Vector ASCII log line regex
 # Example: "   0.002500 CANFD 1 Rx 123 1 0 12 12 01 02 03 04 05 06 07 08 09 0A 0B 0C"
+# ReDoS guard: data group is bounded (FD <= 64 payload bytes).
 FD_ASC_REGEX = re.compile(
-    r"^\s*(?P<time>\d+\.\d+)\s+CANFD\s+(?P<channel>\d+)\s+(?P<dir>Rx|Tx)\s+(?P<id>[0-9A-Fa-f]+)(?P<ext>x)?\s+(?P<brs>[01])\s+(?P<esi>[01])\s+(?P<dlc>[0-9A-Fa-f]+)\s+(?P<len>\d+)(?:\s+(?P<data>(?:[0-9A-Fa-f]{2}\s*)*))?"
+    r"^\s*(?P<time>\d+\.\d+)\s+CANFD\s+(?P<channel>\d+)\s+(?P<dir>Rx|Tx)\s+(?P<id>[0-9A-Fa-f]+)(?P<ext>x)?\s+(?P<brs>[01])\s+(?P<esi>[01])\s+(?P<dlc>[0-9A-Fa-f]+)\s+(?P<len>\d+)(?:\s+(?P<data>(?:[0-9A-Fa-f]{2}[ \t]*){0,64}))?"
 )
 
 
@@ -56,12 +87,17 @@ class VectorAscParser:
         cls, file_path: str | Path, channel_prefix: str = "ch"
     ) -> Iterator[CanFrame]:
         """Stream-parse .asc frames lazily (memory-friendly for huge traces)."""
-        path = Path(file_path)
-        if not path.exists():
-            raise FileNotFoundError(f"Trace file not found: {path}")
+        path = _resolve_trace_path(file_path)
 
+        yielded = 0
         with open(path, "r", encoding="utf-8", errors="ignore") as f:
             for line_no, line in enumerate(f, 1):
+                if len(line) > MAX_TRACE_LINE_CHARS + 1:
+                    logger.warning(
+                        "Skipping overlong ASC line",
+                        extra={"line_no": line_no, "length": len(line)},
+                    )
+                    continue
                 try:
                     frame = cls.parse_line(line, line_no, channel_prefix)
                 except ValueError as exc:
@@ -71,11 +107,15 @@ class VectorAscParser:
                     )
                     continue
                 if frame is not None:
+                    _check_frame_cap(yielded)
+                    yielded += 1
                     yield frame
 
     @classmethod
     def parse_line(cls, line: str, line_no: int = 1, channel_prefix: str = "ch") -> CanFrame | None:
         """Parse single ASCII line. Returns None for comments and header lines."""
+        if len(line) > MAX_TRACE_LINE_CHARS + 1:
+            raise ValueError(f"ASC line exceeds {MAX_TRACE_LINE_CHARS} chars")
         line = line.strip()
         if not line or line.startswith(("//", "date", "base")):
             return None
@@ -183,9 +223,7 @@ class CsvParser:
     @classmethod
     def parse_file(cls, file_path: str | Path) -> list[CanFrame]:
         """Parse a CSV trace file into a chronological CanFrame list."""
-        path = Path(file_path)
-        if not path.exists():
-            raise FileNotFoundError(f"Trace file not found: {path}")
+        path = _resolve_trace_path(file_path)
 
         frames: list[CanFrame] = []
         with open(path, "r", encoding="utf-8", newline="", errors="ignore") as f:
@@ -203,6 +241,17 @@ class CsvParser:
                 return frames
 
             for row_no, row in enumerate(reader, 2):  # row 1 is the header
+                _check_frame_cap(len(frames))
+                try:
+                    raw_len = sum(len(v) for v in row.values() if isinstance(v, str))
+                except Exception:
+                    raw_len = 0
+                if raw_len > MAX_TRACE_LINE_CHARS:
+                    logger.warning(
+                        "Skipping overlong CSV row",
+                        extra={"row": row_no, "length": raw_len},
+                    )
+                    continue
                 frame = cls._parse_row(row, col, path.stem, row_no)
                 if frame is not None:
                     frames.append(frame)
@@ -273,17 +322,42 @@ class CsvParser:
             (row.get(col["channel"]) or "").strip() if col.get("channel") and (row.get(col["channel"]) or "").strip() else default_channel
         )
 
-        return CanFrame(
-            channel_id=channel,
-            arbitration_id=arb_id,
-            dlc=dlc,
-            data=data_bytes,
-            is_extended=is_extended,
-            is_fd=False,
-            direction=direction,
-            timestamp_ns=int(time_sec * 1_000_000_000),
-            source="replay",
-        )
+        # Y-06 parity (REVIEW HIGH): CanFrame.__post_init__ invariants (classic
+        # DLC<=8, exact DLC/payload-length match) can still reject this row —
+        # the contract promises one malformed row never aborts the whole load.
+        # CSV frames are classic CAN (is_fd fixed False).
+        # REVIEW (out-of-range dlc): dlc_to_length raises bare for codes
+        # outside 0..15 — the try begins AFTER it, so a stray "16"/"-1" in
+        # the dlc column used to kill the whole load. Reject in-row instead.
+        if not (0 <= dlc <= 8):
+            logger.warning(
+                "Skipping CSV row with out-of-range DLC",
+                extra={"row": row_no, "dlc": dlc},
+            )
+            return None
+        expected_len = dlc_to_length(dlc)
+        if len(data_bytes) != expected_len:
+            logger.warning(
+                "Skipping CSV row with DLC/payload invariant violation",
+                extra={"row": row_no, "dlc": dlc, "payload_len": len(data_bytes)},
+            )
+            return None
+
+        try:
+            return CanFrame(
+                channel_id=channel,
+                arbitration_id=arb_id,
+                dlc=dlc,
+                data=data_bytes,
+                is_extended=is_extended,
+                is_fd=False,
+                direction=direction,
+                timestamp_ns=int(time_sec * 1_000_000_000),
+                source="replay",
+            )
+        except ValueError as exc:
+            logger.warning("Skipping malformed CSV row", extra={"row": row_no, "error": str(exc)})
+            return None
 
 
 class VectorBlfParser:
@@ -292,14 +366,13 @@ class VectorBlfParser:
     @classmethod
     def parse_file(cls, file_path: str | Path, channel_prefix: str = "ch") -> list[CanFrame]:
         """Parse complete .blf file into chronological CanFrame list."""
-        path = Path(file_path)
-        if not path.exists():
-            raise FileNotFoundError(f"Trace file not found: {path}")
+        path = _resolve_trace_path(file_path)
 
         frames: list[CanFrame] = []
         try:
             reader = can.BLFReader(str(path))
             for msg in reader:
+                _check_frame_cap(len(frames))
                 try:
                     frame = cls._convert_message(msg, channel_prefix=channel_prefix)
                     if frame is not None:

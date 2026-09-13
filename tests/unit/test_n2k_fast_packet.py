@@ -60,16 +60,25 @@ def test_decode_engine_rapid() -> None:
 
 
 def test_decode_fluid_level() -> None:
-    # Fluid Type: Fuel (0), Instance: 1 -> Byte 0 = 0x10
+    # REVIEW 1-H1 fix: Instance occupies the LOW nibble, Type the HIGH nibble
+    # (canboat DBC "fluidLevel"). Fuel (0) tank #1 -> Byte 0 = 0x01.
     # Level: 75.0% -> 75.0 / 0.004 = 18750 = 0x493E -> 0x3E, 0x49
     # Capacity: 500 L -> 500 / 0.1 = 5000 = 0x1388 -> 0x88, 0x13, 0x00, 0x00
-    data = b"\x10\x3e\x49\x88\x13\x00\x00\xff"
+    data = b"\x01\x3e\x49\x88\x13\x00\x00\xff"
     res = Nmea2000PgnDecoder.decode_fluid_level(data)
     assert res is not None
     assert res.fluid_type == "fuel"
     assert res.fluid_instance == 1
     assert res.level_percent == 75.0
     assert res.capacity_liters == 500.0
+
+    # Instance 2, fresh water (1) -> Byte 0 = 0x12 — the exact case the old
+    # swapped decoder mislabelled as "fuel tank #2".
+    data2 = b"\x12\x3e\x49\x88\x13\x00\x00\xff"
+    res2 = Nmea2000PgnDecoder.decode_fluid_level(data2)
+    assert res2 is not None
+    assert res2.fluid_type == "fresh_water"
+    assert res2.fluid_instance == 2
 
 
 def _fp_first_frame(total_bytes: int, pgn_id: int = 0x19F20100, seq: int = 0, payload: bytes = b"") -> CanFrame:
@@ -166,3 +175,75 @@ def test_n2k_timeout_evicts_session() -> None:
     # Any subsequent frame triggers the expired-session sweep first
     decoder.handle_rx_frame(_fp_next_frame(1, b"\x41" * 7))
     assert len(decoder._sessions) == 0
+
+
+def test_n2k_single_frame_pgn_never_opens_session() -> None:
+    """REVIEW 1-H3: single-frame PGNs (127488/127493/128267/127505) whose
+    data[0]/data[1] mimic a fast-packet first frame must NOT open sessions —
+    the old PGN-agnostic filter swallowed the real single-frame signal.
+    """
+    from src.protocols.nmea2000.fast_packet import FAST_PACKET_PGNS
+
+    for pgn, arb in ((127488, 0x19F10000), (127493, 0x19F104FF), (128267, 0x1F20D00), (127505, 0x1F21100)):
+        assert pgn not in FAST_PACKET_PGNS, f"PGN {pgn} must stay single-frame"
+        # data[1]=16 (9..223 range) with a normal engine-rapid payload —
+        # the exact pattern that used to open a phantom 16-byte session.
+        mimic = CanFrame.create(
+            channel_id="n2k",
+            arbitration_id=arb,
+            data=b"\x00\x10\x40\x1f\xdc\x05\x0a\xff",
+            is_extended=True,
+        )
+        decoder = Nmea2000FastPacketDecoder()
+        assert decoder.handle_rx_frame(mimic) is None
+        assert len(decoder._sessions) == 0
+
+
+def test_n2k_pgn_library_fluid_pgn_is_127505() -> None:
+    """REVIEW 1-H1: the Fluid Level PGN constant must be 127505 (the real
+    NMEA 2000 Fluid Level message), never 127497 (Trip Parameters, Engine —
+    a Fast-Packet message per canboat DBC).
+    """
+    from src.protocols.nmea2000.fast_packet import FAST_PACKET_PGNS
+    from src.protocols.nmea2000.pgn_library import PGN_FLUID_LEVEL
+
+    assert PGN_FLUID_LEVEL == 127505
+    assert 127505 not in FAST_PACKET_PGNS  # fluid level is single-frame
+    assert 127497 in FAST_PACKET_PGNS  # trip parameters IS fast-packet (canboat)
+
+
+def test_n2k_engine_dynamic_load_byte24_and_signed() -> None:
+    """REVIEW 1-H2: Engine Load reads byte 24 (not 21), Torque byte 25;
+    Alternator Voltage & Fuel Rate decode as SIGNED int16.
+    """
+    # 26-byte fast-packet payload: instance 0, oil P 250 kPa, oil T 90 C,
+    # coolant 88 C, voltage +14.5 V (1450 = 0x05AA), fuel rate -1.5 L/h
+    # (-15 = 0xFFF1 two's complement), hours 12345 s, status bytes 15..23,
+    # load 87 % at byte 24, torque -12 % at byte 25 (0xF4).
+    buf = bytearray(26)
+    buf[0] = 0x00
+    buf[1:3] = (2500).to_bytes(2, "little")  # 2500 * 100 Pa = 250 kPa
+    buf[3:5] = int((90 + 273.15) * 10).to_bytes(2, "little")
+    buf[5:7] = int((88 + 273.15) * 100).to_bytes(2, "little")
+    buf[7:9] = (1450).to_bytes(2, "little")  # +14.50 V
+    buf[9:11] = (-15 & 0xFFFF).to_bytes(2, "little")  # -1.5 L/h
+    buf[11:15] = (12345).to_bytes(4, "little")
+    buf[24] = 87  # Engine Load at byte 24
+    buf[25] = (-12) & 0xFF  # Engine Torque -12% (signed int8)
+
+    res = Nmea2000PgnDecoder.decode_engine_dynamic(bytes(buf))
+    assert res is not None
+    assert res.engine_load_percent == 87
+    assert res.engine_torque_percent == -12
+    assert res.alternator_voltage_v == 14.5
+    assert res.fuel_rate_lph == -1.5
+
+    # Signed edge: 0x8000 (most-negative int16) must yield None, not a
+    # physically impossible 327.68 V / -3276.8 L/h reading.
+    buf2 = bytearray(26)
+    buf2[7:9] = (0x8000).to_bytes(2, "little")
+    buf2[9:11] = (0x8000).to_bytes(2, "little")
+    res2 = Nmea2000PgnDecoder.decode_engine_dynamic(bytes(buf2))
+    assert res2 is not None
+    assert res2.alternator_voltage_v is None
+    assert res2.fuel_rate_lph is None

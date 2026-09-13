@@ -59,7 +59,7 @@ def test_updater_manifest_detection() -> None:
         "release_notes": "Added CAN-FD ADAS filter and 14 benchmark traces",
         "mandatory": True,
     }
-    info = updater.check_for_updates(custom_manifest=manifest)
+    info = updater._check_for_updates_unverified(custom_manifest=manifest)
 
     assert info.has_update is True
     assert info.latest_version == "13.1.0"
@@ -115,7 +115,9 @@ def test_updater_rejects_hashless_package() -> None:
         "sha256": "",  # missing integrity anchor
         "size_bytes": 100,
     }
-    info = updater.check_for_updates(custom_manifest=manifest)
+    # REVIEW hardening: unsigned custom_manifest path removed from production;
+    # tests exercise the explicit test-only parser.
+    info = updater._check_for_updates_unverified(custom_manifest=manifest)
     assert info.has_update is True
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -132,7 +134,7 @@ def test_updater_rejects_non_https_download_url() -> None:
         "download_url": "http://example.com/update-insecure.exe",
         "sha256": "a" * 64,
     }
-    info = updater.check_for_updates(custom_manifest=manifest)
+    info = updater._check_for_updates_unverified(custom_manifest=manifest)
 
     with tempfile.TemporaryDirectory() as tmpdir:
         dest = Path(tmpdir) / "update.exe"
@@ -157,3 +159,121 @@ def test_cloud_config_rejects_non_loopback_http() -> None:
     # HTTPS always allowed
     cfg_https = CloudConfig(base_url="https://cloud.universal-can.example.com")
     assert cfg_https.endpoint("/health", health_endpoint=True).startswith("https://")
+
+
+def test_updater_rejects_when_signature_required_without_public_key() -> None:
+    """Fail-closed: require_signature=True with public_key=None must reject download immediately."""
+    updater = UpdateManager(current_version="13.0.0", public_key=None, require_signature=True)
+    manifest = {
+        "version": "13.1.0",
+        "download_url": "https://cloud.universalcan.io/update.exe",
+        "sha256": "a" * 64,
+        "signature": "sig_dummy_base64",
+    }
+    info = updater._check_for_updates_unverified(custom_manifest=manifest)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        dest = Path(tmpdir) / "update.exe"
+        assert updater.download_update(info, dest) is False
+        assert not dest.exists()
+
+
+def test_updater_signature_verification_flow(monkeypatch) -> None:
+    """Validate Ed25519 signature verified download flow."""
+    import base64
+    import io
+    import urllib.request
+    from http.client import HTTPResponse
+
+    priv_key = ed25519.Ed25519PrivateKey.generate()
+    pub_key = priv_key.public_key()
+
+    payload = b"Universal-CAN-Update-Binary-Payload-2026"
+    sig = priv_key.sign(payload)
+    sig_b64 = base64.b64encode(sig).decode("ascii")
+    sha256 = hashlib.sha256(payload).hexdigest()
+
+    updater = UpdateManager(current_version="13.0.0", public_key=pub_key, require_signature=True)
+    manifest = {
+        "version": "13.1.0",
+        "download_url": "https://cloud.universalcan.io/update.exe",
+        "sha256": sha256,
+        "signature": sig_b64,
+        "size_bytes": len(payload),
+    }
+    info = updater._check_for_updates_unverified(custom_manifest=manifest)
+
+    # Mock urllib opener to return the payload
+    class FakeResponse(io.BytesIO):
+        headers = {"Content-Length": str(len(payload))}
+
+    monkeypatch.setattr(
+        urllib.request.OpenerDirector,
+        "open",
+        lambda self, req, timeout=60: FakeResponse(payload),
+    )
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        monkeypatch.setattr(UpdateManager, "_updates_root", classmethod(lambda cls: Path(tmpdir)))
+        dest = Path(tmpdir) / "update.exe"
+        assert updater.download_update(info, dest) is True
+        expected_dest = Path(tmpdir) / "13.1.0" / "update.exe"
+        assert expected_dest.exists()
+        assert expected_dest.read_bytes() == payload
+
+
+def test_updater_concurrent_downloads_temp_isolation(monkeypatch) -> None:
+    """Validate that concurrent download calls do not collide on temp files."""
+    import base64
+    import io
+    import threading
+    import urllib.request
+
+    priv_key = ed25519.Ed25519PrivateKey.generate()
+    pub_key = priv_key.public_key()
+
+    payload = b"Concurrent-Update-Binary-Payload"
+    sig = priv_key.sign(payload)
+    sig_b64 = base64.b64encode(sig).decode("ascii")
+    sha256 = hashlib.sha256(payload).hexdigest()
+
+    updater = UpdateManager(current_version="13.0.0", public_key=pub_key, require_signature=True)
+    manifest = {
+        "version": "13.1.0",
+        "download_url": "https://cloud.universalcan.io/update.exe",
+        "sha256": sha256,
+        "signature": sig_b64,
+        "size_bytes": len(payload),
+    }
+    info = updater._check_for_updates_unverified(custom_manifest=manifest)
+
+    class FakeResponse(io.BytesIO):
+        headers = {"Content-Length": str(len(payload))}
+
+    monkeypatch.setattr(
+        urllib.request.OpenerDirector,
+        "open",
+        lambda self, req, timeout=60: FakeResponse(payload),
+    )
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        monkeypatch.setattr(UpdateManager, "_updates_root", classmethod(lambda cls: Path(tmpdir)))
+        results: list[bool] = []
+
+        def worker() -> None:
+            res = updater.download_update(info, "update.exe")
+            results.append(res)
+
+        threads = [threading.Thread(target=worker) for _ in range(5)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert len(results) == 5
+        assert all(results)
+        expected_dest = Path(tmpdir) / "13.1.0" / "update.exe"
+        assert expected_dest.exists()
+        assert expected_dest.read_bytes() == payload
+
+

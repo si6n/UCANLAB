@@ -464,18 +464,29 @@ def test_safety_wiring_desktop_api_bridge_estop_and_recovery_flow() -> None:
 def test_safety_wiring_non_whitelisted_id_trips_estop_and_cuts_off_tx() -> None:
     """Verify that transmitting a non-whitelisted frame through SafeMultiplexedBus
 
-    triggers WhitelistViolation, immediately trips E-Stop, and locks down subsequent TX.
+    triggers WhitelistViolation, trips E-Stop on a sustained violation
+    pattern, and locks down subsequent TX.
+
+    REVIEW hardening: an isolated whitelist miss is reject+alarm; the
+    E-Stop + supervisor FAULT lockdown latches once the miss streak reaches
+    TxSafetyGateway.WHITELIST_ESTOP_AFTER consecutive violations (sustained
+    abuse), not on the first frame.
     """
     harness = SafetyWiringHarness(whitelist_ids={0x7E0})  # 0x123 is not whitelisted
 
     bad_frame = CanFrame.create(channel_id="vcan_test", arbitration_id=0x123, data=b"\xDE\xAD\xBE\xEF")
     good_frame = CanFrame.create(channel_id="vcan_test", arbitration_id=0x7E0, data=b"\x02\x10\x01")
 
-    # Attempt to transmit unauthorized frame
+    # Isolated miss: rejected, no latch yet
     with pytest.raises(SafetyError):
         harness.safe_bus.send(bad_frame)
+    assert harness.estop.is_engaged is False
 
-    # Verify unauthorized payload tripped E-Stop and supervisor FAULT
+    # Sustained violation pattern trips E-Stop and supervisor FAULT
+    for _ in range(TxSafetyGateway.WHITELIST_ESTOP_AFTER - 1):
+        with pytest.raises(SafetyError):
+            harness.safe_bus.send(bad_frame)
+
     assert harness.estop.is_engaged is True
     assert harness.estop.last_event is not None
     assert harness.estop.last_event.trigger == EStopTriggerSource.UNAUTHORIZED_PAYLOAD

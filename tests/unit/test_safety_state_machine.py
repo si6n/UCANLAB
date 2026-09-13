@@ -113,7 +113,7 @@ def test_safety_state_machine_direct_force_fault() -> None:
     def _cb(old: SafetyState, new: SafetyState, reason: str) -> None:
         events.append((old, new, reason))
 
-    supervisor = SafetySupervisor(initial_state=SafetyState.ACTIVE)
+    supervisor = SafetySupervisor(initial_state=SafetyState.STARTUP)
     supervisor.register_callback(_cb)
 
     supervisor._force_fault("Emergency hardware line tripped")
@@ -121,7 +121,7 @@ def test_safety_state_machine_direct_force_fault() -> None:
     assert supervisor.epoch == 1
     assert supervisor.fault_reason == "Emergency hardware line tripped"
     assert len(events) == 1
-    assert events[0] == (SafetyState.ACTIVE, SafetyState.FAULT, "Emergency hardware line tripped")
+    assert events[0] == (SafetyState.STARTUP, SafetyState.FAULT, "Emergency hardware line tripped")
 
     # Second _force_fault with identical reason is a no-op
     supervisor._force_fault("Emergency hardware line tripped")

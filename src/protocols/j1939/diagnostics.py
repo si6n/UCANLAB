@@ -125,6 +125,10 @@ class DMMessage:
     protect_lamp: LampStatus
     dtcs: list[DiagnosticTroubleCode]
     timestamp_ns: int
+    # REVIEW hardening: trailing bytes that do not form a complete DTC
+    # record mark the frame MALFORMED (truncated/ragged payload) instead
+    # of being silently dropped.
+    malformed: bool = False
 
 
 @dataclass(slots=True, frozen=True)
@@ -143,19 +147,24 @@ class J1939DiagnosticService:
     """SAE J1939-73 Diagnostic Service Parser and Command Generator."""
 
     @classmethod
-    def parse_dm1_or_dm2(cls, data: bytes, pgn: int, source_address: int = 0, timestamp_ns: int = 0) -> DMMessage:
-        """Parse raw payload from DM1 (PGN 65226) or DM2 (PGN 65227)."""
+    def parse_dm1_or_dm2(
+        cls, data: bytes, pgn: int, source_address: int = 0, timestamp_ns: int = 0
+    ) -> DMMessage | None:
+        """Parse raw payload from DM1 (PGN 65226) or DM2 (PGN 65227).
+
+        REVIEW hardening (fail-closed): payloads shorter than 2 bytes
+        carry no lamp byte and no DTC record — returning an empty
+        "all-OFF" message would hide active faults (false negative).
+        Such frames now return None (nothing trustworthy to report).
+        Trailing bytes that do not form a complete 4-byte DTC record
+        set ``malformed=True`` on the returned message.
+        """
         if len(data) < 2:
-            return DMMessage(
-                pgn=pgn,
-                source_address=source_address,
-                malfunction_indicator_lamp=LampStatus.NOT_AVAILABLE,
-                red_stop_lamp=LampStatus.OFF,
-                amber_warning_lamp=LampStatus.OFF,
-                protect_lamp=LampStatus.OFF,
-                dtcs=[],
-                timestamp_ns=timestamp_ns,
+            logger.warning(
+                "DM1/DM2 frame too short — dropped fail-closed (fault hiding risk)",
+                extra={"pgn": pgn, "sa": source_address, "len": len(data)},
             )
+            return None
 
         # Byte 0: Lamp States (2 bits each)
         b0 = data[0]
@@ -168,6 +177,13 @@ class J1939DiagnosticService:
         # DTC records start at Byte 2 (4 bytes each)
         dtc_payload = data[2:]
         num_dtcs = len(dtc_payload) // 4
+        # Ragged tail (1-3 leftover bytes) = truncated record → MALFORMED.
+        malformed = (len(dtc_payload) % 4) != 0
+        if malformed:
+            logger.warning(
+                "DM1/DM2 ragged tail — message flagged MALFORMED",
+                extra={"pgn": pgn, "sa": source_address, "tail_bytes": len(dtc_payload) % 4},
+            )
 
         for i in range(num_dtcs):
             chunk = dtc_payload[i * 4 : (i + 1) * 4]
@@ -187,6 +203,7 @@ class J1939DiagnosticService:
             protect_lamp=protect,
             dtcs=dtcs,
             timestamp_ns=timestamp_ns,
+            malformed=malformed,
         )
 
     @classmethod

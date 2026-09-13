@@ -53,6 +53,13 @@ class EncryptedKnowledgePackLoader:
     def close(self) -> None:
         """Best-effort scrub of the AES key material (L-21 / P3-15)."""
         secure_zero_memory(self._aes_key)
+        # Drop the derived AESGCM object too: AESGCM(bytes(key)) keeps an
+        # immutable copy of the key on the heap that bytearray scrubbing
+        # alone cannot erase.
+        try:
+            self._aesgcm = None  # type: ignore[assignment]
+        except Exception:
+            pass
 
     def load_pack_from_bytes(
         self,
@@ -177,7 +184,21 @@ class EncryptedKnowledgePackLoader:
 
     @classmethod
     def encrypt_pack_file(cls, aes_key: bytes, plaintext: bytes) -> bytes:
-        """Helper to create AES-256-GCM encrypted payload (12B nonce + ciphertext + tag)."""
+        """Backwards-compatible wrapper (tests / offline tooling only).
+
+        Production pack creation must use :meth:`_encrypt_pack_file`.
+        """
+        return cls._encrypt_pack_file(aes_key, plaintext, _test_only=True)
+
+    @classmethod
+    def _encrypt_pack_file(cls, aes_key: bytes, plaintext: bytes, _test_only: bool = False) -> bytes:
+        """Create AES-256-GCM encrypted payload (12B nonce + ciphertext + tag).
+
+        Private: keeping pack minting out of the production RX/TX path.
+        Pass ``_test_only=True`` from tests/offline tooling.
+        """
+        if not _test_only:
+            raise SecurityError("Pack encryption is test-only", code="TEST_ONLY_GUARD")
         aesgcm = AESGCM(aes_key)
         nonce = os.urandom(12)
         ciphertext = aesgcm.encrypt(nonce, plaintext, None)

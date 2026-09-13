@@ -36,13 +36,19 @@ class TxWatchdogSupervisor:
         # docs/ai_context/05 §4: timeout tests must inject a ClockProvider
         # (VirtualClock) instead of sleeping against the real clock. The
         # default remains the platform monotonic system clock.
-        self.clock = clock if clock is not None else SystemClockProvider()
+        resolved = clock if clock is not None else SystemClockProvider()
+        if type(resolved).__name__ == "VirtualClock":
+            logger.warning(
+                "TxWatchdogSupervisor wired with VirtualClock (test clock in prod path?)"
+            )
+        self._clock = resolved
         self.supervisor = supervisor
         self.estop = estop
         self.timeout_sec = max(0.050, timeout_ms / 1000.0)
 
-        self._last_heartbeat_time = self.clock.now_monotonic()
+        self._last_heartbeat_time = self._clock.now_monotonic()
         self._is_running = False
+        self._started_once = False
         self._thread: threading.Thread | None = None
         self._lock = threading.Lock()
         # P0-4 (REVIEW H-4): wakeable stop signal. The old monitor loop
@@ -56,32 +62,48 @@ class TxWatchdogSupervisor:
         if self.supervisor:
             self.supervisor.register_callback(self._on_safety_state_changed)
 
+    @property
+    def clock(self) -> ClockProvider:
+        """Read-only clock handle (mutable security dependency guard)."""
+        return self._clock
+
     def _on_safety_state_changed(self, old_state: object, new_state: object, reason: str) -> None:
         """Re-anchor lease timestamp upon transitioning into an active or armed transmission state."""
         state_val = getattr(new_state, "value", str(new_state))
         if state_val in {"ARMED_TX", "ACTIVE"}:
             with self._lock:
-                self._last_heartbeat_time = self.clock.now_monotonic()
+                self._last_heartbeat_time = self._clock.now_monotonic()
 
-    def heartbeat(self) -> None:
-        """Refresh transmission authorization lease."""
+    def heartbeat(self, caller_token: str | None = None) -> None:
+        """Refresh transmission authorization lease.
+
+        caller_token is optional for backward compatibility (None keeps current
+        behavior with a warning; privileged callers should pass a token so
+        unauthorized refresh loops are auditable).
+        """
+        if caller_token is None:
+            logger.warning("watchdog heartbeat without caller_token (legacy path)")
         with self._lock:
-            self._last_heartbeat_time = self.clock.now_monotonic()
+            self._last_heartbeat_time = self._clock.now_monotonic()
 
     @property
     def remaining_lease_sec(self) -> float:
         """Returns time in seconds until current lease expires."""
         with self._lock:
-            elapsed = self.clock.now_monotonic() - self._last_heartbeat_time
+            elapsed = self._clock.now_monotonic() - self._last_heartbeat_time
             return max(0.0, self.timeout_sec - elapsed)
 
     @property
     def is_lease_valid(self) -> bool:
         with self._lock:
-            return (self.clock.now_monotonic() - self._last_heartbeat_time) <= self.timeout_sec
+            return (self._clock.now_monotonic() - self._last_heartbeat_time) <= self.timeout_sec
 
     def start(self) -> None:
-        """Start the watchdog monitor background thread."""
+        """Start the watchdog monitor background thread.
+
+        Lease is anchored only on the FIRST start; restarts never refresh it
+        (a stop()/start() cycle must not silently extend authorization).
+        """
         with self._lock:
             if self._is_running:
                 return
@@ -96,7 +118,9 @@ class TxWatchdogSupervisor:
                 return
             self._stop_event.clear()
             self._is_running = True
-            self._last_heartbeat_time = self.clock.now_monotonic()
+            if not self._started_once:
+                self._last_heartbeat_time = self._clock.now_monotonic()
+                self._started_once = True
             self._thread = threading.Thread(
                 target=self._monitor_loop,
                 name="tx_watchdog_supervisor",
@@ -109,19 +133,55 @@ class TxWatchdogSupervisor:
             )
 
     def stop(self) -> None:
-        """Stop the watchdog monitor."""
+        """Stop the watchdog monitor.
+
+        REVIEW2 #1: if the monitor survives the join window (wedged inside
+        a trigger callback), the old code only logged an ERROR and left the
+        supervisor without its 800 ms enforcement layer — permanently, since
+        a later start() refuses while the zombie thread lives. The wedge is
+        now escalated independently: trigger a supervisor fault + E-Stop so
+        TX authority is revoked through a second path even though the
+        watchdog's own monitor is stuck (fail-safe: never leave TX armed
+        with dead supervision).
+        """
         with self._lock:
             self._is_running = False
         # Signal OUTSIDE the lock: the monitor may be waiting on the event
         # (wake immediately) or holding the lock inside _monitor_loop_once.
         self._stop_event.set()
+        wedged = False
         if self._thread and self._thread.is_alive():
             self._thread.join(timeout=1.0)
             if self._thread.is_alive():
                 # The loop can no longer spin forever (it breaks on
                 # _is_running/_stop_event), so surviving past the join means
                 # the thread is wedged inside a trigger callback — escalate.
+                wedged = True
                 logger.error("TX Watchdog monitor thread failed to exit within 1.0s timeout")
+        if wedged:
+            # Fail-safe escalation through paths independent of the wedged
+            # monitor thread: revoke TX authority now, not on the next
+            # (never-arriving) monitor iteration.
+            try:
+                self.supervisor.trigger_fault(
+                    "WATCHDOG_MONITOR_WEDGED: stop() join timed out — monitor thread stuck; revoking TX authorization",
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.critical(
+                    "WATCHDOG_MONITOR_WEDGED: supervisor fault trigger also failed",
+                    extra={"error": str(exc)},
+                )
+            if self.estop:
+                try:
+                    self.estop.trigger(
+                        EStopTriggerSource.KEEPALIVE_TIMEOUT,
+                        "Watchdog monitor thread wedged during stop — TX authorization revoked fail-safe",
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    logger.critical(
+                        "WATCHDOG_MONITOR_WEDGED: estop trigger also failed",
+                        extra={"error": str(exc)},
+                    )
         logger.info("TX Watchdog Supervisor stopped")
 
     def poll_once(self) -> None:
@@ -146,7 +206,7 @@ class TxWatchdogSupervisor:
         with self._lock:
             if not self._is_running and not force:
                 return
-            now = self.clock.now_monotonic()
+            now = self._clock.now_monotonic()
             elapsed = now - self._last_heartbeat_time
 
             # Only enforce watchdog if transmission is armed or active
@@ -158,7 +218,7 @@ class TxWatchdogSupervisor:
 
             # Re-check lease freshness under the lock immediately before fault trigger
             # to prevent false-positive cutoff if heartbeat arrived mid-flight.
-            if (self.clock.now_monotonic() - self._last_heartbeat_time) <= self.timeout_sec:
+            if (self._clock.now_monotonic() - self._last_heartbeat_time) <= self.timeout_sec:
                 return
 
             expired = True  # decision made under the lock; triggers fire below

@@ -123,24 +123,35 @@ class ScaniaDecoder(BaseOemDecoder):
             )
 
         # Byte 2: Scania DPF Regeneration State (uint8)
+        # REVIEW hardening: 0xFE/0xFF sentinels first; unknown/reserved
+        # map-miss codes are invalid (never HIGH-confidence VALID).
         raw_state = data[2]
-        state_valid = True
-        state_status = SignalStatus.VALID
         if raw_state == 0xFF:
-            state_valid = False
-            state_status = SignalStatus.NOT_AVAILABLE
+            signals["scania_dpf_regeneration_state"] = DecodedSignal(
+                name="scania_dpf_regeneration_state",
+                value=None,
+                unit="enum",
+                raw_value=raw_state,
+                is_valid=False,
+                status=SignalStatus.NOT_AVAILABLE,
+            )
         elif raw_state == 0xFE:
-            state_valid = False
-            state_status = SignalStatus.ERROR
+            signals["scania_dpf_regeneration_state"] = DecodedSignal(
+                name="scania_dpf_regeneration_state",
+                value=None,
+                unit="enum",
+                raw_value=raw_state,
+                is_valid=False,
+                status=SignalStatus.ERROR,
+            )
+        else:
+            from src.protocols.j1939.oem.registry import resolve_enum
 
-        signals["scania_dpf_regeneration_state"] = DecodedSignal(
-            name="scania_dpf_regeneration_state",
-            value=self.REGEN_STATE_MAP.get(raw_state, f"State (0x{raw_state:02X})"),
-            unit="enum",
-            raw_value=raw_state,
-            is_valid=state_valid,
-            status=state_status,
-        )
+            signals["scania_dpf_regeneration_state"] = resolve_enum(
+                self.REGEN_STATE_MAP,
+                raw_state,
+                signal_name="scania_dpf_regeneration_state",
+            )
 
         # Byte 3: Scania AdBlue Dosing Command (uint8, 0.1 g/min, 0.0 offset)
         raw_dosing = data[3]
@@ -288,24 +299,34 @@ class ScaniaDecoder(BaseOemDecoder):
         signals: dict[str, DecodedSignal] = {}
 
         # Byte 0: Scania Retarder Lever Stage Request (uint8)
+        # REVIEW hardening: sentinel-first, map-miss invalid.
         raw_stage = data[0]
-        stage_valid = True
-        stage_status = SignalStatus.VALID
         if raw_stage == 0xFF:
-            stage_valid = False
-            stage_status = SignalStatus.NOT_AVAILABLE
+            signals["scania_retarder_lever_stage_request"] = DecodedSignal(
+                name="scania_retarder_lever_stage_request",
+                value=None,
+                unit="enum",
+                raw_value=raw_stage,
+                is_valid=False,
+                status=SignalStatus.NOT_AVAILABLE,
+            )
         elif raw_stage == 0xFE:
-            stage_valid = False
-            stage_status = SignalStatus.ERROR
+            signals["scania_retarder_lever_stage_request"] = DecodedSignal(
+                name="scania_retarder_lever_stage_request",
+                value=None,
+                unit="enum",
+                raw_value=raw_stage,
+                is_valid=False,
+                status=SignalStatus.ERROR,
+            )
+        else:
+            from src.protocols.j1939.oem.registry import resolve_enum
 
-        signals["scania_retarder_lever_stage_request"] = DecodedSignal(
-            name="scania_retarder_lever_stage_request",
-            value=self.RETARDER_STAGE_MAP.get(raw_stage, f"Stage ({raw_stage})"),
-            unit="enum",
-            raw_value=raw_stage,
-            is_valid=stage_valid,
-            status=stage_status,
-        )
+            signals["scania_retarder_lever_stage_request"] = resolve_enum(
+                self.RETARDER_STAGE_MAP,
+                raw_stage,
+                signal_name="scania_retarder_lever_stage_request",
+            )
 
         # Byte 1: Scania Retarder Braking Torque Demand (uint8, 0.4 %, 0.0 offset)
         raw_demand = data[1]

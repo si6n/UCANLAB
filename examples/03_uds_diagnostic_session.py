@@ -1,6 +1,13 @@
 """Example 03: ISO 14229 UDS Diagnostic Session Control & DID Reader.
 
 Demonstrates UDS Service 0x22 (ReadDataByIdentifier) request construction.
+
+SAFETY BANNER (listen-only example):
+- This script only BUILDS request bytes in memory — it never opens a bus,
+  never transmits, and never touches a vehicle.
+- Any on-bus use MUST go through TxSafetyGateway (single audited TX
+  choke-point): validate + whitelist + E-Stop + speed-interlock.
+- Do NOT copy these builders into a transmit path without the gateway.
 """
 
 from src.protocols.uds.services import DiagnosticSessionType, UdsServiceBuilder

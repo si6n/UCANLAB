@@ -168,7 +168,13 @@ class MockCloudHandler(BaseHTTPRequestHandler):
                 self._json(400, {"detail": "out of range"})
                 return
             STATE.chunks[(sid, idx)] = chunk
-            session["received_chunks"] += 1
+            if isinstance(session["received_chunks"], list):
+                if idx not in session["received_chunks"]:
+                    session["received_chunks"].append(idx)
+                rec_count = len(session["received_chunks"])
+            else:
+                session["received_chunks"] += 1
+                rec_count = session["received_chunks"]
             session["uploaded_size_bytes"] += len(chunk)
             self._json(
                 200,
@@ -176,7 +182,7 @@ class MockCloudHandler(BaseHTTPRequestHandler):
                     "session_id": sid,
                     "chunk_index": idx,
                     "received": True,
-                    "received_chunks": session["received_chunks"],
+                    "received_chunks": rec_count,
                     "uploaded_size_bytes": session["uploaded_size_bytes"],
                 },
             )
@@ -432,3 +438,53 @@ def test_resume_queries_session_state(client, tmp_path: Path) -> None:
     assert progress.total_chunks == 2
     assert progress.uploaded_chunks == 2
     assert progress.status in ("uploading", "processing")
+
+
+def test_gap_aware_resume_skips_only_acked_chunks(client, tmp_path: Path) -> None:
+    """Gap-aware resume: server has received chunks 0 and 2; client must upload 1 and 3."""
+    chunk_size = 256 * 1024
+    payload = b"0" * chunk_size + b"1" * chunk_size + b"2" * chunk_size + b"3" * chunk_size  # 4 chunks
+    session_file = tmp_path / "gap_session.mdf4"
+    session_file.write_bytes(payload)
+
+    # Manually register an interrupted session on mock server with missing chunk 1 & 3
+    sid = "ses_gap_001"
+    STATE.sessions[sid] = {
+        "id": sid,
+        "total_chunks": 4,
+        "received_chunks": [0, 2],  # chunks 0 and 2 already held
+        "uploaded_size_bytes": chunk_size * 2,
+        "declared_size_bytes": len(payload),
+        "declared_sha256": hashlib.sha256(payload).hexdigest(),
+        "chunk_size_bytes": chunk_size,
+        "status": "uploading",
+        "vehicle_vin": "GAP-TEST-VIN",
+        "archive_s3_key": None,
+    }
+    STATE.chunks[(sid, 0)] = b"0" * chunk_size
+    STATE.chunks[(sid, 2)] = b"2" * chunk_size
+
+    uploader = TelemetryUploader(client, chunk_size=chunk_size)
+    result = uploader.upload_file(session_file, session_id=sid)
+
+    assert result.status == "processing"
+    assert (sid, 1) in STATE.chunks
+    assert (sid, 3) in STATE.chunks
+    assert STATE.chunks[(sid, 1)] == b"1" * chunk_size
+    assert STATE.chunks[(sid, 3)] == b"3" * chunk_size
+
+
+def test_parse_received_chunks_formats() -> None:
+    """Validate _parse_received_chunks handles bitmaps, lists, and legacy ints."""
+    # List of indices
+    assert TelemetryUploader._parse_received_chunks({"received_chunks": [0, 2, 4]}, 5) == {0, 2, 4}
+    assert TelemetryUploader._parse_received_chunks({"received_chunk_indices": [1, 3]}, 4) == {1, 3}
+
+    # Bitmaps
+    assert TelemetryUploader._parse_received_chunks({"received_bitmap": "10101"}, 5) == {0, 2, 4}
+    assert TelemetryUploader._parse_received_chunks({"chunks_bitmap": "0110"}, 4) == {1, 2}
+
+    # Legacy contiguous int
+    assert TelemetryUploader._parse_received_chunks({"received_chunks": 3}, 5) == {0, 1, 2}
+    assert TelemetryUploader._parse_received_chunks({"received_chunks": 0}, 5) == set()
+

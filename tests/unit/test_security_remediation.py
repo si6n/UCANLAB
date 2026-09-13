@@ -21,10 +21,26 @@ class TestSecurityRemediation:
 
     def test_f3_telemetry_upload_path_validation(self, tmp_path: Path) -> None:
         """F-3: Ensure arbitrary file reads and sensitive directory access are blocked."""
-        # Valid diagnostic file
-        valid_file = tmp_path / "session_log.mf4"
+        # Valid diagnostic file inside the app-owned exports root.
+        from src.ui.desktop_app import _app_data_root
+
+        exports_root = _app_data_root() / "exports"
+        exports_root.mkdir(parents=True, exist_ok=True)
+        valid_file = exports_root / "session_log.mf4"
         valid_file.write_bytes(b"MDF4_VALID_DATA")
-        assert DesktopApiBridge._validate_telemetry_upload_path(str(valid_file)) == valid_file.resolve()
+        try:
+            assert DesktopApiBridge._validate_telemetry_upload_path(str(valid_file)) == valid_file.resolve()
+        finally:
+            try:
+                valid_file.unlink(missing_ok=True)
+            except Exception:
+                pass
+
+        # OS-temp files are rejected (world-writable exfiltration surface).
+        temp_file = tmp_path / "session_log.mf4"
+        temp_file.write_bytes(b"MDF4_VALID_DATA")
+        with pytest.raises(ValueError, match="Guvenlik politikasi"):
+            DesktopApiBridge._validate_telemetry_upload_path(str(temp_file))
 
         # Non-existent file rejected
         with pytest.raises(ValueError, match="Dosya bulunamadi"):
@@ -36,10 +52,10 @@ class TestSecurityRemediation:
         with pytest.raises(ValueError, match="Izin verilmeyen dosya formati"):
             DesktopApiBridge._validate_telemetry_upload_path(str(bad_ext_file))
 
-        # Sensitive path rejected
+        # Sensitive path rejected (extension gate or sensitive-pattern gate).
         sensitive_file = tmp_path / "secrets.dpapi"
         sensitive_file.write_bytes(b"SECRET_DATA")
-        with pytest.raises(ValueError, match="Guvenlik politikasi"):
+        with pytest.raises(ValueError, match="Guvenlik politikasi|Izin verilmeyen"):
             DesktopApiBridge._validate_telemetry_upload_path(str(sensitive_file))
 
     def test_f4_raw_content_filename_sanitization(self) -> None:
@@ -47,6 +63,10 @@ class TestSecurityRemediation:
         mock_app = MagicMock()
         mock_app.telemetry_uploader.upload_file.return_value = MagicMock(session_id="s123", status="ok")
         bridge = DesktopApiBridge(mock_app)
+        # Reset the class-level rate-limit window (suite isolation: earlier
+        # tests may have consumed the 60/s token bucket).
+        DesktopApiBridge._raw_upload_window_start = 0.0
+        DesktopApiBridge._raw_upload_count = 0
 
         # Path traversal and injection attempt
         malicious_filename = "../../../sensitive_data:stream.bin"
@@ -112,10 +132,18 @@ class TestSecurityRemediation:
         assert res["success"] is False
         assert "izin listesinde değil" in res["error"]
 
-        # Valid domain accepted
+        # Wildcard subdomain no longer permitted
+        res_wildcard = bridge.cloud_test_connection(url="https://evil.si6n.io/api")
+        assert res_wildcard["success"] is False
+        assert "izin listesinde değil" in res_wildcard["error"]
+
+        # Valid domains accepted
         mock_app.cloud_client.request.return_value = MagicMock(status=200)
         res_valid = bridge.cloud_test_connection(url="https://cloud.universalcan.io")
         assert res_valid["success"] is True
+
+        res_ucan = bridge.cloud_test_connection(url="https://ucan-cloud.si6n.io")
+        assert res_ucan["success"] is True
 
     def test_uds_client_reentrant_lock(self) -> None:
         """Verify UdsClient operation lock is re-entrant (RLock)."""

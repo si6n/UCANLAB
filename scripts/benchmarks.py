@@ -11,15 +11,20 @@ import time
 import tracemalloc
 from pathlib import Path
 
-# Add project root to sys.path
-sys.path.insert(0, str(Path(__file__).parent.parent.resolve()))
-
-from src.core.models.can_frame import CanFrame
-from src.engine.buffer.ring_buffer import BinaryRingBuffer
-from src.engine.decoder.dbc_decoder import DbcSignalDecoder
-from src.protocols.uds.isotp import IsoTpTransport
-from src.safety.estop import EmergencyStopSystem
-from src.safety.gateway import TxBudget, TxSafetyGateway
+# supply-chain: import guard instead of sys.path.insert (no import-time
+# path mutation; keeps frozen/packaged runs hermetic).
+try:
+    from src.core.models.can_frame import CanFrame
+    from src.engine.buffer.ring_buffer import BinaryRingBuffer
+    from src.engine.decoder.dbc_decoder import DbcSignalDecoder
+    from src.protocols.uds.isotp import IsoTpTransport
+    from src.safety.estop import EmergencyStopSystem
+    from src.safety.gateway import TxBudget, TxSafetyGateway
+except ModuleNotFoundError as exc:
+    raise SystemExit(
+        "benchmarks must run from the repo root (python scripts/benchmarks.py) "
+        f"so 'src' is importable: {exc}"
+    ) from exc
 
 
 class MockBus:
@@ -176,10 +181,21 @@ def benchmark_tx_safety_gateway(n: int = 50_000) -> float:
     t0 = time.perf_counter()
     # Bypass the rate window + default token bucket for raw engine speed
     # measurement (F-18 added the per-category TxBudget on top of the window).
+    # supply-chain: restore mutated globals in finally — benchmarks must not
+    # leak a 1M msg/s rate limit into any later in-process use.
+    _saved_rate = gateway.MAX_TX_RATE_PER_SEC
+    _saved_budget = gateway._budgets.get("default")
     gateway.MAX_TX_RATE_PER_SEC = 1_000_000
     gateway._budgets["default"] = TxBudget(capacity=n, refill_per_sec=float(n))
-    for _ in range(n):
-        gateway.validate_and_transmit(frame)
+    try:
+        for _ in range(n):
+            gateway.validate_and_transmit(frame)
+    finally:
+        gateway.MAX_TX_RATE_PER_SEC = _saved_rate
+        if _saved_budget is None:
+            gateway._budgets.pop("default", None)
+        else:
+            gateway._budgets["default"] = _saved_budget
     t1 = time.perf_counter()
     fps = n / (t1 - t0)
     print(f"[TX Safety Gateway Filter] {n:,} frames in {t1 - t0:.4f}s -> {fps:,.0f} checks/sec")

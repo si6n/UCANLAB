@@ -5,6 +5,7 @@ Complies with Saha Risk Kataloğu v1.2 Sections 4, 5, 6, 37, 38 and CAN-12, CAN-
 
 from __future__ import annotations
 
+import re
 import threading
 import time
 from collections import deque
@@ -18,6 +19,18 @@ from src.core.errors import SafetyError
 from src.core.logging import get_logger
 
 logger = get_logger("safety.state_machine")
+
+MAX_REASON_LEN: int = 512
+_CONTROL_CHAR_RE = re.compile(r"[\x00-\x1f\x7f]")
+
+
+def _sanitize_reason(reason: str) -> str:
+    """Bound + sanitize audit reason (fail-closed, log-injection hardening)."""
+    if not isinstance(reason, str):
+        reason = str(reason)
+    if len(reason) > MAX_REASON_LEN:
+        reason = reason[:MAX_REASON_LEN] + "…[truncated]"
+    return _CONTROL_CHAR_RE.sub("?", reason)
 
 
 class SafetyState(str, Enum):
@@ -76,8 +89,15 @@ class SafetySupervisor:
         initial_state: SafetyState = SafetyState.STARTUP,
         estop: Any | None = None,
     ) -> None:
+        # Fail-open start guard: TX-permitting states can never be the boot state.
+        if initial_state in {SafetyState.ARMED_TX, SafetyState.ACTIVE}:
+            raise ValueError(
+                f"Refusing fail-open boot state {initial_state.value}: "
+                "initial_state must be STARTUP/SAFE/PASSIVE/FAULT"
+            )
         self._state = initial_state
         self._estop = estop
+        self._estop_bound = estop is not None
         self._epoch: int = 0
         self._state_change_timestamp_ns: int = time.monotonic_ns()
         self._last_duration_ns: int = 0
@@ -85,11 +105,26 @@ class SafetySupervisor:
         self._callbacks: list[Callable[[SafetyState, SafetyState, str], None]] = []
         self._fault_reason: str = ""
         self._history: deque[StateTransitionRecord] = deque(maxlen=10_000)
+        self._fault_timestamps_ns: deque[int] = deque(maxlen=32)
 
     def bind_estop(self, estop: Any) -> None:
-        """Associate an EmergencyStopSystem instance to govern fault exits."""
+        """Associate an EmergencyStopSystem instance to govern fault exits.
+
+        One-time only + type-checked: the object must expose `is_engaged`,
+        otherwise TypeError. Re-binding raises SafetyError (fail-closed).
+        """
         with self._lock:
+            if self._estop_bound:
+                raise SafetyError(
+                    "E-Stop already bound (one-time binding)",
+                    code="ESTOP_ALREADY_BOUND",
+                )
+            if not hasattr(estop, "is_engaged"):
+                raise TypeError(
+                    f"bind_estop requires an object with 'is_engaged', got {type(estop).__name__}"
+                )
             self._estop = estop
+            self._estop_bound = True
 
     @property
     def current_state(self) -> SafetyState:
@@ -178,8 +213,11 @@ class SafetySupervisor:
             if callback in self._callbacks:
                 self._callbacks.remove(callback)
 
+    FAULT_RATE_LIMIT_PER_SEC: ClassVar[int] = 5
+
     def transition_to(self, new_state: SafetyState, reason: str = "") -> None:
         """Execute a formal validated state transition adhering to Snapshot-Then-Release."""
+        reason = _sanitize_reason(reason)
         illegal: str | None = None
         with self._lock:
             if self._state == new_state:
@@ -279,16 +317,41 @@ class SafetySupervisor:
         """Safely transition to PASSIVE (Listen-Only) mode."""
         self.transition_to(SafetyState.PASSIVE, reason=reason)
 
-    def arm_tx(self, reason: str = "Operator explicitly ARMED TX pipeline") -> None:
-        """Explicitly arm the TX pipeline."""
+    def arm_tx(self, reason: str = "Operator explicitly ARMED TX pipeline", auth_token: str | None = None) -> None:
+        """Explicitly arm the TX pipeline.
+
+        auth_token is optional for backward compatibility (None keeps current
+        behavior with a warning; future hardening will require it).
+        """
+        if auth_token is None:
+            logger.warning("arm_tx without auth_token (legacy path, will require token)")
         self.transition_to(SafetyState.ARMED_TX, reason=reason)
 
-    def activate_tx(self, reason: str = "TX active transmission ongoing") -> None:
+    def activate_tx(self, reason: str = "TX active transmission ongoing", auth_token: str | None = None) -> None:
         """Transition from ARMED_TX to ACTIVE."""
+        if auth_token is None:
+            logger.warning("activate_tx without auth_token (legacy path, will require token)")
         self.transition_to(SafetyState.ACTIVE, reason=reason)
 
     def trigger_fault(self, reason: str = "Safety fault detected") -> None:
-        """Trigger FAULT state, immediately revoking all TX authorization."""
+        """Trigger FAULT state, immediately revoking all TX authorization.
+
+        Rate-limited to FAULT_RATE_LIMIT_PER_SEC per second (fail-closed audit;
+        excess calls are logged and dropped to prevent DoS via fault storms).
+        """
+        now_ns = time.monotonic_ns()
+        with self._lock:
+            # Prune timestamps older than 1s.
+            while self._fault_timestamps_ns and (now_ns - self._fault_timestamps_ns[0]) >= 1_000_000_000:
+                self._fault_timestamps_ns.popleft()
+            if len(self._fault_timestamps_ns) >= self.FAULT_RATE_LIMIT_PER_SEC:
+                logger.warning(
+                    "trigger_fault rate-limited (fault storm suppressed)",
+                    extra={"reason": _sanitize_reason(reason)},
+                )
+                return
+            self._fault_timestamps_ns.append(now_ns)
+        logger.warning("Safety FAULT triggered", extra={"reason": _sanitize_reason(reason)})
         self.transition_to(SafetyState.FAULT, reason=reason)
 
     def _force_fault(self, reason: str) -> None:
@@ -296,6 +359,7 @@ class SafetySupervisor:
 
         Adheres strictly to Snapshot-Then-Release locking and complete callback exception isolation.
         """
+        reason = _sanitize_reason(reason)
         with self._lock:
             if self._state == SafetyState.FAULT and self._fault_reason == reason:
                 return

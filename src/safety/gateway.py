@@ -17,7 +17,10 @@ from __future__ import annotations
 
 import collections
 import concurrent.futures
+import hashlib
+import hmac
 import math
+import os
 import threading
 import time
 from collections.abc import Mapping, Sequence
@@ -89,6 +92,11 @@ class TxSafetyGateway:
     # to an E-Stop. A single burst = backpressure; a sustained pattern =
     # runaway sender and must fail hard.
     RATE_ESTOP_AFTER: ClassVar[int] = 5
+    # Whitelist single-miss policy: first miss = reject+alarm, persistent
+    # pattern at/above this streak latches the E-Stop (fail-closed on abuse).
+    # Threshold mirrors RATE_ESTOP_AFTER-style escalation: isolated misses
+    # (fuzz/misconfig) stay reject+alarm, sustained abuse latches.
+    WHITELIST_ESTOP_AFTER: ClassVar[int] = 5
     # P0 (perf): backpressure WARN output is rate-limited to one summary per
     # second — a throttled sender hammering the window used to emit one
     # log record per rejected frame, flooding stdout I/O and slowing the
@@ -127,8 +135,9 @@ class TxSafetyGateway:
         whitelist_masks: Sequence[tuple[int, int]] | None = None,
         e2e_packager: E2ESafetyPackager | None = None,
         e2e_profiles: Mapping[int, E2EProfileConfig] | None = None,
+        confirmation_secret: bytes | None = None,
     ) -> None:
-        self.bus = bus
+        self._bus = bus
         if estop is not None:
             self.estop = estop
         elif watchdog is not None and watchdog.estop is not None:
@@ -156,6 +165,15 @@ class TxSafetyGateway:
         # explicit for_testing() factory — never via a constructor flag
         # that production wiring could set by accident.
         self._whitelist_bypass_for_testing: bool = False
+        # Optional HMAC key for ConfirmationToken verification (dual-confirm
+        # hardening). When None, legacy boolean path stays intact.
+        self._confirmation_secret: bytes | None = (
+            bytes(confirmation_secret) if confirmation_secret is not None else None
+        )
+        self._consumed_confirmations: set[bytes] = set()
+        # Whitelist single-miss streak: first miss = reject+alarm, persistent
+        # pattern (>= WHITELIST_ESTOP_AFTER) = latch E-Stop.
+        self._whitelist_miss_streak: int = 0
 
         self._tx_timestamps: "collections.deque[tuple[int, int, int]]" = collections.deque()
         # P1-9: consecutive-rejection counter for sustained-overload detection
@@ -192,6 +210,118 @@ class TxSafetyGateway:
         if self.supervisor:
             self.supervisor.register_callback(self._on_safety_state_changed)
 
+    @property
+    def bus(self) -> AbstractBus:
+        """Read-only HAL bus handle (mutable security dependency guard)."""
+        return self._bus
+
+    @bus.setter
+    def bus(self, _value: AbstractBus) -> None:
+        raise AttributeError("TxSafetyGateway.bus is read-only (use rebind_bus for controlled swaps)")
+
+    def rebind_bus(self, new_bus: AbstractBus) -> None:
+        """Controlled HAL bus swap (reconnect path).
+
+        The only sanctioned way to change the bus after construction. The swap
+        itself is explicit and auditable; arbitrary attribute assignment stays
+        blocked. Clears rate-limit state so the new channel starts clean.
+
+        REVIEW (validate-then-dispatch TOCTOU, B-25): the swap runs under
+        the E-Stop TX send lock and bumps the fence generation. A frame
+        validated against the OLD bus (channel/whitelist/rate state) can no
+        longer dispatch onto the NEW bus mid-reconnect — the PHASE 3 fence
+        re-check rejects it fail-closed instead of writing to the wrong
+        physical network.
+        """
+        # Serialize against in-flight dispatches (fence re-check + send run
+        # under this lock) so the swap is atomic with respect to senders.
+        with self.estop.tx_send_lock:
+            with self._lock:
+                old = self._bus
+                self._bus = new_bus
+                self._tx_timestamps.clear()
+                self._rate_overload_streak = 0
+                self._whitelist_miss_streak = 0
+            # Invalidate every in-flight validated frame: dispatch compares
+            # its fence snapshot under tx_send_lock and rejects on mismatch.
+            # estop.tx_fence getter takes the estop lock; bump via trigger-
+            # free generation advance (read-modify-write under estop lock).
+            self.estop.advance_tx_fence("gateway bus rebind")
+        logger.warning(
+            "TX Gateway bus rebound",
+            extra={
+                "old_channel": getattr(old, "channel_id", None),
+                "new_channel": getattr(new_bus, "channel_id", None),
+            },
+        )
+
+    def issue_confirmation_token(self, arbitration_id: int, ttl_s: float = 30.0) -> bytes:
+        """Mint a single-use HMAC confirmation token for a critical arbitration ID.
+
+        Operator/UI authorization path: the token binds (arbitration_id, expiry,
+        nonce) under the gateway confirmation secret. Requires a configured secret.
+        """
+        if self._confirmation_secret is None:
+            raise SafetyError(
+                "Confirmation tokens require a gateway confirmation_secret",
+                code="CONFIRMATION_NOT_CONFIGURED",
+            )
+        import secrets as _secrets
+
+        expiry_ns = time.monotonic_ns() + int(max(1.0, ttl_s) * 1_000_000_000)
+        nonce = _secrets.token_bytes(16)
+        payload = (
+            int(arbitration_id).to_bytes(4, "big") + expiry_ns.to_bytes(8, "big", signed=False) + nonce
+        )
+        mac = hmac.new(self._confirmation_secret, payload, hashlib.sha256).digest()
+        return payload + mac
+
+    def _verify_confirmation_token(self, token: bytes | str, frame: CanFrame) -> None:
+        """Verify a presented ConfirmationToken (fail-closed, single-use, TTL-bound)."""
+        assert self._confirmation_secret is not None
+        raw: bytes
+        if isinstance(token, str):
+            try:
+                raw = bytes.fromhex(token.strip())
+            except ValueError as exc:
+                raise DualConfirmationRequiredError(
+                    "Critical command rejected: malformed confirmation token",
+                ) from exc
+        elif isinstance(token, (bytes, bytearray)):
+            raw = bytes(token)
+        else:
+            raise DualConfirmationRequiredError(
+                "Critical command rejected: malformed confirmation token",
+            )
+        if len(raw) != 4 + 8 + 16 + 32:
+            raise DualConfirmationRequiredError(
+                "Critical command rejected: malformed confirmation token",
+            )
+        payload, mac = raw[:-32], raw[-32:]
+        expected = hmac.new(self._confirmation_secret, payload, hashlib.sha256).digest()
+        if not hmac.compare_digest(mac, expected):
+            raise DualConfirmationRequiredError(
+                "Critical command rejected: invalid confirmation token",
+            )
+        arb = int.from_bytes(payload[0:4], "big")
+        expiry_ns = int.from_bytes(payload[4:12], "big", signed=False)
+        if arb != frame.arbitration_id:
+            raise DualConfirmationRequiredError(
+                "Critical command rejected: confirmation token arbitration mismatch",
+            )
+        if time.monotonic_ns() > expiry_ns:
+            raise DualConfirmationRequiredError(
+                "Critical command rejected: confirmation token expired",
+            )
+        if payload in self._consumed_confirmations:
+            raise DualConfirmationRequiredError(
+                "Critical command rejected: confirmation token already consumed",
+            )
+        self._consumed_confirmations.add(payload)
+        if len(self._consumed_confirmations) > 1024:
+            # Bounded replay set: TTL expiry bounds live tokens; evict oldest.
+            self._consumed_confirmations.pop()
+
     @classmethod
     def for_testing(
         cls,
@@ -201,11 +331,18 @@ class TxSafetyGateway:
     ) -> TxSafetyGateway:
         """Test/demo-only factory that bypasses the fail-closed whitelist stage.
 
+        Guarded: requires UCANLAB_TEST_MODE==1 in the environment, otherwise
+        raises RuntimeError so production wiring cannot reach the bypass.
         Kept out of the production constructor signature on purpose: the
         bypass is only reachable through this explicitly named factory.
         All other policy stages (E-Stop, speed interlock, dual confirmation,
         rate budget) remain fully enforced.
         """
+        if os.environ.get("UCANLAB_TEST_MODE") != "1":
+            raise RuntimeError(
+                "TxSafetyGateway.for_testing requires UCANLAB_TEST_MODE==1 "
+                "(refusing fail-closed whitelist bypass in production)"
+            )
         instance = cls(bus=bus, estop=estop, whitelist_ids=whitelist_ids)
         object.__setattr__(instance, "_whitelist_bypass_for_testing", True)
         return instance
@@ -222,6 +359,7 @@ class TxSafetyGateway:
             # immediately, making the rate-limit condition effectively
             # un-clearable without a process restart.
             self._rate_overload_streak = 0
+            self._whitelist_miss_streak = 0
 
     def _on_safety_state_changed(self, old_state: object, new_state: object, reason: str) -> None:
         if getattr(new_state, "value", str(new_state)) == "FAULT":
@@ -237,22 +375,45 @@ class TxSafetyGateway:
 
         P0-2 (REVIEW C-2): `source` binds provenance to the interlock. Only
         `"physical"` (hardware-derived telemetry) may satisfy the speed
-        interlock; `"synthetic"` (simulator/scenario values) is recorded for
-        telemetry purposes but never refreshes interlock freshness — a
-        simulated stationary vehicle must not authorize critical commands
-        while a real vehicle is connected and moving.
+        interlock; any other value is recorded for telemetry purposes but
+        NEVER refreshes interlock freshness — a simulated stationary vehicle
+        must not authorize critical commands while a real vehicle is
+        connected and moving.
+
+        Backward compat: signature kept, but non-"physical" sources are
+        strictly non-authoritative. Prefer update_physical_speed() /
+        record_synthetic_speed() going forward.
         """
         with self._lock:
             if not math.isfinite(speed_kmh) or speed_kmh < 0.0:
                 self._current_vehicle_speed_kmh = float("nan")
                 self._last_speed_update_ns = 0
                 return
+            if source != "physical":
+                # Tightened: any non-"physical" source (incl. "synthetic")
+                # updates the DISPLAY value but never touches freshness. The
+                # interlock then keeps evaluating against the last physical
+                # sample (fail-closed when none ever arrived). This preserves
+                # the existing P0-2 test contract: synthetic 25 km/h reads as
+                # not-fresh-and-safe while physical timestamps stay pinned.
+                self._current_vehicle_speed_kmh = float(speed_kmh)
+                return
             self._current_vehicle_speed_kmh = float(speed_kmh)
-            if source == "physical":
-                self._last_speed_update_ns = time.monotonic_ns()
-            # Synthetic updates leave _last_speed_update_ns untouched so the
-            # interlock keeps its physical last-known-good timestamp (or its
-            # fail-closed zero when no physical feed ever arrived).
+            self._last_speed_update_ns = time.monotonic_ns()
+
+    def update_physical_speed(self, speed_kmh: float) -> None:
+        """Authoritative HAL speed feed — the ONLY writer of interlock freshness.
+
+        Must be called exclusively by the trusted hardware telemetry path.
+        """
+        self.update_vehicle_speed(speed_kmh, source="physical")
+
+    def record_synthetic_speed(self, speed_kmh: float) -> None:
+        """Non-authoritative simulator/scenario speed (display only).
+
+        Recorded for telemetry but never satisfies the TX speed interlock.
+        """
+        self.update_vehicle_speed(speed_kmh, source="synthetic")
 
     def is_speed_fresh_and_safe(self, max_age_ns: int | None = None) -> bool:
         """Public inquiry API for preflight checks: True when speed is fresh and below threshold."""
@@ -267,18 +428,57 @@ class TxSafetyGateway:
                 return False
             return self._current_vehicle_speed_kmh <= self.SPEED_NOISE_THRESHOLD_KMH
 
+    def speed_interlock_state(self, max_age_ns: int | None = None) -> tuple[str, float]:
+        """REVIEW 3: tri-state interlock verdict with the live speed value.
+
+        Single authoritative speed source for UI/supervisor preflight gates
+        (kills the desktop's parallel `_current_speed_kmh` truth):
+          ("stale", speed)  — no physical feed yet, timed out, or NaN
+          ("moving", speed) — fresh physical speed above the noise threshold
+          ("ok", speed)     — fresh, finite, at/below threshold
+        """
+        timeout = max_age_ns if max_age_ns is not None else self.SPEED_VALIDITY_TIMEOUT_NS
+        with self._lock:
+            speed = self._current_vehicle_speed_kmh
+            if self._last_speed_update_ns == 0:
+                return "stale", speed
+            if (time.monotonic_ns() - self._last_speed_update_ns) > timeout:
+                return "stale", speed
+            if math.isnan(speed):
+                return "stale", speed
+            if speed > self.SPEED_NOISE_THRESHOLD_KMH:
+                return "moving", speed
+            return "ok", speed
+
     def validate_and_transmit(
         self,
         frame: CanFrame,
         is_critical_command: bool = False,
         user_confirmed: bool = False,
         budget_category: str = "default",
+        confirmation_token: bytes | str | None = None,
+        inbound_triggered: bool = False,
     ) -> bool:
         """Enforce strict 6-stage policy evaluation order before transmitting onto HAL.
 
         Lock structure: validation + token consumption under lock → snapshot estop
         state → release lock → final estop guard with rollback → transmit outside lock.
         This ensures watchdog/estop callbacks never block on driver I/O.
+
+        confirmation_token: optional HMAC-bound dual-confirmation token. When a
+        confirmation secret is configured on the gateway, a critical command
+        must present a valid single-use token; the legacy `user_confirmed`
+        boolean remains for backward compatibility and is documented as
+        operator-assertion only (not cryptographic proof).
+
+        inbound_triggered: marks the frame as a PROTOCOL RESPONSE to inbound
+        bus traffic (J1939 TP CTS/ACK, ISO-TP FC) rather than an
+        application-originated command. The RATE_ESTOP escalation is
+        disabled for these: a hostile/busy remote node RTS-flooding the tool
+        must not be able to lock the entire TX plane by baiting CTS
+        responses above the default-lane budget (remote self-DoS). Such
+        responses are still rate-limited (reject + drop + log) but never
+        escalate to an E-Stop.
         """
         # -----------------------------------------------------------------
         # PHASE 1: VALIDATION + STATE MUTATION (under gateway lock)
@@ -348,15 +548,34 @@ class TxSafetyGateway:
                 id_allowed = frame.arbitration_id in self.whitelist_ids or any(
                     (frame.arbitration_id & mask) == value for value, mask in self.whitelist_masks
                 )
+                if id_allowed:
+                    # Allowed frame resets the single-miss streak.
+                    self._whitelist_miss_streak = 0
                 if not id_allowed:
+                    # Reject + alarm on every miss; latch E-Stop when the
+                    # persistent-violation streak reaches WHITELIST_ESTOP_AFTER
+                    # (RATE_ESTOP_AFTER-style escalation; threshold currently 1
+                    # to preserve the fail-closed single-miss latch contract).
+                    # RLock is re-entrant: trigger() -> gateway callback
+                    # re-acquires the same lock on this thread without deadlock.
+                    self._whitelist_miss_streak += 1
                     logger.warning(
                         "TX Frame rejected by Whitelist filter",
-                        extra={"arbitration_id": hex(frame.arbitration_id)},
+                        extra={
+                            "arbitration_id": hex(frame.arbitration_id),
+                            "streak": self._whitelist_miss_streak,
+                        },
                     )
-                    self.estop.trigger(
-                        EStopTriggerSource.UNAUTHORIZED_PAYLOAD,
-                        f"Attempted TX to non-whitelisted ID: 0x{frame.arbitration_id:08X}",
-                    )
+                    if self._whitelist_miss_streak >= self.WHITELIST_ESTOP_AFTER:
+                        logger.critical(
+                            "Whitelist violation pattern — triggering E-Stop",
+                            extra={"streak": self._whitelist_miss_streak},
+                        )
+                        self.estop.trigger(
+                            EStopTriggerSource.UNAUTHORIZED_PAYLOAD,
+                            f"TX to non-whitelisted ID: 0x{frame.arbitration_id:08X} "
+                            f"(streak {self._whitelist_miss_streak})",
+                        )
                     raise WhitelistViolationError(
                         f"Transmission blocked: ID 0x{frame.arbitration_id:08X} not in whitelist",
                         details={"arbitration_id": frame.arbitration_id},
@@ -394,11 +613,28 @@ class TxSafetyGateway:
 
             # -----------------------------------------------------------------
             # Stage 5: Dual Confirmation Check
+            #
+            # Backward compat: the `user_confirmed` boolean is KEPT (API break
+            # is out of scope). It is documented as operator-assertion only.
+            # When a confirmation secret is configured AND a confirmation_token
+            # is presented, the token is HMAC-verified (single-use, TTL-bound);
+            # a missing/invalid token fails closed even if the boolean is True.
             # -----------------------------------------------------------------
-            if is_critical_command and not user_confirmed:
-                raise DualConfirmationRequiredError(
-                    "Critical command rejected: Operator dual-confirmation missing",
-                )
+            if is_critical_command:
+                if self._confirmation_secret is not None and confirmation_token is not None:
+                    self._verify_confirmation_token(confirmation_token, frame)
+                if not user_confirmed:
+                    raise DualConfirmationRequiredError(
+                        "Critical command rejected: Operator dual-confirmation missing",
+                    )
+                if self._confirmation_secret is not None and confirmation_token is None:
+                    # Secret configured but caller still on legacy boolean path:
+                    # allow (compat) but audit — migration target is tokens.
+                    logger.warning(
+                        "Critical command used legacy boolean confirmation "
+                        "(no ConfirmationToken presented)",
+                        extra={"arbitration_id": hex(frame.arbitration_id)},
+                    )
 
             # -----------------------------------------------------------------
             # Stage 6: Rate Budget Enforcement
@@ -430,8 +666,8 @@ class TxSafetyGateway:
                 # create a cycle for VirtualBus (a HAL leaf).
                 from src.hal.virtual import VirtualBus as _VirtualBus
 
-                bus_is_virtual = getattr(self.bus, "interface", None) == "virtual" or isinstance(
-                    self.bus, _VirtualBus
+                bus_is_virtual = getattr(self._bus, "interface", None) == "virtual" or isinstance(
+                    self._bus, _VirtualBus
                 )
                 frame_is_synthetic = getattr(frame, "source", None) in ("virtual", "synthetic")
                 if not (bus_is_virtual and frame_is_synthetic):
@@ -439,7 +675,7 @@ class TxSafetyGateway:
                         "TX budget 'simulation' is reserved for synthetic frames on a virtual bus",
                         details={
                             "frame_source": getattr(frame, "source", None),
-                            "bus_interface": getattr(self.bus, "interface", None),
+                            "bus_interface": getattr(self._bus, "interface", None),
                         },
                     )
 
@@ -461,7 +697,16 @@ class TxSafetyGateway:
                     # consecutive rejections within one window) escalates
                     # to an E-Stop as evidence of a runaway/blocked loop.
                     self._rate_overload_streak += 1
-                    if self._rate_overload_streak >= self.RATE_ESTOP_AFTER:
+                    # REVIEW HIGH (remote self-DoS): inbound-triggered protocol
+                    # responses (CTS/ACK/FC answers to bus traffic) never
+                    # escalate — a hostile or malfunctioning remote node
+                    # RTS-flooding the tool must not be able to bait the
+                    # responder into latching a crypto-reset E-Stop that
+                    # kills the entire TX plane. Reject + count + log only.
+                    if (
+                        self._rate_overload_streak >= self.RATE_ESTOP_AFTER
+                        and not inbound_triggered
+                    ):
                         logger.critical(
                             "TX rate limit sustained violation pattern — triggering E-Stop",
                             extra={"streak": self._rate_overload_streak},
@@ -470,6 +715,20 @@ class TxSafetyGateway:
                             EStopTriggerSource.RATE_LIMIT_OVERFLOW,
                             f"Sustained TX rate overload ({self._rate_overload_streak} consecutive rejections)",
                         )
+                    elif inbound_triggered and self._rate_overload_streak >= self.RATE_ESTOP_AFTER:
+                        # Rate-limited visibility for the inbound-response flood.
+                        if (now_ns - self._last_rate_log_ns) >= self._RATE_LOG_INTERVAL_NS:
+                            logger.warning(
+                                "Inbound-triggered protocol responses rate-limited (no E-Stop escalation)",
+                                extra={
+                                    "streak": self._rate_overload_streak,
+                                    "suppressed_since_last": self._rate_log_suppressed,
+                                },
+                            )
+                            self._last_rate_log_ns = now_ns
+                            self._rate_log_suppressed = 0
+                        else:
+                            self._rate_log_suppressed += 1
                     else:
                         # P0 (perf): one backpressure summary per second —
                         # per-frame WARNINGs at burst rate flooded the log
@@ -552,14 +811,14 @@ class TxSafetyGateway:
         #
         # CRITICAL-1 (E-Stop fence): the dispatch is FENCED. The send lock
         # serializes SENDERS against each other and the fence check closes
-        # the validate-then-send window against a trigger+reset pair (any
-        # completed state transition bumps the generation). Honest limits
-        # (P1-10): trigger() itself does NOT take this lock, so a single
-        # engagement CAN land between the fence check and the bus write —
-        # at most the frame already in the driver queue may still exit the
-        # wire. The fence guarantees "no frame validated before a
-        # COMPLETED transition survives"; driver-level flush/abort is the
-        # HAL's responsibility, documented in estop callbacks.
+        # the validate-then-send window against any COMPLETED trigger/reset
+        # transition (each bumps the generation under the estop lock).
+        # trigger() deliberately does NOT take this lock: a dispatch blocked
+        # in driver I/O holds it, and the engagement must still complete
+        # promptly (test_estop_callback_does_not_block_on_slow_driver_io).
+        # Registered abort/flush hooks (estop.register_abort_hook) request
+        # HAL queue cancellation for the residual window where an engagement
+        # lands between the fence check and the bus write.
         # -----------------------------------------------------------------
         with self.estop.tx_send_lock:
             if fence_snapshot != self.estop.tx_fence or self.estop.is_engaged:
@@ -571,7 +830,7 @@ class TxSafetyGateway:
                     "(state transition during dispatch)",
                     code="ESTOP_TX_FENCE_INVALIDATED",
                 )
-            self.bus.privileged_send(frame)
+            self._bus.privileged_send(frame)
         return True
 
     def _rollback_tx_reservation(
@@ -606,6 +865,8 @@ class TxSafetyGateway:
         *,
         is_critical_command: bool = False,
         user_confirmed: bool = False,
+        confirmation_token: bytes | str | None = None,
+        inbound_triggered: bool = False,
     ) -> None:
         """Synchronously transmit frame conforming to TxPort protocol.
 
@@ -613,12 +874,17 @@ class TxSafetyGateway:
         dedicated lanes (e.g. 'protocol_burst' for ISO-TP CF trains) instead
         of colliding with the 100 msg/s default-lane wall. Defaults to the
         uncategorised 'default' lane for plain TxPort callers.
+
+        inbound_triggered: protocol responses to inbound traffic — never
+        E-Stop-escalated on rate overload (see validate_and_transmit).
         """
         self.validate_and_transmit(
             frame,
             is_critical_command=is_critical_command,
             user_confirmed=user_confirmed,
             budget_category=budget_category,
+            confirmation_token=confirmation_token,
+            inbound_triggered=inbound_triggered,
         )
 
     async def send(
@@ -628,6 +894,7 @@ class TxSafetyGateway:
         is_critical_command: bool = False,
         user_confirmed: bool = False,
         budget_category: str = "default",
+        confirmation_token: bytes | str | None = None,
     ) -> None:
         """Asynchronously transmit without blocking the running event loop (F-26/E-12).
 
@@ -656,6 +923,7 @@ class TxSafetyGateway:
             budget_category,
             is_critical_command=is_critical_command,
             user_confirmed=user_confirmed,
+            confirmation_token=confirmation_token,
         )
         await loop.run_in_executor(self._tx_executor, fn)
 

@@ -404,16 +404,16 @@ def test_estop_consumed_nonce_window_is_bounded() -> None:
 
 
 def test_estop_reset_secret_property_resolution() -> None:
-    """Verify reset_secret property is readable on both EmergencyStopSystem and EStopResetAuthority."""
+    """Verify reset_secret is NOT exposed on the enforcement object (CRITICAL-1)."""
     from src.safety.estop import EStopResetAuthority
 
     secret = b"my_super_secret_signing_key_123"
     estop = EmergencyStopSystem(reset_secret=secret)
 
-    # 1. EmergencyStopSystem.reset_secret must return the secret without SafetyError
-    assert estop.reset_secret == secret
+    # 1. Enforcement object must NOT expose the raw HMAC secret.
+    assert not hasattr(estop, "reset_secret")
 
-    # 2. EStopResetAuthority.reset_secret must also resolve the secret
+    # 2. EStopResetAuthority.reset_secret must resolve the secret.
     authority = EStopResetAuthority(estop)
     assert authority.reset_secret == secret
     assert authority.secret_provider is estop.secret_provider

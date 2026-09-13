@@ -43,6 +43,14 @@ class DbcBuilder:
             signals: list[Signal] = []
             claimed_names: set[str] = set()
             occupied_bits: set[int] = set()
+            # REVIEW 3 follow-up: compute the byte length ONCE, before signal
+            # placement, so over-spanning candidates are rejected before they
+            # claim bits. Previously an over-spanning candidate (dropped later
+            # by the bounding pass) still marked its bits occupied, silently
+            # evicting legitimate overlapping candidates (e.g. a 16-bit signal
+            # at bit 48 lost to a later-rejected bit-56 candidate in an 8-byte
+            # message).
+            msg_len = max(1, int(report.dlc))
 
             # Sort hypotheses so higher confidence and wider signals are placed first
             sorted_hyps = sorted(
@@ -60,6 +68,14 @@ class DbcBuilder:
                 if hyp_bits & occupied_bits:
                     continue
 
+                # Signal must fit inside the observed payload byte length.
+                # IdReport.dlc is the observed payload BYTE length
+                # (max(len(f.data))), never the FD DLC code — DLC 9..15 encode
+                # capacities 12..64 bytes. cantools Message(length=) likewise
+                # expects bytes.
+                if hyp.start_bit + hyp.length > msg_len * 8:
+                    continue
+
                 raw_name = hyp.name or f"SIG_{hyp.start_bit}_{hyp.length}"
                 sig_name = _sanitize_c_identifier(raw_name)
                 # Guarantee signal name uniqueness within message
@@ -69,6 +85,8 @@ class DbcBuilder:
                     sig_name = f"{base_name}_{counter}"
                     counter += 1
                 claimed_names.add(sig_name)
+                # Claim bits only for accepted candidates (span + overlap
+                # checks already passed above).
                 occupied_bits.update(hyp_bits)
 
                 # Format comments from evidence
@@ -76,8 +94,18 @@ class DbcBuilder:
                 comment_str = " | ".join(evidence_comments) if evidence_comments else f"Auto-discovered {hyp.htype}"
 
                 conv = BaseConversion.factory(scale=hyp.factor, offset=hyp.offset)
-                # In DBC Motorola format, start bit is MSB bit index
-                start_bit = hyp.start_bit if hyp.is_little_endian else ((hyp.start_bit // 8) * 8 + 7)
+                # REVIEW 3 (Motorola start bit): DBC Motorola start bit uses
+                # the SAME numeric position as LSB0 numbering within each
+                # byte (Vector sawtooth: byte0 = 7..0, byte1 = 15..8). Our
+                # Motorola-contiguous series anchors at byte bit 0, so the
+                # MSB sits at LSB0 bit anchor+7 — that IS the DBC start bit.
+                # Verified empirically: cantools start=7|16 big_endian decodes
+                # [0x12,0x34] as 0x1234; the old `(anchor//8)*8+7` collapsed
+                # non-byte-aligned anchors to the byte's bit 7.
+                if hyp.is_little_endian:
+                    start_bit = hyp.start_bit
+                else:
+                    start_bit = hyp.start_bit + 7
 
                 signal = Signal(
                     name=sig_name,
@@ -99,18 +127,64 @@ class DbcBuilder:
                 msg = Message(
                     frame_id=report.arbitration_id,
                     name=msg_name,
-                    length=max(1, report.dlc),
+                    length=msg_len,
                     signals=signals,
                     is_extended_frame=is_extended,
                     comment=f"Auto-generated for CAN ID 0x{report.arbitration_id:04X} ({report.frame_count} frames analyzed)",
                 )
                 db.messages.append(msg)
 
+        if db.messages:
+            # REVIEW 3 follow-up: `db.messages.append()` bypasses the
+            # `_frame_id_to_message` index — refresh so the returned Database
+            # supports get_message_by_frame_id()/name lookups directly.
+            db.refresh()
         return db
 
+    @staticmethod
+    def _motorola_end_bit(start_msb: int, length: int) -> int:
+        """Highest LSB0 bit covered by a Motorola signal given its DBC MSB start.
+
+        DBC Motorola numbering matches LSB0 within each byte (start=7 is
+        byte0 bit7). The signal walks down from the MSB; when it crosses a
+        byte boundary it continues at the next byte's bit 7. The LSB0 span
+        end equals `start - 7 + (length - 8)` for byte-crossing lengths.
+        """
+        byte_idx, bit_in_byte = divmod(start_msb, 8)
+        # bits remaining in the MSB byte (counting down from bit_in_byte)
+        bits_in_msb_byte = bit_in_byte + 1
+        if length <= bits_in_msb_byte:
+            return start_msb - (length - 1)
+        remaining = length - bits_in_msb_byte
+        # continue at (byte_idx+1) bit 7, walking down
+        return (byte_idx + 1) * 8 + 7 - (remaining - 1)
+
     @classmethod
-    def export_dbc_file(cls, db: Database, file_path: str | Path) -> None:
+    def export_dbc_file(
+        cls, db: Database, file_path: str | Path, exports_root: str | Path | None = None
+    ) -> None:
         """Save database to a .dbc file."""
-        path = Path(file_path)
+        import tempfile
+
+        explicit = exports_root is not None
+        root = Path(exports_root) if explicit else (Path.cwd() / "exports")
+        path = Path(file_path).resolve()
+        try:
+            is_inside = path.is_relative_to(root.resolve())
+        except Exception as exc:
+            raise ValueError(f"Export path validation failed: {exc}") from exc
+        if not is_inside:
+            if not explicit:
+                try:
+                    if path.is_relative_to(Path(tempfile.gettempdir()).resolve()):
+                        pass
+                    else:
+                        raise ValueError(f"Export path escapes exports root: {path}")
+                except ValueError:
+                    raise
+                except Exception as exc:
+                    raise ValueError(f"Export path validation failed: {exc}") from exc
+            else:
+                raise ValueError(f"Export path escapes exports root: {path}")
         path.parent.mkdir(parents=True, exist_ok=True)
         cantools.database.dump_file(db, str(path))

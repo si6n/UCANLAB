@@ -41,13 +41,21 @@ class E2EValidationResult:
 
     @property
     def is_valid(self) -> bool:
-        """True when frame payload is authentic and usable (OK, INITIAL, or SOME_LOST)."""
+        """True when frame payload is authentic and usable (OK, INITIAL, or SOME_LOST).
+
+        WARNING (trust-establishment, no authenticity): INITIAL means "first
+        frame seen on this stream" — no continuity has been established yet.
+        Keyless checksums (TOYOTA/VOLVO/SAE-J1850) are error-detection only;
+        a bus attacker who knows the profile can forge a CRC-trivially. Do NOT
+        treat INITIAL (or any verdict alone) as authenticity proof; active
+        attacker models require AUTOSAR P1/P2 + SecOC/MAC.
+        """
         return self.verdict in (E2EStatus.OK, E2EStatus.INITIAL, E2EStatus.SOME_LOST)
 
     @property
     def is_crc_valid(self) -> bool:
-        """True if CRC/checksum matched expected value."""
-        return self.expected_crc == self.actual_crc
+        """True if CRC/checksum matched expected value on a well-formed frame."""
+        return self.verdict != E2EStatus.LENGTH_ERROR and self.expected_crc == self.actual_crc
 
     @property
     def is_sequence_valid(self) -> bool:

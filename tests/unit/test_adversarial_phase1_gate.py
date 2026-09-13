@@ -661,10 +661,10 @@ class TestJ1939CollisionStormsAndEdgeCases:
         """RTS frames addressed to global broadcast address DA == 255 (0xFF) must be rejected."""
         tp = J1939TransportProtocol(my_address=0xF9)
 
-        # TP.CM_RTS frame with DA = 255 (0x18ECFF00 | SA=0x10)
+        # TP.CM_RTS frame with DA = 255 (0x1CECFF00 | SA=0x10)
         rts_global = CanFrame.create(
             "ch0",
-            0x18ECFF10,
+            0x1CECFF10,
             b"\x10\x14\x00\x03\xff\x00\xfe\x00",  # 20 bytes, 3 packets, PGN 0xFE00
             is_extended=True,
         )
@@ -682,7 +682,7 @@ class TestJ1939CollisionStormsAndEdgeCases:
         # 1. First RTS: PGN 0xEE00, 20 bytes
         rts1 = CanFrame.create(
             "ch0",
-            0x18ECF920,
+            0x1CECF920,
             b"\x10\x14\x00\x03\xff\x00\xee\x00",
             is_extended=True,
         )
@@ -696,7 +696,7 @@ class TestJ1939CollisionStormsAndEdgeCases:
         # 2. Second RTS arrives unexpectedly on same (SA, DA) for PGN 0xEF00, 30 bytes
         rts2 = CanFrame.create(
             "ch0",
-            0x18ECF920,
+            0x1CECF920,
             b"\x10\x1e\x00\x05\xff\x00\xef\x00",
             is_extended=True,
         )
@@ -718,11 +718,11 @@ class TestJ1939CollisionStormsAndEdgeCases:
         tp = J1939TransportProtocol(my_address=0xF9)
 
         # RTS for PGN 0xFECA, 14 bytes (2 packets)
-        rts = CanFrame.create("ch0", 0x18ECF910, b"\x10\x0e\x00\x02\xff\xca\xfe\x00", is_extended=True)
+        rts = CanFrame.create("ch0", 0x1CECF910, b"\x10\x0e\x00\x02\xff\xca\xfe\x00", is_extended=True)
         tp.handle_frame(rts)
 
         # Send TP.DT with seq=2 first (expected seq=1)
-        bad_dt = CanFrame.create("ch0", 0x18EBF910, b"\x02\x08\x09\x0a\x0b\x0c\x0d\x0e", is_extended=True)
+        bad_dt = CanFrame.create("ch0", 0x1CEBF910, b"\x02\x08\x09\x0a\x0b\x0c\x0d\x0e", is_extended=True)
         msg, abort_frame = tp.handle_frame(bad_dt)
 
         assert msg is None
@@ -734,11 +734,11 @@ class TestJ1939CollisionStormsAndEdgeCases:
     def test_j1939_duplicate_tp_dt_aborts_with_reason_1(self) -> None:
         """Duplicate TP.DT sequence number (seq=1 followed by seq=1 again) triggers Conn_Abort reason=1."""
         tp = J1939TransportProtocol(my_address=0xF9)
-        rts = CanFrame.create("ch0", 0x18ECF910, b"\x10\x0e\x00\x02\xff\xca\xfe\x00", is_extended=True)
+        rts = CanFrame.create("ch0", 0x1CECF910, b"\x10\x0e\x00\x02\xff\xca\xfe\x00", is_extended=True)
         tp.handle_frame(rts)
 
         # Send seq=1
-        dt1 = CanFrame.create("ch0", 0x18EBF910, b"\x01\x01\x02\x03\x04\x05\x06\x07", is_extended=True)
+        dt1 = CanFrame.create("ch0", 0x1CEBF910, b"\x01\x01\x02\x03\x04\x05\x06\x07", is_extended=True)
         msg1, resp1 = tp.handle_frame(dt1)
         assert msg1 is None and resp1 is None
 
@@ -754,34 +754,34 @@ class TestJ1939CollisionStormsAndEdgeCases:
         tp = J1939TransportProtocol(my_address=0xF9)
 
         # Start BAM session from SA=0x30 (PGN 0xFEF2, 14 bytes, 2 packets)
-        bam_cm = CanFrame.create("ch0", 0x18ECFF30, b"\x20\x0e\x00\x02\xff\xf2\xfe\x00", is_extended=True)
+        bam_cm = CanFrame.create("ch0", 0x1CECFF30, b"\x20\x0e\x00\x02\xff\xf2\xfe\x00", is_extended=True)
         tp.handle_frame(bam_cm)
 
         # Start CMDT session from SA=0x40 to DA=0xF9 (PGN 0xFEF1, 14 bytes, 2 packets)
-        cmdt_rts = CanFrame.create("ch0", 0x18ECF940, b"\x10\x0e\x00\x02\xff\xf1\xfe\x00", is_extended=True)
+        cmdt_rts = CanFrame.create("ch0", 0x1CECF940, b"\x10\x0e\x00\x02\xff\xf1\xfe\x00", is_extended=True)
         _, cts = tp.handle_frame(cmdt_rts)
         assert cts is not None
 
         # Interleave DT frames:
         # 1. BAM seq 1
-        bam_dt1 = CanFrame.create("ch0", 0x18EBFF30, b"\x01\x11\x12\x13\x14\x15\x16\x17", is_extended=True)
+        bam_dt1 = CanFrame.create("ch0", 0x1CEBFF30, b"\x01\x11\x12\x13\x14\x15\x16\x17", is_extended=True)
         msg, _ = tp.handle_frame(bam_dt1)
         assert msg is None
 
         # 2. CMDT seq 1
-        cmdt_dt1 = CanFrame.create("ch0", 0x18EBF940, b"\x01\x21\x22\x23\x24\x25\x26\x27", is_extended=True)
+        cmdt_dt1 = CanFrame.create("ch0", 0x1CEBF940, b"\x01\x21\x22\x23\x24\x25\x26\x27", is_extended=True)
         msg, _ = tp.handle_frame(cmdt_dt1)
         assert msg is None
 
         # 3. BAM seq 2 (BAM completes)
-        bam_dt2 = CanFrame.create("ch0", 0x18EBFF30, b"\x02\x18\x19\x1a\x1b\x1c\x1d\x1e", is_extended=True)
+        bam_dt2 = CanFrame.create("ch0", 0x1CEBFF30, b"\x02\x18\x19\x1a\x1b\x1c\x1d\x1e", is_extended=True)
         completed_bam, _ = tp.handle_frame(bam_dt2)
         assert completed_bam is not None
         assert completed_bam.pgn == 0x00FEF2
         assert completed_bam.data == b"\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e"
 
         # 4. CMDT seq 2 (CMDT completes and returns EndOfMsgACK)
-        cmdt_dt2 = CanFrame.create("ch0", 0x18EBF940, b"\x02\x28\x29\x2a\x2b\x2c\x2d\x2e", is_extended=True)
+        cmdt_dt2 = CanFrame.create("ch0", 0x1CEBF940, b"\x02\x28\x29\x2a\x2b\x2c\x2d\x2e", is_extended=True)
         completed_cmdt, ack_frame = tp.handle_frame(cmdt_dt2)
         assert completed_cmdt is not None
         assert completed_cmdt.pgn == 0x00FEF1

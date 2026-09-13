@@ -114,9 +114,12 @@ def test_dm4_dm5_correct_pgn_values_blocked() -> None:
     ok4, r4 = f.is_frame_safe(dm4)
     ok5, r5 = f.is_frame_safe(dm5)
     ok11, r11 = f.is_frame_safe(dm11)
-    # M-22 (P2-9): DM clear-family PGNs answer to the diagnostic-write policy
-    # (their own flag) — address-claim blocking must not gate DTC evidence.
-    assert not ok2 and "BLOCKED_DIAGNOSTIC_WRITE_PGN" in r2
+    # REVIEW 1-L3: DM2 (65227) is a READ-ONLY broadcast of previously active
+    # DTCs — replaying its data frame has no write/erase effect on any ECU
+    # (erasure is requested via PGN 59904, which stays blocked in the
+    # address-claim set). DM2 replay is legal telemetry evidence and must
+    # pass; the DM3/DM4/DM5/DM11 erase family stays blocked.
+    assert ok2 is True
     assert not ok3 and "BLOCKED_DIAGNOSTIC_WRITE_PGN" in r3
     assert not ok4 and "BLOCKED_DIAGNOSTIC_WRITE_PGN" in r4
     assert not ok5 and "BLOCKED_DIAGNOSTIC_WRITE_PGN" in r5
@@ -198,8 +201,8 @@ def test_transport_tunnel_pgn_blocked_by_default() -> None:
     blocked unless explicitly opted out."""
     f = ReplaySafetyFilter()
 
-    tp_cm = CanFrame.create(channel_id="can0", arbitration_id=0x18ECFF00, data=b"\x20\x0e\x00\x02\xff\xec\xfe\x00", is_extended=True)
-    tp_dt = CanFrame.create(channel_id="can0", arbitration_id=0x18EBFF00, data=b"\x01" + b"\x00" * 7, is_extended=True)
+    tp_cm = CanFrame.create(channel_id="can0", arbitration_id=0x1CECFF00, data=b"\x20\x0e\x00\x02\xff\xec\xfe\x00", is_extended=True)
+    tp_dt = CanFrame.create(channel_id="can0", arbitration_id=0x1CEBFF00, data=b"\x01" + b"\x00" * 7, is_extended=True)
 
     ok_cm, r_cm = f.is_frame_safe(tp_cm)
     ok_dt, r_dt = f.is_frame_safe(tp_dt)
@@ -210,3 +213,108 @@ def test_transport_tunnel_pgn_blocked_by_default() -> None:
     f_opt = ReplaySafetyFilter(block_transport_tunneling=False)
     assert f_opt.is_frame_safe(tp_cm)[0] is True
     assert f_opt.is_frame_safe(tp_dt)[0] is True
+
+
+def test_iso_tp_cf_fc_blocked_after_prohibited_first_frame() -> None:
+    """CRITICAL-1: CF/FC frames (PCI 0x2/0x3) carrying a prohibited FF's
+    payload must not reach the live bus — previously only the FF was
+    checked and every following CF sailed through untouched."""
+    f = ReplaySafetyFilter()
+    # FF on 0x7E0: SID 0x36 (TransferData), FF_DL=13 → 6 carried, 7 pending
+    ff = CanFrame.create(channel_id="can0", arbitration_id=0x7E0,
+                        data=bytes([0x10, 0x0D, 0x36, 0x01, 0x02, 0x03, 0x04, 0x05]))
+    cf1 = CanFrame.create(channel_id="can0", arbitration_id=0x7E0,
+                          data=bytes([0x21, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C]))
+    fc = CanFrame.create(channel_id="can0", arbitration_id=0x7E0,
+                        data=bytes([0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]))
+
+    assert f.is_frame_safe(ff) == (False, "PROHIBITED_11BIT_UDS_SID: 0x36")
+    # Tunneling ON (default): CF/FC on diagnostic IDs are blocked outright
+    ok_cf, r_cf = f.is_frame_safe(cf1)
+    ok_fc, r_fc = f.is_frame_safe(fc)
+    assert not ok_cf and "BLOCKED_TP_TUNNEL" in r_cf
+    assert not ok_fc and "BLOCKED_TP_TUNNEL" in r_fc
+
+
+def test_iso_tp_cf_blocked_via_session_ledger_in_analysis_mode() -> None:
+    """CRITICAL-1: even with block_transport_tunneling=False (analysis
+    replay), the session ledger holds the FF's SID — CFs of a prohibited
+    session stay blocked; a benign session's CFs pass until complete."""
+    f = ReplaySafetyFilter(block_transport_tunneling=False)
+    ff = CanFrame.create(channel_id="can0", arbitration_id=0x7E0,
+                        data=bytes([0x10, 0x0D, 0x36, 0x01, 0x02, 0x03, 0x04, 0x05]))
+    cf1 = CanFrame.create(channel_id="can0", arbitration_id=0x7E0,
+                          data=bytes([0x21, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C]))
+    assert f.is_frame_safe(ff) == (False, "PROHIBITED_11BIT_UDS_SID: 0x36")
+    ok, r = f.is_frame_safe(cf1)
+    assert not ok and r == "PROHIBITED_ISO_TP_SESSION_SID: 0x36"
+
+    # Benign session: SID 0x22 (ReadDataByIdentifier) — not prohibited.
+    ff_ok = CanFrame.create(channel_id="can0", arbitration_id=0x7E0,
+                            data=bytes([0x10, 0x0D, 0x22, 0xF1, 0x90, 0x01, 0x02, 0x03]))
+    cf_ok = CanFrame.create(channel_id="can0", arbitration_id=0x7E0,
+                           data=bytes([0x21, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A]))
+    assert f.is_frame_safe(ff_ok)[0] is True
+    assert f.is_frame_safe(cf_ok)[0] is True
+    # FF_DL=13: 6 carried by FF + 7 by the CF → session complete, ledger clean
+    assert f._iso_tp_pending == {}
+
+
+def test_iso_tp_cf_fc_gated_on_29bit_diagnostic_ids() -> None:
+    """CRITICAL-1: the CF/FC gate also applies to 29-bit UDS (0x18DAxxF1)."""
+    f = ReplaySafetyFilter()
+    cf = CanFrame.create(channel_id="can0", arbitration_id=0x18DA00F1,
+                         data=bytes([0x21, 0x36, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06]), is_extended=True)
+    ok, r = f.is_frame_safe(cf)
+    assert not ok and "BLOCKED_TP_TUNNEL" in r
+
+    f_off = ReplaySafetyFilter(block_transport_tunneling=False)
+    assert f_off.is_frame_safe(cf)[0] is True  # no ledger entry: stray CF passes in analysis mode
+
+
+def test_stray_cf_fc_on_non_diagnostic_id_passes() -> None:
+    """CRITICAL-1 scope guard: CF/FC frames on non-diagnostic 11-bit IDs
+    (e.g. an application-level fragmented protocol at 0x100) must not be
+    caught by the diagnostic CF/FC gate."""
+    f = ReplaySafetyFilter()
+    cf = CanFrame.create(channel_id="can0", arbitration_id=0x100,
+                         data=bytes([0x21, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07]))
+    ok, _ = f.is_frame_safe(cf)
+    assert ok is True
+
+
+def test_ecu_response_ids_spoof_blocked() -> None:
+    """MEDIUM-1: replaying frames on ECU response IDs (0x7E8–0x7EF)
+    counterfeits the ECU's voice — blocked by default regardless of SID.
+
+    The old table only contained request IDs, so a fake 'security access
+    granted' (0x67) or 'routine complete' (0x71) response passed as
+    benign telemetry.
+    """
+    f = ReplaySafetyFilter()
+    # Fake positive response 0x67 05 (SecurityAccess granted) on 0x7E8
+    spoof_sa = CanFrame.create(channel_id="can0", arbitration_id=0x7E8,
+                              data=bytes([0x04, 0x67, 0x05, 0x8D, 0xF8, 0x00, 0x00, 0x00]))
+    ok_sa, r_sa = f.is_frame_safe(spoof_sa)
+    assert not ok_sa and "BLOCKED_ECU_RESPONSE_SPOOF" in r_sa
+
+    # Fake positive response 0x71 (RoutineControl complete) on 0x7EF
+    spoof_rc = CanFrame.create(channel_id="can0", arbitration_id=0x7EF,
+                               data=bytes([0x04, 0x71, 0x01, 0x03, 0x04, 0x00, 0x00, 0x00]))
+    ok_rc, r_rc = f.is_frame_safe(spoof_rc)
+    assert not ok_rc and "BLOCKED_ECU_RESPONSE_SPOOF" in r_rc
+
+    # Opt-out path: block_diagnostic_write=False re-enables response replay
+    f_off = ReplaySafetyFilter(block_diagnostic_write=False)
+    assert f_off.is_frame_safe(spoof_sa)[0] is True
+
+
+def test_classic_ff_dl256_not_misread_as_fd_escape() -> None:
+    """CRITICAL-1: a CLASSIC First Frame with FF_DL=256 (data=[0x10,0x00..])
+    must have its SID read from data[2], not misread as the FD escape form
+    (which would take data[6] and let a prohibited SID at data[2] pass)."""
+    f = ReplaySafetyFilter()
+    ff = CanFrame.create(channel_id="can0", arbitration_id=0x7E0,
+                         data=bytes([0x10, 0x00, 0x36, 0xAA, 0xBB, 0xCC, 0x22, 0x11]))
+    ok, r = f.is_frame_safe(ff)
+    assert not ok and r == "PROHIBITED_11BIT_UDS_SID: 0x36"

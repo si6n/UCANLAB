@@ -143,6 +143,19 @@ class LicenseValidator:
                 expected_mac = hmac.new(self._hwm_key, ts_part.encode("utf-8"), hashlib.sha256).hexdigest()
                 if not hmac.compare_digest(hmac_str, expected_mac):
                     self._recover_lost_hwm_key()
+                    # REVIEW (legacy HWM grace floor): the legacy path
+                    # quarantined the file and returned WITHOUT adopting a
+                    # conservative sync floor — a rolled-back clock plus a
+                    # corrupted legacy HWM re-anchored the anti-rollback high
+                    # water mark (and the offline grace) to the untrusted
+                    # machine time, resurrecting an expired license. Mirror
+                    # the H4 fix from the G2 branch: grace restarts from a
+                    # conservative floor, never from "now".
+                    if self.MAX_OFFLINE_GRACE_SEC > 0:
+                        wall_now_s = self.clock.now_wall_ns() // 1_000_000_000
+                        self.last_online_sync_ts = max(
+                            0, wall_now_s - self.MAX_OFFLINE_GRACE_SEC
+                        )
                     return
                 ts_val = int(ts_part)
 

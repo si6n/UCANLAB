@@ -510,6 +510,13 @@ def _atomic_write(path, data: bytes) -> None:
     truncate the knowledge base the copilot loads at startup."""
     tmp = path.with_suffix(path.suffix + f".tmp-{os.getpid()}-{time.monotonic_ns()}")
     tmp.write_bytes(data)
+    # supply-chain: restrictive-but-readable manifest perms; POSIX-only
+    # (Windows ACLs untouched — no fail-closed breakage on win32).
+    try:
+        if os.name == "posix":
+            os.chmod(tmp, 0o644)
+    except OSError:
+        pass
     os.replace(tmp, path)
 
 

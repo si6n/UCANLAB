@@ -19,6 +19,7 @@ import threading
 import time
 from abc import ABC, abstractmethod
 from ctypes import wintypes
+from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -38,6 +39,36 @@ DEFAULT_DPAPI_ENTROPY: bytes = b"UniversalCAN_Hardware_Secret_Binding_2026"
 DEFAULT_LINUX_SALT: bytes = b"UniversalCAN_Linux_Secret_Salt_2026"
 DEFAULT_KDF_INFO: bytes = b"UniversalCAN_Secret_Key_Derivation_v1"
 
+# Fail-closed bounds for secret stores (memory/file DoS hardening).
+# NOTE: 4 KiB covers HMAC/AES keys and small tokens. The legacy 4096-byte
+# InMemorySecretProvider test vector (RSA key) targets the *protocol-level*
+# in-memory provider, not these file-backed stores.
+MAX_SECRET_BYTES: int = 4096
+MAX_SECRET_COUNT: int = 256
+MAX_SECRET_FILE_BYTES: int = 1024 * 1024  # 1 MiB
+
+
+class ProtectionLevel(str, Enum):
+    """Strength of the active protection backend (explicit downgrade signal)."""
+
+    DPAPI = "DPAPI"
+    FILE_AES_GCM_0600 = "FILE_AES_GCM_0600"
+    EPHEMERAL = "EPHEMERAL"
+    FALLBACK_FILE = "FALLBACK_FILE"
+
+
+def _check_secret_bounds(name: str, secret: bytes, count: int) -> None:
+    if len(secret) > MAX_SECRET_BYTES:
+        raise SecurityError(
+            f"Secret '{name}' exceeds {MAX_SECRET_BYTES} byte limit ({len(secret)} bytes)",
+            code="SECRET_TOO_LARGE",
+        )
+    if count > MAX_SECRET_COUNT:
+        raise SecurityError(
+            f"Secret store exceeds {MAX_SECRET_COUNT} entries",
+            code="SECRET_STORE_FULL",
+        )
+
 
 def derive_machine_dpapi_entropy(base_entropy: bytes = DEFAULT_DPAPI_ENTROPY) -> bytes:
     """Derive hardware-tied DPAPI secondary entropy binding (F-06 / SEC-SP-001).
@@ -45,6 +76,17 @@ def derive_machine_dpapi_entropy(base_entropy: bytes = DEFAULT_DPAPI_ENTROPY) ->
     Mixes machine node, platform identity, and base entropy through SHA-256
     to prevent cross-device credential transfer attacks while maintaining
     deterministic local recovery.
+
+    REVIEW2 #9 (known trade-off, deliberate): the binding includes
+    ``platform.node()`` — renaming the machine (domain rejoin, corporate
+    re-image, VM clone/rename) permanently invalidates DPAPI-sealed secrets
+    (CLOUD_LICENSE_TICKET, API keys) with a misleading "EXPIRED" tier on
+    the license side. Switching to a stable MachineGuid-based identity is
+    migration-breaking for every already-sealed secret on every deployed
+    host, so the current binding is kept. Operators hitting an unexplained
+    EXPIRED status right after a machine rename should re-activate rather
+    than renew the license; a future format bump (with an explicit
+    re-sealing migration) can move this to MachineGuid.
     """
     import hashlib
     import platform
@@ -150,6 +192,7 @@ class EphemeralSecretBackend(SecretProvider):
         if not isinstance(secret, (bytes, bytearray)):
             raise TypeError(f"Secret value must be bytes, got {type(secret).__name__}")
         with self._lock:
+            _check_secret_bounds(name, bytes(secret), len(self._secrets) + (0 if name in self._secrets else 1))
             self._secrets[name] = bytes(secret)
 
     def delete_secret(self, name: str) -> None:
@@ -240,19 +283,20 @@ class LinuxSecretBackend(SecretProvider):
         candidates = [
             Path("/etc/machine-id"),
             Path("/var/lib/dbus/machine-id"),
+            Path("/sys/class/dmi/id/product_uuid"),
             Path("/etc/hostid"),
         ]
-        machine_frag = b""
+        machine_frags: list[bytes] = []
         for candidate in candidates:
             try:
                 if candidate.is_file():
                     content = candidate.read_bytes().strip()
                     if content:
-                        machine_frag = content
-                        break
+                        machine_frags.append(content)
             except OSError:
                 continue
 
+        machine_frag = b":".join(machine_frags)
         seed = os.urandom(32) if not machine_frag else hashlib.sha256(machine_frag + os.urandom(32)).digest()
         try:
             seed_file.parent.mkdir(parents=True, exist_ok=True)
@@ -280,11 +324,25 @@ class LinuxSecretBackend(SecretProvider):
         return seed
 
     def _load_all_secrets(self) -> dict[str, bytes]:
-        """Load and decrypt all secrets from file."""
+        """Load and decrypt all secrets from file (bounded, fail-closed)."""
         if not self.storage_path.exists():
             return {}
 
         try:
+            # Pre-stat bound: never read an unbounded file into RAM.
+            try:
+                size = self.storage_path.stat().st_size
+            except OSError as exc:
+                raise SecurityError(
+                    f"Secret store stat failed: {exc}",
+                    code="SECURITY_ERROR",
+                    cause=exc,
+                ) from exc
+            if size > MAX_SECRET_FILE_BYTES:
+                raise SecurityError(
+                    f"Secret store file exceeds {MAX_SECRET_FILE_BYTES} byte limit ({size} bytes)",
+                    code="SECRET_STORE_TOO_LARGE",
+                )
             raw_data = self.storage_path.read_bytes()
             if not raw_data:
                 return {}
@@ -333,7 +391,11 @@ class LinuxSecretBackend(SecretProvider):
             ) from exc
 
     def _save_all_secrets(self, secrets: dict[str, bytes]) -> None:
-        """Encrypt and write all secrets to storage with 0600 file permissions."""
+        """Encrypt and write all secrets to storage with 0600 file permissions.
+
+        Fail-closed: 0600 cannot be enforced -> SecurityError (no world-readable
+        fallback). POSIX permission verification via stat; Windows best-effort.
+        """
         try:
             self.storage_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -359,34 +421,55 @@ class LinuxSecretBackend(SecretProvider):
             )
 
             # Create file with 0600 flags if supported
-            flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+            flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_EXCL
             mode = 0o600
             try:
                 fd = os.open(temp_file, flags, mode)
-                with os.fdopen(fd, "wb") as f:
-                    f.write(blob)
             except OSError as exc:
-                logger.debug("os.open with 0600 failed, using plain write", extra={"error": str(exc)})
-                temp_file.write_bytes(blob)
-
-            try:
-                os.chmod(temp_file, 0o600)
-            except OSError as exc:
-                logger.debug("Could not enforce 0600 on temp secret store", extra={"error": str(exc)})
+                raise SecurityError(
+                    f"Could not create secret store with 0600 permissions: {exc}",
+                    code="SECRET_PERMISSIONS_UNENFORCEABLE",
+                    cause=exc,
+                ) from exc
+            with os.fdopen(fd, "wb") as f:
+                f.write(blob)
 
             temp_file.replace(self.storage_path)
 
-            try:
-                os.chmod(self.storage_path, 0o600)
-            except OSError as exc:
-                logger.debug("Could not enforce 0600 on secret store", extra={"error": str(exc)})
+            # Verify final permissions on POSIX; fail closed when unenforceable.
+            if os.name == "posix":
+                try:
+                    st_mode = self.storage_path.stat().st_mode & 0o777
+                    if st_mode & 0o077:
+                        raise SecurityError(
+                            f"Secret store permissions too open (0o{st_mode:03o}), "
+                            "refusing world/group-readable secret file",
+                            code="SECRET_PERMISSIONS_UNENFORCEABLE",
+                        )
+                except OSError as exc:
+                    raise SecurityError(
+                        f"Could not verify secret store permissions: {exc}",
+                        code="SECRET_PERMISSIONS_UNENFORCEABLE",
+                        cause=exc,
+                    ) from exc
+            else:
+                try:
+                    os.chmod(self.storage_path, 0o600)
+                except OSError:
+                    pass
 
+        except SecurityError:
+            raise
         except Exception as exc:
             raise SecurityError(
                 f"Failed to save secret store: {exc}",
                 code="SECURITY_ERROR",
                 cause=exc,
             ) from exc
+
+    def protection_level(self) -> ProtectionLevel:
+        """Explicit protection level of this backend."""
+        return ProtectionLevel.FILE_AES_GCM_0600
 
     def get_secret(self, name: str) -> bytes:
         with self._lock:
@@ -403,6 +486,7 @@ class LinuxSecretBackend(SecretProvider):
 
         with self._lock:
             secrets = self._load_all_secrets()
+            _check_secret_bounds(name, bytes(secret), len(secrets) + (0 if name in secrets else 1))
             secrets[name] = bytes(secret)
             self._save_all_secrets(secrets)
 
@@ -628,19 +712,22 @@ class WindowsDPAPISecretBackend(SecretProvider):
     def get_secret(self, name: str) -> bytes:
         with self._lock:
             if not self._is_windows_dpapi_available():
-                return self._get_fallback().get_secret(name)
+                if self._fallback_backend is None:
+                    raise SecurityError(
+                        "DPAPI unavailable and no explicit fallback backend configured "
+                        "(refusing silent downgrade)",
+                        code="DPAPI_FALLBACK_NOT_CONFIGURED",
+                    )
+                logger.warning(
+                    "DPAPI unavailable — serving from EXPLICIT fallback backend",
+                    extra={"secret_name": name, "protection": "FALLBACK_FILE"},
+                )
+                return self._fallback_backend.get_secret(name)
 
             try:
                 store = self._load_store()
                 secrets = store.get("secrets", {})
                 if name not in secrets:
-                    # B3: a miss in the DPAPI store must also check the
-                    # fallback depot before raising — the split-brain case
-                    # (secret written via fallback during a DPAPI outage).
-                    fallback = self._get_fallback()
-                    if fallback.has_secret(name):
-                        logger.warning("Secret served from fallback depot (missing in DPAPI store)", extra={"name": name})
-                        return fallback.get_secret(name)
                     raise KeyError(f"Secret '{name}' not found in {self.__class__.__name__}")
 
                 encrypted_b64 = secrets[name]
@@ -649,9 +736,6 @@ class WindowsDPAPISecretBackend(SecretProvider):
             except KeyError:
                 raise
             except Exception as exc:
-                logger.warning("Windows DPAPI read failed, trying fallback", extra={"error": str(exc)})
-                if self._fallback_backend and self._fallback_backend.has_secret(name):
-                    return self._fallback_backend.get_secret(name)
                 raise SecurityError(
                     f"DPAPI decryption failed for secret '{name}': {exc}",
                     code="SECURITY_ERROR",
@@ -663,37 +747,55 @@ class WindowsDPAPISecretBackend(SecretProvider):
             raise TypeError(f"Secret name must be str, got {type(name).__name__}")
         if not isinstance(secret, (bytes, bytearray)):
             raise TypeError(f"Secret value must be bytes, got {type(secret).__name__}")
+        _check_secret_bounds(name, bytes(secret), MAX_SECRET_COUNT)
 
         with self._lock:
             if not self._is_windows_dpapi_available():
-                self._get_fallback().store_secret(name, secret)
+                if self._fallback_backend is None:
+                    raise SecurityError(
+                        "DPAPI unavailable and no explicit fallback backend configured "
+                        "(refusing silent downgrade)",
+                        code="DPAPI_FALLBACK_NOT_CONFIGURED",
+                    )
+                logger.warning(
+                    "DPAPI unavailable — storing to EXPLICIT fallback backend",
+                    extra={"secret_name": name, "protection": "FALLBACK_FILE"},
+                )
+                self._fallback_backend.store_secret(name, secret)
                 return
 
-            try:
-                encrypted_blob = self._dpapi_protect(bytes(secret))
-                encrypted_b64 = base64.b64encode(encrypted_blob).decode("ascii")
+            encrypted_blob = self._dpapi_protect(bytes(secret))
+            encrypted_b64 = base64.b64encode(encrypted_blob).decode("ascii")
 
-                store = self._load_store()
-                if "secrets" not in store:
-                    store["secrets"] = {}
-                store["secrets"][name] = encrypted_b64
-                self._save_store(store)
-            except Exception as exc:
-                logger.warning("Windows DPAPI store failed, falling back to encrypted file", extra={"error": str(exc)})
-                self._get_fallback().store_secret(name, secret)
+            store = self._load_store()
+            if "secrets" not in store:
+                store["secrets"] = {}
+            if len(store["secrets"]) >= MAX_SECRET_COUNT and name not in store["secrets"]:
+                raise SecurityError(
+                    f"DPAPI secret store exceeds {MAX_SECRET_COUNT} entries",
+                    code="SECRET_STORE_FULL",
+                )
+            store["secrets"][name] = encrypted_b64
+            self._save_store(store)
 
     def delete_secret(self, name: str) -> None:
         with self._lock:
             if not self._is_windows_dpapi_available():
-                self._get_fallback().delete_secret(name)
+                if self._fallback_backend is None:
+                    raise SecurityError(
+                        "DPAPI unavailable and no explicit fallback backend configured",
+                        code="DPAPI_FALLBACK_NOT_CONFIGURED",
+                    )
+                logger.warning(
+                    "DPAPI unavailable — deleting from EXPLICIT fallback backend",
+                    extra={"secret_name": name, "protection": "FALLBACK_FILE"},
+                )
+                self._fallback_backend.delete_secret(name)
                 return
 
             store = self._load_store()
             secrets = store.get("secrets", {})
             if name not in secrets:
-                if self._fallback_backend and self._fallback_backend.has_secret(name):
-                    self._fallback_backend.delete_secret(name)
-                    return
                 raise KeyError(f"Secret '{name}' not found in {self.__class__.__name__}")
 
             del secrets[name]
@@ -702,10 +804,19 @@ class WindowsDPAPISecretBackend(SecretProvider):
     def list_secrets(self) -> list[str]:
         with self._lock:
             if not self._is_windows_dpapi_available():
-                return self._get_fallback().list_secrets()
+                if self._fallback_backend is None:
+                    return []
+                logger.warning("DPAPI unavailable — listing EXPLICIT fallback backend")
+                return self._fallback_backend.list_secrets()
 
             store = self._load_store()
             return list(store.get("secrets", {}).keys())
+
+    def protection_level(self) -> ProtectionLevel:
+        """Explicit protection level (DPAPI when available, else explicit fallback)."""
+        if self._is_windows_dpapi_available():
+            return ProtectionLevel.DPAPI
+        return ProtectionLevel.FALLBACK_FILE
 
 
 # Aliases for Windows DPAPI backend

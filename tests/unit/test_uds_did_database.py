@@ -181,7 +181,8 @@ def test_uds_did_unknown_fallback() -> None:
     assert res.did == 0xABCD
     assert res.name == "UNKNOWN_DID_0xABCD"
     assert res.value == "11223344"
-    assert res.is_valid is True
+    # REVIEW hardening: unlisted identifiers are fail-closed invalid.
+    assert res.is_valid is False
 
 
 def test_uds_did_insufficient_length_error() -> None:

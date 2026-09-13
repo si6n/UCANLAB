@@ -1,0 +1,216 @@
+{
+  "schema_version": 1,
+  "_derivation_rule": "Tum kayitlar src/engine/ai/diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE inline kayitlarindan turkce teknik alanlarin sadelestirmesidir; surus metinleri dokuman 6 sablonlarindan birebir. Yeni kayit yalniz operator onayiyla eklenir — agent metin uydurmaz (AGENTS.md 2.3). source_ref ZORUNLU.",
+  "entries": {
+    "P0300": {
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['P0300']",
+      "user_summary_tr": "Motorun bir veya birden çok silindirinde düzensiz ateşleme olabilir.",
+      "code": "P0300",
+      "user_risk": "YELLOW",
+      "user_title_tr": "Motor teklemesi olabilir"
+    },
+    "P0301": {
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['P0300'] (silindir-1 ozel: dokuman 41 senaryosu)",
+      "user_summary_tr": "Motorun 1 numaralı silindirinde düzensiz ateşleme olabilir.",
+      "code": "P0301",
+      "user_risk": "YELLOW",
+      "user_title_tr": "Motor teklemesi olabilir"
+    },
+    "P0302": {
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['P0300'] (silindir-2 uzantisi, ayni teknik alan)",
+      "user_summary_tr": "Motorun 2 numaralı silindirinde düzensiz ateşleme olabilir.",
+      "code": "P0302",
+      "user_risk": "YELLOW",
+      "user_title_tr": "Motor teklemesi olabilir"
+    },
+    "P0303": {
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['P0300'] (silindir-3 uzantisi, ayni teknik alan)",
+      "user_summary_tr": "Motorun 3 numaralı silindirinde düzensiz ateşleme olabilir.",
+      "code": "P0303",
+      "user_risk": "YELLOW",
+      "user_title_tr": "Motor teklemesi olabilir"
+    },
+    "P0304": {
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['P0300'] (silindir-4 uzantisi, ayni teknik alan)",
+      "user_summary_tr": "Motorun 4 numaralı silindirinde düzensiz ateşleme olabilir.",
+      "code": "P0304",
+      "user_risk": "YELLOW",
+      "user_title_tr": "Motor teklemesi olabilir"
+    },
+    "P0234": {
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['P0234']",
+      "user_summary_tr": "Motorun turboşarj basıncı güvenli sınırın üzerine çıkmış olabilir.",
+      "code": "P0234",
+      "user_risk": "YELLOW",
+      "user_title_tr": "Turbo basıncı çok yüksek olabilir"
+    },
+    "P0299": {
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN102'] (P0299 underboost karsiligi)",
+      "user_summary_tr": "Motora giden turbo takviye basıncı beklenen seviyenin altında olabilir; çekiş düşebilir.",
+      "code": "P0299",
+      "user_risk": "YELLOW",
+      "user_title_tr": "Turbo basıncı düşük olabilir"
+    },
+    "P0115": {
+      "source_ref": "diagnostic_copilot.py SCENARIO_DTCS['overheat'] + EXPERT_KNOWLEDGE_BASE['SPN110'] teknik alanlari",
+      "user_summary_tr": "Motor soğutma sıvısı sıcaklık sensöründen güvenilir sinyal alınamıyor olabilir.",
+      "code": "P0115",
+      "user_risk": "YELLOW",
+      "user_title_tr": "Motor sıcaklık sensörü sorunu olabilir"
+    },
+    "P0087": {
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['P0087']",
+      "user_summary_tr": "Motora giden yakıt basıncı gereken seviyenin altında olabilir; çalışma düzensizliği olur.",
+      "code": "P0087",
+      "user_risk": "RED",
+      "user_title_tr": "Yakıt basıncı çok düşük olabilir"
+    },
+    "P0016": {
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['P0016']",
+      "user_summary_tr": "Krank ve kam mili pozisyonları arasında uyumsuzluk olabilir.",
+      "code": "P0016",
+      "user_risk": "RED",
+      "user_title_tr": "Motor zamanlama sorunu olabilir"
+    },
+    "P0420": {
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['P0420']",
+      "user_summary_tr": "Katalitik konvertör sistemi beklenen verimlilikte çalışmıyor olabilir.",
+      "code": "P0420",
+      "user_risk": "GREEN",
+      "user_title_tr": "Egzoz temizleme sistemi verimi düşük olabilir"
+    },
+    "C1A00": {
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['C1A00']",
+      "user_summary_tr": "Sürüş destek (ADAS) ön radar sensörünün hizasında sapma olabilir.",
+      "code": "C1A00",
+      "user_risk": "YELLOW",
+      "user_title_tr": "Ön radar hizası kaymış olabilir"
+    },
+    "U0100": {
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['U0100']",
+      "user_summary_tr": "Araçtaki motor beyniyle haberleşme kesilmiş olabilir.",
+      "code": "U0100",
+      "user_risk": "RED",
+      "user_title_tr": "Motor kontrol ünitesi ile bağlantı kesildi olabilir"
+    },
+    "U0126": {
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['U0126']",
+      "user_summary_tr": "Direksiyon açı sensörüyle haberleşme kesilmiş olabilir; fren ve dengelenme sistemleri kısıtlanabilir.",
+      "code": "U0126",
+      "user_risk": "YELLOW",
+      "user_title_tr": "Direksiyon açı sensörü bağlantısı kesildi olabilir"
+    },
+    "U0415": {
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['U0415']",
+      "user_summary_tr": "ABS/fren kontrol modülünden geçersiz veri alınıyor olabilir.",
+      "code": "U0415",
+      "user_risk": "RED",
+      "user_title_tr": "Fren sisteminden hatalı bilgi geliyor olabilir"
+    },
+    "P0A0B": {
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['P0A0B'] + dokuman 24 uyarı sablonları",
+      "user_summary_tr": "Elektrikli araç yüksek voltaj güvenlik kilidi (HVIL) devresi açık olabilir.\nYüksek voltaj sistemi tehlikeli olabilir.\nTuruncu kablolara dokunmayın.\nYetkisiz müdahale yapmayın.\nAracı şarj etmeyi durdurun ve yetkili servis çağırın.",
+      "code": "P0A0B",
+      "user_risk": "RED",
+      "user_title_tr": "Yüksek voltaj güvenlik kilidi açık olabilir"
+    },
+    "P0A0D": {
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['P0A0D'] + dokuman 24 uyarı sablonları",
+      "user_summary_tr": "Elektrikli araç HVIL devresinde elektriksel kısa devre olabilir.\nYüksek voltaj sistemi tehlikeli olabilir.\nTuruncu kablolara dokunmayın.\nYetkisiz müdahale yapmayın.\nAracı şarj etmeyi durdurun ve yetkili servis çağırın.",
+      "code": "P0A0D",
+      "user_risk": "RED",
+      "user_title_tr": "Yüksek voltaj güvenlik kilidi devresinde kısa devre olabilir"
+    },
+    "P0AA6": {
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['P0AA6'] + dokuman 24 uyarı sablonları",
+      "user_summary_tr": "Elektrikli araçta yüksek voltaj sisteminin şasiye karşı izolasyonu düşmüş olabilir.\nYüksek voltaj sistemi tehlikeli olabilir.\nTuruncu kablolara dokunmayın.\nYetkisiz müdahale yapmayın.\nAracı şarj etmeyi durdurun ve yetkili servis çağırın.",
+      "code": "P0AA6",
+      "user_risk": "RED",
+      "user_title_tr": "Yüksek voltaj izolasyon hatası olabilir"
+    },
+    "P0A80": {
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['P0A80'] + dokuman 24 uyarı sablonları",
+      "user_summary_tr": "Elektrikli araç batarya paketinin sağlığı kritik seviyeye düşmüş olabilir.\nYüksek voltaj sistemi tehlikeli olabilir.\nTuruncu kablolara dokunmayın.\nYetkisiz müdahale yapmayın.\nAracı şarj etmeyi durdurun ve yetkili servis çağırın.",
+      "code": "P0A80",
+      "user_risk": "RED",
+      "user_title_tr": "Batarya paketi değişimi gerekebilir"
+    },
+    "P0A93": {
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['P0A93']",
+      "user_summary_tr": "Elektrikli araç inverter/aktarma soğutma performansı düşmüş olabilir.",
+      "code": "P0A93",
+      "user_risk": "YELLOW",
+      "user_title_tr": "Elektrik motoru soğutması yetersiz olabilir"
+    },
+    "SPN100": {
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN100']",
+      "user_summary_tr": "Ağır vasıta motor yağ basıncı kritik seviyede olabilir.",
+      "code": "SPN100",
+      "user_risk": "RED",
+      "user_title_tr": "Motor yağ basıncı hatası olabilir"
+    },
+    "SPN102": {
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN102']",
+      "user_summary_tr": "Ağır vasıta turbo basınç sistemi beklenen aralıktta çalışmıyor olabilir.",
+      "code": "SPN102",
+      "user_risk": "YELLOW",
+      "user_title_tr": "Turbo takviye basıncı hatası olabilir"
+    },
+    "SPN110": {
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN110']",
+      "user_summary_tr": "Ağır vasıta motor soğutma sıvısı sıcaklığı kritik seviyeye ulaşmış olabilir.",
+      "code": "SPN110",
+      "user_risk": "RED",
+      "user_title_tr": "Motor harareti yükselmiş olabilir"
+    },
+    "SPN190": {
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN190']",
+      "user_summary_tr": "Ağır vasıta motor devri veya krank sensörü sinyalinde sorun olabilir.",
+      "code": "SPN190",
+      "user_risk": "RED",
+      "user_title_tr": "Motor devir/krank sinyal hatası olabilir"
+    },
+    "SPN1761": {
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN1761']",
+      "user_summary_tr": "Ağır vasıta AdBlue deposu seviyesi kritik seviyeye yaklaşmış olabilir.",
+      "code": "SPN1761",
+      "user_risk": "YELLOW",
+      "user_title_tr": "AdBlue (DEF) seviyesi düşük olabilir"
+    },
+    "SPN3251": {
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN3251']",
+      "user_summary_tr": "Ağır vasıta dizel partikül filtresinde kurum birikimi sınır seviyeye yaklaşmış olabilir.",
+      "code": "SPN3251",
+      "user_risk": "YELLOW",
+      "user_title_tr": "Partikül filtresi (DPF) tıkanıyor olabilir"
+    },
+    "SPN3364": {
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN3364']",
+      "user_summary_tr": "Ağır vasıta AdBlue (DEF) sıvısının yoğunluğu standart dışı olabilir; hız sınırı ve güç kısıtlaması riski vardır.",
+      "code": "SPN3364",
+      "user_risk": "RED",
+      "user_title_tr": "AdBlue sıvı kalitesi uygunsuz olabilir"
+    },
+    "SPN4364": {
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN4364']",
+      "user_summary_tr": "Ağır vasıta SCR sistemi NOx arıtma verimi beklenen seviyenin altında olabilir.",
+      "code": "SPN4364",
+      "user_risk": "RED",
+      "user_title_tr": "Egzoz arıtma (SCR) verimi düşük olabilir"
+    },
+    "SPN651": {
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN651']",
+      "user_summary_tr": "Ağır vasıta 1 numaralı silindir enjektör devresinde/mevkanizmasında sorun olabilir.",
+      "code": "SPN651",
+      "user_risk": "RED",
+      "user_title_tr": "1. silindir yakıt enjektörü sorunu olabilir"
+    },
+    "SPN1087": {
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN1087']",
+      "user_summary_tr": "Ağır vasıta fren devresi 1 hava basıncı güvenlik sınırının altında olabilir.",
+      "code": "SPN1087",
+      "user_risk": "RED",
+      "user_title_tr": "Fren sistemi hava basıncı düşük olabilir"
+    }
+  }
+}

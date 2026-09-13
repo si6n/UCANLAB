@@ -44,6 +44,11 @@ class FrameRouter:
     CALLBACK_BUDGET_MS: ClassVar[float] = 20.0
     # E-2: rate-limited drop logging — one summary per subscriber per second.
     _DROP_LOG_INTERVAL_S: ClassVar[float] = 1.0
+    # REVIEW2 #2 / REVIEW3 #13: a callback-ONLY subscriber (no queue to be
+    # demoted onto) that keeps blowing the budget gets its callback REMOVED
+    # after this many consecutive violations — "deaf" beats "holds the whole
+    # RX thread hostage on every frame" (protocol timers miss otherwise).
+    CALLBACK_TRIP_AFTER: ClassVar[int] = 10
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
@@ -65,6 +70,9 @@ class FrameRouter:
         # E-2: (sub_id, monotonic-second) of the last drop log per subscriber
         self._last_drop_log: dict[int, float] = {}
         self._drop_counts_since_log: dict[int, int] = {}
+        # REVIEW2 #2: consecutive CALLBACK_BUDGET_MS violations per subscriber
+        # (callback-only subscribers get tripped; queue subscribers get demoted).
+        self._callback_trip_counts: dict[int, int] = {}
 
     def _rebuild_snapshot_locked(self) -> None:
         """Refresh the lock-free routing snapshot. Caller must hold the lock."""
@@ -82,6 +90,14 @@ class FrameRouter:
 
         Returns (subscription_id, queue_instance_or_None).
         """
+        if (
+            not isinstance(queue_maxsize, int)
+            or isinstance(queue_maxsize, bool)
+            or not (1 <= queue_maxsize <= self.MAX_QUEUE_SIZE)
+        ):
+            raise ValueError(
+                f"queue_maxsize must be in range 1..{self.MAX_QUEUE_SIZE}, got {queue_maxsize!r}"
+            )
         fq: queue.Queue[CanFrame] | None = None
         if use_queue:
             fq = queue.Queue(maxsize=queue_maxsize)
@@ -107,6 +123,10 @@ class FrameRouter:
             removed = self._subscriptions.pop(sub_id, None) is not None
             if removed:
                 self._rebuild_snapshot_locked()
+                # REVIEW2 #2: drop per-subscriber bookkeeping with the sub.
+                self._callback_trip_counts.pop(sub_id, None)
+                self._drop_counts_since_log.pop(sub_id, None)
+                self._last_drop_log.pop(sub_id, None)
             return removed
 
     def route_frame(self, frame: CanFrame) -> int:
@@ -164,6 +184,29 @@ class FrameRouter:
                             if sub.sub_id in self._subscriptions:
                                 self._subscriptions[sub.sub_id].callback = None
                                 self._subscriptions[sub.sub_id].is_demoted = True
+                    else:
+                        # REVIEW2 #2 / REVIEW3 #13: a queue-less subscriber
+                        # cannot be demoted, but it also must not keep
+                        # stalling every routed frame forever. After
+                        # CALLBACK_TRIP_AFTER consecutive over-budget calls
+                        # the callback is removed (subscriber goes deaf,
+                        # loudly logged) — restore_callback() can re-arm it.
+                        with self._lock:
+                            trips = self._callback_trip_counts.get(sub.sub_id, 0) + 1
+                            self._callback_trip_counts[sub.sub_id] = trips
+                            if trips >= self.CALLBACK_TRIP_AFTER and sub.sub_id in self._subscriptions:
+                                self._subscriptions[sub.sub_id].callback = None
+                                self._subscriptions[sub.sub_id].is_demoted = True
+                                logger.error(
+                                    "FrameRouter callback-only subscriber tripped after repeated budget violations — "
+                                    "callback removed (restore via restore_callback)",
+                                    extra={"sub_id": sub.sub_id, "consecutive_violations": trips},
+                                )
+                else:
+                    # In-budget call resets the consecutive-violation counter.
+                    if self._callback_trip_counts:
+                        with self._lock:
+                            self._callback_trip_counts.pop(sub.sub_id, None)
 
             # Dispatch to queue (non-blocking with drop on full)
             if sub.frame_queue is not None:
@@ -205,6 +248,9 @@ class FrameRouter:
                 return False
             sub.callback = callback
             sub.is_demoted = False
+            # REVIEW2 #2: a fresh operator-armed callback starts with a
+            # clean trip count (it may genuinely be faster now).
+            self._callback_trip_counts.pop(sub_id, None)
             return True
 
     def clear(self) -> None:

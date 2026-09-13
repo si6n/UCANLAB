@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
  Cpu, 
  UploadCloud, 
@@ -12,8 +12,10 @@ import {
  Trash2,
  Lock,
  AlertTriangle,
- FileX
+ FileX,
+ Square
 } from 'lucide-react';
+import { DesktopBridge } from '../../services/bridge';
 
 interface SelectedFirmware {
  name: string;
@@ -159,18 +161,23 @@ export const EcuFlashingView: React.FC = () => {
  if (ext === 'hex') arch = 'Intel Hex Linear 32-bit';
  else if (ext === 's19' || ext === 's28' || ext === 's37') arch = 'Motorola S-Record 32-bit';
 
- // UI-C-004: real content-derived SHA-256 via WebCrypto (the previous
- // deterministic pseudo-hash was derived from file metadata only and
- // masqueraded as an integrity guarantee).
- let digestHex = '';
- try {
- const digestBuffer = await crypto.subtle.digest('SHA-256', bytes);
- digestHex = Array.from(new Uint8Array(digestBuffer))
- .map(b => b.toString(16).padStart(2, '0'))
- .join('');
- } catch {
- digestHex = 'UNAVAILABLE';
- }
+  // UI-C-004: real content-derived SHA-256 via WebCrypto (the previous
+  // deterministic pseudo-hash was derived from file metadata only and
+  // masqueraded as an integrity guarantee).
+  // REVIEW (whole-file digest): the bytes above are only the first 2048
+  // bytes (format sniff) — hashing just that slice made two images with a
+  // shared 2 KB header pass "integrity verified" with different flash
+  // payloads. Digest the WHOLE file (size is already capped at 32 MB).
+  let digestHex = '';
+  try {
+  const wholeBuffer = await file.arrayBuffer();
+  const digestBuffer = await crypto.subtle.digest('SHA-256', wholeBuffer);
+  digestHex = Array.from(new Uint8Array(digestBuffer))
+  .map(b => b.toString(16).padStart(2, '0'))
+  .join('');
+  } catch {
+  digestHex = 'UNAVAILABLE';
+  }
  const checksum = digestHex === 'UNAVAILABLE'
  ? 'SHA256: (hesaplanamadı — WebCrypto kullanılamıyor)'
  : `SHA256:${digestHex.substring(0, 16)}...${digestHex.substring(digestHex.length - 8)}`;
@@ -271,7 +278,37 @@ export const EcuFlashingView: React.FC = () => {
  ]);
  };
 
- const startFlashing = () => {
+ const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+ useEffect(() => {
+   return () => {
+     if (pollIntervalRef.current) {
+       clearInterval(pollIntervalRef.current);
+     }
+   };
+ }, []);
+
+ const cancelFlashing = async () => {
+   if (pollIntervalRef.current) {
+     clearInterval(pollIntervalRef.current);
+     pollIntervalRef.current = null;
+   }
+   if (DesktopBridge.isNative()) {
+     try {
+       await DesktopBridge.flashCancel();
+     } catch {
+       // best-effort
+     }
+   }
+   setIsFlashing(false);
+   setStatusText('Flashing kullanıcı tarafından iptal edildi.');
+   setLogs(prev => [
+     ...prev,
+     '[CANCEL] Flashing iptal edildi (UDS Oturumu Sıfırlandı).'
+   ]);
+ };
+
+ const startFlashing = async () => {
  if (!selectedFile) {
  alert('Lütfen önce geçerli bir firmware dosyası seçiniz!');
  return;
@@ -281,6 +318,102 @@ export const EcuFlashingView: React.FC = () => {
  setIsFlashing(true);
  setProgress(0);
  setStatusText('Güvenlik & Hız Kilidi Doğrulanıyor...');
+
+ if (DesktopBridge.isNative()) {
+   try {
+     setLogs(prev => [
+       ...prev,
+       '------------------------------------------------------------',
+       `[INIT] Hedef ECU: ${selectedEcu} (CAN ID: 0x7E0 / 0x7E8) Flashing Hazırlığı`,
+       '[SECURITY] Dual Confirmation onay token\'ı talep ediliyor...'
+     ]);
+
+     const challenge = await DesktopBridge.requestDiagnosticChallenge({
+       action_type: 'ecu_flash',
+       id: `flash-${selectedEcu}-${Date.now()}`,
+       ecu: selectedEcu,
+       fileName: selectedFile.name,
+     });
+
+     if (!challenge.success || !challenge.token) {
+       throw new Error(challenge.error || 'Dual confirmation token alınamadı.');
+     }
+
+     setLogs(prev => [
+       ...prev,
+       `[SECURITY] Onay token'ı alındı: ${challenge.token.substring(0, 8)}... (Geçerlilik: 30s)`,
+       '[FLASH_START] Flashing motoru başlatılıyor...'
+     ]);
+
+     const startRes = await DesktopBridge.flashStart(
+       {
+         action_type: 'ecu_flash',
+         ecu: selectedEcu,
+         fileName: selectedFile.name,
+         sizeBytes: selectedFile.sizeBytes,
+         memoryAddress: 0x80000,
+         blockSize: 256,
+       },
+       challenge.token
+     );
+
+     if (!startRes.success) {
+       throw new Error(startRes.error || startRes.message || 'Flashing başlatılamadı.');
+     }
+
+     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+     pollIntervalRef.current = setInterval(async () => {
+       const prog = await DesktopBridge.flashProgress();
+       if (prog) {
+         if (typeof prog.percent === 'number') {
+           setProgress(prog.percent);
+         }
+         if (prog.step) {
+           const sectorIdx = Math.min(15, Math.floor(((prog.percent || 0) / 100) * 16));
+           setStatusText(`[${prog.step}] Sektör SEC_${sectorIdx} (%${prog.percent || 0})`);
+         }
+         if (prog.logs && Array.isArray(prog.logs)) {
+           setLogs(prev => {
+             const existing = new Set(prev);
+             const nextLogs = [...prev];
+             for (const l of prog.logs) {
+               if (!existing.has(l)) {
+                 nextLogs.push(l);
+                 existing.add(l);
+               }
+             }
+             return nextLogs;
+           });
+         }
+
+         if (prog.status === 'completed') {
+           if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+           pollIntervalRef.current = null;
+           setIsFlashing(false);
+           setProgress(100);
+           setStatusText(`Flashing başarıyla tamamlandı: ${selectedFile.name}`);
+         } else if (prog.status === 'failed' || prog.status === 'cancelled') {
+           if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+           pollIntervalRef.current = null;
+           setIsFlashing(false);
+           setStatusText(`Flashing durduruldu (${prog.status}): ${prog.error || ''}`);
+         }
+       }
+     }, 250);
+
+     return;
+   } catch (err: any) {
+     setIsFlashing(false);
+     const errMsg = err?.message || String(err);
+     setStatusText(`Hata: ${errMsg}`);
+     setLogs(prev => [
+       ...prev,
+       `[ERROR] Flashing Hatası: ${errMsg}`,
+       '[ABORT] Flash işlemi durduruldu.'
+     ]);
+     return;
+   }
+ }
 
  const initialFlashLogs = [
  ...logs,
@@ -328,6 +461,13 @@ export const EcuFlashingView: React.FC = () => {
   };
 
  const resetSession = () => {
+ if (pollIntervalRef.current) {
+   clearInterval(pollIntervalRef.current);
+   pollIntervalRef.current = null;
+ }
+ if (isFlashing) {
+   cancelFlashing();
+ }
  setProgress(0);
  setIsFlashing(false);
  setStatusText(selectedFile ? `Firmware Yüklendi: ${selectedFile.name}` : 'Firmware Dosyası Bekleniyor');
@@ -521,19 +661,30 @@ export const EcuFlashingView: React.FC = () => {
 
  {/* Action Buttons */}
  <div className="flex items-center space-x-2 pt-1">
+ {isFlashing ? (
+ <button
+ onClick={cancelFlashing}
+ className="flex items-center space-x-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold shadow-xs active:scale-[0.98] transition-all"
+ title="Flash işlemini durdur"
+ >
+ <Square className="w-3.5 h-3.5 fill-current" />
+ <span>Flashing İptal Et</span>
+ </button>
+ ) : (
  <button
  onClick={startFlashing}
- disabled={!selectedFile || isFlashing}
+ disabled={!selectedFile}
  className={`flex items-center space-x-1.5 px-4 py-2 rounded-lg text-xs font-bold shadow-xs transition-all ${
- !selectedFile || isFlashing
+ !selectedFile
  ? 'bg-slate-200 text-slate-500 cursor-not-allowed border border-slate-300'
  : 'bg-brand-600 hover:bg-brand-700 text-white active:scale-[0.98]'
  }`}
  title={!selectedFile ? 'Lütfen önce geçerli bir firmware dosyası seçiniz' : 'Flash işlemini başlat'}
  >
  {!selectedFile ? <Lock className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 fill-current" />}
- <span>{!selectedFile ? 'Geçerli Dosya Bekleniyor (Flash Kilitli)' : isFlashing ? 'Flash Yazılıyor...' : 'Flash İşlemini Başlat'}</span>
+ <span>{!selectedFile ? 'Geçerli Dosya Bekleniyor (Flash Kilitli)' : 'Flash İşlemini Başlat'}</span>
  </button>
+ )}
 
  <button
  onClick={resetSession}

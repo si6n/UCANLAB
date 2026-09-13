@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68.0"]
+requires = ["setuptools>=68.0,<81"]  # pinned upper bound (supply-chain)
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -13,6 +13,12 @@ requires-python = ">=3.11"
 testpaths = ["tests"]
 pythonpath = ["."]
 addopts = "-v --strict-markers"
+# Benchmark testleri (~5s) varsayılan koşumda çalışır; kapatmak için:
+#   pytest -m "not benchmark"      (hızlı yineleme)
+#   pytest -m benchmark            (yalnız ölçüm)
+markers = [
+    "benchmark: performans/ölçüm testleri (gecikme, bellek, indeks maliyeti)",
+]
 
 [tool.ruff]
 line-length = 120

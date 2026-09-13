@@ -167,12 +167,20 @@ class VirtualClock:
         self._monotonic_sec = float(start_monotonic_sec)
 
     def advance(self, delta_sec: float) -> None:
-        """Advance the virtual monotonic clock by delta_sec (may be negative for rollback tests)."""
-        self._monotonic_sec += float(delta_sec)
+        """Advance the virtual monotonic clock by delta_sec (must be non-negative)."""
+        delta = float(delta_sec)
+        if delta < 0:
+            raise ValueError(f"VirtualClock.advance requires non-negative delta, got {delta_sec!r}")
+        self._monotonic_sec += delta
 
     def set(self, monotonic_sec: float) -> None:
-        """Set the virtual monotonic clock to an absolute value."""
-        self._monotonic_sec = float(monotonic_sec)
+        """Set the virtual monotonic clock to an absolute value (monotonic, never backwards)."""
+        target = float(monotonic_sec)
+        if target < self._monotonic_sec:
+            raise ValueError(
+                f"VirtualClock.set cannot move backwards ({self._monotonic_sec} -> {target})"
+            )
+        self._monotonic_sec = target
 
     def now_monotonic(self) -> float:
         """Return virtual monotonic time in fractional seconds."""

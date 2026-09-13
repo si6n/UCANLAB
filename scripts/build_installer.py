@@ -24,17 +24,29 @@ DEFAULT_ISCC_PATHS = [
 
 def find_iscc() -> Path | None:
     """Locate the Inno Setup Compiler executable (ISCC.exe)."""
-    # 1. Check PATH
+    # 1. Check PATH (supply-chain: log resolved absolute path to detect hijack;
+    # absolute path is mandatory — never exec a bare relative name).
     which_iscc = shutil.which("iscc") or shutil.which("ISCC.exe")
     if which_iscc:
-        return Path(which_iscc)
+        resolved = Path(which_iscc).resolve()
+        print(f"[supply-chain] ISCC via PATH: {which_iscc} -> {resolved}")
+        if not resolved.is_absolute():
+            raise ValueError(f"ISCC PATH entry is not absolute: {which_iscc}")
+        if resolved.is_file():
+            return resolved
+        print(f"[WARN] ISCC PATH entry is not a file: {resolved}")
 
-    # 2. Check custom environment variable
+    # 2. Check custom environment variable (supply-chain: resolve + is_file +
+    # .exe check; explicit misconfiguration fails closed with ValueError).
     custom_path = os.environ.get("INNO_SETUP_DIR")
     if custom_path:
-        cand = Path(custom_path) / "ISCC.exe"
-        if cand.is_file():
-            return cand
+        cand = (Path(custom_path) / "ISCC.exe").resolve()
+        print(f"[supply-chain] ISCC via INNO_SETUP_DIR: {custom_path} -> {cand}")
+        if cand.suffix.lower() != ".exe":
+            raise ValueError(f"INNO_SETUP_DIR must point to a dir containing ISCC.exe, got: {cand}")
+        if not cand.is_file():
+            raise ValueError(f"INNO_SETUP_DIR does not contain ISCC.exe: {cand}")
+        return cand
 
     # 3. Check well-known Program Files locations
     for p in DEFAULT_ISCC_PATHS:

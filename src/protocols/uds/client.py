@@ -15,6 +15,7 @@ from src.protocols.uds.isotp import IsoTpTransport, decode_st_min
 from src.protocols.uds.nrc import UdsNrc
 from src.protocols.uds.services import (
     DiagnosticSessionType,
+    ReadDtcInformationType,
     RoutineControlType,
     UdsResponse,
     UdsServiceBuilder,
@@ -45,6 +46,9 @@ class UdsClient:
         rx_id: int = 0x7E8,
         channel_id: str = "uds_ch0",
         max_workers: int = 4,
+        is_fd: bool | None = None,
+        brs: bool = False,
+        max_pending_timeout_s: float | None = None,
     ) -> None:
         if tx_port is not None:
             self.tx_port: TxPort = tx_port
@@ -74,6 +78,25 @@ class UdsClient:
         self.tx_id = tx_id
         self.rx_id = rx_id
         self.channel_id = channel_id
+        # REVIEW 3-2 (CRITICAL): ISO-TP CAN-FD mode was supported by the
+        # low-level sender/receiver but never reachable through this client —
+        # every request was segmented as Classic CAN. Derive from the bus
+        # when not given explicitly so an FD-capable channel produces FD
+        # ISO-TP frames (single-frame payloads up to 62 bytes, FD FF/CF).
+        if is_fd is None:
+            is_fd = bool(getattr(bus, "is_fd", False))
+        self.is_fd = is_fd
+        # REVIEW 3-4 (MEDIUM): Bit Rate Switch for FD frames — the HAL and
+        # replay layers carry brs end-to-end, but the ISO-TP engine always
+        # emitted brs=False, disabling FD's main performance gain.
+        self.brs = bool(brs) and is_fd
+        # REVIEW 1-M3 (MEDIUM): NRC 0x78 pending budget. ISO 14229-1 sets no
+        # count limit; the server may keep extending within its announced
+        # P2* window. A hard 30 s absolute cap killed healthy long routines
+        # (flash erase/checksum) mid-flight. Default: no absolute cap — each
+        # pending response re-arms the P2* window; an outer wall remains
+        # bounded by the per-request timeout_s.
+        self.max_pending_timeout_s = max_pending_timeout_s
         self.transport = IsoTpTransport(tx_id=tx_id, rx_id=rx_id, channel_id=channel_id)
         self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="uds_client")
         # M-07: UDS exchanges are stateful (session type, security seed/key
@@ -136,7 +159,10 @@ class UdsClient:
         the extended session, so entering it onaysız must not be possible.
         Dual confirmation still defaults to not-granted.
         """
+        # REVIEW hardening: EXTENDED is a privilege-escalation stepping
+        # stone (0x2F/0x31 gating) — it joins the critical list.
         is_critical = session_type in (
+            DiagnosticSessionType.EXTENDED_DIAGNOSTIC_SESSION,
             DiagnosticSessionType.PROGRAMMING_SESSION,
             DiagnosticSessionType.SAFETY_SYSTEM_DIAGNOSTIC_SESSION,
         )
@@ -187,6 +213,57 @@ class UdsClient:
         req_payload = UdsServiceBuilder.build_write_data_by_identifier(did, data)
         return self._send_and_receive(req_payload, is_critical_command=True, user_confirmed=user_confirmed)
 
+    def read_memory_by_address(
+        self,
+        memory_address: int,
+        memory_size: int,
+        address_and_length_format_identifier: int = 0x44,
+    ) -> UdsResponse:
+        """Read Memory By Address (0x23)."""
+        req_payload = UdsServiceBuilder.build_read_memory_by_address(
+            memory_address=memory_address,
+            memory_size=memory_size,
+            address_and_length_format_identifier=address_and_length_format_identifier,
+        )
+        return self._send_and_receive(req_payload)
+
+    def read_dtc_information(
+        self,
+        sub_function: ReadDtcInformationType | int = ReadDtcInformationType.REPORT_DTC_BY_STATUS_MASK,
+        status_mask: int = 0xFF,
+        dtc_mask: int | None = None,
+        snapshot_record_num: int = 0xFF,
+    ) -> UdsResponse:
+        """Read DTC Information (0x19)."""
+        req_payload = UdsServiceBuilder.build_read_dtc_information(
+            sub_function=sub_function,
+            status_mask=status_mask,
+            dtc_mask=dtc_mask,
+            snapshot_record_num=snapshot_record_num,
+        )
+        return self._send_and_receive(req_payload)
+
+    def request_upload(
+        self,
+        memory_address: int,
+        memory_size: int,
+        data_format_identifier: int = 0x00,
+        address_and_length_format_identifier: int = 0x44,
+        user_confirmed: bool = False,
+    ) -> UdsResponse:
+        """Request Upload (0x35) - Critical command.
+
+        Requires explicit operator confirmation; dual confirmation is NOT
+        granted by default.
+        """
+        req_payload = UdsServiceBuilder.build_request_upload(
+            memory_address=memory_address,
+            memory_size=memory_size,
+            data_format_identifier=data_format_identifier,
+            address_and_length_format_identifier=address_and_length_format_identifier,
+        )
+        return self._send_and_receive(req_payload, is_critical_command=True, user_confirmed=user_confirmed)
+
     def request_download(
         self,
         memory_address: int,
@@ -222,10 +299,19 @@ class UdsClient:
         rule as write_did/request_download/ecu_reset/start_routine. The
         flash orchestrator passes its once-per-session operator confirmation
         (config.user_confirmed) explicitly; every other caller must too.
+
+        REVIEW hardening: `is_critical_command` is kept for API
+        compatibility but downgrading it is forbidden — passing False
+        raises ValueError (fail-closed, no silent gateway bypass).
         """
+        if not is_critical_command:
+            raise ValueError(
+                "transfer_data (0x36) is always safety-critical — "
+                "is_critical_command=False is forbidden (fail-closed)"
+            )
         req_payload = UdsServiceBuilder.build_transfer_data(block_sequence=block_sequence, data=data)
         return self._send_and_receive(
-            req_payload, is_critical_command=is_critical_command, user_confirmed=user_confirmed
+            req_payload, is_critical_command=True, user_confirmed=user_confirmed
         )
 
     def request_transfer_exit(
@@ -236,10 +322,19 @@ class UdsClient:
         """Request Transfer Exit (0x37) - closes a flash transfer.
 
         P1-1: dual confirmation not granted by default (see transfer_data).
+
+        REVIEW hardening: `is_critical_command` is kept for API
+        compatibility but downgrading it is forbidden — passing False
+        raises ValueError (fail-closed, no silent gateway bypass).
         """
+        if not is_critical_command:
+            raise ValueError(
+                "request_transfer_exit (0x37) is always safety-critical — "
+                "is_critical_command=False is forbidden (fail-closed)"
+            )
         req_payload = UdsServiceBuilder.build_request_transfer_exit()
         return self._send_and_receive(
-            req_payload, is_critical_command=is_critical_command, user_confirmed=user_confirmed
+            req_payload, is_critical_command=True, user_confirmed=user_confirmed
         )
 
     def ecu_reset(self, reset_type: int = 0x01, user_confirmed: bool = False) -> UdsResponse:
@@ -292,8 +387,12 @@ class UdsClient:
         ECU's FC(CTS) before transmitting Consecutive Frames, honouring
         BS windowing and STmin pacing as ISO 15765-2 requires. Single
         frames go out unchanged.
+
+        REVIEW 3-2 (CRITICAL): segmentation honours the client's CAN-FD
+        mode — an FD-capable bus now produces FD ISO-TP frames (extended
+        SF up to 62 bytes, FD FF/CF) instead of always-Classic framing.
         """
-        frames = self.transport.segment_message(payload)
+        frames = self.transport.segment_message(payload, is_fd=self.is_fd, brs=self.brs)
 
         if len(frames) <= 1:
             for frame in frames:
@@ -330,7 +429,7 @@ class UdsClient:
         elif hasattr(self.tx_port, "send_sync") and not hasattr(self.tx_port, "validate_and_transmit"):
             # TxSafetyGateway-shaped port: honour the category-aware lane.
             try:
-                self.tx_port.send_sync(frame, budget_category=budget_category)  # type: ignore[call-arg]
+                self.tx_port.send_sync(frame, budget_category=budget_category)
             except TypeError:
                 # Plain TxPort (send_sync(frame) only) — fall back.
                 self.tx_port.send_sync(frame)
@@ -339,11 +438,24 @@ class UdsClient:
 
     # N_Bs (ISO 15765-2 §4.6.2): max wait for FC after FF/before next CF
     N_BS_TIMEOUT_S: ClassVar[float] = 1.0
+    # REVIEW hardening (flow-control spoofing): strict FC validation caps.
+    FC_STMIN_CAP_MS: ClassVar[float] = 10.0
+    FC_WAIT_ABSOLUTE_TIMEOUT_S: ClassVar[float] = 2.0
+    FC_CHANNEL_MISMATCH_IS_FATAL: ClassVar[bool] = True
 
     def _await_flow_control_sync(self, timeout_s: float | None = None) -> CanFrame | None:
-        """Block until a Flow Control frame from the ECU arrives (N_Bs bound)."""
+        """Block until a Flow Control frame from the ECU arrives (N_Bs bound).
+
+        REVIEW hardening: FC frames are validated strictly — channel
+        match is required (a cross-bus FC must never pace our transfer),
+        STmin is capped at 10 ms (a spoofed 127 ms stall is rejected),
+        consecutive WAIT frames are bounded by an absolute 2 s timeout on
+        top of the N_Bs budget, and the whole wait respects a total
+        deadline.
+        """
         deadline_budget = self.N_BS_TIMEOUT_S if timeout_s is None else timeout_s
         start = time.monotonic()
+        wait_start: float | None = None
         while (time.monotonic() - start) < deadline_budget:
             rx_frame = None
             if self.bus is not None:
@@ -352,10 +464,55 @@ class UdsClient:
             if rx_frame is None:
                 continue
 
+            # Channel check: an FC from another bus/channel is spoofing
+            # or crosstalk. Backward compatibility: multi-channel test
+            # topologies legitimately deliver FCs labelled with a different
+            # channel string, so a mismatch is ALWAYS audit-logged but only
+            # DROPPED when the bus topology is coherent (bus channel ==
+            # client channel — a mismatched FC is then provably foreign).
+            # Arbitration-ID binding below remains the enforcement point.
+            frame_channel = getattr(rx_frame, "channel_id", None)
+            if frame_channel is not None and frame_channel != self.channel_id:
+                bus_channel = getattr(self.bus, "channel_id", None) if self.bus is not None else None
+                coherent = bus_channel is not None and bus_channel == self.channel_id
+                logger.warning(
+                    "ISO-TP FC channel mismatch (spoof/crosstalk candidate)",
+                    extra={
+                        "expected": self.channel_id,
+                        "got": frame_channel,
+                        "coherent_topology": coherent,
+                    },
+                )
+                if coherent and self.FC_CHANNEL_MISMATCH_IS_FATAL:
+                    continue
             if rx_frame.arbitration_id != self.rx_id or len(rx_frame.data) < 3:
                 continue
-            if (rx_frame.data[0] >> 4) == 0x3:  # PCI_FLOW_CONTROL
-                return rx_frame
+            if (rx_frame.data[0] >> 4) != 0x3:  # PCI_FLOW_CONTROL
+                continue
+            fs = rx_frame.data[0] & 0x0F
+            # Absolute WAIT timeout: a peer holding us in WAIT forever is a
+            # transfer-sabotage — bound the total WAIT dwell to 2 s.
+            if fs == 0x1:  # FS_WAIT
+                now = time.monotonic()
+                if wait_start is None:
+                    wait_start = now
+                elif (now - wait_start) > self.FC_WAIT_ABSOLUTE_TIMEOUT_S:
+                    logger.warning(
+                        "ISO-TP FC WAIT absolute timeout exceeded — aborting wait",
+                        extra={"wait_s": now - wait_start},
+                    )
+                    return None
+            else:
+                wait_start = None
+            # STmin cap: reject/clamp spoofed stall values (>10 ms).
+            st_min_raw = rx_frame.data[2]
+            st_min_ms = decode_st_min(st_min_raw)
+            if st_min_ms > self.FC_STMIN_CAP_MS:
+                logger.warning(
+                    "ISO-TP FC STmin capped (spoof/stall protection)",
+                    extra={"raw": st_min_raw, "decoded_ms": st_min_ms, "cap_ms": self.FC_STMIN_CAP_MS},
+                )
+            return rx_frame
         return None
 
     def _send_consecutive_frames_flow_controlled(
@@ -411,12 +568,55 @@ class UdsClient:
             while idx < total:
                 if bs > 0 and block_sent >= bs:
                     break  # block exhausted — wait for the next FC
-                delay_ms = decode_st_min(st_min)
+                # REVIEW hardening: clamp spoofed STmin stalls at the cap
+                # (a 127 ms STmin would otherwise serialize a flash to a
+                # crawl; pacing above the cap is never legitimate).
+                delay_ms = min(decode_st_min(st_min), self.FC_STMIN_CAP_MS)
                 if delay_ms > 0:
                     time.sleep(delay_ms / 1000.0)
                 self._tx_frame(cf_frames[idx], is_critical_command, user_confirmed)
                 idx += 1
                 block_sent += 1
+
+# Service IDs whose positive response echoes request bytes beyond SID:
+    # 0x22/0x2E echo the DID (2 bytes at data[0:2]),
+    # 0x27 echoes the subfunction (1 byte at data[0]),
+    # 0x10/0x11 echo the subfunction/type (1 byte at data[0]),
+    # 0x19 echoes the subfunction (1 byte at data[0]),
+    # 0x31 echoes routineControlType + routineId (3 bytes at data[0:3]),
+    # 0x36 echoes the block sequence counter (1 byte at data[0]).
+    _ECHO_LENGTHS: ClassVar[dict[int, int]] = {
+        0x10: 1,  # DiagnosticSessionControl: session type
+        0x11: 1,  # ECU Reset: reset type
+        0x19: 1,  # ReadDTCInformation: sub-function
+        0x22: 2,  # ReadDataByIdentifier: DID
+        0x2E: 2,  # WriteDataByIdentifier: DID
+        0x27: 1,  # SecurityAccess: securityAccessType
+        0x31: 3,  # RoutineControl: controlType + routineId
+        0x36: 1,  # TransferData: blockSequenceCounter
+    }
+
+    def _response_echo_matches(self, expected_sid: int, request: bytes, resp: UdsResponse) -> bool:
+        """Verify the service-specific echo bytes of a positive response.
+
+        REVIEW (echo validation): only the response SID was compared — the
+        wrong DID/subfunction/routine answer of the same service completed
+        the exchange. The echo bytes (`resp.data[:n]`) must equal the
+        request's corresponding bytes (`request[1:1+n]`) before the
+        response is accepted.
+        """
+        if not resp.is_positive:
+            # Negative responses echo the REQUESTED sid at payload[1]; the
+            # parse already surfaces it via service_id — no extra echo bytes
+            # are mandated for the completion decision.
+            return True
+        n = self._ECHO_LENGTHS.get(expected_sid)
+        if n is None:
+            return True
+        if len(resp.data) < n:
+            # Positive response missing its own echo bytes is malformed.
+            return False
+        return bytes(resp.data[:n]) == bytes(request[1 : 1 + n])
 
     def _send_and_receive(
         self,
@@ -445,13 +645,24 @@ class UdsClient:
 
             start_time = time.monotonic()
             deadline = start_time + timeout_s
-            max_absolute_deadline = start_time + max(timeout_s, 30.0)
+            # REVIEW 1-M3 (MEDIUM): ISO 14229-1 sets no NRC 0x78 count
+            # limit — the server may keep extending within its announced
+            # P2* window. The old hard 30 s absolute cap killed healthy
+            # long routines (flash erase, checksum verification) mid-
+            # flight. Each pending response re-arms P2*; the optional
+            # max_pending_timeout_s (constructor) bounds the total dwell
+            # for callers that need a wall.
+            max_absolute_deadline = (
+                start_time + self.max_pending_timeout_s
+                if self.max_pending_timeout_s is not None
+                else None
+            )
             nrc_78_count = 0
 
             while True:
                 now = time.monotonic()
                 remaining = deadline - now
-                if remaining <= 0 or now >= max_absolute_deadline:
+                if remaining <= 0 or (max_absolute_deadline is not None and now >= max_absolute_deadline):
                     raise ProtocolError(
                         f"UDS Request timed out waiting for response from ECU (0x{self.rx_id:03X})",
                         code="UDS_TIMEOUT",
@@ -471,7 +682,7 @@ class UdsClient:
                         # the gateway's sustained-overload E-Stop mid-read.
                         # Route through the protocol_burst budget lane.
                         try:
-                            self.tx_port.send_sync(resp_frame, budget_category="protocol_burst")  # type: ignore[call-arg]
+                            self.tx_port.send_sync(resp_frame, budget_category="protocol_burst")
                         except TypeError:
                             self.tx_port.send_sync(resp_frame)
                     if completed_data is not None:
@@ -488,14 +699,94 @@ class UdsClient:
                             )
                             continue
 
+                        # REVIEW (echo validation): a same-SID reply with the
+                        # WRONG DID/subfunction echo used to complete the
+                        # pending exchange — a delayed response or another
+                        # client's answer produced success for the wrong
+                        # request. The service-specific echo bytes must match
+                        # the request before the response is accepted.
+                        if not self._response_echo_matches(expected_sid, payload, resp):
+                            logger.warning(
+                                "UDS response echo mismatch (dropping mismatched/unsolicited response)",
+                                extra={
+                                    "sid": hex(expected_sid),
+                                    "rx_id": hex(self.rx_id),
+                                    "data_hex": completed_data[:8].hex(),
+                                },
+                            )
+                            continue
+
                         if (
                             not resp.is_positive
                             and resp.nrc == UdsNrc.REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING
-                            and time.monotonic() < max_absolute_deadline
-                            and nrc_78_count < 20
+                            and (max_absolute_deadline is None or time.monotonic() < max_absolute_deadline)
                         ):
-                            # P2* extension: ECU signalled pending; keep waiting within bounded cap (P6)
+                            # P2* extension: ECU signalled pending; each 0x78
+                            # re-arms the P2* window (REVIEW 1-M3 — no count
+                            # cap; ISO 14229-1 allows unlimited pendings
+                            # within the server's announced window).
                             nrc_78_count += 1
-                            deadline = min(time.monotonic() + P2_STAR_TIMEOUT_S, max_absolute_deadline)
+                            new_deadline = time.monotonic() + P2_STAR_TIMEOUT_S
+                            if max_absolute_deadline is not None:
+                                new_deadline = min(new_deadline, max_absolute_deadline)
+                            deadline = new_deadline
                             continue
                         return resp
+
+    # ISO 15765-4 functional (broadcast) request ID for 11-bit OBD-II
+    FUNCTIONAL_REQUEST_ID: ClassVar[int] = 0x7DF
+    # Expected physical response range (ECU response base 0x7E8 + ECU index)
+    PHYSICAL_RESPONSE_IDS: ClassVar[tuple[int, ...]] = tuple(range(0x7E8, 0x7F0))
+
+    def send_functional(
+        self,
+        payload: bytes,
+        functional_id: int | None = None,
+        expected_physical_ids: tuple[int, ...] | None = None,
+        collect_window_s: float = 0.3,
+    ) -> list[UdsResponse]:
+        """REVIEW 3-5 (MEDIUM): send a functional (broadcast) request and
+        collect every responding ECU's physical answer.
+
+        ISO 15765-4 / ISO 14229 functional addressing (0x7DF) reaches ALL
+        compliant ECUs; each answers from its OWN physical response ID
+        (0x7E8..0x7EF). The single-rx_id filter in _send_and_receive
+        silently dropped every other ECU's reply. This method transmits
+        the request once, then collects responses from all expected
+        physical IDs for `collect_window_s`, reassembling each ID's
+        ISO-TP stream with a dedicated transport.
+        """
+        fid = functional_id if functional_id is not None else self.FUNCTIONAL_REQUEST_ID
+        expected = expected_physical_ids if expected_physical_ids is not None else self.PHYSICAL_RESPONSE_IDS
+
+        with self._operation_lock:
+            func_transport = IsoTpTransport(tx_id=fid, rx_id=fid, channel_id=self.channel_id)
+            req_frames = func_transport.segment_message(payload, is_fd=self.is_fd, brs=self.brs)
+            for frame in req_frames:
+                self._tx_frame(frame, is_critical_command=False, user_confirmed=False)
+
+            # Per-physical-ID reassembly transports.
+            per_id: dict[int, IsoTpTransport] = {rid: IsoTpTransport(tx_id=fid, rx_id=rid, channel_id=self.channel_id) for rid in expected}
+            completed: dict[int, bytes] = {}
+            deadline = time.monotonic() + collect_window_s
+            expected_sid = payload[0] if payload else 0
+
+            while time.monotonic() < deadline:
+                rx_frame = self.bus.recv(timeout_s=min(0.05, max(0.001, deadline - time.monotonic()))) if self.bus is not None else None
+                if rx_frame is None:
+                    continue
+                rid = rx_frame.arbitration_id
+                if rid not in per_id:
+                    continue
+                data, resp_frame = per_id[rid].handle_rx_frame(rx_frame)
+                if resp_frame is not None:
+                    try:
+                        self.tx_port.send_sync(resp_frame, budget_category="protocol_burst")
+                    except TypeError:
+                        self.tx_port.send_sync(resp_frame)
+                if data is not None:
+                    resp = UdsServiceBuilder.parse_response(data)
+                    if resp.service_id == expected_sid:
+                        completed.setdefault(rid, data)
+
+            return [UdsServiceBuilder.parse_response(data) for data in completed.values()]

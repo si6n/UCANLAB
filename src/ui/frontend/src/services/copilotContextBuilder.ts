@@ -9,6 +9,10 @@ export class CopilotContextBuilder {
     event: SignalAnomalyEvent,
     currentTelemetry: TelemetryPoint | null
   ): string {
+    // REVIEW (no fabricated telemetry): `value || demo` replaced EVERY zero
+    // with a demo number — a real 0 RPM reading reached the copilot as
+    // 2381 RPM. `??` keeps zeros; only null/undefined telemetry falls back
+    // to explicit nulls so the analysis knows the feed is missing.
     const snapshot = {
       event_type: event.type,
       signal_name: event.signalName === 'rpm' ? 'Motor Devri (Engine RPM)' : 'Turbo Takviye Basıncı (Boost Bar)',
@@ -16,12 +20,14 @@ export class CopilotContextBuilder {
       observed_value: event.value,
       anomaly_delta: event.delta,
       severity: event.severity,
-      bus_load_percent: currentTelemetry?.busLoadPercent || 40,
-      active_telemetry: {
-        rpm: currentTelemetry?.rpm || 2381,
-        turbo_boost_bar: currentTelemetry?.turboBoostBar || 1.66,
-        coolant_temp_c: currentTelemetry?.coolantTempC || 85
-      }
+      bus_load_percent: currentTelemetry?.busLoadPercent ?? null,
+      active_telemetry: currentTelemetry
+        ? {
+            rpm: currentTelemetry.rpm,
+            turbo_boost_bar: currentTelemetry.turboBoostBar,
+            coolant_temp_c: currentTelemetry.coolantTempC
+          }
+        : null
     };
 
     return `Lütfen şu Osiloskop Sinyal Anomalisi Enstantanesini (Snapshot) analiz et:\n\n` +

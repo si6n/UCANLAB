@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from src.core.models.can_frame import CanFrame
 from src.protocols.j1939.transport import CompletedMessage
 from src.ui.desktop_app import DesktopApiBridge, UniversalCanDesktopApp
@@ -74,7 +76,7 @@ def test_desktop_api_bridge_scenario_selection() -> None:
 
 
 def test_desktop_api_bridge_settings_update() -> None:
-    """Verify updating channel, baudrate, and API key."""
+    """Verify updating channel and baudrate (fully offline AI — no key wiring)."""
     app = UniversalCanDesktopApp(channel="vcan0", bitrate=250000)
     bridge = DesktopApiBridge(app)
 
@@ -82,13 +84,11 @@ def test_desktop_api_bridge_settings_update() -> None:
         {
             "channel": "can0",
             "baudRate": "500 kbps",
-            "apiKey": "test-mock-api-key-12345",
         }
     )
 
     assert app.channel_name == "can0"
     assert app.bitrate_val == 500000
-    assert app.copilot.gemini_api_key == "test-mock-api-key-12345"
 
 
 def test_desktop_api_copilot_query() -> None:
@@ -103,7 +103,7 @@ def test_desktop_api_copilot_query() -> None:
 def _make_tp_frame() -> CanFrame:
     return CanFrame.create(
         channel_id="j1939_ch0",
-        arbitration_id=0x18EBF900,
+        arbitration_id=0x1CEBF900,
         data=b"\x01" + b"A" * 7,
         is_extended=True,
     )
@@ -159,7 +159,10 @@ def test_push_frame_to_ui_escapes_hostile_channel_id() -> None:
             captured.append(code)
 
     app._window = _FakeWindow()  # type: ignore[assignment]
-    hostile_channel = "ch'); alert('pwned'); //"
+    # REVIEW hardening: hostile channel ids are rejected fail-closed at
+    # CanFrame construction, so the escape path is exercised via a legal
+    # channel name carrying hostile-looking content through the payload.
+    hostile_channel = "ch0"
     frame = CanFrame.create(
         channel_id=hostile_channel,
         arbitration_id=0x123,
@@ -182,6 +185,16 @@ def test_push_frame_to_ui_escapes_hostile_channel_id() -> None:
     assert parsed["data"] == "0102"
 
 
+def test_push_frame_hostile_channel_id_rejected_fail_closed() -> None:
+    # REVIEW hardening: illegal channel ids never become frames.
+    with pytest.raises(ValueError, match="Invalid channel_id"):
+        CanFrame.create(
+            channel_id="ch'); alert('pwned'); //",
+            arbitration_id=0x123,
+            data=b"\x01\x02",
+        )
+
+
 def test_desktop_app_interface_wiring() -> None:
     """D3: constructor honors the interface parameter instead of hardcoding virtual."""
     app = UniversalCanDesktopApp(channel="vcan0", bitrate=250000, interface="pcan")
@@ -197,7 +210,7 @@ def test_desktop_app_default_interface_stays_virtual() -> None:
 
 
 def test_desktop_app_export_logs(tmp_path) -> None:
-    """Verify export_logs functionality (LOW-4)."""
+    """Verify export_logs functionality (LOW-4) including CSV, JSON, MAT and MDF4."""
     app = UniversalCanDesktopApp(channel="vcan0", bitrate=250000)
     bridge = DesktopApiBridge(app)
 
@@ -207,6 +220,9 @@ def test_desktop_app_export_logs(tmp_path) -> None:
 
     assert bridge.export_logs("json") is True
     assert bridge.export_logs("csv") is True
+    assert bridge.export_logs("mat") is True
+    assert bridge.export_logs("mdf4") is True
+    assert bridge.export_logs("mf4") is True
     assert bridge.export_logs("unsupported_xyz") is False
 
 
@@ -354,13 +370,13 @@ def test_arm_tx_refused_while_simulating() -> None:
 
 
 def test_desktop_api_bridge_actionable_uds_clear_dtc() -> None:
-    """Verify DesktopApiBridge executes UDS Clear DTC with confirmation and safety checks."""
+    """Verify DesktopApiBridge executes UDS Clear DTC with dual confirmation challenge and safety checks."""
     from src.safety.estop import EStopResetAuthority
 
     app = UniversalCanDesktopApp(channel="vcan0", bitrate=250000)
     bridge = DesktopApiBridge(app)
 
-    # 1. Refusal when confirmation required but user_confirmed=False
+    # 1. Refusal when confirmation required but challenge token is missing / raw bool given
     action_clear = {
         "id": "clear-1",
         "label": "UDS 0x14 Clear DTCs",
@@ -370,32 +386,44 @@ def test_desktop_api_bridge_actionable_uds_clear_dtc() -> None:
     }
     res_unconf = bridge.execute_diagnostic_action(action_clear, user_confirmed=False)
     assert res_unconf.get("success") is False
-    assert "onayı gereklidir" in res_unconf.get("message", "")
+    # REVIEW 3: physical mode with no physical speed feed refuses at the
+    # gateway speed interlock FIRST (stale) — fail-closed before any
+    # confirmation accounting.
+    assert "güvenlik kilidi" in res_unconf.get("message", "").lower()
 
-    # 2. Refusal when E-Stop is active
+    # 2. Refusal when E-Stop is active even with valid challenge token
+    ch = bridge.request_diagnostic_challenge(action_clear)
+    assert ch.get("success") is True
+    assert "token" in ch
+    token = ch["token"]
+
     bridge.trigger_estop()
-    res_estop = bridge.execute_diagnostic_action(action_clear, user_confirmed=True)
+    res_estop = bridge.execute_diagnostic_action(action_clear, confirmation_token=token)
     assert res_estop.get("success") is False
     assert "E-Stop" in res_estop.get("message", "")
 
     # Reset E-Stop via challenge/response authority
     authority = EStopResetAuthority(app.estop)
-    token = authority.mint_reset_token()
-    bridge.estop_submit_reset_token(token.to_token_string())
+    estop_tok = authority.mint_reset_token()
+    bridge.estop_submit_reset_token(estop_tok.to_token_string())
     assert app._is_estop is False
 
     # 3. Refusal when vehicle is moving (> 0.0 km/h)
-    app._current_speed_kmh = 45.0
-    res_moving = bridge.execute_diagnostic_action(action_clear, user_confirmed=True)
+    ch_moving = bridge.request_diagnostic_challenge(action_clear)
+    # REVIEW 3: the gateway is the single authoritative speed source —
+    # feed it (not just the display mirror) for the moving-vehicle case.
+    app.gateway.update_physical_speed(45.0)
+    res_moving = bridge.execute_diagnostic_action(action_clear, confirmation_token=ch_moving["token"])
     assert res_moving.get("success") is False
     assert "hareket" in res_moving.get("message", "").lower()
-    app._current_speed_kmh = 0.0
+    app.gateway.update_physical_speed(0.0)
 
-    # 4. Success in simulation mode
+    # 4. Success in simulation mode with valid challenge token
+    ch_sim = bridge.request_diagnostic_challenge(action_clear)
     app._is_simulating = True
     app._error_count = 15
     app._active_scenario = "misfire_p0300"
-    res_success = bridge.execute_diagnostic_action(action_clear, user_confirmed=True)
+    res_success = bridge.execute_diagnostic_action(action_clear, confirmation_token=ch_sim["token"])
     assert res_success.get("success") is True
     assert app._error_count == 0
     assert app._active_scenario == "nominal"
@@ -408,39 +436,53 @@ def test_desktop_api_bridge_actionable_uds_read_vin_and_session() -> None:
     bridge = DesktopApiBridge(app)
     app._is_simulating = True
 
-    # 1. Read VIN
+    # 1. Read VIN (Read-only, requires_confirmation is False by default)
     action_vin = {
         "id": "vin-1",
         "label": "UDS 0x22 F190 Read VIN",
         "action_type": "uds_read_vin",
         "params": {"did": 0xF190},
     }
-    res_vin = bridge.execute_diagnostic_action(action_vin, user_confirmed=True)
+    res_vin = bridge.execute_diagnostic_action(action_vin)
     assert res_vin.get("success") is True
     assert "data" in res_vin
     assert res_vin["data"].get("did") == "0xF190"
 
-    # 2. Session Control
+    # 2. Session Control (Mutating, requires challenge token)
     action_sess = {
         "id": "sess-1",
         "label": "UDS 0x10 Extended Session",
         "action_type": "uds_session_control",
         "params": {"session_type": 0x03},
     }
-    res_sess = bridge.execute_diagnostic_action(action_sess, user_confirmed=True)
+    ch_sess = bridge.request_diagnostic_challenge(action_sess)
+    res_sess = bridge.execute_diagnostic_action(action_sess, confirmation_token=ch_sess["token"])
     assert res_sess.get("success") is True
     assert res_sess["data"].get("session_type") == 3
 
-    # 3. J1939 DM11 Clear DTC
+    # 3. J1939 DM11 Clear DTC (Simulation Mode)
     action_dm11 = {
         "id": "dm11-1",
         "label": "J1939 DM11 Clear DTCs",
         "action_type": "j1939_clear_dtc",
         "requires_confirmation": True,
     }
-    res_dm11 = bridge.execute_diagnostic_action(action_dm11, user_confirmed=True)
+    ch_dm11 = bridge.request_diagnostic_challenge(action_dm11)
+    res_dm11 = bridge.execute_diagnostic_action(action_dm11, confirmation_token=ch_dm11["token"])
     assert res_dm11.get("success") is True
     assert "DM11" in res_dm11.get("message", "")
+
+    # 4. J1939 DM11 Clear DTC (Physical Mode - Transmits Frame Through Gateway)
+    app._is_simulating = False
+    app.bus.connect()
+    app._current_speed_kmh = 0.0
+    app.gateway.update_vehicle_speed(0.0, source="physical")
+    app._error_count = 5
+    ch_dm11_phys = bridge.request_diagnostic_challenge(action_dm11)
+    res_dm11_phys = bridge.execute_diagnostic_action(action_dm11, confirmation_token=ch_dm11_phys["token"])
+    assert res_dm11_phys.get("success") is True
+    assert app._error_count == 0
+    assert "iletildi" in res_dm11_phys.get("message", "")
 
 
 def test_desktop_api_bridge_traffic_metrics_snapshot() -> None:
@@ -490,33 +532,234 @@ def test_desktop_api_bridge_actionable_speed_and_input_hardening() -> None:
 
     # 1. NaN speed (e.g. untrusted or implausible CCVS) must fail closed
     app._current_speed_kmh = float("nan")
-    res_nan = bridge.execute_diagnostic_action(action_clear, user_confirmed=True)
+    ch1 = bridge.request_diagnostic_challenge(action_clear)
+    res_nan = bridge.execute_diagnostic_action(action_clear, confirmation_token=ch1["token"])
     assert res_nan.get("success") is False
     assert "hareketsiz" in res_nan.get("message", "").lower() or "güvenlik kilidi" in res_nan.get("message", "").lower()
 
     # 2. Infinite speed must fail closed
     app._current_speed_kmh = float("inf")
-    res_inf = bridge.execute_diagnostic_action(action_clear, user_confirmed=True)
+    ch2 = bridge.request_diagnostic_challenge(action_clear)
+    res_inf = bridge.execute_diagnostic_action(action_clear, confirmation_token=ch2["token"])
     assert res_inf.get("success") is False
 
     # 3. Negative speed must fail closed
     app._current_speed_kmh = -5.0
-    res_neg = bridge.execute_diagnostic_action(action_clear, user_confirmed=True)
+    ch3 = bridge.request_diagnostic_challenge(action_clear)
+    res_neg = bridge.execute_diagnostic_action(action_clear, confirmation_token=ch3["token"])
     assert res_neg.get("success") is False
 
     # Reset speed to nominal 0.0
     app._current_speed_kmh = 0.0
 
     # 4. None / non-dict action must not crash with AttributeError
-    res_none = bridge.execute_diagnostic_action(None, user_confirmed=True)
+    res_none = bridge.execute_diagnostic_action(None)
     assert res_none.get("success") is False
     assert "geçersiz" in res_none.get("error", "").lower()
 
-    res_str = bridge.execute_diagnostic_action("invalid_action_string", user_confirmed=True)  # type: ignore[arg-type]
+    res_str = bridge.execute_diagnostic_action("invalid_action_string")  # type: ignore[arg-type]
     assert res_str.get("success") is False
 
     # 5. None params must not crash with AttributeError
-    res_none_params = bridge.execute_diagnostic_action({"action_type": "uds_clear_dtc", "params": None}, user_confirmed=True)
+    ch5 = bridge.request_diagnostic_challenge({"action_type": "uds_clear_dtc", "params": None})
+    res_none_params = bridge.execute_diagnostic_action({"action_type": "uds_clear_dtc", "params": None}, confirmation_token=ch5["token"])
     assert res_none_params.get("success") is True
+
+
+def test_desktop_api_bridge_diagnostic_challenge_security() -> None:
+    """Verify challenge token generation, single-use consumption, expiration, and mismatch rejection."""
+    import time
+
+    app = UniversalCanDesktopApp(channel="vcan0", bitrate=250000)
+    bridge = DesktopApiBridge(app)
+    app._is_simulating = True
+
+    action_routine = {
+        "id": "act-101",
+        "action_type": "uds_routine",
+        "params": {"routine_id": 0x1234},
+        "requires_confirmation": True,
+    }
+
+    # 1. Invalid action dict
+    assert bridge.request_diagnostic_challenge(None)["success"] is False  # type: ignore[arg-type]
+    assert bridge.request_diagnostic_challenge({})["success"] is False
+
+    # 2. Challenge generation
+    ch = bridge.request_diagnostic_challenge(action_routine)
+    assert ch["success"] is True
+    tok = ch["token"]
+    assert len(tok) == 32
+    assert ch["expires_in_s"] == 30.0
+
+    # 3. Action type mismatch
+    wrong_action = dict(action_routine)
+    wrong_action["action_type"] = "uds_clear_dtc"
+    res_mismatch = bridge.execute_diagnostic_action(wrong_action, confirmation_token=tok)
+    assert res_mismatch["success"] is False
+    assert "uyuşmuyor" in res_mismatch["error"]
+
+    # 4. Single-use replay protection: token was popped on first verification attempt
+    res_replay = bridge.execute_diagnostic_action(action_routine, confirmation_token=tok)
+    assert res_replay["success"] is False
+    assert "kullanılmış" in res_replay["error"] or "geçersiz" in res_replay["error"]
+
+    # 5. Token expiration (>30s)
+    ch_exp = bridge.request_diagnostic_challenge(action_routine)
+    tok_exp = ch_exp["token"]
+    # Synthetically age the challenge in backend store
+    with app._challenges_lock:
+        old_ch = app._diagnostic_challenges[tok_exp]
+        app._diagnostic_challenges[tok_exp] = type(old_ch)(
+            token=old_ch.token,
+            action_type=old_ch.action_type,
+            action_id=old_ch.action_id,
+            created_at_monotonic_ns=time.monotonic_ns() - 35_000_000_000,
+            max_age_ns=old_ch.max_age_ns,
+        )
+    res_expired = bridge.execute_diagnostic_action(action_routine, confirmation_token=tok_exp)
+    assert res_expired["success"] is False
+    assert "süresi dolmuş" in res_expired["error"]
+
+
+def test_desktop_composition_root_wiring_discovery_oem_replay_flashing(tmp_path) -> None:
+    """Verify SignalDiscoveryEngine, OemJ1939Registry, ReplayBus, and EcuFlashingEngine bridge APIs."""
+    from src.core.models.can_frame import CanFrame
+
+    app = UniversalCanDesktopApp(channel="vcan0", bitrate=250000)
+    bridge = DesktopApiBridge(app)
+
+    # 1. SignalDiscoveryEngine
+    frame1 = CanFrame(arbitration_id=0x18FEE100, dlc=8, data=bytes([0x50, 0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70]), channel_id="vcan0", is_extended=True)
+    for _ in range(15):
+        app._ingest_live_frame(frame1)
+
+    disc_summary = bridge.discovery_get_summary()
+    assert disc_summary["total_frames"] >= 15
+    assert "0x18FEE100" in disc_summary["discovered_ids"]
+
+    analysis = bridge.discovery_analyze_id(0x18FEE100)
+    assert analysis["frame_count"] >= 15
+    assert "hypotheses" in analysis
+
+    dbc_res = bridge.discovery_export_dbc()
+    assert dbc_res["success"] is True
+    assert "VERSION" in dbc_res["dbc"] or "BO_" in dbc_res["dbc"]
+
+    clear_res = bridge.discovery_clear()
+    assert clear_res["success"] is True
+    assert bridge.discovery_get_summary()["total_frames"] == 0
+
+    # 2. OemJ1939Registry
+    decoders = bridge.oem_list_decoders()
+    assert "cummins" in [d.lower() for d in decoders]
+    assert "scania" in [d.lower() for d in decoders]
+    assert "caterpillar" in [d.lower() for d in decoders]
+
+    # Live frame decode via OEM registry
+    # PGN 65303 (0xFF17) Caterpillar proprietary engine parameters
+    cat_frame = CanFrame(arbitration_id=0x18FF1700, dlc=8, data=bytes([0x00, 0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70]), channel_id="vcan0", is_extended=True)
+    app._ingest_live_frame(cat_frame)
+    # Ensure no exception and discovery engine / router processed frame
+    assert app.discovery_engine._total_frames == 1
+
+    # 3. ReplayBus
+    asc_file = tmp_path / "test_trace.asc"
+    asc_file.write_text(
+        "date Mon Jan 1 00:00:00 2024\n"
+        "base hex timestamps absolute\n"
+        "   0.001000 1  18FEE100x       Rx d 8 50 10 20 30 40 50 60 70\n"
+        "   0.002000 1  18FEE100x       Rx d 8 51 10 20 30 40 50 60 70\n"
+    )
+    load_res = bridge.replay_load(str(asc_file))
+    assert load_res["success"] is True
+    assert load_res["frame_count"] == 2
+
+    # 4. EcuFlashingEngine
+    app._is_simulating = True
+    flash_cfg = {
+        "action_type": "ecu_flash",
+        "ecu": "ECM",
+        "fileName": "firmware.bin",
+        "sizeBytes": 2048,
+    }
+    # Refusal without token
+    start_unconf = bridge.flash_start(flash_cfg)
+    assert start_unconf["success"] is False
+
+    # Start with token
+    ch_flash = bridge.request_diagnostic_challenge(flash_cfg)
+    start_conf = bridge.flash_start(flash_cfg, confirmation_token=ch_flash["token"])
+    assert start_conf["success"] is True
+
+    prog = bridge.flash_progress()
+    assert "status" in prog
+
+    cancel_res = bridge.flash_cancel()
+    assert cancel_res["success"] is True
+    assert bridge.flash_progress()["status"] == "cancelled"
+
+
+def test_desktop_requires_confirmation_false_cannot_bypass_review3() -> None:
+    """REVIEW 3 (CRITICAL): an action dict claiming `requires_confirmation:
+    false` MUST NOT skip the operator confirmation for critical types —
+    the action TYPE is authoritative, not the action dict."""
+    app = UniversalCanDesktopApp(channel="vcan0", bitrate=250000)
+    app._is_simulating = True  # sandbox mode: arm_tx allowed for the test path
+    app._current_speed_kmh = 0.0
+    bridge = DesktopApiBridge(app)
+    # 0x14 clear-DTC declared as "no confirmation needed" — must still
+    # require a challenge token.
+    action = {
+        "id": "spoof-1",
+        "label": "Clear DTCs (unconfirmed)",
+        "action_type": "uds_clear_dtc",
+        "requires_confirmation": False,
+        "uds": {"service": 0x14, "payload": [0xFF, 0xFF, 0xFF]},
+    }
+    # Raw bool / missing token -> refused with a NEW challenge
+    res = bridge.execute_diagnostic_action(action, confirmation_token=None)
+    assert res["success"] is False
+    assert "onay" in res["error"].lower()
+    # The bridge mints a challenge: type-mandatory confirmation is active
+    ch = bridge.request_diagnostic_challenge(action)
+    assert ch["success"] is True
+    # Wrong token still refused
+    res2 = bridge.execute_diagnostic_action(action, confirmation_token="deadbeef")
+    assert res2["success"] is False
+    assert "onay" in res2["error"].lower()
+
+
+def test_desktop_speed_source_is_gateway_review3() -> None:
+    """REVIEW 3 (CRITICAL): in PHYSICAL mode the desktop speed interlock reads
+    TxSafetyGateway.speed_interlock_state() — the UI mirror is display-only
+    and can never re-arm TX after the gateway feed goes stale/NaN."""
+    app = UniversalCanDesktopApp(channel="vcan0", bitrate=250000)
+    app._is_simulating = False  # physical mode: gateway is authoritative
+    bridge = DesktopApiBridge(app)
+    action = {
+        "id": "clear-phys",
+        "label": "UDS 0x14 Clear DTCs",
+        "action_type": "uds_clear_dtc",
+        "uds": {"service": 0x14, "payload": [0xFF, 0xFF, 0xFF]},
+    }
+    ch = bridge.request_diagnostic_challenge(action)
+    # Stale gateway feed (no physical speed recorded) -> refused EVEN IF
+    # the UI mirror claims 0.0 km/h.
+    app._current_speed_kmh = 0.0
+    res = bridge.execute_diagnostic_action(
+        action, confirmation_token=ch["token"]
+    )
+    assert res["success"] is False
+    assert "bilinmiyor" in res["error"] or "güncel değil" in res["error"]
+
+    # Fresh stationary physical feed -> proceeds to actual TX attempt
+    app.gateway.update_physical_speed(0.0)
+    res2 = bridge.execute_diagnostic_action(
+        action, confirmation_token=ch["token"]
+    )
+    # (May fail later for other reasons — e.g. no live bus — but the
+    # speed interlock itself must no longer block it.)
+    assert "hareketsiz" not in (res2.get("error") or "")
 
 

@@ -270,3 +270,40 @@ def test_machine_seed_missing_file_mints_new_seed(tmp_path: Path) -> None:
     assert seed_file.exists()
     seed2 = backend._get_machine_seed()
     assert seed1 == seed2
+
+
+def test_linux_machine_seed_hardware_binding(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Verify LinuxSecretBackend binds hardware identity candidates (/etc/machine-id, product_uuid, etc.)."""
+    storage_file = tmp_path / "secrets.bin"
+    backend = LinuxSecretBackend(storage_path=storage_file)
+
+    hw_files = {
+        "/etc/machine-id": b"fake-machine-id-12345\n",
+        "/var/lib/dbus/machine-id": b"fake-dbus-machine-id-67890\n",
+        "/sys/class/dmi/id/product_uuid": b"fake-product-uuid-abcde\n",
+    }
+
+    orig_is_file = Path.is_file
+    orig_read_bytes = Path.read_bytes
+
+    def fake_is_file(self: Path) -> bool:
+        posix_str = self.as_posix()
+        for hw_path in hw_files:
+            if posix_str.endswith(hw_path.lstrip("/")):
+                return True
+        return orig_is_file(self)
+
+    def fake_read_bytes(self: Path) -> bytes:
+        posix_str = self.as_posix()
+        for hw_path, val in hw_files.items():
+            if posix_str.endswith(hw_path.lstrip("/")):
+                return val
+        return orig_read_bytes(self)
+
+    monkeypatch.setattr(Path, "is_file", fake_is_file)
+    monkeypatch.setattr(Path, "read_bytes", fake_read_bytes)
+
+    seed = backend._get_machine_seed()
+    assert len(seed) == 32
+    assert (tmp_path / "machine_seed.bin").exists()
+

@@ -11,7 +11,11 @@ logger = get_logger("protocols.nmea2000.pgn")
 PGN_ENGINE_RAPID: int = 127488
 PGN_ENGINE_DYNAMIC: int = 127489
 PGN_TRANSMISSION_DYNAMIC: int = 127493
-PGN_FLUID_LEVEL: int = 127497
+# REVIEW 1-H1 (HIGH): the real NMEA 2000 Fluid Level message is PGN 127505
+# (8-byte single frame). The previous value 127497 is "Trip Parameters,
+# Engine" — a completely different 9-byte Fast-Packet message whose Trip
+# Fuel Used field would be mis-scaled as a fluid level percentage.
+PGN_FLUID_LEVEL: int = 127505
 
 
 @dataclass(slots=True)
@@ -36,6 +40,7 @@ class EngineDynamicParameters:
     fuel_rate_lph: float | None
     total_engine_hours: float | None
     engine_load_percent: int | None
+    engine_torque_percent: int | None
 
 
 @dataclass(slots=True)
@@ -50,7 +55,7 @@ class TransmissionParameters:
 
 @dataclass(slots=True)
 class FluidLevelParameters:
-    """NMEA 2000 PGN 127497 (Trip Parameters, Engine / Fluid Level)."""
+    """NMEA 2000 PGN 127505 (Fluid Level)."""
 
     fluid_type: str  # "fuel" | "fresh_water" | "waste_water" | "oil" | "black_water"
     fluid_instance: int
@@ -66,6 +71,19 @@ FLUID_TYPES: dict[int, str] = {
     4: "oil",
     5: "black_water",
 }
+
+# REVIEW 3-M (MEDIUM): N2K instance-field validity — 0..250 are legal
+# instance ids; 0xFB..0xFF are reserved / error / not-available /
+# unavailable indicators (canboat DBC "DI_INSTANCE" table). An instance
+# byte in the reserved band means the payload is not a valid instance-
+# carrying message — decode refuses instead of fabricating an engine/
+# transmission "instance 251".
+RESERVED_INSTANCE_VALUES: frozenset[int] = frozenset({0xFB, 0xFC, 0xFD, 0xFE, 0xFF})
+
+
+def _valid_instance(value: int) -> bool:
+    """True when the instance byte is a legal N2K instance id (0..250)."""
+    return value not in RESERVED_INSTANCE_VALUES and 0 <= value <= 0xFA
 
 GEAR_TYPES: dict[int, str] = {
     0: "neutral",
@@ -84,6 +102,12 @@ class Nmea2000PgnDecoder:
             return None
 
         instance = data[0]
+        if not _valid_instance(instance):  # REVIEW 3-M: reserved instance band
+            logger.warning(
+                "N2K Engine Rapid reserved instance value — decode refused",
+                extra={"instance": instance},
+            )
+            return None
 
         # Engine Speed (Bytes 1..2): 0.25 rpm / bit
         raw_speed = int.from_bytes(data[1:3], byteorder="little")
@@ -106,11 +130,27 @@ class Nmea2000PgnDecoder:
 
     @classmethod
     def decode_engine_dynamic(cls, data: bytes) -> EngineDynamicParameters | None:
-        """Decode PGN 127489 (Fast Packet ~26 bytes)."""
-        if len(data) < 23:
+        """Decode PGN 127489 (Fast Packet, 26 bytes).
+
+        REVIEW 1-H2 (HIGH): per the repo's own canboat DBC (PGN 127489,
+        "engineParametersDynamic"), Engine Load is byte 24 and Engine
+        Torque byte 25 — the previous code read Load from byte 21, which is
+        the Discrete Status 1 flags byte, silently reporting e.g. "23 %
+        engine load" for what are actually status bits. Alternator Voltage
+        (bytes 7-8) and Fuel Rate (bytes 9-10) are SIGNED int16 in the DBC
+        (two's complement); treating 0x8000+ raw values as unsigned
+        produced physically impossible 327.x V / 3276 L/h readings.
+        """
+        if len(data) < 26:
             return None
 
         instance = data[0]
+        if not _valid_instance(instance):  # REVIEW 3-M: reserved instance band
+            logger.warning(
+                "N2K Engine Dynamic reserved instance value — decode refused",
+                extra={"instance": instance},
+            )
+            return None
 
         # Oil Pressure (Bytes 1..2): 100 Pa / bit -> kPa
         raw_oil_p = int.from_bytes(data[1:3], byteorder="little")
@@ -124,21 +164,24 @@ class Nmea2000PgnDecoder:
         raw_cool_t = int.from_bytes(data[5:7], byteorder="little")
         cool_t_c = (raw_cool_t * 0.01) - 273.15 if raw_cool_t < 0xFFFE else None
 
-        # Alternator Potential / Voltage (Bytes 7..8): 0.01 V / bit
-        raw_volt = int.from_bytes(data[7:9], byteorder="little")
-        volt_v = raw_volt * 0.01 if raw_volt < 0xFFFE else None
+        # Alternator Potential / Voltage (Bytes 7..8): 0.01 V / bit, signed
+        raw_volt = int.from_bytes(data[7:9], byteorder="little", signed=True)
+        volt_v = raw_volt * 0.01 if raw_volt != -0x8000 else None
 
-        # Fuel Rate (Bytes 9..10): 0.1 L/h / bit
-        raw_fuel_r = int.from_bytes(data[9:11], byteorder="little")
-        fuel_lph = raw_fuel_r * 0.1 if raw_fuel_r < 0xFFFE else None
+        # Fuel Rate (Bytes 9..10): 0.1 L/h / bit, signed
+        raw_fuel_r = int.from_bytes(data[9:11], byteorder="little", signed=True)
+        fuel_lph = raw_fuel_r * 0.1 if raw_fuel_r != -0x8000 else None
 
         # Total Engine Hours (Bytes 11..14): 1 s / bit -> hours
         raw_hours = int.from_bytes(data[11:15], byteorder="little")
         hours = raw_hours / 3600.0 if raw_hours < 0xFFFFFFFE else None
 
-        # Engine Load % (Byte 21)
-        raw_load = data[21]
+        # Engine Load % (Byte 24); Engine Torque % (Byte 25, signed int8)
+        raw_load = data[24]
         load_pct = raw_load if raw_load <= 100 else None
+
+        raw_torque = int.from_bytes(data[25:26], byteorder="little", signed=True)
+        torque_pct = raw_torque if -100 <= raw_torque <= 100 else None
 
         return EngineDynamicParameters(
             engine_instance=instance,
@@ -149,6 +192,7 @@ class Nmea2000PgnDecoder:
             fuel_rate_lph=fuel_lph,
             total_engine_hours=hours,
             engine_load_percent=load_pct,
+            engine_torque_percent=torque_pct,
         )
 
     @classmethod
@@ -158,6 +202,12 @@ class Nmea2000PgnDecoder:
             return None
 
         instance = data[0]
+        if not _valid_instance(instance):  # REVIEW 3-M: reserved instance band
+            logger.warning(
+                "N2K Transmission reserved instance value — decode refused",
+                extra={"instance": instance},
+            )
+            return None
         gear_code = data[1] & 0x03
         gear_str = GEAR_TYPES.get(gear_code, "unknown")
 
@@ -176,13 +226,20 @@ class Nmea2000PgnDecoder:
 
     @classmethod
     def decode_fluid_level(cls, data: bytes) -> FluidLevelParameters | None:
-        """Decode PGN 127497 (8 bytes)."""
+        """Decode PGN 127505 (8 bytes).
+
+        REVIEW 1-H1 (HIGH): per the repo's own canboat DBC
+        (data/dbc/marine/n2k_canboat.dbc, "fluidLevel"), Instance occupies
+        bits 0-3 (low nibble of byte 0) and Type bits 4-7 (high nibble) —
+        the previous code had them swapped, so e.g. fuel tank #2 (0x20)
+        decoded as "fresh water tank #0".
+        """
         if len(data) < 8:
             return None
 
-        fluid_type_code = data[0] & 0x0F
+        fluid_instance = data[0] & 0x0F
+        fluid_type_code = (data[0] >> 4) & 0x0F
         fluid_type_str = FLUID_TYPES.get(fluid_type_code, "other")
-        fluid_instance = (data[0] >> 4) & 0x0F
 
         # Level % (Bytes 1..2): 0.004 % / bit
         raw_level = int.from_bytes(data[1:3], byteorder="little")

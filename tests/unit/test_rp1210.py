@@ -28,6 +28,41 @@ def test_rp1210_missing_dll_raises_hardware_error() -> None:
     assert "dll_name" in exc_info.value.details
 
 
+def test_rp1210_non_windows_fails_fast() -> None:
+    """REVIEW 2 (LOW 7) regression: on non-Windows platforms the client must
+    fail fast with HARDWARE_UNSUPPORTED_PLATFORM instead of fabricating
+    Windows DLL paths and dying later with a confusing load error."""
+    import unittest.mock as mock
+
+    with mock.patch("src.hal.rp1210.client.sys") as fake_sys:
+        fake_sys.platform = "linux"
+        with pytest.raises(HardwareError) as exc_info:
+            RP1210Client(dll_name="RP121064.DLL")
+
+    assert exc_info.value.code == "HARDWARE_UNSUPPORTED_PLATFORM"
+    assert "only supported on Windows" in exc_info.value.message
+    assert exc_info.value.details["platform"] == "linux"
+
+
+def test_rp1210_all_called_symbols_are_required_exports() -> None:
+    """REVIEW 2 (HIGH 3) regression: every RP1210 symbol the client invokes
+    must be in required_exports so _setup_signatures assigns its ctypes ABI —
+    an untyped cdecl/stdcall mismatch corrupts the native stack."""
+    import inspect
+    import re as _re
+
+    from src.hal.rp1210 import client as client_mod
+
+    source = inspect.getsource(client_mod)
+    called = set(_re.findall(r"self\._dll\.(RP1210_\w+)\(", source))
+    guarded = set(_re.findall(r"hasattr\(self\._dll, \"(RP1210_\w+)\"\)", source))
+    required_block = _re.search(r"required_exports = \((.*?)\)", source, _re.S).group(1)
+    required = set(_re.findall(r"\"(RP1210_\w+)\"", required_block))
+    assert called | guarded <= required, (
+        f"symbols called/guarded but not required: {sorted((called | guarded) - required)}"
+    )
+
+
 class _FakeRP1210Dll:
     """Test double exposing only RP1210_ReadMessage with a scripted return value."""
 
@@ -236,7 +271,7 @@ def test_rp1210_bus_recv_rejects_truncated_29bit_packet() -> None:
     bus.connect()
 
     # Header promises DLC=6 but only 2 payload bytes follow
-    wire = 0x18EBFF10 .to_bytes(4, "little") + bytes([6]) + b"\x01\x02"
+    wire = 0x1CEBFF10 .to_bytes(4, "little") + bytes([6]) + b"\x01\x02"
     mock.rx_queue.append(wire)
 
     assert bus.recv(timeout_s=0.05) is None
@@ -440,7 +475,7 @@ def test_rp1210_recv_drops_dlc9_classic_invalid_packet() -> None:
     bus.connect()
 
     # Extended layout: 4-byte LE id + DLC=9 (classic-invalid) + 9 payload bytes
-    wire = 0x18EBFF10 .to_bytes(4, "little") + bytes([9]) + b"\x01" * 9
+    wire = 0x1CEBFF10 .to_bytes(4, "little") + bytes([9]) + b"\x01" * 9
     mock.rx_queue.append(wire)
 
     assert bus.recv(timeout_s=0.05) is None  # dropped, not raised

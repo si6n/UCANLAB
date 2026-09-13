@@ -95,6 +95,12 @@ def _check_frame(frame: CanFrame) -> None:
     validate, then flush() packed the same bytes again — 2x serialization per
     frame on the RX path. This check enforces the exact same invariants as
     _serialize_frame's raises, without building the 113-byte record.
+
+    REVIEW 3-MEDIUM: enum membership (error_state/source/direction) is
+    verified at ADMISSION time — a frame mutated past __post_init__ to an
+    unmapped enum value previously slipped through admission and then raised
+    KeyError at flush, dropping the whole pending chunk. Rejecting the
+    single bad frame here keeps the chunk (and the black-box recording) alive.
     """
     if len(frame.channel_id.encode("utf-8")) > CHANNEL_ID_SIZE:
         raise ValueError(f"channel_id exceeds {CHANNEL_ID_SIZE} UTF-8 bytes")
@@ -108,6 +114,10 @@ def _check_frame(frame: CanFrame) -> None:
         raise ValueError("hardware_timestamp_ns must fit in an unsigned 64-bit integer")
     if frame.host_timestamp_ns is not None and not 0 <= frame.host_timestamp_ns <= 0xFFFFFFFFFFFFFFFF:
         raise ValueError("host_timestamp_ns must fit in an unsigned 64-bit integer")
+    if frame.error_state not in _ERROR_STATE_TO_CODE:
+        raise ValueError(f"unmapped error_state {frame.error_state!r}")
+    if frame.source not in _SOURCE_TO_CODE:
+        raise ValueError(f"unmapped source {frame.source!r}")
 
 
 def _serialize_frame(frame: CanFrame) -> bytes:
@@ -274,6 +284,9 @@ class RollingDiskBuffer:
     CHUNK_THRESHOLD_FRAMES: ClassVar[int] = 25_000
     MAX_RETENTION_SEC: ClassVar[int] = 600
     MAX_DISK_BYTES: ClassVar[int] = 100 * 1024 * 1024
+    MAX_CHUNK_FRAMES: ClassVar[int] = 100_000
+    MAX_CHUNK_BYTES: ClassVar[int] = 32 * 1024 * 1024
+    MAX_STORED_FILE_BYTES: ClassVar[int] = 16 * 1024 * 1024
 
     _serialize_chunk = staticmethod(_serialize_chunk)
 
@@ -285,16 +298,33 @@ class RollingDiskBuffer:
         chunk_frame_threshold: int = CHUNK_THRESHOLD_FRAMES,
         secret_provider: SecretProvider | None = None,
     ) -> None:
-        if chunk_frame_threshold <= 0:
-            raise ValueError("chunk_frame_threshold must be positive")
+        if (
+            not isinstance(chunk_frame_threshold, int)
+            or isinstance(chunk_frame_threshold, bool)
+            or not (1 <= chunk_frame_threshold <= self.MAX_CHUNK_FRAMES)
+        ):
+            raise ValueError(
+                f"chunk_frame_threshold must be in range 1..{self.MAX_CHUNK_FRAMES}, "
+                f"got {chunk_frame_threshold!r}"
+            )
 
-        self.storage_dir = Path(storage_dir)
+        raw_dir = Path(storage_dir)
+        if raw_dir.is_symlink():
+            raise ValueError(f"storage_dir must not be a symlink, got {storage_dir!r}")
+        raw_dir.mkdir(parents=True, exist_ok=True)
+        if raw_dir.is_symlink():
+            raise ValueError(f"storage_dir must not be a symlink, got {storage_dir!r}")
+        self.storage_dir = raw_dir.resolve()
+        if os.name != "nt":
+            try:
+                os.chmod(self.storage_dir, 0o700)
+            except OSError:
+                pass
         self.max_retention_sec = max_retention_sec
         self.max_disk_bytes = max_disk_bytes
         self.chunk_frame_threshold = chunk_frame_threshold
         self._secret_provider = secret_provider or get_default_secret_provider()
 
-        self.storage_dir.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
         self._tls = threading.local()
         self._closed = False
@@ -304,7 +334,7 @@ class RollingDiskBuffer:
         self._cctx = zstd.ZstdCompressor(level=3)
         self._dctx = zstd.ZstdDecompressor()
         max_read_frames = max(chunk_frame_threshold, self.CHUNK_THRESHOLD_FRAMES)
-        self._max_chunk_bytes = HEADER_SIZE + max_read_frames * FRAME_SIZE
+        self._max_chunk_bytes = min(HEADER_SIZE + max_read_frames * FRAME_SIZE, self.MAX_CHUNK_BYTES)
         self._migrate_legacy_chunks()
         self._chunk_index = self._next_chunk_index()
         # F-34: bounded async write queue + worker thread. Serialize + HMAC stay
@@ -379,6 +409,18 @@ class RollingDiskBuffer:
             return
 
         with self._lock:
+            # REVIEW (close-vs-append race): after close() the flush worker
+            # is gone — appended frames would sit in _current_chunk_frames
+            # forever and silently never reach disk (black-box durability
+            # violation), and drain calls would block 30 s against a dead
+            # worker. Reject late frames loudly, once per chunk, and count.
+            if self._closed:
+                self._rejected_frames += 1
+                logger.error(
+                    "Rolling disk closed — frame rejected (data loss window)",
+                    extra={"arbitration_id": getattr(frame, "arbitration_id", None), "total_rejected": self._rejected_frames},
+                )
+                return
             self._current_chunk_frames.append(frame)
             should_flush = len(self._current_chunk_frames) >= self.chunk_frame_threshold
         if should_flush:
@@ -454,10 +496,25 @@ class RollingDiskBuffer:
         temporary_file = chunk_file.with_name(
             f"{chunk_file.name}.{os.getpid()}_{threading.get_ident()}_{time.monotonic_ns()}.tmp"
         )
-        with open(temporary_file, "wb") as f:
-            f.write(compressed_bytes)
-            f.flush()
-            os.fsync(f.fileno())
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+        # O_EXCL guarantees no TOCTOU overwrite of a planted symlink/file.
+        fd = os.open(temporary_file, flags, 0o600)
+        try:
+            with os.fdopen(fd, "wb") as f:
+                if os.name != "nt":
+                    try:
+                        os.chmod(temporary_file, 0o600)
+                    except OSError:
+                        pass
+                f.write(compressed_bytes)
+                f.flush()
+                os.fsync(f.fileno())
+        except BaseException:
+            try:
+                os.unlink(temporary_file)
+            except OSError:
+                pass
+            raise
         temporary_file.replace(chunk_file)
         self._enforce_retention()
         return compressed_bytes
@@ -470,9 +527,21 @@ class RollingDiskBuffer:
         IO/compression failures quarantine the chunk as ``.failed``; truly
         unexpected errors are logged with traceback and the worker keeps
         running after a short backoff.
+
+        REVIEW (orphan worker): the get() is bounded — if close() failed to
+        enqueue the sentinel (queue full / error), the worker still exits
+        on the closed flag instead of parking in an indefinite get() as an
+        orphan daemon while chunks rot in the queue.
         """
         while True:
-            item = self._flush_queue.get()
+            try:
+                item = self._flush_queue.get(timeout=1.0)
+            except queue.Empty:
+                if self._closed:
+                    # Bounded liveness escape hatch: closed + queue empty
+                    # (or sentinel lost) — exit instead of waiting forever.
+                    return
+                continue
             if item is None:
                 self._flush_queue.task_done()
                 return
@@ -583,6 +652,11 @@ class RollingDiskBuffer:
 
         for file in sorted(self.storage_dir.glob("chunk_*.bin.zst")):
             try:
+                if file.stat().st_size > self.MAX_STORED_FILE_BYTES:
+                    raise SecurityError(
+                        f"Rolling disk chunk file exceeds {self.MAX_STORED_FILE_BYTES} bytes",
+                        code="SECURITY_ERROR",
+                    )
                 raw_bytes = self._decompress_bounded(file.read_bytes())
                 all_frames.extend(_deserialize_chunk(raw_bytes, key))
             except SecurityError as sec_exc:
@@ -620,10 +694,21 @@ class RollingDiskBuffer:
         self.flush()
         try:
             self._flush_queue.put(None, timeout=timeout_s)
-        except (queue.Full, Exception):
-            pass
+        except Exception as exc:  # noqa: BLE001 — worker shutdown must still be attempted
+            # REVIEW (silent sentinel swallow): a swallowed enqueue failure
+            # leaves the worker blocked in get() forever (orphan daemon
+            # thread + queued chunks never written). Log it loudly.
+            logger.error(
+                "Rolling disk close: failed to enqueue flush worker sentinel",
+                extra={"error": str(exc), "queued_unfinished": self._flush_queue.unfinished_tasks},
+            )
         if self._flush_worker.is_alive():
             self._flush_worker.join(timeout=timeout_s)
+            if self._flush_worker.is_alive():
+                logger.error(
+                    "Rolling disk flush worker failed to exit within close timeout",
+                    extra={"timeout_s": timeout_s, "queued_unfinished": self._flush_queue.unfinished_tasks},
+                )
 
     def clear(self) -> None:
         """Delete active authenticated chunks from the storage directory."""

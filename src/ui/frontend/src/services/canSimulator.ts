@@ -407,6 +407,13 @@ export class CANSimulatorEngine {
 
   // ── Fault Injection APIs ──────────────────────────────────────────────────
   public injectFault(type: FaultInjectionType) {
+    // REVIEW (LIVE guard): injectFault used to bypass the isLiveMode gate
+    // that startSimulation enforces — a synthetic error frame landed in
+    // the LIVE sniffer buffer via the unconditionally-subscribed frame
+    // listener. All synthetic fault effects stop in LIVE mode.
+    if (this.isLiveMode()) {
+      return;
+    }
     if (type === 'error_frame') {
       this.errorFramesCount += 5;
       this.generateExplicitErrorFrame();
@@ -453,11 +460,17 @@ export class CANSimulatorEngine {
     // F-35: batch IPC — generate 5 frames per 200ms tick instead of one
     // frame per interval. At the same average rate the number of timer (and
     // potential bridge) invocations drops 5x.
-    const BATCH_SIZE = 5;
+    // REVIEW (frame budget math): framesPerTick used
+    // BATCH_SIZE*BATCH_INTERVAL_MS*fps/1000 = fps*framesPerTick — every
+    // tick emitted the WHOLE per-second budget, i.e. 5x the target fps
+    // (25 fps target -> 125 frames/s). Per-tick budget is simply
+    // fps * interval / 1000 (BATCH_SIZE only bounds the split across
+    // ticks for very high fps targets).
     const BATCH_INTERVAL_MS = 200;
-    const framesPerTick = Math.max(
-      1,
-      Math.round((BATCH_SIZE * BATCH_INTERVAL_MS * this.frameRateTarget * this.speedMultiplier) / 1000)
+    const maxBatch = 50;
+    const framesPerTick = Math.min(
+      maxBatch,
+      Math.max(1, Math.round((this.frameRateTarget * this.speedMultiplier * BATCH_INTERVAL_MS) / 1000))
     );
     this.timerId = window.setInterval(() => {
       if (!this.isRunning) return;
@@ -638,8 +651,11 @@ export class CANSimulatorEngine {
       ecuName: 'CAN Controller (Bus-Off)'
     };
 
-    if (this.listeners.onNewFrame) {
-      this.listeners.onNewFrame(frame);
+    // REVIEW (single delivery path): explicit error frames also flow through
+    // the batch hook only — a bare onNewFrame emit here duplicated them
+    // into any batch that followed.
+    if (this.listeners.onNewFrameBatch) {
+      this.listeners.onNewFrameBatch([frame]);
     }
     return frame;
   }
@@ -781,9 +797,10 @@ export class CANSimulatorEngine {
       isCanFd: def.isCanFd
     };
 
-    if (this.listeners.onNewFrame) {
-      this.listeners.onNewFrame(frame);
-    }
+    // REVIEW (single delivery path): generateNextFrame used to fire
+    // onNewFrame per frame while restartFrameTimer ALSO emitted the whole
+    // batch via onNewFrameBatch — every frame was delivered twice. The
+    // batch hook is the one and only delivery path (F-35).
 
     return frame;
   }

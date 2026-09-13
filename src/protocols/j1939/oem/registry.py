@@ -16,6 +16,72 @@ from src.engine.decoder.dbc_decoder import DecodedSignal
 
 logger = get_logger("protocols.j1939.oem")
 
+# REVIEW (HIGH-7): SAE J1939-81 NAME Manufacturer Code (bits 31..21 of the
+# 64-bit NAME, PGN 60928 Address Claim) per the canboat J1939 name table
+# (data/dbc/j1939_canboat.dbc VAL_ 2565734400 Manufacturer_Code). An OEM
+# attribution is CONFIRMED only when the claiming node's NAME carries that
+# OEM's manufacturer code — otherwise the match is payload-pattern only.
+OEM_NAME_MANUFACTURER_CODES: dict[str, set[int]] = {
+    # "Caterpillar Inc."
+    "Caterpillar": {8},
+    # "Cummins Inc (formerly Cummins Engine Co)"; 440 = Cummins Power Generation
+    "Cummins": {10, 440},
+    # "Detroit Diesel Corporation"
+    "Detroit": {14},
+    # "Volvo Trucks North America Inc." / "Volvo Truck Corp." / AB Volvo Penta (174)
+    "Volvo": {60, 61, 174},
+    # "Scania"
+    "Scania": {68},
+    # "Daimler Benz AG - Engine Division (PBM)" (Actros powertrain);
+    # 164 = MTU Friedrichshafen (formerly DaimlerChrysler Off-Highway)
+    "Mercedes-Benz": {79, 164},
+}
+
+# REVIEW hardening: unknown/reserved enum helper shared by all OEM
+# decoders. Map-miss values are NEVER valid telemetry — they surface as
+# is_valid=False with a RESERVED/UNKNOWN status, never as HIGH-confidence
+# fabricated strings.
+RESERVED_UNKNOWN_LABEL: str = "RESERVED/UNKNOWN"
+
+
+def resolve_enum(
+    mapping: dict[int, str],
+    raw: int,
+    *,
+    signal_name: str,
+    unit: str = "enum",
+) -> DecodedSignal:
+    """Build a DecodedSignal for an enum/nibble field (fail-closed).
+
+    Known codes → VALID/HIGH-confidence; unknown/reserved codes →
+    is_valid=False with RESERVED status. Sentinel 0xFE/0xFF callers must
+    screen those first (they carry ERROR/NOT_AVAILABLE semantics).
+    """
+    from src.engine.decoder.dbc_decoder import DecodedSignal, SignalStatus
+
+    label = mapping.get(raw)
+    if label is None:
+        return DecodedSignal(
+            name=signal_name,
+            value=f"{RESERVED_UNKNOWN_LABEL} (0x{raw:02X})",
+            unit=unit,
+            raw_value=raw,
+            is_valid=False,
+            status=SignalStatus.ERROR,
+            confidence="LOW",
+        )
+    return DecodedSignal(
+        name=signal_name,
+        value=label,
+        unit=unit,
+        raw_value=raw,
+        is_valid=True,
+        status=SignalStatus.VALID,
+    )
+
+
+
+
 
 def parse_j1939_id(arbitration_id: int) -> tuple[int, int, int | None, int]:
     """Parse a 29-bit CAN arbitration identifier into J1939 components.
@@ -170,6 +236,12 @@ class OemJ1939Registry:
 
     Routes Proprietary A (PGN 61184 / 0xEF00) and Proprietary B (PGN 65280-65535 / 0xFF00-0xFFFF)
     frames to OEM decoders (Cummins, Caterpillar, Scania, Volvo, Detroit Diesel, Mercedes Actros).
+
+    REVIEW (HIGH-7): OEM attribution no longer trusts "first decoder that
+    accepts the PGN". A decoder match is CONFIRMED when the frame's Source
+    Address is backed by a NAME claim (PGN 60928) whose Manufacturer Code
+    matches the OEM (see OEM_NAME_MANUFACTURER_CODES). Unconfirmed matches
+    surface with confidence="LOW" and never displace a confirmed one.
     """
 
     PROPRIETARY_A_PGN: int = 61184  # 0xEF00
@@ -180,12 +252,65 @@ class OemJ1939Registry:
     def __init__(self, decoders: list[BaseOemDecoder] | None = None) -> None:
         self._decoders: dict[str, BaseOemDecoder] = {}
         self._pgn_to_decoders: dict[int, list[BaseOemDecoder]] = {}
+        # REVIEW (HIGH-7): SA -> NAME-manufacturer-code learned from PGN
+        # 60928 Address Claim frames. Feeds decoder confirmation below.
+        self._sa_name_codes: dict[int, int] = {}
 
         if decoders is not None:
             for dec in decoders:
                 self.register_decoder(dec)
         else:
             self._register_default_decoders()
+
+    PGN_ADDRESS_CLAIM: int = 60928  # 0xEE00 — J1939-81 Address Claimed
+
+    def record_address_claim(self, frame: CanFrame) -> None:
+        """Record a PGN 60928 (0xEE00) Address Claim for SA-based OEM confirmation.
+
+        Feed every observed Address Claim frame here (e.g. from the RX
+        pipeline / AddressClaimEngine table). The 64-bit NAME is decoded
+        with J1939Name.from_bytes and its Manufacturer Code (bits 31..21)
+        is stored against the claim's Source Address. Frames of other PGNs
+        are ignored. Fail-closed: a malformed claim (payload < 8 bytes)
+        is dropped, never guessed.
+        """
+        if not frame.is_extended or len(frame.data) < 8:
+            return
+        pgn, sa, _da, _prio = parse_j1939_id(frame.arbitration_id)
+        if pgn != self.PGN_ADDRESS_CLAIM:
+            return
+        from src.protocols.j1939.address_claim import J1939Name
+
+        try:
+            name = J1939Name.from_bytes(bytes(frame.data[:8]))
+        except Exception:
+            return
+        self._sa_name_codes[sa] = name.manufacturer_code
+
+    def _decoder_confirms_sa(self, decoder: BaseOemDecoder, sa: int) -> bool | None:
+        """NAME/SA confirmation for a decoder match (HIGH-7).
+
+        Returns True when the SA's recorded NAME manufacturer code matches
+        this decoder's OEM; False when a recorded claim contradicts it
+        (another OEM's code — a misattributed / spoofed source); None when
+        no claim has been observed for this SA (unknown, not fabricated).
+        """
+        codes = OEM_NAME_MANUFACTURER_CODES.get(decoder.name)
+        if not codes:
+            return None
+        observed = self._sa_name_codes.get(sa)
+        if observed is None:
+            return None
+        return observed in codes
+
+    @staticmethod
+    def _apply_attribution_confidence(decoded: OemDecodedPayload, confirmed: bool | None) -> None:
+        """Stamp attribution confidence (never fabricate an OEM identity)."""
+        if confirmed is True:
+            # Confirmed via NAME claim — attribution is grounded, but keep
+            # any explicit LOW already stamped (e.g. hinted-but-unknown PGN).
+            return
+        decoded.confidence = "LOW"
 
     def _register_default_decoders(self) -> None:
         """Lazily import and register built-in OEM decoders."""
@@ -262,39 +387,71 @@ class OemJ1939Registry:
 
         pgn, sa, da, _ = parse_j1939_id(frame.arbitration_id)
 
-        # Fast path if manufacturer hint provided
+        # Candidate decoders for this PGN (hint first, then registration).
+        hinted: BaseOemDecoder | None = None
         if manufacturer_hint:
-            decoder = self.get_decoder(manufacturer_hint)
-            if decoder and decoder.supports_pgn(pgn):
-                try:
-                    decoded = decoder.decode(frame, pgn, sa, da)
-                    if decoded is not None:
-                        return decoded
-                except Exception as exc:
-                    logger.debug(
-                        "Hinted decoder failed for frame",
-                        extra={"decoder": decoder.name, "pgn": hex(pgn), "error": str(exc)},
-                    )
+            hinted = self.get_decoder(manufacturer_hint)
+            if hinted and not hinted.supports_pgn(pgn):
+                hinted = None
 
-        # Match decoders registered for this PGN
         candidate_decoders = self._pgn_to_decoders.get(pgn, [])
         if not candidate_decoders:
-            # Check if this is a general Proprietary A frame registered across all decoders
+            # Proprietary A (PGN 61184) is every OEM's shared private
+            # channel — fall back to all decoders (payload-match required).
             if pgn == self.PROPRIETARY_A_PGN:
                 candidate_decoders = list(self._decoders.values())
             else:
                 return None
+        # Hinted decoder tried first when it is a candidate for this PGN.
+        if hinted is not None and hinted in candidate_decoders:
+            candidate_decoders = [hinted, *[d for d in candidate_decoders if d is not hinted]]
 
+        # REVIEW (HIGH-7): attribution via SA + NAME claim. A confirmed
+        # match (NAME Manufacturer Code == decoder OEM) outranks any
+        # unconfirmed payload-pattern match; a contradicted decoder
+        # (NAME says another OEM) is skipped entirely. Unconfirmed
+        # matches still surface — stamped confidence="LOW" (1-L4) —
+        # because the payload pattern matched; identity is not guessed.
+        fallback: OemDecodedPayload | None = None
+        fallback_decoder: BaseOemDecoder | None = None
         for decoder in candidate_decoders:
             try:
                 decoded = decoder.decode(frame, pgn, sa, da)
-                if decoded is not None:
+                if decoded is None:
+                    continue
+                confirmed = self._decoder_confirms_sa(decoder, sa)
+                if confirmed is False:
+                    logger.debug(
+                        "Decoder match contradicted by NAME claim — skipped",
+                        extra={"decoder": decoder.name, "sa": sa, "pgn": hex(pgn)},
+                    )
+                    continue
+                if confirmed is True:
+                    self._apply_attribution_confidence(decoded, True)
                     return decoded
+                if fallback is None:
+                    fallback = decoded
+                    fallback_decoder = decoder
             except Exception as exc:
                 logger.debug(
                     "Decoder failed for frame",
                     extra={"decoder": decoder.name, "pgn": hex(pgn), "error": str(exc)},
                 )
+
+        if fallback is not None:
+            # No NAME-confirmed match: keep the first payload-pattern
+            # match, explicitly marked LOW confidence (attribution is a
+            # coincidence of registration order, not identification).
+            # Exception: an operator hint (manufacturer_hint) is explicit
+            # operator grounding of the identity — not stamped LOW.
+            if fallback_decoder is not hinted:
+                self._apply_attribution_confidence(fallback, False)
+            if fallback_decoder is not None:
+                logger.debug(
+                    "OEM match unconfirmed by NAME claim",
+                    extra={"decoder": fallback_decoder.name, "sa": sa, "pgn": hex(pgn)},
+                )
+            return fallback
 
         return None
 

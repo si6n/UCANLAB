@@ -296,7 +296,8 @@ def test_obd_unknown_pid_fallback() -> None:
     assert res.pid == 0xFE
     assert res.name == "UNKNOWN_PID_0xFE"
     assert res.value == "1234"
-    assert res.is_valid is True
+    # REVIEW hardening: unlisted identifiers are fail-closed invalid.
+    assert res.is_valid is False
 
 
 def test_obd_insufficient_length_error() -> None:

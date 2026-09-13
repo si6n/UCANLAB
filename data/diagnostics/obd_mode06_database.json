@@ -1,8 +1,8 @@
 {
   "metadata": {
     "title": "Universal SAE J1979 OBD-II Mode $06 Diagnostic Monitor Database",
-    "version": "1.0.0",
-    "total_monitors": 20,
+    "version": "1.2.0",
+    "total_monitors": 38,
     "uasid_scaling_formulas": {
       "0x01": {
         "unit": "mV",
@@ -116,7 +116,14 @@
         "formula": "raw * 1.0",
         "description": "Seconds"
       }
-    }
+    },
+    "last_updated": "2026-09-12",
+    "sources": [
+      "gsi.ext.gm.com/gmspo/mode6 — GM Mode $06 data definitions (GMLAN)",
+      "gsi.ext.gm.com/gmspo/mode6 — GM Mode $06 data definitions (J1850/Class2)"
+    ],
+    "class2_monitors": 9,
+    "class2_tests": 54
   },
   "monitors": {
     "0x01": {
@@ -160,6 +167,139 @@
           "name_tr": "Sensör Dalgalanma Periyodu",
           "uasid": "0x07",
           "default_unit": "ms"
+        },
+        {
+          "tid_hex": "0x03",
+          "name": "Low Sensor Voltage for Switch Time Calculation",
+          "uasid": "0x0A",
+          "default_unit": "",
+          "ideal_range": "0.0000 to 7.9900",
+          "resolution": "V 0.122 mv / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x04",
+          "name": "High Sensor Voltage for Switch Time Calculation",
+          "uasid": "0x0A",
+          "default_unit": "",
+          "ideal_range": "0.0000 to 7.9900",
+          "resolution": "V 0.122 mv / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x80",
+          "name": "Rich to Lean Switches Test Results",
+          "uasid": "0x2B",
+          "default_unit": "",
+          "ideal_range": "0 to 65535",
+          "resolution": "switches 1 switch / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x81",
+          "name": "Lean to Rich Switches Test Results",
+          "uasid": "0x2B",
+          "default_unit": "",
+          "ideal_range": "0 to 65535",
+          "resolution": "switches 1 switch / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x82",
+          "name": "Rich-Lean Response to Lean-Rich Response Ratio",
+          "uasid": "0x20",
+          "default_unit": "",
+          "ideal_range": "0.000:1 to 255.996:1",
+          "resolution": "ratio 0.0039 / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x83",
+          "name": "Low Sensor Voltage for Half Period Time Calculation",
+          "uasid": "0x0A",
+          "default_unit": "",
+          "ideal_range": "0.0000 to 7.9900",
+          "resolution": "V 0.122 mv / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x84",
+          "name": "High Sensor Voltage for Half Period Time Calculation",
+          "uasid": "0x0A",
+          "default_unit": "",
+          "ideal_range": "0.0000 to 7.9900",
+          "resolution": "V 0.122 mv / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x85",
+          "name": "O2 Sensor Rich to Lean Half Period Time",
+          "uasid": "0x10",
+          "default_unit": "°C",
+          "ideal_range": "0.0000 to 65535",
+          "resolution": "ms 1 ms / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x86",
+          "name": "O2 Sensor Lean to Rich Half Period Time",
+          "uasid": "0x10",
+          "default_unit": "°C",
+          "ideal_range": "0.0000 to 65535",
+          "resolution": "ms 1 ms / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x87",
+          "name": "Sum of O2 Sensor L/R and R/L Half Period Times",
+          "uasid": "0x10",
+          "default_unit": "°C",
+          "ideal_range": "0.0000 to 65535",
+          "resolution": "ms 1 ms / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x88",
+          "name": "3 Difference Between",
+          "uasid": "0x90",
+          "default_unit": "",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x89",
+          "name": "B1S1 WRAF Slow Response",
+          "uasid": "0x06",
+          "default_unit": "",
+          "ideal_range": "0 to 19.99",
+          "resolution": "raw value 0.000305 / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x8E",
+          "name": "Absolute Average Slope of the O2 Sensor Signal",
+          "uasid": "0xB1",
+          "default_unit": "",
+          "ideal_range": "–65536 to +65534",
+          "resolution": "mV/s 2 mV/s per bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x8F",
+          "name": "Instantaneous Positive Slope of the O2 Sensor Signal",
+          "uasid": "0xB1",
+          "default_unit": "",
+          "ideal_range": "–65536 to +65534",
+          "resolution": "mV/s 2 mV/s per bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x90",
+          "name": "Instantaneous Negative Slope of the O2 Sensor Signal",
+          "uasid": "0xB1",
+          "default_unit": "",
+          "ideal_range": "–65536 to +65534",
+          "resolution": "mV/s 2 mV/s per bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
         }
       ]
     },
@@ -190,6 +330,42 @@
           "name_tr": "Oksijen Depolama Kapasitesi Geçiş Oranı",
           "uasid": "0x30",
           "default_unit": "ratio"
+        },
+        {
+          "tid_hex": "0x05",
+          "name": "B1S2 rich-lean switch time in fuel cut-off",
+          "uasid": "0x20",
+          "default_unit": "",
+          "ideal_range": "0.000:1 to 255.99:1",
+          "resolution": "ratio 0.0039062 / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x8A",
+          "name": "Post Catalyst Sensor Open Test",
+          "uasid": "0x24",
+          "default_unit": "",
+          "ideal_range": "0 to 65535",
+          "resolution": "counts 1 count / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x8B",
+          "name": "Post Catalyst Sensor Rich Test",
+          "uasid": "0x0A",
+          "default_unit": "",
+          "ideal_range": "0.0000 to 7.9900",
+          "resolution": "V 0.122 mv / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x8C",
+          "name": "Post Catalyst Sensor Lean Test",
+          "uasid": "0x0A",
+          "default_unit": "",
+          "ideal_range": "0.0000 to 7.9900",
+          "resolution": "V 0.122 mv / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
         }
       ]
     },
@@ -220,6 +396,24 @@
           "name_tr": "Oksijen Depolama Kapasite İndeksi",
           "uasid": "0x14",
           "default_unit": "%"
+        },
+        {
+          "tid_hex": "0xA0",
+          "name": "Catalyst Test Bank 1 (using OSC normalized ratio units)",
+          "uasid": "0x05",
+          "default_unit": "",
+          "ideal_range": "0 to 1.999",
+          "resolution": "unitless 0.0000305 / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0xA1",
+          "name": "Catalyst Test Bank 1 (using Catalyst DFCO Exit Test)",
+          "uasid": "0x01",
+          "default_unit": "mV",
+          "ideal_range": "0 to +65535",
+          "resolution": "unitless 1 per bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
         }
       ]
     },
@@ -250,6 +444,24 @@
           "name_tr": "EGR Gaz Sıcaklık Değişimi",
           "uasid": "0x10",
           "default_unit": "°C"
+        },
+        {
+          "tid_hex": "0xA8",
+          "name": "EGR Flow Decel Service Test",
+          "uasid": "0xFD",
+          "default_unit": "",
+          "ideal_range": "–32.768 to +32.767",
+          "resolution": "kPa 0.001 kPa / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0xA9",
+          "name": "EGR Flow Quick Test",
+          "uasid": "0xFD",
+          "default_unit": "",
+          "ideal_range": "–32.768 to +32.767",
+          "resolution": "kPa 0.001 kPa / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
         }
       ]
     },
@@ -319,6 +531,24 @@
           "name_tr": "Kömür Filtresi Tahliye Solenoidi Sızdırmazlığı",
           "uasid": "0x0B",
           "default_unit": "Pa"
+        },
+        {
+          "tid_hex": "0xC0",
+          "name": "EVPD Weak Vacuum Test scaled in liters",
+          "uasid": "0x31",
+          "default_unit": "",
+          "ideal_range": "0.0 to 65.535",
+          "resolution": "liters 0.001 liters / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0xC1",
+          "name": "EVPD Weak Vacuum Followup Test",
+          "uasid": "0x11",
+          "default_unit": "°C",
+          "ideal_range": "0.0 to 6553.5",
+          "resolution": "sec 100 milliseconds / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
         }
       ]
     },
@@ -342,6 +572,15 @@
           "name_tr": "EVAP Kaçak Teşhis Pompası Akım Çekişi",
           "uasid": "0x04",
           "default_unit": "mA"
+        },
+        {
+          "tid_hex": "0xC2",
+          "name": "EVPD NV 0.040 Test - scaled in inches",
+          "uasid": "0x32",
+          "default_unit": "",
+          "ideal_range": "0.000 to 1.999",
+          "resolution": "inches 0.0000305 inches / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
         }
       ]
     },
@@ -372,6 +611,42 @@
           "name_tr": "VGT Minimum Mekanik Dayanak Kalibrasyonu",
           "uasid": "0x14",
           "default_unit": "%"
+        },
+        {
+          "tid_hex": "0xE0",
+          "name": "AIR - Bank 1 Test",
+          "uasid": "0x24",
+          "default_unit": "",
+          "ideal_range": "0 to 65535",
+          "resolution": "counts 1 count / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0xE1",
+          "name": "AIR on - pressure error test",
+          "uasid": "0xFD",
+          "default_unit": "",
+          "ideal_range": "–32.768 to +32.767",
+          "resolution": "kPa 0.001 kPa / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0xE2",
+          "name": "AIR Valve shut - pressure error test",
+          "uasid": "0xFD",
+          "default_unit": "",
+          "ideal_range": "–32.768 to +32.767",
+          "resolution": "kPa 0.001 kPa / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0xE3",
+          "name": "AIR Pump off - pressure error test",
+          "uasid": "0xFD",
+          "default_unit": "",
+          "ideal_range": "–32.768 to +32.767",
+          "resolution": "kPa 0.001 kPa / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
         }
       ]
     },
@@ -485,6 +760,22 @@
           "name_tr": "Silindir 1 Krank Mili İvmelenme Titreşimi",
           "uasid": "0x14",
           "default_unit": "%"
+        },
+        {
+          "tid_hex": "0x0B",
+          "name": "4 EWMA (Exponentially Weighted Moving Average)",
+          "uasid": "0x24",
+          "default_unit": "",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x0C",
+          "name": "Misfire counts for the last / current driving cycles",
+          "uasid": "0x24",
+          "default_unit": "",
+          "ideal_range": "0 to 65535",
+          "resolution": "counts 1 count / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
         }
       ]
     },
@@ -522,6 +813,22 @@
           "name_tr": "Silindir 2 Krank Mili İvmelenme Titreşimi",
           "uasid": "0x14",
           "default_unit": "%"
+        },
+        {
+          "tid_hex": "0x0B",
+          "name": "4 EWMA (Exponentially Weighted Moving Average)",
+          "uasid": "0x24",
+          "default_unit": "",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x0C",
+          "name": "Misfire counts for the last / current driving cycles",
+          "uasid": "0x24",
+          "default_unit": "",
+          "ideal_range": "0 to 65535",
+          "resolution": "counts 1 count / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
         }
       ]
     },
@@ -559,6 +866,22 @@
           "name_tr": "Silindir 3 Krank Mili İvmelenme Titreşimi",
           "uasid": "0x14",
           "default_unit": "%"
+        },
+        {
+          "tid_hex": "0x0B",
+          "name": "4 EWMA (Exponentially Weighted Moving Average)",
+          "uasid": "0x24",
+          "default_unit": "",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x0C",
+          "name": "Misfire counts for the last / current driving cycles",
+          "uasid": "0x24",
+          "default_unit": "",
+          "ideal_range": "0 to 65535",
+          "resolution": "counts 1 count / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
         }
       ]
     },
@@ -596,6 +919,22 @@
           "name_tr": "Silindir 4 Krank Mili İvmelenme Titreşimi",
           "uasid": "0x14",
           "default_unit": "%"
+        },
+        {
+          "tid_hex": "0x0B",
+          "name": "4 EWMA (Exponentially Weighted Moving Average)",
+          "uasid": "0x24",
+          "default_unit": "",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x0C",
+          "name": "Misfire counts for the last / current driving cycles",
+          "uasid": "0x24",
+          "default_unit": "",
+          "ideal_range": "0 to 65535",
+          "resolution": "counts 1 count / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
         }
       ]
     },
@@ -633,6 +972,22 @@
           "name_tr": "Silindir 5 Krank Mili İvmelenme Titreşimi",
           "uasid": "0x14",
           "default_unit": "%"
+        },
+        {
+          "tid_hex": "0x0B",
+          "name": "4 EWMA (Exponentially Weighted Moving Average)",
+          "uasid": "0x24",
+          "default_unit": "",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x0C",
+          "name": "Misfire counts for the last / current driving cycles",
+          "uasid": "0x24",
+          "default_unit": "",
+          "ideal_range": "0 to 65535",
+          "resolution": "counts 1 count / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
         }
       ]
     },
@@ -670,6 +1025,22 @@
           "name_tr": "Silindir 6 Krank Mili İvmelenme Titreşimi",
           "uasid": "0x14",
           "default_unit": "%"
+        },
+        {
+          "tid_hex": "0x0B",
+          "name": "4 EWMA (Exponentially Weighted Moving Average)",
+          "uasid": "0x24",
+          "default_unit": "",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x0C",
+          "name": "Misfire counts for the last / current driving cycles",
+          "uasid": "0x24",
+          "default_unit": "",
+          "ideal_range": "0 to 65535",
+          "resolution": "counts 1 count / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
         }
       ]
     },
@@ -707,6 +1078,22 @@
           "name_tr": "Silindir 7 Krank Mili İvmelenme Titreşimi",
           "uasid": "0x14",
           "default_unit": "%"
+        },
+        {
+          "tid_hex": "0x0B",
+          "name": "EWMA (Exponentially Weighted Moving Average)",
+          "uasid": "0x24",
+          "default_unit": "",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x0C",
+          "name": "Misfire counts for the last / current driving cycles",
+          "uasid": "0x24",
+          "default_unit": "",
+          "ideal_range": "0 to 65535",
+          "resolution": "counts 1 count / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
         }
       ]
     },
@@ -744,8 +1131,1494 @@
           "name_tr": "Silindir 8 Krank Mili İvmelenme Titreşimi",
           "uasid": "0x14",
           "default_unit": "%"
+        },
+        {
+          "tid_hex": "0x0B",
+          "name": "EWMA (Exponentially Weighted Moving Average)",
+          "uasid": "0x24",
+          "default_unit": "",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x0C",
+          "name": "Misfire counts for the last / current driving cycles",
+          "uasid": "0x24",
+          "default_unit": "",
+          "ideal_range": "0 to 65535",
+          "resolution": "counts 1 count / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
         }
       ]
+    },
+    "0x03": {
+      "mid_hex": "0x03",
+      "mid_int": 3,
+      "name": "Oxygen Sensor Monitor Bank 1 (GM GMLAN)",
+      "name_tr": "",
+      "subsystem": "",
+      "tests": [
+        {
+          "tid_hex": "0x8A",
+          "name": "Post Catalyst Sensor Open Test",
+          "uasid": "0x24",
+          "default_unit": "",
+          "ideal_range": "0 to 65535",
+          "resolution": "counts 1 count / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x8B",
+          "name": "Post Catalyst Sensor Rich Test",
+          "uasid": "0x0A",
+          "default_unit": "",
+          "ideal_range": "0.0000 to 7.9900",
+          "resolution": "V 0.122 mv / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x8C",
+          "name": "Post Catalyst Sensor Lean Test",
+          "uasid": "0x0A",
+          "default_unit": "",
+          "ideal_range": "0.0000 to 7.9900",
+          "resolution": "V 0.122 mv / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        }
+      ],
+      "source": "GM GMLAN Mode $06"
+    },
+    "0x05": {
+      "mid_hex": "0x05",
+      "mid_int": 5,
+      "name": "Oxygen Sensor Monitor Bank 2 (GM GMLAN)",
+      "name_tr": "",
+      "subsystem": "",
+      "tests": [
+        {
+          "tid_hex": "0x01",
+          "name": "Rich to Lean Sensor Threshold Voltage",
+          "uasid": "0x0A",
+          "default_unit": "",
+          "ideal_range": "0.0000 to 7.9900",
+          "resolution": "V 0.122 mv / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x02",
+          "name": "Lean to Rich Sensor Threshold Voltage",
+          "uasid": "0x0A",
+          "default_unit": "",
+          "ideal_range": "0.0000 to 7.9900",
+          "resolution": "V 0.122 mv / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x03",
+          "name": "Low Sensor Voltage for Switch Time Calculation",
+          "uasid": "0x0A",
+          "default_unit": "",
+          "ideal_range": "0.0000 to 7.9900",
+          "resolution": "V 0.122 mv / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x04",
+          "name": "High Sensor Voltage For Switch Time Calculation",
+          "uasid": "0x0A",
+          "default_unit": "",
+          "ideal_range": "0.0000 to 7.9900",
+          "resolution": "V 0.122 mv / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x05",
+          "name": "Rich to Lean Sensor Switch Time",
+          "uasid": "0x10",
+          "default_unit": "°C",
+          "ideal_range": "0.0000 to 65535",
+          "resolution": "ms 1 ms / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x06",
+          "name": "Lean to Rich Sensor Switch Time",
+          "uasid": "0x10",
+          "default_unit": "°C",
+          "ideal_range": "0.0000 to 65535",
+          "resolution": "ms 1 ms / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x80",
+          "name": "Rich to Lean Switches Test Results",
+          "uasid": "0x2B",
+          "default_unit": "",
+          "ideal_range": "0 to 65535",
+          "resolution": "switches 1 switch / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x81",
+          "name": "Lean to Rich Switches Test Results",
+          "uasid": "0x2B",
+          "default_unit": "",
+          "ideal_range": "0 to 65535",
+          "resolution": "switches 1 switch / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x82",
+          "name": "Rich-Lean Response to Lean-Rich Response Ratio",
+          "uasid": "0x20",
+          "default_unit": "",
+          "ideal_range": "0:1 to 255.996:1",
+          "resolution": "ratio 0.0039 / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x83",
+          "name": "Low Sensor Voltage for Half Period Time Calculation",
+          "uasid": "0x0A",
+          "default_unit": "",
+          "ideal_range": "0.0000 to 7.9900",
+          "resolution": "V 0.122 mv / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x84",
+          "name": "High Sensor Voltage for Half Period Time Calculation",
+          "uasid": "0x0A",
+          "default_unit": "",
+          "ideal_range": "0.0000 to 7.9900",
+          "resolution": "V 0.122 mv / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x85",
+          "name": "O2 Sensor Rich to Lean Half Period Time",
+          "uasid": "0x10",
+          "default_unit": "°C",
+          "ideal_range": "0.0000 to 65535",
+          "resolution": "ms 1 ms / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x86",
+          "name": "O2 Sensor Lean to Rich Half Period Time",
+          "uasid": "0x10",
+          "default_unit": "°C",
+          "ideal_range": "0.0000 to 65535",
+          "resolution": "ms 1 ms / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x87",
+          "name": "Sum of O2 Sensor L/R and R/L Half Period Times",
+          "uasid": "0x10",
+          "default_unit": "°C",
+          "ideal_range": "0.0000 to 65535",
+          "resolution": "ms 1 ms / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x88",
+          "name": "Difference Between",
+          "uasid": "0x90",
+          "default_unit": "",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x89",
+          "name": "B2S1 WRAF Slow Response",
+          "uasid": "0x06",
+          "default_unit": "",
+          "ideal_range": "0 to 19.99",
+          "resolution": "raw value 0.000305 / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x8E",
+          "name": "Absolute Average Slope of the O2 Sensor Signal",
+          "uasid": "0xB1",
+          "default_unit": "",
+          "ideal_range": "–65536 to +65534",
+          "resolution": "mV/s 2 mV/s per bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x8F",
+          "name": "Instantaneous Positive Slope of the O2 Sensor Signal",
+          "uasid": "0xB1",
+          "default_unit": "",
+          "ideal_range": "–65536 to +65534",
+          "resolution": "mV/s 2 mV/s per bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x90",
+          "name": "Instantaneous Negative Slope of the O2 Sensor Signal",
+          "uasid": "0xB1",
+          "default_unit": "",
+          "ideal_range": "–65536 to +65534",
+          "resolution": "mV/s 2 mV/s per bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        }
+      ],
+      "source": "GM GMLAN Mode $06"
+    },
+    "0x06": {
+      "mid_hex": "0x06",
+      "mid_int": 6,
+      "name": "Oxygen Sensor Heater Monitor B1 (GM GMLAN)",
+      "name_tr": "",
+      "subsystem": "",
+      "tests": [
+        {
+          "tid_hex": "0x05",
+          "name": "B2S2 rich-lean switch time in fuel cut-off",
+          "uasid": "0x20",
+          "default_unit": "",
+          "ideal_range": "0.000:1 to 255.99:1",
+          "resolution": "ratio 0.0039062 / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x8A",
+          "name": "Post Catalyst Sensor Open Test",
+          "uasid": "0x24",
+          "default_unit": "",
+          "ideal_range": "0 to 65535",
+          "resolution": "counts 1 count / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x8B",
+          "name": "Post Catalyst Sensor Rich Tests",
+          "uasid": "0x0A",
+          "default_unit": "",
+          "ideal_range": "0.0000 to 7.9900",
+          "resolution": "V 0.122 mv / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x8C",
+          "name": "Post Catalyst Sensor Lean Tests",
+          "uasid": "0x0A",
+          "default_unit": "",
+          "ideal_range": "0.0000 to 7.9900",
+          "resolution": "V 0.122 mv / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        }
+      ],
+      "source": "GM GMLAN Mode $06"
+    },
+    "0x07": {
+      "mid_hex": "0x07",
+      "mid_int": 7,
+      "name": "Misfire Monitor - General (GM GMLAN)",
+      "name_tr": "",
+      "subsystem": "",
+      "tests": [
+        {
+          "tid_hex": "0x8A",
+          "name": "Post Catalyst Sensor Open Tes",
+          "uasid": "0x24",
+          "default_unit": "",
+          "ideal_range": "0 to 65535",
+          "resolution": "counts 1 count / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x8B",
+          "name": "Post Catalyst Sensor Rich Tests",
+          "uasid": "0x0A",
+          "default_unit": "",
+          "ideal_range": "0.0000 to 7.9900",
+          "resolution": "V 0.122 mv / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x8C",
+          "name": "Post Catalyst Sensor Lean Tests",
+          "uasid": "0x0A",
+          "default_unit": "",
+          "ideal_range": "0.0000 to 7.9900",
+          "resolution": "V 0.122 mv / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        }
+      ],
+      "source": "GM GMLAN Mode $06"
+    },
+    "0x22": {
+      "mid_hex": "0x22",
+      "mid_int": 34,
+      "name": "Catalyst Monitor Bank 2 (GM GMLAN)",
+      "name_tr": "",
+      "subsystem": "",
+      "tests": [
+        {
+          "tid_hex": "0xA0",
+          "name": "Catalyst Test Bank 2 (using OSC normalized ratio units)",
+          "uasid": "0x05",
+          "default_unit": "",
+          "ideal_range": "0 to 1.999",
+          "resolution": "raw value 0.0000305 / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x0A",
+          "name": "Catalyst Test Bank 2 (using OSC compensation units) –32768 to +32767",
+          "uasid": "0x90",
+          "default_unit": "",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0xA1",
+          "name": "Catalyst Test Bank 2 (using Catalyst DFCO Exit Test)",
+          "uasid": "0x01",
+          "default_unit": "mV",
+          "ideal_range": "0 to +65535",
+          "resolution": "unitless 1 per bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        }
+      ],
+      "source": "GM GMLAN Mode $06"
+    },
+    "0x3C": {
+      "mid_hex": "0x3C",
+      "mid_int": 60,
+      "name": "EVAP Purge Volume / EVPD Monitor (GM GMLAN)",
+      "name_tr": "",
+      "subsystem": "",
+      "tests": [
+        {
+          "tid_hex": "0xC2",
+          "name": "EVPD NV 0.020 Test - scaled in percentage slope",
+          "uasid": "0xB0",
+          "default_unit": "",
+          "ideal_range": "–100.01 to +100.00%",
+          "resolution": "+0.003052 percent / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0xC3",
+          "name": "EVPD NV 0.020 Test - scaled in percentage slope",
+          "uasid": "0xB0",
+          "default_unit": "",
+          "ideal_range": "–100.01 to +100.00%",
+          "resolution": "+0.003052 percent / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0xC8",
+          "name": "EONV 0.020\" leak",
+          "uasid": "0x05",
+          "default_unit": "",
+          "ideal_range": "0 to 1.999",
+          "resolution": "raw value 0.0000305 / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0xC9",
+          "name": "EONV Vacuum Rezero Test",
+          "uasid": "0x20",
+          "default_unit": "",
+          "ideal_range": "0.000:1 to 255.996:1",
+          "resolution": "ratio 0.0039 / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0xCA",
+          "name": "EONV Fuel Level Rationality Test",
+          "uasid": "0x24",
+          "default_unit": "",
+          "ideal_range": "0 to 65535",
+          "resolution": "counts 1 count / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0xCB",
+          "name": "EONV Vacuum Rationality Test",
+          "uasid": "0x24",
+          "default_unit": "",
+          "ideal_range": "0 to 65535",
+          "resolution": "counts 1 count / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        }
+      ],
+      "source": "GM GMLAN Mode $06"
+    },
+    "0x3D": {
+      "mid_hex": "0x3D",
+      "mid_int": 61,
+      "name": "EVAP Vent Restriction / EVPD Monitor (GM GMLAN)",
+      "name_tr": "",
+      "subsystem": "",
+      "tests": [
+        {
+          "tid_hex": "0xC4",
+          "name": "EVPD NV Purge Pass Test",
+          "uasid": "0x11",
+          "default_unit": "°C",
+          "ideal_range": "0.0 to 6553.5",
+          "resolution": "sec 100 milliseconds / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0xC6",
+          "name": "EVPD Vent Restriction Test 1",
+          "uasid": "0x11",
+          "default_unit": "°C",
+          "ideal_range": "0.0 to 6553.5",
+          "resolution": "sec 100 milliseconds / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0xC7",
+          "name": "EVPD Vent Restriction Test 2 - scaled in kPa.",
+          "uasid": "0xFD",
+          "default_unit": "",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0xC8",
+          "name": "EVPD Vent Restriction Test2 - scaled in liters",
+          "uasid": "0x31",
+          "default_unit": "",
+          "ideal_range": "0.0 to 65.535",
+          "resolution": "liters 0.001 liters / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        }
+      ],
+      "source": "GM GMLAN Mode $06"
+    },
+    "0x41": {
+      "mid_hex": "0x41",
+      "mid_int": 65,
+      "name": "O2 Sensor Heater Monitor B1S1 (GM GMLAN)",
+      "name_tr": "",
+      "subsystem": "",
+      "tests": [
+        {
+          "tid_hex": "0xD0",
+          "name": "Time to Activity Monitor",
+          "uasid": "0x11",
+          "default_unit": "°C",
+          "ideal_range": "0.0 to 6553.5",
+          "resolution": "sec 100 milliseconds / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0xD1",
+          "name": "Current Feedback Amps Value Test",
+          "uasid": "0x0F",
+          "default_unit": "",
+          "ideal_range": "0.00 to 655.35",
+          "resolution": "amperes 0.01 Ampers / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0xD2",
+          "name": "Current Feedback X out of Y Samples Test",
+          "uasid": "0x24",
+          "default_unit": "",
+          "ideal_range": "0 to 65535",
+          "resolution": "counts 1 count / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0xD3",
+          "name": "Sensor Heater Monitor B1S1 'operative readiness time'",
+          "uasid": "0x11",
+          "default_unit": "°C",
+          "ideal_range": "0 to 6553.5",
+          "resolution": "seconds 100ms / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0xD4",
+          "name": "Sensor Heater Monitor B1S1 'tip temperature out of range' -3276.8 to + 3276.7 degC 0.1 degC / bit",
+          "uasid": "0x96",
+          "default_unit": "",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        }
+      ],
+      "source": "GM GMLAN Mode $06"
+    },
+    "0x42": {
+      "mid_hex": "0x42",
+      "mid_int": 66,
+      "name": "O2 Sensor Heater Monitor B1S2 (GM GMLAN)",
+      "name_tr": "",
+      "subsystem": "",
+      "tests": [
+        {
+          "tid_hex": "0xD0",
+          "name": "Time to Activity Monitor",
+          "uasid": "0x11",
+          "default_unit": "°C",
+          "ideal_range": "0.0 to 6553.5",
+          "resolution": "sec 100 milliseconds / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0xD1",
+          "name": "Current Feedback Amps Value Test",
+          "uasid": "0x0F",
+          "default_unit": "",
+          "ideal_range": "0.00 to 655.35",
+          "resolution": "amperes 0.01 Ampers / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0xD2",
+          "name": "Current Feedback X out of Y Samples Test",
+          "uasid": "0x24",
+          "default_unit": "",
+          "ideal_range": "0 to 65535",
+          "resolution": "counts 1 count / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0xD5",
+          "name": "Sensor Heater Monitor B1S2 ' resistance out of range'",
+          "uasid": "0x14",
+          "default_unit": "%",
+          "ideal_range": "0 to 65535",
+          "resolution": "ohms 1 ohm / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0xD3",
+          "name": "Heater Resistance Error Test –32.768 to +32.767",
+          "uasid": "0x84",
+          "default_unit": "",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        }
+      ],
+      "source": "GM GMLAN Mode $06"
+    },
+    "0x43": {
+      "mid_hex": "0x43",
+      "mid_int": 67,
+      "name": "O2 Sensor Heater Monitor B2S1 (GM GMLAN)",
+      "name_tr": "",
+      "subsystem": "",
+      "tests": [
+        {
+          "tid_hex": "0xD0",
+          "name": "Time to Activity Monitor",
+          "uasid": "0x11",
+          "default_unit": "°C",
+          "ideal_range": "0.0 to 6553.5",
+          "resolution": "sec 100 milliseconds / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0xD1",
+          "name": "Current Feedback Amps Value Test",
+          "uasid": "0x0F",
+          "default_unit": "",
+          "ideal_range": "0.00 to 655.35",
+          "resolution": "amperes 0.01 Ampers / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0xD2",
+          "name": "Current Feedback X out of Y Samples Test",
+          "uasid": "0x24",
+          "default_unit": "",
+          "ideal_range": "0 to 65535",
+          "resolution": "counts 1 count / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0xD3",
+          "name": "Heater Resistance Error Test –32.768 to +32.767",
+          "uasid": "0x84",
+          "default_unit": "",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        }
+      ],
+      "source": "GM GMLAN Mode $06"
+    },
+    "0x45": {
+      "mid_hex": "0x45",
+      "mid_int": 69,
+      "name": "O2 Sensor Heater Current Feedback B1 (GM GMLAN)",
+      "name_tr": "",
+      "subsystem": "",
+      "tests": [
+        {
+          "tid_hex": "0xD0",
+          "name": "Time to Activity Monitor",
+          "uasid": "0x11",
+          "default_unit": "°C",
+          "ideal_range": "0.0 to 6553.5",
+          "resolution": "sec 100 milliseconds / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0xD1",
+          "name": "Current Feedback Amps Value Test",
+          "uasid": "0x0F",
+          "default_unit": "",
+          "ideal_range": "0.00 to 655.35",
+          "resolution": "amperes 0.01 Ampers / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0xD2",
+          "name": "Current Feedback X out of Y Samples Test",
+          "uasid": "0x24",
+          "default_unit": "",
+          "ideal_range": "0 to 65535",
+          "resolution": "counts 1 count / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0xD3",
+          "name": "Sensor Heater Monitor B2S1 'operative readiness time'",
+          "uasid": "0x11",
+          "default_unit": "°C",
+          "ideal_range": "0 to 6553.5",
+          "resolution": "seconds 100ms / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0xD4",
+          "name": "Sensor Heater Monitor B2S1 'tip temperature out of range' -3276.8 to + 3276.7 degC 0.1 degC / bit",
+          "uasid": "0x96",
+          "default_unit": "",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        }
+      ],
+      "source": "GM GMLAN Mode $06"
+    },
+    "0x46": {
+      "mid_hex": "0x46",
+      "mid_int": 70,
+      "name": "O2 Sensor Heater Current Feedback B2 (GM GMLAN)",
+      "name_tr": "",
+      "subsystem": "",
+      "tests": [
+        {
+          "tid_hex": "0xD0",
+          "name": "Time to Activity Monitor",
+          "uasid": "0x11",
+          "default_unit": "°C",
+          "ideal_range": "0.0 to 6553.5",
+          "resolution": "sec 100 milliseconds / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0xD1",
+          "name": "Current Feedback Amps Value Test",
+          "uasid": "0x0F",
+          "default_unit": "",
+          "ideal_range": "0.00 to 655.35",
+          "resolution": "amperes 0.01 Ampers / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0xD2",
+          "name": "Current Feedback X out of Y Samples Test",
+          "uasid": "0x24",
+          "default_unit": "",
+          "ideal_range": "0 to 65535",
+          "resolution": "counts 1 count / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0xD3",
+          "name": "Heater Resistance Error Test –32.768 to +32.767",
+          "uasid": "0x84",
+          "default_unit": "",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0xD5",
+          "name": "Sensor Heater Monitor B2S2 ' resistance out of range'",
+          "uasid": "0x14",
+          "default_unit": "%",
+          "ideal_range": "0 to 65535",
+          "resolution": "ohms 1 ohm / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        }
+      ],
+      "source": "GM GMLAN Mode $06"
+    },
+    "0x47": {
+      "mid_hex": "0x47",
+      "mid_int": 71,
+      "name": "O2 Sensor Heater Resistance Monitor (GM GMLAN)",
+      "name_tr": "",
+      "subsystem": "",
+      "tests": [
+        {
+          "tid_hex": "0xD0",
+          "name": "Time to Activity Monitor",
+          "uasid": "0x11",
+          "default_unit": "°C",
+          "ideal_range": "0.0 to 6553.5",
+          "resolution": "sec 100 milliseconds / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0xD1",
+          "name": "Current Feedback Amps Value Test",
+          "uasid": "0x0F",
+          "default_unit": "",
+          "ideal_range": "0.00 to 655.35",
+          "resolution": "amperes 0.01 Ampers / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0xD2",
+          "name": "Current Feedback X out of Y Samples Test",
+          "uasid": "0x24",
+          "default_unit": "",
+          "ideal_range": "0 to 65535",
+          "resolution": "counts 1 count / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0xD3",
+          "name": "Heater Resistance Error Test –32.768 to +32.767",
+          "uasid": "0x84",
+          "default_unit": "",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        }
+      ],
+      "source": "GM GMLAN Mode $06"
+    },
+    "0x72": {
+      "mid_hex": "0x72",
+      "mid_int": 114,
+      "name": "Secondary Air Injection Monitor B2 (GM GMLAN)",
+      "name_tr": "",
+      "subsystem": "",
+      "tests": [
+        {
+          "tid_hex": "0xE0",
+          "name": "AIR - Bank 2 Test",
+          "uasid": "0x24",
+          "default_unit": "",
+          "ideal_range": "0 to 65535",
+          "resolution": "counts 1 count / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0xE1",
+          "name": "AIR on - pressure error test",
+          "uasid": "0xFD",
+          "default_unit": "",
+          "ideal_range": "–32.768 to +32.767",
+          "resolution": "kPa 0.001 kPa / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0xE2",
+          "name": "AIR Valve shut - pressure error test",
+          "uasid": "0xFD",
+          "default_unit": "",
+          "ideal_range": "–32.768 to +32.767",
+          "resolution": "kPa 0.001 kPa / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0xE3",
+          "name": "AIR Pump off - pressure error test",
+          "uasid": "0xFD",
+          "default_unit": "",
+          "ideal_range": "–32.768 to +32.767",
+          "resolution": "kPa 0.001 kPa / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0xE4",
+          "name": "AIR on - pressure differential, between bank 1 and bank 2",
+          "uasid": "0xFD",
+          "default_unit": "",
+          "ideal_range": "–32.768 to +32.767",
+          "resolution": "kPa 0.001 kPa / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        }
+      ],
+      "source": "GM GMLAN Mode $06"
+    },
+    "0xAA": {
+      "mid_hex": "0xAA",
+      "mid_int": 170,
+      "name": "Misfire Data - EWMA & General (GM GMLAN)",
+      "name_tr": "",
+      "subsystem": "",
+      "tests": [
+        {
+          "tid_hex": "0x0B",
+          "name": "EWMA (Exponentially Weighted Moving Average)",
+          "uasid": "0x24",
+          "default_unit": "",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x0C",
+          "name": "Misfire counts for the last / current driving cycles",
+          "uasid": "0x24",
+          "default_unit": "",
+          "ideal_range": "0 to 65535",
+          "resolution": "counts 1 count / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        }
+      ],
+      "source": "GM GMLAN Mode $06"
+    },
+    "0xAB": {
+      "mid_hex": "0xAB",
+      "mid_int": 171,
+      "name": "Misfire Data Cylinder 1 Extended (GM GMLAN)",
+      "name_tr": "",
+      "subsystem": "",
+      "tests": [
+        {
+          "tid_hex": "0x0B",
+          "name": "EWMA (Exponentially Weighted Moving Average)",
+          "uasid": "0x24",
+          "default_unit": "",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x0C",
+          "name": "Misfire counts for the last / current driving cycles",
+          "uasid": "0x24",
+          "default_unit": "",
+          "ideal_range": "0 to 65535",
+          "resolution": "counts 1 count / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        }
+      ],
+      "source": "GM GMLAN Mode $06"
+    },
+    "0xAC": {
+      "mid_hex": "0xAC",
+      "mid_int": 172,
+      "name": "Misfire Data Cylinder 2 Extended (GM GMLAN)",
+      "name_tr": "",
+      "subsystem": "",
+      "tests": [
+        {
+          "tid_hex": "0xA5",
+          "name": "EWMA (Exponentially Weighted Moving Average)",
+          "uasid": "0x24",
+          "default_unit": "",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x0C",
+          "name": "Misfire counts for the last / current driving cycles",
+          "uasid": "0x24",
+          "default_unit": "",
+          "ideal_range": "0 to 65535",
+          "resolution": "counts 1 count / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        }
+      ],
+      "source": "GM GMLAN Mode $06"
+    },
+    "0xAD": {
+      "mid_hex": "0xAD",
+      "mid_int": 173,
+      "name": "Misfire Data Cylinder 3 Extended (GM GMLAN)",
+      "name_tr": "",
+      "subsystem": "",
+      "tests": [
+        {
+          "tid_hex": "0x0B",
+          "name": "EWMA (Exponentially Weighted Moving Average)",
+          "uasid": "0x24",
+          "default_unit": "",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        },
+        {
+          "tid_hex": "0x0C",
+          "name": "Misfire counts for the last / current driving cycles",
+          "uasid": "0x24",
+          "default_unit": "",
+          "ideal_range": "0 to 65535",
+          "resolution": "counts 1 count / bit",
+          "source": "GM Mode $06 data definitions (GMLAN)"
+        }
+      ],
+      "source": "GM GMLAN Mode $06"
+    }
+  },
+  "class2_monitors": {
+    "0x02": {
+      "tid_hex": "0x02",
+      "tid_int": 2,
+      "name": "GM J1850/Class2 Monitor TID 02",
+      "name_tr": "",
+      "link_type": "J1850/Class2",
+      "tests": [
+        {
+          "tid_hex": "0x02",
+          "cid_hex": "0x04",
+          "name": "EVAP canister loading test Test Not Run - Test Value Passed Test Not Run - Test Limit Passed",
+          "name_tr": "",
+          "limit_type": "1-Low",
+          "hex_range": "0000-0100"
+        },
+        {
+          "tid_hex": "0x02",
+          "cid_hex": "0x11",
+          "name": "1- Low EVAP purge leak pass test",
+          "name_tr": "",
+          "ideal_range": "0 to 6553.5 seconds",
+          "hex_range": "0000-FFFF"
+        },
+        {
+          "tid_hex": "0x02",
+          "cid_hex": "0x20",
+          "name": "0- High EVAP weak vacuum fail test 1 (1) –3276.8 to +3276.7 integral index-seconds",
+          "name_tr": "",
+          "hex_range": "8000-7FFF"
+        },
+        {
+          "tid_hex": "0x02",
+          "cid_hex": "0x21",
+          "name": "0- High EVAP purge leak vapor fail test",
+          "name_tr": "",
+          "ideal_range": "0 to 6553.5 seconds",
+          "hex_range": "0000-FFFF"
+        },
+        {
+          "tid_hex": "0x02",
+          "cid_hex": "0x30",
+          "name": "1- Low EVAP weak vacuum test 2 vacuum",
+          "name_tr": "",
+          "ideal_range": "0 to 6553.5 seconds",
+          "hex_range": "0000-FFFF"
+        },
+        {
+          "tid_hex": "0x02",
+          "cid_hex": "0x50",
+          "name": "1- Low EVAP weak vacuum pass test 1 –3276.8 to +3276.7 in of H2O Vacuum",
+          "name_tr": "",
+          "hex_range": "0000-FFFF"
+        }
+      ],
+      "source": "GM Class2 Mode $06 data definitions (gsi.ext.gm.com)"
+    },
+    "0x03": {
+      "tid_hex": "0x03",
+      "tid_int": 3,
+      "name": "Secondary Air Injection Reaction System Monitor",
+      "name_tr": "",
+      "link_type": "J1850/Class2",
+      "tests": [
+        {
+          "tid_hex": "0x03",
+          "cid_hex": "0x03",
+          "name": "AIR on pressure error test bank 1 Out of range high",
+          "name_tr": "",
+          "limit_type": "0-High",
+          "ideal_range": "–32.768 to +32.767 kPa",
+          "hex_range": "0000-FFFF"
+        },
+        {
+          "tid_hex": "0x03",
+          "cid_hex": "0x05",
+          "name": "AIR pump off pressure error test bank 1 Out of range high",
+          "name_tr": "",
+          "limit_type": "0-High",
+          "ideal_range": "–32.768 to +32.767 kPa",
+          "hex_range": "0000-FFFF"
+        },
+        {
+          "tid_hex": "0x03",
+          "cid_hex": "0x13",
+          "name": "AIR on pressure error high test bank 2 Out of range high",
+          "name_tr": "",
+          "limit_type": "0-High",
+          "ideal_range": "–32.768 to +32.767 kPa",
+          "hex_range": "0000-FFFF"
+        },
+        {
+          "tid_hex": "0x03",
+          "cid_hex": "0x15",
+          "name": "AIR pump off pressure error test bank 2 Out of range high",
+          "name_tr": "",
+          "limit_type": "0-High",
+          "ideal_range": "–32.768 to +32.767 kPa",
+          "hex_range": "0000-FFFF"
+        },
+        {
+          "tid_hex": "0x03",
+          "cid_hex": "0x16",
+          "name": "AIR on pressure differential high between bank 1 and bank 2 Out of range high",
+          "name_tr": "",
+          "limit_type": "0-High",
+          "ideal_range": "–32.768 to +32.767 kPa",
+          "hex_range": "0000-FFFF"
+        },
+        {
+          "tid_hex": "0x03",
+          "cid_hex": "0x83",
+          "name": "AIR on pressure error test bank 1 Out of range low",
+          "name_tr": "",
+          "limit_type": "1-Low",
+          "ideal_range": "–32.768 to +32.767 kPa",
+          "hex_range": "0000-FFFF"
+        },
+        {
+          "tid_hex": "0x03",
+          "cid_hex": "0x84",
+          "name": "AIR valve shut pressure error test bank 1 Out of range low",
+          "name_tr": "",
+          "limit_type": "1-Low",
+          "ideal_range": "–32.768 to +32.767 kPa",
+          "hex_range": "0000-FFFF"
+        },
+        {
+          "tid_hex": "0x03",
+          "cid_hex": "0x93",
+          "name": "AIR on pressure error test bank 2 Out of range low",
+          "name_tr": "",
+          "limit_type": "1-Low",
+          "ideal_range": "–32.768 to +32.767 kPa",
+          "hex_range": "0000-FFFF"
+        },
+        {
+          "tid_hex": "0x03",
+          "cid_hex": "0x94",
+          "name": "AIR valve shut pressure error test bank 2 Out of range low",
+          "name_tr": "",
+          "limit_type": "1-Low",
+          "ideal_range": "–32.768 to +32.767 kPa",
+          "hex_range": "0000-FFFF"
+        },
+        {
+          "tid_hex": "0x03",
+          "cid_hex": "0x96",
+          "name": "AIR on pressure differential low between bank 1 and bank 2 Out of range low",
+          "name_tr": "",
+          "limit_type": "1-Low",
+          "ideal_range": "–32.768 to +32.767 kPa",
+          "hex_range": "0000-FFFF"
+        }
+      ],
+      "source": "GM Class2 Mode $06 data definitions (gsi.ext.gm.com)"
+    },
+    "0x04": {
+      "tid_hex": "0x04",
+      "tid_int": 4,
+      "name": "Catalyst Efficiency Steady State Monitor",
+      "name_tr": "",
+      "link_type": "J1850/Class2",
+      "tests": [
+        {
+          "tid_hex": "0x04",
+          "cid_hex": "0x20",
+          "name": "Steady state catalyst test bank 1 (1) –555 to +554.9831 mV 8000 - 7FFF 04 30 0-High Steady state catalyst test bank 2 (1)",
+          "name_tr": "",
+          "limit_type": "0-High",
+          "ideal_range": "–555 to +554.9831 mV",
+          "hex_range": "8000-7FFF"
+        },
+        {
+          "tid_hex": "0x04",
+          "cid_hex": "0x61",
+          "name": "Catalyst test bank 1 using catalyst DFCO Exit Test (5)",
+          "name_tr": "",
+          "limit_type": "0-Low",
+          "ideal_range": "0 to 65535 counts",
+          "hex_range": "0000-FFFF"
+        },
+        {
+          "tid_hex": "0x04",
+          "cid_hex": "0x71",
+          "name": "Catalyst test bank 2 using catalyst DFCO Exit Test (5)",
+          "name_tr": "",
+          "limit_type": "0-Low",
+          "ideal_range": "0 to 65535 counts",
+          "hex_range": "0000-FFFF"
+        }
+      ],
+      "source": "GM Class2 Mode $06 data definitions (gsi.ext.gm.com)"
+    },
+    "0x05": {
+      "tid_hex": "0x05",
+      "tid_int": 5,
+      "name": "gen Sensor Monitors and Constants",
+      "name_tr": "",
+      "link_type": "J1850/Class2",
+      "tests": [
+        {
+          "tid_hex": "0x05",
+          "cid_hex": "0x05",
+          "name": "Rich to lean sensor switch time - B1S1 Out of range high",
+          "name_tr": "",
+          "limit_type": "0-High",
+          "ideal_range": "0 to 1024 ms",
+          "hex_range": "0000-FFFF"
+        },
+        {
+          "tid_hex": "0x05",
+          "cid_hex": "0x06",
+          "name": "Lean to rich sensor switch time - B1S1 Out of range high",
+          "name_tr": "",
+          "limit_type": "0-High",
+          "ideal_range": "0 to 1024 ms",
+          "hex_range": "0000-FFFF"
+        },
+        {
+          "tid_hex": "0x05",
+          "cid_hex": "0x09",
+          "name": "R/L response to L/R response ratio - B1S1 Out of range high 0:1 to 8:",
+          "name_tr": "",
+          "limit_type": "0-High",
+          "ideal_range": "1 ratio",
+          "hex_range": "0000-FFFF"
+        },
+        {
+          "tid_hex": "0x05",
+          "cid_hex": "0x0A",
+          "name": "Post catalyst sensor open test - B1S2 (4) 0 to 65535 samples 0000 - FFFF 05 0B 1-Low Post catalyst sensor rich tests - B1S2",
+          "name_tr": "",
+          "limit_type": "0-High",
+          "ideal_range": "0 to 2048 mV",
+          "hex_range": "0000-FFFF"
+        },
+        {
+          "tid_hex": "0x05",
+          "cid_hex": "0x0D",
+          "name": "Difference between R/L response and L/R response - B1S1 Out of range high (2)",
+          "name_tr": "",
+          "limit_type": "0-High",
+          "ideal_range": "–32768 to +32767 ms",
+          "hex_range": "0000-FFFF"
+        },
+        {
+          "tid_hex": "0x05",
+          "cid_hex": "0x44",
+          "name": "High sensor voltage for switch time calculation - B2S1 (3) 0 to 2048 mV 0000 - FFFF 05 45 0-High Rich to lean sensor switch time - B2S1 Out of range high",
+          "name_tr": "",
+          "limit_type": "0-High",
+          "ideal_range": "0 to 1024 ms",
+          "hex_range": "0000-FFFF"
+        },
+        {
+          "tid_hex": "0x05",
+          "cid_hex": "0x45",
+          "name": "Rich to lean sensor switch time - B2S1 Out of range low",
+          "name_tr": "",
+          "limit_type": "1-Low",
+          "ideal_range": "0 to 1024 ms",
+          "hex_range": "0000-FFFF"
+        },
+        {
+          "tid_hex": "0x05",
+          "cid_hex": "0x46",
+          "name": "Lean to rich sensor switch time - B2S1 Out of range high",
+          "name_tr": "",
+          "limit_type": "0-High",
+          "ideal_range": "0 to 1024 ms",
+          "hex_range": "0000-FFFF"
+        },
+        {
+          "tid_hex": "0x05",
+          "cid_hex": "0x49",
+          "name": "R/L response to L/R response ratio - B2S1 Out of range high 0:1 to 8:",
+          "name_tr": "",
+          "limit_type": "0-High",
+          "ideal_range": "1 ratio",
+          "hex_range": "0000-FFFF"
+        },
+        {
+          "tid_hex": "0x05",
+          "cid_hex": "0x4D",
+          "name": "Difference between R/L response and L/R response - B2S1 Out of range high",
+          "name_tr": "",
+          "limit_type": "0-High",
+          "ideal_range": "–32768 to +32767 ms",
+          "hex_range": "0000-FFFF"
+        },
+        {
+          "tid_hex": "0x05",
+          "cid_hex": "0x8D",
+          "name": "Difference between R/L response and L/R response - B1S1 (2) –32768 to +32767 ms 0000 - FFFF 05 9B 1-Low Post catalyst sensor rich tests - B1S3",
+          "name_tr": "",
+          "limit_type": "1-Low",
+          "ideal_range": "0 to 2048 mV",
+          "hex_range": "0000-FFFF"
+        }
+      ],
+      "source": "GM Class2 Mode $06 data definitions (gsi.ext.gm.com)"
+    },
+    "0x07": {
+      "tid_hex": "0x07",
+      "tid_int": 7,
+      "name": "Oxygen Sensor Monitors and Constants",
+      "name_tr": "",
+      "link_type": "J1850/Class2",
+      "tests": [
+        {
+          "tid_hex": "0x07",
+          "cid_hex": "0x05",
+          "name": "MAF below expected value during full EGR intrusive idle test 0 to 255.996 gm/cyl 0000 - FFFF No EGR intrusive idle test07 06 0-High No EGR intrusive idle test MAF Out of range high",
+          "name_tr": "",
+          "limit_type": "0-High",
+          "ideal_range": "0 to 255.996 gm/cyl",
+          "hex_range": "0000-FFFF"
+        },
+        {
+          "tid_hex": "0x07",
+          "cid_hex": "0x07",
+          "name": "No EGR off-idle test MAF Out of range high",
+          "name_tr": "",
+          "limit_type": "0-High",
+          "ideal_range": "0 to 255.996 gm/cyl",
+          "hex_range": "0000-FFFF"
+        },
+        {
+          "tid_hex": "0x07",
+          "cid_hex": "0x0B",
+          "name": "No EGR intrusive idle test MAF Out of range high",
+          "name_tr": "",
+          "limit_type": "0-High",
+          "ideal_range": "0 to 255.996 gm/cyl",
+          "hex_range": "0000-FFFF"
+        },
+        {
+          "tid_hex": "0x07",
+          "cid_hex": "0x0C",
+          "name": "No EGR off-idle test MAF Out of range high",
+          "name_tr": "",
+          "limit_type": "0-High",
+          "ideal_range": "0 to 255.996 gm/cyl",
+          "hex_range": "0000-FFFF"
+        },
+        {
+          "tid_hex": "0x07",
+          "cid_hex": "0x0D",
+          "name": "Full EGR intrusive idle test MAF Out of range low",
+          "name_tr": "",
+          "limit_type": "1-Low",
+          "ideal_range": "0 to 255.996 gm/cyl",
+          "hex_range": "0000-FFFF"
+        }
+      ],
+      "source": "GM Class2 Mode $06 data definitions (gsi.ext.gm.com)"
+    },
+    "0x0A": {
+      "tid_hex": "0x0A",
+      "tid_int": 10,
+      "name": "Oxygen Sensor Monitors and Constants",
+      "name_tr": "",
+      "link_type": "J1850/Class2",
+      "tests": [
+        {
+          "tid_hex": "0x0A",
+          "cid_hex": "0x01",
+          "name": "EVAP/EVPD canister vent restriction test 1 (6) 0 to 6553.5 seconds 0000 - FFFF 0A 03 0-High EVPD weak vacuum test",
+          "name_tr": "",
+          "limit_type": "0-High",
+          "ideal_range": "0 to 6553.5 seconds",
+          "hex_range": "0000-FFFF"
+        },
+        {
+          "tid_hex": "0x0A",
+          "cid_hex": "0x09",
+          "name": "EONV NV .020\" test for EONV spec version 22.0.0 and prior 0:1 to 4.0000:",
+          "name_tr": "",
+          "limit_type": "0-High",
+          "ideal_range": "1 ratio",
+          "hex_range": "0000-FFFF"
+        },
+        {
+          "tid_hex": "0x0A",
+          "cid_hex": "0x0A",
+          "name": "EONV NV .020\" test for EONV spec version 22.1.1 and later (9) 0:1 to 255.99609375:",
+          "name_tr": "",
+          "limit_type": "0-High",
+          "ideal_range": "1 ratio",
+          "hex_range": "0000-FFFF"
+        },
+        {
+          "tid_hex": "0x0A",
+          "cid_hex": "0x0B",
+          "name": "EONV vacuum rezero test (8) 0:1 to 255.99609375:1 ratio 0000 - FFFF 0A 0C 0-High EONV fuel level rationality test (7)",
+          "name_tr": "",
+          "limit_type": "0-High",
+          "ideal_range": "0 to 65535 counts",
+          "hex_range": "0000-FFFF"
+        },
+        {
+          "tid_hex": "0x0A",
+          "cid_hex": "0x42",
+          "name": "EVPD canister vent restriction test 2 Out of range high –3276.8 to +3276.7 in of H2O Vacuum",
+          "name_tr": "",
+          "limit_type": "0-High",
+          "hex_range": "0000-FFFF"
+        }
+      ],
+      "source": "GM Class2 Mode $06 data definitions (gsi.ext.gm.com)"
+    },
+    "0x0C": {
+      "tid_hex": "0x0C",
+      "tid_int": 12,
+      "name": "Oxygen Sensor Monitors and Constants",
+      "name_tr": "",
+      "link_type": "J1850/Class2",
+      "tests": [
+        {
+          "tid_hex": "0x0C",
+          "cid_hex": "0x30",
+          "name": "Idle catalyst efficiency test - bank 2 (1) –32.768 to +32.767 seconds 8000 - 7FFF 0C 60 0-High Catalyst Test Bank 1 (using OSC compensation units)",
+          "name_tr": "",
+          "limit_type": "0-High",
+          "ideal_range": "–32.768 to +32.767 seconds",
+          "hex_range": "0000-FFFF"
+        }
+      ],
+      "source": "GM Class2 Mode $06 data definitions (gsi.ext.gm.com)"
+    },
+    "0x0E": {
+      "tid_hex": "0x0E",
+      "tid_int": 14,
+      "name": "Oxygen Sensor Monitors and Constants",
+      "name_tr": "",
+      "link_type": "J1850/Class2",
+      "tests": [
+        {
+          "tid_hex": "0x0E",
+          "cid_hex": "0x12",
+          "name": "Oxygen sensor heater current feedback x/y samples test - B1S2 (4) 0 to 65535 samples 0000 - FFFF 0E 13 0-High Oxygen sensor heater current feedback x/y samples test - B1S3",
+          "name_tr": "",
+          "limit_type": "0-High",
+          "ideal_range": "0 to 65535 samples",
+          "hex_range": "0000-FFFF"
+        },
+        {
+          "tid_hex": "0x0E",
+          "cid_hex": "0x35",
+          "name": "Oxygen sensor heater current feedback high amperage value test - B1S1 Out of range high",
+          "name_tr": "",
+          "limit_type": "0-High",
+          "ideal_range": "0 to 5.000 Amperes",
+          "hex_range": "0000-00FF"
+        },
+        {
+          "tid_hex": "0x0E",
+          "cid_hex": "0x41",
+          "name": "Oxygen sensor heater current feedback high amperage value test - B1S2 Out of range high",
+          "name_tr": "",
+          "limit_type": "0-High",
+          "ideal_range": "0 to 5.000 Amperes",
+          "hex_range": "0000-00FF"
+        },
+        {
+          "tid_hex": "0x0E",
+          "cid_hex": "0x47",
+          "name": "Oxygen sensor heater current feedback high amperage value test - B1S3 Out of range high",
+          "name_tr": "",
+          "limit_type": "0-High",
+          "ideal_range": "0 to 5.000 Amperes",
+          "hex_range": "0000-00FF"
+        },
+        {
+          "tid_hex": "0x0E",
+          "cid_hex": "0x55",
+          "name": "Oxygen sensor heater current feedback high amperage value test - B2S1 Out of range high",
+          "name_tr": "",
+          "limit_type": "0-High",
+          "ideal_range": "0 to 5.000 Amperes",
+          "hex_range": "0000-00FF"
+        },
+        {
+          "tid_hex": "0x0E",
+          "cid_hex": "0x61",
+          "name": "Oxygen sensor heater current feedback high amperage value test - B2S2 Out of range high",
+          "name_tr": "",
+          "limit_type": "0-High",
+          "ideal_range": "0 to 5.000 Amperes",
+          "hex_range": "0000-00FF"
+        },
+        {
+          "tid_hex": "0x0E",
+          "cid_hex": "0x67",
+          "name": "Oxygen sensor heater current feedback high amperage value test - B2S3 Out of range high",
+          "name_tr": "",
+          "limit_type": "0-High",
+          "ideal_range": "0 to 5.000 Amperes",
+          "hex_range": "0000-00FF"
+        }
+      ],
+      "source": "GM Class2 Mode $06 data definitions (gsi.ext.gm.com)"
+    },
+    "0x16": {
+      "tid_hex": "0x16",
+      "tid_int": 22,
+      "name": "O2 Sensor Heater System Current Feedback Monitor",
+      "name_tr": "",
+      "link_type": "J1850/Class2",
+      "tests": [
+        {
+          "tid_hex": "0x16",
+          "cid_hex": "0x11",
+          "name": "Heater Resistance Error Test - B1S1 Out of range high",
+          "name_tr": "",
+          "limit_type": "0-High",
+          "ideal_range": "–32.768 to +32.767 ohms",
+          "hex_range": "0000-FFFF"
+        },
+        {
+          "tid_hex": "0x16",
+          "cid_hex": "0x12",
+          "name": "Heater Resistance Error Test - B1S2 Out of range high",
+          "name_tr": "",
+          "limit_type": "0-High",
+          "ideal_range": "–32.768 to +32.767 ohms",
+          "hex_range": "0000-FFFF"
+        },
+        {
+          "tid_hex": "0x16",
+          "cid_hex": "0x13",
+          "name": "Heater Resistance Error Test - B1S3 Out of range high",
+          "name_tr": "",
+          "limit_type": "0-High",
+          "ideal_range": "–32.768 to +32.767 ohms",
+          "hex_range": "0000-FFFF"
+        },
+        {
+          "tid_hex": "0x16",
+          "cid_hex": "0x21",
+          "name": "Heater Resistance Error Test - B2S1 Out of range high",
+          "name_tr": "",
+          "limit_type": "0-High",
+          "ideal_range": "–32.768 to +32.767 ohms",
+          "hex_range": "0000-FFFF"
+        },
+        {
+          "tid_hex": "0x16",
+          "cid_hex": "0x22",
+          "name": "Heater Resistance Error Test - B2S2 Out of range high",
+          "name_tr": "",
+          "limit_type": "0-High",
+          "ideal_range": "–32.768 to +32.767 ohms",
+          "hex_range": "0000-FFFF"
+        },
+        {
+          "tid_hex": "0x16",
+          "cid_hex": "0x23",
+          "name": "Heater Resistance Error Test - B2S3 Out of range high",
+          "name_tr": "",
+          "limit_type": "0-High",
+          "ideal_range": "–32.768 to +32.767 ohms",
+          "hex_range": "0000-FFFF"
+        }
+      ],
+      "source": "GM Class2 Mode $06 data definitions (gsi.ext.gm.com)"
     }
   }
 }

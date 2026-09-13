@@ -13,9 +13,11 @@ from __future__ import annotations
 
 import hashlib
 import math
+import re as _re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
+from urllib.parse import quote as _quote
 
 from src.core.errors import LicenseError
 from src.core.logging import get_logger
@@ -24,6 +26,18 @@ from src.security.cloud.client import CloudClient
 logger = get_logger("security.cloud.telemetry_uploader")
 
 DEFAULT_CHUNK_SIZE = 5 * 1024 * 1024  # 5 MB — matches backend minimum window
+
+# Server-controlled session id must never shape a URL path unchecked.
+# Allowlist is [A-Za-z0-9-_]; underscore is kept because backend session
+# ids use it (e.g. "ses_...") and it is path-safe once quoted with safe="".
+_SESSION_ID_RE = _re.compile(r"^[A-Za-z0-9\-_]{8,128}$")
+
+
+def _sanitize_session_id(raw: object) -> str:
+    sid = str(raw or "").strip()
+    if not sid or not _SESSION_ID_RE.fullmatch(sid):
+        raise LicenseError("Invalid telemetry session id from server", code="INVALID_SESSION_ID")
+    return _quote(sid, safe="")
 
 
 @dataclass(slots=True)
@@ -66,10 +80,51 @@ class TelemetryUploader:
         self._progress_cb = progress_callback
 
     # ------------------------------------------------------------------
+    @staticmethod
+    def _parse_received_chunks(session_data: dict[str, object], total_chunks: int) -> set[int]:
+        """Extract set of already received chunk indices from server session data.
+
+        Supports:
+        - 'received_chunk_indices' or 'acknowledged_chunks': list/set/tuple of int indices
+        - 'received_chunks': list/set/tuple of int indices OR int count (legacy fallback)
+        - 'received_bitmap' or 'chunks_bitmap': bitstring where '1' = received
+        """
+        received: set[int] = set()
+
+        for key in ("received_chunk_indices", "acknowledged_chunks"):
+            indices_val = session_data.get(key)
+            if isinstance(indices_val, (list, tuple, set)):
+                for idx in indices_val:
+                    if isinstance(idx, int) and 0 <= idx < total_chunks:
+                        received.add(idx)
+                return received
+
+        chunks_val = session_data.get("received_chunks")
+        if isinstance(chunks_val, (list, tuple, set)):
+            for idx in chunks_val:
+                if isinstance(idx, int) and 0 <= idx < total_chunks:
+                    received.add(idx)
+            return received
+
+        for key in ("received_bitmap", "chunks_bitmap"):
+            bm_val = session_data.get(key)
+            if isinstance(bm_val, str):
+                for idx, bit in enumerate(bm_val[:total_chunks]):
+                    if bit == "1":
+                        received.add(idx)
+                return received
+
+        if isinstance(chunks_val, int) and not isinstance(chunks_val, bool) and chunks_val > 0:
+            for idx in range(min(chunks_val, total_chunks)):
+                received.add(idx)
+
+        return received
+
     def upload_file(
         self,
         file_path: str | Path,
         vehicle_vin: str | None = None,
+        session_id: str | None = None,
     ) -> UploadResult:
         path = Path(file_path)
         if not path.is_file():
@@ -90,36 +145,53 @@ class TelemetryUploader:
         progress = UploadProgress(total_bytes=file_size, total_chunks=total_chunks, status="uploading")
         self._emit(progress)
 
-        # 1. Announce the session (size + digest + chunk size).
-        resp = self.client.request(
-            "POST",
-            "/telematics/sessions",
-            json_body={
-                "vehicle_vin": vehicle_vin,
-                "declared_size_bytes": file_size,
-                "declared_sha256": sha256,
-                "chunk_size_bytes": self.chunk_size,
-            },
-        )
-        if resp.status != 201:
-            raise LicenseError(
-                f"Session announce failed (HTTP {resp.status})",
-                code="SESSION_ANNOUNCE_FAILED",
+        # 1. Announce or resume session.
+        if session_id:
+            clean_session_id = _sanitize_session_id(session_id)
+            resp = self.client.request("GET", f"/telematics/sessions/{clean_session_id}")
+            if resp.status != 200:
+                raise LicenseError(
+                    f"Session not found for resume (HTTP {resp.status})",
+                    code="SESSION_NOT_FOUND",
+                )
+            session = resp.json()
+            session_id = clean_session_id
+        else:
+            resp = self.client.request(
+                "POST",
+                "/telematics/sessions",
+                json_body={
+                    "vehicle_vin": vehicle_vin,
+                    "declared_size_bytes": file_size,
+                    "declared_sha256": sha256,
+                    "chunk_size_bytes": self.chunk_size,
+                },
             )
+            if resp.status != 201:
+                raise LicenseError(
+                    f"Session announce failed (HTTP {resp.status})",
+                    code="SESSION_ANNOUNCE_FAILED",
+                )
 
-        session = resp.json()
-        session_id = session["id"]
+            session = resp.json()
+            if not isinstance(session, dict) or not session.get("id"):
+                raise LicenseError("Session announce returned no id", code="SESSION_ANNOUNCE_FAILED")
+            session_id = _sanitize_session_id(session.get("id"))
         progress.session_id = session_id
-        progress.uploaded_chunks = session.get("received_chunks", 0)
+
+        # 2. Gap-aware chunk tracking: inspect bitmap/list of chunks from server
+        received_chunk_indices = self._parse_received_chunks(session, total_chunks)
+        progress.uploaded_chunks = len(received_chunk_indices)
+        progress.bytes_sent = sum(
+            min(self.chunk_size, max(0, file_size - idx * self.chunk_size))
+            for idx in received_chunk_indices
+        )
         self._emit(progress)
 
-        # 2. Upload chunks with seek/read to keep memory constant.
-        first_unsent = progress.uploaded_chunks
-        progress.bytes_sent = min(file_size, first_unsent * self.chunk_size)
-        self._emit(progress)
+        # 3. Upload chunks with seek/read to keep memory constant.
         with open(path, "rb") as f:
             for index in range(total_chunks):
-                if index < first_unsent:
+                if index in received_chunk_indices:
                     continue
 
                 f.seek(index * self.chunk_size)
@@ -137,11 +209,12 @@ class TelemetryUploader:
                     self._emit(progress)
                     raise LicenseError(progress.error, code="CHUNK_UPLOAD_FAILED")
 
-                progress.uploaded_chunks += 1
+                received_chunk_indices.add(index)
+                progress.uploaded_chunks = len(received_chunk_indices)
                 progress.bytes_sent += len(chunk)
                 self._emit(progress)
 
-        # 3. Complete — the cloud worker verifies SHA-256, archives to S3 and
+        # 4. Complete — the cloud worker verifies SHA-256, archives to S3 and
         #    ingests signals into TimescaleDB.
         done = self.client.request(
             "POST",
@@ -170,24 +243,24 @@ class TelemetryUploader:
 
     # ------------------------------------------------------------------
     def resume(self, session_id: str) -> UploadProgress:
-        """Query a session's current state (status report, not a resume driver).
-
-        NOTE: this reports server-side counters for display/monitoring. To
-        continue an interrupted session, re-run upload_file — chunk PUTs are
-        idempotent, so re-sent chunks are safe; a per-chunk state query would be
-        needed for true gap-aware resume (not part of the current contract).
-        """
+        """Query a session's current state and received chunks."""
+        session_id = _sanitize_session_id(session_id)
         resp = self.client.request("GET", f"/telematics/sessions/{session_id}")
         if resp.status != 200:
             raise LicenseError(f"Session not found: {session_id}", code="SESSION_NOT_FOUND")
         data = resp.json()
+        total_chunks = data.get("total_chunks", 0)
+        received_chunks = self._parse_received_chunks(data, total_chunks)
+        uploaded_count = len(received_chunks) if received_chunks else (
+            data.get("received_chunks", 0) if isinstance(data.get("received_chunks"), int) else 0
+        )
         return UploadProgress(
             session_id=session_id,
-            total_chunks=data["total_chunks"],
-            uploaded_chunks=data["received_chunks"],
-            bytes_sent=data["uploaded_size_bytes"],
-            total_bytes=data["declared_size_bytes"],
-            status=data["status"],
+            total_chunks=total_chunks,
+            uploaded_chunks=uploaded_count,
+            bytes_sent=data.get("uploaded_size_bytes", 0),
+            total_bytes=data.get("declared_size_bytes", 0),
+            status=data.get("status", "uploading"),
         )
 
     def _emit(self, progress: UploadProgress) -> None:

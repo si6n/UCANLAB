@@ -30,6 +30,20 @@ export interface CloudUploadProgress {
   error?: string;
 }
 
+// User decision-card payload shape (doküman §46) — deterministic card
+// composed in Python; TS renders only. Card carries risk band + headline
+// + summary + source only (budama planı 2026-09-12).
+export interface UserDiagnosticCard {
+  card_version: number;
+  headline_tr: string;
+  summary_tr: string;
+  risk_level: 'RED' | 'YELLOW' | 'GREEN' | 'GRAY';
+  risk_advice_tr: string;
+  evidence_tr: string[];
+  technical: { dtcs: string[]; severity: string; subsystem: string; confidence_score: number | null };
+  source_badges: string[];
+}
+
 // Interface for pywebview Python backend bridge
 declare global {
   interface Window {
@@ -40,7 +54,8 @@ declare global {
         toggle_simulator: () => Promise<boolean>;
         select_scenario: (name: string) => Promise<void>;
         ask_copilot: (query: string) => Promise<string>;
-        execute_diagnostic_action?: (action: Record<string, any>, userConfirmed: boolean) => Promise<{ success: boolean; message?: string; error?: string; [key: string]: any }>;
+        execute_diagnostic_action?: (action: Record<string, any>, confirmationToken?: string, userConfirmed?: boolean) => Promise<{ success: boolean; message?: string; error?: string; [key: string]: any }>;
+        request_diagnostic_challenge?: (action: Record<string, any>) => Promise<{ success: boolean; token?: string; error?: string; [key: string]: any }>;
         get_bus_traffic_status?: () => Promise<Record<string, any>>;
         export_logs: (format: string) => Promise<boolean>;
         save_settings: (settings: Record<string, any>) => Promise<void>;
@@ -49,6 +64,21 @@ declare global {
         // E-Stop Cryptographic Challenge / Multi-Operator APIs
         estop_request_challenge?: () => Promise<{ success: boolean; epoch?: number; nonce?: string; timestampMonotonicNs?: number; maxAgeMs?: number; action?: string; error?: string }>;
         estop_submit_reset_token?: (tokenStr: string) => Promise<{ success: boolean; error?: string }>;
+        // ECU Flashing APIs
+        flash_start?: (config: Record<string, any>, confirmationToken?: string) => Promise<{ success: boolean; message?: string; error?: string; [key: string]: any }>;
+        flash_progress?: () => Promise<Record<string, any>>;
+        flash_cancel?: () => Promise<{ success: boolean; message?: string; error?: string }>;
+        // Signal Discovery & Reverse Engineering APIs
+        discovery_get_summary?: () => Promise<Record<string, any>>;
+        discovery_analyze_id?: (arbId: number) => Promise<Record<string, any>>;
+        discovery_analyze_all?: () => Promise<Record<string, any>>;
+        discovery_export_dbc?: (approvedOnly?: boolean) => Promise<{ success: boolean; dbc?: string; error?: string }>;
+        discovery_clear?: () => Promise<{ success: boolean; error?: string }>;
+        // OEM Registry & Replay APIs
+        oem_list_decoders?: () => Promise<string[]>;
+        replay_load?: (filePath: string) => Promise<{ success: boolean; frame_count?: number; error?: string }>;
+        replay_start?: (speed?: number, loop?: boolean) => Promise<{ success: boolean; error?: string }>;
+        replay_stop?: () => Promise<{ success: boolean; error?: string }>;
         // Cloud APIs
         cloud_test_connection?: (url?: string, sessionToken?: string) => Promise<{ success: boolean; status?: number; user?: any; error?: string }>;
         cloud_save_config?: (url: string, sessionToken?: string) => Promise<{ success: boolean; error?: string }>;
@@ -57,6 +87,12 @@ declare global {
         cloud_activate_license?: (licenseRef: string) => Promise<{ success: boolean; licenseId?: string; tier?: string; features?: string[]; expiresAt?: number; offlineUntil?: number; error?: string }>;
         cloud_upload_session?: (filePath: string, vehicleVin?: string) => Promise<{ success: boolean; sessionId?: string; status?: string; error?: string }>;
         cloud_upload_raw_content?: (filename: string, content: string, vehicleVin?: string) => Promise<{ success: boolean; sessionId?: string; status?: string; error?: string }>;
+        // Diagnostic session (FAZ 1..6) — analysis stays in Python (Bulgu 3)
+        get_session_evidence_summary?: () => Promise<Record<string, any>>;
+        get_diagnostic_analysis?: () => Promise<Record<string, any>>;
+        reset_diagnostic_session?: () => Promise<Record<string, any>>;
+        record_operator_measurement?: (name: string, value: number) => Promise<{ success: boolean; recorded?: string; error?: string }>;
+        export_session_report?: () => Promise<{ success: boolean; path?: string; report_length?: number; error?: string }>;
       };
     };
     onNewCanFrame?: (frame: CANFrame) => void;
@@ -88,11 +124,40 @@ export class DesktopBridge {
     }
   }
 
+  /**
+   * REVIEW (capability guard): `pywebview` EXISTING does not imply the
+   * method EXISTS — a version-skew bridge (or a partially injected
+   * window object) passed isNative() but skipped the method check, fell
+   * through to the mock branch, and "succeeded" (fake E-Stop reset,
+   * mock enterprise license, phantom uploads). Every call site now
+   * verifies the concrete method; a native shell WITHOUT the capability
+   * is a hard failure in production, never a silent mock.
+   */
+  private static apiMethod(name: string): ((...args: any[]) => Promise<any>) | null {
+    const method = (window as any)?.pywebview?.api?.[name];
+    return typeof method === 'function' ? (method as (...args: any[]) => Promise<any>) : null;
+  }
+
+  private static hasNativeMethod(name: string): boolean {
+    return this.isNative() && this.apiMethod(name) !== null;
+  }
+
+  private static requireCapability(method: string, what: string): void {
+    if (this.isNative() && !this.hasNativeMethod(method)) {
+      throw new Error(
+        `Native bridge lacks '${method}' (${what}): the bridge object is present ` +
+          'but the capability is missing — refusing to fake success.'
+      );
+    }
+  }
+
   public static async triggerEstop(): Promise<void> {
-    if (this.isNative() && window.pywebview?.api?.trigger_estop) {
-      await window.pywebview.api.trigger_estop();
+    const m = this.apiMethod('trigger_estop');
+    if (this.isNative() && m) {
+      await m();
       return;
     }
+    this.requireCapability('trigger_estop', 'E-Stop trigger');
     this.requireNativeOrDev();
   }
 
@@ -116,77 +181,204 @@ export class DesktopBridge {
     if (this.isNative() && window.pywebview?.api?.ask_copilot) {
       return await window.pywebview.api.ask_copilot(query);
     }
+    // Dev-only fallback: no fabricated copilot answer in production.
+    this.requireNativeOrDev();
     return null;
+  }
+
+  public static async requestDiagnosticChallenge(
+    action: Record<string, any>
+  ): Promise<{ success: boolean; token?: string; error?: string; execution_mode?: 'mock' | 'simulated' | 'native'; [key: string]: any }> {
+    const m = this.apiMethod('request_diagnostic_challenge');
+    if (this.isNative() && m) {
+      const res = await m(action);
+      return { ...res, execution_mode: 'native' };
+    }
+    this.requireCapability('request_diagnostic_challenge', 'Dual confirmation challenge');
+    this.requireNativeOrDev();
+    return { success: false, error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
   }
 
   public static async executeDiagnosticAction(
     action: Record<string, any>,
+    confirmationTokenOrUserConfirmed?: string | boolean,
     userConfirmed: boolean = false
-  ): Promise<{ success: boolean; message?: string; error?: string; [key: string]: any }> {
-    if (this.isNative() && window.pywebview?.api?.execute_diagnostic_action) {
-      return await window.pywebview.api.execute_diagnostic_action(action, userConfirmed);
+  ): Promise<{ success: boolean; message?: string; error?: string; execution_mode?: 'mock' | 'simulated' | 'native'; [key: string]: any }> {
+    let token: string | undefined = undefined;
+    let confirmed = userConfirmed;
+
+    if (typeof confirmationTokenOrUserConfirmed === 'string') {
+      token = confirmationTokenOrUserConfirmed;
+    } else if (typeof confirmationTokenOrUserConfirmed === 'boolean') {
+      confirmed = confirmationTokenOrUserConfirmed;
     }
-    // Browser / Dev fallback:
-    if (action.action_type === 'uds_clear_dtc') {
-      return {
-        success: true,
-        message: '✅ [UDS 0x14] ECU arıza hafızası temizlendi (Pozitif Yanıt 0x54). Hata sayacı sıfırlandı.',
-        service: '0x14',
-      };
-    }
-    if (action.action_type === 'uds_read_did') {
-      const did = action.params?.did || 0xF190;
-      if (did === 0xF190) {
-        return {
-          success: true,
-          message: '📄 [UDS 0x22 DID 0xF190] Araç VIN Numarası: `WVWZZZ1KZ9W123456` (Pozitif Yanıt 0x62).',
-          vin: 'WVWZZZ1KZ9W123456',
-        };
+
+    // Auto-request challenge token if confirmation is required and token was not provided
+    if (!token && confirmed && action?.requires_confirmation !== false && this.isNative()) {
+      try {
+        const challenge = await this.requestDiagnosticChallenge(action);
+        if (challenge.success && challenge.token) {
+          token = challenge.token;
+        }
+      } catch {
+        // Fallthrough: will be rejected fail-closed on backend if missing
       }
+    }
+
+    const m = this.apiMethod('execute_diagnostic_action');
+    if (this.isNative() && m) {
+      const res = await m(action, token, confirmed);
       return {
-        success: true,
-        message: `📄 [UDS 0x22 DID 0x${did.toString(16).toUpperCase()}] Veri okundu: 01 A4 B2 C3 (Pozitif Yanıt 0x62).`,
+        ...res,
+        execution_mode: res?.is_simulating ? 'simulated' : 'native',
       };
     }
-    if (action.action_type === 'uds_session_control') {
-      const st = action.params?.session_type || 3;
-      return {
-        success: true,
-        message: `🔄 [UDS 0x10] Teşhis oturumu 0x0${st} moduna geçirildi (Pozitif Yanıt 0x50).`,
-      };
-    }
-    if (action.action_type === 'j1939_clear_dtc') {
-      return {
-        success: true,
-        message: '✅ [J1939 DM11] Ağır vasıta aktif arızaları temizlendi (PGN 65235).',
-      };
-    }
-    if (action.action_type === 'j1939_dm1_query') {
-      return {
-        success: true,
-        message: '📋 [J1939 DM1] Aktif Arıza Durumu: Nominal (0 DTC - PGN 65226).',
-      };
-    }
-    if (action.action_type === 'uds_routine') {
-      const rid = action.params?.routine_id ? `0x${Number(action.params.routine_id).toString(16).toUpperCase()}` : '0xD001';
-      return {
-        success: true,
-        message: `▶️ [UDS 0x31] Teşhis rutini ${rid} başarıyla başlatıldı (Pozitif Yanıt 0x71).`,
-        routine_id: rid,
-      };
-    }
-    if (action.action_type === 'uds_ecu_reset') {
-      const rt = action.params?.reset_type || 1;
-      return {
-        success: true,
-        message: `⚡ [UDS 0x11] ECU Donanımsal Reset komutu iletildi (Reset Tipi: 0x0${rt}, Pozitif Yanıt 0x51).`,
-        reset_type: rt,
-      };
-    }
+    // REVIEW3 #4: the old browser/dev fallback fabricated SUCCESS for
+    // UDS 0x14/0x11/0x10 and J1939 DM11 clear commands — an operator in a
+    // prod build opened without pywebview saw "DTCs cleared" while no frame
+    // ever reached the bus. Diagnostic actions are mock-forbidden in prod;
+    // in dev they return an explicit non-success so UI flows stay honest.
+    this.requireNativeOrDev();
     return {
-      success: true,
-      message: `▶️ [${action.label || 'Diagnostik Eylem'}] İşlem başarıyla tamamlandı.`,
+      success: false,
+      error: 'NATIVE_BRIDGE_MISSING',
+      message: 'Teşhis eylemi iletilmedi: yerel köprü (pywebview) mevcut değil.',
+      execution_mode: 'mock',
     };
+  }
+
+  // ------------------------------------------------------------------
+  // ECU Flashing Bridge Methods
+  // ------------------------------------------------------------------
+  public static async flashStart(
+    config: Record<string, any>,
+    confirmationToken?: string
+  ): Promise<{ success: boolean; message?: string; error?: string; execution_mode?: 'mock' | 'simulated' | 'native'; [key: string]: any }> {
+    const m = this.apiMethod('flash_start');
+    if (this.isNative() && m) {
+      const res = await m(config, confirmationToken);
+      return { ...res, execution_mode: res?.is_simulating ? 'simulated' : 'native' };
+    }
+    this.requireCapability('flash_start', 'ECU Flash Start');
+    this.requireNativeOrDev();
+    return { success: false, error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
+  }
+
+  public static async flashProgress(): Promise<Record<string, any>> {
+    const m = this.apiMethod('flash_progress');
+    if (this.isNative() && m) {
+      const res = await m();
+      return { ...res, execution_mode: 'native' };
+    }
+    this.requireNativeOrDev();
+    return { status: 'idle', percent: 0, logs: [], execution_mode: 'mock' };
+  }
+
+  public static async flashCancel(): Promise<{ success: boolean; message?: string; error?: string; execution_mode?: 'mock' | 'simulated' | 'native' }> {
+    const m = this.apiMethod('flash_cancel');
+    if (this.isNative() && m) {
+      const res = await m();
+      return { ...res, execution_mode: 'native' };
+    }
+    this.requireNativeOrDev();
+    return { success: false, error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
+  }
+
+  // ------------------------------------------------------------------
+  // Signal Discovery Bridge Methods
+  // ------------------------------------------------------------------
+  public static async discoveryGetSummary(): Promise<Record<string, any> | null> {
+    const m = this.apiMethod('discovery_get_summary');
+    if (this.isNative() && m) {
+      return await m();
+    }
+    this.requireNativeOrDev();
+    return null;
+  }
+
+  public static async discoveryAnalyzeId(arbId: number): Promise<Record<string, any> | null> {
+    const m = this.apiMethod('discovery_analyze_id');
+    if (this.isNative() && m) {
+      return await m(arbId);
+    }
+    this.requireNativeOrDev();
+    return null;
+  }
+
+  public static async discoveryExportDbc(approvedOnly: boolean = false): Promise<{ success: boolean; dbc?: string; error?: string; execution_mode?: 'mock' | 'simulated' | 'native' }> {
+    const m = this.apiMethod('discovery_export_dbc');
+    if (this.isNative() && m) {
+      const res = await m(approvedOnly);
+      return { ...res, execution_mode: 'native' };
+    }
+    this.requireNativeOrDev();
+    return { success: false, error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
+  }
+
+  public static async discoveryClear(): Promise<{ success: boolean; error?: string; execution_mode?: 'mock' | 'simulated' | 'native' }> {
+    const m = this.apiMethod('discovery_clear');
+    if (this.isNative() && m) {
+      const res = await m();
+      return { ...res, execution_mode: 'native' };
+    }
+    this.requireNativeOrDev();
+    return { success: false, error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
+  }
+
+  // ------------------------------------------------------------------
+  // OEM Decoders Bridge Methods
+  // ------------------------------------------------------------------
+  public static async oemListDecoders(): Promise<string[]> {
+    const m = this.apiMethod('oem_list_decoders');
+    if (this.isNative() && m) {
+      return await m();
+    }
+    this.requireNativeOrDev();
+    return [];
+  }
+
+  // ------------------------------------------------------------------
+  // Replay Trace Bridge Methods
+  // ------------------------------------------------------------------
+  public static async replayLoad(filePath: string): Promise<{ success: boolean; frame_count?: number; error?: string; execution_mode?: 'mock' | 'simulated' | 'native' }> {
+    const m = this.apiMethod('replay_load');
+    if (this.isNative() && m) {
+      const res = await m(filePath);
+      return { ...res, execution_mode: 'native' };
+    }
+    this.requireNativeOrDev();
+    return { success: false, error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
+  }
+
+  public static async replayStart(speed: number = 1.0, loop: boolean = false): Promise<{ success: boolean; error?: string; execution_mode?: 'mock' | 'simulated' | 'native' }> {
+    const m = this.apiMethod('replay_start');
+    if (this.isNative() && m) {
+      const res = await m(speed, loop);
+      return { ...res, execution_mode: 'native' };
+    }
+    this.requireNativeOrDev();
+    return { success: false, error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
+  }
+
+  public static async replayStop(): Promise<{ success: boolean; error?: string; execution_mode?: 'mock' | 'simulated' | 'native' }> {
+    const m = this.apiMethod('replay_stop');
+    if (this.isNative() && m) {
+      const res = await m();
+      return { ...res, execution_mode: 'native' };
+    }
+    this.requireNativeOrDev();
+    return { success: false, error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
+  }
+
+  public static async exportLogs(format: string): Promise<{ success: boolean; error?: string; execution_mode?: 'mock' | 'simulated' | 'native' }> {
+    const m = this.apiMethod('export_logs');
+    if (this.isNative() && m) {
+      const ok = await m(format);
+      return { success: !!ok, execution_mode: 'native' };
+    }
+    this.requireCapability('export_logs', 'logs export');
+    this.requireNativeOrDev();
+    return { success: false, error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
   }
 
   public static async getBusTrafficStatus(): Promise<Record<string, any> | null> {
@@ -194,23 +386,18 @@ export class DesktopBridge {
       return await window.pywebview.api.get_bus_traffic_status();
     }
     // Browser / Dev fallback
-    return {
-      bus_load_percent: 32,
-      error_count: 0,
-      total_packets: 1250,
-      recent_frame_count: 50,
-      recent_frame_rate: 500,
-      status: 'nominal',
-      babbling_node: null,
-      is_simulating: true,
-      anomalies: [],
-    };
+    this.requireNativeOrDev();
+    return null;
   }
 
   public static async injectFault(faultType: string): Promise<void> {
     if (this.isNative() && window.pywebview?.api?.inject_fault) {
       await window.pywebview.api.inject_fault(faultType);
+      return;
     }
+    // REVIEW3 #4: fault injection is a simulator-native operation — no
+    // silent no-op in production.
+    this.requireNativeOrDev();
   }
 
   public static async setSimulationSpeed(speed: number): Promise<void> {
@@ -219,20 +406,28 @@ export class DesktopBridge {
     }
   }
 
-  public static async estopRequestChallenge(): Promise<{ success: boolean; epoch?: number; nonce?: string; timestampMonotonicNs?: number; maxAgeMs?: number; action?: string; error?: string }> {
-    if (this.isNative() && window.pywebview?.api?.estop_request_challenge) {
-      return await window.pywebview.api.estop_request_challenge();
+  public static async estopRequestChallenge(): Promise<{ success: boolean; epoch?: number; nonce?: string; timestampMonotonicNs?: number; maxAgeMs?: number; action?: string; error?: string; execution_mode?: 'mock' | 'simulated' | 'native' }> {
+    const m = this.apiMethod('estop_request_challenge');
+    if (this.isNative() && m) {
+      const res = await m();
+      return { ...res, execution_mode: 'native' };
     }
+    this.requireCapability('estop_request_challenge', 'E-Stop reset challenge'); // safety-critical: no silent mock
     this.requireNativeOrDev(); // safety-critical: no silent mock
-    return { success: true, epoch: 1, nonce: 'local_nonce', maxAgeMs: 30000, action: 'ESTOP_RESET' };
+    return { success: false, error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
   }
 
-  public static async estopSubmitResetToken(tokenStr: string): Promise<{ success: boolean; error?: string }> {
-    if (this.isNative() && window.pywebview?.api?.estop_submit_reset_token) {
-      return await window.pywebview.api.estop_submit_reset_token(tokenStr);
+  public static async estopSubmitResetToken(tokenStr: string): Promise<{ success: boolean; error?: string; execution_mode?: 'mock' | 'simulated' | 'native' }> {
+    const m = this.apiMethod('estop_submit_reset_token');
+    if (this.isNative() && m) {
+      const res = await m(tokenStr);
+      return { ...res, execution_mode: 'native' };
     }
+    // REVIEW (capability guard): a native shell without the token method
+    // previously reported success:true — a fake E-Stop reset. Fail closed.
+    this.requireCapability('estop_submit_reset_token', 'E-Stop reset token');
     this.requireNativeOrDev(); // safety-critical: no silent mock
-    return { success: true };
+    return { success: false, error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
   }
 
   // estopResetLocal() removed (REVIEW C-1 / P0-1): the backend bridge method
@@ -250,73 +445,136 @@ export class DesktopBridge {
   // ------------------------------------------------------------------
   // Cloud SaaS & License Operations
   // ------------------------------------------------------------------
-  public static async cloudTestConnection(url?: string, sessionToken?: string): Promise<{ success: boolean; status?: number; user?: any; error?: string }> {
-    if (this.isNative() && window.pywebview?.api?.cloud_test_connection) {
-      return await window.pywebview.api.cloud_test_connection(url, sessionToken);
+  public static async cloudTestConnection(url?: string, sessionToken?: string): Promise<{ success: boolean; status?: number; user?: any; error?: string; execution_mode?: 'mock' | 'simulated' | 'native' }> {
+    const m = this.apiMethod('cloud_test_connection');
+    if (this.isNative() && m) {
+      const res = await m(url, sessionToken);
+      return { ...res, execution_mode: 'native' };
     }
+    this.requireCapability('cloud_test_connection', 'cloud connectivity test');
     this.requireNativeOrDev();
-    return { success: true, status: 200, user: { email: 'operator@example.com', organization_name: 'CAN Diagnostics Ltd' } };
+    return { success: false, error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
   }
 
-  public static async cloudSaveConfig(url: string, sessionToken?: string): Promise<{ success: boolean; error?: string }> {
-    if (this.isNative() && window.pywebview?.api?.cloud_save_config) {
-      return await window.pywebview.api.cloud_save_config(url, sessionToken);
+  public static async cloudSaveConfig(url: string, sessionToken?: string): Promise<{ success: boolean; error?: string; execution_mode?: 'mock' | 'simulated' | 'native' }> {
+    const m = this.apiMethod('cloud_save_config');
+    if (this.isNative() && m) {
+      const res = await m(url, sessionToken);
+      return { ...res, execution_mode: 'native' };
     }
+    this.requireCapability('cloud_save_config', 'cloud config save');
     this.requireNativeOrDev();
-    return { success: true };
+    return { success: false, error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
   }
 
   public static async cloudGetStatus(): Promise<CloudStatus> {
-    if (this.isNative() && window.pywebview?.api?.cloud_get_status) {
-      return await window.pywebview.api.cloud_get_status();
+    const m = this.apiMethod('cloud_get_status');
+    if (this.isNative() && m) {
+      return await m();
     }
     this.requireNativeOrDev();
     return {
-      success: true,
+      success: false,
       baseUrl: 'http://127.0.0.1:8000',
       hasSessionToken: false,
       hasDeviceToken: false,
       hwid: 'LOCAL-DEV-HWID-2026',
-      license: null
+      license: null,
+      error: 'NATIVE_BRIDGE_MISSING',
     };
   }
 
-  public static async cloudRegisterDevice(deviceName?: string): Promise<{ success: boolean; deviceId?: string; resetsRemaining?: number; error?: string }> {
-    if (this.isNative() && window.pywebview?.api?.cloud_register_device) {
-      return await window.pywebview.api.cloud_register_device(deviceName);
+  public static async cloudRegisterDevice(deviceName?: string): Promise<{ success: boolean; deviceId?: string; resetsRemaining?: number; error?: string; execution_mode?: 'mock' | 'simulated' | 'native' }> {
+    const m = this.apiMethod('cloud_register_device');
+    if (this.isNative() && m) {
+      const res = await m(deviceName);
+      return { ...res, execution_mode: 'native' };
     }
+    this.requireCapability('cloud_register_device', 'cloud register device');
     this.requireNativeOrDev();
-    return { success: true, deviceId: 'dev_mock_uuid_2026', resetsRemaining: 1 };
+    return { success: false, error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
   }
 
-  public static async cloudActivateLicense(licenseRef: string): Promise<{ success: boolean; licenseId?: string; tier?: string; features?: string[]; expiresAt?: number; offlineUntil?: number; error?: string }> {
-    if (this.isNative() && window.pywebview?.api?.cloud_activate_license) {
-      return await window.pywebview.api.cloud_activate_license(licenseRef);
+  public static async cloudActivateLicense(licenseRef: string): Promise<{ success: boolean; licenseId?: string; tier?: string; features?: string[]; expiresAt?: number; offlineUntil?: number; error?: string; execution_mode?: 'mock' | 'simulated' | 'native' }> {
+    const m = this.apiMethod('cloud_activate_license');
+    if (this.isNative() && m) {
+      const res = await m(licenseRef);
+      return { ...res, execution_mode: 'native' };
     }
+    // REVIEW (capability guard): the old mock granted ENTERPRISE — a fake
+    // license activation. Fail closed instead.
+    this.requireCapability('cloud_activate_license', 'license activation');
     this.requireNativeOrDev(); // mock grants ENTERPRISE tier — never in prod
-    return {
-      success: true,
-      licenseId: 'lic_mock_2026',
-      tier: 'enterprise',
-      features: ['can_fd', 'j1939', 'uds_flash', 'cloud_telemetry', 'oem_packs'],
-      expiresAt: Math.floor(Date.now() / 1000) + 86400 * 365,
-      offlineUntil: Math.floor(Date.now() / 1000) + 86400 * 30
-    };
+    return { success: false, error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
   }
 
-  public static async cloudUploadSession(filePath: string, vehicleVin?: string): Promise<{ success: boolean; sessionId?: string; status?: string; error?: string }> {
-    if (this.isNative() && window.pywebview?.api?.cloud_upload_session) {
-      return await window.pywebview.api.cloud_upload_session(filePath, vehicleVin);
+  public static async cloudUploadSession(filePath: string, vehicleVin?: string): Promise<{ success: boolean; sessionId?: string; status?: string; error?: string; execution_mode?: 'mock' | 'simulated' | 'native' }> {
+    const m = this.apiMethod('cloud_upload_session');
+    if (this.isNative() && m) {
+      const res = await m(filePath, vehicleVin);
+      return { ...res, execution_mode: 'native' };
     }
+    this.requireCapability('cloud_upload_session', 'telemetry upload');
     this.requireNativeOrDev();
-    return { success: true, sessionId: 'sess_mock_2026', status: 'ready' };
+    return { success: false, error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
   }
 
-  public static async cloudUploadRawContent(filename: string, content: string, vehicleVin?: string): Promise<{ success: boolean; sessionId?: string; status?: string; error?: string }> {
-    if (this.isNative() && window.pywebview?.api?.cloud_upload_raw_content) {
-      return await window.pywebview.api.cloud_upload_raw_content(filename, content, vehicleVin);
+  public static async cloudUploadRawContent(filename: string, content: string, vehicleVin?: string): Promise<{ success: boolean; sessionId?: string; status?: string; error?: string; execution_mode?: 'mock' | 'simulated' | 'native' }> {
+    const m = this.apiMethod('cloud_upload_raw_content');
+    if (this.isNative() && m) {
+      const res = await m(filename, content, vehicleVin);
+      return { ...res, execution_mode: 'native' };
+    }
+    this.requireCapability('cloud_upload_raw_content', 'raw content upload');
+    this.requireNativeOrDev();
+    return { success: false, error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
+  }
+
+  // ------------------------------------------------------------------
+  // Diagnostic session (FAZ 1..6). Analysis logic lives ONLY in Python
+  // (Bulgu 3 — diagnosticEngine.ts stays a display fallback); these
+  // wrappers consume bridge payloads.
+  // ------------------------------------------------------------------
+  public static async getSessionEvidenceSummary(): Promise<Record<string, any> | null> {
+    if (this.isNative() && window.pywebview?.api?.get_session_evidence_summary) {
+      return await window.pywebview.api.get_session_evidence_summary();
     }
     this.requireNativeOrDev();
-    return { success: true, sessionId: 'sess_mock_2026', status: 'ready' };
+    return null;
+  }
+
+  public static async getDiagnosticAnalysis(): Promise<Record<string, any> | null> {
+    if (this.isNative() && window.pywebview?.api?.get_diagnostic_analysis) {
+      return await window.pywebview.api.get_diagnostic_analysis();
+    }
+    this.requireNativeOrDev();
+    return null;
+  }
+
+  public static async resetDiagnosticSession(): Promise<Record<string, any> | null> {
+    if (this.isNative() && window.pywebview?.api?.reset_diagnostic_session) {
+      return await window.pywebview.api.reset_diagnostic_session();
+    }
+    this.requireNativeOrDev();
+    return null;
+  }
+
+  public static async recordOperatorMeasurement(name: string, value: number): Promise<{ success: boolean; recorded?: string; error?: string; execution_mode?: 'mock' | 'simulated' | 'native' }> {
+    if (this.isNative() && window.pywebview?.api?.record_operator_measurement) {
+      const res = await window.pywebview.api.record_operator_measurement(name, value);
+      return { ...res, execution_mode: 'native' };
+    }
+    this.requireNativeOrDev();
+    return { success: false, error: 'native bridge unavailable', execution_mode: 'mock' };
+  }
+
+  public static async exportSessionReport(): Promise<{ success: boolean; path?: string; report_length?: number; error?: string; execution_mode?: 'mock' | 'simulated' | 'native' }> {
+    const m = this.apiMethod('export_session_report');
+    if (this.isNative() && m) {
+      const res = await m();
+      return { ...res, execution_mode: 'native' };
+    }
+    this.requireNativeOrDev();
+    return { success: false, error: 'native bridge unavailable', execution_mode: 'mock' };
   }
 }

@@ -216,7 +216,7 @@ def test_get_latest_view_is_true_zero_copy() -> None:
     for i in range(20):
         buf.append(CanFrame.create(channel_id="ch0", arbitration_id=i, data=bytes([i & 0xFF] * 4)))
 
-    old_part, new_part = buf.get_latest_view(8, copy=False)
+    old_part, new_part, _ = buf.get_latest_view(8, copy=False)
     assert len(old_part) + len(new_part) == 8
     # E-13: genuine views — no concatenate, no copy
     assert np.shares_memory(old_part, buf._buffer)
@@ -232,7 +232,7 @@ def test_get_latest_view_default_returns_detached_copy() -> None:
     for i in range(8):
         buf.append(CanFrame.create(channel_id="ch0", arbitration_id=i, data=bytes([i & 0xFF] * 4)))
 
-    old_part, new_part = buf.get_latest_view(8)
+    old_part, new_part, _ = buf.get_latest_view(8)
     assert not np.shares_memory(old_part, buf._buffer) or old_part.size == 0
     snapshot_ids = list(old_part["arbitration_id"]) + list(new_part["arbitration_id"])
 
@@ -249,7 +249,7 @@ def test_get_latest_view_wraparound_ordering() -> None:
     for i in range(10):
         buf.append(CanFrame.create(channel_id="ch0", arbitration_id=i, data=b""))
 
-    old_part, new_part = buf.get_latest_view(3, copy=False)
+    old_part, new_part, _ = buf.get_latest_view(3, copy=False)
     # total_written=10, cap=4: last 3 frames are 7,8,9; wrap index = 10%4 = 2
     ids = list(old_part["arbitration_id"]) + list(new_part["arbitration_id"])
     assert ids == [7, 8, 9]
@@ -265,9 +265,9 @@ def test_get_latest_view_empty_request() -> None:
     for i in range(5):
         buf.append(CanFrame.create(channel_id="ch0", arbitration_id=i, data=b""))
 
-    old_part, new_part = buf.get_latest_view(0)
+    old_part, new_part, _ = buf.get_latest_view(0)
     assert old_part.size == 0 and new_part.size == 0
 
     empty_buf = BinaryRingBuffer(capacity=8)
-    o, n = empty_buf.get_latest_view(10)
+    o, n, _ = empty_buf.get_latest_view(10)
     assert o.size == 0 and n.size == 0

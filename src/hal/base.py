@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 import enum
+import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from types import TracebackType
 from typing import Self
 
 from src.core.models.can_frame import CanFrame
+
+_CHANNEL_ID_RE = re.compile(r"^[A-Za-z0-9_:\-]{1,64}$")
+_MIN_BITRATE = 1_000
+_MAX_BITRATE = 8_000_000
 
 
 class BusState(str, enum.Enum):
@@ -49,6 +54,12 @@ class AbstractBus(ABC):
     """Abstract Base Class for all CAN hardware and virtual interfaces."""
 
     def __init__(self, channel_id: str, bitrate: int = 250000, is_fd: bool = False) -> None:
+        if not isinstance(channel_id, str) or not _CHANNEL_ID_RE.match(channel_id):
+            raise ValueError(
+                f"channel_id must match {_CHANNEL_ID_RE.pattern}, got {channel_id!r}"
+            )
+        if not isinstance(bitrate, int) or isinstance(bitrate, bool) or not (_MIN_BITRATE <= bitrate <= _MAX_BITRATE):
+            raise ValueError(f"bitrate must be in range {_MIN_BITRATE}..{_MAX_BITRATE}, got {bitrate!r}")
         self.channel_id = channel_id
         self.bitrate = bitrate
         self.is_fd = is_fd

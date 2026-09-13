@@ -15,12 +15,36 @@ import tempfile
 from pathlib import Path
 
 
+def _resolve_npm() -> str:
+    """Resolve npm to an absolute path (supply-chain: PATH hijack guard).
+
+    Honors NPM_PATH env override; otherwise shutil.which + resolve with logging.
+    Absolute path is mandatory — never exec a bare relative name.
+    """
+    import os
+    import shutil
+
+    env_npm = os.environ.get("NPM_PATH")
+    if env_npm:
+        resolved = str(Path(env_npm).resolve())
+        print(f"[supply-chain] npm via NPM_PATH: {env_npm} -> {resolved}")
+        return resolved
+    found = shutil.which("npm")
+    if found is None:
+        raise FileNotFoundError("npm bulunamadi (veya NPM_PATH env ayarlayin)")
+    resolved = str(Path(found).resolve())
+    print(f"[supply-chain] npm via PATH: {found} -> {resolved}")
+    return resolved
+
+
 def ensure_frontend_built(frontend_dir: Path) -> None:
     """Ensure React/Tailwind frontend is built and dist/index.html exists."""
     dist_index = frontend_dir / "dist" / "index.html"
     if not dist_index.is_file():
         print(f"Frontend dist not found at {dist_index}. Building via npm run build...")
-        subprocess.check_call(["cmd", "/c", "npm run build"], cwd=frontend_dir)
+        # supply-chain: invoke npm binary directly (list form, absolute path);
+        # never use `cmd /c "<string>"` shell-string form (hijack/injection prone).
+        subprocess.check_call([_resolve_npm(), "run", "build"], cwd=frontend_dir)
         if not dist_index.is_file():
             raise FileNotFoundError(f"Frontend build failed: {dist_index} missing after build.")
     print(f"Frontend bundle verified: {dist_index}")
@@ -81,7 +105,9 @@ def run_nuitka_build(onefile: bool = False, console: bool = False) -> int:
         cmd.append(f"--windows-icon-from-ico={icon_file}")
 
     cmd.extend([
-        "--assume-yes-for-downloads",
+        # supply-chain: --assume-yes-for-downloads removed (auto-downloads are a
+        # supply-chain risk); use cached compilers instead.
+        "--disable-ccache",
         "--remove-output",
         str(entry_point),
     ])
@@ -102,7 +128,16 @@ def run_nuitka_build(onefile: bool = False, console: bool = False) -> int:
         exe_path = output_dir / "ucanlab.exe"
         if exe_path.is_file():
             digest = hashlib.sha256(exe_path.read_bytes()).hexdigest()
-            (output_dir / "SHA256SUMS").write_text(f"{digest}  {exe_path.name}\n", encoding="utf-8")
+            sums_path = output_dir / "SHA256SUMS"
+            sums_path.write_text(f"{digest}  {exe_path.name}\n", encoding="utf-8")
+            # supply-chain: world-writable manifest must not be executable; POSIX-only.
+            try:
+                import os as _os
+
+                if _os.name == "posix":
+                    _os.chmod(sums_path, 0o644)
+            except OSError as _exc:
+                print(f"[WARN] Could not chmod SHA256SUMS: {_exc}")
             print(f"SHA-256: {digest}  ({exe_path.name})")
     except OSError as exc:
         print(f"[WARN] Could not write SHA256SUMS: {exc}")

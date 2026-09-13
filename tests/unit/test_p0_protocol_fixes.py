@@ -30,7 +30,7 @@ from src.protocols.uds.services import UdsServiceBuilder
 
 
 def _tp_cm_frame(sa: int, da: int, ctrl: int, pgn: int, data: bytes) -> CanFrame:
-    can_id = 0x18EC0000 | ((da & 0xFF) << 8) | (sa & 0xFF)
+    can_id = 0x1CEC0000 | ((da & 0xFF) << 8) | (sa & 0xFF)
     return CanFrame.create(
         channel_id="ch0",
         arbitration_id=can_id,
@@ -46,7 +46,7 @@ def make_tp_cm(sa: int, da: int, ctrl: int, pgn: int, *payload: int) -> CanFrame
     for i, b in enumerate(payload):
         body[1 + i] = b
     body[5:8] = pgn.to_bytes(3, byteorder="little")
-    can_id = 0x18EC0000 | ((da & 0xFF) << 8) | (sa & 0xFF)
+    can_id = 0x1CEC0000 | ((da & 0xFF) << 8) | (sa & 0xFF)
     return CanFrame.create(
         channel_id="ch0",
         arbitration_id=can_id,
@@ -139,16 +139,17 @@ class TestCmdtSenderStateMachine(unittest.TestCase):
         rts = self.tx.start_cmdt_transfer(0xF9, self.pgn, self.payload)
         self.assertEqual(rts.data[0], TP_CTRL_RTS)
 
-        # Receiver answers with CTS (its policy grants all 19 packets,
-        # but we emulate a constrained receiver granting 10 at a time)
+        # REVIEW 1-M1: a windowed receiver (rx_cts_window=10) must bound its
+        # FIRST grant to the window too — previously the initial CTS granted
+        # min(total, MAX_CTS)=16 against a 19-packet transfer while the DT
+        # handler re-CTS'd every 10 packets: duplicate CTS frames against a
+        # fully-granted sender. The first CTS now grants exactly the window
+        # (10), no in-band rewrite required.
         _, cts1 = self.rx.handle_rx_frame(rts)
         self.assertIsNotNone(cts1)
         self.assertEqual(cts1.data[0], TP_CTRL_CTS)
-        self.assertEqual(cts1.data[1], 19)
+        self.assertEqual(cts1.data[1], 10)
         self.assertEqual(cts1.data[2], 1)
-
-        # Constrained window: rewrite CTS to grant only 10
-        cts1 = self._rebuild_frame(cts1, bytes([TP_CTRL_CTS, 10, 1, 0xFF, 0xFF]) + self.pgn.to_bytes(3, "little"))
 
         _, out1 = self.tx.handle_rx_frame(cts1)
         window1 = ([out1] if out1 else []) + self.tx.take_pending_tx_frames()

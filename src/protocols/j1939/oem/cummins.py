@@ -30,7 +30,8 @@ class CumminsDecoder(BaseOemDecoder):
         0: "Disabled/Off",
         1: "Active Stationary (Parked)",
         2: "Active Mobile (Highway)",
-        3: "Inhibited",
+        # REVIEW hardening: 3 (was "Inhibited") is a reserved code on this
+        # 2-bit field — map-miss now resolves to invalid via resolve_enum.
     }
 
     INHIBIT_SWITCH_MAP: dict[int, str] = {
@@ -124,18 +125,20 @@ class CumminsDecoder(BaseOemDecoder):
             )
 
         # Byte 2 (bits 0..1): DPF Active Regeneration Status
+        # REVIEW hardening: map-miss (reserved) → invalid.
+        from src.protocols.j1939.oem.registry import resolve_enum
+
         byte2 = data[2]
         raw_regen = byte2 & 0x03
-        signals["dpf_active_regeneration_status"] = DecodedSignal(
-            name="dpf_active_regeneration_status",
-            value=self.REGEN_STATUS_MAP.get(raw_regen, f"Reserved ({raw_regen})"),
-            unit="enum",
-            raw_value=raw_regen,
-            is_valid=True,
-            status=SignalStatus.VALID,
+        signals["dpf_active_regeneration_status"] = resolve_enum(
+            {0: "Disabled/Off", 1: "Active Stationary (Parked)", 2: "Active Mobile (Highway)"},
+            raw_regen,
+            signal_name="dpf_active_regeneration_status",
         )
 
         # Byte 2 (bits 2..3): DPF Regeneration Inhibit Switch
+        # REVIEW hardening: 2/3 keep ERROR/NOT_AVAILABLE; 0/1 resolve via
+        # the map (unknown codes on wider fields use resolve_enum).
         raw_inhibit = (byte2 >> 2) & 0x03
         inhibit_status = SignalStatus.VALID
         inhibit_valid = True
@@ -148,7 +151,7 @@ class CumminsDecoder(BaseOemDecoder):
 
         signals["dpf_regeneration_inhibit_switch"] = DecodedSignal(
             name="dpf_regeneration_inhibit_switch",
-            value=self.INHIBIT_SWITCH_MAP.get(raw_inhibit, f"State ({raw_inhibit})"),
+            value=self.INHIBIT_SWITCH_MAP.get(raw_inhibit, "RESERVED/UNKNOWN"),
             unit="enum",
             raw_value=raw_inhibit,
             is_valid=inhibit_valid,
@@ -156,24 +159,33 @@ class CumminsDecoder(BaseOemDecoder):
         )
 
         # Byte 2 (bits 4..7): DPF Warning Lamp State
+        # REVIEW hardening: 14/15 sentinels first; unknown 4..13 codes are
+        # reserved → invalid (previously VALID with fabricated labels).
         raw_lamp = (byte2 >> 4) & 0x0F
-        lamp_status = SignalStatus.VALID
-        lamp_valid = True
         if raw_lamp == 14:
-            lamp_status = SignalStatus.ERROR
-            lamp_valid = False
+            signals["dpf_warning_lamp_state"] = DecodedSignal(
+                name="dpf_warning_lamp_state",
+                value=None,
+                unit="enum",
+                raw_value=raw_lamp,
+                is_valid=False,
+                status=SignalStatus.ERROR,
+            )
         elif raw_lamp == 15:
-            lamp_status = SignalStatus.NOT_AVAILABLE
-            lamp_valid = False
-
-        signals["dpf_warning_lamp_state"] = DecodedSignal(
-            name="dpf_warning_lamp_state",
-            value=self.WARNING_LAMP_MAP.get(raw_lamp, f"State ({raw_lamp})"),
-            unit="enum",
-            raw_value=raw_lamp,
-            is_valid=lamp_valid,
-            status=lamp_status,
-        )
+            signals["dpf_warning_lamp_state"] = DecodedSignal(
+                name="dpf_warning_lamp_state",
+                value=None,
+                unit="enum",
+                raw_value=raw_lamp,
+                is_valid=False,
+                status=SignalStatus.NOT_AVAILABLE,
+            )
+        else:
+            signals["dpf_warning_lamp_state"] = resolve_enum(
+                self.WARNING_LAMP_MAP,
+                raw_lamp,
+                signal_name="dpf_warning_lamp_state",
+            )
 
         # Byte 3: DPF Ash Mass Load Index (uint8, 1.0 g)
         raw_ash = data[3]
@@ -404,8 +416,24 @@ class CumminsDecoder(BaseOemDecoder):
             return None
 
         cmd_name = cmd_names[cmd_id]
-        target_cyl = data[1] if len(data) > 1 else 0
-        token = (data[2] | (data[3] << 8)) if len(data) >= 4 else 0
+        # REVIEW hardening: short Prop-A frames carry no target/token —
+        # missing optional fields decode to None + invalid, never 0 VALID.
+        if len(data) > 1:
+            target_cyl: int | None = data[1]
+            target_valid = True
+            target_status = SignalStatus.VALID
+        else:
+            target_cyl = None
+            target_valid = False
+            target_status = SignalStatus.ERROR
+        if len(data) >= 4:
+            token: int | None = data[2] | (data[3] << 8)
+            token_valid = True
+            token_status = SignalStatus.VALID
+        else:
+            token = None
+            token_valid = False
+            token_status = SignalStatus.ERROR
 
         signals: dict[str, DecodedSignal] = {
             "service_command_id": DecodedSignal(
@@ -426,19 +454,19 @@ class CumminsDecoder(BaseOemDecoder):
             ),
             "target_cylinder": DecodedSignal(
                 name="target_cylinder",
-                value=target_cyl,
+                value=target_cyl,  # type: ignore[arg-type]
                 unit="index",
-                raw_value=target_cyl,
-                is_valid=True,
-                status=SignalStatus.VALID,
+                raw_value=target_cyl if target_cyl is not None else 0,
+                is_valid=target_valid,
+                status=target_status,
             ),
             "security_token": DecodedSignal(
                 name="security_token",
-                value=token,
+                value=token,  # type: ignore[arg-type]
                 unit="raw",
-                raw_value=token,
-                is_valid=True,
-                status=SignalStatus.VALID,
+                raw_value=token if token is not None else 0,
+                is_valid=token_valid,
+                status=token_status,
             ),
         }
 

@@ -1,17 +1,22 @@
 {
   "metadata": {
     "title": "OEM-Specific UDS Data Identifier (DID) Diagnostic Knowledge Base",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "standard": "ISO 14229-1 (UDS Service 0x22 / 0x2E)",
-    "total_dids": 36,
+    "total_dids": 68,
     "supported_oems": [
-      "VAG",
       "BMW",
       "Ford",
-      "Tesla",
+      "Hyundai-Kia",
+      "ISO 14229 (Universal)",
       "Mercedes-Benz",
+      "Tesla",
       "Toyota",
-      "Hyundai-Kia"
+      "VAG"
+    ],
+    "last_updated": "2026-09-12",
+    "sources": [
+      "ISO 14229:2006 Annex F (via python-udsoncan DataIdentifier, MIT)"
     ]
   },
   "dids": {
@@ -518,6 +523,326 @@
       "offset": 0.0,
       "unit": "V",
       "description": "Total high voltage DC bus pack voltage measured by Battery Management System."
+    },
+    "0XF180": {
+      "did_hex": "0XF180",
+      "did_int": 61824,
+      "name": "Boot Software Identification",
+      "name_tr": "",
+      "oem": "ISO 14229 (Universal)",
+      "subsystem": "boot_software",
+      "source": "ISO 14229:2006 Annex F (via python-udsoncan DataIdentifier, MIT)",
+      "description": "ISO 14229-1 Annex F standard data identifier."
+    },
+    "0XF181": {
+      "did_hex": "0XF181",
+      "did_int": 61825,
+      "name": "Application Software Identification",
+      "name_tr": "",
+      "oem": "ISO 14229 (Universal)",
+      "subsystem": "application_software",
+      "source": "ISO 14229:2006 Annex F (via python-udsoncan DataIdentifier, MIT)",
+      "description": "ISO 14229-1 Annex F standard data identifier."
+    },
+    "0XF182": {
+      "did_hex": "0XF182",
+      "did_int": 61826,
+      "name": "Application Data Identification",
+      "name_tr": "",
+      "oem": "ISO 14229 (Universal)",
+      "subsystem": "application_data",
+      "source": "ISO 14229:2006 Annex F (via python-udsoncan DataIdentifier, MIT)",
+      "description": "ISO 14229-1 Annex F standard data identifier."
+    },
+    "0XF183": {
+      "did_hex": "0XF183",
+      "did_int": 61827,
+      "name": "Boot Software Fingerprint",
+      "name_tr": "",
+      "oem": "ISO 14229 (Universal)",
+      "subsystem": "boot_software",
+      "source": "ISO 14229:2006 Annex F (via python-udsoncan DataIdentifier, MIT)",
+      "description": "ISO 14229-1 Annex F standard data identifier."
+    },
+    "0XF184": {
+      "did_hex": "0XF184",
+      "did_int": 61828,
+      "name": "Application Software Fingerprint",
+      "name_tr": "",
+      "oem": "ISO 14229 (Universal)",
+      "subsystem": "application_software",
+      "source": "ISO 14229:2006 Annex F (via python-udsoncan DataIdentifier, MIT)",
+      "description": "ISO 14229-1 Annex F standard data identifier."
+    },
+    "0XF185": {
+      "did_hex": "0XF185",
+      "did_int": 61829,
+      "name": "Application Data Fingerprint",
+      "name_tr": "",
+      "oem": "ISO 14229 (Universal)",
+      "subsystem": "application_data",
+      "source": "ISO 14229:2006 Annex F (via python-udsoncan DataIdentifier, MIT)",
+      "description": "ISO 14229-1 Annex F standard data identifier."
+    },
+    "0XF186": {
+      "did_hex": "0XF186",
+      "did_int": 61830,
+      "name": "Active Diagnostic Session",
+      "name_tr": "",
+      "oem": "ISO 14229 (Universal)",
+      "subsystem": "diagnostic_session",
+      "source": "ISO 14229:2006 Annex F (via python-udsoncan DataIdentifier, MIT)",
+      "description": "ISO 14229-1 Annex F standard data identifier."
+    },
+    "0XF187": {
+      "did_hex": "0XF187",
+      "did_int": 61831,
+      "name": "Vehicle Manufacturer Spare Part Number",
+      "name_tr": "",
+      "oem": "ISO 14229 (Universal)",
+      "subsystem": "identification",
+      "source": "ISO 14229:2006 Annex F (via python-udsoncan DataIdentifier, MIT)",
+      "description": "ISO 14229-1 Annex F standard data identifier."
+    },
+    "0XF188": {
+      "did_hex": "0XF188",
+      "did_int": 61832,
+      "name": "Vehicle Manufacturer ECU Software Number",
+      "name_tr": "",
+      "oem": "ISO 14229 (Universal)",
+      "subsystem": "software_version",
+      "source": "ISO 14229:2006 Annex F (via python-udsoncan DataIdentifier, MIT)",
+      "description": "ISO 14229-1 Annex F standard data identifier."
+    },
+    "0XF189": {
+      "did_hex": "0XF189",
+      "did_int": 61833,
+      "name": "Vehicle Manufacturer ECU Software Version Number",
+      "name_tr": "",
+      "oem": "ISO 14229 (Universal)",
+      "subsystem": "software_version",
+      "source": "ISO 14229:2006 Annex F (via python-udsoncan DataIdentifier, MIT)",
+      "description": "ISO 14229-1 Annex F standard data identifier."
+    },
+    "0XF18A": {
+      "did_hex": "0XF18A",
+      "did_int": 61834,
+      "name": "System Supplier Identifier",
+      "name_tr": "",
+      "oem": "ISO 14229 (Universal)",
+      "subsystem": "identification",
+      "source": "ISO 14229:2006 Annex F (via python-udsoncan DataIdentifier, MIT)",
+      "description": "ISO 14229-1 Annex F standard data identifier."
+    },
+    "0XF18B": {
+      "did_hex": "0XF18B",
+      "did_int": 61835,
+      "name": "ECU Manufacturing Date",
+      "name_tr": "",
+      "oem": "ISO 14229 (Universal)",
+      "subsystem": "manufacturing",
+      "source": "ISO 14229:2006 Annex F (via python-udsoncan DataIdentifier, MIT)",
+      "description": "ISO 14229-1 Annex F standard data identifier."
+    },
+    "0XF18C": {
+      "did_hex": "0XF18C",
+      "did_int": 61836,
+      "name": "ECU Serial Number",
+      "name_tr": "",
+      "oem": "ISO 14229 (Universal)",
+      "subsystem": "identification",
+      "source": "ISO 14229:2006 Annex F (via python-udsoncan DataIdentifier, MIT)",
+      "description": "ISO 14229-1 Annex F standard data identifier."
+    },
+    "0XF18D": {
+      "did_hex": "0XF18D",
+      "did_int": 61837,
+      "name": "Supported Functional Units",
+      "name_tr": "",
+      "oem": "ISO 14229 (Universal)",
+      "subsystem": "identification",
+      "source": "ISO 14229:2006 Annex F (via python-udsoncan DataIdentifier, MIT)",
+      "description": "ISO 14229-1 Annex F standard data identifier."
+    },
+    "0XF18E": {
+      "did_hex": "0XF18E",
+      "did_int": 61838,
+      "name": "Vehicle Manufacturer Kit Assembly Part Number",
+      "name_tr": "",
+      "oem": "ISO 14229 (Universal)",
+      "subsystem": "identification",
+      "source": "ISO 14229:2006 Annex F (via python-udsoncan DataIdentifier, MIT)",
+      "description": "ISO 14229-1 Annex F standard data identifier."
+    },
+    "0XF18F": {
+      "did_hex": "0XF18F",
+      "did_int": 61839,
+      "name": "ISO SAE Reserved Standardized",
+      "name_tr": "",
+      "oem": "ISO 14229 (Universal)",
+      "subsystem": "reserved",
+      "source": "ISO 14229:2006 Annex F (via python-udsoncan DataIdentifier, MIT)",
+      "description": "ISO 14229-1 Annex F standard data identifier."
+    },
+    "0XF190": {
+      "did_hex": "0XF190",
+      "did_int": 61840,
+      "name": "Vehicle Identification Number (VIN)",
+      "name_tr": "",
+      "oem": "ISO 14229 (Universal)",
+      "subsystem": "identification",
+      "source": "ISO 14229:2006 Annex F (via python-udsoncan DataIdentifier, MIT)",
+      "description": "ISO 14229-1 Annex F standard data identifier."
+    },
+    "0XF191": {
+      "did_hex": "0XF191",
+      "did_int": 61841,
+      "name": "Vehicle Manufacturer ECU Hardware Number",
+      "name_tr": "",
+      "oem": "ISO 14229 (Universal)",
+      "subsystem": "hardware_version",
+      "source": "ISO 14229:2006 Annex F (via python-udsoncan DataIdentifier, MIT)",
+      "description": "ISO 14229-1 Annex F standard data identifier."
+    },
+    "0XF192": {
+      "did_hex": "0XF192",
+      "did_int": 61842,
+      "name": "System Supplier ECU Hardware Number",
+      "name_tr": "",
+      "oem": "ISO 14229 (Universal)",
+      "subsystem": "hardware_version",
+      "source": "ISO 14229:2006 Annex F (via python-udsoncan DataIdentifier, MIT)",
+      "description": "ISO 14229-1 Annex F standard data identifier."
+    },
+    "0XF193": {
+      "did_hex": "0XF193",
+      "did_int": 61843,
+      "name": "System Supplier ECU Hardware Version Number",
+      "name_tr": "",
+      "oem": "ISO 14229 (Universal)",
+      "subsystem": "hardware_version",
+      "source": "ISO 14229:2006 Annex F (via python-udsoncan DataIdentifier, MIT)",
+      "description": "ISO 14229-1 Annex F standard data identifier."
+    },
+    "0XF194": {
+      "did_hex": "0XF194",
+      "did_int": 61844,
+      "name": "System Supplier ECU Software Number",
+      "name_tr": "",
+      "oem": "ISO 14229 (Universal)",
+      "subsystem": "software_version",
+      "source": "ISO 14229:2006 Annex F (via python-udsoncan DataIdentifier, MIT)",
+      "description": "ISO 14229-1 Annex F standard data identifier."
+    },
+    "0XF195": {
+      "did_hex": "0XF195",
+      "did_int": 61845,
+      "name": "System Supplier ECU Software Version Number",
+      "name_tr": "",
+      "oem": "ISO 14229 (Universal)",
+      "subsystem": "software_version",
+      "source": "ISO 14229:2006 Annex F (via python-udsoncan DataIdentifier, MIT)",
+      "description": "ISO 14229-1 Annex F standard data identifier."
+    },
+    "0XF196": {
+      "did_hex": "0XF196",
+      "did_int": 61846,
+      "name": "Exhaust Regulation Or Type Approval Number",
+      "name_tr": "",
+      "oem": "ISO 14229 (Universal)",
+      "subsystem": "homologation",
+      "source": "ISO 14229:2006 Annex F (via python-udsoncan DataIdentifier, MIT)",
+      "description": "ISO 14229-1 Annex F standard data identifier."
+    },
+    "0XF197": {
+      "did_hex": "0XF197",
+      "did_int": 61847,
+      "name": "System Name Or Engine Type",
+      "name_tr": "",
+      "oem": "ISO 14229 (Universal)",
+      "subsystem": "identification",
+      "source": "ISO 14229:2006 Annex F (via python-udsoncan DataIdentifier, MIT)",
+      "description": "ISO 14229-1 Annex F standard data identifier."
+    },
+    "0XF198": {
+      "did_hex": "0XF198",
+      "did_int": 61848,
+      "name": "Repair Shop Code Or Tester Serial Number",
+      "name_tr": "",
+      "oem": "ISO 14229 (Universal)",
+      "subsystem": "service_history",
+      "source": "ISO 14229:2006 Annex F (via python-udsoncan DataIdentifier, MIT)",
+      "description": "ISO 14229-1 Annex F standard data identifier."
+    },
+    "0XF199": {
+      "did_hex": "0XF199",
+      "did_int": 61849,
+      "name": "Programming Date",
+      "name_tr": "",
+      "oem": "ISO 14229 (Universal)",
+      "subsystem": "service_history",
+      "source": "ISO 14229:2006 Annex F (via python-udsoncan DataIdentifier, MIT)",
+      "description": "ISO 14229-1 Annex F standard data identifier."
+    },
+    "0XF19A": {
+      "did_hex": "0XF19A",
+      "did_int": 61850,
+      "name": "Calibration Repair Shop Code Or Calibration Equipment Serial Number",
+      "name_tr": "",
+      "oem": "ISO 14229 (Universal)",
+      "subsystem": "calibration",
+      "source": "ISO 14229:2006 Annex F (via python-udsoncan DataIdentifier, MIT)",
+      "description": "ISO 14229-1 Annex F standard data identifier."
+    },
+    "0XF19B": {
+      "did_hex": "0XF19B",
+      "did_int": 61851,
+      "name": "Calibration Date",
+      "name_tr": "",
+      "oem": "ISO 14229 (Universal)",
+      "subsystem": "calibration",
+      "source": "ISO 14229:2006 Annex F (via python-udsoncan DataIdentifier, MIT)",
+      "description": "ISO 14229-1 Annex F standard data identifier."
+    },
+    "0XF19C": {
+      "did_hex": "0XF19C",
+      "did_int": 61852,
+      "name": "Calibration Equipment Software Number",
+      "name_tr": "",
+      "oem": "ISO 14229 (Universal)",
+      "subsystem": "calibration",
+      "source": "ISO 14229:2006 Annex F (via python-udsoncan DataIdentifier, MIT)",
+      "description": "ISO 14229-1 Annex F standard data identifier."
+    },
+    "0XF19D": {
+      "did_hex": "0XF19D",
+      "did_int": 61853,
+      "name": "ECU Installation Date",
+      "name_tr": "",
+      "oem": "ISO 14229 (Universal)",
+      "subsystem": "manufacturing",
+      "source": "ISO 14229:2006 Annex F (via python-udsoncan DataIdentifier, MIT)",
+      "description": "ISO 14229-1 Annex F standard data identifier."
+    },
+    "0XF19E": {
+      "did_hex": "0XF19E",
+      "did_int": 61854,
+      "name": "ODX File",
+      "name_tr": "",
+      "oem": "ISO 14229 (Universal)",
+      "subsystem": "odx_data",
+      "source": "ISO 14229:2006 Annex F (via python-udsoncan DataIdentifier, MIT)",
+      "description": "ISO 14229-1 Annex F standard data identifier."
+    },
+    "0XF19F": {
+      "did_hex": "0XF19F",
+      "did_int": 61855,
+      "name": "Entity",
+      "name_tr": "",
+      "oem": "ISO 14229 (Universal)",
+      "subsystem": "odx_data",
+      "source": "ISO 14229:2006 Annex F (via python-udsoncan DataIdentifier, MIT)",
+      "description": "ISO 14229-1 Annex F standard data identifier."
     }
   }
 }

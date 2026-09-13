@@ -23,6 +23,7 @@ class _UdsResponse:
     is_positive: bool = True
     nrc_description_tr: str = ""
     data: bytes = b""
+    nrc: int = 0x10
 
 
 class _RecordingUdsClient:
@@ -52,11 +53,20 @@ class _RecordingUdsClient:
             elif name == "transfer_data":
                 block_seq = kwargs.get("block_sequence", 1)
                 resp = _UdsResponse(data=bytes([block_seq & 0xFF]))
+            elif name == "security_access_request_seed":
+                # REVIEW (SecurityAccess echo): a real ECU answers
+                # `67 <requested level> <seed bytes>`; the flasher now
+                # validates the subfunction echo before consuming the seed.
+                # P1-5: the programming-session seed request uses level=1.
+                req_level = kwargs.get("level", 1)
+                resp = _UdsResponse(data=bytes([req_level & 0xFF, 0x11, 0x22, 0x33, 0x44]))
             else:
                 resp = _UdsResponse(data=b"")
         return resp
 
-    # --- UdsClient surface used by EcuFlashingEngine ---
+    def read_did(self, did: int, **kw: Any) -> _UdsResponse:
+        return self._record("read_did", did=did, **kw)
+
     def change_session(self, session_type: Any, **kw: Any) -> _UdsResponse:
         return self._record("change_session", session_type=session_type, **kw)
 
@@ -114,7 +124,8 @@ def _config(**overrides: Any) -> FlashingConfig:
         "data": b"\x55" * 512,
         "block_size": 256,
         "user_confirmed": True,
-        "verify_checksum": False,
+        # REVIEW hardening: verify_checksum=False is fail-closed rejected.
+        "verify_checksum": True,
         "reset_after_flash": True,
     }
     defaults.update(overrides)
@@ -145,9 +156,17 @@ def test_flash_aborts_when_estop_engaged() -> None:
 
 def test_flash_full_happy_path_sequence() -> None:
     """The happy-path sequence issues the canonical service order
-    (P1-5: programming session BEFORE security access; no key configured,
-    checksum verification off)."""
+    (P1-5: programming session BEFORE security access; checksum verified)."""
     client = _RecordingUdsClient()
+    client.replies["start_routine"] = [_UdsResponse(is_positive=True, data=b"")]
+    # REVIEW (routineControl echo): ISO 14229 positive replies echo
+    # controlType + routineId before the routineStatusRecord — a real ECU
+    # answers `71 03 02 02 00` for REQUEST_ROUTINE_RESULTS on routine
+    # 0x0202 with status 0x00 (correctlyCompleted). The old mock omitted
+    # the echo prefix, which the parser (correctly) rejects.
+    client.replies["request_routine_results"] = [
+        _UdsResponse(is_positive=True, data=b"\x03\x02\x02\x00")
+    ]
     engine = _run(client, _config())
     names = [name for name, _ in client.calls]
     assert names == [
@@ -157,6 +176,8 @@ def test_flash_full_happy_path_sequence() -> None:
         "transfer_data",               # 512 B / 256 B blocks = 2 blocks
         "transfer_data",
         "request_transfer_exit",
+        "start_routine",               # checksum verification (0x31 0x01)
+        "request_routine_results",     # checksum result poll (0x31 0x03)
         "ecu_reset",
     ]
     assert engine.current_step is FlashingStep.COMPLETED
@@ -226,8 +247,14 @@ def test_flash_checksum_rejection_triggers_recovery() -> None:
 
 def test_flash_security_access_after_programming_session_p1_5() -> None:
     """P1-5 regression: 0x27 runs INSIDE the programming session (0x10 0x02),
-    never before it — the ECU re-locks security on session transition."""
+    never before it � the ECU re-locks security on session transition."""
     client = _RecordingUdsClient()
+    client.replies["start_routine"] = [_UdsResponse(is_positive=True, data=b"")]
+    # REVIEW (routineControl echo): see happy-path test — real ECU replies
+    # `71 03 <rid> <rid> <status>`; status 0x00 = correctly completed.
+    client.replies["request_routine_results"] = [
+        _UdsResponse(is_positive=True, data=b"\x03\x02\x02\x00")
+    ]
     engine = EcuFlashingEngine(uds_client=client, gateway=_StubGateway())
     engine.execute_flash(_config(security_key=b"\x01\x02\x03\x04"))
     names = [name for name, _ in client.calls]
@@ -240,6 +267,8 @@ def test_flash_security_access_after_programming_session_p1_5() -> None:
         "transfer_data",
         "transfer_data",
         "request_transfer_exit",
+        "start_routine",
+        "request_routine_results",
         "ecu_reset",
     ]
     # Security level inside the programming session:
@@ -251,6 +280,11 @@ def test_flash_security_level_split_for_programming_session() -> None:
     """P1-5: programming_security_level overrides the seed/key level used
     inside the bootloader session."""
     client = _RecordingUdsClient()
+    client.replies["start_routine"] = [_UdsResponse(is_positive=True, data=b"")]
+    # REVIEW (routineControl echo): `71 03 02 02 00` (controlType + rid 0x0202 + status 0x00).
+    client.replies["request_routine_results"] = [
+        _UdsResponse(is_positive=True, data=b"\x03\x02\x02\x00")
+    ]
     engine = EcuFlashingEngine(uds_client=client, gateway=_StubGateway())
     engine.execute_flash(
         _config(security_key=b"\xAA", security_level=1, programming_security_level=0x11)
@@ -269,6 +303,11 @@ def test_flash_block_size_clamped_to_ecu_max_p1_6() -> None:
     client = _RecordingUdsClient()
     # lengthFormat 0x20 → 2-byte maxNumberOfBlockLength = 0x00FF (255)
     client.replies["request_download"] = [_UdsResponse(is_positive=True, data=bytes([0x20, 0x00, 0xFF]))]
+    client.replies["start_routine"] = [_UdsResponse(is_positive=True, data=b"")]
+    # REVIEW (routineControl echo): `71 03 02 02 00` (controlType + rid 0x0202 + status 0x00).
+    client.replies["request_routine_results"] = [
+        _UdsResponse(is_positive=True, data=b"\x03\x02\x02\x00")
+    ]
 
     engine = EcuFlashingEngine(uds_client=client, gateway=_StubGateway())
     engine.execute_flash(_config())  # block_size=256 > 253
@@ -349,3 +388,171 @@ def test_flash_preflight_rejects_expired_watchdog_lease_p1_8() -> None:
     with pytest.raises(SafetyError, match="watchdog"):
         engine.execute_flash(_config())
     assert client.calls == []
+
+
+def test_flash_with_firmware_container() -> None:
+    from src.protocols.uds.firmware import FirmwareContainer, MemorySegment
+
+    client = _RecordingUdsClient()
+    client.replies["start_routine"] = [_UdsResponse(is_positive=True, data=b"")]
+    client.replies["request_routine_results"] = [
+        _UdsResponse(is_positive=True, data=b"\x03\x02\x02\x00")
+    ]
+
+    container = FirmwareContainer(
+        segments=[MemorySegment(address=0x08010000, data=b"\xAA" * 512)],
+        entry_point=0x08010000,
+        file_format="intel_hex",
+    )
+    config = FlashingConfig(
+        container=container,
+        block_size=256,
+        user_confirmed=True,
+    )
+    assert config.memory_address == 0x08010000
+    assert config.data == b"\xAA" * 512
+
+    engine = _run(client, config)
+    assert engine.current_step is FlashingStep.COMPLETED
+    assert any(c[0] == "request_download" and c[1]["memory_address"] == 0x08010000 for c in client.calls)
+
+
+def test_flash_expected_vin_match_and_mismatch() -> None:
+    # 1. Match
+    client = _RecordingUdsClient()
+    client.replies["read_did"] = [_UdsResponse(is_positive=True, data=b"\xf1\x90VF1CORRECTVIN12345")]
+    client.replies["start_routine"] = [_UdsResponse(is_positive=True, data=b"")]
+    client.replies["request_routine_results"] = [
+        _UdsResponse(is_positive=True, data=b"\x03\x02\x02\x00")
+    ]
+
+    config = _config(expected_vin="VF1CORRECTVIN12345")
+    engine = _run(client, config)
+    assert engine.current_step is FlashingStep.COMPLETED
+
+    # 2. Mismatch
+    client2 = _RecordingUdsClient()
+    client2.replies["read_did"] = [_UdsResponse(is_positive=True, data=b"\xf1\x90VF1WRONGVIN0000000")]
+    config2 = _config(expected_vin="VF1CORRECTVIN12345")
+    with pytest.raises(SafetyError, match="VIN uyuşmazlığı"):
+        _run(client2, config2)
+
+
+def test_flash_with_erase_routine() -> None:
+    client = _RecordingUdsClient()
+    client.replies["start_routine"] = [
+        _UdsResponse(is_positive=True, data=b""),  # erase routine
+        _UdsResponse(is_positive=True, data=b""),  # checksum routine
+    ]
+    client.replies["request_routine_results"] = [
+        _UdsResponse(is_positive=True, data=b"\x03\x02\x02\x00")
+    ]
+
+    config = _config(erase_routine_id=0xFF00, erase_routine_options=b"\x01")
+    engine = _run(client, config)
+    assert engine.current_step is FlashingStep.COMPLETED
+
+    routine_calls = [c for c in client.calls if c[0] == "start_routine"]
+    assert len(routine_calls) == 2
+    assert routine_calls[0][1]["routine_id"] == 0xFF00
+    assert routine_calls[1][1]["routine_id"] == 0x0202
+
+
+# ============================================================================
+# REVIEW 3 — flasher hardening: preflight bounds, reset negative, session
+# contract (no silent user_confirmed downgrade).
+# ============================================================================
+
+
+def test_flash_preflight_rejects_oversized_image_review3() -> None:
+    """REVIEW 3: an image larger than the ECU profile bound is rejected at
+    config construction — BEFORE the erase routine wipes the target region."""
+    with pytest.raises(ValueError, match="exceeds ECU profile max"):
+        _config(max_image_bytes=256)  # default data is 512 bytes
+
+
+def test_flash_preflight_rejects_address_out_of_window_review3() -> None:
+    """REVIEW 3: address outside the ECU memory window is rejected up front."""
+    with pytest.raises(ValueError, match="below ECU profile minimum"):
+        _config(memory_min_address=0x08020000)  # default address 0x08000000
+    with pytest.raises(ValueError, match="exceeds ECU profile maximum"):
+        _config(memory_max_address=0x08000100)  # 512-byte image overruns
+
+
+def test_flash_preflight_rejects_unaligned_address_review3() -> None:
+    """REVIEW 3: alignment violation is rejected up front."""
+    with pytest.raises(ValueError, match="not 4-byte aligned"):
+        _config(memory_address=0x08000002, memory_alignment=4)
+
+
+def test_flash_ecu_reset_negative_response_fails_review3() -> None:
+    """REVIEW 3-HIGH: a rejected 0x11 must NOT be reported as COMPLETED —
+    the image is written but the ECU never booted into it."""
+    client = _RecordingUdsClient()
+    client.replies["start_routine"] = [_UdsResponse(is_positive=True, data=b"")]
+    client.replies["request_routine_results"] = [
+        _UdsResponse(is_positive=True, data=b"\x03\x02\x02\x00")
+    ]
+    client.replies["ecu_reset"] = [
+        _UdsResponse(is_positive=False, nrc_description_tr="NRC 0x22 koşullar yanlış")
+    ]
+    engine = EcuFlashingEngine(uds_client=client, gateway=_StubGateway())
+    with pytest.raises(ProtocolError, match="ECU Reset .* reddedildi"):
+        engine.execute_flash(_config())
+    assert engine.current_step is FlashingStep.FAILED
+    # Recovery ladder ran (no silent completion).
+    assert any(c[0] == "request_transfer_exit" for c in client.calls)
+
+
+def test_flash_session_contract_no_typeerror_fallback_review3() -> None:
+    """REVIEW 3-CRITICAL: a client whose change_session lacks user_confirmed
+    must fail HARD — the old TypeError fallback silently re-issued the
+    request without the dual-confirmation flag (gateway Stage-5 bypass)."""
+    class _LegacyClient(_RecordingUdsClient):
+        def change_session(self, session_type: Any, **kw: Any) -> _UdsResponse:
+            if "user_confirmed" in kw:
+                raise TypeError("legacy signature without user_confirmed")
+            return super().change_session(session_type)
+
+    client = _LegacyClient()
+    engine = EcuFlashingEngine(uds_client=client, gateway=_StubGateway())
+    with pytest.raises(TypeError):
+        engine.execute_flash(_config())
+
+
+def test_flash_transfer_data_contract_no_unflagged_fallback_review2() -> None:
+    """REVIEW 2 CRITICAL-1: a client whose transfer_data cannot accept
+    is_critical_command must fail HARD with SafetyError — the old
+    inspect.signature fallback silently sent the 0x36 flash write WITHOUT
+    the critical-command flag (gateway Stage-4/5 bypass)."""
+    class _LegacyTransferClient(_RecordingUdsClient):
+        def transfer_data(self, block_sequence: int = 0, data: bytes = b"", **kw: Any) -> _UdsResponse:
+            if "is_critical_command" in kw:
+                raise TypeError("legacy transfer_data signature without is_critical_command")
+            return super().transfer_data(block_sequence, data=data)
+
+    client = _LegacyTransferClient()
+    engine = EcuFlashingEngine(uds_client=client, gateway=_StubGateway())
+    with pytest.raises(SafetyError, match="transfer_data safety contract"):
+        engine.execute_flash(_config())
+    # The blocked call never reached an unflagged send.
+    unflagged = [c for c in client.calls if c[0] == "transfer_data" and not c[1].get("is_critical_command")]
+    assert not unflagged
+
+
+def test_flash_transfer_data_always_carries_critical_flag_review2() -> None:
+    """REVIEW 2: every 0x36 block call carries is_critical_command=True and
+    the session-bound operator confirmation (P1-1 chain preserved)."""
+    client = _RecordingUdsClient()
+    client.replies["start_routine"] = [_UdsResponse(is_positive=True, data=b"")]
+    client.replies["request_routine_results"] = [
+        _UdsResponse(is_positive=True, data=b"\x03\x02\x02\x00")
+    ]
+    engine = EcuFlashingEngine(uds_client=client, gateway=_StubGateway())
+    assert engine.execute_flash(_config(user_confirmed=True)) is True
+    td_calls = [c for c in client.calls if c[0] == "transfer_data"]
+    assert len(td_calls) == 2  # 512 B / 256 B blocks
+    for _name, kwargs in td_calls:
+        assert kwargs.get("is_critical_command") is True
+        assert kwargs.get("user_confirmed") is True
+

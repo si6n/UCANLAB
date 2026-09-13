@@ -1,8 +1,6 @@
 import { ChatMessage, CopilotAction, DiagnosticState, ScenarioType, TelemetryPoint } from '../types/can';
 import { KNOWN_DTCS } from './canSimulator';
 import { DesktopBridge } from './bridge';
-import { GeminiClient } from './geminiClient';
-import { OpenAiClient } from './openAiClient';
 
 // ============================================================================
 // SAE J1939 FMI TABLE REFERENCE (SAE J1939-73)
@@ -352,33 +350,9 @@ const EXPERT_REPORTS: Record<string, {
 };
 
 export class DiagnosticEngine {
-  private geminiApiKey: string = '';
-  private openAiApiKey: string = '';
-  private aiProvider: 'auto' | 'gemini' | 'openai' = 'auto';
-
-  public setApiKey(key: string) {
-    this.geminiApiKey = key;
-  }
-
-  public getApiKey(): string {
-    return this.geminiApiKey;
-  }
-
-  public setOpenAiApiKey(key: string) {
-    this.openAiApiKey = key;
-  }
-
-  public getOpenAiApiKey(): string {
-    return this.openAiApiKey;
-  }
-
-  public setAiProvider(provider: 'auto' | 'gemini' | 'openai') {
-    this.aiProvider = provider;
-  }
-
-  public getAiProvider(): 'auto' | 'gemini' | 'openai' {
-    return this.aiProvider;
-  }
+  // Fully offline (operator decision, M7): cloud LLM clients removed. All
+  // copilot answers come from the Python deterministic engine or the local
+  // TS fallback intelligence below.
 
   public evaluateSystemState(
     scenario: ScenarioType,
@@ -653,7 +627,11 @@ export class DiagnosticEngine {
    * Compact, Human-Friendly Forensics for SAE J1939 DM1 (PGN 65226).
    */
   private decodeJ1939DM1(bytes: number[], _canIdHex: string): string {
-    if ((bytes[2] === 0xFF && bytes[3] === 0xFF) || (bytes[0] === 0x00 && bytes[2] === 0xFF)) {
+    // REVIEW (DM1 record semantics): "no DTC" is bytes[2..3] == FF FF
+    // (SPN unavailable). The old extra clause (bytes[0]===0x00 &&
+    // bytes[2]===0xFF) treated lamps-off + SPN LSB 0xFF (e.g. SPN 511)
+    // as "no DTC", hiding a VALID fault record.
+    if (bytes[2] === 0xFF && bytes[3] === 0xFF) {
       return `✅ **J1939 DM1 (Aktif Arıza Yok):**\n\n• **İkaz Lambaları:** Kapalı / Normal\n• **Aktif Arıza Kodu:** **0 DTC** (Beyinde kayıtlı aktif arıza bulunmuyor).\n• **Durum:** Tüm alt sistemler nominal çalışma aralığında.`;
     }
 
@@ -767,72 +745,10 @@ export class DiagnosticEngine {
     const curRpm = state.currentTelemetry.rpm || 1850;
     const curBoost = state.currentTelemetry.turboPressure || 1.4;
     const curTemp = state.currentTelemetry.coolantTemp || 85.0;
+    void curRpm; void curBoost; void curTemp; void qNorm; void qLower; // offline engine context vars
 
-    const sysContext = `Sen "Universal CAN-Bus Diagnostic & Telemetry Tool" profesyonel araç teşhis yazılımının içerisindeki yerleşik AI Teşhis Başmühendisisin.
-Kullanıcı zaten CAN veri yoluna (OBD-II / J1939 / NMEA2000) doğrudan bağlı ve canlı paketleri bu cihaz ile okuyor!
-
-KESİN VE TAVİZSİZ ALAN KISITLAMALARI (DOMAIN GUARDRAILS):
-1. Sen SADECE ve SADECE otomotiv ve marin elektronik, CAN-Bus haberleşmesi (J1939, UDS, N2K, OBD-II), araç telemetrisi, sensörler ve arıza teşhisi alanında uzmanlaşmış özel bir mühendislik yapay zekasısın.
-2. Otomotiv, araç telemetrisi, donanım veya arıza teşhisi dışındaki HERHANGİ BİR KONUDA (günlük sohbet, hava durumu, yemek tarifi, siyaset, genel felsefe, edebiyat, genel kodlama vb.) soru sorulursa KESİNLİKLE yanıt verme!
-3. Konu dışı sorularda SADECE şunu söyle:
-   "⚠️ Ben Universal CAN-Bus Teşhis ve Telemetri asistanıyım. Yalnızca araç telemetrisi, CAN veri yolu protokolleri (J1939, UDS, NMEA 2000) ve arıza teşhis konularında yardımcı olabilirim."
-4. ASLA "DTC'yi başka bir teşhis cihazıyla okuyun", "aracı servise götürün" veya "bir tarayıcı bağlayın" DEME! Çünkü kullanıcı ZATEN bu teşhis cihazını kullanıyor ve arıza verisini doğrudan CAN hattından canlı okuyor.
-5. Doğrudan net, maddeli ve sahada uygulanabilir 4 aşamalı fiziksel onarım adımları ver (Sensör soketi, multimetre ohm/volt ölçümü, osiloskop, UDS servis 0x14/0x31).
-
-Canlı Araç Durumu:
-• Motor Devri: ${curRpm} RPM | Turbo: ${curBoost} Bar | Sıcaklık: ${curTemp}°C
-• Sistem Sağlığı: ${state.healthStatus === 'nominal' ? 'Nominal (0 DTC)' : `Arıza (${state.dtcCount} DTC)`}`;
-
-    // 0. Check OpenAI ChatGPT if selected or key starts with sk-
-    const shouldUseOpenAi = (this.aiProvider === 'openai') || 
-                            (this.aiProvider === 'auto' && this.openAiApiKey && this.openAiApiKey.trim().length > 10) ||
-                            (this.openAiApiKey && this.openAiApiKey.trim().startsWith('sk-'));
-
-    if (shouldUseOpenAi && this.openAiApiKey && this.openAiApiKey.trim().length > 10) {
-      try {
-        const openAiRes = await OpenAiClient.generateContent(this.openAiApiKey, query, sysContext);
-        if (openAiRes.success && openAiRes.text.trim().length > 0) {
-          return {
-            id: `msg-${Date.now()}`,
-            sender: 'copilot',
-            timestamp,
-            text: `✨ **OpenAI ${openAiRes.modelUsed} (ChatGPT Bulut Zekası):**\n\n${openAiRes.text.trim()}`
-          };
-        } else if (openAiRes.error) {
-          console.warn('OpenAI API error:', openAiRes.error);
-        }
-      } catch (err: any) {
-        console.warn('OpenAI API fetch failed:', err);
-      }
-    }
-
-    // 1. Check Google Gemini if selected or key is present
-    const shouldUseGemini = (this.aiProvider === 'gemini') || 
-                            (this.aiProvider === 'auto' && this.geminiApiKey && this.geminiApiKey.trim().length > 10) ||
-                            (this.geminiApiKey && this.geminiApiKey.trim().startsWith('AIza'));
-
-    if (shouldUseGemini && this.geminiApiKey && this.geminiApiKey.trim().length > 10) {
-      try {
-        const geminiRes = await GeminiClient.generateContent(this.geminiApiKey, query, sysContext);
-        if (geminiRes.success && geminiRes.text.trim().length > 0) {
-          const modelTitle = geminiRes.modelUsed ? geminiRes.modelUsed.replace(/^models\//, '') : 'Gemini 2.0 Flash';
-          const parsedGemini = this.parseActionMetadata(geminiRes.text.trim());
-          return {
-            id: `msg-${Date.now()}`,
-            sender: 'copilot',
-            timestamp,
-            text: `✨ **Google ${modelTitle} (Bulut Zekası):**\n\n${parsedGemini.cleanText}`,
-            actions: parsedGemini.actions,
-          };
-        } else if (geminiRes.error) {
-          console.warn('Gemini API error response:', geminiRes.error);
-        }
-      } catch (err: any) {
-        console.warn('Gemini API fetch failed, using local expert engine:', err);
-      }
-    }
-
-    // 2. Check if Python Desktop Bridge is present and returns a deep answer
+    // Fully offline: the Python deterministic engine (via DesktopBridge) is
+    // the AI authority. The TS fallback below covers bridge-less dev runs.
     const nativeRes = await DesktopBridge.askCopilot(query);
     if (nativeRes && !nativeRes.includes("Girdiğiniz sorgu (") && !nativeRes.includes("sorunuz için uzman")) {
       const parsed = this.parseActionMetadata(nativeRes);

@@ -7,10 +7,11 @@ from __future__ import annotations
 
 import ctypes
 import os
+import re
 import sys
 import threading
 from types import TracebackType
-from typing import Self
+from typing import ClassVar, Self
 
 from src.core.errors import HardwareError, TransportError
 from src.core.logging import get_logger
@@ -18,14 +19,58 @@ from src.hal.rp1210.types import RP1210ErrorCode
 
 logger = get_logger("hal.rp1210")
 
+_RP1210_DLL_ALLOWLIST_RE = re.compile(r"(?i)^RP1210(32|64)\.DLL$")
+_RP1210_PROTOCOL_ALLOWLIST: frozenset[str] = frozenset({"J1939", "CAN", "J1708", "ISO15765"})
+
+
+def _validate_dll_name(dll_name: str) -> str:
+    if not isinstance(dll_name, str) or not dll_name:
+        raise ValueError(f"dll_name must be a non-empty string, got {dll_name!r}")
+    if "/" in dll_name or "\\" in dll_name or ":" in dll_name or ".." in dll_name:
+        raise ValueError(f"dll_name must be a bare filename without path separators, got {dll_name!r}")
+    base = os.path.basename(dll_name)
+    if base != dll_name:
+        raise ValueError(f"dll_name must be a bare filename, got {dll_name!r}")
+    if not _RP1210_DLL_ALLOWLIST_RE.match(base):
+        raise HardwareError(
+            f"RP1210 DLL '{base}' is not in the allowlist (RP121032.DLL / RP121064.DLL)",
+            code="HARDWARE_DLL_NOT_FOUND",
+            details={"dll_name": base},
+        )
+    return base
+
+
+def _validate_device_id(device_id: int) -> int:
+    if not isinstance(device_id, int) or isinstance(device_id, bool) or not (1 <= device_id <= 255):
+        raise ValueError(f"device_id must be in range 1..255, got {device_id!r}")
+    return device_id
+
+
+def _validate_protocol(protocol: str) -> str:
+    if not isinstance(protocol, str) or not protocol:
+        raise ValueError(f"protocol must be a non-empty string, got {protocol!r}")
+    if protocol.upper() not in _RP1210_PROTOCOL_ALLOWLIST:
+        raise ValueError(
+            f"protocol must be one of {sorted(_RP1210_PROTOCOL_ALLOWLIST)}, got {protocol!r}"
+        )
+    return protocol
+
+
+def _validate_buffer_size(value: int, field_name: str) -> int:
+    if not isinstance(value, int) or isinstance(value, bool) or not (1 <= value <= 32767):
+        raise ValueError(f"{field_name} must be in range 1..32767, got {value!r}")
+    return value
+
 
 class RP1210Client:
     """Standard-compliant TMC RP1210 client wrapper supporting NEXIQ, DPA5, Noregon adapters."""
 
+    PROTOCOL_ALLOWLIST: ClassVar[frozenset[str]] = _RP1210_PROTOCOL_ALLOWLIST
+
     def __init__(self, dll_name: str, device_id: int = 1, protocol: str = "J1939") -> None:
-        self.dll_name = dll_name
-        self.device_id = device_id
-        self.protocol = protocol
+        self.dll_name = _validate_dll_name(dll_name)
+        self.device_id = _validate_device_id(device_id)
+        self.protocol = _validate_protocol(protocol)
         self.client_id: int | None = None
         self._dll: ctypes.CDLL | None = None
         # H-H-002: send/disconnect/connect race guard — client_id is read
@@ -47,23 +92,27 @@ class RP1210Client:
         environment variable — an attacker-controlled environment block
         must not be able to redirect DLL loading to a planted driver.
         """
+        # REVIEW 2 (LOW 7): RP1210 is a Windows-only vendor API — fail fast
+        # with an explicit error instead of fabricating Windows DLL paths
+        # and failing later with a confusing load error.
+        if sys.platform != "win32":
+            raise HardwareError(
+                "RP1210 is only supported on Windows",
+                code="HARDWARE_UNSUPPORTED_PLATFORM",
+                details={"platform": sys.platform, "dll_name": self.dll_name},
+            )
+
         candidates: list[str] = []
-        if sys.platform == "win32":
-            try:
-                buf = ctypes.create_unicode_buffer(260)
-                res = ctypes.windll.kernel32.GetSystemDirectoryW(buf, 260)
-                if res and 0 < res < 260:
-                    candidates.append(os.path.join(buf.value, self.dll_name))
-                buf2 = ctypes.create_unicode_buffer(260)
-                res2 = ctypes.windll.kernel32.GetWindowsDirectoryW(buf2, 260)
-                if res2 and 0 < res2 < 260:
-                    candidates.append(os.path.join(buf2.value, "SysWOW64", self.dll_name))
-            except Exception:  # noqa: BLE001 — API unavailable: fall back to hard defaults
-                candidates = [
-                    os.path.join("C:\\Windows", "System32", self.dll_name),
-                    os.path.join("C:\\Windows", "SysWOW64", self.dll_name),
-                ]
-        else:
+        try:
+            buf = ctypes.create_unicode_buffer(260)
+            res = ctypes.windll.kernel32.GetSystemDirectoryW(buf, 260)
+            if res and 0 < res < 260:
+                candidates.append(os.path.join(buf.value, self.dll_name))
+            buf2 = ctypes.create_unicode_buffer(260)
+            res2 = ctypes.windll.kernel32.GetWindowsDirectoryW(buf2, 260)
+            if res2 and 0 < res2 < 260:
+                candidates.append(os.path.join(buf2.value, "SysWOW64", self.dll_name))
+        except Exception:  # noqa: BLE001 — API unavailable: fall back to hard defaults
             candidates = [
                 os.path.join("C:\\Windows", "System32", self.dll_name),
                 os.path.join("C:\\Windows", "SysWOW64", self.dll_name),
@@ -74,11 +123,8 @@ class RP1210Client:
 
         for path in candidates:
             try:
-                # Use WinDLL on Windows for stdcall convention
-                if sys.platform == "win32":
-                    self._dll = ctypes.WinDLL(path)
-                else:
-                    self._dll = ctypes.CDLL(path)
+                # WinDLL (stdcall) — the platform guard above guarantees win32
+                self._dll = ctypes.WinDLL(path)
                 loaded = True
                 logger.info("Loaded RP1210 DLL successfully", extra={"path": path})
                 break
@@ -89,18 +135,27 @@ class RP1210Client:
             raise HardwareError(
                 f"RP1210 DLL '{self.dll_name}' could not be loaded. Please ensure the vendor driver is installed.",
                 code="HARDWARE_DLL_NOT_FOUND",
-                details={"dll_name": self.dll_name, "candidates": candidates},
+                details={
+                    "dll_name": self.dll_name,
+                    "candidates": [os.path.basename(c) for c in candidates],
+                },
                 cause=last_err,
             )
 
         # L-20 (P2-27): verify the entry points the client actually calls —
         # loading a wrong-architecture or non-RP1210 DLL fails HERE with a
         # structured error instead of AttributeError mid-connect.
+        # REVIEW 2 (HIGH 3): every symbol the client calls must be present so
+        # _setup_signatures assigns argtypes/restype to ALL of them — a
+        # ctypes call without an ABI signature risks stack corruption /
+        # native access violations inside the vendor DLL.
         required_exports = (
             "RP1210_ClientConnect",
             "RP1210_ClientDisconnect",
             "RP1210_SendMessage",
             "RP1210_ReadMessage",
+            "RP1210_SendCommand",
+            "RP1210_GetErrorMsg",
         )
         missing = [name for name in required_exports if not hasattr(self._dll, name)]
         if missing:
@@ -181,10 +236,22 @@ class RP1210Client:
         the first NUL, but strict RP1210 implementations can reject strings
         with embedded/trailing NULs — pass the protocol bytes exactly once.
         """
+        _validate_buffer_size(tx_buffer_size, "tx_buffer_size")
+        _validate_buffer_size(rx_buffer_size, "rx_buffer_size")
+        _validate_device_id(self.device_id)
+        _validate_protocol(self.protocol)
         if not self._dll:
             raise HardwareError("DLL not loaded")
 
-        proto_buf = ctypes.create_string_buffer(self.protocol.encode("ascii"))
+        try:
+            proto_buf = ctypes.create_string_buffer(self.protocol.encode("ascii"))
+        except UnicodeEncodeError as exc:
+            raise HardwareError(
+                f"RP1210 protocol is not ASCII-encodable: {self.protocol!r}",
+                code="HARDWARE_CONFIG_INVALID",
+                details={"protocol": self.protocol[:64]},
+                cause=exc,
+            ) from exc
         with self._lifecycle_lock:
             client_id = self._dll.RP1210_ClientConnect(
                 None,

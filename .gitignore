@@ -103,3 +103,27 @@ data/traces/marine/project_haris/raw/
 # Logseq local backups & transient caches
 .logseq/bak/
 .logseq/version-control/
+# ── Obsidian Vault ─────────────────────────────────────────────
+# Notlar takip edilir, kisisel UI ayarlari haric
+obsidian-vault/.obsidian/workspace.json
+obsidian-vault/.obsidian/workspace-mobile.json
+obsidian-vault/.obsidian/cache
+obsidian-vault/.trash/
+
+# --- Ad-hoc scratch / agent working files (Tur-27) ---
+# Gecici ceviri + tarama scriptleri (kalici DEGIL — repo disi tutulur)
+_tr_*.py
+_tr_*.json
+_tr_*.txt
+_watch.py
+_names.txt
+_empty_names.txt
+_unmatched.txt
+_tmp_tr_list.txt
+_tmp_*.txt
+workspace/
+.kilo/
+*.bak_meta
+*.bak
+.tmp_*
+*.tmp

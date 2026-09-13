@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Sparkles,
   CheckCircle2,
@@ -9,6 +9,39 @@ import {
   Radio,
 } from 'lucide-react';
 import { DiagnosticState, ChatMessage, CopilotAction } from '../../types/can';
+import { DesktopBridge, UserDiagnosticCard } from '../../services/bridge';
+
+// ────────────────────────────────────────────────────────────────────────
+// Karar Kartı (doküman §3/§35/§39) — renk + ikon + metin birlikte.
+// Kart yalnız risk bandı + başlık + özet + kaynak gösterir (budama planı
+// 2026-09-12: sürüş önerisi / aksiyon / ustaya not / güven katmanı kalktı).
+// ────────────────────────────────────────────────────────────────────────
+const RISK_UI: Record<string, { icon: string; badge: string; ring: string; bg: string; text: string }> = {
+  RED: { icon: '🔴', badge: 'KRİTİK — Sürüşü durdurun', ring: 'border-rose-300', bg: 'bg-rose-50', text: 'text-rose-900' },
+  YELLOW: { icon: '🟡', badge: 'DİKKAT — Servise gidin', ring: 'border-amber-300', bg: 'bg-amber-50', text: 'text-amber-900' },
+  GREEN: { icon: '🟢', badge: 'BİLGİ — Takip edin', ring: 'border-emerald-300', bg: 'bg-emerald-50', text: 'text-emerald-900' },
+  GRAY: { icon: '⚪', badge: 'VERİ YOK — Profesyonel kontrol önerilir', ring: 'border-slate-300', bg: 'bg-slate-50', text: 'text-slate-800' },
+};
+
+const DecisionCard: React.FC<{ card: UserDiagnosticCard }> = ({ card }) => {
+  const ui = RISK_UI[card.risk_level] ?? RISK_UI.GRAY;
+
+  return (
+    <div className={`rounded-xl border-2 ${ui.ring} ${ui.bg} p-3 text-xs`}>
+      <div className={`flex items-start gap-2.5 ${ui.text}`}>
+        <span className="text-lg leading-none">{ui.icon}</span>
+        <div className="flex-1">
+          <div className="text-[12px] font-bold">{ui.badge}</div>
+          <div className="mt-1 text-[13px] font-semibold">{card.headline_tr}</div>
+        </div>
+      </div>
+
+      <p className={`mt-2 whitespace-pre-line leading-relaxed ${ui.text}`}>{card.summary_tr}</p>
+
+      <div className="mt-1 text-[10px] text-slate-400">Kaynak: {card.source_badges.join(', ')}</div>
+    </div>
+  );
+};
 
 interface AiCopilotPanelProps {
   diagnosticState: DiagnosticState;
@@ -30,11 +63,30 @@ export const AiCopilotPanel: React.FC<AiCopilotPanelProps> = ({
   const [inputText, setInputText] = useState('');
   const [checkboxState, setCheckboxState] = useState<Record<string, boolean>>({});
   const [executingActionId, setExecutingActionId] = useState<string | null>(null);
+  // ── Karar Kartı state (offline AI, Python-composed) ──
+  const [card, setCard] = useState<UserDiagnosticCard | null>(null);
+
+  const refreshCard = useCallback(async () => {
+    const a = await DesktopBridge.getDiagnosticAnalysis();
+    if (a?.success && a.user_card) {
+      setCard(a.user_card as UserDiagnosticCard);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshCard();
+    const timer = window.setInterval(() => void refreshCard(), 10_000);
+    return () => window.clearInterval(timer);
+  }, [refreshCard]);
 
   const handleActionClick = async (action: CopilotAction) => {
     if (!onExecuteAction) return;
     if (action.requires_confirmation) {
-      const confirmText = action.confirm_text || `"${action.label}" aksiyonunu yürütmek istediğinizden emin misiniz?`;
+      // Doküman §16: DTC-silme onay metni birebir.
+      const isClear = action.action_type.includes('clear_dtc') || action.action_type === 'j1939_dm11';
+      const confirmText = isClear
+        ? 'Bu işlem arıza ışığını söndürebilir ama sorunu çözmez.\nSorun devam ederse ışık tekrar yanar.\nSadece onarım sonrası kullanılması önerilir.'
+        : action.confirm_text || `"${action.label}" aksiyonunu yürütmek istediğinizden emin misiniz?`;
       const confirmed = window.confirm(confirmText);
       if (!confirmed) return;
     }
@@ -113,8 +165,8 @@ export const AiCopilotPanel: React.FC<AiCopilotPanelProps> = ({
             <Sparkles className="h-4 w-4" />
           </div>
           <div>
-            <h2 className="text-[13px] font-bold text-slate-900">AI Copilot</h2>
-            <p className="text-xs font-medium text-slate-500">CAN teşhis asistanı</p>
+            <h2 className="text-[13px] font-bold text-slate-900">Teşhis Asistanı</h2>
+            <p className="text-xs font-medium text-slate-500">Kural tabanlı teşhis asistanı (çevrimdışı)</p>
           </div>
         </div>
         <button
@@ -128,6 +180,9 @@ export const AiCopilotPanel: React.FC<AiCopilotPanelProps> = ({
 
       {/* Scrollable Body */}
       <div className="flex-1 space-y-3 overflow-y-auto p-3.5">
+        {/* Karar Kartı — Python motorundan, display-only (doküman §3) */}
+        {card && <DecisionCard card={card} />}
+
         {/* System Health Status */}
         <div
           className={`rounded-xl border p-3 ${
@@ -216,7 +271,7 @@ export const AiCopilotPanel: React.FC<AiCopilotPanelProps> = ({
                   msg.sender === 'copilot' ? 'text-slate-500' : 'text-brand-100'
                 }`}
               >
-                <span className="font-semibold">{msg.sender === 'copilot' ? 'AI Copilot' : 'Siz'}</span>
+                <span className="font-semibold">{msg.sender === 'copilot' ? 'Teşhis Asistanı' : 'Siz'}</span>
                 <span>{msg.timestamp}</span>
               </div>
               <div>{renderFormattedText(msg.text, msg.sender === 'copilot')}</div>

@@ -9,6 +9,7 @@ from __future__ import annotations
 import threading
 import time
 
+from src.core.logging import get_logger
 from src.core.models.can_frame import CanFrame, dlc_to_length, length_to_dlc
 from src.safety.e2e.profiles import (
     E2EProfileConfig,
@@ -17,6 +18,8 @@ from src.safety.e2e.profiles import (
     inject_crc,
 )
 
+logger = get_logger("safety.e2e.packager")
+
 
 class E2ESafetyPackager:
     """Thread-safe stateful frame packager that applies E2E protection to outgoing CAN frames."""
@@ -24,6 +27,68 @@ class E2ESafetyPackager:
     def __init__(self) -> None:
         self._lock = threading.RLock()
         self._counters: dict[tuple[str, int], int] = {}
+
+    def _resolve_counter(
+        self,
+        stream_key: tuple[str, int],
+        profile: E2EProfileConfig,
+        counter: int | None,
+    ) -> int:
+        """Resolve the counter to seal with (rewind-rejecting, jump-audited).
+
+        External `counter` is KEPT for backward compat (validator gap/resync
+        harness crafts SOME_LOST/WRONG_SEQUENCE vectors through it). Forward
+        jumps are honored but audit-logged (the validator still classifies
+        them SOME_LOST/WRONG_SEQUENCE). Rewinds/repeats (normalized <= current
+        and not the immediate monotonic successor, incl. modulo wrap) raise
+        ValueError + audit instead of silently resynchronizing the stream.
+        Production callers must use counter=None (auto-increment, monotonic
+        by construction). The packager is NOT wired into any production TX
+        path (wiring gate).
+        """
+        if counter is None:
+            current_val = self._counters.get(stream_key, -1)
+            counter_to_use = (current_val + 1) % profile.counter_modulo
+            self._counters[stream_key] = counter_to_use
+            return counter_to_use
+        if not isinstance(counter, int) or isinstance(counter, bool):
+            raise ValueError(f"E2E counter must be int, got {type(counter).__name__}")
+        normalized = counter % profile.counter_modulo
+        if stream_key in self._counters:
+            current = self._counters[stream_key]
+            expected = (current + 1) % profile.counter_modulo
+            if normalized != expected:
+                if normalized <= current and not (
+                    current == profile.counter_modulo - 1 and normalized == 0
+                ):
+                    # Repeat or rewind (wrap successor already handled via
+                    # expected==0 above, so reaching here with normalized==0
+                    # and current==modulo-1 cannot happen; guard anyway).
+                    logger.warning(
+                        "E2E counter rewind/repeat rejected",
+                        extra={
+                            "stream": stream_key,
+                            "expected_next": expected,
+                            "current": current,
+                            "requested": normalized,
+                        },
+                    )
+                    raise ValueError(
+                        f"E2E counter rewind/repeat rejected for {stream_key}: "
+                        f"current {current}, requested {normalized} (expected {expected})"
+                    )
+                # Forward jump: honor for validator classification, but audit.
+                logger.warning(
+                    "E2E explicit counter jumps forward",
+                    extra={
+                        "stream": stream_key,
+                        "expected_next": expected,
+                        "current": current,
+                        "requested": normalized,
+                    },
+                )
+        self._counters[stream_key] = normalized
+        return normalized
 
     def package(
         self,
@@ -37,13 +102,7 @@ class E2ESafetyPackager:
         ts = timestamp_ns if timestamp_ns is not None else time.time_ns()
 
         with self._lock:
-            if counter is None:
-                current_val = self._counters.get(stream_key, -1)
-                counter_to_use = (current_val + 1) % profile.counter_modulo
-                self._counters[stream_key] = counter_to_use
-            else:
-                counter_to_use = counter % profile.counter_modulo
-                self._counters[stream_key] = counter_to_use
+            counter_to_use = self._resolve_counter(stream_key, profile, counter)
 
             payload = bytearray(frame.data)
 
@@ -96,13 +155,7 @@ class E2ESafetyPackager:
         """Package a raw byte buffer, returning (sealed_data, counter_used, computed_crc)."""
         stream_key = (channel_id, arbitration_id)
         with self._lock:
-            if counter is None:
-                current_val = self._counters.get(stream_key, -1)
-                counter_to_use = (current_val + 1) % profile.counter_modulo
-                self._counters[stream_key] = counter_to_use
-            else:
-                counter_to_use = counter % profile.counter_modulo
-                self._counters[stream_key] = counter_to_use
+            counter_to_use = self._resolve_counter(stream_key, profile, counter)
 
             payload = bytearray(data)
             min_len = max(profile.crc_byte_offset, profile.counter_byte_offset) + 1
@@ -132,9 +185,31 @@ class E2ESafetyPackager:
             return self._counters.get((channel_id, arbitration_id))
 
     def set_counter(self, channel_id: str, arbitration_id: int, counter: int) -> None:
-        """Explicitly set the counter value for a given stream."""
+        """Explicitly set the counter value for a given stream (audited, monotonic).
+
+        Rewinds are rejected fail-closed: lowering the stored counter raises
+        ValueError + audit instead of silently reopening a replay window.
+        Privileged re-sync must go through reset() + forward seal.
+        """
+        if not isinstance(counter, int) or isinstance(counter, bool):
+            raise ValueError(f"E2E counter must be int, got {type(counter).__name__}")
         with self._lock:
-            self._counters[(channel_id, arbitration_id)] = counter
+            key = (channel_id, arbitration_id)
+            current = self._counters.get(key)
+            if current is not None and counter < current:
+                logger.warning(
+                    "E2E set_counter rewind rejected",
+                    extra={"stream": key, "current": current, "requested": counter},
+                )
+                raise ValueError(
+                    f"E2E set_counter rewind rejected for {key}: "
+                    f"current {current}, requested {counter}"
+                )
+            self._counters[key] = counter
+            logger.warning(
+                "E2E counter explicitly set",
+                extra={"stream": key, "value": counter},
+            )
 
     def reset(self, channel_id: str | None = None, arbitration_id: int | None = None) -> None:
         """Reset sequence counters."""

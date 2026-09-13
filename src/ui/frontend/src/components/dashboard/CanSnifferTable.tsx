@@ -54,17 +54,31 @@ export const CanSnifferTable: React.FC<CanSnifferTableProps> = ({
   const [copiedToast, setCopiedToast] = useState<string | null>(null);
   const tableContainerRef = useRef<HTMLDivElement>(null);
 
+  // Robust J1939 PGN extraction from CAN ID
+  const extractJ1939Pgn = (canIdDec: number, isExtended: boolean): number | null => {
+    if (!isExtended && canIdDec <= 0x7FF) return null;
+    const dp = (canIdDec >> 24) & 0x01;
+    const edp = (canIdDec >> 25) & 0x01;
+    const pf = (canIdDec >> 16) & 0xFF;
+    const ps = (canIdDec >> 8) & 0xFF;
+    if (edp === 0) {
+      return pf < 240 ? ((dp << 16) | (pf << 8)) : ((dp << 16) | (pf << 8) | ps);
+    }
+    return null;
+  };
+
   // Helper to determine anomaly severity
   const getFrameAnomalyType = (frame: CANFrame): 'critical' | 'warning' | 'none' => {
-    if (frame.isErrorFrame) return 'critical';
+    if (frame.isErrorFrame || frame.frameType === 'ERR') return 'critical';
     
-    const idUpper = frame.canIdHex.toUpperCase();
+    const idDec = frame.canIdDec || parseInt(frame.canIdHex.replace('0x', ''), 16) || 0;
+    const isExt = frame.frameType === 'Ext' || idDec > 0x7FF || (frame.canIdHex.length > 5 && !frame.canIdHex.startsWith('0x00000'));
+    const pgn = frame.pgn ?? (isExt ? extractJ1939Pgn(idDec, true) : null);
     
-    // J1939 DM1 (Active DTCs - PGN 65226) or DM12 (Emissions DTCs - PGN 65236)
-    if (idUpper.includes('18FECA') || idUpper.includes('18FED4')) {
-      // Check if this is a "No Active DTCs" message (all FF or Lamp=0 and SPN=FF)
-      const hasNoDtc = (frame.dataHex.length >= 6 && frame.dataHex[2] === 'FF' && frame.dataHex[3] === 'FF') ||
-                       (frame.dataHex[0] === '00' && frame.dataHex[2] === 'FF');
+    // J1939 DM1 (Active DTCs - PGN 65226 / 0xFECA) or DM12 (Emissions DTCs - PGN 65236 / 0xFED4)
+    if (pgn === 65226 || pgn === 65236) {
+      // REVIEW (DM1 record semantics): "no active DTC" is ONLY SPN bytes [2..3] == FF FF
+      const hasNoDtc = frame.dataHex.length >= 6 && frame.dataHex[2] === 'FF' && frame.dataHex[3] === 'FF';
       if (hasNoDtc) return 'none';
       return 'critical';
     }
@@ -74,8 +88,8 @@ export const CanSnifferTable: React.FC<CanSnifferTableProps> = ({
       return 'critical';
     }
 
-    // J1939 DM2 (Previously Active DTCs - PGN 65227) or DM3 (Clear DTCs)
-    if (idUpper.includes('18FECB') || idUpper.includes('18FECC')) {
+    // J1939 DM2 (Previously Active DTCs - PGN 65227 / 0xFECB) or DM3 (Clear DTCs - PGN 65228 / 0xFECC)
+    if (pgn === 65227 || pgn === 65228) {
       return 'warning';
     }
 
@@ -183,10 +197,12 @@ export const CanSnifferTable: React.FC<CanSnifferTableProps> = ({
   };
 
   const renderColoredByte = (byte: string, index: number, frame: CANFrame) => {
-    const idUpper = frame.canIdHex.toUpperCase();
+    const idDec = frame.canIdDec || parseInt(frame.canIdHex.replace('0x', ''), 16) || 0;
+    const isExt = frame.frameType === 'Ext' || idDec > 0x7FF || (frame.canIdHex.length > 5 && !frame.canIdHex.startsWith('0x00000'));
+    const pgn = frame.pgn ?? (isExt ? extractJ1939Pgn(idDec, true) : null);
 
     // Critical DTC Byte Highlighting (e.g. DM1 Active Trouble Code payload)
-    if (idUpper.includes('18FECA') && index >= 2 && index <= 5) {
+    if ((pgn === 65226 || pgn === 65236) && index >= 2 && index <= 5) {
       return (
         <span 
           key={index} 

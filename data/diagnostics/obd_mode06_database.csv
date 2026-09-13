@@ -1,65 +1,248 @@
-﻿mid_hex,mid_name,mid_name_tr,subsystem,tid_hex,test_name,test_name_tr,uasid,unit,formula,scale,offset
-0x01,Exhaust Gas Sensor Monitor Bank 1 - Sensor 1,Egzoz Gazı O2 Sensör İzleme Sıra 1 - Sensör 1 (Ön Lambda),Emisyon & Yakıt Karışım Geri Beslemesi,0x01,Rich-to-Lean Sensor Switch Voltage,Zenginden Fakire Geçiş Eşik Voltajı,0x01,mV,raw * 0.1,0.1,0.0
-0x01,Exhaust Gas Sensor Monitor Bank 1 - Sensor 1,Egzoz Gazı O2 Sensör İzleme Sıra 1 - Sensör 1 (Ön Lambda),Emisyon & Yakıt Karışım Geri Beslemesi,0x02,Lean-to-Rich Sensor Switch Voltage,Fakirden Zengine Geçiş Eşik Voltajı,0x01,mV,raw * 0.1,0.1,0.0
-0x01,Exhaust Gas Sensor Monitor Bank 1 - Sensor 1,Egzoz Gazı O2 Sensör İzleme Sıra 1 - Sensör 1 (Ön Lambda),Emisyon & Yakıt Karışım Geri Beslemesi,0x05,Rich-to-Lean Sensor Switch Time,Zenginden Fakire Geçiş Süresi,0x07,ms,raw * 1.0,1.0,0.0
-0x01,Exhaust Gas Sensor Monitor Bank 1 - Sensor 1,Egzoz Gazı O2 Sensör İzleme Sıra 1 - Sensör 1 (Ön Lambda),Emisyon & Yakıt Karışım Geri Beslemesi,0x06,Lean-to-Rich Sensor Switch Time,Fakirden Zengine Geçiş Süresi,0x07,ms,raw * 1.0,1.0,0.0
-0x01,Exhaust Gas Sensor Monitor Bank 1 - Sensor 1,Egzoz Gazı O2 Sensör İzleme Sıra 1 - Sensör 1 (Ön Lambda),Emisyon & Yakıt Karışım Geri Beslemesi,0x07,Sensor Transition Period,Sensör Dalgalanma Periyodu,0x07,ms,raw * 1.0,1.0,0.0
-0x02,Exhaust Gas Sensor Monitor Bank 1 - Sensor 2,Egzoz Gazı O2 Sensör İzleme Sıra 1 - Sensör 2 (Katalizör Sonrası),Katalitik Konvertör Verimlilik Denetimi,0x01,Minimum Post-Cat Voltage Threshold,Minimum Kat-Sonrası Voltaj Eşiği,0x01,mV,raw * 0.1,0.1,0.0
-0x02,Exhaust Gas Sensor Monitor Bank 1 - Sensor 2,Egzoz Gazı O2 Sensör İzleme Sıra 1 - Sensör 2 (Katalizör Sonrası),Katalitik Konvertör Verimlilik Denetimi,0x02,Maximum Post-Cat Voltage Threshold,Maksimum Kat-Sonrası Voltaj Eşiği,0x01,mV,raw * 0.1,0.1,0.0
-0x02,Exhaust Gas Sensor Monitor Bank 1 - Sensor 2,Egzoz Gazı O2 Sensör İzleme Sıra 1 - Sensör 2 (Katalizör Sonrası),Katalitik Konvertör Verimlilik Denetimi,0x08,Oxygen Storage Capacity Switch Ratio,Oksijen Depolama Kapasitesi Geçiş Oranı,0x30,ratio,raw * 0.001,0.001,0.0
-0x21,Catalyst Monitor Bank 1,Katalitik Konvertör İzleme Sıra 1,Egzoz Gazı Arıtma & Emisyon,0xA2,Catalyst Efficiency Conversion Ratio,Katalizör Dönüşüm Verim Oranı,0x30,ratio,raw * 0.001,0.001,0.0
-0x21,Catalyst Monitor Bank 1,Katalitik Konvertör İzleme Sıra 1,Egzoz Gazı Arıtma & Emisyon,0xA3,Catalyst Light-Off Temperature,Katalizör Tutuşma Çalışma Sıcaklığı,0x10,°C,raw * 0.1 - 40,0.1,-40.0
-0x21,Catalyst Monitor Bank 1,Katalitik Konvertör İzleme Sıra 1,Egzoz Gazı Arıtma & Emisyon,0xA4,Oxygen Storage Capacity Index,Oksijen Depolama Kapasite İndeksi,0x14,%,raw * (100 / 255),0.39215686274509803,0.0
-0x31,EGR Monitor Bank 1,EGR (Egzoz Gazı Devridaimi) İzleme Sıra 1,NOx Emisyon Kontrol & EGR Valfi,0x80,EGR Valve Flow Delta Pressure,EGR Valfi Akış Fark Basıncı,0x0C,kPa,raw * 0.01,0.01,0.0
-0x31,EGR Monitor Bank 1,EGR (Egzoz Gazı Devridaimi) İzleme Sıra 1,NOx Emisyon Kontrol & EGR Valfi,0x81,EGR Step Motor Commanded vs Actual Position Error,EGR Adım Motoru Hedef-Gerçek Konum Sapması,0x14,%,raw * (100 / 255),0.39215686274509803,0.0
-0x31,EGR Monitor Bank 1,EGR (Egzoz Gazı Devridaimi) İzleme Sıra 1,NOx Emisyon Kontrol & EGR Valfi,0x82,EGR Gas Temperature Delta,EGR Gaz Sıcaklık Değişimi,0x10,°C,raw * 0.1 - 40,0.1,-40.0
-0x35,VVT (Variable Valve Timing) Monitor Bank 1,Değişken Subap Zamanlaması (VVT/Vanos) Sıra 1,Eksantrik Mili Zamanlama & Solenoid,0x90,Camshaft Phase Angle Response Time,Eksantrik Faz Açısı Tepki Süresi,0x07,ms,raw * 1.0,1.0,0.0
-0x35,VVT (Variable Valve Timing) Monitor Bank 1,Değişken Subap Zamanlaması (VVT/Vanos) Sıra 1,Eksantrik Mili Zamanlama & Solenoid,0x91,Camshaft Steady State Angle Deviation,Eksantrik Kararlı Açı Sapma Toleransı,0x14,%,raw * (100 / 255),0.39215686274509803,0.0
-0x39,EVAP Monitor (0.090 Inch Large Leak / Cap Off),EVAP Depo Havalandırma Büyük Kaçak Testi (Kapak Açık),Yakıt Buharı Kontrol Sistemi,0xB0,Vacuum Draw Rate During Purge,Hava Tahliyesi Esnasında Vakum Çekiş Hızı,0x0B,Pa,raw * 0.25,0.25,0.0
-0x39,EVAP Monitor (0.090 Inch Large Leak / Cap Off),EVAP Depo Havalandırma Büyük Kaçak Testi (Kapak Açık),Yakıt Buharı Kontrol Sistemi,0xB1,Vapor Pressure Sensor Baseline Offset,Buhar Basınç Sensörü Referans Sıfır Noktası,0x0B,Pa,raw * 0.25,0.25,0.0
-0x3A,EVAP Monitor (0.040 Inch Small Leak Detection),EVAP Küçük Kaçak Testi (0.040 inç Orifis),Yakıt Buharı Kontrol Sistemi,0xB2,Tank Vacuum Decay Rate,Depo Vakum Düşüş Hızı,0x0B,Pa,raw * 0.25,0.25,0.0
-0x3A,EVAP Monitor (0.040 Inch Small Leak Detection),EVAP Küçük Kaçak Testi (0.040 inç Orifis),Yakıt Buharı Kontrol Sistemi,0xB3,Canister Vent Solenoid Seal Integrity,Kömür Filtresi Tahliye Solenoidi Sızdırmazlığı,0x0B,Pa,raw * 0.25,0.25,0.0
-0x3B,EVAP Monitor (0.020 Inch Very Small Leak),EVAP Çok Küçük Kaçak Testi (0.020 inç Hassas),Yakıt Buharı Kontrol Sistemi,0xB4,Natural Vacuum Leak Detection (NVLD) Switch Point,Doğal Vakum Kaçak Algılama Şalter Kapanma Eşiği,0x0B,Pa,raw * 0.25,0.25,0.0
-0x3B,EVAP Monitor (0.020 Inch Very Small Leak),EVAP Çok Küçük Kaçak Testi (0.020 inç Hassas),Yakıt Buharı Kontrol Sistemi,0xB5,EVAP Pump Current Draw,EVAP Kaçak Teşhis Pompası Akım Çekişi,0x04,mA,(raw - 128) * 0.01,0.01,-128.0
-0x71,Variable Geometry Turbocharger (VGT) Monitor,Değişken Geometrili Turbo (VGT) İzleme,Turboşarj Aşırı Besleme & Aktüatör,0xC1,VGT Vane Slew Rate Response,VGT Kanatçık Değişim Tepki Süresi,0x07,ms,raw * 1.0,1.0,0.0
-0x71,Variable Geometry Turbocharger (VGT) Monitor,Değişken Geometrili Turbo (VGT) İzleme,Turboşarj Aşırı Besleme & Aktüatör,0xC2,VGT Boost Pressure Overshoot Error,VGT Aşırı Besleme Basınç Aşımı Hatası,0x0C,kPa,raw * 0.01,0.01,0.0
-0x71,Variable Geometry Turbocharger (VGT) Monitor,Değişken Geometrili Turbo (VGT) İzleme,Turboşarj Aşırı Besleme & Aktüatör,0xC3,VGT Minimum Stop Learn Calibration,VGT Minimum Mekanik Dayanak Kalibrasyonu,0x14,%,raw * (100 / 255),0.39215686274509803,0.0
-0x81,Engine Boost Pressure Control Monitor,Motor Aşırı Besleme / Turbo Basınç Kontrolü,Hava Emiş & Turbo Basıncı,0xC4,Boost Control Solenoid Duty Cycle Deviation,Wastegate / Turbo Solenoidi Doluluk Sapması,0x14,%,raw * (100 / 255),0.39215686274509803,0.0
-0x81,Engine Boost Pressure Control Monitor,Motor Aşırı Besleme / Turbo Basınç Kontrolü,Hava Emiş & Turbo Basıncı,0xC5,Charge Air Cooler Temperature Differential,Intercooler Sıcaklık Düşüş Verimi,0x10,°C,raw * 0.1 - 40,0.1,-40.0
-0x84,Particulate Matter (PM / DPF) Filter Monitor,Dizel Partikül Filtresi (DPF) İzleme,Dizel Emisyon & Egzoz Filtresi,0xD1,DPF Differential Pressure Delta at Rated Flow,Anma Gaz Akışında DPF Fark Basıncı,0x0C,kPa,raw * 0.01,0.01,0.0
-0x84,Particulate Matter (PM / DPF) Filter Monitor,Dizel Partikül Filtresi (DPF) İzleme,Dizel Emisyon & Egzoz Filtresi,0xD2,DPF Regeneration Frequency Interval,Rejenerasyonlar Arası Çalışma Süresi,0x35,s,raw * 1.0,1.0,0.0
-0x84,Particulate Matter (PM / DPF) Filter Monitor,Dizel Partikül Filtresi (DPF) İzleme,Dizel Emisyon & Egzoz Filtresi,0xD3,Soot Mass Sensor Current Output,Kurum Sensörü Akım Çıkışı,0x04,mA,(raw - 128) * 0.01,0.01,-128.0
-0xA1,Misfire Monitor General Data,Genel Tekleme / Ateşleme Kaçırma İzleme Verisi,Ateşleme & Yanma Odası Sağlığı,0x81,Overall EWMA Misfire Count (10 Drives),Ağırlıklı Ortalama Toplam Tekleme Sayısı,0x22,counts,raw * 1,1.0,0.0
-0xA1,Misfire Monitor General Data,Genel Tekleme / Ateşleme Kaçırma İzleme Verisi,Ateşleme & Yanma Odası Sağlığı,0x82,Total Misfire Counts Last 1000 Revolutions,Son 1.000 Motor Devrinde Toplam Tekleme,0x22,counts,raw * 1,1.0,0.0
-0xA2,Misfire Cylinder 1 Monitor,Silindir 1 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x81,Cylinder 1 EWMA Misfire Count,Silindir 1 Ortalama Tekleme Sayısı,0x22,counts,raw * 1,1.0,0.0
-0xA2,Misfire Cylinder 1 Monitor,Silindir 1 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x82,Cylinder 1 Misfire Count (Last 1000 Revs),Silindir 1 Son 1000 Devirdeki Tekleme,0x22,counts,raw * 1,1.0,0.0
-0xA2,Misfire Cylinder 1 Monitor,Silindir 1 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x83,Cylinder 1 Current Driving Cycle Misfires,Silindir 1 Güncel Sürüşteki Tekleme,0x22,counts,raw * 1,1.0,0.0
-0xA2,Misfire Cylinder 1 Monitor,Silindir 1 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x84,Cylinder 1 Crankshaft Acceleration Fluctuation,Silindir 1 Krank Mili İvmelenme Titreşimi,0x14,%,raw * (100 / 255),0.39215686274509803,0.0
-0xA3,Misfire Cylinder 2 Monitor,Silindir 2 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x81,Cylinder 2 EWMA Misfire Count,Silindir 2 Ortalama Tekleme Sayısı,0x22,counts,raw * 1,1.0,0.0
-0xA3,Misfire Cylinder 2 Monitor,Silindir 2 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x82,Cylinder 2 Misfire Count (Last 1000 Revs),Silindir 2 Son 1000 Devirdeki Tekleme,0x22,counts,raw * 1,1.0,0.0
-0xA3,Misfire Cylinder 2 Monitor,Silindir 2 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x83,Cylinder 2 Current Driving Cycle Misfires,Silindir 2 Güncel Sürüşteki Tekleme,0x22,counts,raw * 1,1.0,0.0
-0xA3,Misfire Cylinder 2 Monitor,Silindir 2 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x84,Cylinder 2 Crankshaft Acceleration Fluctuation,Silindir 2 Krank Mili İvmelenme Titreşimi,0x14,%,raw * (100 / 255),0.39215686274509803,0.0
-0xA4,Misfire Cylinder 3 Monitor,Silindir 3 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x81,Cylinder 3 EWMA Misfire Count,Silindir 3 Ortalama Tekleme Sayısı,0x22,counts,raw * 1,1.0,0.0
-0xA4,Misfire Cylinder 3 Monitor,Silindir 3 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x82,Cylinder 3 Misfire Count (Last 1000 Revs),Silindir 3 Son 1000 Devirdeki Tekleme,0x22,counts,raw * 1,1.0,0.0
-0xA4,Misfire Cylinder 3 Monitor,Silindir 3 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x83,Cylinder 3 Current Driving Cycle Misfires,Silindir 3 Güncel Sürüşteki Tekleme,0x22,counts,raw * 1,1.0,0.0
-0xA4,Misfire Cylinder 3 Monitor,Silindir 3 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x84,Cylinder 3 Crankshaft Acceleration Fluctuation,Silindir 3 Krank Mili İvmelenme Titreşimi,0x14,%,raw * (100 / 255),0.39215686274509803,0.0
-0xA5,Misfire Cylinder 4 Monitor,Silindir 4 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x81,Cylinder 4 EWMA Misfire Count,Silindir 4 Ortalama Tekleme Sayısı,0x22,counts,raw * 1,1.0,0.0
-0xA5,Misfire Cylinder 4 Monitor,Silindir 4 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x82,Cylinder 4 Misfire Count (Last 1000 Revs),Silindir 4 Son 1000 Devirdeki Tekleme,0x22,counts,raw * 1,1.0,0.0
-0xA5,Misfire Cylinder 4 Monitor,Silindir 4 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x83,Cylinder 4 Current Driving Cycle Misfires,Silindir 4 Güncel Sürüşteki Tekleme,0x22,counts,raw * 1,1.0,0.0
-0xA5,Misfire Cylinder 4 Monitor,Silindir 4 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x84,Cylinder 4 Crankshaft Acceleration Fluctuation,Silindir 4 Krank Mili İvmelenme Titreşimi,0x14,%,raw * (100 / 255),0.39215686274509803,0.0
-0xA6,Misfire Cylinder 5 Monitor,Silindir 5 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x81,Cylinder 5 EWMA Misfire Count,Silindir 5 Ortalama Tekleme Sayısı,0x22,counts,raw * 1,1.0,0.0
-0xA6,Misfire Cylinder 5 Monitor,Silindir 5 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x82,Cylinder 5 Misfire Count (Last 1000 Revs),Silindir 5 Son 1000 Devirdeki Tekleme,0x22,counts,raw * 1,1.0,0.0
-0xA6,Misfire Cylinder 5 Monitor,Silindir 5 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x83,Cylinder 5 Current Driving Cycle Misfires,Silindir 5 Güncel Sürüşteki Tekleme,0x22,counts,raw * 1,1.0,0.0
-0xA6,Misfire Cylinder 5 Monitor,Silindir 5 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x84,Cylinder 5 Crankshaft Acceleration Fluctuation,Silindir 5 Krank Mili İvmelenme Titreşimi,0x14,%,raw * (100 / 255),0.39215686274509803,0.0
-0xA7,Misfire Cylinder 6 Monitor,Silindir 6 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x81,Cylinder 6 EWMA Misfire Count,Silindir 6 Ortalama Tekleme Sayısı,0x22,counts,raw * 1,1.0,0.0
-0xA7,Misfire Cylinder 6 Monitor,Silindir 6 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x82,Cylinder 6 Misfire Count (Last 1000 Revs),Silindir 6 Son 1000 Devirdeki Tekleme,0x22,counts,raw * 1,1.0,0.0
-0xA7,Misfire Cylinder 6 Monitor,Silindir 6 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x83,Cylinder 6 Current Driving Cycle Misfires,Silindir 6 Güncel Sürüşteki Tekleme,0x22,counts,raw * 1,1.0,0.0
-0xA7,Misfire Cylinder 6 Monitor,Silindir 6 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x84,Cylinder 6 Crankshaft Acceleration Fluctuation,Silindir 6 Krank Mili İvmelenme Titreşimi,0x14,%,raw * (100 / 255),0.39215686274509803,0.0
-0xA8,Misfire Cylinder 7 Monitor,Silindir 7 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x81,Cylinder 7 EWMA Misfire Count,Silindir 7 Ortalama Tekleme Sayısı,0x22,counts,raw * 1,1.0,0.0
-0xA8,Misfire Cylinder 7 Monitor,Silindir 7 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x82,Cylinder 7 Misfire Count (Last 1000 Revs),Silindir 7 Son 1000 Devirdeki Tekleme,0x22,counts,raw * 1,1.0,0.0
-0xA8,Misfire Cylinder 7 Monitor,Silindir 7 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x83,Cylinder 7 Current Driving Cycle Misfires,Silindir 7 Güncel Sürüşteki Tekleme,0x22,counts,raw * 1,1.0,0.0
-0xA8,Misfire Cylinder 7 Monitor,Silindir 7 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x84,Cylinder 7 Crankshaft Acceleration Fluctuation,Silindir 7 Krank Mili İvmelenme Titreşimi,0x14,%,raw * (100 / 255),0.39215686274509803,0.0
-0xA9,Misfire Cylinder 8 Monitor,Silindir 8 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x81,Cylinder 8 EWMA Misfire Count,Silindir 8 Ortalama Tekleme Sayısı,0x22,counts,raw * 1,1.0,0.0
-0xA9,Misfire Cylinder 8 Monitor,Silindir 8 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x82,Cylinder 8 Misfire Count (Last 1000 Revs),Silindir 8 Son 1000 Devirdeki Tekleme,0x22,counts,raw * 1,1.0,0.0
-0xA9,Misfire Cylinder 8 Monitor,Silindir 8 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x83,Cylinder 8 Current Driving Cycle Misfires,Silindir 8 Güncel Sürüşteki Tekleme,0x22,counts,raw * 1,1.0,0.0
-0xA9,Misfire Cylinder 8 Monitor,Silindir 8 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x84,Cylinder 8 Crankshaft Acceleration Fluctuation,Silindir 8 Krank Mili İvmelenme Titreşimi,0x14,%,raw * (100 / 255),0.39215686274509803,0.0
+﻿mid_hex,mid_name,mid_name_tr,subsystem,tid_hex,test_name,test_name_tr,uasid,unit,formula,scale,offset,cid_hex,limit_type,hex_range
+0x01,Exhaust Gas Sensor Monitor Bank 1 - Sensor 1,Egzoz Gazı O2 Sensör İzleme Sıra 1 - Sensör 1 (Ön Lambda),Emisyon & Yakıt Karışım Geri Beslemesi,0x01,Rich-to-Lean Sensor Switch Voltage,Zenginden Fakire Geçiş Eşik Voltajı,0x01,mV,raw * 0.1,0.1,0.0,,,
+0x01,Exhaust Gas Sensor Monitor Bank 1 - Sensor 1,Egzoz Gazı O2 Sensör İzleme Sıra 1 - Sensör 1 (Ön Lambda),Emisyon & Yakıt Karışım Geri Beslemesi,0x02,Lean-to-Rich Sensor Switch Voltage,Fakirden Zengine Geçiş Eşik Voltajı,0x01,mV,raw * 0.1,0.1,0.0,,,
+0x01,Exhaust Gas Sensor Monitor Bank 1 - Sensor 1,Egzoz Gazı O2 Sensör İzleme Sıra 1 - Sensör 1 (Ön Lambda),Emisyon & Yakıt Karışım Geri Beslemesi,0x05,Rich-to-Lean Sensor Switch Time,Zenginden Fakire Geçiş Süresi,0x07,ms,raw * 1.0,1.0,0.0,,,
+0x01,Exhaust Gas Sensor Monitor Bank 1 - Sensor 1,Egzoz Gazı O2 Sensör İzleme Sıra 1 - Sensör 1 (Ön Lambda),Emisyon & Yakıt Karışım Geri Beslemesi,0x06,Lean-to-Rich Sensor Switch Time,Fakirden Zengine Geçiş Süresi,0x07,ms,raw * 1.0,1.0,0.0,,,
+0x01,Exhaust Gas Sensor Monitor Bank 1 - Sensor 1,Egzoz Gazı O2 Sensör İzleme Sıra 1 - Sensör 1 (Ön Lambda),Emisyon & Yakıt Karışım Geri Beslemesi,0x07,Sensor Transition Period,Sensör Dalgalanma Periyodu,0x07,ms,raw * 1.0,1.0,0.0,,,
+0x01,Exhaust Gas Sensor Monitor Bank 1 - Sensor 1,Egzoz Gazı O2 Sensör İzleme Sıra 1 - Sensör 1 (Ön Lambda),Emisyon & Yakıt Karışım Geri Beslemesi,0x03,Low Sensor Voltage for Switch Time Calculation,,0x0A,,,1.0,0.0,,,
+0x01,Exhaust Gas Sensor Monitor Bank 1 - Sensor 1,Egzoz Gazı O2 Sensör İzleme Sıra 1 - Sensör 1 (Ön Lambda),Emisyon & Yakıt Karışım Geri Beslemesi,0x04,High Sensor Voltage for Switch Time Calculation,,0x0A,,,1.0,0.0,,,
+0x01,Exhaust Gas Sensor Monitor Bank 1 - Sensor 1,Egzoz Gazı O2 Sensör İzleme Sıra 1 - Sensör 1 (Ön Lambda),Emisyon & Yakıt Karışım Geri Beslemesi,0x80,Rich to Lean Switches Test Results,,0x2B,,,1.0,0.0,,,
+0x01,Exhaust Gas Sensor Monitor Bank 1 - Sensor 1,Egzoz Gazı O2 Sensör İzleme Sıra 1 - Sensör 1 (Ön Lambda),Emisyon & Yakıt Karışım Geri Beslemesi,0x81,Lean to Rich Switches Test Results,,0x2B,,,1.0,0.0,,,
+0x01,Exhaust Gas Sensor Monitor Bank 1 - Sensor 1,Egzoz Gazı O2 Sensör İzleme Sıra 1 - Sensör 1 (Ön Lambda),Emisyon & Yakıt Karışım Geri Beslemesi,0x82,Rich-Lean Response to Lean-Rich Response Ratio,,0x20,,,1.0,0.0,,,
+0x01,Exhaust Gas Sensor Monitor Bank 1 - Sensor 1,Egzoz Gazı O2 Sensör İzleme Sıra 1 - Sensör 1 (Ön Lambda),Emisyon & Yakıt Karışım Geri Beslemesi,0x83,Low Sensor Voltage for Half Period Time Calculation,,0x0A,,,1.0,0.0,,,
+0x01,Exhaust Gas Sensor Monitor Bank 1 - Sensor 1,Egzoz Gazı O2 Sensör İzleme Sıra 1 - Sensör 1 (Ön Lambda),Emisyon & Yakıt Karışım Geri Beslemesi,0x84,High Sensor Voltage for Half Period Time Calculation,,0x0A,,,1.0,0.0,,,
+0x01,Exhaust Gas Sensor Monitor Bank 1 - Sensor 1,Egzoz Gazı O2 Sensör İzleme Sıra 1 - Sensör 1 (Ön Lambda),Emisyon & Yakıt Karışım Geri Beslemesi,0x85,O2 Sensor Rich to Lean Half Period Time,,0x10,°C,raw * 0.1 - 40,0.1,-40.0,,,
+0x01,Exhaust Gas Sensor Monitor Bank 1 - Sensor 1,Egzoz Gazı O2 Sensör İzleme Sıra 1 - Sensör 1 (Ön Lambda),Emisyon & Yakıt Karışım Geri Beslemesi,0x86,O2 Sensor Lean to Rich Half Period Time,,0x10,°C,raw * 0.1 - 40,0.1,-40.0,,,
+0x01,Exhaust Gas Sensor Monitor Bank 1 - Sensor 1,Egzoz Gazı O2 Sensör İzleme Sıra 1 - Sensör 1 (Ön Lambda),Emisyon & Yakıt Karışım Geri Beslemesi,0x87,Sum of O2 Sensor L/R and R/L Half Period Times,,0x10,°C,raw * 0.1 - 40,0.1,-40.0,,,
+0x01,Exhaust Gas Sensor Monitor Bank 1 - Sensor 1,Egzoz Gazı O2 Sensör İzleme Sıra 1 - Sensör 1 (Ön Lambda),Emisyon & Yakıt Karışım Geri Beslemesi,0x88,3 Difference Between,,0x90,,,1.0,0.0,,,
+0x01,Exhaust Gas Sensor Monitor Bank 1 - Sensor 1,Egzoz Gazı O2 Sensör İzleme Sıra 1 - Sensör 1 (Ön Lambda),Emisyon & Yakıt Karışım Geri Beslemesi,0x89,B1S1 WRAF Slow Response,,0x06,,,1.0,0.0,,,
+0x01,Exhaust Gas Sensor Monitor Bank 1 - Sensor 1,Egzoz Gazı O2 Sensör İzleme Sıra 1 - Sensör 1 (Ön Lambda),Emisyon & Yakıt Karışım Geri Beslemesi,0x8E,Absolute Average Slope of the O2 Sensor Signal,,0xB1,,,1.0,0.0,,,
+0x01,Exhaust Gas Sensor Monitor Bank 1 - Sensor 1,Egzoz Gazı O2 Sensör İzleme Sıra 1 - Sensör 1 (Ön Lambda),Emisyon & Yakıt Karışım Geri Beslemesi,0x8F,Instantaneous Positive Slope of the O2 Sensor Signal,,0xB1,,,1.0,0.0,,,
+0x01,Exhaust Gas Sensor Monitor Bank 1 - Sensor 1,Egzoz Gazı O2 Sensör İzleme Sıra 1 - Sensör 1 (Ön Lambda),Emisyon & Yakıt Karışım Geri Beslemesi,0x90,Instantaneous Negative Slope of the O2 Sensor Signal,,0xB1,,,1.0,0.0,,,
+0x02,Exhaust Gas Sensor Monitor Bank 1 - Sensor 2,Egzoz Gazı O2 Sensör İzleme Sıra 1 - Sensör 2 (Katalizör Sonrası),Katalitik Konvertör Verimlilik Denetimi,0x01,Minimum Post-Cat Voltage Threshold,Minimum Kat-Sonrası Voltaj Eşiği,0x01,mV,raw * 0.1,0.1,0.0,,,
+0x02,Exhaust Gas Sensor Monitor Bank 1 - Sensor 2,Egzoz Gazı O2 Sensör İzleme Sıra 1 - Sensör 2 (Katalizör Sonrası),Katalitik Konvertör Verimlilik Denetimi,0x02,Maximum Post-Cat Voltage Threshold,Maksimum Kat-Sonrası Voltaj Eşiği,0x01,mV,raw * 0.1,0.1,0.0,,,
+0x02,Exhaust Gas Sensor Monitor Bank 1 - Sensor 2,Egzoz Gazı O2 Sensör İzleme Sıra 1 - Sensör 2 (Katalizör Sonrası),Katalitik Konvertör Verimlilik Denetimi,0x08,Oxygen Storage Capacity Switch Ratio,Oksijen Depolama Kapasitesi Geçiş Oranı,0x30,ratio,raw * 0.001,0.001,0.0,,,
+0x02,Exhaust Gas Sensor Monitor Bank 1 - Sensor 2,Egzoz Gazı O2 Sensör İzleme Sıra 1 - Sensör 2 (Katalizör Sonrası),Katalitik Konvertör Verimlilik Denetimi,0x05,B1S2 rich-lean switch time in fuel cut-off,,0x20,,,1.0,0.0,,,
+0x02,Exhaust Gas Sensor Monitor Bank 1 - Sensor 2,Egzoz Gazı O2 Sensör İzleme Sıra 1 - Sensör 2 (Katalizör Sonrası),Katalitik Konvertör Verimlilik Denetimi,0x8A,Post Catalyst Sensor Open Test,,0x24,,,1.0,0.0,,,
+0x02,Exhaust Gas Sensor Monitor Bank 1 - Sensor 2,Egzoz Gazı O2 Sensör İzleme Sıra 1 - Sensör 2 (Katalizör Sonrası),Katalitik Konvertör Verimlilik Denetimi,0x8B,Post Catalyst Sensor Rich Test,,0x0A,,,1.0,0.0,,,
+0x02,Exhaust Gas Sensor Monitor Bank 1 - Sensor 2,Egzoz Gazı O2 Sensör İzleme Sıra 1 - Sensör 2 (Katalizör Sonrası),Katalitik Konvertör Verimlilik Denetimi,0x8C,Post Catalyst Sensor Lean Test,,0x0A,,,1.0,0.0,,,
+0x21,Catalyst Monitor Bank 1,Katalitik Konvertör İzleme Sıra 1,Egzoz Gazı Arıtma & Emisyon,0xA2,Catalyst Efficiency Conversion Ratio,Katalizör Dönüşüm Verim Oranı,0x30,ratio,raw * 0.001,0.001,0.0,,,
+0x21,Catalyst Monitor Bank 1,Katalitik Konvertör İzleme Sıra 1,Egzoz Gazı Arıtma & Emisyon,0xA3,Catalyst Light-Off Temperature,Katalizör Tutuşma Çalışma Sıcaklığı,0x10,°C,raw * 0.1 - 40,0.1,-40.0,,,
+0x21,Catalyst Monitor Bank 1,Katalitik Konvertör İzleme Sıra 1,Egzoz Gazı Arıtma & Emisyon,0xA4,Oxygen Storage Capacity Index,Oksijen Depolama Kapasite İndeksi,0x14,%,raw * (100 / 255),0.39215686274509803,0.0,,,
+0x21,Catalyst Monitor Bank 1,Katalitik Konvertör İzleme Sıra 1,Egzoz Gazı Arıtma & Emisyon,0xA0,Catalyst Test Bank 1 (using OSC normalized ratio units),,0x05,,,1.0,0.0,,,
+0x21,Catalyst Monitor Bank 1,Katalitik Konvertör İzleme Sıra 1,Egzoz Gazı Arıtma & Emisyon,0xA1,Catalyst Test Bank 1 (using Catalyst DFCO Exit Test),,0x01,mV,raw * 0.1,0.1,0.0,,,
+0x31,EGR Monitor Bank 1,EGR (Egzoz Gazı Devridaimi) İzleme Sıra 1,NOx Emisyon Kontrol & EGR Valfi,0x80,EGR Valve Flow Delta Pressure,EGR Valfi Akış Fark Basıncı,0x0C,kPa,raw * 0.01,0.01,0.0,,,
+0x31,EGR Monitor Bank 1,EGR (Egzoz Gazı Devridaimi) İzleme Sıra 1,NOx Emisyon Kontrol & EGR Valfi,0x81,EGR Step Motor Commanded vs Actual Position Error,EGR Adım Motoru Hedef-Gerçek Konum Sapması,0x14,%,raw * (100 / 255),0.39215686274509803,0.0,,,
+0x31,EGR Monitor Bank 1,EGR (Egzoz Gazı Devridaimi) İzleme Sıra 1,NOx Emisyon Kontrol & EGR Valfi,0x82,EGR Gas Temperature Delta,EGR Gaz Sıcaklık Değişimi,0x10,°C,raw * 0.1 - 40,0.1,-40.0,,,
+0x31,EGR Monitor Bank 1,EGR (Egzoz Gazı Devridaimi) İzleme Sıra 1,NOx Emisyon Kontrol & EGR Valfi,0xA8,EGR Flow Decel Service Test,,0xFD,,,1.0,0.0,,,
+0x31,EGR Monitor Bank 1,EGR (Egzoz Gazı Devridaimi) İzleme Sıra 1,NOx Emisyon Kontrol & EGR Valfi,0xA9,EGR Flow Quick Test,,0xFD,,,1.0,0.0,,,
+0x35,VVT (Variable Valve Timing) Monitor Bank 1,Değişken Subap Zamanlaması (VVT/Vanos) Sıra 1,Eksantrik Mili Zamanlama & Solenoid,0x90,Camshaft Phase Angle Response Time,Eksantrik Faz Açısı Tepki Süresi,0x07,ms,raw * 1.0,1.0,0.0,,,
+0x35,VVT (Variable Valve Timing) Monitor Bank 1,Değişken Subap Zamanlaması (VVT/Vanos) Sıra 1,Eksantrik Mili Zamanlama & Solenoid,0x91,Camshaft Steady State Angle Deviation,Eksantrik Kararlı Açı Sapma Toleransı,0x14,%,raw * (100 / 255),0.39215686274509803,0.0,,,
+0x39,EVAP Monitor (0.090 Inch Large Leak / Cap Off),EVAP Depo Havalandırma Büyük Kaçak Testi (Kapak Açık),Yakıt Buharı Kontrol Sistemi,0xB0,Vacuum Draw Rate During Purge,Hava Tahliyesi Esnasında Vakum Çekiş Hızı,0x0B,Pa,raw * 0.25,0.25,0.0,,,
+0x39,EVAP Monitor (0.090 Inch Large Leak / Cap Off),EVAP Depo Havalandırma Büyük Kaçak Testi (Kapak Açık),Yakıt Buharı Kontrol Sistemi,0xB1,Vapor Pressure Sensor Baseline Offset,Buhar Basınç Sensörü Referans Sıfır Noktası,0x0B,Pa,raw * 0.25,0.25,0.0,,,
+0x3A,EVAP Monitor (0.040 Inch Small Leak Detection),EVAP Küçük Kaçak Testi (0.040 inç Orifis),Yakıt Buharı Kontrol Sistemi,0xB2,Tank Vacuum Decay Rate,Depo Vakum Düşüş Hızı,0x0B,Pa,raw * 0.25,0.25,0.0,,,
+0x3A,EVAP Monitor (0.040 Inch Small Leak Detection),EVAP Küçük Kaçak Testi (0.040 inç Orifis),Yakıt Buharı Kontrol Sistemi,0xB3,Canister Vent Solenoid Seal Integrity,Kömür Filtresi Tahliye Solenoidi Sızdırmazlığı,0x0B,Pa,raw * 0.25,0.25,0.0,,,
+0x3A,EVAP Monitor (0.040 Inch Small Leak Detection),EVAP Küçük Kaçak Testi (0.040 inç Orifis),Yakıt Buharı Kontrol Sistemi,0xC0,EVPD Weak Vacuum Test scaled in liters,,0x31,,,1.0,0.0,,,
+0x3A,EVAP Monitor (0.040 Inch Small Leak Detection),EVAP Küçük Kaçak Testi (0.040 inç Orifis),Yakıt Buharı Kontrol Sistemi,0xC1,EVPD Weak Vacuum Followup Test,,0x11,°C,raw * 1.0 - 40,1.0,-40.0,,,
+0x3B,EVAP Monitor (0.020 Inch Very Small Leak),EVAP Çok Küçük Kaçak Testi (0.020 inç Hassas),Yakıt Buharı Kontrol Sistemi,0xB4,Natural Vacuum Leak Detection (NVLD) Switch Point,Doğal Vakum Kaçak Algılama Şalter Kapanma Eşiği,0x0B,Pa,raw * 0.25,0.25,0.0,,,
+0x3B,EVAP Monitor (0.020 Inch Very Small Leak),EVAP Çok Küçük Kaçak Testi (0.020 inç Hassas),Yakıt Buharı Kontrol Sistemi,0xB5,EVAP Pump Current Draw,EVAP Kaçak Teşhis Pompası Akım Çekişi,0x04,mA,(raw - 128) * 0.01,0.01,-128.0,,,
+0x3B,EVAP Monitor (0.020 Inch Very Small Leak),EVAP Çok Küçük Kaçak Testi (0.020 inç Hassas),Yakıt Buharı Kontrol Sistemi,0xC2,EVPD NV 0.040 Test - scaled in inches,,0x32,,,1.0,0.0,,,
+0x71,Variable Geometry Turbocharger (VGT) Monitor,Değişken Geometrili Turbo (VGT) İzleme,Turboşarj Aşırı Besleme & Aktüatör,0xC1,VGT Vane Slew Rate Response,VGT Kanatçık Değişim Tepki Süresi,0x07,ms,raw * 1.0,1.0,0.0,,,
+0x71,Variable Geometry Turbocharger (VGT) Monitor,Değişken Geometrili Turbo (VGT) İzleme,Turboşarj Aşırı Besleme & Aktüatör,0xC2,VGT Boost Pressure Overshoot Error,VGT Aşırı Besleme Basınç Aşımı Hatası,0x0C,kPa,raw * 0.01,0.01,0.0,,,
+0x71,Variable Geometry Turbocharger (VGT) Monitor,Değişken Geometrili Turbo (VGT) İzleme,Turboşarj Aşırı Besleme & Aktüatör,0xC3,VGT Minimum Stop Learn Calibration,VGT Minimum Mekanik Dayanak Kalibrasyonu,0x14,%,raw * (100 / 255),0.39215686274509803,0.0,,,
+0x71,Variable Geometry Turbocharger (VGT) Monitor,Değişken Geometrili Turbo (VGT) İzleme,Turboşarj Aşırı Besleme & Aktüatör,0xE0,AIR - Bank 1 Test,,0x24,,,1.0,0.0,,,
+0x71,Variable Geometry Turbocharger (VGT) Monitor,Değişken Geometrili Turbo (VGT) İzleme,Turboşarj Aşırı Besleme & Aktüatör,0xE1,AIR on - pressure error test,,0xFD,,,1.0,0.0,,,
+0x71,Variable Geometry Turbocharger (VGT) Monitor,Değişken Geometrili Turbo (VGT) İzleme,Turboşarj Aşırı Besleme & Aktüatör,0xE2,AIR Valve shut - pressure error test,,0xFD,,,1.0,0.0,,,
+0x71,Variable Geometry Turbocharger (VGT) Monitor,Değişken Geometrili Turbo (VGT) İzleme,Turboşarj Aşırı Besleme & Aktüatör,0xE3,AIR Pump off - pressure error test,,0xFD,,,1.0,0.0,,,
+0x81,Engine Boost Pressure Control Monitor,Motor Aşırı Besleme / Turbo Basınç Kontrolü,Hava Emiş & Turbo Basıncı,0xC4,Boost Control Solenoid Duty Cycle Deviation,Wastegate / Turbo Solenoidi Doluluk Sapması,0x14,%,raw * (100 / 255),0.39215686274509803,0.0,,,
+0x81,Engine Boost Pressure Control Monitor,Motor Aşırı Besleme / Turbo Basınç Kontrolü,Hava Emiş & Turbo Basıncı,0xC5,Charge Air Cooler Temperature Differential,Intercooler Sıcaklık Düşüş Verimi,0x10,°C,raw * 0.1 - 40,0.1,-40.0,,,
+0x84,Particulate Matter (PM / DPF) Filter Monitor,Dizel Partikül Filtresi (DPF) İzleme,Dizel Emisyon & Egzoz Filtresi,0xD1,DPF Differential Pressure Delta at Rated Flow,Anma Gaz Akışında DPF Fark Basıncı,0x0C,kPa,raw * 0.01,0.01,0.0,,,
+0x84,Particulate Matter (PM / DPF) Filter Monitor,Dizel Partikül Filtresi (DPF) İzleme,Dizel Emisyon & Egzoz Filtresi,0xD2,DPF Regeneration Frequency Interval,Rejenerasyonlar Arası Çalışma Süresi,0x35,s,raw * 1.0,1.0,0.0,,,
+0x84,Particulate Matter (PM / DPF) Filter Monitor,Dizel Partikül Filtresi (DPF) İzleme,Dizel Emisyon & Egzoz Filtresi,0xD3,Soot Mass Sensor Current Output,Kurum Sensörü Akım Çıkışı,0x04,mA,(raw - 128) * 0.01,0.01,-128.0,,,
+0xA1,Misfire Monitor General Data,Genel Tekleme / Ateşleme Kaçırma İzleme Verisi,Ateşleme & Yanma Odası Sağlığı,0x81,Overall EWMA Misfire Count (10 Drives),Ağırlıklı Ortalama Toplam Tekleme Sayısı,0x22,counts,raw * 1,1.0,0.0,,,
+0xA1,Misfire Monitor General Data,Genel Tekleme / Ateşleme Kaçırma İzleme Verisi,Ateşleme & Yanma Odası Sağlığı,0x82,Total Misfire Counts Last 1000 Revolutions,Son 1.000 Motor Devrinde Toplam Tekleme,0x22,counts,raw * 1,1.0,0.0,,,
+0xA2,Misfire Cylinder 1 Monitor,Silindir 1 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x81,Cylinder 1 EWMA Misfire Count,Silindir 1 Ortalama Tekleme Sayısı,0x22,counts,raw * 1,1.0,0.0,,,
+0xA2,Misfire Cylinder 1 Monitor,Silindir 1 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x82,Cylinder 1 Misfire Count (Last 1000 Revs),Silindir 1 Son 1000 Devirdeki Tekleme,0x22,counts,raw * 1,1.0,0.0,,,
+0xA2,Misfire Cylinder 1 Monitor,Silindir 1 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x83,Cylinder 1 Current Driving Cycle Misfires,Silindir 1 Güncel Sürüşteki Tekleme,0x22,counts,raw * 1,1.0,0.0,,,
+0xA2,Misfire Cylinder 1 Monitor,Silindir 1 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x84,Cylinder 1 Crankshaft Acceleration Fluctuation,Silindir 1 Krank Mili İvmelenme Titreşimi,0x14,%,raw * (100 / 255),0.39215686274509803,0.0,,,
+0xA2,Misfire Cylinder 1 Monitor,Silindir 1 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x0B,4 EWMA (Exponentially Weighted Moving Average),,0x24,,,1.0,0.0,,,
+0xA2,Misfire Cylinder 1 Monitor,Silindir 1 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x0C,Misfire counts for the last / current driving cycles,,0x24,,,1.0,0.0,,,
+0xA3,Misfire Cylinder 2 Monitor,Silindir 2 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x81,Cylinder 2 EWMA Misfire Count,Silindir 2 Ortalama Tekleme Sayısı,0x22,counts,raw * 1,1.0,0.0,,,
+0xA3,Misfire Cylinder 2 Monitor,Silindir 2 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x82,Cylinder 2 Misfire Count (Last 1000 Revs),Silindir 2 Son 1000 Devirdeki Tekleme,0x22,counts,raw * 1,1.0,0.0,,,
+0xA3,Misfire Cylinder 2 Monitor,Silindir 2 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x83,Cylinder 2 Current Driving Cycle Misfires,Silindir 2 Güncel Sürüşteki Tekleme,0x22,counts,raw * 1,1.0,0.0,,,
+0xA3,Misfire Cylinder 2 Monitor,Silindir 2 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x84,Cylinder 2 Crankshaft Acceleration Fluctuation,Silindir 2 Krank Mili İvmelenme Titreşimi,0x14,%,raw * (100 / 255),0.39215686274509803,0.0,,,
+0xA3,Misfire Cylinder 2 Monitor,Silindir 2 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x0B,4 EWMA (Exponentially Weighted Moving Average),,0x24,,,1.0,0.0,,,
+0xA3,Misfire Cylinder 2 Monitor,Silindir 2 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x0C,Misfire counts for the last / current driving cycles,,0x24,,,1.0,0.0,,,
+0xA4,Misfire Cylinder 3 Monitor,Silindir 3 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x81,Cylinder 3 EWMA Misfire Count,Silindir 3 Ortalama Tekleme Sayısı,0x22,counts,raw * 1,1.0,0.0,,,
+0xA4,Misfire Cylinder 3 Monitor,Silindir 3 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x82,Cylinder 3 Misfire Count (Last 1000 Revs),Silindir 3 Son 1000 Devirdeki Tekleme,0x22,counts,raw * 1,1.0,0.0,,,
+0xA4,Misfire Cylinder 3 Monitor,Silindir 3 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x83,Cylinder 3 Current Driving Cycle Misfires,Silindir 3 Güncel Sürüşteki Tekleme,0x22,counts,raw * 1,1.0,0.0,,,
+0xA4,Misfire Cylinder 3 Monitor,Silindir 3 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x84,Cylinder 3 Crankshaft Acceleration Fluctuation,Silindir 3 Krank Mili İvmelenme Titreşimi,0x14,%,raw * (100 / 255),0.39215686274509803,0.0,,,
+0xA4,Misfire Cylinder 3 Monitor,Silindir 3 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x0B,4 EWMA (Exponentially Weighted Moving Average),,0x24,,,1.0,0.0,,,
+0xA4,Misfire Cylinder 3 Monitor,Silindir 3 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x0C,Misfire counts for the last / current driving cycles,,0x24,,,1.0,0.0,,,
+0xA5,Misfire Cylinder 4 Monitor,Silindir 4 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x81,Cylinder 4 EWMA Misfire Count,Silindir 4 Ortalama Tekleme Sayısı,0x22,counts,raw * 1,1.0,0.0,,,
+0xA5,Misfire Cylinder 4 Monitor,Silindir 4 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x82,Cylinder 4 Misfire Count (Last 1000 Revs),Silindir 4 Son 1000 Devirdeki Tekleme,0x22,counts,raw * 1,1.0,0.0,,,
+0xA5,Misfire Cylinder 4 Monitor,Silindir 4 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x83,Cylinder 4 Current Driving Cycle Misfires,Silindir 4 Güncel Sürüşteki Tekleme,0x22,counts,raw * 1,1.0,0.0,,,
+0xA5,Misfire Cylinder 4 Monitor,Silindir 4 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x84,Cylinder 4 Crankshaft Acceleration Fluctuation,Silindir 4 Krank Mili İvmelenme Titreşimi,0x14,%,raw * (100 / 255),0.39215686274509803,0.0,,,
+0xA5,Misfire Cylinder 4 Monitor,Silindir 4 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x0B,4 EWMA (Exponentially Weighted Moving Average),,0x24,,,1.0,0.0,,,
+0xA5,Misfire Cylinder 4 Monitor,Silindir 4 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x0C,Misfire counts for the last / current driving cycles,,0x24,,,1.0,0.0,,,
+0xA6,Misfire Cylinder 5 Monitor,Silindir 5 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x81,Cylinder 5 EWMA Misfire Count,Silindir 5 Ortalama Tekleme Sayısı,0x22,counts,raw * 1,1.0,0.0,,,
+0xA6,Misfire Cylinder 5 Monitor,Silindir 5 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x82,Cylinder 5 Misfire Count (Last 1000 Revs),Silindir 5 Son 1000 Devirdeki Tekleme,0x22,counts,raw * 1,1.0,0.0,,,
+0xA6,Misfire Cylinder 5 Monitor,Silindir 5 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x83,Cylinder 5 Current Driving Cycle Misfires,Silindir 5 Güncel Sürüşteki Tekleme,0x22,counts,raw * 1,1.0,0.0,,,
+0xA6,Misfire Cylinder 5 Monitor,Silindir 5 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x84,Cylinder 5 Crankshaft Acceleration Fluctuation,Silindir 5 Krank Mili İvmelenme Titreşimi,0x14,%,raw * (100 / 255),0.39215686274509803,0.0,,,
+0xA6,Misfire Cylinder 5 Monitor,Silindir 5 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x0B,4 EWMA (Exponentially Weighted Moving Average),,0x24,,,1.0,0.0,,,
+0xA6,Misfire Cylinder 5 Monitor,Silindir 5 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x0C,Misfire counts for the last / current driving cycles,,0x24,,,1.0,0.0,,,
+0xA7,Misfire Cylinder 6 Monitor,Silindir 6 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x81,Cylinder 6 EWMA Misfire Count,Silindir 6 Ortalama Tekleme Sayısı,0x22,counts,raw * 1,1.0,0.0,,,
+0xA7,Misfire Cylinder 6 Monitor,Silindir 6 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x82,Cylinder 6 Misfire Count (Last 1000 Revs),Silindir 6 Son 1000 Devirdeki Tekleme,0x22,counts,raw * 1,1.0,0.0,,,
+0xA7,Misfire Cylinder 6 Monitor,Silindir 6 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x83,Cylinder 6 Current Driving Cycle Misfires,Silindir 6 Güncel Sürüşteki Tekleme,0x22,counts,raw * 1,1.0,0.0,,,
+0xA7,Misfire Cylinder 6 Monitor,Silindir 6 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x84,Cylinder 6 Crankshaft Acceleration Fluctuation,Silindir 6 Krank Mili İvmelenme Titreşimi,0x14,%,raw * (100 / 255),0.39215686274509803,0.0,,,
+0xA7,Misfire Cylinder 6 Monitor,Silindir 6 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x0B,4 EWMA (Exponentially Weighted Moving Average),,0x24,,,1.0,0.0,,,
+0xA7,Misfire Cylinder 6 Monitor,Silindir 6 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x0C,Misfire counts for the last / current driving cycles,,0x24,,,1.0,0.0,,,
+0xA8,Misfire Cylinder 7 Monitor,Silindir 7 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x81,Cylinder 7 EWMA Misfire Count,Silindir 7 Ortalama Tekleme Sayısı,0x22,counts,raw * 1,1.0,0.0,,,
+0xA8,Misfire Cylinder 7 Monitor,Silindir 7 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x82,Cylinder 7 Misfire Count (Last 1000 Revs),Silindir 7 Son 1000 Devirdeki Tekleme,0x22,counts,raw * 1,1.0,0.0,,,
+0xA8,Misfire Cylinder 7 Monitor,Silindir 7 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x83,Cylinder 7 Current Driving Cycle Misfires,Silindir 7 Güncel Sürüşteki Tekleme,0x22,counts,raw * 1,1.0,0.0,,,
+0xA8,Misfire Cylinder 7 Monitor,Silindir 7 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x84,Cylinder 7 Crankshaft Acceleration Fluctuation,Silindir 7 Krank Mili İvmelenme Titreşimi,0x14,%,raw * (100 / 255),0.39215686274509803,0.0,,,
+0xA8,Misfire Cylinder 7 Monitor,Silindir 7 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x0B,EWMA (Exponentially Weighted Moving Average),,0x24,,,1.0,0.0,,,
+0xA8,Misfire Cylinder 7 Monitor,Silindir 7 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x0C,Misfire counts for the last / current driving cycles,,0x24,,,1.0,0.0,,,
+0xA9,Misfire Cylinder 8 Monitor,Silindir 8 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x81,Cylinder 8 EWMA Misfire Count,Silindir 8 Ortalama Tekleme Sayısı,0x22,counts,raw * 1,1.0,0.0,,,
+0xA9,Misfire Cylinder 8 Monitor,Silindir 8 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x82,Cylinder 8 Misfire Count (Last 1000 Revs),Silindir 8 Son 1000 Devirdeki Tekleme,0x22,counts,raw * 1,1.0,0.0,,,
+0xA9,Misfire Cylinder 8 Monitor,Silindir 8 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x83,Cylinder 8 Current Driving Cycle Misfires,Silindir 8 Güncel Sürüşteki Tekleme,0x22,counts,raw * 1,1.0,0.0,,,
+0xA9,Misfire Cylinder 8 Monitor,Silindir 8 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x84,Cylinder 8 Crankshaft Acceleration Fluctuation,Silindir 8 Krank Mili İvmelenme Titreşimi,0x14,%,raw * (100 / 255),0.39215686274509803,0.0,,,
+0xA9,Misfire Cylinder 8 Monitor,Silindir 8 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x0B,EWMA (Exponentially Weighted Moving Average),,0x24,,,1.0,0.0,,,
+0xA9,Misfire Cylinder 8 Monitor,Silindir 8 Ateşleme Kaçırma / Tekleme İzleme,Yanma & Enjeksiyon Denge Denetimi,0x0C,Misfire counts for the last / current driving cycles,,0x24,,,1.0,0.0,,,
+0x03,Oxygen Sensor Monitor Bank 1 (GM GMLAN),,,0x8A,Post Catalyst Sensor Open Test,,0x24,,,1.0,0.0,,,
+0x03,Oxygen Sensor Monitor Bank 1 (GM GMLAN),,,0x8B,Post Catalyst Sensor Rich Test,,0x0A,,,1.0,0.0,,,
+0x03,Oxygen Sensor Monitor Bank 1 (GM GMLAN),,,0x8C,Post Catalyst Sensor Lean Test,,0x0A,,,1.0,0.0,,,
+0x05,Oxygen Sensor Monitor Bank 2 (GM GMLAN),,,0x01,Rich to Lean Sensor Threshold Voltage,,0x0A,,,1.0,0.0,,,
+0x05,Oxygen Sensor Monitor Bank 2 (GM GMLAN),,,0x02,Lean to Rich Sensor Threshold Voltage,,0x0A,,,1.0,0.0,,,
+0x05,Oxygen Sensor Monitor Bank 2 (GM GMLAN),,,0x03,Low Sensor Voltage for Switch Time Calculation,,0x0A,,,1.0,0.0,,,
+0x05,Oxygen Sensor Monitor Bank 2 (GM GMLAN),,,0x04,High Sensor Voltage For Switch Time Calculation,,0x0A,,,1.0,0.0,,,
+0x05,Oxygen Sensor Monitor Bank 2 (GM GMLAN),,,0x05,Rich to Lean Sensor Switch Time,,0x10,°C,raw * 0.1 - 40,0.1,-40.0,,,
+0x05,Oxygen Sensor Monitor Bank 2 (GM GMLAN),,,0x06,Lean to Rich Sensor Switch Time,,0x10,°C,raw * 0.1 - 40,0.1,-40.0,,,
+0x05,Oxygen Sensor Monitor Bank 2 (GM GMLAN),,,0x80,Rich to Lean Switches Test Results,,0x2B,,,1.0,0.0,,,
+0x05,Oxygen Sensor Monitor Bank 2 (GM GMLAN),,,0x81,Lean to Rich Switches Test Results,,0x2B,,,1.0,0.0,,,
+0x05,Oxygen Sensor Monitor Bank 2 (GM GMLAN),,,0x82,Rich-Lean Response to Lean-Rich Response Ratio,,0x20,,,1.0,0.0,,,
+0x05,Oxygen Sensor Monitor Bank 2 (GM GMLAN),,,0x83,Low Sensor Voltage for Half Period Time Calculation,,0x0A,,,1.0,0.0,,,
+0x05,Oxygen Sensor Monitor Bank 2 (GM GMLAN),,,0x84,High Sensor Voltage for Half Period Time Calculation,,0x0A,,,1.0,0.0,,,
+0x05,Oxygen Sensor Monitor Bank 2 (GM GMLAN),,,0x85,O2 Sensor Rich to Lean Half Period Time,,0x10,°C,raw * 0.1 - 40,0.1,-40.0,,,
+0x05,Oxygen Sensor Monitor Bank 2 (GM GMLAN),,,0x86,O2 Sensor Lean to Rich Half Period Time,,0x10,°C,raw * 0.1 - 40,0.1,-40.0,,,
+0x05,Oxygen Sensor Monitor Bank 2 (GM GMLAN),,,0x87,Sum of O2 Sensor L/R and R/L Half Period Times,,0x10,°C,raw * 0.1 - 40,0.1,-40.0,,,
+0x05,Oxygen Sensor Monitor Bank 2 (GM GMLAN),,,0x88,Difference Between,,0x90,,,1.0,0.0,,,
+0x05,Oxygen Sensor Monitor Bank 2 (GM GMLAN),,,0x89,B2S1 WRAF Slow Response,,0x06,,,1.0,0.0,,,
+0x05,Oxygen Sensor Monitor Bank 2 (GM GMLAN),,,0x8E,Absolute Average Slope of the O2 Sensor Signal,,0xB1,,,1.0,0.0,,,
+0x05,Oxygen Sensor Monitor Bank 2 (GM GMLAN),,,0x8F,Instantaneous Positive Slope of the O2 Sensor Signal,,0xB1,,,1.0,0.0,,,
+0x05,Oxygen Sensor Monitor Bank 2 (GM GMLAN),,,0x90,Instantaneous Negative Slope of the O2 Sensor Signal,,0xB1,,,1.0,0.0,,,
+0x06,Oxygen Sensor Heater Monitor B1 (GM GMLAN),,,0x05,B2S2 rich-lean switch time in fuel cut-off,,0x20,,,1.0,0.0,,,
+0x06,Oxygen Sensor Heater Monitor B1 (GM GMLAN),,,0x8A,Post Catalyst Sensor Open Test,,0x24,,,1.0,0.0,,,
+0x06,Oxygen Sensor Heater Monitor B1 (GM GMLAN),,,0x8B,Post Catalyst Sensor Rich Tests,,0x0A,,,1.0,0.0,,,
+0x06,Oxygen Sensor Heater Monitor B1 (GM GMLAN),,,0x8C,Post Catalyst Sensor Lean Tests,,0x0A,,,1.0,0.0,,,
+0x07,Misfire Monitor - General (GM GMLAN),,,0x8A,Post Catalyst Sensor Open Tes,,0x24,,,1.0,0.0,,,
+0x07,Misfire Monitor - General (GM GMLAN),,,0x8B,Post Catalyst Sensor Rich Tests,,0x0A,,,1.0,0.0,,,
+0x07,Misfire Monitor - General (GM GMLAN),,,0x8C,Post Catalyst Sensor Lean Tests,,0x0A,,,1.0,0.0,,,
+0x22,Catalyst Monitor Bank 2 (GM GMLAN),,,0xA0,Catalyst Test Bank 2 (using OSC normalized ratio units),,0x05,,,1.0,0.0,,,
+0x22,Catalyst Monitor Bank 2 (GM GMLAN),,,0x0A,Catalyst Test Bank 2 (using OSC compensation units) –32768 to +32767,,0x90,,,1.0,0.0,,,
+0x22,Catalyst Monitor Bank 2 (GM GMLAN),,,0xA1,Catalyst Test Bank 2 (using Catalyst DFCO Exit Test),,0x01,mV,raw * 0.1,0.1,0.0,,,
+0x3C,EVAP Purge Volume / EVPD Monitor (GM GMLAN),,,0xC2,EVPD NV 0.020 Test - scaled in percentage slope,,0xB0,,,1.0,0.0,,,
+0x3C,EVAP Purge Volume / EVPD Monitor (GM GMLAN),,,0xC3,EVPD NV 0.020 Test - scaled in percentage slope,,0xB0,,,1.0,0.0,,,
+0x3C,EVAP Purge Volume / EVPD Monitor (GM GMLAN),,,0xC8,"EONV 0.020"" leak",,0x05,,,1.0,0.0,,,
+0x3C,EVAP Purge Volume / EVPD Monitor (GM GMLAN),,,0xC9,EONV Vacuum Rezero Test,,0x20,,,1.0,0.0,,,
+0x3C,EVAP Purge Volume / EVPD Monitor (GM GMLAN),,,0xCA,EONV Fuel Level Rationality Test,,0x24,,,1.0,0.0,,,
+0x3C,EVAP Purge Volume / EVPD Monitor (GM GMLAN),,,0xCB,EONV Vacuum Rationality Test,,0x24,,,1.0,0.0,,,
+0x3D,EVAP Vent Restriction / EVPD Monitor (GM GMLAN),,,0xC4,EVPD NV Purge Pass Test,,0x11,°C,raw * 1.0 - 40,1.0,-40.0,,,
+0x3D,EVAP Vent Restriction / EVPD Monitor (GM GMLAN),,,0xC6,EVPD Vent Restriction Test 1,,0x11,°C,raw * 1.0 - 40,1.0,-40.0,,,
+0x3D,EVAP Vent Restriction / EVPD Monitor (GM GMLAN),,,0xC7,EVPD Vent Restriction Test 2 - scaled in kPa.,,0xFD,,,1.0,0.0,,,
+0x3D,EVAP Vent Restriction / EVPD Monitor (GM GMLAN),,,0xC8,EVPD Vent Restriction Test2 - scaled in liters,,0x31,,,1.0,0.0,,,
+0x41,O2 Sensor Heater Monitor B1S1 (GM GMLAN),,,0xD0,Time to Activity Monitor,,0x11,°C,raw * 1.0 - 40,1.0,-40.0,,,
+0x41,O2 Sensor Heater Monitor B1S1 (GM GMLAN),,,0xD1,Current Feedback Amps Value Test,,0x0F,,,1.0,0.0,,,
+0x41,O2 Sensor Heater Monitor B1S1 (GM GMLAN),,,0xD2,Current Feedback X out of Y Samples Test,,0x24,,,1.0,0.0,,,
+0x41,O2 Sensor Heater Monitor B1S1 (GM GMLAN),,,0xD3,Sensor Heater Monitor B1S1 'operative readiness time',,0x11,°C,raw * 1.0 - 40,1.0,-40.0,,,
+0x41,O2 Sensor Heater Monitor B1S1 (GM GMLAN),,,0xD4,Sensor Heater Monitor B1S1 'tip temperature out of range' -3276.8 to + 3276.7 degC 0.1 degC / bit,,0x96,,,1.0,0.0,,,
+0x42,O2 Sensor Heater Monitor B1S2 (GM GMLAN),,,0xD0,Time to Activity Monitor,,0x11,°C,raw * 1.0 - 40,1.0,-40.0,,,
+0x42,O2 Sensor Heater Monitor B1S2 (GM GMLAN),,,0xD1,Current Feedback Amps Value Test,,0x0F,,,1.0,0.0,,,
+0x42,O2 Sensor Heater Monitor B1S2 (GM GMLAN),,,0xD2,Current Feedback X out of Y Samples Test,,0x24,,,1.0,0.0,,,
+0x42,O2 Sensor Heater Monitor B1S2 (GM GMLAN),,,0xD5,Sensor Heater Monitor B1S2 ' resistance out of range',,0x14,%,raw * (100 / 255),0.39215686274509803,0.0,,,
+0x42,O2 Sensor Heater Monitor B1S2 (GM GMLAN),,,0xD3,Heater Resistance Error Test –32.768 to +32.767,,0x84,,,1.0,0.0,,,
+0x43,O2 Sensor Heater Monitor B2S1 (GM GMLAN),,,0xD0,Time to Activity Monitor,,0x11,°C,raw * 1.0 - 40,1.0,-40.0,,,
+0x43,O2 Sensor Heater Monitor B2S1 (GM GMLAN),,,0xD1,Current Feedback Amps Value Test,,0x0F,,,1.0,0.0,,,
+0x43,O2 Sensor Heater Monitor B2S1 (GM GMLAN),,,0xD2,Current Feedback X out of Y Samples Test,,0x24,,,1.0,0.0,,,
+0x43,O2 Sensor Heater Monitor B2S1 (GM GMLAN),,,0xD3,Heater Resistance Error Test –32.768 to +32.767,,0x84,,,1.0,0.0,,,
+0x45,O2 Sensor Heater Current Feedback B1 (GM GMLAN),,,0xD0,Time to Activity Monitor,,0x11,°C,raw * 1.0 - 40,1.0,-40.0,,,
+0x45,O2 Sensor Heater Current Feedback B1 (GM GMLAN),,,0xD1,Current Feedback Amps Value Test,,0x0F,,,1.0,0.0,,,
+0x45,O2 Sensor Heater Current Feedback B1 (GM GMLAN),,,0xD2,Current Feedback X out of Y Samples Test,,0x24,,,1.0,0.0,,,
+0x45,O2 Sensor Heater Current Feedback B1 (GM GMLAN),,,0xD3,Sensor Heater Monitor B2S1 'operative readiness time',,0x11,°C,raw * 1.0 - 40,1.0,-40.0,,,
+0x45,O2 Sensor Heater Current Feedback B1 (GM GMLAN),,,0xD4,Sensor Heater Monitor B2S1 'tip temperature out of range' -3276.8 to + 3276.7 degC 0.1 degC / bit,,0x96,,,1.0,0.0,,,
+0x46,O2 Sensor Heater Current Feedback B2 (GM GMLAN),,,0xD0,Time to Activity Monitor,,0x11,°C,raw * 1.0 - 40,1.0,-40.0,,,
+0x46,O2 Sensor Heater Current Feedback B2 (GM GMLAN),,,0xD1,Current Feedback Amps Value Test,,0x0F,,,1.0,0.0,,,
+0x46,O2 Sensor Heater Current Feedback B2 (GM GMLAN),,,0xD2,Current Feedback X out of Y Samples Test,,0x24,,,1.0,0.0,,,
+0x46,O2 Sensor Heater Current Feedback B2 (GM GMLAN),,,0xD3,Heater Resistance Error Test –32.768 to +32.767,,0x84,,,1.0,0.0,,,
+0x46,O2 Sensor Heater Current Feedback B2 (GM GMLAN),,,0xD5,Sensor Heater Monitor B2S2 ' resistance out of range',,0x14,%,raw * (100 / 255),0.39215686274509803,0.0,,,
+0x47,O2 Sensor Heater Resistance Monitor (GM GMLAN),,,0xD0,Time to Activity Monitor,,0x11,°C,raw * 1.0 - 40,1.0,-40.0,,,
+0x47,O2 Sensor Heater Resistance Monitor (GM GMLAN),,,0xD1,Current Feedback Amps Value Test,,0x0F,,,1.0,0.0,,,
+0x47,O2 Sensor Heater Resistance Monitor (GM GMLAN),,,0xD2,Current Feedback X out of Y Samples Test,,0x24,,,1.0,0.0,,,
+0x47,O2 Sensor Heater Resistance Monitor (GM GMLAN),,,0xD3,Heater Resistance Error Test –32.768 to +32.767,,0x84,,,1.0,0.0,,,
+0x72,Secondary Air Injection Monitor B2 (GM GMLAN),,,0xE0,AIR - Bank 2 Test,,0x24,,,1.0,0.0,,,
+0x72,Secondary Air Injection Monitor B2 (GM GMLAN),,,0xE1,AIR on - pressure error test,,0xFD,,,1.0,0.0,,,
+0x72,Secondary Air Injection Monitor B2 (GM GMLAN),,,0xE2,AIR Valve shut - pressure error test,,0xFD,,,1.0,0.0,,,
+0x72,Secondary Air Injection Monitor B2 (GM GMLAN),,,0xE3,AIR Pump off - pressure error test,,0xFD,,,1.0,0.0,,,
+0x72,Secondary Air Injection Monitor B2 (GM GMLAN),,,0xE4,"AIR on - pressure differential, between bank 1 and bank 2",,0xFD,,,1.0,0.0,,,
+0xAA,Misfire Data - EWMA & General (GM GMLAN),,,0x0B,EWMA (Exponentially Weighted Moving Average),,0x24,,,1.0,0.0,,,
+0xAA,Misfire Data - EWMA & General (GM GMLAN),,,0x0C,Misfire counts for the last / current driving cycles,,0x24,,,1.0,0.0,,,
+0xAB,Misfire Data Cylinder 1 Extended (GM GMLAN),,,0x0B,EWMA (Exponentially Weighted Moving Average),,0x24,,,1.0,0.0,,,
+0xAB,Misfire Data Cylinder 1 Extended (GM GMLAN),,,0x0C,Misfire counts for the last / current driving cycles,,0x24,,,1.0,0.0,,,
+0xAC,Misfire Data Cylinder 2 Extended (GM GMLAN),,,0xA5,EWMA (Exponentially Weighted Moving Average),,0x24,,,1.0,0.0,,,
+0xAC,Misfire Data Cylinder 2 Extended (GM GMLAN),,,0x0C,Misfire counts for the last / current driving cycles,,0x24,,,1.0,0.0,,,
+0xAD,Misfire Data Cylinder 3 Extended (GM GMLAN),,,0x0B,EWMA (Exponentially Weighted Moving Average),,0x24,,,1.0,0.0,,,
+0xAD,Misfire Data Cylinder 3 Extended (GM GMLAN),,,0x0C,Misfire counts for the last / current driving cycles,,0x24,,,1.0,0.0,,,
+,GM J1850/Class2 Monitor TID 02,,J1850/Class2,0x02,EVAP canister loading test Test Not Run - Test Value Passed Test Not Run - Test Limit Passed,,,,,,,0x04,1-Low,0000-0100
+,GM J1850/Class2 Monitor TID 02,,J1850/Class2,0x02,1- Low EVAP purge leak pass test,,,0 to 6553.5 seconds,,,,0x11,,0000-FFFF
+,GM J1850/Class2 Monitor TID 02,,J1850/Class2,0x02,0- High EVAP weak vacuum fail test 1 (1) –3276.8 to +3276.7 integral index-seconds,,,,,,,0x20,,8000-7FFF
+,GM J1850/Class2 Monitor TID 02,,J1850/Class2,0x02,0- High EVAP purge leak vapor fail test,,,0 to 6553.5 seconds,,,,0x21,,0000-FFFF
+,GM J1850/Class2 Monitor TID 02,,J1850/Class2,0x02,1- Low EVAP weak vacuum test 2 vacuum,,,0 to 6553.5 seconds,,,,0x30,,0000-FFFF
+,GM J1850/Class2 Monitor TID 02,,J1850/Class2,0x02,1- Low EVAP weak vacuum pass test 1 –3276.8 to +3276.7 in of H2O Vacuum,,,,,,,0x50,,0000-FFFF
+,Secondary Air Injection Reaction System Monitor,,J1850/Class2,0x03,AIR on pressure error test bank 1 Out of range high,,,–32.768 to +32.767 kPa,,,,0x03,0-High,0000-FFFF
+,Secondary Air Injection Reaction System Monitor,,J1850/Class2,0x03,AIR pump off pressure error test bank 1 Out of range high,,,–32.768 to +32.767 kPa,,,,0x05,0-High,0000-FFFF
+,Secondary Air Injection Reaction System Monitor,,J1850/Class2,0x03,AIR on pressure error high test bank 2 Out of range high,,,–32.768 to +32.767 kPa,,,,0x13,0-High,0000-FFFF
+,Secondary Air Injection Reaction System Monitor,,J1850/Class2,0x03,AIR pump off pressure error test bank 2 Out of range high,,,–32.768 to +32.767 kPa,,,,0x15,0-High,0000-FFFF
+,Secondary Air Injection Reaction System Monitor,,J1850/Class2,0x03,AIR on pressure differential high between bank 1 and bank 2 Out of range high,,,–32.768 to +32.767 kPa,,,,0x16,0-High,0000-FFFF
+,Secondary Air Injection Reaction System Monitor,,J1850/Class2,0x03,AIR on pressure error test bank 1 Out of range low,,,–32.768 to +32.767 kPa,,,,0x83,1-Low,0000-FFFF
+,Secondary Air Injection Reaction System Monitor,,J1850/Class2,0x03,AIR valve shut pressure error test bank 1 Out of range low,,,–32.768 to +32.767 kPa,,,,0x84,1-Low,0000-FFFF
+,Secondary Air Injection Reaction System Monitor,,J1850/Class2,0x03,AIR on pressure error test bank 2 Out of range low,,,–32.768 to +32.767 kPa,,,,0x93,1-Low,0000-FFFF
+,Secondary Air Injection Reaction System Monitor,,J1850/Class2,0x03,AIR valve shut pressure error test bank 2 Out of range low,,,–32.768 to +32.767 kPa,,,,0x94,1-Low,0000-FFFF
+,Secondary Air Injection Reaction System Monitor,,J1850/Class2,0x03,AIR on pressure differential low between bank 1 and bank 2 Out of range low,,,–32.768 to +32.767 kPa,,,,0x96,1-Low,0000-FFFF
+,Catalyst Efficiency Steady State Monitor,,J1850/Class2,0x04,Steady state catalyst test bank 1 (1) –555 to +554.9831 mV 8000 - 7FFF 04 30 0-High Steady state catalyst test bank 2 (1),,,–555 to +554.9831 mV,,,,0x20,0-High,8000-7FFF
+,Catalyst Efficiency Steady State Monitor,,J1850/Class2,0x04,Catalyst test bank 1 using catalyst DFCO Exit Test (5),,,0 to 65535 counts,,,,0x61,0-Low,0000-FFFF
+,Catalyst Efficiency Steady State Monitor,,J1850/Class2,0x04,Catalyst test bank 2 using catalyst DFCO Exit Test (5),,,0 to 65535 counts,,,,0x71,0-Low,0000-FFFF
+,gen Sensor Monitors and Constants,,J1850/Class2,0x05,Rich to lean sensor switch time - B1S1 Out of range high,,,0 to 1024 ms,,,,0x05,0-High,0000-FFFF
+,gen Sensor Monitors and Constants,,J1850/Class2,0x05,Lean to rich sensor switch time - B1S1 Out of range high,,,0 to 1024 ms,,,,0x06,0-High,0000-FFFF
+,gen Sensor Monitors and Constants,,J1850/Class2,0x05,R/L response to L/R response ratio - B1S1 Out of range high 0:1 to 8:,,,1 ratio,,,,0x09,0-High,0000-FFFF
+,gen Sensor Monitors and Constants,,J1850/Class2,0x05,Post catalyst sensor open test - B1S2 (4) 0 to 65535 samples 0000 - FFFF 05 0B 1-Low Post catalyst sensor rich tests - B1S2,,,0 to 2048 mV,,,,0x0A,0-High,0000-FFFF
+,gen Sensor Monitors and Constants,,J1850/Class2,0x05,Difference between R/L response and L/R response - B1S1 Out of range high (2),,,–32768 to +32767 ms,,,,0x0D,0-High,0000-FFFF
+,gen Sensor Monitors and Constants,,J1850/Class2,0x05,High sensor voltage for switch time calculation - B2S1 (3) 0 to 2048 mV 0000 - FFFF 05 45 0-High Rich to lean sensor switch time - B2S1 Out of range high,,,0 to 1024 ms,,,,0x44,0-High,0000-FFFF
+,gen Sensor Monitors and Constants,,J1850/Class2,0x05,Rich to lean sensor switch time - B2S1 Out of range low,,,0 to 1024 ms,,,,0x45,1-Low,0000-FFFF
+,gen Sensor Monitors and Constants,,J1850/Class2,0x05,Lean to rich sensor switch time - B2S1 Out of range high,,,0 to 1024 ms,,,,0x46,0-High,0000-FFFF
+,gen Sensor Monitors and Constants,,J1850/Class2,0x05,R/L response to L/R response ratio - B2S1 Out of range high 0:1 to 8:,,,1 ratio,,,,0x49,0-High,0000-FFFF
+,gen Sensor Monitors and Constants,,J1850/Class2,0x05,Difference between R/L response and L/R response - B2S1 Out of range high,,,–32768 to +32767 ms,,,,0x4D,0-High,0000-FFFF
+,gen Sensor Monitors and Constants,,J1850/Class2,0x05,Difference between R/L response and L/R response - B1S1 (2) –32768 to +32767 ms 0000 - FFFF 05 9B 1-Low Post catalyst sensor rich tests - B1S3,,,0 to 2048 mV,,,,0x8D,1-Low,0000-FFFF
+,Oxygen Sensor Monitors and Constants,,J1850/Class2,0x07,MAF below expected value during full EGR intrusive idle test 0 to 255.996 gm/cyl 0000 - FFFF No EGR intrusive idle test07 06 0-High No EGR intrusive idle test MAF Out of range high,,,0 to 255.996 gm/cyl,,,,0x05,0-High,0000-FFFF
+,Oxygen Sensor Monitors and Constants,,J1850/Class2,0x07,No EGR off-idle test MAF Out of range high,,,0 to 255.996 gm/cyl,,,,0x07,0-High,0000-FFFF
+,Oxygen Sensor Monitors and Constants,,J1850/Class2,0x07,No EGR intrusive idle test MAF Out of range high,,,0 to 255.996 gm/cyl,,,,0x0B,0-High,0000-FFFF
+,Oxygen Sensor Monitors and Constants,,J1850/Class2,0x07,No EGR off-idle test MAF Out of range high,,,0 to 255.996 gm/cyl,,,,0x0C,0-High,0000-FFFF
+,Oxygen Sensor Monitors and Constants,,J1850/Class2,0x07,Full EGR intrusive idle test MAF Out of range low,,,0 to 255.996 gm/cyl,,,,0x0D,1-Low,0000-FFFF
+,Oxygen Sensor Monitors and Constants,,J1850/Class2,0x0A,EVAP/EVPD canister vent restriction test 1 (6) 0 to 6553.5 seconds 0000 - FFFF 0A 03 0-High EVPD weak vacuum test,,,0 to 6553.5 seconds,,,,0x01,0-High,0000-FFFF
+,Oxygen Sensor Monitors and Constants,,J1850/Class2,0x0A,"EONV NV .020"" test for EONV spec version 22.0.0 and prior 0:1 to 4.0000:",,,1 ratio,,,,0x09,0-High,0000-FFFF
+,Oxygen Sensor Monitors and Constants,,J1850/Class2,0x0A,"EONV NV .020"" test for EONV spec version 22.1.1 and later (9) 0:1 to 255.99609375:",,,1 ratio,,,,0x0A,0-High,0000-FFFF
+,Oxygen Sensor Monitors and Constants,,J1850/Class2,0x0A,EONV vacuum rezero test (8) 0:1 to 255.99609375:1 ratio 0000 - FFFF 0A 0C 0-High EONV fuel level rationality test (7),,,0 to 65535 counts,,,,0x0B,0-High,0000-FFFF
+,Oxygen Sensor Monitors and Constants,,J1850/Class2,0x0A,EVPD canister vent restriction test 2 Out of range high –3276.8 to +3276.7 in of H2O Vacuum,,,,,,,0x42,0-High,0000-FFFF
+,Oxygen Sensor Monitors and Constants,,J1850/Class2,0x0C,Idle catalyst efficiency test - bank 2 (1) –32.768 to +32.767 seconds 8000 - 7FFF 0C 60 0-High Catalyst Test Bank 1 (using OSC compensation units),,,–32.768 to +32.767 seconds,,,,0x30,0-High,0000-FFFF
+,Oxygen Sensor Monitors and Constants,,J1850/Class2,0x0E,Oxygen sensor heater current feedback x/y samples test - B1S2 (4) 0 to 65535 samples 0000 - FFFF 0E 13 0-High Oxygen sensor heater current feedback x/y samples test - B1S3,,,0 to 65535 samples,,,,0x12,0-High,0000-FFFF
+,Oxygen Sensor Monitors and Constants,,J1850/Class2,0x0E,Oxygen sensor heater current feedback high amperage value test - B1S1 Out of range high,,,0 to 5.000 Amperes,,,,0x35,0-High,0000-00FF
+,Oxygen Sensor Monitors and Constants,,J1850/Class2,0x0E,Oxygen sensor heater current feedback high amperage value test - B1S2 Out of range high,,,0 to 5.000 Amperes,,,,0x41,0-High,0000-00FF
+,Oxygen Sensor Monitors and Constants,,J1850/Class2,0x0E,Oxygen sensor heater current feedback high amperage value test - B1S3 Out of range high,,,0 to 5.000 Amperes,,,,0x47,0-High,0000-00FF
+,Oxygen Sensor Monitors and Constants,,J1850/Class2,0x0E,Oxygen sensor heater current feedback high amperage value test - B2S1 Out of range high,,,0 to 5.000 Amperes,,,,0x55,0-High,0000-00FF
+,Oxygen Sensor Monitors and Constants,,J1850/Class2,0x0E,Oxygen sensor heater current feedback high amperage value test - B2S2 Out of range high,,,0 to 5.000 Amperes,,,,0x61,0-High,0000-00FF
+,Oxygen Sensor Monitors and Constants,,J1850/Class2,0x0E,Oxygen sensor heater current feedback high amperage value test - B2S3 Out of range high,,,0 to 5.000 Amperes,,,,0x67,0-High,0000-00FF
+,O2 Sensor Heater System Current Feedback Monitor,,J1850/Class2,0x16,Heater Resistance Error Test - B1S1 Out of range high,,,–32.768 to +32.767 ohms,,,,0x11,0-High,0000-FFFF
+,O2 Sensor Heater System Current Feedback Monitor,,J1850/Class2,0x16,Heater Resistance Error Test - B1S2 Out of range high,,,–32.768 to +32.767 ohms,,,,0x12,0-High,0000-FFFF
+,O2 Sensor Heater System Current Feedback Monitor,,J1850/Class2,0x16,Heater Resistance Error Test - B1S3 Out of range high,,,–32.768 to +32.767 ohms,,,,0x13,0-High,0000-FFFF
+,O2 Sensor Heater System Current Feedback Monitor,,J1850/Class2,0x16,Heater Resistance Error Test - B2S1 Out of range high,,,–32.768 to +32.767 ohms,,,,0x21,0-High,0000-FFFF
+,O2 Sensor Heater System Current Feedback Monitor,,J1850/Class2,0x16,Heater Resistance Error Test - B2S2 Out of range high,,,–32.768 to +32.767 ohms,,,,0x22,0-High,0000-FFFF
+,O2 Sensor Heater System Current Feedback Monitor,,J1850/Class2,0x16,Heater Resistance Error Test - B2S3 Out of range high,,,–32.768 to +32.767 ohms,,,,0x23,0-High,0000-FFFF

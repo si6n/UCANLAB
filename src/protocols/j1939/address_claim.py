@@ -18,6 +18,9 @@ from src.protocols.j1939.pgn import parse_j1939_id
 logger = get_logger("protocols.j1939.address_claim")
 
 PGN_ADDRESS_CLAIM: int = 60928  # 0xEE00
+# REVIEW 1-H4 (HIGH): J1939-81 §4 mandatory PGNs previously unhandled here.
+PGN_REQUEST_PGN: int = 59904  # 0xEA00 — Request PGN
+PGN_COMMANDED_ADDRESS: int = 65240  # 0xFED8 — Commanded Address
 NULL_ADDRESS: int = 254  # 0xFE
 GLOBAL_ADDRESS: int = 255  # 0xFF
 
@@ -90,11 +93,91 @@ class J1939Name:
         return cls.from_int64(val)
 
 
+class _ExpiringAddressTable(dict):
+    """SA -> (NAME, expiry) table with a NAME-shaped read view.
+
+    REVIEW hardening: entries carry a 60 s monotonic TTL. Internal code
+    reads/writes (NAME, expiry) tuples; legacy readers (`in`, `[]`,
+    `.get()`) transparently see the plain J1939Name (or None), and legacy
+    `table[sa] = name` writes stamp a fresh TTL — so existing tests and
+    callers keep working while expiry/rate-limit stay enforced on the RX
+    path. Expired entries are pruned lazily on read.
+    """
+
+    def _prune(self) -> None:
+        try:
+            now = time.monotonic()
+        except Exception:
+            return
+        for sa, entry in list(dict.items(self)):
+            if isinstance(entry, tuple) and len(entry) == 2:
+                _name, expiry = entry
+                try:
+                    if float(expiry) <= now:
+                        dict.pop(self, sa, None)
+                except Exception:
+                    continue
+
+    @staticmethod
+    def _unwrap(entry: object) -> J1939Name | None:
+        if isinstance(entry, tuple) and len(entry) == 2 and isinstance(entry[0], J1939Name):
+            return entry[0]
+        if isinstance(entry, J1939Name):
+            return entry
+        return None
+
+    def __contains__(self, key: object) -> bool:
+        self._prune()
+        entry = dict.get(self, key)
+        return self._unwrap(entry) is not None
+
+    def __getitem__(self, key: int) -> J1939Name:
+        self._prune()
+        entry = dict.get(self, key)
+        name = self._unwrap(entry)
+        if name is None:
+            raise KeyError(key)
+        return name
+
+    def get(self, key: int, default: J1939Name | None = None) -> J1939Name | None:  # type: ignore[override]
+        self._prune()
+        entry = dict.get(self, key)
+        name = self._unwrap(entry)
+        return name if name is not None else default
+
+    def __setitem__(self, key: int, value: J1939Name | tuple[J1939Name, float]) -> None:
+        if isinstance(value, J1939Name):
+            dict.__setitem__(self, key, (value, time.monotonic() + AddressClaimEngine.ADDRESS_TABLE_TTL_S))
+        else:
+            dict.__setitem__(self, key, value)
+
+    def items(self):  # type: ignore[override]
+        self._prune()
+        for sa, entry in dict.items(self):
+            name = self._unwrap(entry)
+            if name is not None:
+                yield sa, name
+
+    def values(self):  # type: ignore[override]
+        self._prune()
+        for _sa, entry in dict.items(self):
+            name = self._unwrap(entry)
+            if name is not None:
+                yield name
+
+
 class AddressClaimEngine:
     """J1939-81 Dynamic Address Claiming State Machine."""
 
     DEFAULT_PREFERRED_ADDRESS: ClassVar[int] = 0xF9  # 249 (Diagnostic tool #1)
     FALLBACK_ADDRESS_RANGE: ClassVar[tuple[int, ...]] = tuple(range(128, 248))
+
+    # REVIEW hardening: address-table entry TTL + per-SA claim rate
+    # limit. Without expiry 121 spoofed claims permanently exhaust the
+    # fallback range (persistent CANNOT_CLAIM DoS).
+    ADDRESS_TABLE_TTL_S: ClassVar[float] = 60.0
+    CLAIM_RATE_LIMIT_PER_SA: ClassVar[int] = 8
+    CLAIM_RATE_WINDOW_S: ClassVar[float] = 1.0
 
     def __init__(
         self,
@@ -107,7 +190,11 @@ class AddressClaimEngine:
         self.current_address = preferred_address
         self.channel_id = channel_id
         self.state = AddressClaimState.UNINITIALIZED
-        self._address_table: dict[int, J1939Name] = {}  # SA -> NAME
+        # SA -> (NAME, monotonic_expiry). Stale entries are pruned on
+        # every RX and on fallback scans.
+        self._address_table: _ExpiringAddressTable = _ExpiringAddressTable()
+        # SA -> [window_start_monotonic, count] claim rate bucket.
+        self._claim_rate: dict[int, list[float]] = {}
         self._claim_timer: threading.Timer | None = None  # F-31: 250ms claim window
         # P6: address table + current address + state mutate from the rx path
         # and the timer callback concurrently; RLock because the confirmation
@@ -225,6 +312,51 @@ class AddressClaimEngine:
         # EDP-set frames.
         pgn, source_address, _da, _priority = parse_j1939_id(frame.arbitration_id)
 
+        # REVIEW 1-H4 (HIGH): SAE J1939-81 §4 — a claimed node MUST answer
+        # a Request PGN (59904) for its own Address Claimed (60928) by
+        # re-broadcasting the claim. Without this, bridges/dataloggers that
+        # dictionary-scan the network never learn we exist and may suggest
+        # our address to another node.
+        if pgn == PGN_REQUEST_PGN and len(frame.data) >= 3:
+            requested_pgn = int.from_bytes(bytes(frame.data[0:3]), byteorder="little")
+            if requested_pgn == PGN_ADDRESS_CLAIM and self.state == AddressClaimState.CLAIMED:
+                can_id = 0x18EEFF00 | (self.current_address & 0xFF)
+                logger.debug(
+                    "Answering Request PGN for Address Claimed",
+                    extra={"requester": source_address, "sa": self.current_address},
+                )
+                return CanFrame.create(
+                    channel_id=self.channel_id,
+                    arbitration_id=can_id,
+                    data=self.name.to_bytes(),
+                    is_extended=True,
+                    direction="tx",
+                )
+            return None
+
+        # REVIEW 1-H4 (HIGH): SAE J1939-81 — Commanded Address (PGN 65240)
+        # carries NAME + new source address; a node whose NAME matches MUST
+        # adopt the new address and re-claim. Frames for other NAMEs are
+        # ignored (other target).
+        if pgn == PGN_COMMANDED_ADDRESS and len(frame.data) == 9:
+            commanded_name = J1939Name.from_bytes(frame.data[0:8])
+            if commanded_name.to_int64() != self.name.to_int64():
+                return None  # Commanded Address targets a different node
+            new_address = frame.data[8]
+            if not (0 <= new_address <= 0xFD):
+                logger.warning(
+                    "Ignoring Commanded Address with reserved/invalid SA value",
+                    extra={"new_sa": new_address},
+                )
+                return None
+            with self._engine_lock:
+                logger.info(
+                    "Commanded Address received — adopting new SA",
+                    extra={"old_sa": self.current_address, "new_sa": new_address},
+                )
+                self.preferred_address = new_address
+            return self.start_claiming()
+
         # Check if frame is an Address Claim message (PGN 60928 / 0xEE00)
         if pgn != PGN_ADDRESS_CLAIM:
             return None
@@ -240,60 +372,121 @@ class AddressClaimEngine:
             return None
 
         with self._engine_lock:
-            self._address_table[source_address] = other_name
-
-            # If claim is from another SA, no collision with our current SA
-            # P2-7: a Null Address (254) Cannot-Claim broadcast is never a
-            # contention against our working address — other nodes are in
-            # distress, not competing for this SA.
-            if source_address != self.current_address or source_address == NULL_ADDRESS:
-                return None
-
-            # Contention detected on our address! Compare 64-bit NAMEs
-            # F-31: contention inside the window cancels auto-confirmation
-            self.cancel_pending_claim_timer()
-            my_val = self.name.to_int64()
-            other_val = other_name.to_int64()
-
-            if my_val < other_val:
-                # We have higher priority (lower numerical NAME). Re-assert our address!
-                logger.info("Defending address claim against higher numerical NAME", extra={"sa": self.current_address})
-                self._arm_claim_confirmation_timer()
-                can_id = 0x18EEFF00 | (self.current_address & 0xFF)
-                return CanFrame.create(
-                    channel_id=self.channel_id,
-                    arbitration_id=can_id,
-                    data=self.name.to_bytes(),
-                    is_extended=True,
-                    direction="tx",
+            # REVIEW hardening: per-SA rate-limit first (claim flood),
+            # then expiry-pruned table write (60 s TTL).
+            now = time.monotonic()
+            if not self._check_claim_rate_limit(source_address, now):
+                logger.warning(
+                    "Address claim rate-limited (flood/spoof?)",
+                    extra={"sa": source_address},
                 )
+                return None
+            self._prune_address_table(now)
+            dict.__setitem__(
+                self._address_table, source_address, (other_name, now + self.ADDRESS_TABLE_TTL_S)
+            )
+            return self._handle_contention_locked(source_address, other_name)
 
-            # We lost contention.
-            logger.warning("Lost address claim contention", extra={"sa": self.current_address})
-            if self.name.arbitrary_address_capable:
-                # Try next available address
-                for candidate_sa in self.FALLBACK_ADDRESS_RANGE:
-                    if candidate_sa not in self._address_table:
-                        self.current_address = candidate_sa
-                        # P2-7: a fallback claim is a FRESH claim — the state
-                        # must return to CLAIMING so is_address_claimed stays
-                        # False until the 250 ms contention window confirms.
-                        # (The old code left state==CLAIMED, allowing TX on an
-                        # unconfirmed address — a J1939-81 violation.)
-                        self.state = AddressClaimState.CLAIMING
-                        can_id = 0x18EEFF00 | (self.current_address & 0xFF)
-                        logger.info("Attempting next fallback address", extra={"new_sa": candidate_sa})
-                        # The fallback claim is a fresh claim: it needs its own
-                        # 250 ms contention window or it can never confirm and
-                        # is_address_claimed stays False (J1939 TX permanently dead).
-                        self._arm_claim_confirmation_timer()
-                        return CanFrame.create(
-                            channel_id=self.channel_id,
-                            arbitration_id=can_id,
-                            data=self.name.to_bytes(),
-                            is_extended=True,
-                            direction="tx",
-                        )
+    def _prune_address_table(self, now: float) -> None:
+        """Drop expired (SA -> NAME) entries. Caller holds _engine_lock."""
+        expired = [
+            sa
+            for sa, entry in dict.items(self._address_table)
+            if isinstance(entry, tuple)
+            and len(entry) == 2
+            and isinstance(entry[1], (int, float))
+            and float(entry[1]) <= now
+        ]
+        for sa in expired:
+            dict.pop(self._address_table, sa, None)
+
+    def _check_claim_rate_limit(self, sa: int, now: float) -> bool:
+        """Per-SA claim rate gate. Caller holds _engine_lock.
+
+        Returns True when the claim may be recorded, False when the SA
+        exceeded CLAIM_RATE_LIMIT_PER_SA claims within CLAIM_RATE_WINDOW_S
+        (spoof/flood — drop the frame).
+        """
+        bucket = self._claim_rate.get(sa)
+        if bucket is None:
+            self._claim_rate[sa] = [now, 1.0]
+            return True
+        window_start, count = bucket
+        if (now - window_start) > self.CLAIM_RATE_WINDOW_S:
+            bucket[0] = now
+            bucket[1] = 1.0
+            return True
+        if count >= self.CLAIM_RATE_LIMIT_PER_SA:
+            return False
+        bucket[1] = count + 1.0
+        return True
+
+    def _live_address_table(self) -> dict[int, J1939Name]:
+        """Pruned SA -> NAME snapshot for fallback scans. Holds the lock."""
+        now = time.monotonic()
+        self._prune_address_table(now)
+        return dict(self._address_table.items())
+
+    def _handle_contention_locked(
+        self, source_address: int, other_name: J1939Name
+    ) -> CanFrame | None:
+        """Contention + fallback path. Caller holds _engine_lock."""
+        # If claim is from another SA, no collision with our current SA
+        # P2-7: a Null Address (254) Cannot-Claim broadcast is never a
+        # contention against our working address — other nodes are in
+        # distress, not competing for this SA.
+        if source_address != self.current_address or source_address == NULL_ADDRESS:
+            return None
+
+        # Contention detected on our address! Compare 64-bit NAMEs
+        # F-31: contention inside the window cancels auto-confirmation
+        self.cancel_pending_claim_timer()
+        my_val = self.name.to_int64()
+        other_val = other_name.to_int64()
+
+        if my_val < other_val:
+            # We have higher priority (lower numerical NAME). Re-assert our address!
+            logger.info("Defending address claim against higher numerical NAME", extra={"sa": self.current_address})
+            self._arm_claim_confirmation_timer()
+            can_id = 0x18EEFF00 | (self.current_address & 0xFF)
+            return CanFrame.create(
+                channel_id=self.channel_id,
+                arbitration_id=can_id,
+                data=self.name.to_bytes(),
+                is_extended=True,
+                direction="tx",
+            )
+
+        # We lost contention.
+        logger.warning("Lost address claim contention", extra={"sa": self.current_address})
+        if self.name.arbitrary_address_capable:
+            # REVIEW hardening: scan the EXPIRY-PRUNED table so stale
+            # spoofed entries cannot permanently exhaust the fallback
+            # range (persistent CANNOT_CLAIM DoS).
+            live_table = self._live_address_table()
+            # Try next available address
+            for candidate_sa in self.FALLBACK_ADDRESS_RANGE:
+                if candidate_sa not in live_table:
+                    self.current_address = candidate_sa
+                    # P2-7: a fallback claim is a FRESH claim — the state
+                    # must return to CLAIMING so is_address_claimed stays
+                    # False until the 250 ms contention window confirms.
+                    # (The old code left state==CLAIMED, allowing TX on an
+                    # unconfirmed address — a J1939-81 violation.)
+                    self.state = AddressClaimState.CLAIMING
+                    can_id = 0x18EEFF00 | (self.current_address & 0xFF)
+                    logger.info("Attempting next fallback address", extra={"new_sa": candidate_sa})
+                    # The fallback claim is a fresh claim: it needs its own
+                    # 250 ms contention window or it can never confirm and
+                    # is_address_claimed stays False (J1939 TX permanently dead).
+                    self._arm_claim_confirmation_timer()
+                    return CanFrame.create(
+                        channel_id=self.channel_id,
+                        arbitration_id=can_id,
+                        data=self.name.to_bytes(),
+                        is_extended=True,
+                        direction="tx",
+                    )
 
             # Cannot claim any address -> Send 'Cannot Claim' (SA = 254)
             self.current_address = NULL_ADDRESS

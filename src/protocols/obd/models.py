@@ -64,6 +64,50 @@ class ObdPidResult:
     timestamp_ns: int = field(default_factory=time.time_ns)
     is_valid: bool = True
     error_message: str | None = None
+    # REVIEW hardening: raw payloads above MAX_RAW_BYTES are cut and the
+    # result is flagged (hex-bloat / memory DoS protection).
+    truncated: bool = False
+    # REVIEW 1-M5: ECU provenance — functional (0x7DF) requests are answered
+    # by every compliant ECU from its own physical ID; without this field
+    # the answer could not be attributed to the source ECU.
+    source_rx_id: int | None = None
+
+
+@dataclass(slots=True, frozen=True)
+class ObdDtcResult:
+    """Decoded result of an OBD-II DTC readback (Mode 03 / 07 / 0A).
+
+    SAE J1979: Mode 03 = stored DTCs, Mode 07 = pending DTCs,
+    Mode 0A = permanent (clear-resistant) DTCs. dtcs holds the decoded
+    SAE J2012 5-character codes (e.g. "P0123") — never fabricated: only
+    pairs physically present in the payload are decoded, and a payload
+    shorter than the declared DTC count is flagged is_valid=False.
+    """
+
+    mode: int  # 0x03 | 0x07 | 0x0A
+    dtc_count: int  # DTC count declared by the ECU in byte 1
+    dtcs: tuple[str, ...]
+    raw_bytes: bytes
+    timestamp_ns: int = field(default_factory=time.time_ns)
+    is_valid: bool = True
+    error_message: str | None = None
+    source_rx_id: int | None = None
+
+
+def decode_dtc_pair(a: int, b: int) -> str:
+    """Decode one SAE J2012 2-byte DTC into its 5-character text form.
+
+    Byte A: bits 7..6 system letter (P/C/B/U), bits 5..4 second char,
+    bits 3..0 third char (hex). Byte B: bits 7..4 fourth char, 3..0 fifth.
+    E.g. (0x01, 0x23) -> "P0123", (0x52, 0x34) -> "C1234", (0xC1, 0x00) -> "U0100".
+    """
+    letters = "PCBU"
+    letter = letters[(a >> 6) & 0x03]
+    second = str((a >> 4) & 0x03)
+    third = format(a & 0x0F, "X")
+    fourth = format((b >> 4) & 0x0F, "X")
+    fifth = format(b & 0x0F, "X")
+    return f"{letter}{second}{third}{fourth}{fifth}"
 
 
 @dataclass(slots=True, frozen=True)
@@ -150,3 +194,16 @@ class UdsDidResult:
     timestamp_ns: int = field(default_factory=time.time_ns)
     is_valid: bool = True
     error_message: str | None = None
+    # REVIEW hardening: raw payloads above MAX_RAW_BYTES are cut and the
+    # result is flagged (hex-bloat / memory DoS protection).
+    truncated: bool = False
+
+
+# REVIEW hardening: raw-payload ceiling shared by the DID/PID unknown-ID
+# paths (an attacker reflecting megabytes would otherwise double memory
+# via .hex() and land as "valid" telemetry).
+MAX_RAW_BYTES: int = 256
+
+# Fixed machine-readable decode-failure code (no str(exc) reflection —
+# internal exception text must not reach telemetry/log as an oracle).
+DECODE_FAILURE_CODE: str = "DID_TRUNCATED"

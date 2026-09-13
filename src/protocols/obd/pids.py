@@ -249,20 +249,28 @@ class ObdPidRegistry:
 
     def decode(self, pid: int, raw_bytes: bytes) -> ObdPidResult:
         """Decode raw response bytes for given PID into a validated ObdPidResult."""
+        from src.protocols.obd.models import DECODE_FAILURE_CODE, MAX_RAW_BYTES
+
+        # REVIEW hardening: raw-payload ceiling BEFORE any decode or .hex().
+        truncated = len(raw_bytes) > MAX_RAW_BYTES
+        bounded = bytes(raw_bytes[:MAX_RAW_BYTES]) if truncated else bytes(raw_bytes)
+
         definition = self.get(pid)
         if definition is None:
-            # Fallback dynamic definition for unlisted PIDs
+            # REVIEW hardening: unknown PIDs are NOT valid telemetry.
             return ObdPidResult(
                 pid=pid,
                 name=f"UNKNOWN_PID_0x{pid:02X}",
-                raw_bytes=raw_bytes,
-                value=raw_bytes.hex(),
-                unit="raw",
-                is_valid=True,
+                raw_bytes=bounded,
+                value=bounded.hex(),
+                unit="unknown",
+                is_valid=False,
+                error_message="unknown PID (unlisted identifier)",
+                truncated=truncated,
             )
 
         try:
-            val = definition.decode(raw_bytes)
+            val = definition.decode(bounded)
             # Range check for numeric values
             is_valid = True
             err_msg = None
@@ -273,25 +281,35 @@ class ObdPidRegistry:
                 elif definition.max_value is not None and val > definition.max_value:
                     is_valid = False
                     err_msg = f"Value {val} above maximum {definition.max_value}"
+            if truncated:
+                is_valid = False
+                err_msg = (err_msg + "; " if err_msg else "") + "payload cut at 256B ceiling"
 
             return ObdPidResult(
                 pid=pid,
                 name=definition.name,
-                raw_bytes=raw_bytes,
+                raw_bytes=bounded,
                 value=val,
                 unit=definition.unit,
                 is_valid=is_valid,
                 error_message=err_msg,
+                truncated=truncated,
             )
-        except Exception as exc:
+        except Exception:
+            # REVIEW hardening: fixed machine-readable code, no str(exc).
+            # The expected length is definition metadata (not exception
+            # text), so it is safe to include for diagnostics.
+            expected_len = getattr(definition, "bytes_length", None)
+            detail = f": requires at least {expected_len} bytes" if expected_len else ""
             return ObdPidResult(
                 pid=pid,
                 name=definition.name,
-                raw_bytes=raw_bytes,
+                raw_bytes=bounded,
                 value=None,
                 unit=definition.unit,
                 is_valid=False,
-                error_message=str(exc),
+                error_message=f"{DECODE_FAILURE_CODE}{detail}",
+                truncated=truncated,
             )
 
     def get_supported_pids_from_bitmask(self, bitmask_bytes: bytes, base_pid: int) -> list[int]:

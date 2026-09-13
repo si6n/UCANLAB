@@ -27,7 +27,8 @@ class VolvoDecoder(BaseOemDecoder):
         0: "Inactive",
         1: "Service Regeneration",
         2: "Active In-drive",
-        3: "Inhibited",
+        # REVIEW hardening: 3 (was "Inhibited") is reserved on this 2-bit
+        # field — map-miss resolves to invalid via resolve_enum.
     }
 
     INHIBIT_STATE_MAP: dict[int, str] = {
@@ -131,21 +132,22 @@ class VolvoDecoder(BaseOemDecoder):
             )
 
         # Byte 2 (bits 0..1): DPF Regeneration Active State
+        # REVIEW hardening: 2-bit field — only 0..2 are defined; 3 is
+        # reserved → invalid.
+        from src.protocols.j1939.oem.registry import resolve_enum
+
         byte2 = data[2]
         raw_regen = byte2 & 0x03
-        signals["dpf_regeneration_active_state"] = DecodedSignal(
-            name="dpf_regeneration_active_state",
-            value=self.REGEN_STATE_MAP.get(raw_regen, f"State ({raw_regen})"),
-            unit="enum",
-            raw_value=raw_regen,
-            is_valid=True,
-            status=SignalStatus.VALID,
+        signals["dpf_regeneration_active_state"] = resolve_enum(
+            {0: "Inactive", 1: "Service Regeneration", 2: "Active In-drive"},
+            raw_regen,
+            signal_name="dpf_regeneration_active_state",
         )
 
         # Byte 2 (bits 2..3): DPF Regeneration Inhibit Switch State
         raw_inhibit = (byte2 >> 2) & 0x03
-        inhibit_valid = True
         inhibit_status = SignalStatus.VALID
+        inhibit_valid = True
         if raw_inhibit == 2:
             inhibit_valid = False
             inhibit_status = SignalStatus.ERROR
@@ -155,7 +157,7 @@ class VolvoDecoder(BaseOemDecoder):
 
         signals["dpf_regeneration_inhibit_switch_state"] = DecodedSignal(
             name="dpf_regeneration_inhibit_switch_state",
-            value=self.INHIBIT_STATE_MAP.get(raw_inhibit, f"State ({raw_inhibit})"),
+            value=self.INHIBIT_STATE_MAP.get(raw_inhibit, "RESERVED/UNKNOWN"),
             unit="enum",
             raw_value=raw_inhibit,
             is_valid=inhibit_valid,
@@ -163,24 +165,33 @@ class VolvoDecoder(BaseOemDecoder):
         )
 
         # Byte 2 (bits 4..7): High Exhaust Temperature Warning Flag
+        # REVIEW hardening: 14/15 sentinels first; unknown 3..13 codes are
+        # reserved → invalid.
         raw_warn = (byte2 >> 4) & 0x0F
-        warn_valid = True
-        warn_status = SignalStatus.VALID
         if raw_warn == 14:
-            warn_valid = False
-            warn_status = SignalStatus.ERROR
+            signals["high_exhaust_temperature_warning_flag"] = DecodedSignal(
+                name="high_exhaust_temperature_warning_flag",
+                value=None,
+                unit="enum",
+                raw_value=raw_warn,
+                is_valid=False,
+                status=SignalStatus.ERROR,
+            )
         elif raw_warn == 15:
-            warn_valid = False
-            warn_status = SignalStatus.NOT_AVAILABLE
-
-        signals["high_exhaust_temperature_warning_flag"] = DecodedSignal(
-            name="high_exhaust_temperature_warning_flag",
-            value=self.HIGH_EXHAUST_TEMP_MAP.get(raw_warn, f"Warning ({raw_warn})"),
-            unit="enum",
-            raw_value=raw_warn,
-            is_valid=warn_valid,
-            status=warn_status,
-        )
+            signals["high_exhaust_temperature_warning_flag"] = DecodedSignal(
+                name="high_exhaust_temperature_warning_flag",
+                value=None,
+                unit="enum",
+                raw_value=raw_warn,
+                is_valid=False,
+                status=SignalStatus.NOT_AVAILABLE,
+            )
+        else:
+            signals["high_exhaust_temperature_warning_flag"] = resolve_enum(
+                self.HIGH_EXHAUST_TEMP_MAP,
+                raw_warn,
+                signal_name="high_exhaust_temperature_warning_flag",
+            )
 
         # Byte 3..4: Volvo AdBlue Dosing Mass Flow Rate (uint16 LE, 0.05 g/s, 0.0 offset)
         raw_dosing = data[3] | (data[4] << 8)
@@ -308,24 +319,34 @@ class VolvoDecoder(BaseOemDecoder):
         signals: dict[str, DecodedSignal] = {}
 
         # Byte 0: Volvo VEB+ Engine Brake Stage (uint8)
+        # REVIEW hardening: sentinel-first, map-miss invalid.
         raw_stage = data[0]
-        stage_valid = True
-        stage_status = SignalStatus.VALID
         if raw_stage == 0xFF:
-            stage_valid = False
-            stage_status = SignalStatus.NOT_AVAILABLE
+            signals["volvo_veb_engine_brake_stage"] = DecodedSignal(
+                name="volvo_veb_engine_brake_stage",
+                value=None,
+                unit="enum",
+                raw_value=raw_stage,
+                is_valid=False,
+                status=SignalStatus.NOT_AVAILABLE,
+            )
         elif raw_stage == 0xFE:
-            stage_valid = False
-            stage_status = SignalStatus.ERROR
+            signals["volvo_veb_engine_brake_stage"] = DecodedSignal(
+                name="volvo_veb_engine_brake_stage",
+                value=None,
+                unit="enum",
+                raw_value=raw_stage,
+                is_valid=False,
+                status=SignalStatus.ERROR,
+            )
+        else:
+            from src.protocols.j1939.oem.registry import resolve_enum
 
-        signals["volvo_veb_engine_brake_stage"] = DecodedSignal(
-            name="volvo_veb_engine_brake_stage",
-            value=self.VEB_STAGE_MAP.get(raw_stage, f"Stage ({raw_stage})"),
-            unit="enum",
-            raw_value=raw_stage,
-            is_valid=stage_valid,
-            status=stage_status,
-        )
+            signals["volvo_veb_engine_brake_stage"] = resolve_enum(
+                self.VEB_STAGE_MAP,
+                raw_stage,
+                signal_name="volvo_veb_engine_brake_stage",
+            )
 
         # Byte 1: Volvo Retarder Torque Demand (uint8, 0.4 %, 0.0 offset)
         raw_demand = data[1]

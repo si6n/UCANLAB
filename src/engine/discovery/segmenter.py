@@ -47,6 +47,24 @@ class SignalSegmenter:
                     continue
             byte_idx += 1
 
+        # Phase 1b: bit-packed 12-bit candidates at nibble offsets 0/4 of
+        # remaining adjacent byte pairs (Intel LSB0 numbering). These may
+        # overlap 16-bit SIGNAL spans — the DBC builder resolves overlaps
+        # by confidence (16-bit 0.85 > 12-bit 0.70); here we only avoid
+        # counter/checksum-occupied bits.
+        # ponytail: packed Motorola candidates skipped — DbcBuilder maps
+        # big-endian start bits byte-aligned only; add when it learns DBC
+        # Motorola nibble numbering.
+        for byte_idx in range(dlc - 1):
+            for bit_offset in (0, 4):
+                start_bit = byte_idx * 8 + bit_offset
+                span = range(start_bit, start_bit + 12)
+                if any(b in occupied for b in span):
+                    continue
+                sig12 = cls._evaluate_packed_12bit_signal(payloads, byte_idx, bit_offset)
+                if sig12 is not None:
+                    hypotheses.append(sig12)
+
         # Phase 2: For any remaining available single bytes, emit 8-bit signal candidate
         for b_idx in range(dlc):
             if byte_available[b_idx]:
@@ -55,6 +73,60 @@ class SignalSegmenter:
                     hypotheses.append(sig8)
 
         return hypotheses
+
+    @staticmethod
+    def _extract_bits_lsb0(payload: bytes, start_bit: int, length: int) -> int | None:
+        """Extract an Intel (LSB0) bitfield that may cross byte boundaries."""
+        val = 0
+        for i in range(length):
+            byte_idx, bit_idx = divmod(start_bit + i, 8)
+            if byte_idx >= len(payload):
+                return None
+            val |= ((payload[byte_idx] >> bit_idx) & 1) << i
+        return val
+
+    @classmethod
+    def _evaluate_packed_12bit_signal(
+        cls, payloads: Sequence[bytes], byte_idx: int, bit_offset: int
+    ) -> Hypothesis | None:
+        """Evaluate a bit-packed 12-bit signal at bits byte_idx*8+bit_offset .. +11."""
+        start_bit = byte_idx * 8 + bit_offset
+        values: list[int] = []
+        for p in payloads:
+            v = cls._extract_bits_lsb0(p, start_bit, 12)
+            if v is not None:
+                values.append(v)
+
+        if len(values) < 5:
+            return None
+
+        min_v = float(min(values))
+        max_v = float(max(values))
+        if max_v == min_v:
+            return None  # constant packed field — 8-bit/16-bit phases already report the bytes
+
+        return Hypothesis(
+            htype="SIGNAL",
+            start_bit=start_bit,
+            length=12,
+            is_little_endian=True,
+            is_signed=False,
+            min_value=min_v,
+            max_value=max_v,
+            confidence=0.70,
+            params={"byte_order": "little", "bit_offset": bit_offset},
+            evidence=[
+                Evidence(
+                    kind="entropy",
+                    value=float(len(set(values))),
+                    detail=(
+                        f"Bit-packed 12-bit candidate at bits {start_bit}..{start_bit + 11} "
+                        f"(Intel); range [{min_v:.0f}, {max_v:.0f}]."
+                    ),
+                )
+            ],
+            name=f"SIG_B{byte_idx}_o{bit_offset}_12B",
+        )
 
     @classmethod
     def _evaluate_16bit_signal(cls, payloads: Sequence[bytes], byte_idx: int) -> Hypothesis | None:
@@ -82,12 +154,43 @@ class SignalSegmenter:
             )
 
         # Endianness determination:
-        # In Little Endian (Intel): byte_idx is LSB (higher unique count), byte_idx+1 is MSB (lower/smoother)
-        is_le = b0_unique >= b1_unique
+        # REVIEW 3 (endian evidence): the unique-count heuristic alone
+        # declared Big-Endian whenever the MSB byte repeated, even for
+        # plain LE counters. Decide with series monotonicity — for an
+        # ascending raw series the LSB byte changes every step in the
+        # correct byte order; the wrong order looks shuffled.
+        le_vals = [(p[byte_idx] | (p[byte_idx + 1] << 8)) for p in payloads if len(p) > byte_idx + 1]
+        be_vals = [(p[byte_idx] << 8) | p[byte_idx + 1] for p in payloads if len(p) > byte_idx + 1]
 
-        values_le = [(p[byte_idx] | (p[byte_idx + 1] << 8)) for p in payloads if len(p) > byte_idx + 1]
-        min_v = float(min(values_le))
-        max_v = float(max(values_le))
+        def _monotonic_ratio(vals: list[int]) -> float:
+            if len(vals) < 2:
+                return 0.0
+            inc = sum(1 for i in range(1, len(vals)) if vals[i] >= vals[i - 1])
+            return inc / (len(vals) - 1)
+
+        # Prefer the byte order whose series is smoother (higher
+        # non-decreasing ratio); tie-break on unique-count as before.
+        le_mono, be_mono = _monotonic_ratio(le_vals), _monotonic_ratio(be_vals)
+        if abs(le_mono - be_mono) >= 0.05:
+            is_le = le_mono > be_mono
+        else:
+            is_le = b0_unique >= b1_unique
+
+        # REVIEW 3 (signedness): a 16-bit field whose LE/BE series spends
+        # its whole life below 0x8000 but whose high byte carries both
+        # 0x00-ish and 0xFF-ish runs plausibly encodes a negative physical
+        # value (two's complement). Flag it as a signed candidate so the
+        # operator reviews it instead of silently exporting unsigned.
+        is_signed = False
+        if is_le:
+            values = le_vals
+        else:
+            values = be_vals
+        highs = [v >> 8 for v in values]
+        if min(values) < 0x8000 and set(highs) & {0xFF} and max(values) - min(values) > 0x8000:
+            is_signed = True
+        min_v = float(min(values))
+        max_v = float(max(values))
 
         # Check for dynamic variability
         confidence = 0.85 if (max_v - min_v) > 0 else 0.50
@@ -98,7 +201,7 @@ class SignalSegmenter:
             start_bit=byte_idx * 8,
             length=16,
             is_little_endian=is_le,
-            is_signed=False,
+            is_signed=is_signed,
             min_value=min_v,
             max_value=max_v,
             confidence=confidence,
@@ -106,10 +209,14 @@ class SignalSegmenter:
                 Evidence(
                     kind="entropy",
                     value=float(max(b0_unique, b1_unique)),
-                    detail=f"16-bit candidate at bytes [{byte_idx}, {byte_idx+1}] in {endian_str}; range [{min_v:.0f}, {max_v:.0f}].",
+                    detail=(
+                        f"16-bit candidate at bytes [{byte_idx}, {byte_idx+1}] in {endian_str}"
+                        + (" (signed candidate: two's-complement range detected)" if is_signed else "")
+                        + f"; range [{min_v:.0f}, {max_v:.0f}]."
+                    ),
                 )
             ],
-            name=f"SIG_B{byte_idx}_16B",
+            name=f"SIG_B{byte_idx}_16B" + ("S" if is_signed else ""),
         )
 
     @classmethod

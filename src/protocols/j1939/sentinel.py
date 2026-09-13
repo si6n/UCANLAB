@@ -275,6 +275,36 @@ class J1939SentinelFilter:
         return cls.decode_raw_value(raw_val, sig_def)
 
 
+def is_value_plausible(
+    value: float | int | None,
+    *,
+    min_value: float | None = None,
+    max_value: float | None = None,
+) -> bool:
+    """Plausibility helper (REVIEW hardening).
+
+    Returns True only when the value is a finite number inside the
+    inclusive [min_value, max_value] window. None, NaN/Inf, and
+    out-of-range physics all fail — a sentinel-masked or corrupt signal
+    must never pass as plausible telemetry.
+    """
+    import math
+
+    if value is None or isinstance(value, bool):
+        return False
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return False
+    if not math.isfinite(number):
+        return False
+    if min_value is not None and number < min_value:
+        return False
+    if max_value is not None and number > max_value:
+        return False
+    return True
+
+
 # Alias and functional helpers for convenience and compatibility
 J1939SignalDecoder = J1939SentinelFilter
 decode_signal = J1939SentinelFilter.decode_signal

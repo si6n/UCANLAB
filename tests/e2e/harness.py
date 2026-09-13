@@ -696,7 +696,7 @@ class SimulatedJ1939Ecu:
         total_packets = (total_bytes + 6) // 7
         frames: list[CanFrame] = []
 
-        # 1. TP.CM_BAM frame: PGN 60416 (0xEC00) -> CAN ID 0x18ECFF{SA:02X}
+        # 1. TP.CM_BAM frame: PGN 60416 (0xEC00) -> CAN ID 0x1CECFF{SA:02X}
         bam_data = bytearray(8)
         bam_data[0] = 0x20  # TP_CTRL_BAM
         bam_data[1:3] = total_bytes.to_bytes(2, byteorder="little")
@@ -704,7 +704,7 @@ class SimulatedJ1939Ecu:
         bam_data[4] = 0xFF
         bam_data[5:8] = pgn.to_bytes(3, byteorder="little")
 
-        cm_id = 0x18ECFF00 | (self.sa & 0xFF)
+        cm_id = 0x1CECFF00 | (self.sa & 0xFF)
         cm_frame = CanFrame(
             channel_id=self.channel_id,
             arbitration_id=cm_id,
@@ -716,8 +716,8 @@ class SimulatedJ1939Ecu:
         frames.append(cm_frame)
         await self.tx_port.send(cm_frame)
 
-        # 2. TP.DT data frames: PGN 60160 (0xEB00) -> CAN ID 0x18EBFF{SA:02X}
-        dt_id = 0x18EBFF00 | (self.sa & 0xFF)
+        # 2. TP.DT data frames: PGN 60160 (0xEB00) -> CAN ID 0x1CEBFF{SA:02X}
+        dt_id = 0x1CEBFF00 | (self.sa & 0xFF)
         for seq in range(1, total_packets + 1):
             start = (seq - 1) * 7
             chunk = data[start : start + 7]
@@ -749,7 +749,7 @@ class SimulatedJ1939Ecu:
         rts_data[4] = 0xFF
         rts_data[5:8] = pgn.to_bytes(3, byteorder="little")
 
-        cm_id = 0x18EC0000 | ((target_da & 0xFF) << 8) | (self.sa & 0xFF)
+        cm_id = 0x1CEC0000 | ((target_da & 0xFF) << 8) | (self.sa & 0xFF)
         rts_frame = CanFrame(
             channel_id=self.channel_id,
             arbitration_id=cm_id,

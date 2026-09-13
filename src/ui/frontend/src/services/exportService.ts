@@ -1,4 +1,5 @@
 import { CANFrame } from '../types/can';
+import { DesktopBridge } from './bridge';
 
 export interface ExportResult {
   success: boolean;
@@ -7,9 +8,65 @@ export interface ExportResult {
   sizeBytes: number;
   rowCount: number;
   cancelled?: boolean;
+  error?: string;
+}
+
+export interface GpsCoordinate {
+  latitude: number;
+  longitude: number;
+  altitudeM?: number;
+  timestampSec: number;
 }
 
 export class ExportService {
+  /** Extract validated GPS waypoints from CAN frame streams (N2K PGN 129025 / J1939 PGN 65267 / decoded fields). */
+  public static extractGpsPoints(frames: CANFrame[]): GpsCoordinate[] {
+    const points: GpsCoordinate[] = [];
+    for (const f of frames) {
+      if ((f as any).latitude !== undefined && (f as any).longitude !== undefined) {
+        const lat = Number((f as any).latitude);
+        const lon = Number((f as any).longitude);
+        if (Number.isFinite(lat) && Number.isFinite(lon) && lat >= -90.0 && lat <= 90.0 && lon >= -180.0 && lon <= 180.0) {
+          points.push({
+            latitude: lat,
+            longitude: lon,
+            altitudeM: Number((f as any).altitude || 0.0),
+            timestampSec: f.timeSec,
+          });
+          continue;
+        }
+      }
+
+      // NMEA 2000 PGN 129025 (Position, Rapid Update - 8 bytes)
+      const idDec = f.canIdDec || parseInt(f.canIdHex.replace('0x', ''), 16) || 0;
+      const isExt = f.frameType === 'Ext' || idDec > 0x7FF || (f.canIdHex.length > 5 && !f.canIdHex.startsWith('0x00000'));
+      const pgn = f.pgn ?? (isExt ? ((idDec >> 8) & 0x1FFFF) : null);
+
+      if (pgn === 129025 && f.dataHex.length >= 8) {
+        try {
+          const rawBytes = f.dataHex.map(h => parseInt(h, 16));
+          const view = new DataView(new Uint8Array(rawBytes).buffer);
+          const rawLat = view.getInt32(0, true);
+          const rawLon = view.getInt32(4, true);
+          if (rawLat !== 0x7FFFFFFF && rawLon !== 0x7FFFFFFF) {
+            const lat = rawLat * 1e-7;
+            const lon = rawLon * 1e-7;
+            if (Number.isFinite(lat) && Number.isFinite(lon) && lat >= -90.0 && lat <= 90.0 && lon >= -180.0 && lon <= 180.0) {
+              points.push({
+                latitude: lat,
+                longitude: lon,
+                altitudeM: 0.0,
+                timestampSec: f.timeSec,
+              });
+            }
+          }
+        } catch {
+          // Ignore malformed frame
+        }
+      }
+    }
+    return points;
+  }
   public static async exportToCsv(frames: CANFrame[]): Promise<ExportResult> {
     const headers = ['Timestamp(s)', 'Time_Formatted', 'Channel', 'CAN_ID_Hex', 'CAN_ID_Dec', 'Type', 'Direction', 'DLC', 'Data_Hex', 'ASCII'];
     const rows = frames.map(f => [
@@ -77,16 +134,46 @@ export class ExportService {
       ''
     ];
 
+    const channelMap = new Map<string, number>();
+    let nextChannelNum = 1;
+    const getChannelNum = (channelName: string): number => {
+      const raw = (channelName || '').trim();
+      const match = raw.match(/\d+/);
+      if (match) {
+        const parsed = parseInt(match[0], 10);
+        return raw.toLowerCase().startsWith('ch') && parsed >= 1 ? parsed : parsed + 1;
+      }
+      if (!channelMap.has(raw)) {
+        channelMap.set(raw, nextChannelNum++);
+      }
+      return channelMap.get(raw)!;
+    };
+
     frames.forEach(f => {
       const timeStr = f.timeSec.toFixed(6).padStart(12, ' ');
-      const ch = f.channel.includes('1') ? '2' : '1';
-      const idStr = f.canIdHex.replace('0x', '').toUpperCase().padStart(8, ' ');
+      const ch = getChannelNum(f.channel);
+      const idNum = f.canIdDec || parseInt(f.canIdHex.replace('0x', ''), 16) || 0;
+      const isExt = f.frameType === 'Ext' || idNum > 0x7FF || (f.canIdHex.length > 5 && !f.canIdHex.startsWith('0x00000'));
+      const idHex = idNum.toString(16).toUpperCase();
+      const idStr = isExt ? `${idHex}x` : idHex.padStart(4, ' ');
       const dirStr = f.dir === 'RX' ? 'Rx' : 'Tx';
       const dataStr = f.dataHex.join(' ').toUpperCase();
-      lines.push(`${timeStr} ${ch}  ${idStr}             ${dirStr}   d ${f.dlc} ${dataStr}`);
+
+      if (f.frameType === 'ERR' || f.isErrorFrame) {
+        lines.push(`${timeStr} ${ch}  ${idStr}             ErrorFrame`);
+        return;
+      }
+
+      if (f.frameType === 'FD' || f.isCanFd || f.dlc > 8 || f.dataHex.length > 8) {
+        const len = f.dataHex.length;
+        const dlcVal = f.dlc || len;
+        lines.push(`${timeStr} CANFD ${ch} ${dirStr} ${idHex}${isExt ? 'x' : ''} 1 0 ${dlcVal} ${len} ${dataStr}`);
+      } else {
+        lines.push(`${timeStr} ${ch}  ${idStr}             ${dirStr}   d ${f.dlc} ${dataStr}`);
+      }
     });
 
-    const ascContent = lines.join('\r\n');
+    const ascContent = lines.join("\n");
     const filename = `Vector_CANoe_Trace_${this.getTimestampStr()}.asc`;
     const saved = await this.downloadFile(ascContent, filename, 'text/plain;charset=utf-8;', 'Vector CANoe Trace (*.asc)');
 
@@ -101,36 +188,60 @@ export class ExportService {
   }
 
   public static async exportToMdf4(frames: CANFrame[]): Promise<ExportResult> {
-    const lines = [
-      'MDF4.10  Universal CAN ASAM MDF4 Measurement Log',
-      `Timestamp: ${new Date().toISOString()}`,
-      `Channel: CAN_Bus_Raw`,
-      `Frame_Count: ${frames.length}`,
-      'Data_Schema: [Timestamp_ns, Arbitration_ID, DLC, Data_Payload, Direction]',
-      '--- BEGIN ASAM MDF4 LOG BLOCKS ---'
-    ];
+    const filename = `can_session_${this.getTimestampStr()}.mf4`;
 
-    frames.forEach((f, idx) => {
-      lines.push(`HD_BLOCK_${idx}: T=${f.timeSec.toFixed(6)} ID=${f.canIdHex} DLC=${f.dlc} DATA=${f.dataHex.join('')} DIR=${f.dir}`);
-    });
-
-    lines.push('--- END ASAM MDF4 LOG BLOCKS ---');
-
-    const mdfContent = lines.join('\r\n');
-    const filename = `ASAM_MDF4_Log_${this.getTimestampStr()}.mf4`;
-    const saved = await this.downloadFile(mdfContent, filename, 'application/octet-stream', 'ASAM MDF4 Telemetri (*.mf4)');
+    if (DesktopBridge.isNative()) {
+      try {
+        const res = await DesktopBridge.exportLogs('mdf4');
+        if (res.success) {
+          return {
+            success: true,
+            filename,
+            format: 'ASAM MDF4 (.mf4)',
+            sizeBytes: 0,
+            rowCount: frames.length,
+          };
+        }
+      } catch (err: any) {
+        return {
+          success: false,
+          error: `MDF4 dışa aktarma hatası: ${err?.message || err}`,
+          filename: '',
+          format: 'ASAM MDF4 (.mf4)',
+          sizeBytes: 0,
+          rowCount: 0,
+        };
+      }
+    }
 
     return {
-      success: saved,
-      cancelled: !saved,
-      filename,
-      format: 'ASAM MDF4 Telemetri (.MF4)',
-      sizeBytes: new Blob([mdfContent]).size,
-      rowCount: frames.length
+      success: false,
+      error: 'ASAM MDF4 (.mf4) binary dışa aktarımı Python backend (Mdf4Exporter) gerektirir. Lütfen masaüstü uygulamasını kullanın.',
+      filename: '',
+      format: 'ASAM MDF4 (.mf4)',
+      sizeBytes: 0,
+      rowCount: 0,
     };
   }
 
   public static async exportToKml(frames: CANFrame[]): Promise<ExportResult> {
+    const points = this.extractGpsPoints(frames);
+
+    if (points.length === 0) {
+      return {
+        success: false,
+        error: 'Doğrulanmış GPS telemetrisi bulunamadı (PGN 129025 / PGN 65267 GPS kaydı mevcut değil).',
+        filename: '',
+        format: 'Google Earth GPS Rotası (.KML)',
+        sizeBytes: 0,
+        rowCount: 0,
+      };
+    }
+
+    const coordinatesStr = points
+      .map(p => `          ${p.longitude.toFixed(6)},${p.latitude.toFixed(6)},${(p.altitudeM || 0).toFixed(1)}`)
+      .join('\n');
+
     const kmlContent = `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
   <Document>
@@ -143,14 +254,12 @@ export class ExportService {
       </LineStyle>
     </Style>
     <Placemark>
-      <name>Telemetry Track (${frames.length} points)</name>
+      <name>Telemetry Track (${points.length} points)</name>
       <styleUrl>#trackLine</styleUrl>
       <LineString>
         <tessellate>1</tessellate>
         <coordinates>
-          28.9784,41.0082,10
-          28.9800,41.0100,12
-          28.9850,41.0150,15
+${coordinatesStr}
         </coordinates>
       </LineString>
     </Placemark>
@@ -166,19 +275,24 @@ export class ExportService {
       filename,
       format: 'Google Earth GPS Rotası (.KML)',
       sizeBytes: new Blob([kmlContent]).size,
-      rowCount: frames.length
+      rowCount: points.length,
     };
   }
 
   public static async exportToServiceReportHtml(frames: CANFrame[], vin: string = 'TR-MARIN-2026-X99'): Promise<ExportResult> {
     const nowStr = new Date().toLocaleString('tr-TR');
-    const shaHash = this.generateSimpleHash(frames.map(f => f.canIdHex + f.dataHex.join('')).join('') || 'SAMPLE_REPORT_HASH');
+    // REVIEW (report integrity): the old "SHA-256" was a 32-bit FNV-style
+    // hash padded with derived hex pieces — NOT cryptographic, and it
+    // covered only id+data (no timestamps, channels or order). Use real
+    // WebCrypto SHA-256 over the full canonical serialization.
+    const shaHash = await this.computeSessionSha256(frames);
+    const esc = this.escapeHtml;
     
     const htmlContent = `<!DOCTYPE html>
 <html lang="tr">
 <head>
   <meta charset="UTF-8">
-  <title>Resmi Teşhis & Servis Raporu - ${vin}</title>
+  <title>Resmi Teşhis & Servis Raporu - ${esc(vin)}</title>
   <style>
     body { font-family: 'Segoe UI', Roboto, sans-serif; margin: 40px; color: #1e293b; background: #f8fafc; }
     .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); max-width: 900px; margin: auto; }
@@ -203,7 +317,7 @@ export class ExportService {
     </div>
 
     <div class="meta-grid">
-      <div><strong>Araç Şasi / HIN:</strong> ${vin}</div>
+      <div><strong>Araç Şasi / HIN:</strong> ${esc(vin)}</div>
       <div><strong>Rapor Tarihi:</strong> ${nowStr}</div>
       <div><strong>Kayıtlı CAN Çerçeve Sayısı:</strong> ${frames.length} Adet</div>
       <div><strong>Güvenlik Seviyesi:</strong> Safe-by-Default (Fail-Silent)</div>
@@ -215,7 +329,7 @@ export class ExportService {
         <tr><th>Zaman (s)</th><th>Kanal</th><th>CAN ID</th><th>Yön</th><th>DLC</th><th>Data (Hex)</th></tr>
       </thead>
       <tbody>
-        ${frames.slice(0, 15).map(f => `<tr><td>${f.timeFormatted}</td><td>${f.channel}</td><td><strong>${f.canIdHex}</strong></td><td>${f.dir}</td><td>${f.dlc}</td><td><code>${f.dataHex.join(' ')}</code></td></tr>`).join('')}
+        ${frames.slice(0, 15).map(f => `<tr><td>${esc(f.timeFormatted)}</td><td>${esc(f.channel)}</td><td><strong>${esc(f.canIdHex)}</strong></td><td>${esc(f.dir)}</td><td>${f.dlc}</td><td><code>${esc(f.dataHex.join(' '))}</code></td></tr>`).join('')}
       </tbody>
     </table>
 
@@ -307,16 +421,30 @@ export class ExportService {
     return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
   }
 
-  private static generateSimpleHash(str: string): string {
-    let hash = 0x811c9dc5;
-    for (let i = 0; i < str.length; i++) {
-      hash ^= str.charCodeAt(i);
-      hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
-    }
-    const hex1 = (hash >>> 0).toString(16).padStart(8, '0');
-    const hex2 = ((hash ^ 0x5a5a5a5a) >>> 0).toString(16).padStart(8, '0');
-    const hex3 = ((hash ^ 0x33333333) >>> 0).toString(16).padStart(8, '0');
-    const hex4 = ((hash ^ 0x12345678) >>> 0).toString(16).padStart(8, '0');
-    return `${hex1}${hex2}${hex3}${hex4}${hex2}${hex1}${hex4}${hex3}`.toLowerCase();
+  /**
+   * REVIEW (report integrity): real SHA-256 via WebCrypto over the FULL
+   * canonical frame serialization (time, channel, id, dlc, data, dir) —
+   * the old generateSimpleHash was a 32-bit FNV derivative padded to 64
+   * hex chars and covered only id+data.
+   */
+  private static async computeSessionSha256(frames: CANFrame[]): Promise<string> {
+    const canonical = frames
+      .map(f => `${f.timeSec.toFixed(6)}|${f.channel}|${f.canIdHex}|${f.dlc}|${f.dataHex.join('')}|${f.dir}`)
+      .join('\n');
+    const buf = new TextEncoder().encode(canonical);
+    const digest = await crypto.subtle.digest('SHA-256', buf);
+    return Array.from(new Uint8Array(digest))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+  }
+
+  /** Escape untrusted strings before embedding into the HTML report (XSS). */
+  private static escapeHtml(s: string): string {
+    return s
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 }

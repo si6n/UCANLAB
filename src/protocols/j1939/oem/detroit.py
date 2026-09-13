@@ -162,45 +162,63 @@ class DetroitDecoder(BaseOemDecoder):
             )
 
         # Byte 4 (bits 0..3): Detroit DPF Regeneration Mode (uint4)
+        # REVIEW hardening: nibble sentinels 14/15 first; map-miss codes
+        # 5..13 are reserved → invalid (5+ values were previously VALID).
+        from src.protocols.j1939.oem.registry import resolve_enum
+
         byte4 = data[4]
         raw_mode = byte4 & 0x0F
-        mode_valid = True
-        mode_status = SignalStatus.VALID
         if raw_mode == 14:
-            mode_valid = False
-            mode_status = SignalStatus.ERROR
+            signals["detroit_dpf_regeneration_mode"] = DecodedSignal(
+                name="detroit_dpf_regeneration_mode",
+                value=None,
+                unit="enum",
+                raw_value=raw_mode,
+                is_valid=False,
+                status=SignalStatus.ERROR,
+            )
         elif raw_mode == 15:
-            mode_valid = False
-            mode_status = SignalStatus.NOT_AVAILABLE
-
-        signals["detroit_dpf_regeneration_mode"] = DecodedSignal(
-            name="detroit_dpf_regeneration_mode",
-            value=self.REGEN_MODE_MAP.get(raw_mode, f"Mode ({raw_mode})"),
-            unit="enum",
-            raw_value=raw_mode,
-            is_valid=mode_valid,
-            status=mode_status,
-        )
+            signals["detroit_dpf_regeneration_mode"] = DecodedSignal(
+                name="detroit_dpf_regeneration_mode",
+                value=None,
+                unit="enum",
+                raw_value=raw_mode,
+                is_valid=False,
+                status=SignalStatus.NOT_AVAILABLE,
+            )
+        else:
+            signals["detroit_dpf_regeneration_mode"] = resolve_enum(
+                self.REGEN_MODE_MAP,
+                raw_mode,
+                signal_name="detroit_dpf_regeneration_mode",
+            )
 
         # Byte 4 (bits 4..7): Detroit DPF Regeneration Inhibit Reason (uint4)
         raw_inhibit = (byte4 >> 4) & 0x0F
-        inhibit_valid = True
-        inhibit_status = SignalStatus.VALID
         if raw_inhibit == 14:
-            inhibit_valid = False
-            inhibit_status = SignalStatus.ERROR
+            signals["detroit_dpf_regeneration_inhibit_reason"] = DecodedSignal(
+                name="detroit_dpf_regeneration_inhibit_reason",
+                value=None,
+                unit="enum",
+                raw_value=raw_inhibit,
+                is_valid=False,
+                status=SignalStatus.ERROR,
+            )
         elif raw_inhibit == 15:
-            inhibit_valid = False
-            inhibit_status = SignalStatus.NOT_AVAILABLE
-
-        signals["detroit_dpf_regeneration_inhibit_reason"] = DecodedSignal(
-            name="detroit_dpf_regeneration_inhibit_reason",
-            value=self.INHIBIT_REASON_MAP.get(raw_inhibit, f"Reason ({raw_inhibit})"),
-            unit="enum",
-            raw_value=raw_inhibit,
-            is_valid=inhibit_valid,
-            status=inhibit_status,
-        )
+            signals["detroit_dpf_regeneration_inhibit_reason"] = DecodedSignal(
+                name="detroit_dpf_regeneration_inhibit_reason",
+                value=None,
+                unit="enum",
+                raw_value=raw_inhibit,
+                is_valid=False,
+                status=SignalStatus.NOT_AVAILABLE,
+            )
+        else:
+            signals["detroit_dpf_regeneration_inhibit_reason"] = resolve_enum(
+                self.INHIBIT_REASON_MAP,
+                raw_inhibit,
+                signal_name="detroit_dpf_regeneration_inhibit_reason",
+            )
 
         # Byte 5..6: Detroit DEF Dosing Rate (Instantaneous) (uint16 LE, 0.1 g/min, 0.0 offset)
         raw_dosing = data[5] | (data[6] << 8)
@@ -233,24 +251,34 @@ class DetroitDecoder(BaseOemDecoder):
             )
 
         # Byte 7: Detroit DEF Quality Status (uint8)
+        # REVIEW hardening: sentinel-first, map-miss invalid.
         raw_qual = data[7]
-        qual_valid = True
-        qual_status = SignalStatus.VALID
         if raw_qual == 0xFF:
-            qual_valid = False
-            qual_status = SignalStatus.NOT_AVAILABLE
+            signals["detroit_def_quality_status"] = DecodedSignal(
+                name="detroit_def_quality_status",
+                value=None,
+                unit="enum",
+                raw_value=raw_qual,
+                is_valid=False,
+                status=SignalStatus.NOT_AVAILABLE,
+            )
         elif raw_qual == 0xFE:
-            qual_valid = False
-            qual_status = SignalStatus.ERROR
+            signals["detroit_def_quality_status"] = DecodedSignal(
+                name="detroit_def_quality_status",
+                value=None,
+                unit="enum",
+                raw_value=raw_qual,
+                is_valid=False,
+                status=SignalStatus.ERROR,
+            )
+        else:
+            from src.protocols.j1939.oem.registry import resolve_enum
 
-        signals["detroit_def_quality_status"] = DecodedSignal(
-            name="detroit_def_quality_status",
-            value=self.DEF_QUALITY_MAP.get(raw_qual, f"Quality (0x{raw_qual:02X})"),
-            unit="enum",
-            raw_value=raw_qual,
-            is_valid=qual_valid,
-            status=qual_status,
-        )
+            signals["detroit_def_quality_status"] = resolve_enum(
+                self.DEF_QUALITY_MAP,
+                raw_qual,
+                signal_name="detroit_def_quality_status",
+            )
 
         return OemDecodedPayload(
             manufacturer=self.NAME,
@@ -278,24 +306,34 @@ class DetroitDecoder(BaseOemDecoder):
         signals: dict[str, DecodedSignal] = {}
 
         # Byte 0: Detroit Jake Brake Stage (uint8)
+        # REVIEW hardening: sentinel-first, map-miss invalid.
         raw_stage = data[0]
-        stage_valid = True
-        stage_status = SignalStatus.VALID
         if raw_stage == 0xFF:
-            stage_valid = False
-            stage_status = SignalStatus.NOT_AVAILABLE
+            signals["detroit_jake_brake_stage"] = DecodedSignal(
+                name="detroit_jake_brake_stage",
+                value=None,
+                unit="enum",
+                raw_value=raw_stage,
+                is_valid=False,
+                status=SignalStatus.NOT_AVAILABLE,
+            )
         elif raw_stage == 0xFE:
-            stage_valid = False
-            stage_status = SignalStatus.ERROR
+            signals["detroit_jake_brake_stage"] = DecodedSignal(
+                name="detroit_jake_brake_stage",
+                value=None,
+                unit="enum",
+                raw_value=raw_stage,
+                is_valid=False,
+                status=SignalStatus.ERROR,
+            )
+        else:
+            from src.protocols.j1939.oem.registry import resolve_enum
 
-        signals["detroit_jake_brake_stage"] = DecodedSignal(
-            name="detroit_jake_brake_stage",
-            value=self.JAKE_STAGE_MAP.get(raw_stage, f"Stage ({raw_stage})"),
-            unit="enum",
-            raw_value=raw_stage,
-            is_valid=stage_valid,
-            status=stage_status,
-        )
+            signals["detroit_jake_brake_stage"] = resolve_enum(
+                self.JAKE_STAGE_MAP,
+                raw_stage,
+                signal_name="detroit_jake_brake_stage",
+            )
 
         # Byte 1: Detroit Voith Secondary Water Retarder (uint8, 0.4 %, 0.0 offset)
         raw_ret = data[1]

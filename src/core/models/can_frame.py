@@ -5,6 +5,7 @@ Complies with ISO 11898-1:2015/2024, SAE J1939, and MASTER_PLAN.md Section 9.2.
 
 from __future__ import annotations
 
+import re
 import time
 from dataclasses import dataclass, field
 from typing import ClassVar
@@ -142,9 +143,16 @@ class CanFrame:
     VALID_DIRECTIONS: ClassVar[frozenset[str]] = frozenset({"rx", "tx"})
     VALID_ERROR_STATES: ClassVar[frozenset[str]] = frozenset({"active", "passive", "bus_off"})
     VALID_SOURCES: ClassVar[frozenset[str]] = frozenset({"physical", "replay", "virtual", "injected", "synthetic"})
+    CHANNEL_ID_PATTERN: ClassVar[str] = r"^[A-Za-z0-9_:\-]{1,64}$"
 
     def __post_init__(self) -> None:
         """Validate all invariant invariants at instantiation time."""
+        # channel_id: bounded length + charset allowlist (fail-closed,
+        # prevents dict-key table bloat / log injection via E2E streams).
+        if not isinstance(self.channel_id, str) or not re.match(self.CHANNEL_ID_PATTERN, self.channel_id):
+            raise ValueError(
+                f"Invalid channel_id {self.channel_id!r}: must match {self.CHANNEL_ID_PATTERN}"
+            )
         # Validate DLC code first
         if not (0 <= self.dlc <= 15):
             raise ValueError(f"Invalid DLC: {self.dlc} (must be 0..15)")

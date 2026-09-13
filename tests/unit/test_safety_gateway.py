@@ -137,7 +137,11 @@ def test_safety_gateway_whitelist_violation_triggers_estop() -> None:
 
     assert exc_info.value.code == "WHITELIST_VIOLATION"
 
-    # Verify that E-Stop was automatically tripped
+    # Verify that persistent violation pattern latches the E-Stop
+    # (WHITELIST_ESTOP_AFTER=5: first miss = reject+alarm, latch on streak)
+    for _ in range(TxSafetyGateway.WHITELIST_ESTOP_AFTER - 1):
+        with pytest.raises(WhitelistViolationError):
+            gateway.validate_and_transmit(frame_bad)
     assert estop.is_engaged is True
     assert estop.last_event is not None
     assert estop.last_event.trigger == EStopTriggerSource.UNAUTHORIZED_PAYLOAD
@@ -623,17 +627,17 @@ def test_whitelist_masks_authorize_id_family() -> None:
     bus.connect()
 
     # Authorize every TP.CM frame sourced from SA 0xF9 (any peer in the DA byte)
-    masks = [(0x18EC00F9, 0x18EC00FF)]
+    masks = [(0x1CEC00F9, 0x1CEC00FF)]
     gateway = TxSafetyGateway(bus=bus, whitelist_masks=masks)
 
     # Responses to two different peers both match (id & mask) == value
-    to_peer_a = CanFrame.create(channel_id="c0", arbitration_id=0x18EC01F9, data=b"\x11", is_extended=True)
-    to_peer_b = CanFrame.create(channel_id="c0", arbitration_id=0x18EC42F9, data=b"\x11", is_extended=True)
+    to_peer_a = CanFrame.create(channel_id="c0", arbitration_id=0x1CEC01F9, data=b"\x11", is_extended=True)
+    to_peer_b = CanFrame.create(channel_id="c0", arbitration_id=0x1CEC42F9, data=b"\x11", is_extended=True)
     assert gateway.validate_and_transmit(to_peer_a) is True
     assert gateway.validate_and_transmit(to_peer_b) is True
 
     # A frame sourced from a DIFFERENT source address does not match the family
-    other_sa = CanFrame.create(channel_id="c0", arbitration_id=0x18EC01AA, data=b"\x11", is_extended=True)
+    other_sa = CanFrame.create(channel_id="c0", arbitration_id=0x1CEC01AA, data=b"\x11", is_extended=True)
     with pytest.raises(WhitelistViolationError):
         gateway.validate_and_transmit(other_sa)
     bus.disconnect()
@@ -1128,3 +1132,43 @@ def test_gateway_executor_shutdown_is_idempotent_and_fails_closed() -> None:
     with pytest.raises(SafetyError, match="shut down"):
         asyncio.run(gateway.send(frame))
     assert len(bus.sent_frames) == 0
+
+
+def test_gateway_speed_interlock_state_tri_state_review3() -> None:
+    """REVIEW 3: `speed_interlock_state()` is the single authoritative
+    tri-state interlock verdict the UI must consume (kills the desktop's
+    parallel speed truth)."""
+    bus = VirtualBus(channel_id="safety_vbus_tri")
+    bus.connect()
+    gateway = TxSafetyGateway(bus=bus, whitelist_ids={0x7E0})
+    try:
+        # No physical feed yet -> stale
+        assert gateway.speed_interlock_state() == ("stale", 0.0)
+
+        # Fresh physical stationary -> ok
+        gateway.update_physical_speed(0.0)
+        state, val = gateway.speed_interlock_state()
+        assert state == "ok"
+        assert val == 0.0
+
+        # Fresh physical moving -> moving
+        gateway.update_physical_speed(45.0)
+        state, val = gateway.speed_interlock_state()
+        assert state == "moving"
+        assert val == 45.0
+
+        # NaN physical feed (untrusted/stuck CCVS) -> stale, fail-closed
+        gateway.update_physical_speed(float("nan"))
+        assert gateway.speed_interlock_state()[0] == "stale"
+
+        # Synthetic feed NEVER authorizes: freshness stays invalid
+        gateway.update_physical_speed(0.0)
+        gateway.record_synthetic_speed(0.0)
+        assert gateway.speed_interlock_state()[0] == "ok"  # physical still valid
+        gateway.update_physical_speed(float("nan"))
+        gateway.record_synthetic_speed(0.0)
+        # After the physical feed went NaN, the synthetic sample must not
+        # re-validate the interlock (P0-2 provenance rule).
+        assert gateway.speed_interlock_state()[0] == "stale"
+    finally:
+        bus.disconnect()

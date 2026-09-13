@@ -4,7 +4,139 @@ Bu klasördeki teşhis bilgi tabanlarının kaynak zinciri, doğrulama yöntemi 
 güncelleme geçmişi burada tutulur. `data/dbc/LICENSES.md` ile aynı disiplini
 izler: içerik üretilmez, kamuya açık kaynaklar ve resmî belgeler referans alınır.
 
+## obd_mode06_database (JSON + CSV)
+
+### v1.1.0 — 2026-09-12 (Tur-24: GM resmi Mode $06 tanımları, 20 → 38 monitor)
+
+`CAN-DTC-Collector/spn_gap_hunter/mode06_harvester.py` hasadı. Kaynak: GM resmi
+"Mode $06 data definitions" PDF'leri
+(`gsi.ext.gm.com/gmspo/mode6/pdf/GM CAN mode $06 data final_rev1.pdf`,
+GMLAN; ücretsiz, robots engelsiz):
+
+- **+18 yeni MID** (0x03/05/06/07 O2 bank serileri, 0x22/31 Catalyst bank 2,
+  0x3C/3D EVAP purge/vent, 0x41-47 O2 heater ailesi, 0x71/72 SAI bank 2,
+  0xAA-AD misfire extended) — monitor kimlikleri SAE J1979 bilinen MID
+  aralıklarıyla etiketlendi; **+129 yeni TID testi** (aralık + çözünürlük
+  alanlarıyla, ör. "Rich to Lean Sensor Threshold Voltage, 0.0000 to 7.990 V,
+  0.122 mV/bit").
+- Toplam 38 monitor / 193 test satırı. J1850/Class2 PDF'i (76 TID/CID kaydı)
+  ham havuzda (`raw_mode06_tur24.json`); MID şemasına uymadığı için DB'ye
+  girmedi, sonraki turda CID katmanı olarak değerlendirilecek.
+- `name_tr` yeni kayıtlarda bilinçli olarak boş (çeviri ayrı tur).
+- Ham kanıt: `spn_gap_hunter/cache/gm_mode06/` (2 ana PDF + 69 model-yılı
+  parametre dosyası + 20 Bmode6 PDF).
+
+## uds_did_database (JSON + CSV)
+
+### v1.1.0 — 2026-09-12 (Tur-24: ISO 14229 Annex F standart DID'leri, 36 → 68)
+
+`CAN-DTC-Collector/spn_gap_hunter/uds_did_harvester.py` hasadı. Kaynak:
+ISO 14229:2006 Annex F standart data-identifier kataloğu (python-udsoncan
+`DataIdentifier` sınıfı üzerinden, MIT lisansı):
+
+- **+32 standart DID** (0xF180-0xF19F): Boot/Application Software
+  Identification, Active Diagnostic Session (0xF186), VIN (0xF190),
+  ECU Serial Number, Programming Date, Calibration Date/Equipment ailesi.
+  Tümü evrensel (OEM bağımsız) — `oem: "ISO 14229 (Universal)"`.
+- VAG DSG MVB ölçüm grubu (G510, group 011.1) ham havuzda;
+  DID şemasına uymadığı için DB'ye girmedi.
+- `name_tr` yeni kayıtlarda bilinçli olarak boş (çeviri ayrı tur).
+
+## dtc_database (JSON + CSV)
+
+### v2.2.0 — 2026-09-12 (Tur-25: Wal33D MIT entegrasyonu + 721 hatalı başlık onarımı, 9.300 → 14.166)
+
+`CAN-DTC-Collector/spn_gap_hunter/merge_tur25_wal33d.py` + `merge_tur25_dtc_titlefix.py`
+birleştirmeleri. **Sıfır BrightData kredisi** — tümü ücretsiz kaynaklar.
+
+**(A) Sistematik başlık hatası tespit edildi ve kısmen giderildi:**
+Tur-3/4 toplu hasadında kod harfi kopyalanmamış; C/B/U kayıtlarının başlıkları
+yanlışlıkla `"P#### OBD Code"` şablonuyla yazılmıştı (C=322, B=213, U=186 → **721 kayıt**).
+Copilot bu kodları kullanıcıya yanlış harf + jenerik başlıkla sunuyordu.
+
+- **281 başlık onarıldı** (%39): Wal33D generic (243), racetunefiles.com (38).
+- **440 başlık kaynaksız kaldı** — SAE J2012'de rezerve/boşluk alanlar; komsulari
+  Wal33D'de tanımlı olduğu halde bu kodlar hiçbir ücretsiz kaynakta yayınlanmamış
+  (C0005, C0013, B0006, B0015 vb.). Doğrulandı: dtcsearch.com, racetunefiles.com,
+  carobdcodes.com, obd-codes.com, troublecodes.net — hepsi 404/403.
+
+**(B) Wal33D/dtc-database (MIT) entegrasyonu** — `@marshal` keşfi:
+Kaynak: https://github.com/Wal33D/dtc-database (`data/dtc_codes.db`, MIT lisansı,
+18.805 kayıt / 34 marka: 9.415 generic SAE J2012 + 9.390 üreticiye özel).
+
+- **+4.866 yeni generic kod** (P:3.598, U:769, C:379, B:120) — DB 9.300 → 14.166 (+%52).
+  Her kayıt: `title`, `subsystem` (harf bazlı), `severity`, `source`,
+  `evidence_url`; `title_tr` bilinçli olarak boş (çeviri ayrı tur).
+- **OEM katmanı ayrı dosyada** (`raw_wal33d_oem_layer_tur25.json`): 2.911 kod için
+  9.390 üretici kaydı. Anahtar şemasını (P/B/C/U) bozmamak için ana DB'ye
+  karıştırılmadı — HANDOFF_TUR24 §4.4 kuralı.
+- Kanıt: `git clone` gerekmez; `raw.githubusercontent.com/.../dtc_codes.db`
+  doğrudan indirilir (3.11 MB, 0 kredi).
+
+**(C) Yan kaynaklar:**
+- `dtcsearch.com`: C+U kodları için %100 doğru başlık (171 kayıt) — 440 kalanın
+  çoğunu kapsamıyor (C1091+/U1000+ aralıkları sınırlı).
+- `racetunefiles.com`: B kodlarında %20 kapsama (42 kayıt).
+- `carobdcodes.com`: B1200+/C1091+/U1000+ aralıklarında çalışıyor, düşük kapsama.
+
+**Doğrulama:** `load_external_dtc_database()` → 14.183 kayıt;
+`tests/unit/test_ai_copilot.py` + `tests/unit/test_desktop_evidence.py` +
+`tests/safety/` → 61/61 PASS. Yedekler: `dtc_database.json.bak_tur25_wal33d`,
+`.bak_tur25`.
+
+### v2.1.0 — 2026-09-12 (Tur-24: zayıf B/C/U kayıt onarımı, 901 → 846 jenerik başlık)
+
+`CAN-DTC-Collector/spn_gap_hunter/merge_tur24_dtc.py` birleştirmesi.
+Hedef: DB'de jenerik başlıklı ("OBD Code"/"DTC Code") 901 zayıf kayıttan
+B0091-120 / C0106-180 / U0073-300 aralığındaki 156'sı.
+
+- **55 başlık onarıldı** (racetunefiles.com DTC referansı; robots.txt AI-crawler
+  açık, ücretsiz): SRS/restraints serisi (B0091-99 "Left Side Restraints
+  Sensor 1-3", "Roll Over Sensor"), C0110/0131/0161 ABS ailesi, U0075-99
+  ailesi, U0300 vb. 7 kayıt tam causes+symptoms zenginleşti.
+- **8 başlık** obd-codes.com'dan (BrightData ile çekilen 156 sayfadan yalnız
+  8'i yayında idi; 147'si 404 — kaynak bu kod kapsamını yazmamış, kredi israfı
+  erken durdurma ile sınırlandı).
+- **+2 VAG semptom katmanı**: ross-tech wiki 400 fault-code sayfası hasat
+  edildi (397 kayıt, ücretsiz); 4'ü DB `vag_code_5digit` ile eşleşti, 2 P-kod
+  (P0121→16505, P3054→19510) semptom/solutions ile zenginleşti. Kalan 393
+  VAG kodu ham havuzda (`raw_rosstech_vag_tur24.json`) — P/B/C/U anahtar
+  şemasını bozmamak için yeni kayıt olarak eklenmedi, eşleme turu ayrı.
+- Başlıklarda kod öneki temizlendi (118 kayıt: "B0091 Active switch..." →
+  "Active switch...").
+- CSV şemaya uygun yeniden üretildi (9300 satır).
+
+### v1.4.0 — 2026-09-11 (VAG fabrika kodu eşleme katmanı)
+
+vag-hub.com/vw-error-codes (2.102 satır, ücretsiz) tablosundan 5 haneli VAG
+fabrika kodu ↔ P-kod eşlemesi mevcut kayıtlara `vag_code_5digit` +
+`vag_desc_en` alanları olarak eklendi (2.102 DTC zenginleştirmesi). Kaynak:
+VAG-hub public list; P-kodları zaten DB kaynak kümesiyle örtüşüyor.
+
+### v1.3.0 — 2026-09-06 (Üreticiye Özel P1 Serisi Kodlar Eklendi, 1816 → 1840 kod)
+
+Ford, GM, Volkswagen/Audi (VAG), Toyota/Lexus ve BMW platformlarına ait 24 adet kritik üretici P1 kodu (`P1000`, `P1130`, `P1131`, `P1151`, `P1260 PATS İmmobilizer`, `P1345 CKP-CMP Korelasyonu`, `P1349 VVT`, `P1450 EVAP Purge`, `P1516 TAC`, `P1602 Terminal 30`, `P1682 Kontak Voltajı`, `P1744 TCC` vb.) fabrika servis kılavuzları ve resmi OBD standartları referans alınarak entegre edildi. Her kod için OEM multimetre toleransları, UDS rutinleri ve 4 aşamalı saha teşhis rehberi eklendi.
+
 ## j1939_spn_fmi_database (JSON + CSV)
+
+### v1.7.0 — 2026-09-11 (Tur-23 gap merge: 641 → 865 SPN)
+
+`CAN-DTC-Collector/spn_gap_hunter/merge_tur23_j1939.py` birleştirmesi (kullanıcı
+onayıyla). İki yeni ücretsiz kaynak + BrightData aşılan bir kaynak:
+
+- **+192 SPN** (`source: "tur23_j1939hub"`): j1939hub.com sitemap'ında sayfası
+  olup ana DB'de bulunmayan SPN'ler; her SPN için temsili FMI sayfası (FMI-0
+  tercihli) çekildi. İsim otoritesi: SS 1033423 (102'sinde resmî isim);
+  `evidence_url` alanı sayfa kaynağını taşır. Description, sayfadaki
+  "indicates..." tanım cümlesinden alındı.
+- **+30 SPN** (`source: "tur23_spnfmi"`) + **2 SPN** (`tur23_hub+spnfmi`):
+  spnfmi.com Cummins (1440 satır) + Detroit (162 satır) fault-code tabloları,
+  BrightData Scraping Browser ile aşıldı (4 kredi). FMI haritaları
+  `lamp`/`cummins_desc` zenginleştirmeli. 28'i SS 1033423 resmî isimli.
+- PGN: 3-OEM seti (`raw_3oem_j1939_pgn.json`, Mack+Volvo+Peterbilt) eşleşen
+  kayıtlarda `pgn_cross_oem_confirmed`/`pgn_oem_count` alanları eklendi.
+- `title_tr` yeni kayıtlarda bilinçli olarak boş (HANDOFF 5.4: çeviri ayrı tur).
+- CSV şemaya uygun yeniden üretildi.
 
 ### v1.3.0 — 2026-09-06 (OEM tablo hasadı birleştirmesi: 87 → 423 SPN)
 
@@ -29,7 +161,7 @@ tamamı ücretsiz erişim (0 BrightData kredisi)**.
   etiketleriyle çeliştiği için bu SPN'ler merge EDİLMEDİ, yalnızca mevcut
   DB'ye girenler alındı).
 
-## v1.2.0 — 2026-09-06 (5 mevcut kayıtta PGN düzeltmesi)
+### v1.2.0 — 2026-09-06 (5 mevcut kayıtta PGN düzeltmesi)
 
 İlk 53 kaydın SPN↔PGN etiketleri, canboat `database/j1939/pgns` YAML'ları ve
 bu depodaki `data/dbc/heavy_duty/j1939_canboat.dbc` (aynı upstream'in DBC
@@ -78,12 +210,6 @@ etkilenmez; canboat verisi Apache-2.0 atfıyla kullanılır.
 
 İlk küratörlük kaydı bu depo geçmişinde bulunur.
 
-## dtc_database (JSON + CSV)
-
-### v1.3.0 — 2026-09-06 (Üreticiye Özel P1 Serisi Kodlar Eklendi, 1816 → 1840 kod)
-
-Ford, GM, Volkswagen/Audi (VAG), Toyota/Lexus ve BMW platformlarına ait 24 adet kritik üretici P1 kodu (`P1000`, `P1130`, `P1131`, `P1151`, `P1260 PATS İmmobilizer`, `P1345 CKP-CMP Korelasyonu`, `P1349 VVT`, `P1450 EVAP Purge`, `P1516 TAC`, `P1602 Terminal 30`, `P1682 Kontak Voltajı`, `P1744 TCC` vb.) fabrika servis kılavuzları ve resmi OBD standartları referans alınarak entegre edildi. Her kod için OEM multimetre toleransları, UDS rutinleri ve 4 aşamalı saha teşhis rehberi eklendi.
-
 ## nhtsa_can_recalls_database (JSON + CSV)
 
 ### v1.0.0 — 2026-09-06 (İlk Yayın — 282 Tekil Güvenlik Geri Çağırma & TSB Kampanyası)
@@ -97,3 +223,6 @@ Ford, GM, Volkswagen/Audi (VAG), Toyota/Lexus ve BMW platformlarına ait 24 adet
 
 - `obd_mode06_database.json/csv` — SAE J1979 Mode $06 izleyici tablosu (MIDs, TIDs, CIDs).
 - `uds_did_database.json/csv` — ISO 14229 DID kataloğu (standart 0xF1xx + OEM VAG, BMW, Ford, Tesla).
+- `nhtsa_can_complaints_database.json` — NHTSA complaints API (api.nhtsa.gov,
+  ABD resmî kamu verisi): 50 araç platformu, 4.388 CAN/elektrik/yazılım ilgili
+  şikâyet (ODI numaralı, ham kanıt niteliğinde; Copilot henüz okumuyor).

@@ -170,9 +170,13 @@ class IsoTpInvalidPduError(IsoTpError):
         details: dict[str, Any] | None = None,
         cause: Exception | None = None,
     ) -> None:
+        if raw_data is not None and len(raw_data) > 8:
+            raw_hex: str | None = raw_data[:8].hex() + "..."
+        else:
+            raw_hex = raw_data.hex() if raw_data is not None else None
         d: dict[str, Any] = {
             "pci_type": pci_type,
-            "raw_data_hex": raw_data.hex() if raw_data is not None else None,
+            "raw_data_hex": raw_hex,
         }
         if details:
             d.update(details)

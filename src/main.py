@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -114,17 +115,55 @@ def main() -> int:
         bus = build_bus(interface=args.interface, channel=args.channel, bitrate=args.bitrate, listen_only=True)
         bus.connect()
         print(f"Connected to {args.interface}:{args.channel} @ {args.bitrate} bps. Listening for frames...")
+        # REVIEW LOW-2 / REVIEW2 #3 / REVIEW3 #3: a transient HardwareError
+        # (USB unplug, bus-off, vendor driver hiccup) used to escape the loop
+        # and kill the CLI with a raw traceback. Field sniffing needs a
+        # bounded retry/backoff profile: reconnect with capped attempts, log
+        # each failure, exit cleanly only when the bus is truly gone.
+        retry_delay_s = 0.25
+        max_retry_delay_s = 1.0
+        consecutive_failures = 0
+        max_consecutive_failures = 20
         try:
             while True:
-                frame = bus.recv(timeout_s=1.0)
+                try:
+                    frame = bus.recv(timeout_s=1.0)
+                except KeyboardInterrupt:
+                    raise
+                except Exception as recv_exc:  # noqa: BLE001 — transient bus errors must not kill the monitor
+                    consecutive_failures += 1
+                    if consecutive_failures >= max_consecutive_failures:
+                        logger.error(
+                            "CLI bus receive failed repeatedly; giving up",
+                            extra={"failures": consecutive_failures, "error": str(recv_exc)},
+                        )
+                        print(f"Bağlantı kalıcı olarak kesildi: {recv_exc}")
+                        return 1
+                    logger.warning(
+                        "CLI bus receive failed; retrying with backoff",
+                        extra={
+                            "failure": consecutive_failures,
+                            "backoff_s": retry_delay_s,
+                            "error": str(recv_exc),
+                        },
+                    )
+                    time.sleep(retry_delay_s)
+                    retry_delay_s = min(retry_delay_s * 2.0, max_retry_delay_s)
+                    continue
+                consecutive_failures = 0
+                retry_delay_s = 0.25
                 if frame:
                     print(
-                        f"[{frame.timestamp_ns / 1e9:.6f}] ID: 0x{frame.arbitration_id:08X} DLC: {frame.dlc} Data: {' '.join(f'{b:02X}' for b in frame.data)}"
+                        f"[{frame.timestamp_ns / 1e9:.6f}] ID: 0x{frame.arbitration_id:08X} DLC: {frame.dlc} Data: {' '.join(f'{b:02X}' for b in frame.data)}",
+                        flush=True,
                     )
         except KeyboardInterrupt:
             print("\nShutting down...")
         finally:
-            bus.disconnect()
+            try:
+                bus.disconnect()
+            except Exception as exc:  # noqa: BLE001 — teardown must not mask the loop exit
+                logger.warning("CLI bus disconnect failed", extra={"error": str(exc)})
         return 0
 
     # Launch GUI

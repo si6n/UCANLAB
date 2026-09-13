@@ -148,8 +148,13 @@ def feed_isotp(transport: IsoTpTransport, frames: list[CanFrame]) -> bytes | Non
     return None
 
 
-def n2k_frames(payload: bytes, *, sequence_id: int = 3, sa: int = 0x42, pgn: int = 0x1F119) -> list[CanFrame]:
-    """Build a NMEA 2000 Fast Packet frame sequence (6 bytes in frame 0, 7 thereafter)."""
+def n2k_frames(payload: bytes, *, sequence_id: int = 3, sa: int = 0x42, pgn: int = 0x1F201) -> list[CanFrame]:
+    """Build a NMEA 2000 Fast Packet frame sequence (6 bytes in frame 0, 7 thereafter).
+
+    Default PGN 0x1F201 = 127489 Engine Parameters Dynamic (fast-packet per
+    canboat DBC). The previous default 127257 (Attitude) is a single-frame
+    PGN and is rejected by the PGN membership gate (REVIEW 1-H3).
+    """
     can_id = (6 << 26) | (pgn << 8) | sa
     head = bytearray(8)
     head[0] = (sequence_id << 5) | 0
@@ -953,15 +958,21 @@ def test_e2e_wrong_sequence_latches_onto_the_offending_counter(payload: bytes, j
     assert state.sequence_errors == 1
 
     # Continuing the pre-jump numbering is judged against the latched position,
-    # so it stays rejected instead of silently re-synchronising.
-    stale = validator.validate(packager.package(raw, profile, counter=1), profile)
+    # so it stays rejected instead of silently re-synchronising. The packager
+    # rejects rewinds fail-closed, so the stale counter=1 frame is sealed by
+    # an independent packager (same bytes, no rewind involved) and judged by
+    # the same validator latched at `jump`.
+    stale_seal = E2ESafetyPackager().package(raw, profile, counter=1)
+    stale = validator.validate(stale_seal, profile)
     assert stale.verdict != E2EStatus.OK, "a frame continuing the abandoned numbering must not pass"
 
     # Recovery only comes from genuine continuity with the latched counter.
+    # The stale probe above re-latched the validator, so seal the recovery
+    # frame independently (no packager rewind involved).
     resync_from = validator.get_stream_state("can0", stream_id)
     assert resync_from is not None
     next_counter = (resync_from.last_counter + 1) % 16
-    recovered = validator.validate(packager.package(raw, profile, counter=next_counter), profile)
+    recovered = validator.validate(E2ESafetyPackager().package(raw, profile, counter=next_counter), profile)
     assert recovered.verdict == E2EStatus.OK, "consecutive continuation must clear the latch"
 
 

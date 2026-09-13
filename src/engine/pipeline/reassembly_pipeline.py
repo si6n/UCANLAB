@@ -63,6 +63,10 @@ class ReassembledMessage:
     synthetic_frame: CanFrame | None = None
     decoded_message: DecodedMessage | None = None
     diagnostics: Any | None = None  # DMMessage for DM1/DM2, str for VIN, etc.
+    # REVIEW hardening: payloads above the 64 B CAN-FD synthesis limit are
+    # cut and flagged — DBC decode is skipped (is_valid=False semantics:
+    # no fabricated signals from a truncated image).
+    truncated: bool = False
 
 
 @dataclass(slots=True)
@@ -103,19 +107,28 @@ PROTOCOL_RESPONSE_11BIT_IDS: frozenset[int] = frozenset(range(0x7E0, 0x7F0)) | {
 def j1939_protocol_response_masks(my_address: int) -> tuple[tuple[int, int], ...]:
     """Build whitelist (value, mask) pairs authorizing our protocol responses.
 
-    Covers J1939 TP.CM (0x18EC..), TP.DT (0x18EB..), 29-bit ISO-TP
+    Covers J1939 TP.CM (0x1CEC..), TP.DT (0x1CEB..), 29-bit ISO-TP
     (0x18DA..) and Address Claiming (0x18EE..) frames sourced from
     `my_address` regardless of the peer they answer. Pass the result to
     TxSafetyGateway(whitelist_masks=...) when wiring this pipeline,
     otherwise every CTS/ACK/FC/Claim response trips the fail-closed
     whitelist stage.
+
+    REVIEW HIGH (mask over-breadth): the old masks (e.g. 0x18EC00FF)
+    left the priority bits (28..26) and the EDP/DP/PGN-fixed bits
+    unmasked, so arbitrary proprietary PGNs and priority variants of
+    the same PF family were authorized. Only the PDU Format and the
+    peer's address (PS/SA slot) may vary now: fixed priority (7 for TP
+    per SAE J1939-21, 6 for ISO-TP/Address Claim), fixed EDP/DP,
+    fixed PF; the destination/source octet stays wildcarded via 0xFF.
     """
     sa = my_address & 0xFF
     return (
-        (0x18EC0000 | sa, 0x18EC00FF),
-        (0x18EB0000 | sa, 0x18EB00FF),
-        (0x18DA0000 | sa, 0x18DA00FF),
-        (0x18EE0000 | sa, 0x18EE00FF),
+        (0x1CEC0000 | sa, 0x1FFF00FF),
+        (0x1CEB0000 | sa, 0x1FFF00FF),
+        (0x18DA0000 | sa, 0x1FFF00FF),
+        (0x18EE0000 | sa, 0x1FFF00FF),
+        (0x18EA0000 | sa, 0x1FFF00FF),
     )
 
 
@@ -133,6 +146,12 @@ class ReassemblyPipeline:
     MAX_CONCURRENT_SESSIONS: ClassVar[int] = 512
     MAX_SESSIONS_PER_SA: ClassVar[int] = 4
     MAX_PAYLOAD_SIZE: ClassVar[int] = 1_048_576  # 1 MB safety ceiling
+    # REVIEW 3 (MEDIUM): protocol-response rate limit — per peer (arb id)
+    # responses inside a sliding window; excess is dropped (never escalated
+    # to E-Stop) so a hostile remote node cannot bait a response storm.
+    TX_RESPONSE_WINDOW_SEC: ClassVar[float] = 1.0
+    TX_RESPONSE_MAX_PER_PEER: ClassVar[int] = 50
+    TX_RESPONSE_PEERS_TRACKED: ClassVar[int] = 256  # bounded peer table
 
     def __init__(
         self,
@@ -151,6 +170,14 @@ class ReassemblyPipeline:
         channel_id: str | None = None,
         route_synthetic_frames: bool = True,
         decode_single_frames: bool = False,
+        # REVIEW 1-M4 (MEDIUM): FC emission ownership. When a synchronous
+        # UdsClient (or IsoTpTransport with its own FC path) serves a
+        # response ID, the pipeline's dynamic FF->FC(CTS) emission would
+        # DOUBLE the flow control on the same dialogue (ECU gets BS=0 from
+        # two senders -> full CF burst + duplicate CTS). Pass False when a
+        # UdsClient owns the bus dialogue; the pipeline then reassembles
+        # passively (sniff) without transmitting.
+        flow_control_enabled: bool = True,
         on_reassembled: Callable[[ReassembledMessage], None] | None = None,
         on_decoded: Callable[[DecodedMessage], None] | None = None,
         on_synthetic_frame: Callable[[CanFrame], None] | None = None,
@@ -165,6 +192,7 @@ class ReassemblyPipeline:
         self.channel_id = channel_id
         self.route_synthetic_frames = route_synthetic_frames
         self.decode_single_frames = decode_single_frames
+        self.flow_control_enabled = flow_control_enabled
 
         # J1939 Transport Protocol Engine
         self.j1939_transport = (
@@ -195,8 +223,25 @@ class ReassemblyPipeline:
         self._isotp_sessions: dict[tuple[int, str], IsoTpSession] = {}
         self._isotp_per_sa_sessions: collections.Counter[str] = collections.Counter()
 
+        # REVIEW hardening: identities of frames synthesized by THIS
+        # pipeline instance. The ingress loop filter keys on this set —
+        # never on the untrusted `source` string (a bus/replay attacker
+        # can set source="synthetic" on a hostile frame to blind the
+        # pipeline). Bounded to the last 4096 entries.
+        self._internal_synthetic_ids: collections.OrderedDict[tuple[str, int, int], None] = collections.OrderedDict()
+        self._internal_synthetic_ids_cap: int = 4096
+
         # Thread Safety
         self._lock = threading.RLock()
+
+        # REVIEW 3 (MEDIUM): per-peer protocol-response rate limiting. The
+        # transport engines generate CTS/DT/ACK/FC/Abort responses from
+        # INBOUND traffic — a hostile/looping remote node can bait the
+        # pipeline into a response storm that trips the gateway's rate
+        # budget and escalates to an E-Stop (self-DoS). Bounded window per
+        # peer (arbitration id) + bounded total in-flight response budget.
+        self._tx_response_timestamps: dict[int, collections.deque[float]] = {}
+        self._tx_response_dropped: int = 0
 
         # Listener Callbacks
         self._on_reassembled_callbacks: list[Callable[[ReassembledMessage], None]] = []
@@ -305,8 +350,17 @@ class ReassemblyPipeline:
         # P2-11: frames synthesized by THIS pipeline and routed back through
         # the router must not be re-processed — that double-decodes signals
         # and corrupts time-series data.
-        if getattr(frame, "source", None) == "synthetic":
-            return None
+        # REVIEW hardening: the skip keys on the INTERNAL identity set, not
+        # on the untrusted `source` string. A hostile frame carrying
+        # source="synthetic" (bus/replay attacker) is processed normally —
+        # only frames this instance actually synthesized are skipped.
+        frame_identity = (frame.channel_id, frame.arbitration_id, frame.timestamp_ns)
+        with self._lock:
+            if frame_identity in self._internal_synthetic_ids:
+                # Consume the marker (one-shot): a replayed copy of OUR
+                # frame later is foreign traffic and must be processed.
+                del self._internal_synthetic_ids[frame_identity]
+                return None
 
         with self._lock:
             self._total_frames_processed += 1
@@ -543,8 +597,8 @@ class ReassemblyPipeline:
                 header_len = 2
 
             if total_len > self.MAX_PAYLOAD_SIZE:
-                # Send Flow Control OVERFLOW
-                if tx_id is not None:
+                # Send Flow Control OVERFLOW (REVIEW 1-M4: ownership flag)
+                if tx_id is not None and self.flow_control_enabled:
                     fc_ovfl = self._build_fc_frame(frame, tx_id, FS_OVERFLOW)
                     self._dispatch_tx_frame(fc_ovfl)
                 return None
@@ -601,8 +655,9 @@ class ReassemblyPipeline:
                 )
                 self._isotp_per_sa_sessions[sa_key] += 1
 
-            # Emit Flow Control CTS — only when an FC path exists (P2-1).
-            if tx_id is not None:
+            # Emit Flow Control CTS — only when an FC path exists (P2-1)
+            # AND this pipeline owns FC emission (REVIEW 1-M4).
+            if tx_id is not None and self.flow_control_enabled:
                 fc_cts = self._build_fc_frame(frame, tx_id, FS_CTS)
                 self._dispatch_tx_frame(fc_cts)
             return None
@@ -705,7 +760,16 @@ class ReassemblyPipeline:
 
         # 1. Synthesize Canonical CanFrame
         # If payload length <= 64 bytes, create exact frame (Classic CAN or CAN-FD)
-        # If payload length > 64 bytes, truncate to 64 bytes for CAN-FD compatibility
+        # REVIEW hardening: payloads > 64 bytes are cut for CAN-FD
+        # compatibility AND flagged truncated — DBC decode is skipped
+        # (decoding a cut image would fabricate signals = is_valid False).
+        truncated = data_len > 64
+        msg.truncated = truncated
+        if truncated:
+            logger.warning(
+                "Reassembled payload cut to 64 B — DBC decode skipped (fail-closed)",
+                extra={"protocol": msg.protocol, "data_len": data_len, "pgn": msg.pgn},
+            )
         if data_len <= 8:
             synth_data = msg.data
             synth_fd = False
@@ -732,13 +796,22 @@ class ReassemblyPipeline:
             # round-trip cannot re-process it (double decode/dispatch).
             source="synthetic",
         )
+        # REVIEW hardening: register the synthesized frame's identity in
+        # the internal set so the ingress filter keys on OUR records, not
+        # on the untrusted source string (see process_frame).
+        with self._lock:
+            self._internal_synthetic_ids[
+                (synth_frame.channel_id, synth_frame.arbitration_id, synth_frame.timestamp_ns)
+            ] = None
+            while len(self._internal_synthetic_ids) > self._internal_synthetic_ids_cap:
+                self._internal_synthetic_ids.popitem(last=False)
         msg.synthetic_frame = synth_frame
 
         with self._lock:
             self._synthetic_frames_generated += 1
 
-        # 2. Feed to DBC Signal Decoder
-        if self.dbc_decoder is not None:
+        # 2. Feed to DBC Signal Decoder (skipped when truncated)
+        if self.dbc_decoder is not None and not truncated:
             # Decode using synthetic frame
             decoded = self.dbc_decoder.decode_frame(synth_frame)
             if decoded is not None:
@@ -839,6 +912,17 @@ class ReassemblyPipeline:
     def _dispatch_tx_frame(self, frame: CanFrame) -> None:
         """Send a protocol-generated frame through the TX choke-point.
 
+        REVIEW 3 (MEDIUM): per-peer response rate limit FIRST — a hostile
+        or looping remote node RTS/FF-flooding the tool baits CTS/FC
+        responses; without a bound, the storm drains the gateway budget
+        and escalates to an E-Stop (self-DoS). Excess responses are
+        dropped with a bounded peer table (no unbounded memory growth).
+
+        REVIEW hardening (AGENTS.md §2.1): protocol responses (CTS/ACK/
+        FC/Abort) travel through `validate_and_transmit(...,
+        budget_category="protocol_burst")` whenever the port offers it —
+        the old bare `send_sync` bypassed whitelist/rate/dual-confirm
+        auditing. Plain TxPort implementations fall back to send_sync.
         P2-12: `on_tx_frame` observers fire ONLY after a successful
         gateway dispatch — a rejected frame (E-Stop, whitelist, budget)
         never enters the audit trail as "transmitted". `tx_port=None`
@@ -848,8 +932,46 @@ class ReassemblyPipeline:
             # Passive observer mode — do not fabricate a TX trail.
             return
 
+        # REVIEW 3: per-peer sliding-window admission.
+        now = self._get_now()
+        with self._lock:
+            window = self._tx_response_timestamps.get(frame.arbitration_id)
+            if window is None:
+                if len(self._tx_response_timestamps) >= self.TX_RESPONSE_PEERS_TRACKED:
+                    # Bounded peer table: evict the peer with the oldest
+                    # activity to admit the new one (bounded memory, no
+                    # attacker-grown dict).
+                    oldest_peer = min(
+                        self._tx_response_timestamps,
+                        key=lambda p: (
+                            self._tx_response_timestamps[p][-1]
+                            if self._tx_response_timestamps[p]
+                            else float("inf")
+                        ),
+                    )
+                    del self._tx_response_timestamps[oldest_peer]
+                window = collections.deque()
+                self._tx_response_timestamps[frame.arbitration_id] = window
+            while window and (now - window[0]) >= self.TX_RESPONSE_WINDOW_SEC:
+                window.popleft()
+            if len(window) >= self.TX_RESPONSE_MAX_PER_PEER:
+                self._tx_response_dropped += 1
+                logger.warning(
+                    "Protocol response rate limit: dropping response frame",
+                    extra={
+                        "arbitration_id": hex(frame.arbitration_id),
+                        "dropped_total": self._tx_response_dropped,
+                    },
+                )
+                return
+            window.append(now)
+
         try:
-            self.tx_port.send_sync(frame)
+            validate = getattr(self.tx_port, "validate_and_transmit", None)
+            if callable(validate):
+                validate(frame, budget_category="protocol_burst")
+            else:
+                self.tx_port.send_sync(frame)
         except Exception as exc:  # noqa: BLE001
             # E5: a rejected protocol response (whitelist miss, E-Stop,
             # rate budget) must be visible — debug-level swallowing hid
@@ -934,6 +1056,7 @@ class ReassemblyPipeline:
                 self.j1939_transport.reset_sessions()
             self._isotp_sessions.clear()
             self._isotp_per_sa_sessions.clear()
+            self._internal_synthetic_ids.clear()
             self._total_frames_processed = 0
             self._j1939_messages_reassembled = 0
             self._isotp_messages_reassembled = 0

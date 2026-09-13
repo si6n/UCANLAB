@@ -73,14 +73,23 @@ def test_uds_transfer_data_block_sequence_wraparound_to_zero() -> None:
     mock_resp = MagicMock(is_positive=True, nrc=0, data=b"\x20\x10\x00")
     mock_client.change_session.return_value = mock_resp
     mock_client.request_download.return_value = mock_resp
-    # P1-6: transfer_data echoes the block sequence counter in data[0]
+    # P1-6: transfer_data echoes the block sequence counter in data[0].
+    # REVIEW 2 CRITICAL-1: _call_transfer_data now sends the FIXED contract
+    # (is_critical_command=True, user_confirmed) — the mock must accept it.
     mock_client.transfer_data.side_effect = (
-        lambda block_sequence, data: MagicMock(
+        lambda block_sequence, data, is_critical_command=False, user_confirmed=False: MagicMock(
             is_positive=True, nrc=0, data=bytes([block_sequence & 0xFF])
         )
     )
     mock_client.request_transfer_exit.return_value = mock_resp
-    mock_client.start_routine.return_value = mock_resp
+    mock_client.start_routine.return_value = MagicMock(is_positive=True, nrc=0, data=b"\x00")
+    # REVIEW (routineControl echo): a real ECU replies
+    # `71 03 <rid> <rid> <status>` for REQUEST_ROUTINE_RESULTS — the flasher
+    # validates the controlType+routineId echo prefix before reading status.
+    # checksum_routine_id default = 0x0202, status 0x00 = correctly completed.
+    mock_client.request_routine_results.return_value = MagicMock(
+        is_positive=True, nrc=0, data=b"\x03\x02\x02\x00"
+    )
     mock_client.ecu_reset.return_value = mock_resp
 
     mock_gateway = MagicMock()
@@ -100,7 +109,7 @@ def test_uds_transfer_data_block_sequence_wraparound_to_zero() -> None:
         data=b"X" * 300,
         block_size=1,
         user_confirmed=True,
-        verify_checksum=False,
+        verify_checksum=True,
         reset_after_flash=False,
     )
 
@@ -145,7 +154,7 @@ def test_uds_flashing_failure_triggers_best_effort_recovery() -> None:
         data=b"X" * 4,
         block_size=2,
         user_confirmed=True,
-        verify_checksum=False,
+        verify_checksum=True,
         reset_after_flash=False,  # success path would NOT reset — recovery must
     )
 
@@ -270,7 +279,7 @@ def test_j1939_tp_cm_bounds_rejection() -> None:
     # 1. Total bytes = 0, Total packets = 0
     f_zero = CanFrame.create(
         channel_id="j1939",
-        arbitration_id=0x18ECFF01,
+        arbitration_id=0x1CECFF01,
         data=b"\x20\x00\x00\x00\xff\x00\xf0\x00",
         is_extended=True,
     )
@@ -281,7 +290,7 @@ def test_j1939_tp_cm_bounds_rejection() -> None:
     # 2. Total bytes = 2000 (> 1785 limit)
     f_overflow = CanFrame.create(
         channel_id="j1939",
-        arbitration_id=0x18ECFF01,
+        arbitration_id=0x1CECFF01,
         data=b"\x20\xd0\x07\x00\xff\x00\xf0\x00",  # 2000 bytes (0x07D0)
         is_extended=True,
     )
@@ -292,7 +301,7 @@ def test_j1939_tp_cm_bounds_rejection() -> None:
     # 3. Packet count mismatch (14 bytes declared with 1 packet instead of 2)
     f_mismatch = CanFrame.create(
         channel_id="j1939",
-        arbitration_id=0x18ECFF01,
+        arbitration_id=0x1CECFF01,
         data=b"\x20\x0e\x00\x01\xff\x00\xf0\x00",  # 14 bytes, 1 packet
         is_extended=True,
     )

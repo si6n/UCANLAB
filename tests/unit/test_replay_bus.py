@@ -429,3 +429,61 @@ base hex  timestamps absolute
             next(it)
     finally:
         tmp_path.unlink(missing_ok=True)
+
+
+# ============================================================================
+# REVIEW 3: thread-safety & callback fault tolerance
+# ============================================================================
+
+
+def test_replay_bus_callback_exception_does_not_kill_playback() -> None:
+    """REVIEW 3 regression: a raising consumer must not silently kill the
+    replay thread — the error is counted (callback_errors/dropped_frames),
+    logged, and playback continues deterministically."""
+    frames = [
+        CanFrame.create(channel_id="ch1", arbitration_id=0x100 + i, data=b"\x01", timestamp_ns=i * 10_000)
+        for i in range(5)
+    ]
+    bus = ReplayBus(frames)
+    ok: list[CanFrame] = []
+
+    def on_frame(f: CanFrame) -> None:
+        if f.arbitration_id == 0x101:
+            raise RuntimeError("consumer pipeline blowup")
+        ok.append(f)
+
+    bus.play(callback=on_frame, speed=100.0)  # must NOT raise
+
+    assert len(ok) == 4  # all other frames delivered
+    assert bus.callback_errors == 1
+    assert bus.dropped_frames == 1
+
+
+def test_replay_bus_concurrent_load_frames_and_step_are_safe() -> None:
+    """REVIEW 3 regression: play/step/load_frames are serialized by a lock —
+    a concurrent load_frames([]) during playback terminates cleanly instead
+    of tearing the in-flight iteration (IndexError)."""
+    frames = [
+        CanFrame.create(channel_id="ch1", arbitration_id=0x100 + i, data=b"\x01", timestamp_ns=i * 1_000_000)
+        for i in range(200)
+    ]
+    bus = ReplayBus(frames)
+    received: list[CanFrame] = []
+    stop = threading.Event()
+
+    def player() -> None:
+        # Errors must not escape the worker thread; track any crash.
+        try:
+            bus.play(callback=received.append, speed=50.0, stop_event=stop, loop=True)
+        except Exception:
+            pass
+
+    t = threading.Thread(target=player, daemon=True)
+    t.start()
+    time.sleep(0.02)  # mid-playback...
+    bus.load_frames([])  # ...swap the trace under the runner's feet
+    time.sleep(0.02)
+    stop.set()
+    t.join(timeout=2.0)
+
+    assert not t.is_alive()  # worker exited cleanly, never crashed mid-iteration

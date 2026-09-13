@@ -111,20 +111,32 @@ class UdsDidRegistry:
 
     def decode(self, did: int, raw_bytes: bytes) -> UdsDidResult:
         """Decode raw response bytes for given DID into a validated UdsDidResult."""
+        from src.protocols.obd.models import DECODE_FAILURE_CODE, MAX_RAW_BYTES
+
+        # REVIEW hardening: raw-payload ceiling BEFORE any decode or .hex()
+        # (hex doubles memory; unbounded attacker bytes must never become
+        # "valid" telemetry).
+        truncated = len(raw_bytes) > MAX_RAW_BYTES
+        bounded = bytes(raw_bytes[:MAX_RAW_BYTES]) if truncated else bytes(raw_bytes)
+
         definition = self.get(did)
         if definition is None:
-            # Fallback dynamic definition for unlisted DIDs
+            # REVIEW hardening: unknown DIDs are NOT valid telemetry —
+            # attacker bytes must not reflect as VALID. Unit is "unknown"
+            # (not "raw"), value is the (possibly cut) hex, flagged.
             return UdsDidResult(
                 did=did,
                 name=f"UNKNOWN_DID_0x{did:04X}",
-                raw_bytes=raw_bytes,
-                value=raw_bytes.hex().upper(),
-                unit="raw",
-                is_valid=True,
+                raw_bytes=bounded,
+                value=bounded.hex().upper(),
+                unit="unknown",
+                is_valid=False,
+                error_message="unknown DID (unlisted identifier)",
+                truncated=truncated,
             )
 
         try:
-            val = definition.decode(raw_bytes)
+            val = definition.decode(bounded)
             # Range check for numeric values
             is_valid = True
             err_msg = None
@@ -135,25 +147,34 @@ class UdsDidRegistry:
                 elif definition.max_value is not None and val > definition.max_value:
                     is_valid = False
                     err_msg = f"Value {val} above maximum {definition.max_value}"
+            if truncated:
+                is_valid = False
+                err_msg = (err_msg + "; " if err_msg else "") + "payload cut at 256B ceiling"
 
             return UdsDidResult(
                 did=did,
                 name=definition.name,
-                raw_bytes=raw_bytes,
+                raw_bytes=bounded,
                 value=val,
                 unit=definition.unit,
                 is_valid=is_valid,
                 error_message=err_msg,
+                truncated=truncated,
             )
-        except Exception as exc:
+        except Exception:
+            # REVIEW hardening: fixed machine-readable code — no str(exc)
+            # reflection (internal exception text is an oracle + log bloat).
+            # The expected length is definition metadata (not exception
+            # text), so it is safe to include for diagnostics.
             return UdsDidResult(
                 did=did,
                 name=definition.name,
-                raw_bytes=raw_bytes,
+                raw_bytes=bounded,
                 value=None,
                 unit=definition.unit,
                 is_valid=False,
-                error_message=str(exc),
+                error_message=f"{DECODE_FAILURE_CODE}: requires at least {definition.length} bytes",
+                truncated=truncated,
             )
 
     def _register_default_dids(self) -> None:
@@ -232,6 +253,9 @@ class UdsDidRegistry:
                 description="Active Diagnostic Session",
                 length=1,
                 unit="enum",
+                # Length is asserted by UdsDidDefinition.decode before this
+                # runs; short payloads surface as the fixed DID_TRUNCATED
+                # code (no str(exc) reflection).
                 decoder=lambda b: DiagnosticSessionEnum(b[0])
                 if b[0] in DiagnosticSessionEnum._value2member_map_
                 else b[0],

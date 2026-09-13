@@ -22,16 +22,13 @@ import {
 import { CANSimulatorEngine } from './services/canSimulator';
 import { DiagnosticEngine } from './services/diagnosticEngine';
 import { DesktopBridge } from './services/bridge';
+import { fromNativeFrame, fromNativeFrames } from './services/nativeFrameAdapter';
 
 export const App: React.FC = () => {
   // Global Application State
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [channel, setChannel] = useState('vcan0');
   const [baudRate, setBaudRate] = useState('250 kbps');
-  // H-11 (P1-9): API keys are no longer persisted in localStorage — the
-  // WebView profile stores it unencrypted; the backend vault is the only
-  // at-rest copy. The renderer keeps a transient session value only.
-  const [apiKey, setApiKey] = useState('');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Vertical Resizer State for Dashboard (Sniffer vs Oscilloscope)
@@ -57,15 +54,13 @@ export const App: React.FC = () => {
   // Engines
   const [simulator] = useState(() => new CANSimulatorEngine());
   const [diagnosticEngine] = useState(() => {
-    const engine = new DiagnosticEngine();
-    // H-11 (P1-9): legacy plaintext keys are scrubbed once and never read
-    // back; only the non-sensitive provider preference persists.
+    // H-11 (P1-9): legacy plaintext keys are scrubbed once — the AI is fully
+    // offline now; no cloud provider state exists.
     localStorage.removeItem('gemini_api_key');
     localStorage.removeItem('openai_api_key');
     localStorage.removeItem('cloud_session_token');
-    const savedProvider = (localStorage.getItem('ai_provider') as 'gemini' | 'openai') || 'gemini';
-    engine.setAiProvider(savedProvider);
-    return engine;
+    localStorage.removeItem('ai_provider');
+    return new DiagnosticEngine();
   });
 
   // Diagnostic State & Chat (Clean Live Start)
@@ -126,8 +121,12 @@ export const App: React.FC = () => {
   // Mount listeners for Telemetry & Real-time Frames
   useEffect(() => {
     simulator.subscribe({
-      onNewFrame: (newFrame) => {
-        setFrames((prev) => [...prev.slice(-199), newFrame]);
+      // REVIEW (double delivery): the engine emits BOTH onNewFrame per
+      // frame AND onNewFrameBatch per batch — subscribing to both
+      // appended every frame twice (100% duplicates in the sniffer and
+      // every stats counter). The batch hook is the single delivery path.
+      onNewFrame: () => {
+        /* delivered via onNewFrameBatch only */
       },
       onNewFrameBatch: (batch) => {
         // F-35: single state update for the whole 5-frame batch
@@ -146,15 +145,23 @@ export const App: React.FC = () => {
     });
 
     // Native Python window listener hooks
+    // REVIEW (DTO boundary): native frames cross the bridge as
+    // {id, timestamp, data, ...} — every frontend consumer reads
+    // canIdHex/dataHex/timeSec, so raw storage crashed the sniffer table
+    // with a TypeError. All native frames pass the adapter first.
     window.onNewCanFrame = (f) => {
-      setFrames((prev) => [...prev.slice(-199), f]);
+      const adapted = fromNativeFrame(f);
+      if (!adapted) return;
+      setFrames((prev) => [...prev.slice(-199), adapted]);
     };
 
     // E13: batched live frames — ONE call per 50ms tick from Python (mirrors
     // the F-35 single-state-update pattern used by the simulator).
     window.onNewCanFrames = (batch) => {
       if (!Array.isArray(batch) || batch.length === 0) return;
-      setFrames((prev) => [...prev.slice(-(200 - batch.length)), ...batch].slice(-200));
+      const adapted = fromNativeFrames(batch);
+      if (adapted.length === 0) return;
+      setFrames((prev) => [...prev.slice(-(200 - adapted.length)), ...adapted].slice(-200));
     };
 
     window.onTelemetryTick = (p) => {
@@ -249,6 +256,16 @@ export const App: React.FC = () => {
   };
 
   const handleInjectFault = (type: any) => {
+    // REVIEW (LIVE guard): fault injection used to bypass the bridge and
+    // hit the local simulator directly, dropping synthetic error frames
+    // into the LIVE sniffer buffer (the simulator's own isLiveMode gate
+    // covers startSimulation but not injectFault). In native/LIVE mode
+    // the backend path is used — it refuses while E-Stop is latched
+    // (a simulator must never disarm safety).
+    if (DesktopBridge.isNative()) {
+      DesktopBridge.injectFault(type);
+      return;
+    }
     simulator.injectFault(type);
   };
 
@@ -348,20 +365,6 @@ export const App: React.FC = () => {
   const handleSaveSettings = async (settings: any) => {
     setChannel(settings.channel);
     setBaudRate(settings.baudRate);
-    setApiKey(settings.apiKey || settings.geminiApiKey || settings.openaiApiKey || '');
-
-    // H-11 (P1-9): keys flow to the in-memory engine and the backend vault
-    // (via updateSettings) only — never to localStorage.
-    if (settings.provider) {
-      diagnosticEngine.setAiProvider(settings.provider);
-      localStorage.setItem('ai_provider', settings.provider);
-    }
-    if (settings.geminiApiKey !== undefined) {
-      diagnosticEngine.setApiKey(settings.geminiApiKey);
-    }
-    if (settings.openaiApiKey !== undefined) {
-      diagnosticEngine.setOpenAiApiKey(settings.openaiApiKey);
-    }
     await DesktopBridge.updateSettings(settings);
   };
 
@@ -482,7 +485,6 @@ export const App: React.FC = () => {
         isOpen={isSettingsOpen}
         channel={channel}
         baudRate={baudRate}
-        apiKey={apiKey}
         onClose={() => setIsSettingsOpen(false)}
         onSave={handleSaveSettings}
       />

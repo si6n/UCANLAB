@@ -10,13 +10,11 @@ Target Systems:
 from __future__ import annotations
 
 import concurrent.futures
-import json
 import queue
 import random
 import threading
 import time
 from typing import Any
-from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -472,125 +470,18 @@ def test_uds_client_shutdown_during_running_futures() -> None:
 
 
 # ===========================================================================
-# 4. AI Diagnostic Copilot Empirical Stress-Tests
+# 4. AI Diagnostic Copilot Empirical Stress-Tests (fully offline, M7)
+#    The LLM JSON parser tests were removed with the cloud layer; the
+#    remaining stress surface is the deterministic expert engine itself.
 # ===========================================================================
 
 
-def test_ai_copilot_heavily_malformed_code_fences() -> None:
-    """Test AI Copilot JSON cleaner with various heavily malformed markdown code fences:
-    - Multiple code fences with explanations
-    - Unclosed code fences
-    - Embedded backticks inside strings
-    - Nested code blocks
-    """
-    # 1. Multiple code fences (first fence is code explanation, second is actual JSON)
-    multi_fence = """Here is an explanation:
-```python
-# sample config
-x = 10
-```
-And here is the JSON output:
-```json
-{
-    "summary": "Multi-fence parsed properly",
-    "severity": "LOW"
-}
-```
-"""
-    parsed1 = AiDiagnosticCopilot._clean_and_parse_json(multi_fence)
-    # The parser or fallback should find valid JSON object
-    assert "summary" in parsed1
-    assert parsed1["summary"] == "Multi-fence parsed properly"
-
-    # 2. Embedded backticks inside string values
-    backtick_str = """```json
-{
-    "summary": "Fault in `SPN 100` sensor: Check `PIN_3` on wiring harness.",
-    "severity": "CRITICAL_STOP",
-    "likely_causes": ["Damaged `Sensor_A` connector"]
-}
-```"""
-    parsed2 = AiDiagnosticCopilot._clean_and_parse_json(backtick_str)
-    assert parsed2["severity"] == "CRITICAL_STOP"
-    assert "`SPN 100`" in parsed2["summary"]
-    assert "`Sensor_A`" in parsed2["likely_causes"][0]
-
-    # 3. Unclosed code fence (truncated generation)
-    unclosed_fence = """```json
-{
-    "summary": "Unclosed fence test",
-    "severity": "MEDIUM"
-}
-"""
-    # The outer brackets fallback will extract the valid JSON object
-    parsed3 = AiDiagnosticCopilot._clean_and_parse_json(unclosed_fence)
-    assert parsed3["summary"] == "Unclosed fence test"
-    assert parsed3["severity"] == "MEDIUM"
-
-
-def test_ai_copilot_conversational_and_html_wrapping() -> None:
-    """Test JSON parser with deep conversational text, XML/HTML tags, and surrounding brackets."""
-    raw_html = """<diagnosis_response>
-<header>System Diagnostic Result</header>
-Analysis generated at 2026-08-24:
-```json
-{
-    "summary": "HTML Wrapped Diagnosis",
-    "severity": "INFO",
-    "affected_subsystems": ["Telematics", "CAN Gateway"]
-}
-```
-<footer>End of report</footer>
-</diagnosis_response>"""
-
-    parsed = AiDiagnosticCopilot._clean_and_parse_json(raw_html)
-    assert parsed["summary"] == "HTML Wrapped Diagnosis"
-    assert parsed["severity"] == "INFO"
-    assert parsed["affected_subsystems"] == ["Telematics", "CAN Gateway"]
-
-
-def test_ai_copilot_empty_and_whitespace_responses_fallback() -> None:
-    """Verify that empty strings, whitespace, and non-JSON text raise JSONDecodeError
-    and trigger clean fallback to local expert engine during analyze_session.
-    """
-    # Direct parser checks
-    with pytest.raises(json.JSONDecodeError):
-        AiDiagnosticCopilot._clean_and_parse_json("")
-
-    with pytest.raises(json.JSONDecodeError):
-        AiDiagnosticCopilot._clean_and_parse_json("   \n\t   \r\n  ")
-
-    with pytest.raises(json.JSONDecodeError):
-        AiDiagnosticCopilot._clean_and_parse_json("Just plain text with no brackets at all.")
-
-    # analyze_session fallback checks with mocked empty Gemini response
-    copilot = AiDiagnosticCopilot(gemini_api_key="valid-mock-key-1234567890123")
-
-    mock_resp = MagicMock()
-    mock_resp.read.return_value = json.dumps({"candidates": [{"content": {"parts": [{"text": "   \n\n  "}]}}]}).encode(
-        "utf-8"
-    )
-    mock_resp.__enter__.return_value = mock_resp
-
-    with patch("urllib.request.urlopen", return_value=mock_resp):
-        report = copilot.analyze_session(
-            [{"spn": 100, "fmi": 1}],
-            {"EngineSpeed": 1200.0},
-            ["Engine_ECU_0x00"],
-        )
-        # Should gracefully fall back to local expert engine
-        assert report.ai_model_used == "Yerel Otomotiv Uzman Motoru (Çevrimdışı)"
-        assert report.severity == FaultSeverity.CRITICAL_STOP
-        assert "Motor Yağlama" in report.affected_subsystems[0]
-
-
-def test_ai_copilot_local_expert_extreme_loads() -> None:
-    """Stress test local expert engine with 1000 DTCs, extreme telemetry (NaN, Inf, negatives),
-    and empty parameters. Verify it completes without crashing or throwing unhandled exceptions.
-    """
+def test_ai_copilot_extreme_loads_stay_deterministic() -> None:
+    """Stress the offline local expert with 1000 DTCs + extreme telemetry
+    (NaN, Inf, negatives). Verify it completes deterministically without
+    crashing or inventing network calls."""
     copilot = AiDiagnosticCopilot()
 
-    # 1000 random DTCs including various SPNs
     massive_dtcs: list[dict[str, object]] = []
     for i in range(1000):
         massive_dtcs.append({"spn": random.choice([100, 110, 651, 652, 102, 3251, 9999]), "fmi": i % 32})
@@ -610,4 +501,5 @@ def test_ai_copilot_local_expert_extreme_loads() -> None:
     assert report.severity == FaultSeverity.CRITICAL_STOP
     assert report.raw_dtc_count == 1000
     assert len(report.troubleshooting_steps) >= 1
+    assert report.ai_model_used == "Yerel Otomotiv Uzman Motoru (Çevrimdışı)"
     assert len(report.affected_subsystems) >= 1

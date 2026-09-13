@@ -135,7 +135,8 @@ def test_isotp_multi_frame_segmentation_and_reassembly() -> None:
         (0xF1, 0.1),
         (0xF5, 0.5),
         (0xF9, 0.9),
-        (0x80, 127.0),
+        # REVIEW hardening: reserved 0x80-0xF0 clamped to 10ms (spoof/stall cap).
+        (0x80, 10.0),
         (0xFA, 127.0),
         (0xFF, 127.0),
     ],

@@ -98,7 +98,7 @@ class TestJ1939BamReassembly:
         sa = 0x00  # Engine ECU
 
         # 1. TP.CM_BAM frame (DA = 255)
-        # ID: 0x18ECFF00
+        # ID: 0x1CECFF00
         cm_data = bytearray(8)
         cm_data[0] = TP_CTRL_BAM
         cm_data[1:3] = total_bytes.to_bytes(2, byteorder="little")
@@ -108,7 +108,7 @@ class TestJ1939BamReassembly:
 
         cm_frame = CanFrame.create(
             channel_id="can0",
-            arbitration_id=0x18ECFF00 | sa,
+            arbitration_id=0x1CECFF00 | sa,
             data=bytes(cm_data),
             is_extended=True,
         )
@@ -122,7 +122,7 @@ class TestJ1939BamReassembly:
         dt1_data[1:8] = vin_payload[0:7]
         dt1_frame = CanFrame.create(
             channel_id="can0",
-            arbitration_id=0x18EBFF00 | sa,
+            arbitration_id=0x1CEBFF00 | sa,
             data=bytes(dt1_data),
             is_extended=True,
         )
@@ -135,7 +135,7 @@ class TestJ1939BamReassembly:
         dt2_data[1:8] = vin_payload[7:14]
         dt2_frame = CanFrame.create(
             channel_id="can0",
-            arbitration_id=0x18EBFF00 | sa,
+            arbitration_id=0x1CEBFF00 | sa,
             data=bytes(dt2_data),
             is_extended=True,
         )
@@ -149,7 +149,7 @@ class TestJ1939BamReassembly:
         dt3_data[6:8] = b"\xff\xff"
         dt3_frame = CanFrame.create(
             channel_id="can0",
-            arbitration_id=0x18EBFF00 | sa,
+            arbitration_id=0x1CEBFF00 | sa,
             data=bytes(dt3_data),
             is_extended=True,
         )
@@ -242,7 +242,7 @@ class TestJ1939CmdtReassembly:
         target_pgn = 61184  # Proprietary A (0xEF00)
         data_payload = b"CMDT_TEST_12345"  # 15 bytes -> 3 packets
 
-        # 1. Transmitter sends TP.CM_RTS (DA = 0xF9, SA = 0x20 -> 0x18ECF920)
+        # 1. Transmitter sends TP.CM_RTS (DA = 0xF9, SA = 0x20 -> 0x1CECF920)
         rts_data = bytearray(8)
         rts_data[0] = TP_CTRL_RTS
         rts_data[1:3] = len(data_payload).to_bytes(2, byteorder="little")
@@ -252,7 +252,7 @@ class TestJ1939CmdtReassembly:
 
         rts_frame = CanFrame.create(
             channel_id="can0",
-            arbitration_id=0x18ECF920,
+            arbitration_id=0x1CECF920,
             data=bytes(rts_data),
             is_extended=True,
         )
@@ -260,10 +260,10 @@ class TestJ1939CmdtReassembly:
         res = pipeline.process_frame(rts_frame)
         assert res is None
 
-        # Verify pipeline emitted TP.CM_CTS frame (DA = 0x20, SA = 0xF9 -> 0x18EC20F9)
+        # Verify pipeline emitted TP.CM_CTS frame (DA = 0x20, SA = 0xF9 -> 0x1CEC20F9)
         assert len(tx_frames_captured) == 1
         cts_frame = tx_frames_captured[0]
-        assert cts_frame.arbitration_id == 0x18EC20F9
+        assert cts_frame.arbitration_id == 0x1CEC20F9
         assert cts_frame.data[0] == TP_CTRL_CTS
         assert cts_frame.data[1] == 3  # packets allowed
         assert cts_frame.data[2] == 1  # next sequence expected
@@ -279,7 +279,7 @@ class TestJ1939CmdtReassembly:
 
             dt_frame = CanFrame.create(
                 channel_id="can0",
-                arbitration_id=0x18EBF920,
+                arbitration_id=0x1CEBF920,
                 data=bytes(dt_data),
                 is_extended=True,
             )
@@ -298,7 +298,7 @@ class TestJ1939CmdtReassembly:
 
         assert len(tx_frames_captured) == 2
         ack_frame = tx_frames_captured[1]
-        assert ack_frame.arbitration_id == 0x18EC20F9
+        assert ack_frame.arbitration_id == 0x1CEC20F9
         assert ack_frame.data[0] == TP_CTRL_ACK
         assert int.from_bytes(ack_frame.data[1:3], "little") == len(data_payload)
         assert ack_frame.data[3] == 3
@@ -310,14 +310,14 @@ class TestJ1939CmdtReassembly:
 
         # 1. Send first RTS for PGN 61184
         rts1_data = bytearray([TP_CTRL_RTS, 14, 0, 2, 0xFF, 0x00, 0xEF, 0x00])
-        f1 = CanFrame.create(channel_id="can0", arbitration_id=0x18ECF920, data=bytes(rts1_data), is_extended=True)
+        f1 = CanFrame.create(channel_id="can0", arbitration_id=0x1CECF920, data=bytes(rts1_data), is_extended=True)
         pipeline.process_frame(f1)
         assert len(mock_tx.sent_frames) == 1
         assert mock_tx.sent_frames[0].data[0] == TP_CTRL_CTS
 
         # 2. Send second RTS before completing first -> collision
         rts2_data = bytearray([TP_CTRL_RTS, 21, 0, 3, 0xFF, 0x00, 0xEF, 0x00])
-        f2 = CanFrame.create(channel_id="can0", arbitration_id=0x18ECF920, data=bytes(rts2_data), is_extended=True)
+        f2 = CanFrame.create(channel_id="can0", arbitration_id=0x1CECF920, data=bytes(rts2_data), is_extended=True)
         pipeline.process_frame(f2)
 
         # Pipeline emits Conn_Abort (reason 0x02) for the old session AND —
@@ -338,13 +338,13 @@ class TestJ1939CmdtReassembly:
         # Establish session
         rts_data = bytearray([TP_CTRL_RTS, 14, 0, 2, 0xFF, 0x00, 0xEF, 0x00])
         pipeline.process_frame(
-            CanFrame.create(channel_id="can0", arbitration_id=0x18ECF920, data=bytes(rts_data), is_extended=True)
+            CanFrame.create(channel_id="can0", arbitration_id=0x1CECF920, data=bytes(rts_data), is_extended=True)
         )
 
         # Send DT packet with sequence 2 (expected 1)
         dt_bad = bytearray([2, 1, 2, 3, 4, 5, 6, 7])
         pipeline.process_frame(
-            CanFrame.create(channel_id="can0", arbitration_id=0x18EBF920, data=bytes(dt_bad), is_extended=True)
+            CanFrame.create(channel_id="can0", arbitration_id=0x1CEBF920, data=bytes(dt_bad), is_extended=True)
         )
 
         # Conn_Abort should be emitted
@@ -696,12 +696,12 @@ class TestConcurrencyAndTimeouts:
 
         # Start BAM 1
         cm1 = bytearray([TP_CTRL_BAM, 14, 0, 2, 0xFF, 0x00, 0xEF, 0x00])
-        pipeline.process_frame(CanFrame.create(channel_id="can0", arbitration_id=0x18ECFF00, data=bytes(cm1), is_extended=True))
+        pipeline.process_frame(CanFrame.create(channel_id="can0", arbitration_id=0x1CECFF00, data=bytes(cm1), is_extended=True))
         assert pipeline.get_active_session_count() == 1
 
         # Start BAM 2 from same SA without completing BAM 1
         cm2 = bytearray([TP_CTRL_BAM, 21, 0, 3, 0xFF, 0x00, 0xEE, 0x00])
-        pipeline.process_frame(CanFrame.create(channel_id="can0", arbitration_id=0x18ECFF00, data=bytes(cm2), is_extended=True))
+        pipeline.process_frame(CanFrame.create(channel_id="can0", arbitration_id=0x1CECFF00, data=bytes(cm2), is_extended=True))
         assert pipeline.get_active_session_count() == 1
 
     def test_j1939_bam_out_of_order_silent_eviction(self) -> None:
@@ -710,12 +710,12 @@ class TestConcurrencyAndTimeouts:
 
         # Start BAM
         cm = bytearray([TP_CTRL_BAM, 14, 0, 2, 0xFF, 0x00, 0xEF, 0x00])
-        pipeline.process_frame(CanFrame.create(channel_id="can0", arbitration_id=0x18ECFF00, data=bytes(cm), is_extended=True))
+        pipeline.process_frame(CanFrame.create(channel_id="can0", arbitration_id=0x1CECFF00, data=bytes(cm), is_extended=True))
         assert pipeline.get_active_session_count() == 1
 
         # Send DT sequence 2 (expected 1)
         dt_bad = bytearray([2, 1, 2, 3, 4, 5, 6, 7])
-        pipeline.process_frame(CanFrame.create(channel_id="can0", arbitration_id=0x18EBFF00, data=bytes(dt_bad), is_extended=True))
+        pipeline.process_frame(CanFrame.create(channel_id="can0", arbitration_id=0x1CEBFF00, data=bytes(dt_bad), is_extended=True))
         assert pipeline.get_active_session_count() == 0
 
     def test_j1939_dm2_previously_active_dtc_reassembly(self) -> None:
@@ -814,7 +814,7 @@ class TestConcurrencyAndTimeouts:
 
         # 1. Start J1939 BAM session
         cm_data = bytearray([TP_CTRL_BAM, 14, 0, 2, 0xFF, 0x00, 0xEF, 0x00])
-        pipeline.process_frame(CanFrame.create(channel_id="can0", arbitration_id=0x18ECFF00, data=bytes(cm_data), is_extended=True))
+        pipeline.process_frame(CanFrame.create(channel_id="can0", arbitration_id=0x1CECFF00, data=bytes(cm_data), is_extended=True))
 
         # 2. Start ISO-TP session (FF)
         ff_data = bytes([(PCI_FIRST_FRAME << 4), 20, 1, 2, 3, 4, 5, 6])
@@ -841,11 +841,11 @@ class TestConcurrencyAndTimeouts:
         # Maximum per-SA quota is 4
         for i in range(4):
             cm = bytearray([TP_CTRL_BAM, 14, 0, 2, 0xFF, i, 0xEF, 0x00])
-            pipeline.process_frame(CanFrame.create(channel_id=f"can{i}", arbitration_id=0x18ECFF00 | sa, data=bytes(cm), is_extended=True))
+            pipeline.process_frame(CanFrame.create(channel_id=f"can{i}", arbitration_id=0x1CECFF00 | sa, data=bytes(cm), is_extended=True))
 
         # Attempt 5th session on same SA
         cm_5th = bytearray([TP_CTRL_BAM, 14, 0, 2, 0xFF, 5, 0xEF, 0x00])
-        res = pipeline.process_frame(CanFrame.create(channel_id="can_overflow", arbitration_id=0x18ECFF00 | sa, data=bytes(cm_5th), is_extended=True))
+        res = pipeline.process_frame(CanFrame.create(channel_id="can_overflow", arbitration_id=0x1CECFF00 | sa, data=bytes(cm_5th), is_extended=True))
         assert res is None
 
     def test_lifecycle_and_context_manager(self) -> None:
@@ -871,16 +871,73 @@ def test_protocol_response_whitelist_helpers() -> None:
         return any((arb_id & mask) == value for value, mask in masks)
 
     # Our TP.CM / TP.DT / 29-bit ISO-TP responses to arbitrary peers pass
-    assert authorized(0x18EC01F9) is True  # CTS to peer 0x01
-    assert authorized(0x18EB42F9) is True  # TP.DT to peer 0x42
+    assert authorized(0x1CEC01F9) is True  # CTS to peer 0x01
+    assert authorized(0x1CEB42F9) is True  # TP.DT to peer 0x42
     assert authorized(0x18DA00F9) is True  # ISO-TP flow control
 
     # Frames sourced from another address never pass
-    assert authorized(0x18EC01AA) is False
-    assert authorized(0x18EB0000) is False
+    assert authorized(0x1CEC01AA) is False
+    assert authorized(0x1CEB0000) is False
 
     # 11-bit diagnostic response set covers physical + functional IDs
     assert 0x7DF in PROTOCOL_RESPONSE_11BIT_IDS
     assert 0x7E0 in PROTOCOL_RESPONSE_11BIT_IDS
     assert 0x7EF in PROTOCOL_RESPONSE_11BIT_IDS
     assert 0x7F0 not in PROTOCOL_RESPONSE_11BIT_IDS
+
+
+def test_protocol_response_rate_limit_drops_storm_review3() -> None:
+    """REVIEW 3 (MEDIUM): a remote node flooding FFs baits CTS/FC responses;
+    the per-peer sliding window drops the excess BEFORE the gateway budget
+    is drained — no response storm, no E-Stop escalation."""
+    mock_tx = MockTxPort()
+    clock = MockClock()
+    pipeline = ReassemblyPipeline(
+        tx_port=mock_tx,
+        my_j1939_address=0xF9,
+        channel_id="can0",
+        clock_provider=clock,
+    )
+    # First Frame (ISO-TP) addressed to US (DA=0xF1) -> one FC(CTS) per FF.
+    # The response goes to the peer 0x00 (source byte), DA back to 0xF1.
+    ff = CanFrame.create(
+        channel_id="can0",
+        arbitration_id=0x18DAF100,
+        data=bytes([0x10, 0x0A, 0x22, 0xF1, 0x90, 0x01, 0x02, 0x03]),
+        is_extended=True,
+    )
+    sent = 0
+    for _ in range(pipeline.TX_RESPONSE_MAX_PER_PEER + 20):
+        pipeline.process_frame(ff)
+        sent = len(mock_tx.sent_frames)
+    # Window caps at TX_RESPONSE_MAX_PER_PEER per peer inside 1.0 s.
+    assert sent == pipeline.TX_RESPONSE_MAX_PER_PEER
+    assert pipeline._tx_response_dropped >= 20
+
+    # Advancing the clock past the window re-admits responses.
+    clock.advance(pipeline.TX_RESPONSE_WINDOW_SEC + 0.1)
+    before = len(mock_tx.sent_frames)
+    pipeline.process_frame(ff)
+    assert len(mock_tx.sent_frames) == before + 1
+
+
+def test_protocol_response_rate_limit_bounded_peer_table_review3() -> None:
+    """REVIEW 3: the peer table itself stays bounded — an attacker spraying
+    FFs from >256 distinct arbitration IDs cannot grow it unbounded."""
+    mock_tx = MockTxPort()
+    clock = MockClock()
+    pipeline = ReassemblyPipeline(
+        tx_port=mock_tx,
+        my_j1939_address=0xF9,
+        channel_id="can0",
+        clock_provider=clock,
+    )
+    for i in range(pipeline.TX_RESPONSE_PEERS_TRACKED + 50):
+        ff = CanFrame.create(
+            channel_id="can0",
+            arbitration_id=0x18DA0000 + (i & 0xFF),
+            data=bytes([0x10, 0x0A, 0x22, 0xF1, 0x90, 0x01, 0x02, 0x03]),
+            is_extended=True,
+        )
+        pipeline.process_frame(ff)
+    assert len(pipeline._tx_response_timestamps) <= pipeline.TX_RESPONSE_PEERS_TRACKED

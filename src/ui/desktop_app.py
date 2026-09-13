@@ -7,11 +7,14 @@ import concurrent.futures
 import json
 import math
 import re
+import secrets
 import sys
 import threading
 import time
 import urllib.parse
+from collections import deque
 from concurrent.futures import TimeoutError as FuturesTimeoutError
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -20,17 +23,34 @@ from cryptography.hazmat.primitives.asymmetric import ed25519
 
 from src.core.logging import get_logger
 from src.core.models.can_frame import CanFrame, length_to_dlc
+from src.core.models.diagnostics import (
+    DiagnosticDomain,
+    DiagnosticEvent,
+    SignalSample,
+    SignalSource,
+    VehicleSession,
+)
 from src.engine.ai.diagnostic_copilot import AiDiagnosticCopilot
 from src.engine.buffer.ring_buffer import BinaryRingBuffer
 from src.engine.buffer.rolling_disk import RollingDiskBuffer
+from src.engine.discovery.engine import SignalDiscoveryEngine
 from src.engine.pipeline.reassembly_pipeline import j1939_protocol_response_masks
 from src.engine.router import FrameRouter
 from src.hal.drivers.pcan_kvaser import PythonCanBus
+from src.hal.replay.player import ReplayBus
 from src.protocols.j1939.diagnostics import J1939DiagnosticService
-from src.protocols.j1939.pgn import build_j1939_id
+from src.protocols.j1939.oem.registry import OemJ1939Registry
+from src.protocols.j1939.pgn import build_j1939_id, parse_j1939_id
 from src.protocols.j1939.transport import J1939TransportProtocol
 from src.protocols.nmea2000.fast_packet import Nmea2000FastPacketDecoder
+from src.protocols.nmea2000.pgn_library import PGN_ENGINE_DYNAMIC, Nmea2000PgnDecoder
 from src.protocols.uds.client import UdsClient
+from src.protocols.uds.flasher import (
+    EcuFlashingEngine,
+    FlashingConfig,
+    FlashingProgress,
+    FlashingStep,
+)
 from src.protocols.uds.services import DiagnosticSessionType
 from src.safety.estop import EmergencyStopSystem, EStopTriggerSource
 from src.safety.gateway import TxSafetyGateway
@@ -44,6 +64,16 @@ from src.security.cloud.telemetry_uploader import TelemetryUploader, UploadProgr
 from src.security.hwid.collector import generate_hardware_fingerprint
 
 logger = get_logger("app.desktop")
+
+@dataclass(frozen=True)
+class DiagnosticChallenge:
+    """Short-lived (≤30s) single-use challenge token for dual-confirmation actions."""
+
+    token: str
+    action_type: str
+    action_id: str
+    created_at_monotonic_ns: int
+    max_age_ns: int = 30_000_000_000  # 30 seconds
 
 DEFAULT_EMBEDDED_CLOUD_PUBLIC_KEY_B64 = "eX3vJQWpo/pKrkpi5Y+f7m5ooUCRbCyY201DTnAjz/Q="
 
@@ -126,9 +156,107 @@ class DesktopApiBridge:
     def ask_copilot(self, query: str) -> str:
         return self.app.query_copilot(query)
 
-    def execute_diagnostic_action(self, action: dict[str, Any], user_confirmed: bool = False) -> dict[str, Any]:
-        """Execute actionable diagnostic routine requested by Copilot / Operator."""
-        return self.app.execute_diagnostic_action(action, user_confirmed=user_confirmed)
+    # ------------------------------------------------------------------
+    # Diagnostic session bridge (FAZ 1/5/6) — TS side never re-implements
+    # analysis (Bulgu 3); it consumes these payloads only.
+    # ------------------------------------------------------------------
+    def get_session_evidence_summary(self) -> dict[str, Any]:
+        """Gate status + signal inventory for the Teşhis Oturumu panel."""
+        return self.app.get_session_evidence_summary()
+
+    def get_diagnostic_analysis(self) -> dict[str, Any]:
+        """Full gate/anomaly/hypothesis/similarity analysis (FAZ 2..6)."""
+        return self.app.get_diagnostic_analysis()
+
+    def reset_diagnostic_session(self) -> dict[str, Any]:
+        """Close + reopen the live evidence session."""
+        self.app.reset_diagnostic_session()
+        return self.app.get_session_evidence_summary()
+
+    def record_operator_measurement(self, name: str, value: float) -> dict[str, Any]:
+        """Record an operator chat measurement into the session (FAZ 5)."""
+        return self.app.record_operator_measurement(name, value)
+
+    def export_session_report(self) -> dict[str, Any]:
+        """Persist the technician report as .md under reports/ (FAZ 6)."""
+        return self.app.export_session_report()
+
+    def request_diagnostic_challenge(self, action: dict[str, Any]) -> dict[str, Any]:
+        """Issue a short-lived (≤30s) single-use cryptographic confirmation token for a diagnostic action."""
+        return self.app.request_diagnostic_challenge(action)
+
+    def execute_diagnostic_action(
+        self,
+        action: dict[str, Any],
+        confirmation_token: str | None = None,
+        user_confirmed: bool = False,
+    ) -> dict[str, Any]:
+        """Execute actionable diagnostic routine requested by Copilot / Operator with challenge token verification."""
+        return self.app.execute_diagnostic_action(
+            action,
+            confirmation_token=confirmation_token,
+            user_confirmed=user_confirmed,
+        )
+
+    # ------------------------------------------------------------------
+    # Signal Discovery & Reverse Engineering Bridge APIs
+    # ------------------------------------------------------------------
+    def discovery_get_summary(self) -> dict[str, Any]:
+        """Get summary of discovered CAN arbitration IDs and traffic metrics."""
+        return self.app.discovery_get_summary()
+
+    def discovery_analyze_id(self, arb_id: int) -> dict[str, Any]:
+        """Run statistical reverse engineering analysis on a specific arbitration ID."""
+        return self.app.discovery_analyze_id(arb_id)
+
+    def discovery_analyze_all(self) -> dict[str, Any]:
+        """Run reverse engineering analysis across all discovered arbitration IDs."""
+        return self.app.discovery_analyze_all()
+
+    def discovery_export_dbc(self, approved_only: bool = False) -> dict[str, Any]:
+        """Generate and export automated DBC database from discovered signals."""
+        return self.app.discovery_export_dbc(approved_only=approved_only)
+
+    def discovery_clear(self) -> dict[str, Any]:
+        """Clear discovery buffer and cached hypothesis reports."""
+        return self.app.discovery_clear()
+
+    # ------------------------------------------------------------------
+    # OEM Proprietary Protocol Bridge APIs
+    # ------------------------------------------------------------------
+    def oem_list_decoders(self) -> list[str]:
+        """List active OEM proprietary J1939 decoders (Cummins, Cat, Scania, Volvo, Detroit, Actros)."""
+        return self.app.oem_list_decoders()
+
+    # ------------------------------------------------------------------
+    # Deterministic Trace Replay Bridge APIs
+    # ------------------------------------------------------------------
+    def replay_load(self, file_path: str) -> dict[str, Any]:
+        """Load CAN trace file (.asc, .csv, .blf) into ReplayBus engine."""
+        return self.app.load_replay(file_path)
+
+    def replay_start(self, speed: float = 1.0, loop: bool = False) -> dict[str, Any]:
+        """Start trace playback with high-precision timestamp delta replay."""
+        return self.app.start_replay(speed=speed, loop=loop)
+
+    def replay_stop(self) -> dict[str, Any]:
+        """Stop active trace playback."""
+        return self.app.stop_replay()
+
+    # ------------------------------------------------------------------
+    # UDS / ISO-TP ECU Flashing Bridge APIs
+    # ------------------------------------------------------------------
+    def flash_start(self, config: dict[str, Any], confirmation_token: str | None = None) -> dict[str, Any]:
+        """Start UDS ECU reprogramming sequence with dual confirmation challenge verification."""
+        return self.app.flash_start(config, confirmation_token=confirmation_token)
+
+    def flash_progress(self) -> dict[str, Any]:
+        """Get live step-by-step progress and status of ECU reprogramming."""
+        return self.app.flash_progress()
+
+    def flash_cancel(self) -> dict[str, Any]:
+        """Safely abort active ECU reprogramming at the next protocol boundary."""
+        return self.app.flash_cancel()
 
     def get_action_triggers(self, text: str) -> list[dict[str, Any]]:
         """Extract structured action triggers from response text or query."""
@@ -220,7 +348,12 @@ class DesktopApiBridge:
     # ------------------------------------------------------------------
     # Cloud & SaaS Bridge APIs (Universal-CAN-Cloud)
     # ------------------------------------------------------------------
-    def cloud_test_connection(self, url: str | None = None, session_token: str | None = None) -> dict[str, Any]:
+    def cloud_test_connection(
+        self,
+        url: str | None = None,
+        session_token: str | None = None,
+        session_override: str | None = None,
+    ) -> dict[str, Any]:
         # Whitelist allowed hosts for cloud connection testing to prevent credential leakage
         allowed_domains = ("localhost", "127.0.0.1", "::1", "ucan-cloud.si6n.io", "cloud.universalcan.io")
         try:
@@ -229,22 +362,43 @@ class DesktopApiBridge:
                 # L-19 (P3-17): hostname-less URLs (e.g. "https:///api")
                 # previously skipped the allowlist entirely (`if parsed.hostname and ...`).
                 # Fail closed: no resolvable host means no pass.
-                if (
-                    not parsed.hostname
-                    or parsed.hostname not in allowed_domains
-                    and not parsed.hostname.endswith(".si6n.io")
-                ):
+                if not parsed.hostname or parsed.hostname not in allowed_domains:
                     return {"success": False, "error": f"URL hedefi izin listesinde değil: {parsed.hostname or '<yok>'}"}
                 self.app.cloud_client.set_base_url(url)
             resp = self.app.cloud_client.request("GET", "/health", health_endpoint=True)
             if resp.status == 200:
                 user_info = None
-                if session_token:
-                    test_resp = self.app.cloud_client.request(
-                        "GET", "/auth/me", extra_headers={"Cookie": f"ucan_session={session_token.strip()}"}
-                    )
-                    if test_resp.status == 200:
-                        user_info = test_resp.json()
+                # Cookie-via-extra_headers path removed: CloudClient drops
+                # protected headers, so the old one silently tested the
+                # STORED session instead of the supplied token. An explicit
+                # override token goes through the store_session_token flow
+                # (save → test → restore) instead of header smuggling.
+                override = session_override if session_override is not None else session_token
+                if override is not None and str(override).strip():
+                    candidate = str(override).strip()
+                    if len(candidate) > 4096:
+                        return {"success": False, "error": "Oturum belirteci çok uzun"}
+                    client = self.app.cloud_client
+                    had_stored = client.has_session_token()
+                    prev: str | None = None
+                    if had_stored:
+                        try:
+                            prev = client._secrets.get_secret("CLOUD_SESSION_TOKEN").decode("utf-8")
+                        except Exception:
+                            prev = None
+                    try:
+                        client.store_session_token(candidate)
+                        test_resp = client.request("GET", "/auth/me")
+                        if test_resp.status == 200:
+                            user_info = test_resp.json()
+                    finally:
+                        try:
+                            if prev is not None:
+                                client.store_session_token(prev)
+                            else:
+                                client.clear_session_token()
+                        except Exception:
+                            pass
                 elif self.app.cloud_client.has_session_token():
                     test_resp = self.app.cloud_client.request("GET", "/auth/me")
                     if test_resp.status == 200:
@@ -262,11 +416,7 @@ class DesktopApiBridge:
                 # L-19 (P3-17): hostname-less URLs (e.g. "https:///api")
                 # previously skipped the allowlist entirely (`if parsed.hostname and ...`).
                 # Fail closed: no resolvable host means no pass.
-                if (
-                    not parsed.hostname
-                    or parsed.hostname not in allowed_domains
-                    and not parsed.hostname.endswith(".si6n.io")
-                ):
+                if not parsed.hostname or parsed.hostname not in allowed_domains:
                     return {"success": False, "error": f"URL hedefi izin listesinde değil: {parsed.hostname or '<yok>'}"}
                 self.app.cloud_client.set_base_url(url)
             if session_token is not None:
@@ -392,24 +542,25 @@ class DesktopApiBridge:
         if not resolved.is_file():
             raise ValueError(f"Dosya bulunamadi veya gecersiz: {file_path}")
 
+        # Extension gate first (cheap fail-fast before root resolution audit).
+        ext = resolved.suffix.lower()
+        if ext not in DesktopApiBridge.UPLOAD_EXTENSION_HINTS:
+            raise ValueError(
+                f"Izin verilmeyen dosya formati '{ext}'. Sadece telemetri ve log dosyalari yuklenebilir."
+            )
+
         # Sensitive path/file check (F-3)
         sensitive_patterns = ("secret", ".dpapi", "credential", "password", ".env", "id_rsa")
         if any(p in str(resolved).lower() for p in sensitive_patterns) or resolved.suffix.lower() in (".dpapi", ".key", ".pem"):
             raise ValueError("Guvenlik politikasi: Hassas sistem dosyalari yuklenemez.")
 
         allowed_roots = DesktopApiBridge._allowed_upload_roots_resolved()
-        import tempfile
-        is_temp = resolved.is_relative_to(Path(tempfile.gettempdir()).resolve())
-        if not (any(resolved.is_relative_to(root) for root in allowed_roots) or is_temp):
+        # is_temp exception removed: OS temp is world-writable and let any
+        # renderer reach other apps' sensitive files. Only allowed_roots.
+        if not any(resolved.is_relative_to(root) for root in allowed_roots):
             raise ValueError(
                 "Guvenlik politikasi: yalnizca uygulamanin kendi export/log/trace "
                 "dizinlerindeki dosyalar yuklenebilir."
-            )
-
-        ext = resolved.suffix.lower()
-        if ext not in DesktopApiBridge.UPLOAD_EXTENSION_HINTS:
-            raise ValueError(
-                f"Izin verilmeyen dosya formati '{ext}'. Sadece telemetri ve log dosyalari yuklenebilir."
             )
 
         return resolved
@@ -430,20 +581,70 @@ class DesktopApiBridge:
         except Exception as exc:
             return {"success": False, "error": str(exc)}
 
+    # Raw-content upload guard: 1MB cap + 60 req/s simple token bucket.
+    _RAW_UPLOAD_MAX_BYTES: ClassVar[int] = 1 * 1024 * 1024
+    _RAW_UPLOAD_MAX_PER_SEC: ClassVar[int] = 60
+    _raw_upload_window_start: ClassVar[float] = 0.0
+    _raw_upload_count: ClassVar[int] = 0
+    _raw_upload_lock: ClassVar[threading.Lock] = threading.Lock()
+
+    @classmethod
+    def _check_raw_upload_rate(cls) -> bool:
+        now = time.monotonic()
+        with cls._raw_upload_lock:
+            if now - cls._raw_upload_window_start >= 1.0:
+                cls._raw_upload_window_start = now
+                cls._raw_upload_count = 0
+            cls._raw_upload_count += 1
+            return cls._raw_upload_count <= cls._RAW_UPLOAD_MAX_PER_SEC
+
     def cloud_upload_raw_content(self, filename: str, content: str, vehicle_vin: str | None = None) -> dict[str, Any]:
-        import tempfile
+        import os as _os
         try:
+            if not self._check_raw_upload_rate():
+                logger.warning("cloud_upload_raw_content rate-limited")
+                return {"success": False, "error": "Hız limiti aşıldı (60/sn). Daha sonra tekrar deneyin."}
+            raw = content.encode("utf-8") if isinstance(content, str) else bytes(content)
+            if len(raw) > self._RAW_UPLOAD_MAX_BYTES:
+                logger.warning("cloud_upload_raw_content rejected: oversize", extra={"bytes": len(raw)})
+                return {"success": False, "error": "İçerik 1MB sınırını aşıyor."}
             # F-4: Sanitize filename to prevent directory traversal or alternate stream injection
             clean_name = re.sub(r"[^a-zA-Z0-9_.-]", "_", Path(filename).name).strip("._")
             if not clean_name:
                 clean_name = "telemetry_upload.bin"
-            safe_suffix = f"_{clean_name}"
-
-            with tempfile.NamedTemporaryFile(suffix=safe_suffix, delete=False, mode="wb") as tf:
-                tf.write(content.encode("utf-8"))
-                temp_path = tf.name
+            logger.info(
+                "cloud_upload_raw_content accepted",
+                extra={"upload_filename": clean_name, "bytes": len(raw)},
+            )
+            # Secure staging: O_CREAT|O_EXCL + 0o600 inside the app exports
+            # tree (no world-readable system-temp file, no delete=False race).
+            stage_dir = _app_data_root() / "exports" / ".upload_stage"
             try:
-                result = self.app.telemetry_uploader.upload_file(file_path=temp_path, vehicle_vin=vehicle_vin)
+                stage_dir.mkdir(parents=True, exist_ok=True)
+            except OSError as exc:
+                return {"success": False, "error": str(exc)}
+            tmp_path: Path | None = None
+            for _ in range(5):
+                candidate = stage_dir / f"raw_{int(time.monotonic_ns())}_{_os.getpid()}_{clean_name}"
+                try:
+                    fd = _os.open(str(candidate), _os.O_CREAT | _os.O_EXCL | _os.O_WRONLY, 0o600)
+                except FileExistsError:
+                    continue
+                try:
+                    with _os.fdopen(fd, "wb") as fh:
+                        fh.write(raw)
+                except Exception:
+                    try:
+                        candidate.unlink(missing_ok=True)
+                    except Exception:
+                        pass
+                    raise
+                tmp_path = candidate
+                break
+            if tmp_path is None:
+                return {"success": False, "error": "Geçici dosya oluşturulamadı."}
+            try:
+                result = self.app.telemetry_uploader.upload_file(file_path=tmp_path, vehicle_vin=vehicle_vin)
                 return {
                     "success": True,
                     "sessionId": result.session_id,
@@ -451,7 +652,7 @@ class DesktopApiBridge:
                 }
             finally:
                 try:
-                    Path(temp_path).unlink(missing_ok=True)
+                    tmp_path.unlink(missing_ok=True)
                 except Exception:
                     pass
         except Exception as exc:
@@ -505,10 +706,17 @@ class UniversalCanDesktopApp:
         # REVIEW.md 1.1: the gateway previously started with NO whitelist,
         # so the fail-closed Stage 3 rejected every single frame — the app
         # could never transmit at all. Seed it with the legitimate diagnostic
-        # surface: the OBD functional broadcast, the physical UDS request
-        # IDs, and our J1939 response masks (TP.CM/TP.DT/ISO-TP frames
-        # sourced from our tool address 0xF9).
-        _diag_ids: set[int] = {0x7DF} | set(range(0x7E0, 0x7F0))
+        # surface: the OBD functional broadcast, the physical UDS REQUEST
+        # ids (0x7E0..0x7E7 — the tester transmits requests; ECU response
+        # families 0x7E8..0x7EF belong to the ECU side, not this tool), and
+        # our J1939 response masks (TP.CM/TP.DT/ISO-TP frames sourced from
+        # our tool address 0xF9).
+        # REVIEW.md LOW-8: the response range (0x7E8..0x7EF) is no longer
+        # statically whitelisted — a whitelisted ECU-reply family let any
+        # bug that reached the gateway impersonate ECU responses on the
+        # physical bus. If an ECU-simulation mode ever needs to transmit
+        # them, it must grant the range explicitly at scenario entry.
+        _diag_ids: set[int] = {0x7DF} | set(range(0x7E0, 0x7E8))
         self.gateway = TxSafetyGateway(
             bus=self.bus,
             estop=self.estop,
@@ -539,6 +747,20 @@ class UniversalCanDesktopApp:
         # grace, then lockout).
         self._cloud_config = CloudConfig(base_url=_resolve_cloud_base_url())
         self.cloud_client = CloudClient(config=self._cloud_config, secret_provider=self._secret_provider)
+
+        # REVIEW.md MEDIUM-6 / REVIEW2 #6: the HWID computation spawns 4-5
+        # PowerShell/WMI subprocesses with 10 s timeouts EACH — a corrupted
+        # WMI repository made the FIRST generate_hardware_fingerprint()
+        # call block a pywebview JsApi thread for up to ~50 s (frozen
+        # Settings/Cloud panel). Warm the lru_cache in a daemon thread at
+        # construction so no user-facing bridge call ever pays the cold cost.
+        self._hwid_warmup = threading.Thread(
+            target=self._warm_hwid_cache,
+            name="hwid_warmup",
+            daemon=True,
+        )
+        self._hwid_warmup.start()
+
         try:
             pub_bytes = base64.b64decode(DEFAULT_EMBEDDED_CLOUD_PUBLIC_KEY_B64)
             self._cloud_pubkey = ed25519.Ed25519PublicKey.from_public_bytes(pub_bytes)
@@ -577,6 +799,41 @@ class UniversalCanDesktopApp:
         self.n2k_fp = Nmea2000FastPacketDecoder()
         self._rx_sub_id, self._rx_queue = None, None  # B-09: don't leak unconsumed 10k queue
         self._last_dm1: dict[str, object] = {}
+
+        # ── Composition Root Wiring: Central Protocol & Analysis Engines ──
+        self._diagnostic_challenges: dict[str, DiagnosticChallenge] = {}
+        self._challenges_lock = threading.Lock()
+        self.discovery_engine = SignalDiscoveryEngine()
+        self.oem_registry = OemJ1939Registry()
+        self.replay_bus: ReplayBus | None = None
+        self._replay_thread: threading.Thread | None = None
+        self._replay_stop_event = threading.Event()
+        self.flashing_engine: EcuFlashingEngine | None = None
+        self._flash_lock = threading.Lock()
+        self._flash_progress_state: dict[str, Any] = {
+            "status": "idle",
+            "percent": 0.0,
+            "step": "IDLE",
+            "step_index": 0,
+            "bytes_transferred": 0,
+            "total_bytes": 0,
+            "speed_kbps": 0.0,
+            "elapsed_s": 0.0,
+            "logs": [],
+            "error": None,
+        }
+        self._flash_thread: threading.Thread | None = None
+
+        # ── Diagnostic evidence session (FAZ 1) ──
+        # P1 model: immutable SignalSample/DiagnosticEvent records accumulate
+        # in ONE VehicleSession per live bus session. The AI layer only ever
+        # receives this container — evidence production stays here in the UI
+        # host (plan §Mimari Kural). Sim path never appends (Bulgu 7).
+        self._diag_session: VehicleSession | None = None
+        self._session_lock = threading.Lock()
+        # Per-signal bounded evidence ring (O(1) append, RX hot-path safe).
+        self._signal_rings: dict[str, deque] = {}
+        self._open_diagnostic_session()
 
         # Initialize to PASSIVE (Listen-Only) by default
         self.supervisor.transition_to(SafetyState.SAFE, reason="Hardware stack initialized")
@@ -643,6 +900,264 @@ class UniversalCanDesktopApp:
             for key, value in kwargs.items():
                 setattr(self, key, value)
 
+    # ------------------------------------------------------------------
+    # Diagnostic evidence session (FAZ 1..6) — the ONLY place evidence is
+    # produced. AI receives the VehicleSession; sim data never enters
+    # (Bulgu 7 / plan §Mimari Kural).
+    # ------------------------------------------------------------------
+    _EVIDENCE_RING_MAX: ClassVar[int] = 500  # per-signal sample cap (plan §Riskler)
+
+    def _domain_for_current_bus(self) -> DiagnosticDomain:
+        """Map the active profile/sources to a session domain (plan FAZ 1)."""
+        iface = (self.interface_val or "").lower()
+        if "n2k" in iface or "nmea" in iface:
+            return DiagnosticDomain.MARINE
+        # J1939-capable / default commercial-vehicle channel
+        return DiagnosticDomain.HEAVY_DUTY
+
+    def _open_diagnostic_session(self) -> None:
+        """(Re)open a VehicleSession for evidence collection (fail-never)."""
+        try:
+            self._diag_session = VehicleSession(
+                session_id=f"sess-{time.time_ns()}",
+                started_at_ns=time.monotonic_ns(),
+                domain=self._domain_for_current_bus(),
+            )
+            self._signal_rings = {}
+        except Exception as exc:  # noqa: BLE001 — evidence plumbing must never kill the app
+            logger.warning("Failed to open diagnostic session", extra={"error": str(exc)})
+            self._diag_session = None
+
+    def _record_signal_sample(self, name: str, raw: int, physical: float, unit: str) -> None:
+        """Append one SignalSample under the session lock (FAZ 1, hook 2).
+
+        Called from the live RX decode path only — the sim branch of
+        _telemetry_loop never reaches this (Bulgu 7). Bounded ring per
+        signal keeps RX hot-path cost O(1).
+        """
+        session = self._diag_session
+        if session is None or self._is_simulating:
+            return
+        try:
+            sample = SignalSample(
+                timestamp_ns=time.monotonic_ns(),
+                name=name,
+                raw_value=raw,
+                physical_value=physical,
+                unit=unit,
+                source=SignalSource.J1939,
+            )
+        except ValueError as exc:
+            logger.debug("SignalSample rejected", extra={"error": str(exc), "signal": name})
+            return
+        with self._session_lock:
+            ring = self._signal_rings.get(name)
+            if ring is None:
+                ring = deque(maxlen=self._EVIDENCE_RING_MAX)
+                self._signal_rings[name] = ring
+            ring.append(sample)
+            session.samples.append(sample)
+
+    def _record_dm1_events(self, dtcs: list) -> None:
+        """Turn parsed DM1 SPN/FMI records into DiagnosticEvents (FAZ 1, Bulgu 1).
+
+        Severity maps from the KB / SPN DB record; an unknown SPN gets
+        "UNKNOWN" — the AI layer never invents severity. SPN 0 / 0xFF
+        (no-active-DTC placeholders) produce no event (Bulgu 4).
+        """
+        session = self._diag_session
+        if session is None or self._is_simulating or not dtcs:
+            return
+        from src.engine.ai.diagnostic_copilot import get_j1939_spn_database
+
+        spn_db = get_j1939_spn_database().get("spns", {})
+        ts = time.monotonic_ns()
+        with self._session_lock:
+            for dtc in dtcs:
+                spn, fmi = getattr(dtc, "spn", 0), getattr(dtc, "fmi", 0)
+                if spn in (0, 0xFF):
+                    continue
+                severity = "UNKNOWN"
+                rec = spn_db.get(f"SPN_{spn}")
+                if rec:
+                    fm = rec.get("fault_matrix", {})
+                    fmi_rec = fm.get(str(fmi)) if isinstance(fm, dict) else None
+                    if isinstance(fmi_rec, dict) and fmi_rec.get("severity"):
+                        severity = str(fmi_rec["severity"])
+                try:
+                    session.events.append(
+                        DiagnosticEvent(
+                            timestamp_ns=ts,
+                            code=f"SPN {spn} FMI {fmi}",
+                            domain=DiagnosticDomain.HEAVY_DUTY,
+                            severity=severity,
+                            status="ACTIVE",
+                        )
+                    )
+                except ValueError as exc:
+                    logger.debug("DiagnosticEvent rejected", extra={"error": str(exc), "spn": spn, "fmi": fmi})
+
+    def reset_diagnostic_session(self) -> None:
+        """Close the current evidence session and open a fresh one (FAZ 1)."""
+        with self._session_lock:
+            self._open_diagnostic_session()
+
+    def record_operator_measurement(self, name: str, value: float) -> dict[str, Any]:
+        """Append an operator-declared measurement to the session (FAZ 5).
+
+        Chat-parsed operator input only; the name carries the "OP:" prefix
+        convention (core SignalSource enum stays untouched — plan §Kapsam
+        Dışı). AI never writes the session directly; this bridge method is
+        the single ingestion point (closed evidence chain).
+        """
+        clean = (name or "").strip()
+        try:
+            val = float(value)
+        except (TypeError, ValueError):
+            return {"success": False, "error": "Geçersiz ölçüm değeri"}
+        if not clean:
+            return {"success": False, "error": "Ölçüm adı boş olamaz"}
+        session = self._diag_session
+        if session is None:
+            return {"success": False, "error": "Aktif teşhis oturumu yok"}
+        if not math.isfinite(val):
+            return {"success": False, "error": "Ölçüm değeri sonlu olmalı"}
+        prefixed = clean if clean.startswith("OP:") else f"OP:{clean}"
+        try:
+            sample = SignalSample(
+                timestamp_ns=time.monotonic_ns(),
+                name=prefixed,
+                raw_value=int(round(val)) if abs(val) < 2**31 else 0,
+                physical_value=val,
+                unit="",
+                source=SignalSource.J1939,
+                confidence=1.0,
+            )
+        except ValueError as exc:
+            return {"success": False, "error": str(exc)}
+        with self._session_lock:
+            session.samples.append(sample)
+        return {"success": True, "recorded": prefixed, "value": val}
+
+    def get_diagnostic_analysis(self) -> dict[str, Any]:
+        """Full FAZ 2..6 analysis over the live evidence session (bridge)."""
+        from src.engine.ai.anomaly_detector import detect_anomalies, load_thresholds
+        from src.engine.ai.evidence_gate import evaluate_sufficiency
+        from src.engine.ai.golden_similarity import find_similar_cases
+        from src.engine.ai.hypothesis_engine import rank_hypotheses
+        from src.engine.ai.session_report import report_summary_dict
+        from src.engine.ai.user_report_composer import compose_user_card
+
+        session = self._diag_session
+        if session is None:
+            return {"success": False, "error": "Aktif teşhis oturumu yok"}
+        sufficiency = evaluate_sufficiency(session)
+        anomalies: list = []
+        hypotheses: list = []
+        similar: list = []
+        if sufficiency.anomaly_sufficient:
+            try:
+                thresholds = load_thresholds()
+            except Exception as exc:  # noqa: BLE001 — missing/bad DB must not kill the bridge
+                logger.warning("Threshold DB load failed; anomaly scan skipped", extra={"error": str(exc)})
+                thresholds = {}
+            anomalies = detect_anomalies(session, thresholds) if thresholds else []
+            similar = find_similar_cases(session, k=3)
+        if sufficiency.dtc_sufficient:
+            hypotheses = rank_hypotheses(session, anomalies, similar)
+
+        # Engineering report feeds the deterministic user decision card.
+        dtc_payload = [
+            {"code": e.code, "spn": None, "fmi": None}
+            for e in session.events
+            if e.status == "ACTIVE"
+        ]
+        report = self.copilot.analyze_session(dtc_payload, {}, [])
+        card = compose_user_card(report, session, is_simulating=self._is_simulating)
+        return {
+            "success": True,
+            "user_card": card.card_to_dict(),
+            **report_summary_dict(sufficiency, anomalies, hypotheses, similar),
+        }
+
+    def get_session_evidence_summary(self) -> dict[str, Any]:
+        """Gate report + signal inventory for the Teşhis Oturumu panel (FAZ 1)."""
+        from src.engine.ai.evidence_gate import evaluate_sufficiency
+
+        session = self._diag_session
+        if session is None:
+            return {"success": False, "error": "Aktif teşhis oturumu yok"}
+        with self._session_lock:
+            sufficiency = evaluate_sufficiency(session)
+            sample_count = len(session.samples)
+            event_count = len(session.events)
+            session_id = session.session_id
+        return {
+            "success": True,
+            "session_id": session_id,
+            "sample_count": sample_count,
+            "event_count": event_count,
+            "is_simulating": self._is_simulating,
+            **sufficiency.to_dict(),
+        }
+
+    def export_session_report(self) -> dict[str, Any]:
+        """Build + persist the FAZ 6 technician report (.md) to the reports dir."""
+        from src.engine.ai.anomaly_detector import detect_anomalies, load_thresholds
+        from src.engine.ai.discriminating_tests import propose_discriminating_tests
+        from src.engine.ai.evidence_gate import evaluate_sufficiency
+        from src.engine.ai.golden_similarity import find_similar_cases
+        from src.engine.ai.hypothesis_engine import rank_hypotheses
+        from src.engine.ai.session_report import build_technician_report
+
+        session = self._diag_session
+        if session is None:
+            return {"success": False, "error": "Aktif teşhis oturumu yok"}
+        sufficiency = evaluate_sufficiency(session)
+        anomalies: list = []
+        similar: list = []
+        if sufficiency.anomaly_sufficient:
+            try:
+                thresholds = load_thresholds()
+            except Exception:
+                thresholds = {}
+            anomalies = detect_anomalies(session, thresholds) if thresholds else []
+            similar = find_similar_cases(session, k=3)
+        hypotheses = rank_hypotheses(session, anomalies, similar) if sufficiency.dtc_sufficient else []
+        active_codes = [e.code for e in session.events if e.status == "ACTIVE"]
+        tests = propose_discriminating_tests(hypotheses, active_codes)
+        report = build_technician_report(session, sufficiency, anomalies, hypotheses, similar, tests)
+        try:
+            reports_dir = _app_data_root() / "reports"
+            reports_dir.mkdir(parents=True, exist_ok=True)
+            out_path = reports_dir / f"diagnostic_report_{time.strftime('%Y%m%d_%H%M%S')}.md"
+            out_path.write_text(report, encoding="utf-8")
+        except OSError as exc:
+            return {"success": False, "error": str(exc)}
+        return {
+            "success": True,
+            "path": str(out_path),
+            "report_length": len(report),
+        }
+
+
+    @staticmethod
+    def _warm_hwid_cache() -> None:
+        """Pre-compute the hardware fingerprint off the UI/bridge threads.
+
+        REVIEW.md MEDIUM-6 / REVIEW2 #6: the cold HWID collection runs 4-5
+        PowerShell/WMI subprocesses with individual 10 s timeouts; on a
+        broken WMI repository that is ~50 s of blocking on the FIRST call.
+        Warming the lru_cache here (daemon thread, started in __init__)
+        means cloud_get_status / launcher preflight always hit the cache.
+        Failures are swallowed on purpose: a fallback fingerprint path
+        exists, and a warm-up failure must never block app startup.
+        """
+        try:
+            generate_hardware_fingerprint()
+        except Exception as exc:  # noqa: BLE001 — warm-up is best-effort only
+            logger.debug("HWID warm-up failed (will retry lazily)", extra={"error": str(exc)})
+
     def create_uds_client(self, tx_id: int = 0x7E0, rx_id: int = 0x7E8) -> UdsClient:
         """Create a UDS client that cannot steal frames from the telemetry loop.
 
@@ -663,26 +1178,69 @@ class UniversalCanDesktopApp:
         )
         return UdsClient(bus=safe_bus, tx_port=self.gateway, tx_id=tx_id, rx_id=rx_id)
 
+    def _set_driver_listen_only(self, listen_only: bool) -> bool:
+        """Flip the physical driver's listen-only mode (verified, best-effort).
+
+        REVIEW (arm_tx vs PASSIVE driver): the supervisor transitioned to
+        ARMED_TX while the driver was still opened listen-only — the very
+        first UDS/J1939 send then raised HardwareError from deep inside
+        the protocol path. Arming now performs the driver mode transition
+        atomically: an unverified backend state fails the ARM request
+        itself instead of arming a dead protocol.
+
+        Returns True when the requested mode is confirmed active. Backends
+        without a mutable state (RP1210 adapter: send-block only) are
+        handled by their own listen_only semantics.
+        """
+        bus = self.bus
+        set_state = getattr(bus, "set_listen_only", None)
+        if callable(set_state):
+            try:
+                return bool(set_state(listen_only))
+            except Exception as exc:  # noqa: BLE001 — driver refusal = not armed
+                logger.error(
+                    "Driver refused listen-only mode change",
+                    extra={"listen_only": listen_only, "error": str(exc)},
+                )
+                return False
+        # Bus types without a mutable mode (RP1210, mocks): listen_only flag
+        # is a constructor contract; verify it matches the request.
+        return getattr(bus, "listen_only", not listen_only) == listen_only
+
     def arm_tx(self, reason: str = "Operator explicitly armed TX via desktop UI") -> dict[str, Any]:
         """Explicitly transition SafetySupervisor from PASSIVE to ARMED_TX."""
         try:
             if self.estop.is_engaged:
                 return {"success": False, "error": "Cannot arm TX: E-Stop is currently engaged"}
-            # P0-5 (REVIEW C-3): NaN speed = unknown/untrusted feed (stuck or
-            # spoofed CCVS) — `NaN > 0.0` is False, so the old check silently
-            # ARMED TX on an unknown speed. Fail closed on non-finite values.
-            if not math.isfinite(self._current_speed_kmh):
-                return {"success": False, "error": "Cannot arm TX: vehicle speed is unknown (untrusted or implausible CCVS feed)"}
-            if self._current_speed_kmh > 0.0:
-                return {"success": False, "error": "Cannot arm TX: Vehicle speed must be 0 km/h"}
             # P0-2 (REVIEW C-2): simulator active means the speed feed is
             # synthetic — refuse to arm TX against a possibly-moving real
-            # vehicle while telemetry is simulated.
+            # vehicle while telemetry is simulated. Checked BEFORE the speed
+            # interlock: the simulator refusal is the more specific diagnosis
+            # and P0-2's contract ("synthetic speed cannot authorize TX")
+            # must surface even when the physical feed is stale.
             if self._is_simulating:
                 return {"success": False, "error": "Cannot arm TX: simulator is active (synthetic speed cannot authorize TX)"}
-            if not self.watchdog.is_lease_valid:
-                self.watchdog.heartbeat()
-            self.supervisor.arm_tx(reason=reason)
+            # P0-5 (REVIEW C-3) / REVIEW 3: the gateway is the SINGLE
+            # authoritative speed truth (physical-feed freshness, NaN
+            # invalidation, noise threshold) — the desktop's mirror
+            # `_current_speed_kmh` is display-only and never a gate.
+            speed_state, speed_val = self.gateway.speed_interlock_state()
+            if speed_state == "stale":
+                return {"success": False, "error": "Cannot arm TX: vehicle speed is unknown (untrusted or implausible CCVS feed)"}
+            if speed_state == "moving":
+                return {"success": False, "error": f"Cannot arm TX: Vehicle speed must be 0 km/h (current: {speed_val:.1f} km/h)"}
+            # REVIEW (driver mode atomicity): the supervisor flips to ARMED_TX
+            # only AFTER the physical driver actually left listen-only. An
+            # unverified/silent backend keeps the protocol dead-but-armed.
+            with self._bus_lock:
+                if not self._set_driver_listen_only(False):
+                    return {
+                        "success": False,
+                        "error": "Cannot arm TX: hardware driver did not confirm active (TX-capable) mode",
+                    }
+                if not self.watchdog.is_lease_valid:
+                    self.watchdog.heartbeat()
+                self.supervisor.arm_tx(reason=reason)
             return {"success": True, "state": self.supervisor.current_state.value}
         except Exception as exc:
             logger.error("Failed to arm TX pipeline: %s", exc, exc_info=True)
@@ -693,6 +1251,11 @@ class UniversalCanDesktopApp:
         try:
             if self.supervisor.current_state in (SafetyState.ARMED_TX, SafetyState.ACTIVE):
                 self.supervisor.transition_to(SafetyState.PASSIVE, reason=reason)
+                # Return the physical transceiver to listen-only alongside the
+                # supervisor disarm — a disarmed supervisor with an active
+                # driver still ACKs onto a live bus.
+                with self._bus_lock:
+                    self._set_driver_listen_only(True)
             return {"success": True, "state": self.supervisor.current_state.value}
         except Exception as exc:
             logger.error("Failed to disarm TX pipeline: %s", exc, exc_info=True)
@@ -851,18 +1414,104 @@ class UniversalCanDesktopApp:
             "anomalies": anomalies,
         }
 
+    # ------------------------------------------------------------------
+    # Diagnostic Challenge & Action Execution Subsystem (Dual Confirmation)
+    # ------------------------------------------------------------------
+    def request_diagnostic_challenge(self, action: dict[str, Any]) -> dict[str, Any]:
+        """Issue a short-lived (≤30s) single-use cryptographic confirmation token for a diagnostic action."""
+        if not isinstance(action, dict):
+            return {"success": False, "error": "Geçersiz aksiyon verisi (dictionary bekleniyor)."}
+
+        action_type = str(action.get("action_type") or "").strip()
+        if not action_type:
+            return {"success": False, "error": "Aksiyon türü (action_type) belirtilmelidir."}
+
+        action_id = str(action.get("id") or "")
+        token = secrets.token_hex(16)
+        now_ns = time.monotonic_ns()
+
+        challenge = DiagnosticChallenge(
+            token=token,
+            action_type=action_type,
+            action_id=action_id,
+            created_at_monotonic_ns=now_ns,
+            max_age_ns=30_000_000_000,
+        )
+
+        with self._challenges_lock:
+            # Prune expired tokens
+            expired = [k for k, ch in self._diagnostic_challenges.items() if (now_ns - ch.created_at_monotonic_ns) > ch.max_age_ns]
+            for k in expired:
+                self._diagnostic_challenges.pop(k, None)
+            self._diagnostic_challenges[token] = challenge
+
+        return {
+            "success": True,
+            "token": token,
+            "expires_in_s": 30.0,
+            "action_type": action_type,
+            "action_id": action_id,
+        }
+
+    def _verify_and_consume_diagnostic_token(self, token: str | None, action_type: str, action_id: str = "") -> tuple[bool, str]:
+        """Verify that a single-use token is present, unexpired (≤30s), and matches action_type/action_id."""
+        if not token or not isinstance(token, str) or not token.strip():
+            return False, "Kullanıcı onayı gereklidir (Dual Confirmation challenge token eksik)."
+
+        cleaned_token = token.strip()
+        now_ns = time.monotonic_ns()
+
+        with self._challenges_lock:
+            challenge = self._diagnostic_challenges.pop(cleaned_token, None)
+            if challenge is None:
+                return False, "Geçersiz veya daha önce kullanılmış onay token'ı (tek kullanımlık)."
+
+            if (now_ns - challenge.created_at_monotonic_ns) > challenge.max_age_ns:
+                return False, "Onay token'ının süresi dolmuş (≤30s limit)."
+
+            if challenge.action_type != action_type:
+                return False, f"Onay token'ı aksiyon türü ile uyuşmuyor ({challenge.action_type} != {action_type})."
+
+            if action_id and challenge.action_id and challenge.action_id != action_id:
+                return False, f"Onay token'ı aksiyon kimliği ile uyuşmuyor ({challenge.action_id} != {action_id})."
+
+        return True, "OK"
+
     def execute_diagnostic_action(
         self,
         action: dict[str, Any],
+        confirmation_token: str | None = None,
         user_confirmed: bool = False,
     ) -> dict[str, Any]:
-        """Execute actionable diagnostic routine with multi-layer safety validation."""
+        """Execute actionable diagnostic routine with challenge token verification and safety gates."""
         if not isinstance(action, dict):
             err = "Geçersiz aksiyon verisi (dictionary bekleniyor)."
             return {"success": False, "error": err, "message": err}
 
         action_type = str(action.get("action_type") or "")
-        requires_conf = bool(action.get("requires_confirmation", True))
+        action_id = str(action.get("id") or "")
+        # REVIEW 3 (CRITICAL): mutation/elevation/reset/clear-DTC/security-
+        # access/routine actions are confirmation-mandatory BY TYPE. An
+        # attacker- or config-supplied requires_confirmation:false on these
+        # types must never downgrade the gate (fail-closed: type wins).
+        CONFIRMATION_EXEMPT_ACTIONS = frozenset({
+            "uds_read_did",
+            "uds_read_vin",
+            "read_did",
+            "read_vin",
+            "j1939_dm1_query",
+            "j1939_dm1",
+        })
+        if action_type in CONFIRMATION_EXEMPT_ACTIONS:
+            requires_conf = False
+        else:
+            requires_conf = True
+            if action.get("requires_confirmation") is False:
+                logger.warning(
+                    "Diagnostic action '%s' tried to disable dual confirmation via "
+                    "requires_confirmation=false — ignored (type-mandatory gate)",
+                    action_type,
+                )
         params = action.get("params") if isinstance(action.get("params"), dict) else {}
 
         # 1. Safety Check: Emergency Stop
@@ -875,28 +1524,46 @@ class UniversalCanDesktopApp:
                 "message": err,
             }
 
-        # 2. Safety Check: Speed Interlock (Vehicle must be stationary & speed finite)
-        if not math.isfinite(self._current_speed_kmh) or self._current_speed_kmh != 0.0:
-            logger.warning(
-                "Diagnostic action '%s' refused: vehicle speed invalid or non-zero (speed=%.1f)",
-                action_type,
-                self._current_speed_kmh,
-            )
-            err = f"Güvenlik Kilidi: Araç hareketsiz (0.0 km/s) durumda olmalıdır (Mevcut hız: {self._current_speed_kmh:.1f} km/s)."
-            return {
-                "success": False,
-                "error": err,
-                "message": err,
-            }
+        # 2. Safety Check: Speed Interlock (REVIEW 3: gateway = single authoritative
+        # source in PHYSICAL mode. Simulation mode is display/sandbox only and by
+        # design cannot authorize TX onto a live bus (P0-2), so the sandboxed
+        # scenario speed mirror gates the simulated action; physical actions
+        # always answer to the gateway's physical-feed interlock.)
+        if self._is_simulating:
+            if not math.isfinite(self._current_speed_kmh) or self._current_speed_kmh != 0.0:
+                err = f"Güvenlik Kilidi: Araç hareketsiz (0.0 km/s) durumda olmalıdır (Mevcut hız: {self._current_speed_kmh:.1f} km/s)."
+                return {"success": False, "error": err, "message": err}
+        else:
+            speed_state, speed_val = self.gateway.speed_interlock_state()
+            if speed_state == "stale":
+                err = "Güvenlik Kilidi: Araç hızı bilinmiyor veya güncel değil (fiziksel CCVS akışı yok/NaN)."
+                logger.warning("Diagnostic action '%s' refused: speed stale/unknown (gateway interlock state)", action_type)
+                return {"success": False, "error": err, "message": err}
+            if speed_state == "moving":
+                logger.warning(
+                    "Diagnostic action '%s' refused: vehicle moving (speed=%.1f)",
+                    action_type,
+                    speed_val,
+                )
+                err = f"Güvenlik Kilidi: Araç hareketsiz (0.0 km/s) durumda olmalıdır (Mevcut hız: {speed_val:.1f} km/s)."
+                return {"success": False, "error": err, "message": err}
 
-        # 3. Dual Confirmation Check
-        if requires_conf and not user_confirmed:
-            err = "Kullanıcı onayı gereklidir (Dual Confirmation required)."
-            return {
-                "success": False,
-                "error": err,
-                "message": err,
-            }
+        # 3. Dual Confirmation Check (Challenge Token Verification)
+        if requires_conf:
+            token_candidate = confirmation_token
+            if not token_candidate or not isinstance(token_candidate, str):
+                token_candidate = action.get("confirmation_token") or action.get("token")
+            if not token_candidate and isinstance(user_confirmed, str):
+                token_candidate = user_confirmed
+
+            valid, reason = self._verify_and_consume_diagnostic_token(token_candidate, action_type, action_id)
+            if not valid:
+                logger.warning("Diagnostic action '%s' dual confirmation failed: %s", action_type, reason)
+                return {
+                    "success": False,
+                    "error": reason,
+                    "message": reason,
+                }
 
         # Helper to ensure TX pipeline is armed safely in real physical mode
         def _ensure_armed(reason_str: str) -> dict[str, Any] | None:
@@ -1069,14 +1736,41 @@ class UniversalCanDesktopApp:
 
             # J1939 DM11 Clear DTC
             elif action_type in ("j1939_clear_dtc", "j1939_dm11"):
-                self._set_ui_state(_error_count=0)
-                self._active_scenario = "nominal"
-                return {
-                    "success": True,
-                    "message": "✅ [J1939 DM11] Ağır vasıta aktif arıza hafızası temizlendi (PGN 65235).",
-                    "pgn": 65235,
-                    "data": {"pgn": 65235},
-                }
+                da = int(params.get("destination_address", params.get("target_address", 0x00)))
+                if self._is_simulating:
+                    self._set_ui_state(_error_count=0)
+                    self._active_scenario = "nominal"
+                    return {
+                        "success": True,
+                        "message": "✅ [J1939 DM11] Ağır vasıta aktif arıza hafızası temizlendi (PGN 65235).",
+                        "pgn": 65235,
+                        "data": {"pgn": 65235, "target_address": da},
+                    }
+                else:
+                    arm_err_resp = _ensure_armed("Operator executed J1939 DM11 Clear DTC")
+                    if arm_err_resp is not None:
+                        return arm_err_resp
+                    try:
+                        req_frame = J1939DiagnosticService.create_dm11_frame(
+                            target_address=da, source_address=0xF9
+                        )
+                        self.gateway.validate_and_transmit(
+                            req_frame,
+                            budget_category="diagnostic",
+                            is_critical_command=True,
+                            user_confirmed=True,
+                        )
+                        self._set_ui_state(_error_count=0)
+                        return {
+                            "success": True,
+                            "message": f"✅ [J1939 DM11] Ağır vasıta aktif arıza hafızası temizleme komutu iletildi (PGN 65235, Hedef: 0x{da:02X}).",
+                            "pgn": 65235,
+                            "data": {"pgn": 65235, "target_address": hex(da)},
+                        }
+                    except Exception as exc:
+                        logger.error("J1939 DM11 transmission failed", exc_info=True)
+                        err = f"❌ [J1939 DM11] Komut iletilemedi: {exc}"
+                        return {"success": False, "error": err, "message": err}
 
             # J1939 DM1 Query
             elif action_type in ("j1939_dm1_query", "j1939_dm1"):
@@ -1097,7 +1791,414 @@ class UniversalCanDesktopApp:
             err = f"İşlem sırasında hata oluştu: {exc}"
             return {"success": False, "error": err, "message": err}
 
+    # ------------------------------------------------------------------
+    # Signal Discovery Engine Methods
+    # ------------------------------------------------------------------
+    def discovery_get_summary(self) -> dict[str, Any]:
+        """Summary of discovered IDs and frame counts."""
+        return {
+            "total_frames": self.discovery_engine._total_frames,
+            "discovered_ids": [f"0x{arb:03X}" for arb in self.discovery_engine.discovered_ids],
+            "id_counts": {
+                f"0x{arb:03X}": self.discovery_engine.get_frame_count(arb)
+                for arb in self.discovery_engine.discovered_ids
+            },
+        }
+
+    def discovery_analyze_id(self, arb_id: int) -> dict[str, Any]:
+        """Analyze a specific CAN arbitration ID."""
+        report = self.discovery_engine.analyze_id(arb_id)
+        return {
+            "arbitration_id": f"0x{report.arbitration_id:03X}",
+            "frame_count": report.frame_count,
+            "rate_hz": report.rate_hz,
+            "dlc": report.dlc,
+            "hypotheses_count": len(report.hypotheses),
+            "hypotheses": [
+                {
+                    "name": h.name,
+                    "type": getattr(h, "htype", "SIGNAL"),
+                    "start_bit": h.start_bit,
+                    "length": h.length,
+                    "confidence": h.confidence,
+                    "unit": getattr(h, "unit", ""),
+                }
+                for h in report.hypotheses
+            ],
+        }
+
+    def discovery_analyze_all(self) -> dict[str, Any]:
+        """Analyze all discovered arbitration IDs."""
+        reports = self.discovery_engine.analyze_all()
+        return {
+            f"0x{arb:03X}": {
+                "frame_count": r.frame_count,
+                "rate_hz": r.rate_hz,
+                "hypotheses_count": len(r.hypotheses),
+            }
+            for arb, r in reports.items()
+        }
+
+    def discovery_export_dbc(self, approved_only: bool = False) -> dict[str, Any]:
+        """Export DBC string for discovered signals."""
+        try:
+            db = self.discovery_engine.build_dbc(approved_only=approved_only)
+            dbc_text = db.as_dbc_string()
+            return {"success": True, "dbc": dbc_text}
+        except Exception as exc:
+            return {"success": False, "error": str(exc)}
+
+    def discovery_clear(self) -> dict[str, Any]:
+        """Clear discovery buffer."""
+        self.discovery_engine.clear()
+        return {"success": True}
+
+    # ------------------------------------------------------------------
+    # OEM J1939 Registry Methods
+    # ------------------------------------------------------------------
+    def oem_list_decoders(self) -> list[str]:
+        """List all active OEM proprietary decoders."""
+        return self.oem_registry.list_decoders()
+
+    # ------------------------------------------------------------------
+    # ReplayBus Trace Methods
+    # ------------------------------------------------------------------
+    def load_replay(self, file_path: str) -> dict[str, Any]:
+        """Load a trace file (.asc, .csv, .blf) into ReplayBus."""
+        try:
+            path = Path(file_path).resolve()
+            self.replay_bus = ReplayBus.from_trace_file(path)
+            return {"success": True, "frame_count": self.replay_bus.frame_count, "path": str(path)}
+        except Exception as exc:
+            return {"success": False, "error": str(exc)}
+
+    def start_replay(self, speed: float = 1.0, loop: bool = False) -> dict[str, Any]:
+        """Start trace replay feeding into the live ingestion pipeline."""
+        if self.replay_bus is None:
+            return {"success": False, "error": "ReplayBus yüklenmedi (önce load_replay çağırın)."}
+        if self._replay_thread and self._replay_thread.is_alive():
+            return {"success": False, "error": "Replay zaten çalışıyor."}
+
+        self._replay_stop_event.clear()
+
+        def _worker() -> None:
+            assert self.replay_bus is not None
+            self.replay_bus.play(
+                callback=self._ingest_live_frame,
+                speed=speed,
+                stop_event=self._replay_stop_event,
+                loop=loop,
+            )
+
+        self._replay_thread = threading.Thread(target=_worker, name="replay_bus", daemon=True)
+        self._replay_thread.start()
+        return {"success": True}
+
+    def stop_replay(self) -> dict[str, Any]:
+        """Stop trace replay."""
+        self._replay_stop_event.set()
+        return {"success": True}
+
+    # ------------------------------------------------------------------
+    # ECU Flashing Engine & Progress Subsystem
+    # ------------------------------------------------------------------
+    def flash_start(self, config: dict[str, Any], confirmation_token: str | None = None) -> dict[str, Any]:
+        """Start ECU reprogramming via EcuFlashingEngine with challenge verification."""
+        if not isinstance(config, dict):
+            return {"success": False, "error": "Geçersiz flash konfigürasyonu (dict bekleniyor)."}
+
+        # 1. Safety Checks
+        if self._is_estop or self.estop.is_engaged:
+            err = "Acil Durdurma (E-Stop) devrede! Flashing başlatılamaz."
+            return {"success": False, "error": err, "message": err}
+
+        # 1b. Speed Interlock (REVIEW 3: gateway = single authoritative source in
+        # physical mode; simulation sandbox uses its own scenario mirror and
+        # by design cannot authorize TX onto a live bus, P0-2.)
+        if self._is_simulating:
+            if not math.isfinite(self._current_speed_kmh) or self._current_speed_kmh != 0.0:
+                err = f"Güvenlik Kilidi: Araç hareketsiz (0.0 km/s) olmalıdır (Mevcut hız: {self._current_speed_kmh:.1f} km/s)."
+                return {"success": False, "error": err, "message": err}
+        else:
+            speed_state, speed_val = self.gateway.speed_interlock_state()
+            if speed_state == "stale":
+                err = "Güvenlik Kilidi: Araç hızı bilinmiyor veya güncel değil (fiziksel CCVS akışı yok/NaN)."
+                return {"success": False, "error": err, "message": err}
+            if speed_state == "moving":
+                err = f"Güvenlik Kilidi: Araç hareketsiz (0.0 km/s) olmalıdır (Mevcut hız: {speed_val:.1f} km/s)."
+                return {"success": False, "error": err, "message": err}
+
+        # 2. Dual confirmation token check
+        token_candidate = confirmation_token or config.get("confirmation_token") or config.get("token")
+        valid, reason = self._verify_and_consume_diagnostic_token(
+            token_candidate,
+            action_type=str(config.get("action_type") or "ecu_flash"),
+            action_id=str(config.get("id") or ""),
+        )
+        if not valid:
+            return {"success": False, "error": reason, "message": reason}
+
+        with self._flash_lock:
+            if self._flash_progress_state.get("status") == "in_progress":
+                return {"success": False, "error": "Zaten devam eden bir flash işlemi mevcut."}
+
+            self._flash_progress_state = {
+                "status": "in_progress",
+                "percent": 0.0,
+                "step": "INIT",
+                "step_index": 1,
+                "bytes_transferred": 0,
+                "total_bytes": int(config.get("sizeBytes") or config.get("size") or 1024),
+                "speed_kbps": 0.0,
+                "elapsed_s": 0.0,
+                "logs": ["[INIT] Flashing başlatıldı..."],
+                "error": None,
+            }
+
+        # Simulation mode branch
+        if self._is_simulating:
+            def _sim_flash_worker() -> None:
+                total_bytes = self._flash_progress_state["total_bytes"]
+                start_t = time.monotonic()
+                steps = [
+                    (FlashingStep.SAFETY_VALIDATION, 1, "Hız ve güvenlik kilitleri doğrulandı"),
+                    (FlashingStep.EXTENDED_SESSION, 2, "Genişletilmiş Diyagnostik Oturumu (0x10 0x03)"),
+                    (FlashingStep.SECURITY_ACCESS, 3, "Güvenlik Erişimi (0x27 Seed-Key)"),
+                    (FlashingStep.PROGRAMMING_SESSION, 4, "Programlama Oturumu (0x10 0x02)"),
+                    (FlashingStep.REQUEST_DOWNLOAD, 5, "İndirme Talebi (0x34)"),
+                    (FlashingStep.TRANSFER_DATA, 6, "Veri Transferi (0x36 Blokları)"),
+                    (FlashingStep.TRANSFER_EXIT, 7, "Transfer Tamamlama (0x37)"),
+                    (FlashingStep.CHECKSUM_VERIFICATION, 8, "Bütünlük Doğrulama (CRC32/SHA-256)"),
+                    (FlashingStep.ECU_RESET, 9, "ECU Donanımsal Reset (0x11 0x01)"),
+                    (FlashingStep.COMPLETED, 10, "Flashing Tamamlandı"),
+                ]
+                for step, idx, desc in steps:
+                    time.sleep(0.3 / max(0.5, self._speed_mult))
+                    with self._flash_lock:
+                        if self._flash_progress_state.get("status") == "cancelled":
+                            self._flash_progress_state["logs"].append("[ABORT] Flashing iptal edildi.")
+                            self._push_flash_progress()
+                            return
+                        pct = round((idx / len(steps)) * 100.0, 1)
+                        now = time.monotonic()
+                        bytes_transferred = int((idx / len(steps)) * total_bytes)
+                        self._flash_progress_state.update({
+                            "percent": pct,
+                            "step": step.name,
+                            "step_index": idx,
+                            "bytes_transferred": bytes_transferred,
+                            "elapsed_s": round(now - start_t, 2),
+                            "speed_kbps": round((bytes_transferred / 1024.0) / max(0.01, now - start_t), 2),
+                        })
+                        self._flash_progress_state["logs"].append(f"[{step.name}] {desc}")
+                    self._push_flash_progress()
+
+                with self._flash_lock:
+                    self._flash_progress_state["status"] = "completed"
+                    self._flash_progress_state["logs"].append("✅ [COMPLETED] Flashing simülasyonu başarıyla tamamlandı.")
+                self._push_flash_progress()
+
+            self._flash_thread = threading.Thread(target=_sim_flash_worker, name="sim_flasher", daemon=True)
+            self._flash_thread.start()
+            return {"success": True, "message": "Flashing işlemi başlatıldı."}
+
+        # Real physical mode branch
+        def _on_progress(prog: FlashingProgress) -> None:
+            with self._flash_lock:
+                self._flash_progress_state.update({
+                    "percent": prog.percent,
+                    "step": prog.current_step.name,
+                    "step_index": prog.step_index,
+                    "bytes_transferred": prog.bytes_transferred,
+                    "total_bytes": prog.total_bytes,
+                    "speed_kbps": prog.transfer_speed_kbps,
+                    "elapsed_s": prog.elapsed_time_s,
+                    "crc32": prog.crc32_checksum,
+                })
+            self._push_flash_progress()
+
+        def _on_log(msg: str, level: str) -> None:
+            with self._flash_lock:
+                self._flash_progress_state["logs"].append(f"[{level.upper()}] {msg}")
+            self._push_flash_log(msg, level)
+
+        if self.supervisor.current_state == SafetyState.PASSIVE:
+            arm_res = self.arm_tx(reason="Operator started ECU flashing")
+            if not arm_res.get("success", False):
+                err = arm_res.get("error", "TX pipeline cannot be armed for flashing")
+                with self._flash_lock:
+                    self._flash_progress_state["status"] = "failed"
+                    self._flash_progress_state["error"] = err
+                return {"success": False, "error": err, "message": err}
+
+        uds_client = self.create_uds_client()
+        self.flashing_engine = EcuFlashingEngine(
+            uds_client=uds_client,
+            gateway=self.gateway,
+            on_progress=_on_progress,
+            on_log=_on_log,
+        )
+
+        raw_data = config.get("data")
+        if isinstance(raw_data, str):
+            try:
+                payload_bytes = bytes.fromhex(raw_data)
+            except ValueError:
+                payload_bytes = raw_data.encode("latin-1")
+        elif isinstance(raw_data, (bytes, bytearray)):
+            payload_bytes = bytes(raw_data)
+        else:
+            payload_bytes = b"\x00" * int(config.get("sizeBytes", 1024))
+
+        flash_cfg = FlashingConfig(
+            memory_address=int(config.get("memoryAddress", 0x80000)),
+            data=payload_bytes,
+            block_size=int(config.get("blockSize", 256)),
+            user_confirmed=True,
+        )
+
+        def _real_flash_worker() -> None:
+            try:
+                assert self.flashing_engine is not None
+                success = self.flashing_engine.execute_flash(flash_cfg)
+                with self._flash_lock:
+                    self._flash_progress_state["status"] = "completed" if success else "failed"
+                    if not success:
+                        self._flash_progress_state["error"] = "Flashing başarısız oldu."
+            except Exception as exc:
+                with self._flash_lock:
+                    self._flash_progress_state["status"] = "failed"
+                    self._flash_progress_state["error"] = str(exc)
+                    self._flash_progress_state["logs"].append(f"[ERROR] {exc}")
+            finally:
+                self._push_flash_progress()
+
+        self._flash_thread = threading.Thread(target=_real_flash_worker, name="real_flasher", daemon=True)
+        self._flash_thread.start()
+        return {"success": True, "message": "Flashing işlemi başlatıldı."}
+
+    def _push_flash_progress(self) -> None:
+        if self._window is None:
+            return
+        try:
+            with self._flash_lock:
+                state_copy = dict(self._flash_progress_state)
+            self._window.evaluate_js(f"if (window.onFlashProgress) window.onFlashProgress({json.dumps(state_copy)});")
+        except Exception:
+            pass
+
+    def _push_flash_log(self, msg: str, level: str) -> None:
+        if self._window is None:
+            return
+        try:
+            payload = json.dumps({"message": msg, "level": level})
+            self._window.evaluate_js(f"if (window.onFlashLog) window.onFlashLog({payload});")
+        except Exception:
+            pass
+
+    def flash_progress(self) -> dict[str, Any]:
+        """Get live flashing progress state."""
+        with self._flash_lock:
+            return dict(self._flash_progress_state)
+
+    def flash_cancel(self) -> dict[str, Any]:
+        """Cancel live flashing operation."""
+        with self._flash_lock:
+            self._flash_progress_state["status"] = "cancelled"
+            if self.flashing_engine is not None:
+                self.flashing_engine.cancel()
+            self._flash_progress_state["logs"].append("[CANCEL] Flashing kullanıcı tarafından iptal edildi.")
+        self._push_flash_progress()
+        return {"success": True, "message": "Flashing iptal edildi."}
+
+    _OP_MEASUREMENT_RE = re.compile(
+        r"(?:test sonucu|ölçüm|olcum|measurement)\s*[:=]?\s*([^=:]+?)\s*=\s*(-?\d+(?:[.,]\d+)?)\s*(.*)",
+        re.IGNORECASE,
+    )
+
+    def _parse_operator_measurement_query(self, query: str) -> tuple[str, float] | None:
+        """Extract 'test sonucu: <name> = <value>' operator measurements (FAZ 5).
+
+        Deterministic pattern match only — no LLM, no foreign-text command
+        scanning (trigger-source isolation invariant). Returns None when the
+        query is not a measurement entry.
+        """
+        match = self._OP_MEASUREMENT_RE.search(query or "")
+        if not match:
+            return None
+        name = match.group(1).strip()
+        try:
+            value = float(match.group(2).replace(",", "."))
+        except ValueError:
+            return None
+        if not name:
+            return None
+        return name, value
+
     def query_copilot(self, query: str) -> str:
+        # FAZ 5 (interactive diagnosis): operator chat measurement entries
+        # ("test sonucu: yağ basıncı = 0.4" style) are parsed HERE (host
+        # layer) and recorded into the evidence session; the AI layer never
+        # writes the session (closed evidence chain, plan §FAZ 5.2).
+        measurement = self._parse_operator_measurement_query(query)
+        if measurement is not None:
+            name, value = measurement
+            res = self.record_operator_measurement(name, value)
+            if res.get("success"):
+                analysis = self.get_diagnostic_analysis()
+                hyps = analysis.get("hypotheses", []) if analysis.get("success") else []
+                lines = [f"📏 Operatör ölçümü kaydedildi: **{res.get('recorded')} = {value:g}** (kanıt tabanına %50 ağırlıkla eklendi)."]
+                if hyps:
+                    lines.append("")
+                    lines.append("**Güncel hipotez sıralaması:**")
+                    for i, h in enumerate(hyps, start=1):
+                        lines.append(f"{i}. {h.get('fault', '')} — %{h.get('score', 0) * 100:.0f}")
+                else:
+                    lines.append("Hipotez üretilemedi (yetersiz kanıt / aktif DTC yok).")
+                return "\n".join(lines)
+            return f"⚠️ {res.get('error', 'Ölçüm kaydedilemedi.')}"
+
+        # FAZ 5: "hipotezler" query — deterministic keyword gate on the
+        # OPERATOR query (never foreign text), session analysis stays host-side.
+        norm_q = (query or "").strip().lower()
+        if norm_q in {"hipotezler", "hipotez", "hipotheses", "hipotez sıralaması", "hipotez siralamasi"}:
+            analysis = self.get_diagnostic_analysis()
+            if not analysis.get("success"):
+                return "⚠️ Aktif teşhis oturumu yok."
+            gate = analysis.get("gate", {})
+            hyps = analysis.get("hypotheses", [])
+            anomalies = analysis.get("anomalies", [])
+            cases = analysis.get("similar_cases", [])
+            lines = ["**Teşhis Oturumu Analizi** (ağırlıklı kanıt skorları):"]
+            lines.append("")
+            lines.append(f"- Kanıt kapısı: anomali {'✅ yeterli' if gate.get('anomaly_sufficient') else '❌ yetersiz'} | DTC/hipotez {'✅ yeterli' if gate.get('dtc_sufficient') else '❌ yetersiz'} ({gate.get('active_dtc_count', 0)} aktif DTC)")
+            for gap in gate.get("gaps", []):
+                lines.append(f"  - {gap}")
+            if anomalies:
+                lines.append("")
+                lines.append("**Anomaliler:**")
+                for a in anomalies:
+                    tag = " (operatör beyanı)" if a.get("synthetic") else ""
+                    lines.append(f"- {a.get('signal')}: {a.get('finding')}{tag}")
+            if hyps:
+                lines.append("")
+                lines.append("**Hipotez sıralaması:**")
+                for i, h in enumerate(hyps, start=1):
+                    lines.append(f"{i}. {h.get('fault', '')} — %{h.get('score', 0) * 100:.0f} ağırlıklı kanıt skoru")
+                    for s in h.get("supporting_evidence", []):
+                        lines.append(f"   - destek: {s}")
+                    for c in h.get("contradicting_evidence", []):
+                        lines.append(f"   - çelişki: {c}")
+            else:
+                lines.append("")
+                lines.append("Hipotez üretilmedi (yetersiz DTC/kanıt).")
+            if cases:
+                lines.append("")
+                lines.append(f"**Benzer vakalar:** {analysis.get('similarity_label', '')}")
+                for m in cases:
+                    lines.append(f"- {m.get('case_id')} — %{m.get('similarity', 0) * 100:.0f}")
+            return "\n".join(lines)
+
         dtc = self.SCENARIO_DTCS.get(self._active_scenario)
         dtc_list: list[str] = [dtc] if dtc else []
         traffic_metrics = self.get_bus_traffic_snapshot()
@@ -1136,10 +2237,9 @@ class UniversalCanDesktopApp:
     def export_logs(self, fmt: str) -> bool:
         """Export session telemetry and frames to disk (LOW-4).
 
-        Formats: json/csv (raw frames) and mat (P2-26: live decoded signals
-        via MatExporter — engine/exporters/ is no longer dead code)."""
+        Formats: json/csv (raw frames), mat (MATLAB) and mdf4/mf4 (ASAM MDF4)."""
         fmt_clean = fmt.strip().lower()
-        if fmt_clean not in {"json", "csv", "mat"}:
+        if fmt_clean not in {"json", "csv", "mat", "mdf4", "mf4"}:
             logger.warning("Unsupported export format requested: %s", fmt)
             return False
 
@@ -1148,7 +2248,8 @@ class UniversalCanDesktopApp:
             # L-12 (P3-8): anchored to the app data root (not the CWD).
             export_dir = _app_data_root() / "exports"
             export_dir.mkdir(parents=True, exist_ok=True)
-            export_path = export_dir / f"can_session_{timestamp_str}.{fmt_clean}"
+            ext = "mf4" if fmt_clean in {"mdf4", "mf4"} else fmt_clean
+            export_path = export_dir / f"can_session_{timestamp_str}.{ext}"
 
             frames = self.ring_buffer.get_latest_frames(self.ring_buffer.current_size)
             if fmt_clean == "json":
@@ -1174,10 +2275,7 @@ class UniversalCanDesktopApp:
                     for f in frames:
                         writer.writerow([f.channel_id, hex(f.arbitration_id), f.dlc, f.data.hex(), f.is_extended, f.is_fd, f.timestamp_ns])
             elif fmt_clean == "mat":
-                # P2-26: wire the MATLAB exporter into the live path. Per-ID
-                # activity channels derived from the raw frame history (the
-                # app keeps scalar snapshots, not signal history, so raw
-                # per-arbitration-id time series are the honest dataset).
+                # P2-26: wire the MATLAB exporter into the live path.
                 from src.engine.exporters.mat_exporter import MatExporter
 
                 t0_ns = frames[0].timestamp_ns if frames else 0
@@ -1194,7 +2292,25 @@ class UniversalCanDesktopApp:
                 if not signals_data:
                     logger.warning("Nothing to export: session ring buffer is empty")
                     return False
-                MatExporter.export_signals(export_path, signals_data)
+                MatExporter.export_signals(export_path, signals_data, exports_root=export_dir)
+            elif fmt_clean in {"mdf4", "mf4"}:
+                from src.engine.exporters.mdf4_exporter import Mdf4Exporter
+
+                t0_ns = frames[0].timestamp_ns if frames else 0
+                per_id_mdf: dict[int, tuple[list[float], list[float]]] = {}
+                for f in frames:
+                    ts_s = max(0.0, (f.timestamp_ns - t0_ns) / 1e9)
+                    cur = per_id_mdf.setdefault(f.arbitration_id, ([], []))
+                    cur[0].append(ts_s)
+                    cur[1].append(float(f.arbitration_id))
+                signals_data_mdf = {
+                    f"CAN_ID_0x{arb:X}": (ts_list, val_list, "id")
+                    for arb, (ts_list, val_list) in per_id_mdf.items()
+                }
+                if not signals_data_mdf:
+                    logger.warning("Nothing to export: session ring buffer is empty")
+                    return False
+                Mdf4Exporter.export_signals(export_path, signals_data_mdf, exports_root=export_dir)
 
             logger.info("Session logs successfully exported", extra={"path": str(export_path), "count": len(frames)})
             return True
@@ -1222,14 +2338,6 @@ class UniversalCanDesktopApp:
         if reconnect_needed:
             # Transactional reconnect: keep previous bus intact if new settings fail
             self._reconnect_bus(new_interface, new_channel, new_bitrate)
-        if "apiKey" in settings and settings["apiKey"]:
-            # F-08: the key is stored in the secret vault, never a plain attribute
-            self._secret_provider.store_secret("GEMINI_API_KEY", settings["apiKey"].encode("utf-8"))
-            self.copilot.set_key_provider(self._secret_provider)
-        if "openaiApiKey" in settings and settings["openaiApiKey"]:
-            # L-8 (P3-3): OpenAI key follows the same vault path as Gemini.
-            self._secret_provider.store_secret("OPENAI_API_KEY", str(settings["openaiApiKey"]).encode("utf-8"))
-            self.copilot.set_key_provider(self._secret_provider)
         if "cloudBaseUrl" in settings and settings["cloudBaseUrl"]:
             # H-10 (P1-8): the old path called set_base_url with NO host
             # allowlist — a renderer-supplied URL could redirect telemetry
@@ -1241,10 +2349,7 @@ class UniversalCanDesktopApp:
             if (
                 not parsed.hostname
                 or parsed.scheme not in ("http", "https")
-                or (
-                    parsed.hostname not in allowed_domains
-                    and not parsed.hostname.endswith(".si6n.io")
-                )
+                or parsed.hostname not in allowed_domains
             ):
                 logger.error(
                     "Rejected cloudBaseUrl from settings: host not in allowlist",
@@ -1297,15 +2402,67 @@ class UniversalCanDesktopApp:
                 return
 
             old_bus = self.bus
+            # REVIEW (irreversible reconnect): commit the new bus only after
+            # it actually connects WHEN the old channel is live — swapping
+            # first and connecting later lost the working channel forever on
+            # a failed connect(). If the old bus was never connected
+            # (DEMO-only mode), a failed connect degrades to DEMO-only as
+            # before and the settings change is still recorded.
+            old_channel_live = bool(getattr(old_bus, "is_connected", False))
+            if old_channel_live:
+                try:
+                    new_bus.connect()
+                except Exception as exc:  # noqa: BLE001 — new settings must not kill the old link
+                    logger.warning(
+                        "New CAN bus rejected the settings; keeping previous bus",
+                        extra={"interface": target_interface, "channel": target_channel, "error": str(exc)},
+                    )
+                    try:
+                        new_bus.disconnect()
+                    except Exception:
+                        pass
+                    return
+            else:
+                try:
+                    new_bus.connect()
+                except Exception as exc:  # noqa: BLE001 — was already DEMO-only; stay honest about it
+                    logger.warning(
+                        "CAN bus connect failed; DEMO-only mode",
+                        extra={"interface": target_interface, "channel": target_channel, "error": str(exc)},
+                    )
+
             self.bus = new_bus
-            self.gateway.bus = self.bus
+            self.gateway.rebind_bus(self.bus)
             self.interface_val = target_interface
             self.channel_name = str(target_channel)
             self.bitrate_val = target_bitrate
 
+            # REVIEW3 #41 (reconnect vs ARMED_TX): the reconnected bus is
+            # opened listen-only (Safe-by-Default), but the supervisor state
+            # used to survive the swap — ARMED_TX + a PASSIVE transceiver is
+            # a dead protocol (gateway passes, driver raises HardwareError,
+            # J1939 CTS/ACK and UDS responses die silently to T2/T3
+            # timeouts). A settings change is a physical-channel change: TX
+            # authority must be re-armed explicitly by the operator. Disarm
+            # to PASSIVE fail-closed on every successful rebind.
+            if self.supervisor.is_tx_permitted:
+                try:
+                    self.supervisor.transition_to(
+                        SafetyState.PASSIVE, reason="bus reconnect — TX re-arm required"
+                    )
+                    logger.warning(
+                        "Bus reconnected — supervisor disarmed to PASSIVE; operator must re-arm TX"
+                    )
+                except Exception as exc:  # noqa: BLE001 — disarm failure must not kill reconnect
+                    logger.error(
+                        "Supervisor disarm after reconnect failed — forcing FAULT",
+                        extra={"error": str(exc)},
+                    )
+                    self.supervisor._force_fault("reconnect disarm failed")
+
             try:
                 old_bus.disconnect()
-            except (OSError, RuntimeError) as exc:
+            except Exception as exc:  # noqa: BLE001 — old handle cleanup is best-effort
                 logger.debug("Old bus disconnect during reconnect failed", extra={"error": str(exc)})
 
             # B-25: Reset channel-bound state on bus switch
@@ -1313,31 +2470,58 @@ class UniversalCanDesktopApp:
             self.j1939_tp = J1939TransportProtocol(my_address=0xF9, channel_id=self.channel_name)
             self.n2k_fp = Nmea2000FastPacketDecoder()
 
-            try:
-                self.bus.connect()
-                logger.info(
-                    "CAN bus reconnected",
-                    extra={"interface": self.interface_val, "channel": self.channel_name, "bitrate": self.bitrate_val},
+            logger.info(
+                "CAN bus reconnected",
+                extra={"interface": self.interface_val, "channel": self.channel_name, "bitrate": self.bitrate_val},
+            )
+
+    def _decode_j1939_payload(self, arb_id: int, source_address: int, data: bytes) -> None:
+        """Decode a fully reassembled J1939 application message (no frame cap).
+
+        REVIEW (DM1 truncation): mirrors `_decode_j1939_signal` but accepts
+        the complete transport payload so multi-DTC DM1 broadcasts keep
+        every 4-byte DTC record instead of the first 15.
+        """
+        try:
+            pgn, sa, _da, _priority = parse_j1939_id(arb_id)
+            if pgn == 65226 and len(data) >= 2:
+                dm = J1939DiagnosticService.parse_dm1_or_dm2(
+                    bytes(data), pgn=65226, source_address=sa, timestamp_ns=time.time_ns()
                 )
-            except Exception as exc:
-                logger.warning("CAN bus connect failed; DEMO-only mode", extra={"error": str(exc)})
+                if dm is None:
+                    return
+                self._last_dm1 = {
+                    "source": dm.source_address,
+                    "dtc_count": len(dm.dtcs),
+                    "lamps": bytes(data[:1]).hex(),
+                }
+                self._error_count = len(dm.dtcs)
+        except (IndexError, ValueError, AttributeError) as exc:
+            logger.debug("J1939 payload decode failed", extra={"error": str(exc)})
 
     def _decode_j1939_signal(self, frame: object) -> None:
-        """Extract live telemetry from a routed J1939 frame (F-28)."""
+        """Extract live telemetry from a routed J1939 frame (F-28).
+
+        REVIEW3 #5: PGN extraction now goes through the shared, EDP/DP-
+        preserving parser (`pgn_from_id`) — the old hand-rolled
+        `(pf, ps)` bit math here (a) matched ET1 to PS=0xE1, which is
+        PGN 65249 (Engine Hours, Revolutions), not ET1 (PGN 65262,
+        PS=0xEE), rendering the engine-hours LSB as a fabricated coolant
+        temperature, and (b) mis-filed EDP-set frames into the wrong PF/PS
+        buckets, feeding the TX speed interlock with garbage.
+        """
         try:
             arb = frame.arbitration_id  # type: ignore[attr-defined]
             data = frame.data  # type: ignore[attr-defined]
-            pf = (arb >> 16) & 0xFF
-            ps = (arb >> 8) & 0xFF
-            sa = arb & 0xFF
+            pgn, sa, _da, _priority = parse_j1939_id(arb)
 
-            # EEC1 (PGN 61444 / PF=0xF0, PS=source): engine speed + torque (B-10 sentinel filter)
-            if pf == 0xF0 and ps == 0x04 and len(data) >= 5:
+            # EEC1 (PGN 61444): engine speed + torque (B-10 sentinel filter)
+            if pgn == 61444 and len(data) >= 5:
                 raw_rpm = data[3] | (data[4] << 8)
                 if raw_rpm < 0xFE00:  # 0xFE00..0xFFFF = Error / Not Available in J1939-71
                     self._current_rpm = raw_rpm * 0.125
-            # CCVS (PGN 65265 / PF=0xFE, PS=0xF1): vehicle speed (SPN 84)
-            # 1/256 km/h per bit, byte 1..2.
+                    self._record_signal_sample("EngineSpeed", raw_rpm, self._current_rpm, "rpm")
+            # CCVS (PGN 65265): vehicle speed (SPN 84), 1/256 km/h per bit, bytes 1..2.
             # P0-5 (REVIEW C-3): the speed feed is the trust anchor of the
             # TX interlock, so it is no longer accepted blindly from ANY
             # source address:
@@ -1354,7 +2538,7 @@ class UniversalCanDesktopApp:
             #      (Error / Not Available); the old `<= 250.0` km/h check
             #      accepted the 0xFA00..0xFDFF band (250..254 km/h) as
             #      legitimate speed. Now the raw value must be < 0xFE00.
-            elif pf == 0xFE and ps == 0xF1 and len(data) >= 3:
+            elif pgn == 65265 and len(data) >= 3:
                 raw_speed = data[1] | (data[2] << 8)
                 if raw_speed < 0xFE00:  # J1939-71: 0xFE00..0xFFFF = Error / Not Available
                     speed_kmh = raw_speed / 256.0
@@ -1381,6 +2565,7 @@ class UniversalCanDesktopApp:
                         if plausible:
                             self._current_speed_kmh = speed_kmh
                             self.gateway.update_vehicle_speed(speed_kmh, source="physical")
+                            self._record_signal_sample("VehicleSpeed", raw_speed, speed_kmh, "km/h")
                         else:
                             self._current_speed_kmh = float("nan")
                             self.gateway.update_vehicle_speed(float("nan"), source="physical")
@@ -1389,22 +2574,52 @@ class UniversalCanDesktopApp:
                             "CCVS frame from untrusted source address ignored",
                             extra={"sa": sa, "trusted_sa": self._ccvs_trusted_sa},
                         )
-            # ET1 (PGN 65249 / PF=0xFE, PS=0xE1): coolant temperature (B-10 sentinel filter)
-            elif pf == 0xFE and ps == 0xE1 and len(data) >= 1:
+            # ET1 (PGN 65262 / 0xFEEE): engine coolant temperature (B-10
+            # sentinel filter). REVIEW3 #5: the old PS=0xE1 guard matched
+            # PGN 65249 (Engine Hours) and rendered its LSB as °C — a
+            # fabricated overheat/under-temp reading. SAE J1939-71: ET1
+            # SPN 110, byte 1, offset -40 °C.
+            elif pgn == 65262 and len(data) >= 1:
                 raw_temp = data[0]
                 if raw_temp < 0xFE:  # 0xFE = Error, 0xFF = Not Available
                     self._current_temp = float(raw_temp) - 40.0
-            # DM1 (PGN 65226 / PF=0xFE, PS=0xCA): active diagnostic message
-            elif pf == 0xFE and ps == 0xCA and len(data) >= 2:
+                    self._record_signal_sample("EngineCoolantTemp", raw_temp, self._current_temp, "C")
+            # DM1 (PGN 65226): active diagnostic message
+            elif pgn == 65226 and len(data) >= 2:
                 dm = J1939DiagnosticService.parse_dm1_or_dm2(
                     bytes(data), pgn=65226, source_address=sa, timestamp_ns=time.time_ns()
                 )
+                # REVIEW hardening: short DM frames return None (fail-closed)
+                # — never render a fabricated all-OFF lamp state.
+                if dm is None:
+                    return
                 self._last_dm1 = {
                     "source": dm.source_address,
                     "dtc_count": len(dm.dtcs),
                     "lamps": bytes(data[:1]).hex(),
                 }
                 self._error_count = len(dm.dtcs)
+                # FAZ 1 / Bulgu 1: DM1 SPN/FMI codes were parsed then dropped
+                # (only dtc_count survived). Record them as DiagnosticEvents
+                # now — severity from the SPN DB / KB, never invented.
+                self._record_dm1_events(dm.dtcs)
+
+            # OEM Proprietary J1939 Decoders (Cummins, Caterpillar, Scania, Volvo, Detroit, Actros)
+            if isinstance(frame, CanFrame) and frame.is_extended:
+                oem_payload = self.oem_registry.decode_frame(frame)
+                if oem_payload is not None:
+                    for sig in oem_payload.signals:
+                        self._record_signal_sample(sig.name, sig.raw_value, sig.physical_value, sig.unit)
+                        sig_name_lower = sig.name.lower()
+                        if "enginespeed" in sig_name_lower or "rpm" in sig_name_lower:
+                            if isinstance(sig.physical_value, (int, float)):
+                                self._current_rpm = float(sig.physical_value)
+                        elif "coolant" in sig_name_lower or "enginetemp" in sig_name_lower:
+                            if isinstance(sig.physical_value, (int, float)):
+                                self._current_temp = float(sig.physical_value)
+                        elif "boost" in sig_name_lower:
+                            if isinstance(sig.physical_value, (int, float)):
+                                self._current_boost = float(sig.physical_value)
         except (IndexError, ValueError, AttributeError) as exc:
             logger.debug("J1939 live decode failed", extra={"error": str(exc)})
 
@@ -1435,18 +2650,27 @@ class UniversalCanDesktopApp:
         """
         # Router fans out to protocol engines (J1939 TP, N2K Fast Packet)
         self.router.route_frame(frame)
-        if self.rolling_disk is not None and isinstance(frame, CanFrame):
-            try:
-                self.rolling_disk.append(frame)
-            except Exception as exc:
-                logger.debug("RollingDiskBuffer frame ingestion failed", extra={"error": str(exc)})
+        if isinstance(frame, CanFrame):
+            self.discovery_engine.ingest_frame(frame)
+            if self.rolling_disk is not None:
+                try:
+                    self.rolling_disk.append(frame)
+                except Exception as exc:
+                    logger.debug("RollingDiskBuffer frame ingestion failed", extra={"error": str(exc)})
         self._decode_j1939_signal(frame)
 
         # J1939 transport protocol reassembly (multi-packet) (B-12 drain)
         completed, resp = self.j1939_tp.handle_rx_frame(frame)  # type: ignore[arg-type]
         if resp is not None:
             try:
-                self.gateway.validate_and_transmit(resp)
+                # REVIEW HIGH-3: inbound-triggered protocol responses travel
+                # the protocol_burst lane (a CTS/ACK burst from an RTS storm
+                # must not trip the 100 msg/s default-lane wall) and are
+                # marked inbound_triggered so a remote node cannot bait the
+                # responder into a latched RATE_LIMIT_OVERFLOW E-Stop.
+                self.gateway.validate_and_transmit(
+                    resp, budget_category="protocol_burst", inbound_triggered=True
+                )
             except Exception as exc:
                 # M-14 (P2-10): a gateway refusal (E-Stop, whitelist, rate
                 # limit...) on a J1939 TP response is operationally
@@ -1463,7 +2687,9 @@ class UniversalCanDesktopApp:
             self._log_tx_echo(resp)
         for extra_resp in self.j1939_tp.take_pending_tx_frames():
             try:
-                self.gateway.validate_and_transmit(extra_resp)
+                self.gateway.validate_and_transmit(
+                    extra_resp, budget_category="protocol_burst", inbound_triggered=True
+                )
             except Exception as exc:
                 logger.warning(
                     "J1939 TP extra response physical transmit refused by gateway",
@@ -1472,10 +2698,13 @@ class UniversalCanDesktopApp:
             self._log_tx_echo(extra_resp)
 
         if completed is not None:
-            # Reassembled payloads can exceed a single CAN frame; cap the
-            # synthetic frame at 64 bytes with a valid DLC so oversized
-            # messages can never crash the telemetry thread.
-            synth_data = completed.data[:64]
+            # REVIEW (DM1 truncation): the completed TP payload is an
+            # APPLICATION message, not a transport frame — slicing it to a
+            # 64-byte CAN-FD frame silently dropped every DTC record past
+            # byte 64 (a 20-record DM1 lost 5). The full payload goes to the
+            # diagnostic decoder directly; the synthetic frame is built
+            # only for stream-shaped consumers and carries the first 64
+            # bytes as a *view*, never as the source of record.
             # Reconstruct the canonical 29-bit CAN ID via the shared builder
             # — M-12 (P2-6): preserves EDP/DP bits (the old inline math
             # dropped EDP, mis-addressing EDP-set reassembled messages).
@@ -1485,6 +2714,10 @@ class UniversalCanDesktopApp:
                 da=completed.destination_address,
                 priority=6,
             )
+            # Full-payload application decode (DM1: every DTC record kept).
+            self._decode_j1939_payload(arb_id, completed.source_address, completed.data)
+
+            synth_data = completed.data[:64]
             try:
                 synth_frame: CanFrame | None = CanFrame(
                     channel_id=completed.channel_id,
@@ -1504,17 +2737,70 @@ class UniversalCanDesktopApp:
             if synth_frame is not None:
                 self._decode_j1939_signal(synth_frame)
 
-        # N2K Fast Packet reassembly — PGN 127488 engine rapid / 128267 depth
+        # N2K Fast Packet reassembly — only Fast-Packet PGNs (see
+        # FAST_PACKET_PGNS membership) yield completed messages now.
+        # REVIEW 1-H3 (HIGH): single-frame PGNs are decoded DIRECTLY from
+        # the frame below — previously they were fed through the fast-
+        # packet filter, where 127488 (Engine Rapid: data[1] = RPM LSB,
+        # e.g. idle 600 rpm -> 0x60 = 96 in 9..223) opened phantom 96-byte
+        # sessions that swallowed the real RPM forever.
         n2k_msg = self.n2k_fp.handle_rx_frame(frame)  # type: ignore[arg-type]
         if n2k_msg is not None:
-            if n2k_msg.pgn == 127488 and len(n2k_msg.data) >= 3:
-                raw_rpm = int.from_bytes(n2k_msg.data[1:3], "little")
-                if raw_rpm < 0xFFFF:
-                    self._current_rpm = float(raw_rpm) * 0.25
-            elif n2k_msg.pgn == 128267 and len(n2k_msg.data) >= 5:
-                raw_depth = int.from_bytes(n2k_msg.data[1:5], "little")
-                if raw_depth < 0xFFFFFFFF:
-                    self._depth_meters = float(raw_depth) * 0.01
+            self._decode_n2k_fast_payload(n2k_msg.pgn, n2k_msg.source_address, n2k_msg.data)
+
+        # Single-frame N2K PGNs — direct 8-byte payload decode.
+        try:
+            _pgn, _sa, _da, _prio = parse_j1939_id(frame.arbitration_id)
+        except Exception:  # noqa: BLE001
+            _pgn = 0
+        if _pgn == 127488 and len(frame.data) >= 3:
+            # Engine Parameters, Rapid: EngineSpeed bytes 1..2, 0.25 rpm/bit
+            raw_rpm = int.from_bytes(frame.data[1:3], "little")
+            if raw_rpm < 0xFFFF:
+                self._current_rpm = float(raw_rpm) * 0.25
+                self._record_signal_sample("EngineSpeed", raw_rpm, self._current_rpm, "rpm")
+        elif _pgn == 128267 and len(frame.data) >= 5:
+            # Water Depth: Depth bytes 1..4, 0.01 m/bit
+            raw_depth = int.from_bytes(frame.data[1:5], "little")
+            if raw_depth < 0xFFFFFFFF:
+                self._depth_meters = float(raw_depth) * 0.01
+        elif _pgn == 127493 and len(frame.data) >= 2:
+            # Transmission Parameters, Dynamic (single frame per canboat DBC)
+            self._decode_n2k_single_transmission(frame.data)
+        elif _pgn == 127505 and len(frame.data) >= 7:
+            # Fluid Level (single frame; Instance low nibble, Type high nibble)
+            fluid = Nmea2000PgnDecoder.decode_fluid_level(bytes(frame.data[:8]))
+            if fluid is not None:
+                self._record_signal_sample(
+                    f"FluidLevel_{fluid.fluid_type}_{fluid.fluid_instance}",
+                    int(round(fluid.level_percent * 250)) if fluid.level_percent is not None else 0xFFFF,
+                    fluid.level_percent,
+                    "percent",
+                )
+
+    def _decode_n2k_fast_payload(self, pgn: int, source_address: int, data: bytes) -> None:
+        """Decode a completed NMEA 2000 Fast-Packet message (PGN 127489 etc.)."""
+        if pgn == PGN_ENGINE_DYNAMIC:
+            params = Nmea2000PgnDecoder.decode_engine_dynamic(data)
+            if params is not None and params.engine_load_percent is not None:
+                self._record_signal_sample(
+                    "EngineLoad", params.engine_load_percent, float(params.engine_load_percent), "percent"
+                )
+            if params is not None and params.engine_torque_percent is not None:
+                self._record_signal_sample(
+                    "EngineTorque", params.engine_torque_percent, float(params.engine_torque_percent), "percent"
+                )
+
+    def _decode_n2k_single_transmission(self, data: bytes) -> None:
+        """Decode single-frame PGN 127493 Transmission Parameters, Dynamic."""
+        params = Nmea2000PgnDecoder.decode_transmission(data)
+        if params is not None:
+            self._record_signal_sample(
+                f"TransmissionGear_{params.transmission_instance}",
+                {"neutral": 0, "forward": 1, "reverse": 2, "unknown": 3}.get(params.gear, 3),
+                params.gear,
+                "enum",
+            )
 
     def _push_frames_to_ui_batch(self, frames: list[object]) -> None:
         """Stream a tick's frames to the frontend in ONE evaluate_js call (E13).
@@ -1561,14 +2847,22 @@ class UniversalCanDesktopApp:
         Live path (F-28): bus -> FrameRouter -> decoders (J1939 / N2K) -> JS bridge.
         The watchdog heartbeat is NOT driven from here (F-16/E-11): the UI
         lease is only refreshed by the frontend render/rAF pulse.
+
+        REVIEW3 #1 (forensic black-box window): an engaged E-Stop cuts TX
+        ONLY. The live RX ingest / ring buffer / rolling-disk recording
+        keeps running — the moments right after an E-Stop (bus-off
+        cascades, keepalive timeouts, interlock trips) are exactly the
+        evidence an investigation needs, and the old `continue` made the
+        host recording go blind exactly then. Protocol TX responses are
+        still refused fail-closed inside _ingest_live_frame by the
+        gateway's E-Stop stage.
         """
         while self._running:
             time.sleep(0.05 / max(0.5, self._speed_mult))
 
-            if self._is_estop:
-                continue
-
             # ── LIVE path: real frames off the bus (F-28, B-07 exception protection) ──
+            # Runs in BOTH normal and E-Stop states (recording must survive
+            # the stop); only the DEMO generator is skipped while latched.
             if not self._is_simulating:
                 drained = 0
                 tick_frames: list[object] = []
@@ -1606,6 +2900,11 @@ class UniversalCanDesktopApp:
                 continue
 
             # ── DEMO path: synthetic scenario values (F-29: single module) ──
+            # Skipped while E-Stop is latched: the operator must see the
+            # REAL bus state (or nothing), never a fabricated live-looking
+            # scenario behind a safety stop.
+            if self._is_estop:
+                continue
             self._sim_time += 0.05 * self._speed_mult
             t = self._sim_time
             self._bump_stat("_total_packets", 1)
@@ -1738,29 +3037,36 @@ class UniversalCanDesktopApp:
 
         api = DesktopApiBridge(self)
 
-        self.watchdog.start()
-        # F-28: connect the real CAN bus before the ingestion loop starts
+        # REVIEW (lifecycle coverage): watchdog start, bus connect, worker and
+        # window creation all used to sit OUTSIDE the try/finally — an
+        # escaping HardwareError (a PlatformError, NOT OSError/RuntimeError,
+        # so the old except clause missed it) skipped every teardown step:
+        # the watchdog monitor leaked and the driver handle stayed open.
+        # One try/finally wraps every resource; domain errors degrade to
+        # DEMO mode exactly like network errors.
         try:
-            self.bus.connect()
-            logger.info("CAN bus connected for live ingestion", extra={"channel": self.channel_name})
-        except (OSError, RuntimeError) as exc:
-            logger.warning("CAN bus connect failed; running in DEMO-only mode", extra={"error": str(exc)})
+            self.watchdog.start()
+            # F-28: connect the real CAN bus before the ingestion loop starts
+            try:
+                self.bus.connect()
+                logger.info("CAN bus connected for live ingestion", extra={"channel": self.channel_name})
+            except Exception as exc:  # noqa: BLE001 — HardwareError/PlatformError degrade to DEMO, never crash startup
+                logger.warning("CAN bus connect failed; running in DEMO-only mode", extra={"error": str(exc)})
 
-        self._thread = threading.Thread(target=self._telemetry_loop, daemon=True)
-        self._thread.start()
+            self._thread = threading.Thread(target=self._telemetry_loop, daemon=True)
+            self._thread.start()
 
-        self._window = webview.create_window(
-            title="Universal CAN-Bus Diagnostic & Telemetry Tool v13.0",
-            url=str(dist_html.resolve()),
-            js_api=api,
-            width=1400,
-            height=900,
-            min_size=(1100, 700),
-            background_color="#F8FAFC",
-            text_select=True,
-        )
+            self._window = webview.create_window(
+                title="Universal CAN-Bus Diagnostic & Telemetry Tool v13.0",
+                url=str(dist_html.resolve()),
+                js_api=api,
+                width=1400,
+                height=900,
+                min_size=(1100, 700),
+                background_color="#F8FAFC",
+                text_select=True,
+            )
 
-        try:
             webview.start(debug=False)
         finally:
             self._set_ui_state(_running=False)

@@ -29,30 +29,67 @@ logger = get_logger("engine.discovery")
 class SignalDiscoveryEngine:
     """Orchestrates reverse-engineering workflows to discover signals from raw CAN traffic."""
 
+    MAX_FRAMES_PER_ID = 10_000
+    MAX_TOTAL_FRAMES = 200_000
+    MAX_ASC_FILE_BYTES = 256 * 1024 * 1024  # 256 MiB
+
     def __init__(self, min_frames: int = 10) -> None:
         self.min_frames = min_frames
-        self._frames_by_id: dict[int, list[CanFrame]] = defaultdict(list)
-        self._reports_cache: dict[int, IdReport] = {}
+        # REVIEW (cross-bus keying): frames are bucketed by
+        # (channel_id, is_extended, arbitration_id) — the old id-only key
+        # merged two different CAN networks' same-numbered messages into a
+        # single time series (fake transitions, wrong DBC).
+        self._frames_by_id: dict[tuple[str, bool, int], list[CanFrame]] = defaultdict(list)
+        self._reports_cache: dict[tuple[str, bool, int], IdReport] = {}
+        self._total_frames = 0
 
     def clear(self) -> None:
         """Clear all ingested frames and cached reports."""
         self._frames_by_id.clear()
         self._reports_cache.clear()
+        self._total_frames = 0
+
+    @staticmethod
+    def _bucket_key(frame: CanFrame) -> tuple[str, bool, int]:
+        """Session-stable discovery identity: channel + frame format + ID."""
+        return (frame.channel_id, bool(frame.is_extended), frame.arbitration_id)
+
+    def _append_bounded(self, frame: CanFrame) -> bool:
+        """Append with per-ID 10k ring + total cap. Returns False if dropped."""
+        if self._total_frames >= self.MAX_TOTAL_FRAMES:
+            return False
+        key = self._bucket_key(frame)
+        bucket = self._frames_by_id[key]
+        if len(bucket) >= self.MAX_FRAMES_PER_ID:
+            # 10k ring: drop oldest, keep newest.
+            del bucket[0]
+            self._total_frames -= 1
+        bucket.append(frame)
+        self._total_frames += 1
+        self._reports_cache.pop(key, None)
+        return True
 
     def ingest_frame(self, frame: CanFrame) -> None:
         """Ingest a single CAN frame (e.g. from live stream or router)."""
-        self._frames_by_id[frame.arbitration_id].append(frame)
-        self._reports_cache.pop(frame.arbitration_id, None)
+        self._append_bounded(frame)
 
     def ingest_frames(self, frames: Sequence[CanFrame]) -> None:
         """Ingest a batch of CAN frames."""
         for f in frames:
-            self._frames_by_id[f.arbitration_id].append(f)
-            self._reports_cache.pop(f.arbitration_id, None)
+            if not self._append_bounded(f):
+                logger.warning("Discovery ingest total cap reached — dropping frames")
+                break
 
     def ingest_asc_file(self, file_path: str | Path) -> int:
         """Load and ingest all frames from a Vector ASCII (.asc) trace file."""
-        frames = VectorAscParser.parse_file(file_path)
+        path = Path(file_path)
+        try:
+            size = path.stat().st_size
+        except OSError as exc:
+            raise FileNotFoundError(f"Trace file not found: {path}") from exc
+        if size > self.MAX_ASC_FILE_BYTES:
+            raise ValueError(f"Trace file too large ({size} bytes, limit {self.MAX_ASC_FILE_BYTES})")
+        frames = VectorAscParser.parse_file(path)
         self.ingest_frames(frames)
         logger.info(
             "Ingested trace file into DiscoveryEngine",
@@ -63,24 +100,33 @@ class SignalDiscoveryEngine:
     @property
     def discovered_ids(self) -> list[int]:
         """List of all unique arbitration IDs present in the ingested dataset."""
-        return sorted(self._frames_by_id.keys())
+        return sorted({key[2] for key in self._frames_by_id})
 
     def get_frame_count(self, arb_id: int) -> int:
         """Get the number of ingested frames for a specific CAN ID."""
-        return len(self._frames_by_id.get(arb_id, []))
+        return sum(
+            len(bucket) for key, bucket in self._frames_by_id.items() if key[2] == arb_id
+        )
 
     def analyze_id(self, arb_id: int) -> IdReport:
         """Run full evidence-based reverse engineering on a specific CAN ID."""
         if arb_id in self._reports_cache:
             return self._reports_cache[arb_id]
 
-        frames = self._frames_by_id.get(arb_id, [])
+        # REVIEW (cross-bus keying): analyze the union of every channel and
+        # frame-format bucket that carries this numeric ID — the report API
+        # stays id-keyed for compatibility, but the series themselves are
+        # never merged during ingestion.
+        frames = [f for bucket in self._frames_by_id.values() for f in bucket if f.arbitration_id == arb_id]
         if not frames:
             empty_report = IdReport(arbitration_id=arb_id, frame_count=0, rate_hz=0.0, dlc=0)
             self._reports_cache[arb_id] = empty_report
             return empty_report
 
-        dlc = max(f.dlc for f in frames)
+        # REVIEW (DLC != payload bytes): `max(f.dlc)` is a DLC CODE — FD
+        # DLC 15 encodes 64 bytes, so bit profiling over range(15) missed
+        # the final 49 bytes. Profile over the real payload lengths.
+        byte_len = max(len(f.data) for f in frames)
         payloads = [f.data for f in frames]
         frame_count = len(frames)
 
@@ -93,15 +139,19 @@ class SignalDiscoveryEngine:
 
         # 2. Byte-Level Shannon Entropy
         entropy_by_byte: dict[int, float] = {}
-        for byte_idx in range(dlc):
+        for byte_idx in range(byte_len):
             byte_vals = [p[byte_idx] for p in payloads if len(p) > byte_idx]
             entropy_by_byte[byte_idx] = BitStats.compute_shannon_entropy(byte_vals)
 
+        # 2b. Per-Bit Transition Profile (flip rates + classification)
+        flip_rates = BitStats.compute_flip_rates(payloads, byte_len)
+        bit_classes = BitStats.classify_bits(flip_rates)
+
         # 3. Detect Rolling Counters
-        counter_hypotheses = CounterDetector.detect(payloads, dlc)
+        counter_hypotheses = CounterDetector.detect(payloads, byte_len)
 
         # 4. Detect Checksums / CRCs
-        checksum_hypotheses = ChecksumDetector.detect(payloads, dlc)
+        checksum_hypotheses = ChecksumDetector.detect(payloads, byte_len)
 
         # 5. Determine occupied bit spans from confirmed counter / checksum hypotheses
         occupied_spans: list[tuple[int, int]] = []
@@ -113,7 +163,7 @@ class SignalDiscoveryEngine:
                 occupied_spans.append((h.start_bit, h.length))
 
         # 6. Segment Remaining Payload into Physical Signal Candidates
-        signal_hypotheses = SignalSegmenter.segment(payloads, dlc, occupied_spans=occupied_spans)
+        signal_hypotheses = SignalSegmenter.segment(payloads, byte_len, occupied_spans=occupied_spans)
 
         # Combine all hypotheses
         all_hypotheses = counter_hypotheses + checksum_hypotheses + signal_hypotheses
@@ -122,8 +172,9 @@ class SignalDiscoveryEngine:
             arbitration_id=arb_id,
             frame_count=frame_count,
             rate_hz=rate_hz,
-            dlc=dlc,
+            dlc=byte_len,  # REVIEW: report byte length, not the FD DLC code
             entropy=entropy_by_byte,
+            bit_classes=bit_classes,
             hypotheses=all_hypotheses,
         )
         self._reports_cache[arb_id] = report

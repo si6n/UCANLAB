@@ -1,30 +1,33 @@
 # Universal CAN-Bus Diagnostic & Telemetry Platform
 # Core & Desktop Engine Dependencies
+# NOTE: upper bounds below are supply-chain pins ("# pinned upper bound (supply-chain)").
+# No hash lock is committed (offline env) — use `pip install` normally; when a
+# lockfile is introduced, enforce it with `pip install --require-hashes -r requirements.lock`.
 
 # CAN Hardware & Protocol Stack
-python-can>=4.4.0
-can-isotp>=2.0.2
-cantools>=39.0.0
+python-can>=4.4.0,<5  # pinned upper bound (supply-chain)
+can-isotp>=2.0.2,<3  # pinned upper bound (supply-chain)
+cantools>=39.0.0,<41  # pinned upper bound (supply-chain)
 
 # Telemetry & Math Processing
-numpy>=1.26.0
-scipy>=1.11.0
-asammdf>=7.3.0
-simplekml>=1.3.6
-pandas>=2.2.0
-zstandard>=0.22.0
+numpy>=1.26.0,<3  # pinned upper bound (supply-chain)
+scipy>=1.11.0,<2  # pinned upper bound (supply-chain)
+asammdf>=7.3.0,<8  # pinned upper bound (supply-chain)
+simplekml>=1.3.6,<2  # pinned upper bound (supply-chain)
+pandas>=2.2.0,<3  # pinned upper bound (supply-chain)
+zstandard>=0.22.0,<1  # pinned upper bound (supply-chain)
 
 # Desktop GUI & Qt Framework
-pywebview>=5.0.0
+pywebview>=5.0.0,<7  # pinned upper bound (supply-chain)
 
 # Packaging & Standalone Executable
-pyinstaller>=6.0.0
+pyinstaller>=6.0.0,<7  # pinned upper bound (supply-chain)
 
 # Security, Cryptography & Licensing
-cryptography>=42.0.0
-pydantic>=2.6.0
-pydantic-settings>=2.2.0
+cryptography>=42.0.0,<46  # pinned upper bound (supply-chain)
+pydantic>=2.6.0,<3  # pinned upper bound (supply-chain)
+pydantic-settings>=2.2.0,<3  # pinned upper bound (supply-chain)
 
 # Structured Logging & Utilities
-structlog>=24.1.0
-python-dotenv>=1.0.0
+structlog>=24.1.0,<26  # pinned upper bound (supply-chain)
+python-dotenv>=1.0.0,<2  # pinned upper bound (supply-chain)

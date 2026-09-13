@@ -1,55 +1,41 @@
 """AI Diagnostic Copilot & Automated Telemetry Intelligence Engine.
 
 Provides multi-domain root-cause analysis, dynamic fault correlation, offline Causal Bayesian
-inference, Turkish/English automotive NLP tokenization, and optional live Google Gemini / OpenAI Cloud LLMs.
+inference, Turkish/English automotive NLP tokenization, and deterministic expert analysis.
+
+FULLY OFFLINE (operator decision, M7): the cloud-LLM narration layer (Gemini/
+OpenAI, llm_narrator.py) was removed. This module is the entire AI: a
+deterministic evidence engine. Severity and action triggers originate here
+only. Offline guarantees: same input -> same output, no network calls, no
+API keys, no data leaves the host.
 """
 
 from __future__ import annotations
 
 import json
-import os
 import re
 import threading
 import time
-import urllib.error
-import urllib.request
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any
 
 from src.core.logging import get_logger
-from src.safety.secret_provider import SecretProvider
 
 logger = get_logger("engine.ai_copilot")
 
-# Single endpoint constant — the API key travels in the x-goog-api-key
-# header, never in the URL (CWE-598). Keep the model name in sync with
-# README (F-42 / E-9).
-#
-# Model rotation without a code change: UCAN_GEMINI_MODEL overrides the
-# default (e.g. "gemini-2.5-flash"). The endpoint is derived lazily so the
-# override applies process-wide; invalid values simply keep the default.
-DEFAULT_GEMINI_MODEL = "gemini-2.0-flash"
-
-_GEMINI_MODEL_CANDIDATES = (
-    "gemini-2.0-flash",
-    "gemini-2.5-flash",
-    "gemini-2.5-pro",
-    "gemini-1.5-flash",
-)
+_VIN_RE = re.compile(r"\b[A-HJ-NPR-Z0-9]{17}\b")
 
 
-def _resolve_gemini_model() -> str:
-    override = os.environ.get("UCAN_GEMINI_MODEL", "").strip()
-    if override and override in _GEMINI_MODEL_CANDIDATES:
-        return override
-    return DEFAULT_GEMINI_MODEL
+def mask_vin_in_text(text: str) -> str:
+    """Mask all but the last 6 chars of any 17-char VIN in free text."""
 
+    def _repl(m: re.Match[str]) -> str:
+        vin = m.group(0)
+        return "*" * 11 + vin[-6:]
 
-def gemini_endpoint() -> str:
-    """Resolved Gemini generateContent endpoint (model from env override)."""
-    return f"https://generativelanguage.googleapis.com/v1beta/models/{_resolve_gemini_model()}:generateContent"
+    return _VIN_RE.sub(_repl, str(text))
 
 
 class FaultSeverity(Enum):
@@ -706,12 +692,14 @@ def explain_can_packet(
             actions = [make_j1939_dm11_action()]
             return (f"{line1}\n{line2}\n{line3}", actions)
 
-        # PGN 65249 ET1 (Engine Temperature 1)
+        # PGN 65249 Engine Hours, Revolutions (REVIEW3 #5: previously
+        # mislabelled ET1/coolant — 0xFEE1 is Engine Hours per SAE
+        # J1939-71; rendering its LSB as °C fabricated overheat readings).
         if pgn == 65249:
-            coolant_t = (payload_bytes[0] - 40) if len(payload_bytes) >= 1 else 0
-            line1 = f"🚛 **SAE J1939 Paket Analizi (ID: 0x{can_id:08X} - PGN 65249 / ET1):**"
-            line2 = "• **Sistem:** Motor Sıcaklığı 1 (Engine Temperature 1)"
-            line3 = f"• **Çözülen Sinyaller:** Motor Soğutma Sıvısı Sıcaklığı (SPN 110): `{coolant_t}°C`."
+            hours_raw = (payload_bytes[0] | (payload_bytes[1] << 8) if len(payload_bytes) >= 2 else 0)
+            line1 = f"🚛 **SAE J1939 Paket Analizi (ID: 0x{can_id:08X} - PGN 65249 / Engine Hours):**"
+            line2 = "• **Sistem:** Motor Çalışma Saatleri (Engine Hours, Revolutions)"
+            line3 = f"• **Çözülen Sinyaller:** Toplam Motor Çalışma Süresi (SPN 237): `{hours_raw / 20.0:.1f} saat` (1/20 h/bit)."
             return (f"{line1}\n{line2}\n{line3}", [])
 
         # PGN 65263 EFL_P1 (Engine Fluid Level/Pressure 1)
@@ -723,12 +711,14 @@ def explain_can_packet(
             line3 = f"• **Çözülen Sinyaller:** Motor Yağ Basıncı (SPN 100): `{oil_bar:.2f} Bar` ({oil_press_kpa} kPa)."
             return (f"{line1}\n{line2}\n{line3}", [])
 
-        # PGN 65262 ET2 (Engine Temperature 2)
+        # PGN 65262 ET1 (Engine Temperature 1) — REVIEW3 #5: this is the
+        # real ET1 (0xFEEE, SPN 110 coolant, byte 0, -40 °C offset), which
+        # the old table mislabelled as ET2/oil temperature.
         if pgn == 65262:
-            oil_temp = (((payload_bytes[3] << 8 | payload_bytes[2]) * 0.03125) - 273) if len(payload_bytes) >= 4 else 0.0
-            line1 = f"🚛 **SAE J1939 Paket Analizi (ID: 0x{can_id:08X} - PGN 65262 / ET2):**"
-            line2 = "• **Sistem:** Motor Sıcaklığı 2 (Engine Temperature 2)"
-            line3 = f"• **Çözülen Sinyaller:** Motor Yağ Sıcaklığı (SPN 175): `{oil_temp:.1f}°C`."
+            coolant_t = (payload_bytes[0] - 40) if len(payload_bytes) >= 1 else 0
+            line1 = f"🚛 **SAE J1939 Paket Analizi (ID: 0x{can_id:08X} - PGN 65262 / ET1):**"
+            line2 = "• **Sistem:** Motor Sıcaklığı 1 (Engine Temperature 1)"
+            line3 = f"• **Çözülen Sinyaller:** Motor Soğutma Sıvısı Sıcaklığı (SPN 110): `{coolant_t}°C`."
             return (f"{line1}\n{line2}\n{line3}", [])
 
         # PGN 65269 AMB (Ambient Conditions)
@@ -1384,6 +1374,7 @@ def _resolve_external_data_dir() -> Path:
 
 _EXTERNAL_DATA_DIR: Path = _resolve_external_data_dir()
 _CACHED_J1939_DB: dict[str, Any] | None = None
+_CACHED_NHTSA_COMPLAINTS_DB: dict[str, Any] | None = None
 _CACHED_UDS_DID_DB: dict[str, Any] | None = None
 _CACHED_MODE06_DB: dict[str, Any] | None = None
 _CACHED_EXTENDED_PID_DB: dict[str, Any] | None = None
@@ -1487,6 +1478,33 @@ def get_j1939_spn_database(data_path: Path | str | None = None) -> dict[str, Any
             return data
     except Exception as exc:
         logger.warning("Failed to load J1939 database: %s", exc)
+    return {}
+
+
+def get_nhtsa_complaints_database(data_path: Path | str | None = None) -> dict[str, Any]:
+    """Load and return the NHTSA owner-complaint corpus (per-DTC field evidence).
+
+    REVIEW (Tur-27 P2, @tuner AI plan Boguluk 7): the 5.9 MB complaint corpus was
+    merged into data/diagnostics but had no accessor — no code could reach it.
+    Read-only: no network/HAL imports (AI-TX isolation invariant preserved).
+    """
+    global _CACHED_NHTSA_COMPLAINTS_DB
+    if _CACHED_NHTSA_COMPLAINTS_DB is not None and data_path is None:
+        return _CACHED_NHTSA_COMPLAINTS_DB
+
+    target = Path(data_path) if data_path else _EXTERNAL_DATA_DIR / "nhtsa_can_complaints_database.json"
+    if not target.exists():
+        logger.warning("NHTSA complaints database not found at %s", target)
+        return {}
+
+    try:
+        data = json.loads(target.read_text(encoding="utf-8", errors="replace"))
+        if isinstance(data, dict):
+            if data_path is None:
+                _CACHED_NHTSA_COMPLAINTS_DB = data
+            return data
+    except Exception as exc:
+        logger.warning("Failed to load NHTSA complaints database: %s", exc)
     return {}
 
 
@@ -2461,6 +2479,43 @@ class CausalBayesianInferenceEngine:
 
         telemetry_str = f" | {rpm:.0f} RPM, {boost:.2f} Bar, {temp:.1f}°C" if rpm > 0 or boost > 0 else ""
 
+        # REVIEW (Tur-27 P0, @tuner AI plan Boguluk 2): merge edilmis ama HIC okunmayan
+        # OEM zenginlik katmanlari. Geriye-uyumlu: alan yoksa blok uretilmez.
+        oem_block = ""
+        ov = info.get("oem_variants")
+        if isinstance(ov, list) and ov:
+            lines = []
+            for item in ov[:3]:
+                if isinstance(item, dict):
+                    mk = item.get("manufacturer") or item.get("make") or "OEM"
+                    ds = item.get("description") or item.get("meaning") or ""
+                    if ds:
+                        lines.append(f"  • **{mk}:** {str(ds)[:160]}")
+                elif isinstance(item, str):
+                    lines.append(f"  • {item[:160]}")
+            if lines:
+                oem_block += "\n\n🏭 **OEM Varyantları (aynı kod, marka bazlı anlam):**\n" + "\n".join(lines)
+
+        gm = info.get("gm_monitor")
+        if isinstance(gm, dict) and (gm.get("parameter") or gm.get("monitor")):
+            p = str(gm.get("parameter", ""))[:120]
+            mo = str(gm.get("monitor", ""))[:220]
+            oem_block += f"\n\n🔬 **GM Monitor Testi:** {p}" + (f"\n  *Koşul:* {mo}" if mo else "")
+
+        ev = info.get("nhtsa_evidence")
+        if isinstance(ev, list) and ev:
+            e0 = ev[0] if isinstance(ev[0], dict) else {}
+            mv = " ".join(str(e0.get(k, "")) for k in ("make", "model", "year") if e0.get(k)).strip()
+            sym = str(e0.get("symptom", ""))[:200]
+            if mv or sym:
+                oem_block += f"\n\n📊 **Alan Kanıtı (NHTSA):** {mv}" + (f"\n  *Şikayet:* {sym}" if sym else "")
+            # Tur-27 P2: kac araçta raporlanmis? nhtsa_evidence kendi kapsamini tasir
+            # (complaints corpus'u DTC metni icermez — oradan sayim yaniltici olur).
+            if len(ev) > 1:
+                _makes = {str(x.get("make", "")).strip() for x in ev if isinstance(x, dict) and x.get("make")}
+                if _makes:
+                    oem_block += f"\n  *Alan kapsamı:* {len(ev)} vaka / {len(_makes)} marka"
+
         report_text = (
             f"🚨 **[{code}] — {info.get('title', code)}** *(Öncelik: {info.get('severity', 'MEDIUM')})*\n"
             f"🏷️ **Alt Sistem:** {info.get('subsystem', 'Genel Teşhis')}{telemetry_str}\n\n"
@@ -2471,6 +2526,7 @@ class CausalBayesianInferenceEngine:
             f"💻 **Aşama 3: UDS / J1939 Özel Teşhis Rutinleri:**\n  • `{routine_block}`\n"
             f"🔧 **Aşama 4: Parça Değişim & Adaptasyon Prosedürü:**\n  • Parça değişimi sonrası kontak açıkken `UDS 0x14` ile arıza hafızasını temizleyin."
             f"{nhtsa_block}"
+            f"{oem_block}"
         )
         actions = [make_uds_clear_dtc_action()]
         if "0x31" in routine_block:
@@ -2493,7 +2549,7 @@ class CausalBayesianInferenceEngine:
         range_info = spn_entry.get("range", [spn_entry.get("range_min", 0), spn_entry.get("range_max", 0)])
         range_str = f"{range_info[0]}..{range_info[1]} {unit}" if isinstance(range_info, list) and len(range_info) >= 2 else f"{range_info} {unit}"
 
-        fmi_match = re.search(r"\bfmi\s*([0-9]+)\b", query)
+        fmi_match = re.search(r"\bfmi\s*([0-9]+)\b", query, re.I)
         fmi_info_str = ""
         if fmi_match:
             fmi_num = fmi_match.group(1)
@@ -2515,6 +2571,63 @@ class CausalBayesianInferenceEngine:
                     f"• **Eylem:** {fmi_tree.get('diagnostic_action', fmi_tree.get('action', 'Sensör devresini kontrol edin.'))}\n\n"
                 )
 
+        # REVIEW (Tur-27 P0, @tuner AI plan Boguluk 2): SPN girdilerindeki OEM saha
+        # kanıtları (dd_procedures, oem_field_evidence) daha once raporda HIC gorunmuyordu.
+        oem_lines: list[str] = []
+        _seen_lines: set[str] = set()
+
+        def _add_line(txt: str, limit: int = 170) -> None:
+            t = txt[:limit]
+            if t and t not in _seen_lines:
+                _seen_lines.add(t)
+                oem_lines.append(f"  • {t}")
+
+        dd = spn_entry.get("dd_procedures")
+        if isinstance(dd, list) and dd:
+            shown = 0
+            for p in dd:
+                if shown >= 3:
+                    break
+                if isinstance(p, dict):
+                    t = p.get("title") or p.get("step") or p.get("description") or ""
+                    if t:
+                        before = len(oem_lines)
+                        _add_line(str(t))
+                        if len(oem_lines) > before:
+                            shown += 1
+                elif isinstance(p, str) and p.strip():
+                    before = len(oem_lines)
+                    _add_line(p)
+                    if len(oem_lines) > before:
+                        shown += 1
+        fe = spn_entry.get("oem_field_evidence")
+        if isinstance(fe, list) and fe:
+            for e in fe[:2]:
+                if isinstance(e, dict):
+                    mk = e.get("manufacturer") or e.get("oem") or ""
+                    tx = e.get("evidence") or e.get("note") or e.get("description") or ""
+                    if tx:
+                        _add_line(f"**{mk}:** {tx}" if mk else str(tx), 150)
+                elif isinstance(e, str):
+                    _add_line(e, 150)
+        oem_block = ""
+        if oem_lines:
+            _fmi_hdr = ""
+            if fmi_match:
+                _fmi_hdr = f" (SPN {spn} seviyesinde)"
+            oem_block = f"\n\n🔧 **OEM Saha Prosedürü / Kanıtı{_fmi_hdr}:**\n" + "\n".join(oem_lines)
+
+        # FMI severity rapora tasi (Boguluk 3, P1)
+        if fmi_match and fmi_tree:
+            _sev = str(fmi_tree.get("severity", "")).upper()
+            if _sev:
+                oem_block += f"\n\n⚠️ **FMI Önem Derecesi:** {_sev}"
+            # oem_occurrences de zengin ama raporda gorunmuyordu (Tur-27 P0)
+            _occ = fmi_tree.get("oem_occurrences")
+            if isinstance(_occ, list) and _occ:
+                _show = [str(x)[:60] for x in _occ[:5]]
+                oem_block += "\n\n🚚 **Görüldüğü Araçlar/Platformlar:** " + ", ".join(_show)
+
         report_text = (
             f"🚛 **[SPN {spn}] — {title_tr} ({name})**\n"
             f"🏷️ **Alt Sistem:** {subsystem} | **PGN:** {pgn} | **Aralık:** {range_str}\n"
@@ -2523,6 +2636,7 @@ class CausalBayesianInferenceEngine:
             f"📋 **SAE J1939-73 Saha Teşhis Adımları:**\n"
             f"1. CAN hattında PGN {pgn} periyodunu ve DM1 aktif arıza lambasını kontrol edin.\n"
             f"2. Sensör besleme voltajını (5V/12V) ve şasi hattını multimetre ile test edin."
+            f"{oem_block}"
         )
         actions = [make_j1939_dm1_action(), make_j1939_dm11_action()]
         return attach_action_triggers(report_text, actions)
@@ -2531,95 +2645,305 @@ class CausalBayesianInferenceEngine:
 
 
 # ============================================================================
-# MAIN AI DIAGNOSTIC COPILOT (HYBRID LOCAL / CLOUD ENGINE)
+# MAIN AI DIAGNOSTIC COPILOT (DETERMINISTIC OFFLINE ENGINE)
 # ============================================================================
 
+# ----------------------------------------------------------------------------
+# U4 (plan FAZ 3.3): the 7 hardcoded expert scenarios as module-level
+# ScenarioRule data. Each body is the VERBATIM original block from
+# _analyze_local_expert (code motion only — behavior must be preserved
+# bit-for-bit; tests/unit/test_ai_copilot.py is the locked acceptance test).
+# ----------------------------------------------------------------------------
+@dataclass(slots=True)
+class ScenarioContext:
+    """Mutable accumulator shared by scenario bodies (original local vars)."""
+
+    dtcs: list[dict[str, object]]
+    rpm: float
+    boost_bar: float
+    coolant_temp: float
+    severity: "FaultSeverity"
+    likely_causes: list[str]
+    steps: list["TroubleshootingStep"]
+    correlations: list[str]
+    affected: list[str]
+
+
+@dataclass(slots=True, frozen=True)
+class ScenarioRule:
+    """One deterministic expert scenario: DTC pattern + telemetry trigger + body."""
+
+    name: str
+    matches: Any  # predicate (d: dict) -> bool — also defines handled_indices
+    telemetry_trigger: Any  # predicate (rpm, boost, coolant) -> bool (fires w/o DTCs)
+    body: Any  # (ctx: ScenarioContext) -> int  (matched DTC count)
+
+
+def _oil_matches(d: dict[str, object]) -> bool:
+    return d.get("spn") == 100
+
+
+def _raise_severity(current: FaultSeverity, candidate: FaultSeverity) -> FaultSeverity:
+    """Monotonic (raise-only) severity merge.
+
+    REVIEW (severity downgrade): scenario bodies assigning MEDIUM
+    unconditionally overwrote an earlier CRITICAL_STOP verdict — a vehicle
+    with a critical oil-pressure fault PLUS an injector DTC reported only
+    MEDIUM. Severity can only rise; order of scenario evaluation is then
+    irrelevant.
+    """
+    # ponytail: enum members are INFO/LOW/MEDIUM/CRITICAL_STOP only — the
+    # legacy HIGH/CRITICAL rungs no longer exist on FaultSeverity.
+    _order = {FaultSeverity.INFO: 0, FaultSeverity.LOW: 1, FaultSeverity.MEDIUM: 2, FaultSeverity.CRITICAL_STOP: 3}
+    return candidate if _order[candidate] > _order[current] else current
+
+
+def _oil_body(ctx: ScenarioContext) -> int:
+    matched = sum(1 for d in ctx.dtcs if _oil_matches(d))
+    if not any(_oil_matches(d) for d in ctx.dtcs):
+        return 0
+    ctx.severity = FaultSeverity.CRITICAL_STOP
+    ctx.affected.append("Motor Yağlama & Yatak Sistemi")
+    ctx.likely_causes.append(
+        "Kritik düşük yağ basıncı (Yağ pompası aşınması, karterde yağ eksilmesi veya filtre tıkanıklığı)"
+    )
+    ctx.steps.append(
+        TroubleshootingStep(
+            1,
+            "Motoru derhal durdurun ve yağ çubuğundan yağ seviyesini kontrol edin.",
+            "Yağ Karteri / Çubuğu",
+            "Kolay (Görsel)",
+        )
+    )
+    ctx.steps.append(
+        TroubleshootingStep(
+            2,
+            "Mekanik yağ basınç göstergesi ile karter basıncını ölçün (Rölantide min 1.0 bar, 2000 RPM'de 3.0 bar).",
+            "Yağ Basınç Sensörü Portu",
+            "Orta (Alet Gerekir)",
+        )
+    )
+    ctx.correlations.append(
+        f"Kritik yağ basıç arızası mevcutken motor devri {ctx.rpm:.0f} RPM seviyesinde; yatak sarma riski çok yüksek!"
+    )
+    return matched
+
+
+def _ev_matches(d: dict[str, object]) -> bool:
+    return str(d.get("code", "")).upper() in {"P0AA6", "P0A0B", "P0A80", "P0A93"}
+
+
+def _ev_body(ctx: ScenarioContext) -> int:
+    matched = sum(1 for d in ctx.dtcs if _ev_matches(d))
+    if matched == 0:
+        return 0
+    ctx.severity = FaultSeverity.CRITICAL_STOP
+    ctx.affected.append("EV Yüksek Voltaj Güvenlik & Batarya")
+    ctx.likely_causes.append("Yüksek voltaj izolasyon direnci düşüklüğü veya HVIL interlock güvenlik hattı kesintisi.")
+    ctx.steps.append(
+        TroubleshootingStep(
+            len(ctx.steps) + 1,
+            "LOTO güvenlik protokolünü uygulayın: MSD şalterini çekin, 10 dk bekleyin, 1000V DMM ile sıfır enerji teyidi yapın.",
+            "Manuel Servis Şalteri (MSD)",
+            "İleri (Servis)",
+        )
+    )
+    ctx.steps.append(
+        TroubleshootingStep(
+            len(ctx.steps) + 1,
+            "Fluke 1587 / Megger ile 500V/1000V DC testinde HV+ ve HV- hatlarının şasiye izolasyon direncini ölçün (>50 MΩ olmalıdır).",
+            "HV Güç Hatları & Kompresör",
+            "İleri (Servis)",
+        )
+    )
+    ctx.correlations.append("Yüksek voltaj güvenlik kilidi devrede; kontaktörler ark yapmadan otomatik açıldı.")
+    return matched
+
+
+def _injector_matches(d: dict[str, object]) -> bool:
+    return isinstance(d.get("spn"), int) and 651 <= d.get("spn", 0) <= 656
+
+
+def _injector_body(ctx: ScenarioContext) -> int:
+    count = sum(1 for d in ctx.dtcs if _injector_matches(d))
+    for d in ctx.dtcs:
+        spn = d.get("spn")
+        if isinstance(spn, int) and 651 <= spn <= 656:
+            cyl_idx = spn - 650
+            ctx.severity = _raise_severity(ctx.severity, FaultSeverity.MEDIUM)
+            ctx.affected.append(f"Silindir #{cyl_idx} Yakıt Enjeksiyonu")
+            ctx.likely_causes.append(f"Silindir #{cyl_idx} enjektör devresi arızası (Açık devre, kısa devre veya geri dönüş kaçağı).")
+            ctx.steps.append(
+                TroubleshootingStep(
+                    len(ctx.steps) + 1,
+                    f"Silindir #{cyl_idx} enjektör bobin direncini (0.35 - 0.55 Ω) ölçün.",
+                    f"{cyl_idx}. Silindir Enjektörü",
+                    "Orta (Alet Gerekir)",
+                )
+            )
+    return count
+
+
+def _dpf_matches(d: dict[str, object]) -> bool:
+    return d.get("spn") in {3251, 3719} or "DPF" in str(d.get("description", "")).upper()
+
+
+def _dpf_body(ctx: ScenarioContext) -> int:
+    matched = sum(1 for d in ctx.dtcs if _dpf_matches(d))
+    if matched == 0:
+        return 0
+    ctx.severity = _raise_severity(ctx.severity, FaultSeverity.MEDIUM)
+    ctx.affected.append("Egzoz & DPF Sistemi")
+    ctx.likely_causes.append("DPF partikül filtresi aşırı kurum yükü veya fark basınç sensörü arızası.")
+    ctx.steps.append(
+        TroubleshootingStep(
+            len(ctx.steps) + 1,
+            "DPF fark basınç sensörü hortumlarını ve kurum yükünü kontrol edin.",
+            "DPF Filtresi & Sensörü",
+            "Kolay (Görsel)",
+        )
+    )
+    return matched
+
+
+def _misfire_matches(d: dict[str, object]) -> bool:
+    return str(d.get("code", "")).upper().startswith("P030")
+
+
+def _misfire_body(ctx: ScenarioContext) -> int:
+    count = sum(1 for d in ctx.dtcs if _misfire_matches(d))
+    if count == 0:
+        return 0
+    if ctx.severity != FaultSeverity.CRITICAL_STOP:
+        ctx.severity = FaultSeverity.MEDIUM
+    ctx.affected.append("Silindir Ateşleme & Enjeksiyon")
+    ctx.likely_causes.append("Ateşleme bobini izolasyon kaçağı, buji elektrot aşınması veya enjektör tıkanıklığı.")
+    ctx.steps.append(
+        TroubleshootingStep(
+            len(ctx.steps) + 1,
+            "Osilatör ekranında ateşleme bobini sekonder dalga formunu ve krank devir çentiklerini izleyin.",
+            "Ateşleme Bobinleri & Bujiler",
+            "Orta (Alet Gerekir)",
+        )
+    )
+    ctx.correlations.append(f"Motor {ctx.rpm:.0f} RPM devirde silindir teklemesi nedeniyle tork dalgalanması yaşıyor.")
+    return count
+
+
+def _turbo_matches(d: dict[str, object]) -> bool:
+    return str(d.get("code", "")).upper() in {"P0234", "P0299"} or d.get("spn") == 102
+
+
+def _turbo_body(ctx: ScenarioContext) -> int:
+    turbo_count = sum(1 for d in ctx.dtcs if _turbo_matches(d))
+    if turbo_count == 0 and not (ctx.boost_bar > 2.5):
+        return 0
+    if ctx.severity != FaultSeverity.CRITICAL_STOP:
+        ctx.severity = FaultSeverity.MEDIUM
+    ctx.affected.append("Aşırı Doldurma & Turboşarj")
+    ctx.likely_causes.append("Wastegate mekanik sıkışması, N75 selenoid arızası veya intercooler hortum kaçağı.")
+    ctx.steps.append(
+        TroubleshootingStep(
+            len(ctx.steps) + 1,
+            "Vakum pompası ile wastegate aktüatör kolunun hareketini test edin (0.6 barda tam açılmalıdır).",
+            "Wastegate / VGT Aktüatörü",
+            "Orta (Alet Gerekir)",
+        )
+    )
+    ctx.correlations.append(f"Turbo basıncı {ctx.boost_bar:.2f} Bar seviyesinde; hedef basınç aralığından sapma var.")
+    return turbo_count
+
+
+def _overheat_matches(d: dict[str, object]) -> bool:
+    return str(d.get("code", "")).upper() == "P0115" or d.get("spn") == 110
+
+
+def _overheat_body(ctx: ScenarioContext) -> int:
+    heat_count = sum(1 for d in ctx.dtcs if _overheat_matches(d))
+    if not (ctx.coolant_temp > 103.0 or heat_count > 0):
+        return 0
+    if ctx.coolant_temp > 108.0 or any(d.get("spn") == 110 and d.get("fmi") == 0 for d in ctx.dtcs):
+        ctx.severity = FaultSeverity.CRITICAL_STOP
+    elif ctx.severity != FaultSeverity.CRITICAL_STOP:
+        ctx.severity = FaultSeverity.MEDIUM
+    ctx.affected.append("Termal Yönetim & Soğutma")
+    ctx.likely_causes.append("Termostat kapalı kalması, radyatör fan arızası veya soğutma sıvısı seviye düşüklüğü.")
+    ctx.steps.append(
+        TroubleshootingStep(
+            len(ctx.steps) + 1,
+            "Radyatör alt hortumunu kontrol edin; soğuksa termostat açmıyordur.",
+            "Termostat & Radyatör Hortumu",
+            "Kolay (Görsel)",
+        )
+    )
+    ctx.correlations.append(f"Motor soğutma sıvısı {ctx.coolant_temp:.1f}°C sıcaklıkta; kritik hararet eşiğinde!")
+    return heat_count
+
+
+SCENARIO_RULES: tuple[ScenarioRule, ...] = (
+    ScenarioRule(name="oil-pressure", matches=_oil_matches, telemetry_trigger=lambda r, b, t: False, body=_oil_body),
+    ScenarioRule(name="ev-hv-safety", matches=_ev_matches, telemetry_trigger=lambda r, b, t: False, body=_ev_body),
+    ScenarioRule(name="injector", matches=_injector_matches, telemetry_trigger=lambda r, b, t: False, body=_injector_body),
+    ScenarioRule(name="dpf", matches=_dpf_matches, telemetry_trigger=lambda r, b, t: False, body=_dpf_body),
+    ScenarioRule(name="misfire", matches=_misfire_matches, telemetry_trigger=lambda r, b, t: False, body=_misfire_body),
+    ScenarioRule(name="turbo", matches=_turbo_matches, telemetry_trigger=lambda r, b, t: b > 2.5, body=_turbo_body),
+    ScenarioRule(name="overheat", matches=_overheat_matches, telemetry_trigger=lambda r, b, t: t > 103.0, body=_overheat_body),
+)
+
+# REVIEW (Tur-27 P1, @tuner AI plan Boguluk 4): bilinen iliskili DTC kumeleri.
+# Tek kod yerine KUME olarak degerlendirilirse kok neden daha isabetli cikar
+# (orn. NOx cifti = SCR verim kaybi, misfire seti = atesleme/yakit sistemi).
+# Uydurma yok: her cift SAE J1939 / SAE J2012 dokumante edilmis iliskidir.
+_RELATED_CODE_GROUPS: tuple[tuple[frozenset[str], str], ...] = (
+    (frozenset({"SPN3216", "SPN3226"}), "NOx sensör çifti — SCR verim/kalibrasyon kaybı"),
+    (frozenset({"SPN3226", "SPN3364"}), "NOx + SCR sistemi — dozaj/yakıt kalitesi"),
+    (frozenset({"SPN3251", "SPN4364"}), "DPF + SCR aftertreatment zinciri"),
+    (frozenset({"P0299", "P0401"}), "Turbo düşük basınç + EGR akış yetersizliği (ortak hava yolu)"),
+    (frozenset({"P0171", "P0174"}), "Bank 1+2 fakir karışım — vakum kaçağı / MAF"),
+    (frozenset({"P0300", "P0301"}), "Rastgele + silindir 1 teklemesi — ateşleme/enjektör"),
+    (frozenset({"P0300", "P0302"}), "Rastgele + silindir 2 teklemesi — ateşleme/enjektör"),
+    (frozenset({"U0100", "P0620"}), "CAN haberleşme kaybı + alternatör kontrol — besleme/şase"),
+    (frozenset({"P0087", "P0088"}), "Yakıt rayı basıncı düşük+yüksek — basınç regülatörü/pompa"),
+    (frozenset({"P2002", "P2453"}), "DPF verim + diferansiyel basınç sensörü — tıkanıklık"),
+)
+
+# SPN kodu -> "SPN<num>" metnine ceviren yardimci (kume eslesmesi icin)
+_CODE_ALIAS_RE = re.compile(r"^SPN[_ ]?(\d+)$", re.I)
+
+
 class AiDiagnosticCopilot:
-    """Intelligent reasoning engine analyzing DTCs, telemetry signals, and ECU health."""
+    """Intelligent reasoning engine analyzing DTCs, telemetry signals, and ECU health.
 
-    def __init__(
-        self,
-        gemini_api_key: str | None = None,
-        openai_api_key: str | None = None,
-        provider: str = "auto",
-        secret_provider: SecretProvider | None = None,
-    ) -> None:
-        self._gemini_api_key = gemini_api_key
-        # L-8 (P3-3): the OpenAI key is no longer a public plaintext
-        # attribute (it leaked through repr()/pickling and survived
-        # set_key_provider). Same vault-property pattern as the Gemini key.
-        self._openai_api_key = openai_api_key
-        self.provider = provider
-        self._key_provider: SecretProvider | None = secret_provider
+    Fully offline (operator decision, M7): no cloud LLM, no API keys, no
+    network calls. Severity and action triggers originate here only.
+    Same input -> same output, auditable under ISO 26262.
+    """
 
-    def set_key_provider(self, secret_provider: SecretProvider) -> None:
-        """Route all API key lookups through the secret vault (F-08).
+    def __init__(self, **_legacy_kwargs: object) -> None:
+        """Legacy bridge/API kwargs (gemini_api_key, openai_api_key, provider,
+        secret_provider, require_consent, set_key_provider callers) are
+        accepted and silently ignored — the engine is fully offline."""
+        pass
 
-        The key is never stored as a plain attribute and never logged.
-        """
-        self._key_provider = secret_provider
-        # Drop any previously held plain-text key (L-8: BOTH providers now)
-        self._gemini_api_key = None
-        self._openai_api_key = None
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}()  # fully offline deterministic engine"
 
-    @property
-    def gemini_api_key(self) -> str | None:
-        """Resolve the Gemini key from the vault; plain ctor key only as legacy fallback."""
-        if self._key_provider is not None:
-            try:
-                return self._key_provider.get_secret("GEMINI_API_KEY").decode("utf-8")
-            except KeyError:
-                return None
-        return self._gemini_api_key
-
-    @property
-    def openai_api_key(self) -> str | None:
-        """Resolve the OpenAI key from the vault; plain ctor key only as legacy fallback (L-8)."""
-        if self._key_provider is not None:
-            try:
-                return self._key_provider.get_secret("OPENAI_API_KEY").decode("utf-8")
-            except KeyError:
-                return None
-        return self._openai_api_key
-
-    @staticmethod
-    def _clean_and_parse_json(raw_text: str) -> dict[str, Any]:
-        """Extract and parse JSON object from markdown, backticks, or conversational text."""
-        start = raw_text.find("{")
-        end = raw_text.rfind("}")
-        if start != -1 and end != -1 and start < end:
-            result: dict[str, Any] = json.loads(raw_text[start : end + 1])
-            return result
-        fallback: dict[str, Any] = json.loads(raw_text)
-        return fallback
+    def set_key_provider(self, _secret_provider: object) -> None:
+        """Legacy API no-op: no cloud keys exist anymore (fully offline)."""
+        pass
 
     def analyze_session(
         self,
         active_dtcs: list[dict[str, object]],
         telemetry_snapshot: dict[str, float],
         active_ecus: list[str],
+        user_consented: bool = False,
     ) -> DiagnosticAnalysisReport:
-        """Perform deterministic expert analysis or trigger Google Gemini / OpenAI LLM."""
-        if self.provider == "openai" or (
-            self.provider == "auto" and self.openai_api_key and len(self.openai_api_key.strip()) > 10
-        ):
-            try:
-                return self._analyze_with_openai(active_dtcs, telemetry_snapshot, active_ecus)
-            except Exception as exc:
-                logger.warning("OpenAI API call failed, trying fallback", extra={"error": str(exc)})
+        """Perform deterministic offline expert analysis.
 
-        if self.gemini_api_key and len(self.gemini_api_key.strip()) > 10:
-            try:
-                return self._analyze_with_gemini(active_dtcs, telemetry_snapshot, active_ecus)
-            except (urllib.error.URLError, json.JSONDecodeError, KeyError, TimeoutError, OSError) as exc:
-                # M-02: never log raw exception strings from the API path —
-                # urllib errors can echo the full request URL (which may carry
-                # the API key). Log the type + safe code only.
-                logger.warning(
-                    "Gemini API call failed, falling back to local expert engine",
-                    extra={"error_type": type(exc).__name__, "detail": getattr(exc, "reason", None)},
-                )
-
+        ``user_consented`` is accepted (and ignored) for bridge/API backward
+        compatibility — no cloud call exists anymore.
+        """
         return self._analyze_local_expert(active_dtcs, telemetry_snapshot, active_ecus)
 
     def _analyze_local_expert(
@@ -2646,182 +2970,54 @@ class AiDiagnosticCopilot:
         scenario_matched_count = 0
         kb_matched_count = 0
 
-        # Scenario 1: Oil Pressure Fault (SPN 100)
-        if any(d.get("spn") == 100 for d in active_dtcs):
-            scenario_matched_count += sum(1 for d in active_dtcs if d.get("spn") == 100)
-            severity = FaultSeverity.CRITICAL_STOP
-            affected.append("Motor Yağlama & Yatak Sistemi")
-            likely_causes.append(
-                "Kritik düşük yağ basıncı (Yağ pompası aşınması, karterde yağ eksilmesi veya filtre tıkanıklığı)"
-            )
-            steps.append(
-                TroubleshootingStep(
-                    1,
-                    "Motoru derhal durdurun ve yağ çubuğundan yağ seviyesini kontrol edin.",
-                    "Yağ Karteri / Çubuğu",
-                    "Kolay (Görsel)",
-                )
-            )
-            steps.append(
-                TroubleshootingStep(
-                    2,
-                    "Mekanik yağ basınç göstergesi ile karter basıncını ölçün (Rölantide min 1.0 bar, 2000 RPM'de 3.0 bar).",
-                    "Yağ Basınç Sensörü Portu",
-                    "Orta (Alet Gerekir)",
-                )
-            )
-            correlations.append(
-                f"Kritik yağ basınç arızası mevcutken motor devri {rpm:.0f} RPM seviyesinde; yatak sarma riski çok yüksek!"
-            )
-
-        # Scenario 2: EV Battery Isolation Fault (P0AA6 / P0A0B)
-        ev_codes = {"P0AA6", "P0A0B", "P0A80", "P0A93"}
-        if any(str(d.get("code", "")).upper() in ev_codes for d in active_dtcs):
-            scenario_matched_count += sum(1 for d in active_dtcs if str(d.get("code", "")).upper() in ev_codes)
-            severity = FaultSeverity.CRITICAL_STOP
-            affected.append("EV Yüksek Voltaj Güvenlik & Batarya")
-            likely_causes.append("Yüksek voltaj izolasyon direnci düşüklüğü veya HVIL interlock güvenlik hattı kesintisi.")
-            steps.append(
-                TroubleshootingStep(
-                    len(steps) + 1,
-                    "LOTO güvenlik protokolünü uygulayın: MSD şalterini çekin, 10 dk bekleyin, 1000V DMM ile sıfır enerji teyidi yapın.",
-                    "Manuel Servis Şalteri (MSD)",
-                    "İleri (Servis)",
-                )
-            )
-            steps.append(
-                TroubleshootingStep(
-                    len(steps) + 1,
-                    "Fluke 1587 / Megger ile 500V/1000V DC testinde HV+ ve HV- hatlarının şasiye izolasyon direncini ölçün (>50 MΩ olmalıdır).",
-                    "HV Güç Hatları & Kompresör",
-                    "İleri (Servis)",
-                )
-            )
-            correlations.append("Yüksek voltaj güvenlik kilidi devrede; kontaktörler ark yapmadan otomatik açıldı.")
-
-        # Scenario 3: Cylinder Injector Faults (SPN 651 - SPN 656)
-        injector_count = sum(1 for d in active_dtcs if isinstance(d.get("spn"), int) and 651 <= d.get("spn", 0) <= 656)
-        if injector_count > 0:
-            scenario_matched_count += injector_count
-        for d in active_dtcs:
-            spn = d.get("spn")
-            if isinstance(spn, int) and 651 <= spn <= 656:
-                cyl_idx = spn - 650
-                severity = FaultSeverity.MEDIUM
-                affected.append(f"Silindir #{cyl_idx} Yakıt Enjeksiyonu")
-                likely_causes.append(f"Silindir #{cyl_idx} enjektör devresi arızası (Açık devre, kısa devre veya geri dönüş kaçağı).")
-                steps.append(
-                    TroubleshootingStep(
-                        len(steps) + 1,
-                        f"Silindir #{cyl_idx} enjektör bobin direncini (0.35 - 0.55 Ω) ölçün.",
-                        f"{cyl_idx}. Silindir Enjektörü",
-                        "Orta (Alet Gerekir)",
-                    )
-                )
-
-        # Scenario 4: DPF Differential Pressure (SPN 3251 / SPN 3719)
-        if any(d.get("spn") in {3251, 3719} or "DPF" in str(d.get("description", "")).upper() for d in active_dtcs):
-            scenario_matched_count += sum(
-                1
-                for d in active_dtcs
-                if d.get("spn") in {3251, 3719} or "DPF" in str(d.get("description", "")).upper()
-            )
-            severity = FaultSeverity.MEDIUM
-            affected.append("Egzoz & DPF Sistemi")
-            likely_causes.append("DPF partikül filtresi aşırı kurum yükü veya fark basınç sensörü arızası.")
-            steps.append(
-                TroubleshootingStep(
-                    len(steps) + 1,
-                    "DPF fark basınç sensörü hortumlarını ve kurum yükünü kontrol edin.",
-                    "DPF Filtresi & Sensörü",
-                    "Kolay (Görsel)",
-                )
-            )
-
-        # Scenario 5: Misfire / Tekleme (P0300, P0301-P0304)
-        misfire_count = sum(1 for d in active_dtcs if str(d.get("code", "")).upper().startswith("P030"))
-        if misfire_count > 0:
-            scenario_matched_count += misfire_count
-            if severity != FaultSeverity.CRITICAL_STOP:
-                severity = FaultSeverity.MEDIUM
-            affected.append("Silindir Ateşleme & Enjeksiyon")
-            likely_causes.append("Ateşleme bobini izolasyon kaçağı, buji elektrot aşınması veya enjektör tıkanıklığı.")
-            steps.append(
-                TroubleshootingStep(
-                    len(steps) + 1,
-                    "Osilatör ekranında ateşleme bobini sekonder dalga formunu ve krank devir çentiklerini izleyin.",
-                    "Ateşleme Bobinleri & Bujiler",
-                    "Orta (Alet Gerekir)",
-                )
-            )
-            correlations.append(f"Motor {rpm:.0f} RPM devirde silindir teklemesi nedeniyle tork dalgalanması yaşıyor.")
-
-        # Scenario 6: Overboost / Underboost (P0234, P0299, SPN 102)
-        turbo_count = sum(
-            1
-            for d in active_dtcs
-            if str(d.get("code", "")).upper() in {"P0234", "P0299"} or d.get("spn") == 102
+        # U4 (plan FAZ 3.3): the 7 scenarios now run from SCENARIO_RULES
+        # (module-level ScenarioRule bodies are the VERBATIM original blocks;
+        # behavior identical — test_ai_copilot.py is the acceptance lock).
+        ctx = ScenarioContext(
+            dtcs=active_dtcs,
+            rpm=rpm,
+            boost_bar=boost_bar,
+            coolant_temp=coolant_temp,
+            severity=severity,
+            likely_causes=likely_causes,
+            steps=steps,
+            correlations=correlations,
+            affected=affected,
         )
-        if turbo_count > 0 or boost_bar > 2.5:
-            scenario_matched_count += turbo_count
-            if severity != FaultSeverity.CRITICAL_STOP:
-                severity = FaultSeverity.MEDIUM
-            affected.append("Aşırı Doldurma & Turboşarj")
-            likely_causes.append("Wastegate mekanik sıkışması, N75 selenoid arızası veya intercooler hortum kaçağı.")
-            steps.append(
-                TroubleshootingStep(
-                    len(steps) + 1,
-                    "Vakum pompası ile wastegate aktüatör kolunun hareketini test edin (0.6 barda tam açılmalıdır).",
-                    "Wastegate / VGT Aktüatörü",
-                    "Orta (Alet Gerekir)",
-                )
-            )
-            correlations.append(f"Turbo basıncı {boost_bar:.2f} Bar seviyesinde; hedef basınç aralığından sapma var.")
+        for rule in SCENARIO_RULES:
+            scenario_matched_count += rule.body(ctx)
+        severity = ctx.severity
 
-        # Scenario 7: Overheat / Termal Sorunlar (P0115, SPN 110)
-        heat_count = sum(
-            1
-            for d in active_dtcs
-            if str(d.get("code", "")).upper() == "P0115" or d.get("spn") == 110
-        )
-        if coolant_temp > 103.0 or heat_count > 0:
-            scenario_matched_count += heat_count
-            if coolant_temp > 108.0 or any(d.get("spn") == 110 and d.get("fmi") == 0 for d in active_dtcs):
-                severity = FaultSeverity.CRITICAL_STOP
-            elif severity != FaultSeverity.CRITICAL_STOP:
-                severity = FaultSeverity.MEDIUM
-            affected.append("Termal Yönetim & Soğutma")
-            likely_causes.append("Termostat kapalı kalması, radyatör fan arızası veya soğutma sıvısı seviye düşüklüğü.")
-            steps.append(
-                TroubleshootingStep(
-                    len(steps) + 1,
-                    "Radyatör alt hortumunu kontrol edin; soğuksa termostat açmıyordur.",
-                    "Termostat & Radyatör Hortumu",
-                    "Kolay (Görsel)",
-                )
-            )
-            correlations.append(f"Motor soğutma sıvısı {coolant_temp:.1f}°C sıcaklıkta; kritik hararet eşiğinde!")
 
         # Identify DTCs already covered by specific hardcoded scenarios above
+        # (U4: derived from the same SCENARIO_RULES matchers — one source of
+        # truth for what a "handled" DTC is).
         handled_indices: set[int] = set()
         for idx, d in enumerate(active_dtcs):
-            c_str = str(d.get("code", "")).upper()
-            s_val = d.get("spn")
-            desc_u = str(d.get("description", "")).upper()
-            if s_val == 100:
+            if any(rule.matches(d) for rule in SCENARIO_RULES):
                 handled_indices.add(idx)
-            elif c_str in {"P0AA6", "P0A0B", "P0A80", "P0A93"}:
-                handled_indices.add(idx)
-            elif isinstance(s_val, int) and 651 <= s_val <= 656:
-                handled_indices.add(idx)
-            elif s_val in {3251, 3719} or "DPF" in desc_u:
-                handled_indices.add(idx)
-            elif c_str.startswith("P030"):
-                handled_indices.add(idx)
-            elif c_str in {"P0234", "P0299"} or s_val == 102:
-                handled_indices.add(idx)
-            elif c_str == "P0115" or s_val == 110:
-                handled_indices.add(idx)
+
+        # REVIEW (Tur-27 P1, @tuner AI plan Boguluk 4): aktif DTC kumesini iliskili
+        # grup tablosuyla karsilastir. Tek tek kodlar yerine KUME olarak
+        # degerlendirilince kok neden isabeti artar. Uydurma yok — tablo sabit.
+        try:
+            def _norm_code(raw: Any) -> str:
+                s = str(raw or "").strip().upper()
+                m = _CODE_ALIAS_RE.match(s)
+                return f"SPN{m.group(1)}" if m else s
+
+            active_set = set()
+            for d in active_dtcs:
+                active_set.add(_norm_code(d.get("code")))
+                if d.get("spn") is not None:
+                    active_set.add(f"SPN{d.get('spn')}")
+            for grp, desc in _RELATED_CODE_GROUPS:
+                if grp <= active_set:
+                    line = f"İlişkili kod kümesi [{', '.join(sorted(grp))}]: {desc}"
+                    if line not in ctx.correlations:
+                        ctx.correlations.append(line)
+        except Exception:
+            pass
 
         # Dynamic EXPERT_KNOWLEDGE_BASE lookup for active DTCs not matched by scenarios 1..7
         for idx, d in enumerate(active_dtcs):
@@ -2830,6 +3026,38 @@ class AiDiagnosticCopilot:
             code_candidate = str(d.get("code", "")).upper()
             spn_candidate = f"SPN{d.get('spn')}" if d.get("spn") else ""
             match_key = code_candidate if code_candidate in EXPERT_KNOWLEDGE_BASE else (spn_candidate if spn_candidate in EXPERT_KNOWLEDGE_BASE else None)
+            # REVIEW (Tur-27 P0, @tuner AI plan Boguluk 1): canli DM1 akisindan gelen
+            # SPN'ler EXPERT_KB'de yoksa 3.710'luk J1939 DB'sine dus. Onceden bu yol
+            # atlanip jenerik fallback'e gidiyordu; sorgu yolu ile oturum yolu asimetrikti.
+            j1939_entry = None
+            if match_key is None and d.get("spn"):
+                try:
+                    _jdb = get_j1939_spn_database()
+                    j1939_entry = (_jdb.get("spns") or {}).get(f"SPN_{int(d.get('spn'))}")
+                except Exception:
+                    j1939_entry = None
+            if j1939_entry is not None:
+                kb_matched_count += 1
+                subsys = j1939_entry.get("subsystem") or "J1939 Ağır Vasıta"
+                if subsys not in affected:
+                    affected.append(subsys)
+                # FMI'ya ozgu fault_matrix satirindan neden/adim sentezle
+                fm = j1939_entry.get("fault_matrix") or {}
+                fmi_row = fm.get(str(d.get("fmi"))) if d.get("fmi") is not None else None
+                fmi_defs = (get_j1939_spn_database().get("fmi_definitions") or {})
+                fmi_row = fmi_row or fmi_defs.get(str(d.get("fmi"))) or {}
+                name = j1939_entry.get("title_tr") or j1939_entry.get("name") or f"SPN {d.get('spn')}"
+                fault_title = fmi_row.get("fault_title") or fmi_row.get("name") or ""
+                diag_action = fmi_row.get("diagnostic_action") or ""
+                synth_cause = f"{name}" + (f" — {fault_title}" if fault_title else "")
+                if synth_cause not in likely_causes:
+                    likely_causes.append(synth_cause)
+                if len(steps) < 5:
+                    act = diag_action or f"{name} devresini/verisini kontrol edin"
+                    steps.append(TroubleshootingStep(len(steps) + 1, act[:200], f"SPN {d.get('spn')}", "Orta (Alet Gerekir)"))
+                fmi_sev = str(fmi_row.get("severity", "")).upper()
+                if fmi_sev == "CRITICAL_STOP":
+                    severity = _raise_severity(severity, FaultSeverity.CRITICAL_STOP)
             if match_key:
                 kb_matched_count += 1
                 info = EXPERT_KNOWLEDGE_BASE[match_key]
@@ -2847,9 +3075,9 @@ class AiDiagnosticCopilot:
                         steps.append(TroubleshootingStep(len(steps) + 1, act, target_comp, diff))
                 sev_str = info.get("severity", "MEDIUM")
                 if sev_str == "CRITICAL_STOP":
-                    severity = FaultSeverity.CRITICAL_STOP
-                elif sev_str == "MEDIUM" and severity != FaultSeverity.CRITICAL_STOP:
-                    severity = FaultSeverity.MEDIUM
+                    severity = _raise_severity(severity, FaultSeverity.CRITICAL_STOP)
+                elif sev_str == "MEDIUM":
+                    severity = _raise_severity(severity, FaultSeverity.MEDIUM)
 
 
         # Default fallback if no specific rule matched
@@ -2912,53 +3140,15 @@ class AiDiagnosticCopilot:
         dtc_codes: list[str],
         user_prompt: str,
         bus_metrics: dict[str, Any] | None = None,
+        user_consented: bool = False,
     ) -> str:
-        """Helper for live interactive prompt query with deep reasoning."""
+        """Helper for live interactive prompt query with deep reasoning (fully offline).
+
+        ``user_consented`` accepted (and ignored) for bridge/API backward
+        compatibility. Action triggers derive from the OPERATOR prompt only.
+        """
         # M-18 (P2-17): lazy knowledge-base load at first analysis use.
         ensure_external_dtc_database_loaded()
-        # 1. Live Gemini API call if configured
-        if self.gemini_api_key and len(self.gemini_api_key.strip()) > 10:
-            try:
-                bus_info = ""
-                if bus_metrics:
-                    bus_info = f", Hat Yükü=%{bus_metrics.get('bus_load_percent', 0)}, Hata Karesi={bus_metrics.get('error_count', 0)}"
-                prompt_text = (
-                    "Sen 'Universal CAN-Bus Diagnostic & Telemetry Tool' profesyonel teşhis yazılımının yerleşik AI asistanısın.\n"
-                    "Kullanıcı doğrudan CAN hattına bağlı ve canlı paketleri inceliyor.\n\n"
-                    "KESİN KURALLAR:\n"
-                    "1. KISA VE BASİTLEŞTİRİLMİŞ YANIT VER: Giriş/çıkış laf kalabalığı ve uzun teorik paragraflar KESİNLİKLE YASAKTIR. En fazla 3-4 kısa maddede doğrudan çözümü ve kontrol noktasını söyle.\n"
-                    "2. BİLMEDİĞİN KONUDA DÜRÜST OL: Sorulan DBC dosyası, araç modeli, ECU, CAN ID veya parametre hakkında kesin bilgin/kaydın yoksa 'Bu konu/DBC hakkında veritabanında yeterli bilgi bulunamadı' de. Asla uydurma veri üretme.\n"
-                    "3. ASLA 'aracı servise götürün' veya 'başka teşhis cihazı kullanın' deme, kullanıcı zaten profesyonel teşhis donanımına bağlı.\n\n"
-                    f"Kullanıcı Sorusu: {user_prompt}\n"
-                    f"Canlı Telemetri: Motor={rpm:.0f} RPM, Turbo={boost_bar:.2f} Bar, Sıcaklık={coolant_temp:.1f}°C, Aktif DTC={', '.join(dtc_codes) if dtc_codes else 'Yok'}{bus_info}"
-                )
-                payload = {
-                    "contents": [{"parts": [{"text": prompt_text}]}],
-                    "generationConfig": {"temperature": 0.2, "maxOutputTokens": 512},
-                }
-                data = json.dumps(payload).encode("utf-8")
-                headers = {
-                    "Content-Type": "application/json",
-                    "x-goog-api-key": self.gemini_api_key.strip(),
-                }
-                req = urllib.request.Request(gemini_endpoint(), data=data, headers=headers)
-                with urllib.request.urlopen(req, timeout=8.0) as resp:  # nosec: B310
-                    resp_json = json.loads(resp.read().decode("utf-8"))
-                    parts = resp_json.get("candidates", [{}])[0].get("content", {}).get("parts", [])
-                    answer = "".join(p.get("text", "") for p in parts if not p.get("thought", False)).strip()
-                    if answer:
-                        actions = extract_action_triggers(answer, user_prompt)
-                        ans_with_act = attach_action_triggers(answer, actions)
-                        return f"✨ **Google Gemini 2.0 Flash (Bulut Zekası):**\n\n{ans_with_act}"
-            except Exception as e:
-                # M-02: sanitized — the raw exception text may include the
-                # request URL carrying the API key (CWE-532).
-                logger.warning(
-                    "Live Gemini prompt failed, falling back to deterministic local expert engine",
-                    extra={"error_type": type(e).__name__},
-                )
-
-        # 2. Fully Offline Deterministic Causal Bayesian Inference
         telemetry: dict[str, Any] = {
             "EngineSpeed": rpm,
             "BoostPressure": boost_bar,
@@ -2967,167 +3157,3 @@ class AiDiagnosticCopilot:
         }
         active_dtc_objs = [{"code": c} for c in dtc_codes]
         return CausalBayesianInferenceEngine.evaluate_diagnostic_query(user_prompt, active_dtc_objs, telemetry)
-
-    def _analyze_with_gemini(
-        self,
-        active_dtcs: list[dict[str, object]],
-        telemetry_snapshot: dict[str, float],
-        active_ecus: list[str],
-    ) -> DiagnosticAnalysisReport:
-        """Call Google Gemini 2.0 Flash REST API with structured JSON output."""
-        if not self.gemini_api_key:
-            raise ValueError("Gemini API key is required")
-        prompt = (
-            "Sen 'Universal CAN-Bus Diagnostic & Telemetry Tool' profesyonel araç teşhis yazılımının yerleşik AI Başmühendisisin.\n"
-            f"Aktif DTC Listesi: {json.dumps(active_dtcs, ensure_ascii=False)}\n"
-            f"Canlı Telemetri: {json.dumps(telemetry_snapshot, ensure_ascii=False)}\n"
-            f"Aktif ECU'lar: {', '.join(active_ecus)}\n\n"
-            "Aşağıdaki JSON şemasına BİREBİR UYGUN geçerli bir JSON yanıtı döndür:\n"
-            "{\n"
-            '  "summary": "Analiz özeti",\n'
-            '  "severity": "INFO" | "LOW" | "MEDIUM" | "CRITICAL_STOP",\n'
-            '  "root_cause_probability": "Kök neden olasılık derecesi",\n'
-            '  "likely_causes": ["Neden 1", "Neden 2"],\n'
-            '  "troubleshooting_steps": [\n'
-            '    {"step_number": 1, "action": "Eylem", "target_component": "Komponent", "difficulty": "Kolay (Görsel)" | "Orta (Alet Gerekir)" | "İleri (Servis)"}\n'
-            "  ],\n"
-            '  "affected_subsystems": ["Alt sistem 1"],\n'
-            '  "telemetry_correlations": ["Telemetri korelasyonu 1"]\n'
-            "}"
-        )
-        payload = {
-            "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {"responseMimeType": "application/json", "temperature": 0.2},
-        }
-        data = json.dumps(payload).encode("utf-8")
-        headers = {
-            "Content-Type": "application/json",
-            "x-goog-api-key": self.gemini_api_key.strip(),
-        }
-        req = urllib.request.Request(gemini_endpoint(), data=data, headers=headers)
-        with urllib.request.urlopen(req, timeout=10.0) as resp:  # nosec: B310
-            resp_data = json.loads(resp.read().decode("utf-8"))
-            candidate = resp_data["candidates"][0]["content"]["parts"][0]["text"]
-            parsed = self._clean_and_parse_json(candidate)
-            steps = [
-                TroubleshootingStep(
-                    s.get("step_number", idx + 1),
-                    s.get("action", ""),
-                    s.get("target_component", ""),
-                    s.get("difficulty", "Orta (Alet Gerekir)"),
-                )
-                for idx, s in enumerate(parsed.get("troubleshooting_steps", []))
-            ]
-            return DiagnosticAnalysisReport(
-                summary=parsed.get("summary", "Gemini Analizi Tamamlandı."),
-                # L-9 (P3-4): map unknown severity strings to MEDIUM instead
-                # of raising ValueError out of the cloud analysis.
-                severity=map_severity_or_default(parsed.get("severity", "MEDIUM")),
-                root_cause_probability=parsed.get("root_cause_probability", "Yüksek"),
-                likely_causes=parsed.get("likely_causes", []),
-                troubleshooting_steps=steps,
-                affected_subsystems=parsed.get("affected_subsystems", []),
-                raw_dtc_count=len(active_dtcs),
-                telemetry_correlations=parsed.get("telemetry_correlations", []),
-                ai_model_used="Google Gemini 2.0 Flash (Bulut Zekası)",
-            )
-
-    def _analyze_with_openai(
-        self,
-        active_dtcs: list[dict[str, object]],
-        telemetry_snapshot: dict[str, float],
-        active_ecus: list[str],
-    ) -> DiagnosticAnalysisReport:
-        """Call OpenAI Chat Completions API with structured JSON output."""
-        if not self.openai_api_key:
-            raise ValueError("OpenAI API key is required")
-        url = "https://api.openai.com/v1/chat/completions"
-        system_prompt = (
-            "Sen 'Universal CAN-Bus Diagnostic & Telemetry Tool' profesyonel araç teşhis yazılımının yerleşik AI Başmühendisisin.\n"
-            "Görevin araçtaki CAN-Bus telemetrisini ve DTC hata kodlarını analiz edip doğrudan sahada uygulanabilir 4 aşamalı onarım kılavuzu üretmektir."
-        )
-        user_prompt = (
-            f"Aktif DTC Listesi: {json.dumps(active_dtcs, ensure_ascii=False)}\n"
-            f"Canlı Telemetri: {json.dumps(telemetry_snapshot, ensure_ascii=False)}\n"
-            f"Aktif ECU'lar: {', '.join(active_ecus)}\n\n"
-            "JSON Formatında Yanıt Ver:\n"
-            "{\n"
-            '  "summary": "Özet",\n'
-            '  "severity": "INFO" | "LOW" | "MEDIUM" | "CRITICAL_STOP",\n'
-            '  "root_cause_probability": "Olasılık",\n'
-            '  "likely_causes": ["Neden 1"],\n'
-            '  "troubleshooting_steps": [{"step_number": 1, "action": "Adım", "target_component": "Komponent", "difficulty": "Orta (Alet Gerekir)"}],\n'
-            '  "affected_subsystems": ["Sistem 1"],\n'
-            '  "telemetry_correlations": ["Korelasyon 1"]\n'
-            "}"
-        )
-        models_to_try = ["gpt-4o-mini", "gpt-4o", "gpt-3.5-turbo"]
-        last_error: Exception | None = None
-        for model in models_to_try:
-            try:
-                payload = {
-                    "model": model,
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt},
-                    ],
-                    "response_format": {"type": "json_object"},
-                    "temperature": 0.2,
-                }
-                data = json.dumps(payload).encode("utf-8")
-                headers = {
-                    "Content-Type": "application/json",
-                    "Authorization": f"Bearer {self.openai_api_key.strip()}",
-                }
-                req = urllib.request.Request(url, data=data, headers=headers)
-                with urllib.request.urlopen(req, timeout=12.0) as resp:  # nosec: B310
-                    resp_data = json.loads(resp.read().decode("utf-8"))
-                    content = resp_data["choices"][0]["message"]["content"]
-                    parsed = self._clean_and_parse_json(content)
-                    steps = [
-                        TroubleshootingStep(
-                            s.get("step_number", idx + 1),
-                            s.get("action", ""),
-                            s.get("target_component", ""),
-                            s.get("difficulty", "Orta (Alet Gerekir)"),
-                        )
-                        for idx, s in enumerate(parsed.get("troubleshooting_steps", []))
-                    ]
-                    return DiagnosticAnalysisReport(
-                        summary=parsed.get("summary", "OpenAI Analizi Tamamlandı."),
-                        # L-9 (P3-4): map unknown severity strings to MEDIUM
-                        # instead of raising ValueError out of the whole
-                        # cloud analysis.
-                        severity=map_severity_or_default(parsed.get("severity", "MEDIUM")),
-                        root_cause_probability=parsed.get("root_cause_probability", "Yüksek"),
-                        likely_causes=parsed.get("likely_causes", []),
-                        troubleshooting_steps=steps,
-                        affected_subsystems=parsed.get("affected_subsystems", []),
-                        raw_dtc_count=len(active_dtcs),
-                        telemetry_correlations=parsed.get("telemetry_correlations", []),
-                        ai_model_used=f"OpenAI {model} (ChatGPT Bulut Zekası)",
-                    )
-            except urllib.error.HTTPError as exc:
-                # L-9 (P3-4): classify HTTP failures — auth/quota errors will
-                # NOT get better by trying the next model; retrying burned
-                # 36 s and 3 requests. Fail over to the local expert now.
-                last_error = exc
-                if exc.code in (401, 403):
-                    logger.warning("OpenAI request rejected (auth) — switching to local expert", extra={"status": exc.code})
-                    break
-                if exc.code == 429:
-                    logger.warning("OpenAI rate limited — switching to local expert", extra={"status": exc.code})
-                    break
-                continue
-            except Exception as exc:  # noqa: BLE001
-                last_error = exc
-                continue
-
-        # L-9 (P3-4): log the exception TYPE + safe message, never the raw
-        # repr — HTTPError/URLError reprs can embed request URLs and
-        # Authorization fragments, violating the file's own sanitize policy.
-        logger.warning(
-            "All OpenAI models failed — falling back to local expert",
-            extra={"error_type": type(last_error).__name__ if last_error else None},
-        )
-        return self._analyze_local_expert(active_dtcs, telemetry_snapshot, active_ecus)

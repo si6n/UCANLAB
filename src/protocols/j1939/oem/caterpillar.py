@@ -177,45 +177,63 @@ class CaterpillarDecoder(BaseOemDecoder):
             )
 
         # Byte 3 (bits 0..3): CAT DPF Regeneration Mode (uint4)
+        # REVIEW hardening: nibble sentinels 14/15 first; map-miss 5..13
+        # reserved → invalid.
+        from src.protocols.j1939.oem.registry import resolve_enum
+
         byte3 = data[3]
         raw_mode = byte3 & 0x0F
-        mode_valid = True
-        mode_status = SignalStatus.VALID
         if raw_mode == 14:
-            mode_valid = False
-            mode_status = SignalStatus.ERROR
+            signals["cat_dpf_regeneration_mode"] = DecodedSignal(
+                name="cat_dpf_regeneration_mode",
+                value=None,
+                unit="enum",
+                raw_value=raw_mode,
+                is_valid=False,
+                status=SignalStatus.ERROR,
+            )
         elif raw_mode == 15:
-            mode_valid = False
-            mode_status = SignalStatus.NOT_AVAILABLE
-
-        signals["cat_dpf_regeneration_mode"] = DecodedSignal(
-            name="cat_dpf_regeneration_mode",
-            value=self.REGEN_MODE_MAP.get(raw_mode, f"Mode ({raw_mode})"),
-            unit="enum",
-            raw_value=raw_mode,
-            is_valid=mode_valid,
-            status=mode_status,
-        )
+            signals["cat_dpf_regeneration_mode"] = DecodedSignal(
+                name="cat_dpf_regeneration_mode",
+                value=None,
+                unit="enum",
+                raw_value=raw_mode,
+                is_valid=False,
+                status=SignalStatus.NOT_AVAILABLE,
+            )
+        else:
+            signals["cat_dpf_regeneration_mode"] = resolve_enum(
+                self.REGEN_MODE_MAP,
+                raw_mode,
+                signal_name="cat_dpf_regeneration_mode",
+            )
 
         # Byte 3 (bits 4..7): CAT Regeneration Inhibit Status (uint4)
         raw_inhibit = (byte3 >> 4) & 0x0F
-        inhibit_valid = True
-        inhibit_status = SignalStatus.VALID
         if raw_inhibit == 14:
-            inhibit_valid = False
-            inhibit_status = SignalStatus.ERROR
+            signals["cat_regeneration_inhibit_status"] = DecodedSignal(
+                name="cat_regeneration_inhibit_status",
+                value=None,
+                unit="enum",
+                raw_value=raw_inhibit,
+                is_valid=False,
+                status=SignalStatus.ERROR,
+            )
         elif raw_inhibit == 15:
-            inhibit_valid = False
-            inhibit_status = SignalStatus.NOT_AVAILABLE
-
-        signals["cat_regeneration_inhibit_status"] = DecodedSignal(
-            name="cat_regeneration_inhibit_status",
-            value=self.INHIBIT_STATUS_MAP.get(raw_inhibit, f"Status ({raw_inhibit})"),
-            unit="enum",
-            raw_value=raw_inhibit,
-            is_valid=inhibit_valid,
-            status=inhibit_status,
-        )
+            signals["cat_regeneration_inhibit_status"] = DecodedSignal(
+                name="cat_regeneration_inhibit_status",
+                value=None,
+                unit="enum",
+                raw_value=raw_inhibit,
+                is_valid=False,
+                status=SignalStatus.NOT_AVAILABLE,
+            )
+        else:
+            signals["cat_regeneration_inhibit_status"] = resolve_enum(
+                self.INHIBIT_STATUS_MAP,
+                raw_inhibit,
+                signal_name="cat_regeneration_inhibit_status",
+            )
 
         # Byte 4..5: CAT DPF Soot Loading Index (uint16 LE, 0.01 %, 0.0 offset)
         raw_soot = data[4] | (data[5] << 8)
@@ -433,8 +451,23 @@ class CaterpillarDecoder(BaseOemDecoder):
             return None
 
         cmd_name = cmd_names[cmd_id]
-        target_cyl = data[1] if len(data) > 1 else 0
-        param = (data[2] | (data[3] << 8)) if len(data) >= 4 else 0
+        # REVIEW hardening: short Prop-A frames → None + invalid.
+        if len(data) > 1:
+            target_cyl: int | None = data[1]
+            target_valid = True
+            target_status = SignalStatus.VALID
+        else:
+            target_cyl = None
+            target_valid = False
+            target_status = SignalStatus.ERROR
+        if len(data) >= 4:
+            param: int | None = data[2] | (data[3] << 8)
+            param_valid = True
+            param_status = SignalStatus.VALID
+        else:
+            param = None
+            param_valid = False
+            param_status = SignalStatus.ERROR
 
         signals: dict[str, DecodedSignal] = {
             "service_command_id": DecodedSignal(
@@ -455,19 +488,19 @@ class CaterpillarDecoder(BaseOemDecoder):
             ),
             "target_cylinder": DecodedSignal(
                 name="target_cylinder",
-                value=target_cyl,
+                value=target_cyl,  # type: ignore[arg-type]
                 unit="index",
-                raw_value=target_cyl,
-                is_valid=True,
-                status=SignalStatus.VALID,
+                raw_value=target_cyl if target_cyl is not None else 0,
+                is_valid=target_valid,
+                status=target_status,
             ),
             "service_parameter": DecodedSignal(
                 name="service_parameter",
-                value=param,
+                value=param,  # type: ignore[arg-type]
                 unit="raw",
-                raw_value=param,
-                is_valid=True,
-                status=SignalStatus.VALID,
+                raw_value=param if param is not None else 0,
+                is_valid=param_valid,
+                status=param_status,
             ),
         }
 

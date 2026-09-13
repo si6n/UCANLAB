@@ -39,6 +39,19 @@ _RESERVED_LOG_ATTRS: frozenset[str] = frozenset({
 })
 
 
+_PROTECTED_LOG_KEYS: frozenset[str] = frozenset(
+    {"timestamp_ns", "level", "logger", "message", "exception"}
+)
+_MAX_EXTRA_VALUE_LEN: int = 512
+
+
+def _sanitize_extra_value(value: Any) -> Any:
+    text = value if isinstance(value, str) else str(value)
+    if len(text) > _MAX_EXTRA_VALUE_LEN:
+        return text[:_MAX_EXTRA_VALUE_LEN] + "..."
+    return value if isinstance(value, (int, float, bool)) or value is None else text
+
+
 class JsonFormatter(logging.Formatter):
     """Custom JSON formatter producing structured log entries with nanosecond timestamps."""
 
@@ -53,10 +66,15 @@ class JsonFormatter(logging.Formatter):
         # Include custom extra fields passed via logger.log(..., extra={...})
         for key, val in record.__dict__.items():
             if key not in _RESERVED_LOG_ATTRS and not key.startswith("_"):
-                log_data[key] = val
+                if key in _PROTECTED_LOG_KEYS:
+                    continue
+                log_data[key] = _sanitize_extra_value(val)
 
         if hasattr(record, "extra") and isinstance(record.extra, dict):
-            log_data.update(record.extra)
+            for key, val in record.extra.items():
+                if key in _PROTECTED_LOG_KEYS:
+                    continue
+                log_data[key] = _sanitize_extra_value(val)
 
         if record.exc_info:
             log_data["exception"] = self.formatException(record.exc_info)

@@ -22,6 +22,25 @@ ES_AWAYMODE_REQUIRED: int = 0x00000040
 ES_CONTINUOUS: int = 0x80000000
 
 
+def _get_set_thread_execution_state() -> object | None:
+    """Return the Win32 SetThreadExecutionState entry with strict ctypes signature."""
+    if sys.platform != "win32":
+        return None
+    windll = getattr(ctypes, "windll", None)
+    if windll is None:
+        return None
+    try:
+        func = windll.kernel32.SetThreadExecutionState
+    except AttributeError:
+        return None
+    try:
+        func.argtypes = [ctypes.c_uint]
+        func.restype = ctypes.c_uint
+    except (AttributeError, TypeError):
+        return None
+    return func
+
+
 class WindowsPowerManager:
     """Controls Windows kernel thread execution state to prevent USB and system sleep.
 
@@ -41,8 +60,8 @@ class WindowsPowerManager:
         if sys.platform != "win32":
             return True
 
-        windll = getattr(ctypes, "windll", None)
-        if windll is None:
+        set_state = _get_set_thread_execution_state()
+        if set_state is None:
             return False
 
         tid = threading.get_ident()
@@ -60,7 +79,7 @@ class WindowsPowerManager:
             flags |= ES_DISPLAY_REQUIRED
 
         try:
-            prev_state = windll.kernel32.SetThreadExecutionState(flags)
+            prev_state = set_state(flags)  # type: ignore[operator]
             if prev_state != 0:
                 with cls._lock:
                     cls._is_active = True
@@ -81,8 +100,8 @@ class WindowsPowerManager:
         if sys.platform != "win32":
             return True
 
-        windll = getattr(ctypes, "windll", None)
-        if windll is None:
+        set_state = _get_set_thread_execution_state()
+        if set_state is None:
             return False
 
         tid = threading.get_ident()
@@ -100,7 +119,7 @@ class WindowsPowerManager:
                 cls._is_active = False
 
         try:
-            prev_state = windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS)
+            prev_state = set_state(ES_CONTINUOUS)  # type: ignore[operator]
             if prev_state != 0:
                 logger.info("SetThreadExecutionState: Normal Power Management RESTORED")
                 return True

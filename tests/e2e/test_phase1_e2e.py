@@ -656,7 +656,10 @@ def test_tier1_isotp_fc_overflow_abort() -> None:
         (0xF1, 0.1),
         (0xF5, 0.5),
         (0xF9, 0.9),
-        (0x80, 127.0),
+        # REVIEW hardening: reserved 0x80..0xF0 clamps to the 10 ms spoof/
+        # stall cap (the legacy 127 ms let a single spoofed FC crawl a
+        # transfer); 0xFA..0xFF keeps the legacy 127 ms clamp.
+        (0x80, 10.0),
         (0xFA, 127.0),
         (0xFF, 127.0),
     ],
@@ -683,19 +686,19 @@ def test_tier1_j1939_bam_standard_reassembly_14bytes() -> None:
     bam_data[4] = 0xFF
     bam_data[5:8] = (65226).to_bytes(3, byteorder="little")
 
-    cm_frame = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x18ECFF00, data=bytes(bam_data), is_extended=True)
+    cm_frame = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x1CECFF00, data=bytes(bam_data), is_extended=True)
     msg, resp = tp.handle_rx_frame(cm_frame)
     assert msg is None
     assert resp is None
 
     # 2. DT Packet 1
-    dt1 = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x18EBFF00, data=b"\x01" + b"1234567", is_extended=True)
+    dt1 = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x1CEBFF00, data=b"\x01" + b"1234567", is_extended=True)
     msg, resp = tp.handle_rx_frame(dt1)
     assert msg is None
     assert resp is None
 
     # 3. DT Packet 2
-    dt2 = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x18EBFF00, data=b"\x02" + b"89ABCDE", is_extended=True)
+    dt2 = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x1CEBFF00, data=b"\x02" + b"89ABCDE", is_extended=True)
     msg, resp = tp.handle_rx_frame(dt2)
     assert resp is None
     assert msg is not None
@@ -715,14 +718,14 @@ def test_tier1_j1939_bam_single_packet_boundary_8bytes() -> None:
     bam_data[4] = 0xFF
     bam_data[5:8] = (61444).to_bytes(3, byteorder="little")
 
-    cm = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x18ECFF00, data=bytes(bam_data), is_extended=True)
+    cm = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x1CECFF00, data=bytes(bam_data), is_extended=True)
     tp.handle_rx_frame(cm)
 
-    dt1 = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x18EBFF00, data=b"\x01" + b"ABCDEFG", is_extended=True)
+    dt1 = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x1CEBFF00, data=b"\x01" + b"ABCDEFG", is_extended=True)
     tp.handle_rx_frame(dt1)
 
     dt2 = CanFrame.create(
-        channel_id="j1939_ch0", arbitration_id=0x18EBFF00, data=b"\x02" + b"H\xff\xff\xff\xff\xff\xff", is_extended=True
+        channel_id="j1939_ch0", arbitration_id=0x1CEBFF00, data=b"\x02" + b"H\xff\xff\xff\xff\xff\xff", is_extended=True
     )
     msg, resp = tp.handle_rx_frame(dt2)
 
@@ -744,7 +747,7 @@ def test_tier1_j1939_bam_multi_packet_50bytes() -> None:
     bam_data[4] = 0xFF
     bam_data[5:8] = (65227).to_bytes(3, byteorder="little")
 
-    cm = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x18ECFF00, data=bytes(bam_data), is_extended=True)
+    cm = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x1CECFF00, data=bytes(bam_data), is_extended=True)
     tp.handle_rx_frame(cm)
 
     msg = None
@@ -753,7 +756,7 @@ def test_tier1_j1939_bam_multi_packet_50bytes() -> None:
         dt_data = bytes([seq]) + chunk
         if len(dt_data) < 8:
             dt_data = dt_data + (b"\xff" * (8 - len(dt_data)))
-        dt = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x18EBFF00, data=dt_data, is_extended=True)
+        dt = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x1CEBFF00, data=dt_data, is_extended=True)
         msg, _ = tp.handle_rx_frame(dt)
 
     assert msg is not None
@@ -771,14 +774,14 @@ def test_tier1_j1939_bam_padding_bytes_stripped() -> None:
     bam_data[4] = 0xFF
     bam_data[5:8] = (65226).to_bytes(3, byteorder="little")
 
-    cm = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x18ECFF00, data=bytes(bam_data), is_extended=True)
+    cm = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x1CECFF00, data=bytes(bam_data), is_extended=True)
     tp.handle_rx_frame(cm)
 
-    dt1 = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x18EBFF00, data=b"\x01" + b"1234567", is_extended=True)
+    dt1 = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x1CEBFF00, data=b"\x01" + b"1234567", is_extended=True)
     tp.handle_rx_frame(dt1)
 
     dt2 = CanFrame.create(
-        channel_id="j1939_ch0", arbitration_id=0x18EBFF00, data=b"\x02" + b"890\xff\xff\xff\xff", is_extended=True
+        channel_id="j1939_ch0", arbitration_id=0x1CEBFF00, data=b"\x02" + b"890\xff\xff\xff\xff", is_extended=True
     )
     msg, _ = tp.handle_rx_frame(dt2)
 
@@ -798,15 +801,15 @@ def test_tier1_j1939_bam_no_cts_or_ack_transmitted() -> None:
     bam_data[4] = 0xFF
     bam_data[5:8] = (65226).to_bytes(3, byteorder="little")
 
-    cm = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x18ECFF00, data=bytes(bam_data), is_extended=True)
+    cm = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x1CECFF00, data=bytes(bam_data), is_extended=True)
     _, r1 = tp.handle_rx_frame(cm)
     assert r1 is None
 
-    dt1 = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x18EBFF00, data=b"\x01" + b"1234567", is_extended=True)
+    dt1 = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x1CEBFF00, data=b"\x01" + b"1234567", is_extended=True)
     _, r2 = tp.handle_rx_frame(dt1)
     assert r2 is None
 
-    dt2 = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x18EBFF00, data=b"\x02" + b"89ABCDE", is_extended=True)
+    dt2 = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x1CEBFF00, data=b"\x02" + b"89ABCDE", is_extended=True)
     _, r3 = tp.handle_rx_frame(dt2)
     assert r3 is None
 
@@ -828,30 +831,30 @@ def test_tier1_j1939_cmdt_rts_cts_dt_ack_flow() -> None:
     rts_data[4] = 0xFF
     rts_data[5:8] = (65227).to_bytes(3, byteorder="little")
 
-    rts_frame = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x18ECF900, data=bytes(rts_data), is_extended=True)
+    rts_frame = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x1CECF900, data=bytes(rts_data), is_extended=True)
     msg, cts_frame = tp.handle_rx_frame(rts_frame)
     assert msg is None
     assert cts_frame is not None
-    assert cts_frame.arbitration_id == 0x18EC00F9  # Sent to SA=0x00 from my_address=0xF9
+    assert cts_frame.arbitration_id == 0x1CEC00F9  # Sent to SA=0x00 from my_address=0xF9
     assert cts_frame.data[0] == TP_CTRL_CTS
     assert cts_frame.data[1] == 2  # Allowed packets
     assert cts_frame.data[2] == 1  # Next seq
 
     # 2. DT 1
-    dt1 = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x18EBF900, data=b"\x01" + b"1234567", is_extended=True)
+    dt1 = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x1CEBF900, data=b"\x01" + b"1234567", is_extended=True)
     msg, resp = tp.handle_rx_frame(dt1)
     assert msg is None
     assert resp is None
 
     # 3. DT 2
     dt2 = CanFrame.create(
-        channel_id="j1939_ch0", arbitration_id=0x18EBF900, data=b"\x02" + b"8\xff\xff\xff\xff\xff\xff", is_extended=True
+        channel_id="j1939_ch0", arbitration_id=0x1CEBF900, data=b"\x02" + b"8\xff\xff\xff\xff\xff\xff", is_extended=True
     )
     msg, ack_frame = tp.handle_rx_frame(dt2)
     assert msg is not None
     assert msg.data == b"12345678"
     assert ack_frame is not None
-    assert ack_frame.arbitration_id == 0x18EC00F9
+    assert ack_frame.arbitration_id == 0x1CEC00F9
     assert ack_frame.data[0] == TP_CTRL_ACK
 
 
@@ -868,7 +871,7 @@ def test_tier1_j1939_cmdt_multi_packet_large_handshake() -> None:
     rts_data[4] = 0xFF
     rts_data[5:8] = (65227).to_bytes(3, byteorder="little")
 
-    rts_frame = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x18ECF900, data=bytes(rts_data), is_extended=True)
+    rts_frame = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x1CECF900, data=bytes(rts_data), is_extended=True)
     _, cts = tp.handle_rx_frame(rts_frame)
     assert cts is not None
     assert cts.data[0] == TP_CTRL_CTS
@@ -880,7 +883,7 @@ def test_tier1_j1939_cmdt_multi_packet_large_handshake() -> None:
         dt_data = bytes([seq]) + chunk
         if len(dt_data) < 8:
             dt_data = dt_data + (b"\xff" * (8 - len(dt_data)))
-        dt = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x18EBF900, data=dt_data, is_extended=True)
+        dt = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x1CEBF900, data=dt_data, is_extended=True)
         msg, ack = tp.handle_rx_frame(dt)
 
     assert msg is not None
@@ -900,14 +903,14 @@ def test_tier1_j1939_cmdt_end_of_msg_ack_structure() -> None:
     rts_data[4] = 0xFF
     rts_data[5:8] = (65227).to_bytes(3, byteorder="little")
 
-    rts_frame = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x18ECF900, data=bytes(rts_data), is_extended=True)
+    rts_frame = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x1CECF900, data=bytes(rts_data), is_extended=True)
     tp.handle_rx_frame(rts_frame)
 
-    dt1 = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x18EBF900, data=b"\x01" + b"1234567", is_extended=True)
+    dt1 = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x1CEBF900, data=b"\x01" + b"1234567", is_extended=True)
     tp.handle_rx_frame(dt1)
 
     dt2 = CanFrame.create(
-        channel_id="j1939_ch0", arbitration_id=0x18EBF900, data=b"\x02" + b"8\xff\xff\xff\xff\xff\xff", is_extended=True
+        channel_id="j1939_ch0", arbitration_id=0x1CEBF900, data=b"\x02" + b"8\xff\xff\xff\xff\xff\xff", is_extended=True
     )
     _, ack = tp.handle_rx_frame(dt2)
 
@@ -930,7 +933,7 @@ def test_tier1_j1939_cmdt_cts_packet_count_and_seq() -> None:
     rts_data[4] = 0xFF
     rts_data[5:8] = (65227).to_bytes(3, byteorder="little")
 
-    rts = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x18ECF900, data=bytes(rts_data), is_extended=True)
+    rts = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x1CECF900, data=bytes(rts_data), is_extended=True)
     _, cts = tp.handle_rx_frame(rts)
 
     assert cts is not None
@@ -953,7 +956,7 @@ def test_tier1_j1939_cmdt_da_filtering_only_accepts_my_address() -> None:
     rts_data[4] = 0xFF
     rts_data[5:8] = (65227).to_bytes(3, byteorder="little")
 
-    rts = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x18EC5500, data=bytes(rts_data), is_extended=True)
+    rts = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x1CEC5500, data=bytes(rts_data), is_extended=True)
     msg, resp = tp.handle_rx_frame(rts)
     assert msg is None
     assert resp is None
@@ -971,7 +974,7 @@ def test_tier1_j1939_session_key_isolation_different_nodes() -> None:
     # BAM from SA=0x00
     bam0 = CanFrame.create(
         channel_id="j1939_ch0",
-        arbitration_id=0x18ECFF00,
+        arbitration_id=0x1CECFF00,
         data=bytes([TP_CTRL_BAM, 14, 0, 2, 0xFF, 0xCA, 0xFE, 0x00]),
         is_extended=True,
     )
@@ -980,7 +983,7 @@ def test_tier1_j1939_session_key_isolation_different_nodes() -> None:
     # BAM from SA=0x01
     bam1 = CanFrame.create(
         channel_id="j1939_ch0",
-        arbitration_id=0x18ECFF01,
+        arbitration_id=0x1CECFF01,
         data=bytes([TP_CTRL_BAM, 14, 0, 2, 0xFF, 0xBE, 0xEF, 0x00]),
         is_extended=True,
     )
@@ -988,16 +991,16 @@ def test_tier1_j1939_session_key_isolation_different_nodes() -> None:
 
     # Interleaved DT packets
     dt0_1 = CanFrame.create(
-        channel_id="j1939_ch0", arbitration_id=0x18EBFF00, data=b"\x01" + b"NODE0_A", is_extended=True
+        channel_id="j1939_ch0", arbitration_id=0x1CEBFF00, data=b"\x01" + b"NODE0_A", is_extended=True
     )
     dt1_1 = CanFrame.create(
-        channel_id="j1939_ch0", arbitration_id=0x18EBFF01, data=b"\x01" + b"NODE1_A", is_extended=True
+        channel_id="j1939_ch0", arbitration_id=0x1CEBFF01, data=b"\x01" + b"NODE1_A", is_extended=True
     )
     tp.handle_rx_frame(dt0_1)
     tp.handle_rx_frame(dt1_1)
 
     dt0_2 = CanFrame.create(
-        channel_id="j1939_ch0", arbitration_id=0x18EBFF00, data=b"\x02" + b"NODE0_B", is_extended=True
+        channel_id="j1939_ch0", arbitration_id=0x1CEBFF00, data=b"\x02" + b"NODE0_B", is_extended=True
     )
     m0, _ = tp.handle_rx_frame(dt0_2)
     assert m0 is not None
@@ -1005,7 +1008,7 @@ def test_tier1_j1939_session_key_isolation_different_nodes() -> None:
     assert m0.data == b"NODE0_ANODE0_B"
 
     dt1_2 = CanFrame.create(
-        channel_id="j1939_ch0", arbitration_id=0x18EBFF01, data=b"\x02" + b"NODE1_B", is_extended=True
+        channel_id="j1939_ch0", arbitration_id=0x1CEBFF01, data=b"\x02" + b"NODE1_B", is_extended=True
     )
     m1, _ = tp.handle_rx_frame(dt1_2)
     assert m1 is not None
@@ -1020,7 +1023,7 @@ def test_tier1_j1939_session_key_isolation_different_da() -> None:
     # BAM (DA=255)
     bam = CanFrame.create(
         channel_id="j1939_ch0",
-        arbitration_id=0x18ECFF00,
+        arbitration_id=0x1CECFF00,
         data=bytes([TP_CTRL_BAM, 8, 0, 2, 0xFF, 0x01, 0x00, 0x00]),
         is_extended=True,
     )
@@ -1029,7 +1032,7 @@ def test_tier1_j1939_session_key_isolation_different_da() -> None:
     # CMDT RTS (DA=0xF9)
     rts = CanFrame.create(
         channel_id="j1939_ch0",
-        arbitration_id=0x18ECF900,
+        arbitration_id=0x1CECF900,
         data=bytes([TP_CTRL_RTS, 8, 0, 2, 0xFF, 0x02, 0x00, 0x00]),
         is_extended=True,
     )
@@ -1037,10 +1040,10 @@ def test_tier1_j1939_session_key_isolation_different_da() -> None:
 
     # Feed DT to BAM (DA=255)
     dt_bam1 = CanFrame.create(
-        channel_id="j1939_ch0", arbitration_id=0x18EBFF00, data=b"\x01" + b"BAM1234", is_extended=True
+        channel_id="j1939_ch0", arbitration_id=0x1CEBFF00, data=b"\x01" + b"BAM1234", is_extended=True
     )
     dt_bam2 = CanFrame.create(
-        channel_id="j1939_ch0", arbitration_id=0x18EBFF00, data=b"\x02" + b"5\xff\xff\xff\xff\xff\xff", is_extended=True
+        channel_id="j1939_ch0", arbitration_id=0x1CEBFF00, data=b"\x02" + b"5\xff\xff\xff\xff\xff\xff", is_extended=True
     )
     tp.handle_rx_frame(dt_bam1)
     m_bam, _ = tp.handle_rx_frame(dt_bam2)
@@ -1049,10 +1052,10 @@ def test_tier1_j1939_session_key_isolation_different_da() -> None:
 
     # Feed DT to CMDT (DA=0xF9)
     dt_cmdt1 = CanFrame.create(
-        channel_id="j1939_ch0", arbitration_id=0x18EBF900, data=b"\x01" + b"CMDT123", is_extended=True
+        channel_id="j1939_ch0", arbitration_id=0x1CEBF900, data=b"\x01" + b"CMDT123", is_extended=True
     )
     dt_cmdt2 = CanFrame.create(
-        channel_id="j1939_ch0", arbitration_id=0x18EBF900, data=b"\x02" + b"4\xff\xff\xff\xff\xff\xff", is_extended=True
+        channel_id="j1939_ch0", arbitration_id=0x1CEBF900, data=b"\x02" + b"4\xff\xff\xff\xff\xff\xff", is_extended=True
     )
     tp.handle_rx_frame(dt_cmdt1)
     m_cmdt, ack = tp.handle_rx_frame(dt_cmdt2)
@@ -1068,15 +1071,15 @@ def test_tier1_j1939_session_pgn_tracking() -> None:
 
     bam = CanFrame.create(
         channel_id="j1939_ch0",
-        arbitration_id=0x18ECFF00,
+        arbitration_id=0x1CECFF00,
         data=bytes([TP_CTRL_BAM, 8, 0, 2, 0xFF, 0xCA, 0xFE, 0x00]),
         is_extended=True,
     )
     tp.handle_rx_frame(bam)
 
-    dt1 = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x18EBFF00, data=b"\x01" + b"1234567", is_extended=True)
+    dt1 = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x1CEBFF00, data=b"\x01" + b"1234567", is_extended=True)
     dt2 = CanFrame.create(
-        channel_id="j1939_ch0", arbitration_id=0x18EBFF00, data=b"\x02" + b"8\xff\xff\xff\xff\xff\xff", is_extended=True
+        channel_id="j1939_ch0", arbitration_id=0x1CEBFF00, data=b"\x02" + b"8\xff\xff\xff\xff\xff\xff", is_extended=True
     )
     tp.handle_rx_frame(dt1)
     msg, _ = tp.handle_rx_frame(dt2)
@@ -1092,18 +1095,18 @@ def test_tier1_j1939_session_cleanup_after_completion() -> None:
     # First session
     bam1 = CanFrame.create(
         channel_id="j1939_ch0",
-        arbitration_id=0x18ECFF00,
+        arbitration_id=0x1CECFF00,
         data=bytes([TP_CTRL_BAM, 8, 0, 2, 0xFF, 0x01, 0x00, 0x00]),
         is_extended=True,
     )
     tp.handle_rx_frame(bam1)
     tp.handle_rx_frame(
-        CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x18EBFF00, data=b"\x01" + b"FIRST12", is_extended=True)
+        CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x1CEBFF00, data=b"\x01" + b"FIRST12", is_extended=True)
     )
     m1, _ = tp.handle_rx_frame(
         CanFrame.create(
             channel_id="j1939_ch0",
-            arbitration_id=0x18EBFF00,
+            arbitration_id=0x1CEBFF00,
             data=b"\x02" + b"3\xff\xff\xff\xff\xff\xff",
             is_extended=True,
         )
@@ -1114,18 +1117,18 @@ def test_tier1_j1939_session_cleanup_after_completion() -> None:
     # Second session on same (SA, DA)
     bam2 = CanFrame.create(
         channel_id="j1939_ch0",
-        arbitration_id=0x18ECFF00,
+        arbitration_id=0x1CECFF00,
         data=bytes([TP_CTRL_BAM, 8, 0, 2, 0xFF, 0x02, 0x00, 0x00]),
         is_extended=True,
     )
     tp.handle_rx_frame(bam2)
     tp.handle_rx_frame(
-        CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x18EBFF00, data=b"\x01" + b"SECND12", is_extended=True)
+        CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x1CEBFF00, data=b"\x01" + b"SECND12", is_extended=True)
     )
     m2, _ = tp.handle_rx_frame(
         CanFrame.create(
             channel_id="j1939_ch0",
-            arbitration_id=0x18EBFF00,
+            arbitration_id=0x1CEBFF00,
             data=b"\x02" + b"3\xff\xff\xff\xff\xff\xff",
             is_extended=True,
         )
@@ -1435,8 +1438,11 @@ def test_tier2_isotp_stmin_spin_wait_timing_precision() -> None:
 
 
 def test_tier2_isotp_stmin_reserved_clamped_to_127ms() -> None:
-    """Tier 2.2.8: STmin in reserved ranges (0x80..0xF0 and 0xFA..0xFF) clamps to 127.0 ms."""
-    for b in [0x80, 0x90, 0xA0, 0xF0, 0xFA, 0xFB, 0xFF]:
+    """Tier 2.2.8: reserved STmin ranges clamp per the REVIEW hardening —
+    0x80..0xF0 to the 10 ms spoof/stall cap, 0xFA..0xFF to the legacy 127 ms."""
+    for b in [0x80, 0x90, 0xA0, 0xF0]:
+        assert decode_st_min(b) == 10.0
+    for b in [0xFA, 0xFB, 0xFF]:
         assert decode_st_min(b) == 127.0
 
 
@@ -1455,9 +1461,9 @@ def test_tier2_j1939_rts_broadcast_da_255_rejected() -> None:
     rts_broadcast_data[5:8] = (65226).to_bytes(3, byteorder="little")
 
     rts_frame = CanFrame.create(
-        channel_id="j1939_ch0", arbitration_id=0x18ECFF00, data=bytes(rts_broadcast_data), is_extended=True
+        channel_id="j1939_ch0", arbitration_id=0x1CECFF00, data=bytes(rts_broadcast_data), is_extended=True
     )
-    assert rts_frame.arbitration_id == 0x18ECFF00
+    assert rts_frame.arbitration_id == 0x1CECFF00
     assert rts_frame.data[0] == TP_CTRL_RTS
 
 
@@ -1473,12 +1479,12 @@ def test_tier2_j1939_session_collision_reason_2_abort() -> None:
     rts1_data[4] = 0xFF
     rts1_data[5:8] = (65226).to_bytes(3, byteorder="little")
 
-    rts1 = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x18ECF900, data=bytes(rts1_data), is_extended=True)
+    rts1 = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x1CECF900, data=bytes(rts1_data), is_extended=True)
     _, cts1 = tp.handle_rx_frame(rts1)
     assert cts1 is not None
 
     # Ingest 1 DT packet so session is mid-transfer
-    dt1 = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x18EBF900, data=b"\x01" + b"1234567", is_extended=True)
+    dt1 = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x1CEBF900, data=b"\x01" + b"1234567", is_extended=True)
     tp.handle_rx_frame(dt1)
 
     # 2. Second RTS arrives on same (SA=0x00, DA=0xF9) for PGN 65227 (Collision!)
@@ -1489,7 +1495,7 @@ def test_tier2_j1939_session_collision_reason_2_abort() -> None:
     rts2_data[4] = 0xFF
     rts2_data[5:8] = (65227).to_bytes(3, byteorder="little")
 
-    rts2 = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x18ECF900, data=bytes(rts2_data), is_extended=True)
+    rts2 = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x1CECF900, data=bytes(rts2_data), is_extended=True)
     msg, resp = tp.handle_rx_frame(rts2)
 
     assert resp is not None
@@ -1506,11 +1512,11 @@ def test_tier2_j1939_sequence_error_reason_1_abort() -> None:
     rts_data[4] = 0xFF
     rts_data[5:8] = (65227).to_bytes(3, byteorder="little")
 
-    rts = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x18ECF900, data=bytes(rts_data), is_extended=True)
+    rts = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x1CECF900, data=bytes(rts_data), is_extended=True)
     tp.handle_rx_frame(rts)
 
     # Send sequence 2 directly (skipping sequence 1)
-    bad_dt = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x18EBF900, data=b"\x02" + b"1234567", is_extended=True)
+    bad_dt = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x1CEBF900, data=b"\x02" + b"1234567", is_extended=True)
     msg, abort_frame = tp.handle_rx_frame(bad_dt)
 
     assert msg is None
@@ -1530,10 +1536,10 @@ def test_tier2_j1939_bam_sequence_error_silent_eviction() -> None:
     bam_data[4] = 0xFF
     bam_data[5:8] = (65226).to_bytes(3, byteorder="little")
 
-    bam = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x18ECFF00, data=bytes(bam_data), is_extended=True)
+    bam = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x1CECFF00, data=bytes(bam_data), is_extended=True)
     tp.handle_rx_frame(bam)
 
-    bad_dt = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x18EBFF00, data=b"\x02" + b"1234567", is_extended=True)
+    bad_dt = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x1CEBFF00, data=b"\x02" + b"1234567", is_extended=True)
     msg, resp = tp.handle_rx_frame(bad_dt)
 
     assert msg is None
@@ -1553,14 +1559,14 @@ def test_tier2_j1939_max_payload_1785_bytes_boundary() -> None:
     bam_data[4] = 0xFF
     bam_data[5:8] = (65226).to_bytes(3, byteorder="little")
 
-    cm = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x18ECFF00, data=bytes(bam_data), is_extended=True)
+    cm = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x1CECFF00, data=bytes(bam_data), is_extended=True)
     tp.handle_rx_frame(cm)
 
     msg = None
     for seq in range(1, total_pkts + 1):
         chunk = payload[(seq - 1) * 7 : seq * 7]
         dt_data = bytes([seq]) + chunk
-        dt = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x18EBFF00, data=dt_data, is_extended=True)
+        dt = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x1CEBFF00, data=dt_data, is_extended=True)
         msg, _ = tp.handle_rx_frame(dt)
 
     assert msg is not None
@@ -1579,7 +1585,7 @@ def test_tier2_j1939_payload_overflow_1786_bytes_rejected() -> None:
     cm_data[4] = 0xFF
     cm_data[5:8] = (65226).to_bytes(3, byteorder="little")
 
-    cm = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x18ECFF00, data=bytes(cm_data), is_extended=True)
+    cm = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x1CECFF00, data=bytes(cm_data), is_extended=True)
     msg, resp = tp.handle_rx_frame(cm)
     assert msg is None
 
@@ -1595,7 +1601,7 @@ def test_tier2_j1939_declared_packet_count_mismatch_rejected() -> None:
     cm_data[4] = 0xFF
     cm_data[5:8] = (65226).to_bytes(3, byteorder="little")
 
-    cm = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x18ECFF00, data=bytes(cm_data), is_extended=True)
+    cm = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x1CECFF00, data=bytes(cm_data), is_extended=True)
     msg, resp = tp.handle_rx_frame(cm)
     assert msg is None
 
@@ -1611,13 +1617,13 @@ def test_tier2_j1939_session_timeout_t1_eviction() -> None:
     bam_data[4] = 0xFF
     bam_data[5:8] = (65226).to_bytes(3, byteorder="little")
 
-    cm = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x18ECFF00, data=bytes(bam_data), is_extended=True)
+    cm = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x1CECFF00, data=bytes(bam_data), is_extended=True)
     tp.handle_rx_frame(cm)
 
     curr_time = time.monotonic()
     tp._reap_stale_sessions(now=curr_time + 1.0)
 
-    dt = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x18EBFF00, data=b"\x01" + b"1234567", is_extended=True)
+    dt = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x1CEBFF00, data=b"\x01" + b"1234567", is_extended=True)
     msg, resp = tp.handle_rx_frame(dt)
     assert msg is None
 
@@ -1773,7 +1779,7 @@ def test_tier3_j1939_concurrent_bam_and_cmdt_interleaved() -> None:
     # 1. BAM Announcement from SA=0x00 (DA=255, PGN 65226)
     bam = CanFrame.create(
         channel_id="j1939_ch0",
-        arbitration_id=0x18ECFF00,
+        arbitration_id=0x1CECFF00,
         data=bytes([TP_CTRL_BAM, 14, 0, 2, 0xFF, 0xCA, 0xFE, 0x00]),
         is_extended=True,
     )
@@ -1782,7 +1788,7 @@ def test_tier3_j1939_concurrent_bam_and_cmdt_interleaved() -> None:
     # 2. CMDT RTS from SA=0x01 (DA=0xF9, PGN 65227)
     rts = CanFrame.create(
         channel_id="j1939_ch0",
-        arbitration_id=0x18ECF901,
+        arbitration_id=0x1CECF901,
         data=bytes([TP_CTRL_RTS, 14, 0, 2, 0xFF, 0xCB, 0xFE, 0x00]),
         is_extended=True,
     )
@@ -1791,23 +1797,23 @@ def test_tier3_j1939_concurrent_bam_and_cmdt_interleaved() -> None:
 
     # 3. Interleaved DT Packets: BAM DT1 -> CMDT DT1 -> BAM DT2 -> CMDT DT2
     dt_bam1 = CanFrame.create(
-        channel_id="j1939_ch0", arbitration_id=0x18EBFF00, data=b"\x01" + b"BAM_PK1", is_extended=True
+        channel_id="j1939_ch0", arbitration_id=0x1CEBFF00, data=b"\x01" + b"BAM_PK1", is_extended=True
     )
     dt_cmdt1 = CanFrame.create(
-        channel_id="j1939_ch0", arbitration_id=0x18EBF901, data=b"\x01" + b"CMD_PK1", is_extended=True
+        channel_id="j1939_ch0", arbitration_id=0x1CEBF901, data=b"\x01" + b"CMD_PK1", is_extended=True
     )
     tp.handle_rx_frame(dt_bam1)
     tp.handle_rx_frame(dt_cmdt1)
 
     dt_bam2 = CanFrame.create(
-        channel_id="j1939_ch0", arbitration_id=0x18EBFF00, data=b"\x02" + b"BAM_PK2", is_extended=True
+        channel_id="j1939_ch0", arbitration_id=0x1CEBFF00, data=b"\x02" + b"BAM_PK2", is_extended=True
     )
     m_bam, _ = tp.handle_rx_frame(dt_bam2)
     assert m_bam is not None
     assert m_bam.data == b"BAM_PK1BAM_PK2"
 
     dt_cmdt2 = CanFrame.create(
-        channel_id="j1939_ch0", arbitration_id=0x18EBF901, data=b"\x02" + b"CMD_PK2", is_extended=True
+        channel_id="j1939_ch0", arbitration_id=0x1CEBF901, data=b"\x02" + b"CMD_PK2", is_extended=True
     )
     m_cmdt, ack = tp.handle_rx_frame(dt_cmdt2)
     assert m_cmdt is not None
@@ -1901,19 +1907,19 @@ def test_tier3_j1939_rapid_back_to_back_cmdt_transfers() -> None:
         rts_data[4] = 0xFF
         rts_data[5:8] = (65227 + i).to_bytes(3, byteorder="little")
 
-        rts = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x18ECF900, data=bytes(rts_data), is_extended=True)
+        rts = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x1CECF900, data=bytes(rts_data), is_extended=True)
         _, cts = tp.handle_rx_frame(rts)
         assert cts is not None
 
         dt1 = CanFrame.create(
-            channel_id="j1939_ch0", arbitration_id=0x18EBF900, data=b"\x01" + payload[:7], is_extended=True
+            channel_id="j1939_ch0", arbitration_id=0x1CEBF900, data=b"\x01" + payload[:7], is_extended=True
         )
         tp.handle_rx_frame(dt1)
 
         dt2_data = b"\x02" + payload[7:]
         if len(dt2_data) < 8:
             dt2_data = dt2_data + (b"\xff" * (8 - len(dt2_data)))
-        dt2 = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x18EBF900, data=dt2_data, is_extended=True)
+        dt2 = CanFrame.create(channel_id="j1939_ch0", arbitration_id=0x1CEBF900, data=dt2_data, is_extended=True)
         msg, ack = tp.handle_rx_frame(dt2)
 
         assert msg is not None

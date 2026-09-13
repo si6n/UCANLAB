@@ -156,21 +156,21 @@ class TestJ1939AdversarialMultiPacket:
         cm_data[4] = 0xFF
         cm_data[5:8] = pgn.to_bytes(3, "little")
         pipeline.process_frame(
-            CanFrame.create(channel_id="can0", arbitration_id=0x18ECFF00 | sa, data=bytes(cm_data), is_extended=True)
+            CanFrame.create(channel_id="can0", arbitration_id=0x1CECFF00 | sa, data=bytes(cm_data), is_extended=True)
         )
         assert pipeline.get_active_session_count() == 1
 
         # 2. Send Packet 1 (Seq 1)
         dt1 = bytearray([1, 10, 11, 12, 13, 14, 15, 16])
         pipeline.process_frame(
-            CanFrame.create(channel_id="can0", arbitration_id=0x18EBFF00 | sa, data=bytes(dt1), is_extended=True)
+            CanFrame.create(channel_id="can0", arbitration_id=0x1CEBFF00 | sa, data=bytes(dt1), is_extended=True)
         )
         assert pipeline.get_active_session_count() == 1
 
         # 3. Adversarial drop: skip Seq 2, send Seq 3 directly
         dt3 = bytearray([3, 20, 21, 22, 23, 24, 25, 26])
         res = pipeline.process_frame(
-            CanFrame.create(channel_id="can0", arbitration_id=0x18EBFF00 | sa, data=bytes(dt3), is_extended=True)
+            CanFrame.create(channel_id="can0", arbitration_id=0x1CEBFF00 | sa, data=bytes(dt3), is_extended=True)
         )
         assert res is None
         # Session must be evicted upon sequence error
@@ -195,19 +195,19 @@ class TestJ1939AdversarialMultiPacket:
 
         cm_data = bytearray([TP_CTRL_BAM, 14, 0, 2, 0xFF, 0xEC, 0xFE, 0x00])
         pipeline.process_frame(
-            CanFrame.create(channel_id="can0", arbitration_id=0x18ECFF00 | sa, data=bytes(cm_data), is_extended=True)
+            CanFrame.create(channel_id="can0", arbitration_id=0x1CECFF00 | sa, data=bytes(cm_data), is_extended=True)
         )
         assert pipeline.get_active_session_count() == 1
 
         # Send Packet 1
         dt1 = bytearray([1, 1, 2, 3, 4, 5, 6, 7])
         pipeline.process_frame(
-            CanFrame.create(channel_id="can0", arbitration_id=0x18EBFF00 | sa, data=bytes(dt1), is_extended=True)
+            CanFrame.create(channel_id="can0", arbitration_id=0x1CEBFF00 | sa, data=bytes(dt1), is_extended=True)
         )
 
         # Injected duplicate Packet 1 (attacker replaying seq 1)
         res = pipeline.process_frame(
-            CanFrame.create(channel_id="can0", arbitration_id=0x18EBFF00 | sa, data=bytes(dt1), is_extended=True)
+            CanFrame.create(channel_id="can0", arbitration_id=0x1CEBFF00 | sa, data=bytes(dt1), is_extended=True)
         )
         assert res is None
         # Expected sequence was 2, received 1 -> session evicted
@@ -221,7 +221,7 @@ class TestJ1939AdversarialMultiPacket:
         # RTS frame from SA 0x44 to DA 0xF9
         rts_data = bytearray([TP_CTRL_RTS, 21, 0, 3, 0xFF, 0x00, 0xEF, 0x00])
         pipeline.process_frame(
-            CanFrame.create(channel_id="can0", arbitration_id=0x18ECF944, data=bytes(rts_data), is_extended=True)
+            CanFrame.create(channel_id="can0", arbitration_id=0x1CECF944, data=bytes(rts_data), is_extended=True)
         )
 
         # CTS should have been emitted
@@ -231,19 +231,19 @@ class TestJ1939AdversarialMultiPacket:
 
         # Send seq 1
         pipeline.process_frame(
-            CanFrame.create(channel_id="can0", arbitration_id=0x18EBF944, data=b"\x01\x11\x22\x33\x44\x55\x66\x77", is_extended=True)
+            CanFrame.create(channel_id="can0", arbitration_id=0x1CEBF944, data=b"\x01\x11\x22\x33\x44\x55\x66\x77", is_extended=True)
         )
 
         # Send seq 3 instead of seq 2
         pipeline.process_frame(
-            CanFrame.create(channel_id="can0", arbitration_id=0x18EBF944, data=b"\x03\x11\x22\x33\x44\x55\x66\x77", is_extended=True)
+            CanFrame.create(channel_id="can0", arbitration_id=0x1CEBF944, data=b"\x03\x11\x22\x33\x44\x55\x66\x77", is_extended=True)
         )
 
         # Pipeline must emit Conn_Abort
         sent_after = tx_port.get_frames()
         assert len(sent_after) == 2
         abort_frame = sent_after[1]
-        assert abort_frame.arbitration_id == 0x18EC44F9
+        assert abort_frame.arbitration_id == 0x1CEC44F9
         assert abort_frame.data[0] == TP_CTRL_ABORT
         assert abort_frame.data[1] == ABORT_REASON_SEQUENCE_ERROR
         assert pipeline.get_active_session_count() == 0
@@ -254,22 +254,22 @@ class TestJ1939AdversarialMultiPacket:
 
         # 1. Total bytes = 0
         cm_zero_bytes = bytearray([TP_CTRL_BAM, 0, 0, 1, 0xFF, 0x00, 0xEF, 0x00])
-        pipeline.process_frame(CanFrame.create(channel_id="can0", arbitration_id=0x18ECFF01, data=bytes(cm_zero_bytes), is_extended=True))
+        pipeline.process_frame(CanFrame.create(channel_id="can0", arbitration_id=0x1CECFF01, data=bytes(cm_zero_bytes), is_extended=True))
         assert pipeline.get_active_session_count() == 0
 
         # 2. Total bytes > 1785 (SAE limit)
         cm_huge = bytearray([TP_CTRL_BAM, 0x00, 0x08, 255, 0xFF, 0x00, 0xEF, 0x00])  # 2048 bytes
-        pipeline.process_frame(CanFrame.create(channel_id="can0", arbitration_id=0x18ECFF01, data=bytes(cm_huge), is_extended=True))
+        pipeline.process_frame(CanFrame.create(channel_id="can0", arbitration_id=0x1CECFF01, data=bytes(cm_huge), is_extended=True))
         assert pipeline.get_active_session_count() == 0
 
         # 3. Packet count mismatch (15 bytes needs 3 packets, declares 5)
         cm_mismatch = bytearray([TP_CTRL_BAM, 15, 0, 5, 0xFF, 0x00, 0xEF, 0x00])
-        pipeline.process_frame(CanFrame.create(channel_id="can0", arbitration_id=0x18ECFF01, data=bytes(cm_mismatch), is_extended=True))
+        pipeline.process_frame(CanFrame.create(channel_id="can0", arbitration_id=0x1CECFF01, data=bytes(cm_mismatch), is_extended=True))
         assert pipeline.get_active_session_count() == 0
 
         # 4. RTS addressed to Global Address (DA=255)
         rts_global = bytearray([TP_CTRL_RTS, 14, 0, 2, 0xFF, 0x00, 0xEF, 0x00])
-        pipeline.process_frame(CanFrame.create(channel_id="can0", arbitration_id=0x18ECFF01, data=bytes(rts_global), is_extended=True))
+        pipeline.process_frame(CanFrame.create(channel_id="can0", arbitration_id=0x1CECFF01, data=bytes(rts_global), is_extended=True))
         assert pipeline.get_active_session_count() == 0
 
     def test_j1939_interleaved_streams_64_source_addresses(self) -> None:
@@ -370,11 +370,13 @@ class TestIsoTpAdversarialTransport:
         for b, exp in expected_us.items():
             assert decode_st_min(b) == exp
 
-        # 3. Reserved 0x80 - 0xF0 -> clamped to 127.0 ms
+        # 3. Reserved 0x80 - 0xF0 -> clamped to the 10.0 ms spoof/stall cap
+        # (REVIEW hardening: legacy 127 ms let a single spoofed FC crawl a
+        # transfer; the cap bounds the stall without breaking valid peers).
         for b in (0x80, 0x90, 0xA5, 0xC0, 0xEF, 0xF0):
-            assert decode_st_min(b) == 127.0
+            assert decode_st_min(b) == 10.0
 
-        # 4. Reserved 0xFA - 0xFF -> clamped to 127.0 ms
+        # 4. Reserved 0xFA - 0xFF -> clamped to 127.0 ms (legacy clamp kept)
         for b in (0xFA, 0xFB, 0xFC, 0xFD, 0xFE, 0xFF):
             assert decode_st_min(b) == 127.0
 
@@ -597,21 +599,28 @@ class TestE2ESafetyAdversarialVerification:
         f14 = packager.package(raw, profile)
         validator.validate(f14, profile)
 
-        # Case A: Last counter = 14, receive counter = 0 (delta = (0 - 14) % 16 = 2 <= 3) -> SOME_LOST
-        f0 = packager.package(raw, profile, counter=0)
+        # Case A: Last counter = 14, receive counter = 0 (delta = (0 - 14) % 16 = 2 <= 3) -> SOME_LOST.
+        # REVIEW hardening: an in-line rewind (counter=14 -> 0) is now
+        # rejected fail-closed by the packager (monotonic stream contract);
+        # the wrap step is exercised through the audited explicit
+        # set_counter path instead.
+        packager.set_counter("can0", 0x300, 15)  # next auto-counter wraps to 0
+        f0 = packager.package(raw, profile)
         res_a = validator.validate(f0, profile)
         assert res_a.verdict == E2EStatus.SOME_LOST
         assert res_a.delta == 2
         assert res_a.is_valid is True
 
         # Case B: Last counter = 0, receive counter = 3 (delta = 3 <= 3) -> SOME_LOST
-        f3 = packager.package(raw, profile, counter=3)
+        packager.set_counter("can0", 0x300, 2)  # next auto-counter is 3
+        f3 = packager.package(raw, profile)
         res_b = validator.validate(f3, profile)
         assert res_b.verdict == E2EStatus.SOME_LOST
         assert res_b.delta == 3
 
         # Case C: Last counter = 3, receive counter = 8 (delta = 5 > 3) -> WRONG_SEQUENCE
-        f8 = packager.package(raw, profile, counter=8)
+        packager.set_counter("can0", 0x300, 7)  # next auto-counter is 8
+        f8 = packager.package(raw, profile)
         res_c = validator.validate(f8, profile)
         assert res_c.verdict == E2EStatus.WRONG_SEQUENCE
         assert res_c.delta == 5

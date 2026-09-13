@@ -32,14 +32,18 @@ DEFAULT_EMBEDDED_CLOUD_PUBLIC_KEY_B64 = "eX3vJQWpo/pKrkpi5Y+f7m5ooUCRbCyY201DTnA
 
 
 def _dev_override_enabled() -> bool:
-    """True only in a development/test environment (L-C-001).
+    """True only in an explicit non-frozen dev environment (L-C-001).
 
-    Production builds must never honor --launch past a failed preflight;
-    the override requires an explicit opt-in environment variable.
+    Production (frozen) builds never honor the override. The legacy
+    PYTEST_CURRENT_TEST branch was removed: a local env var must never
+    decide a security gate in a shipped binary.
     """
     import os
+    import sys
 
-    return bool(os.environ.get("UCAN_LAUNCHER_DEV_OVERRIDE") or os.environ.get("PYTEST_CURRENT_TEST"))
+    if getattr(sys, "frozen", False):
+        return False
+    return os.environ.get("UCAN_LAUNCHER_DEV_OVERRIDE") == "1"
 
 
 @dataclass(slots=True, frozen=True)
@@ -101,7 +105,12 @@ class UniversalCanLauncher:
         has_critical_failures = any(not p.is_available and p.is_critical for p in prereqs)
 
         auth_status = self.auth_manager.get_current_status()
-        update_info = self.update_manager.check_for_updates(custom_manifest=custom_update_manifest)
+        if custom_update_manifest is not None:
+            # Test-only path: unsigned manifest, never clears a sealed
+            # obligation in production (main() always passes None).
+            update_info = self.update_manager._check_for_updates_unverified(custom_manifest=custom_update_manifest)
+        else:
+            update_info = self.update_manager.check_for_updates()
         target_exe = self.resolve_target_executable()
 
         has_blocking_mandatory_update = update_info.has_update and update_info.mandatory
@@ -141,23 +150,84 @@ class UniversalCanLauncher:
     # M-25 (P2-14): persisted mandatory-update obligation
     # ------------------------------------------------------------------
 
+    # Sealed mandatory-update obligation (<ver>.<hmac>).
+    _OBLIGATION_HMAC_KEY_NAME = "LAUNCHER_OBLIGATION_HMAC"
+    _ALLOWED_EXTRA_ARGS = frozenset({"--channel", "--interface", "--bitrate", "--cli", "--help"})
+
     def _obligation_path(self) -> Path:
         return self.root_dir / "dist" / "launcher_mandatory_update.txt"
 
+    def _obligation_hmac_key(self) -> bytes | None:
+        """Return the HMAC key for the obligation seal, or None (fail-closed)."""
+        try:
+            secrets = getattr(self.auth_manager, "secrets", None)
+            if secrets is None:
+                from src.safety.secret_provider import get_default_secret_provider
+
+                secrets = get_default_secret_provider()
+            if not secrets.has_secret(self._OBLIGATION_HMAC_KEY_NAME):
+                return None
+            key = bytes(secrets.get_secret(self._OBLIGATION_HMAC_KEY_NAME))
+            if len(key) < 16:
+                return None
+            return key
+        except Exception:
+            return None
+
     def _load_recorded_mandatory_obligation(self) -> str | None:
         try:
+            import hashlib as _hashlib
+            import hmac as _hmac
+
             path = self._obligation_path()
             if not path.exists():
                 return None
-            return path.read_text(encoding="utf-8").strip() or None
+            raw = path.read_text(encoding="utf-8").strip()
+            if not raw:
+                return None
+            key = self._obligation_hmac_key()
+            if key is None:
+                logger.error("Obligation seal key unavailable — fail-closed (blocking launch on failed check)")
+                return "TAMPERED"
+            ver, sep, mac = raw.rpartition(".")
+            if not sep or not ver or not mac:
+                logger.error("Obligation file malformed — fail-closed")
+                return "TAMPERED"
+            expected = _hmac.new(key, ver.encode("utf-8"), _hashlib.sha256).hexdigest()
+            if not _hmac.compare_digest(expected, mac):
+                logger.error("Obligation seal mismatch — fail-closed")
+                return "TAMPERED"
+            return ver
         except OSError:
             return None
 
     def _record_mandatory_obligation(self, min_version: str) -> None:
         try:
+            import hashlib as _hashlib
+            import hmac as _hmac
+            import os as _os
+
+            key: bytes | None = self._obligation_hmac_key()
+            if key is None:
+                # First-time seal: create a stable key, then seal. If the
+                # vault is unavailable, fail closed without writing an
+                # unsigned file.
+                try:
+                    secrets = getattr(self.auth_manager, "secrets", None)
+                    if secrets is None:
+                        from src.safety.secret_provider import get_default_secret_provider
+
+                        secrets = get_default_secret_provider()
+                    key = _os.urandom(32)
+                    secrets.store_secret(self._OBLIGATION_HMAC_KEY_NAME, key)
+                except Exception as exc:
+                    logger.error("Failed to provision obligation seal key — fail-closed", extra={"error": str(exc)})
+                    return
+            ver = str(min_version).strip()
+            mac = _hmac.new(key, ver.encode("utf-8"), _hashlib.sha256).hexdigest()
             path = self._obligation_path()
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(min_version, encoding="utf-8")
+            path.write_text(f"{ver}.{mac}", encoding="utf-8")
         except OSError as exc:
             logger.warning("Failed to record mandatory update obligation", extra={"error": str(exc)})
 
@@ -167,16 +237,52 @@ class UniversalCanLauncher:
         except OSError:
             pass
 
+    @classmethod
+    def _filter_extra_args(cls, args: list[str] | None) -> list[str]:
+        """Allowlist unknown CLI args forwarded to the child process."""
+        if not args:
+            return []
+        filtered: list[str] = []
+        i = 0
+        while i < len(args):
+            tok = str(args[i])
+            name = tok.split("=", 1)[0]
+            if name in cls._ALLOWED_EXTRA_ARGS:
+                filtered.append(tok)
+                # Allow a separate value token (e.g. "--channel vcan0") when
+                # the flag was not given as --flag=value.
+                if "=" not in tok and i + 1 < len(args) and not str(args[i + 1]).startswith("-"):
+                    filtered.append(str(args[i + 1]))
+                    i += 1
+            else:
+                logger.warning("Dropping non-allowlisted launcher arg", extra={"arg": tok[:64]})
+            i += 1
+        return filtered
+
     def launch_main_app(self, extra_args: list[str] | None = None) -> int:
         """Spawn the core application executable with integrity checks."""
         target = self.resolve_target_executable().resolve()
-        args = extra_args or []
+        args = self._filter_extra_args(extra_args or [])
 
         if not target.is_file():
             logger.error("Target executable not found or not a valid file", extra={"target": str(target)})
             return 1
 
         if target.suffix == ".py":
+            import hashlib as _hashlib
+
+            try:
+                h = _hashlib.sha256()
+                with open(target, "rb") as _f:
+                    while _chunk := _f.read(65536):
+                        h.update(_chunk)
+                logger.warning(
+                    "Launching unsigned Python fallback entry point",
+                    extra={"target": str(target), "sha256": h.hexdigest()},
+                )
+            except OSError as exc:
+                logger.error("Refusing to execute unreadable fallback script", extra={"error": str(exc)})
+                return 1
             cmd = [sys.executable, str(target)] + args
         elif target.suffix.lower() == ".exe":
             cmd = [str(target)] + args
@@ -184,8 +290,8 @@ class UniversalCanLauncher:
             logger.error("Refusing to execute unverified binary extension", extra={"target": str(target)})
             return 1
 
-        logger.info("Launching Universal CAN Platform", extra={"target": str(target), "args": args})
-        return subprocess.call(cmd)
+        logger.info("Launching Universal CAN Platform", extra={"target": str(target), "cli_args": args})
+        return subprocess.call(cmd, shell=False, timeout=300)
 
 
 def main() -> int:
@@ -230,15 +336,14 @@ def main() -> int:
     if args.check_only:
         return 0 if report.can_launch else 1
 
-    # L-C-001: --launch must never bypass preflight DRM/auth gating in
-    # production builds. It stays a developer convenience only.
+    # L-C-001: --launch never bypasses the preflight gate. A failed
+    # preflight always blocks, even with the dev override (the override
+    # only gates non-launch diagnostics, never execution).
     if report.can_launch:
         return launcher.launch_main_app(extra_args=unknown)
 
     if args.launch and _dev_override_enabled():
-        print("WARNING: --launch dev override active — bypassing preflight gate.")
-        return launcher.launch_main_app(extra_args=unknown)
-
+        print("WARNING: --launch dev override ignored — preflight FAILED, launch blocked.")
     print("Preflight FAILED: launch aborted. Use --check-only for diagnostics.")
     return 1
 

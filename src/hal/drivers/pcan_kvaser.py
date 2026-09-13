@@ -113,11 +113,20 @@ class PythonCanBus(AbstractBus):
                 self.is_connected = False
                 self.metrics.state = BusState.DISCONNECTED
                 raise
-            except (can.CanError, OSError, ValueError) as exc:
+            except Exception as exc:  # noqa: BLE001
+                # REVIEW2 #4: python-can backends raise more than
+                # CanError/OSError/ValueError — optional-dependency
+                # ImportError/ModuleNotFoundError, wrong-kwarg
+                # AttributeError/TypeError, backend-specific exceptions. The
+                # old narrow guard skipped the HardwareError wrap AND left
+                # is_connected/metrics.state stale ( callers saw a phantom
+                # ACTIVE bus). Wrap every failure and always clean state.
                 self.is_connected = False
+                self._bus = None
                 self.metrics.state = BusState.DISCONNECTED
                 raise HardwareError(
-                    f"Failed to connect to CAN interface '{self.interface}:{self.channel}': {exc}",
+                    f"Failed to connect to CAN interface '{self.interface}:{self.channel}': "
+                    f"{type(exc).__name__}: {str(exc)[:400]}",
                     code="HARDWARE_CONNECT_FAILED",
                     details={"interface": self.interface, "channel": str(self.channel), "bitrate": self.bitrate},
                     cause=exc,
@@ -127,6 +136,44 @@ class PythonCanBus(AbstractBus):
     # lifecycle lock (and thus every subsequent send/connect/disconnect)
     # hostage forever.
     DISCONNECT_DRAIN_TIMEOUT_S: ClassVar[float] = 2.0
+
+    def set_listen_only(self, listen_only: bool) -> bool:
+        """Flip the backend bus state between PASSIVE and ACTIVE (verified).
+
+        REVIEW (arm_tx atomicity): arming TX used to flip only the
+        supervisor while the driver stayed PASSIVE — the first send then
+        raised HardwareError. The desktop arming path now calls this and
+        only proceeds when the driver confirmed the requested mode.
+
+        Returns True when the backend reports the requested state. A
+        backend whose state cannot be read back after the assignment is
+        treated as unverified (fail-closed: False).
+        """
+        with self._lifecycle_lock:
+            if not self.is_connected or self._bus is None:
+                return False
+            target = can.BusState.PASSIVE if listen_only else can.BusState.ACTIVE
+            try:
+                self._bus.state = target
+                actual_state = getattr(self._bus, "state", None)
+                if actual_state is not None and actual_state != target:
+                    logger.error(
+                        "Backend did not confirm bus state change",
+                        extra={"target": target, "actual": actual_state},
+                    )
+                    return False
+            except (NotImplementedError, AttributeError):
+                # Software-simulated bus (virtual / loopback) does not expose hardware transceiver state
+                pass
+            except Exception as exc:  # noqa: BLE001 — backend refusal
+                logger.error(
+                    "Backend refused bus state change",
+                    extra={"target": target, "error": str(exc)},
+                )
+                return False
+            self.listen_only = listen_only
+            self.metrics.state = BusState.PASSIVE if listen_only else BusState.ACTIVE
+            return True
 
     def disconnect(self) -> None:
         """Shutdown CAN bus and release transceiver handles."""
@@ -154,7 +201,7 @@ class PythonCanBus(AbstractBus):
                 try:
                     self._bus.shutdown()
                 except (can.CanError, OSError) as exc:
-                    logger.warning("Error during CAN bus shutdown", extra={"error": str(exc)})
+                    logger.warning("Error during CAN bus shutdown", extra={"error": str(exc)[:500]})
                 finally:
                     self._bus = None
                     self.metrics.state = BusState.DISCONNECTED
@@ -192,14 +239,14 @@ class PythonCanBus(AbstractBus):
         except (can.CanError, ValueError) as exc:
             self.metrics.error_frames += 1
             raise TransportError(
-                f"Hardware frame construction/transmission failed: {exc}",
+                f"Hardware frame construction/transmission failed: {str(exc)[:500]}",
                 code="TRANSPORT_FRAME_INVALID",
                 cause=exc,
             ) from exc
         except TypeError as exc:
             self.metrics.error_frames += 1
             raise TransportError(
-                f"Hardware frame rejected by driver: {exc}",
+                f"Hardware frame rejected by driver: {str(exc)[:500]}",
                 code="TRANSPORT_FRAME_INVALID",
                 cause=exc,
             ) from exc
@@ -237,7 +284,7 @@ class PythonCanBus(AbstractBus):
         except (can.CanError, OSError, RuntimeError, AttributeError) as exc:
             self.metrics.error_frames += 1
             raise HardwareError(
-                f"Hardware frame read error: {exc}",
+                f"Hardware frame read error: {str(exc)[:500]}",
                 code="HARDWARE_READ_ERROR",
                 cause=exc,
             ) from exc
@@ -282,11 +329,21 @@ class PythonCanBus(AbstractBus):
             self.metrics.state = BusState.BUS_OFF
 
         try:
+            # REVIEW 2-M1: python-can returns ONLY the bytes received — many
+            # classic frames arrive with fewer bytes than the DLC declares
+            # (drivers do not pad). The CanFrame DLC invariant (CORE-C-001)
+            # requires exact length, so raw short payloads were rejected as
+            # "malformed" and silently dropped, killing real-world RX traffic.
+            # Pad to the declared DLC length (ISO 11898-1 wire padding).
+            dlc = msg.dlc if msg.dlc is not None else length_to_dlc(len(msg.data))
+            rx_data = bytes(msg.data)
+            if len(rx_data) < dlc:
+                rx_data = rx_data + bytes([0x00] * (dlc - len(rx_data)))
             return CanFrame(
                 channel_id=self.channel_id,
                 arbitration_id=msg.arbitration_id,
-                dlc=msg.dlc if msg.dlc is not None else length_to_dlc(len(msg.data)),
-                data=bytes(msg.data),
+                dlc=dlc,
+                data=rx_data,
                 is_extended=msg.is_extended_id,
                 is_fd=msg.is_fd,
                 brs=msg.bitrate_switch,
@@ -299,7 +356,7 @@ class PythonCanBus(AbstractBus):
             # Malformed on-wire frame (e.g. DLC/data mismatch from a flaky
             # driver) — count and skip instead of killing the RX loop.
             self.metrics.error_frames += 1
-            logger.debug("Malformed RX frame dropped", extra={"error": str(exc)})
+            logger.debug("Malformed RX frame dropped", extra={"error": str(exc)[:500]})
             return None
 
     @classmethod
@@ -321,7 +378,7 @@ class PythonCanBus(AbstractBus):
                     logger.info("Auto-detected active bitrate", extra={"bitrate": rate})
                     return rate
             except (can.CanError, OSError, HardwareError) as exc:
-                logger.debug("Bitrate candidate failed", extra={"bitrate": rate, "error": str(exc)})
+                logger.debug("Bitrate candidate failed", extra={"bitrate": rate, "error": str(exc)[:500]})
             finally:
                 # F-22: always release the bus, including on exception paths
                 if bus is not None:
@@ -330,6 +387,6 @@ class PythonCanBus(AbstractBus):
                     except (can.CanError, OSError) as exc:
                         logger.debug(
                             "Disconnect after bitrate probe failed",
-                            extra={"bitrate": rate, "error": str(exc)},
+                            extra={"bitrate": rate, "error": str(exc)[:500]},
                         )
         return None

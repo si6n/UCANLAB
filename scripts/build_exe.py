@@ -8,11 +8,31 @@ import sys
 from pathlib import Path
 
 
+def _resolve_npm() -> str:
+    """Resolve npm to an absolute path (supply-chain: PATH hijack guard).
+
+    Honors NPM_PATH env override; otherwise shutil.which + resolve with logging.
+    Absolute path is mandatory — never exec a bare relative name.
+    """
+    import os
+
+    env_npm = os.environ.get("NPM_PATH")
+    if env_npm:
+        resolved = str(Path(env_npm).resolve())
+        print(f"[supply-chain] npm via NPM_PATH: {env_npm} -> {resolved}")
+        return resolved
+    found = shutil.which("npm")
+    if found is None:
+        raise FileNotFoundError("npm bulunamadi. Node.js kurulu mu? (veya NPM_PATH env ayarlayin)")
+    resolved = str(Path(found).resolve())
+    print(f"[supply-chain] npm via PATH: {found} -> {resolved}")
+    return resolved
+
+
 def _run_npm_build(frontend_dir: Path) -> int:
-    npm = shutil.which("npm")
-    if npm is None:
-        print("[HATA] npm bulunamadi. Node.js kurulu mu?")
-        return 1
+    # supply-chain: invoke npm binary directly (absolute path); avoid
+    # `cmd /c <string>` shell-string form which is hijack/injection prone.
+    npm = _resolve_npm()
     return subprocess.call([npm, "run", "build"], cwd=str(frontend_dir))
 
 

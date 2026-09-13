@@ -28,6 +28,16 @@ logger = get_logger("protocols.j1939.transport")
 
 PGN_TP_CM: int = 60416  # 0xEC00 (Connection Management)
 PGN_TP_DT: int = 60160  # 0xEB00 (Data Transfer)
+# REVIEW 3-3 (HIGH): SAE J1939-21 Annex A Extended Transport Protocol PGNs.
+# NOT implemented — RX frames are recognized, logged and dropped (never
+# silently); TX beyond 1785 bytes raises with an explicit ETP hint.
+PGN_ETP_CM: int = 51200  # 0xC800 (ETP Connection Management)
+PGN_ETP_DT: int = 50944  # 0xC700 (ETP Data Transfer)
+
+# REVIEW 3-1 (CRITICAL): SAE J1939-21 default priority for TP.CM/TP.DT is 7
+# (0x1C..), not 6 (0x18..). All TP frame IDs below use priority 7;
+# Address Claim (0x18EE) and Request (0x18EA) keep priority 6 as the
+# standard prescribes for those PGNs.
 
 # TP.CM Control Bytes
 TP_CTRL_RTS: int = 0x10
@@ -60,6 +70,11 @@ ABORT_REASON_SEQUENCE_ERROR: int = 0x01
 ABORT_REASON_SESSION_COLLISION: int = 0x02
 ABORT_REASON_TIMEOUT: int = 0x03
 ABORT_REASON_UNEXPECTED_CONTROL: int = 0x04
+
+# REVIEW hardening: CTS packet_count grant cap — a fake CTS with
+# packet_count=255 would burst the whole transfer in one window and
+# overflow the receiver buffer. Grants above the cap abort the session.
+MAX_CTS_PACKET_COUNT: int = 16
 
 
 @dataclass(slots=True)
@@ -98,6 +113,162 @@ class CompletedMessage:
     data: bytes
     timestamp_ns: int
     channel_id: str
+
+
+class _PgnScopedSessionTable(dict):
+    """RX session table keyed by (SA, DA, channel, PGN) with legacy lookup.
+
+    REVIEW hardening: the old 3-tuple (SA, DA, channel) key let a spoofed
+    RTS with a different PGN abort a legitimate in-flight session
+    (collision DoS + escalation). Keys are now PGN-scoped 4-tuples; the
+    same-4-tuple collision path keeps the previous abort-and-replace
+    semantics ("mevcut abort mantığı korunur").
+
+    Backward compatibility: legacy 3-tuple (SA, DA, channel) reads
+    (``in``/``[]``/``get``/``pop``/``del``) resolve to the unique matching
+    4-tuple entry (``None``/``KeyError`` when absent or ambiguous), and
+    3-tuple writes derive the PGN from the session's ``target_pgn``.
+    """
+
+    @staticmethod
+    def _is_legacy_key(key: object) -> bool:
+        return isinstance(key, tuple) and len(key) == 3
+
+    def _resolve_legacy(self, key: tuple) -> tuple | None:
+        matches = [
+            k
+            for k in dict.keys(self)
+            if isinstance(k, tuple)
+            and len(k) == 4
+            and k[0] == key[0]
+            and k[1] == key[1]
+            and k[2] == key[2]
+        ]
+        if len(matches) == 1:
+            return matches[0]
+        return None
+
+    def __contains__(self, key: object) -> bool:  # type: ignore[override]
+        if dict.__contains__(self, key):
+            return True
+        if self._is_legacy_key(key):
+            return self._resolve_legacy(key) is not None  # type: ignore[arg-type]
+        return False
+
+    def __getitem__(self, key: tuple):  # type: ignore[override]
+        try:
+            return dict.__getitem__(self, key)
+        except KeyError:
+            if self._is_legacy_key(key):
+                full = self._resolve_legacy(key)
+                if full is not None:
+                    return dict.__getitem__(self, full)
+            raise
+
+    def get(self, key: tuple, default=None):  # type: ignore[override]
+        try:
+            return self.__getitem__(key)
+        except KeyError:
+            return default
+
+    def pop(self, key: tuple, *args):  # type: ignore[override]
+        try:
+            return dict.pop(self, key)
+        except KeyError:
+            if self._is_legacy_key(key):
+                full = self._resolve_legacy(key)
+                if full is not None:
+                    return dict.pop(self, full)
+            if args:
+                return args[0]
+            raise
+
+    def __delitem__(self, key: tuple) -> None:  # type: ignore[override]
+        try:
+            dict.__delitem__(self, key)
+            return
+        except KeyError:
+            pass
+        if self._is_legacy_key(key):
+            full = self._resolve_legacy(key)
+            if full is not None:
+                dict.__delitem__(self, full)
+                return
+        raise KeyError(key)
+
+    def __setitem__(self, key: tuple, value) -> None:  # type: ignore[override]
+        if self._is_legacy_key(key):
+            pgn = getattr(value, "target_pgn", None)
+            if isinstance(pgn, int):
+                dict.__setitem__(self, (key[0], key[1], key[2], pgn), value)
+                return
+        dict.__setitem__(self, key, value)
+
+
+@dataclass(slots=True)
+class TransportAnomalyMetrics:
+    """Observable TP anomaly counters (MEDIUM-7): ABORT/CTS storm detection.
+
+    A bus-hijack / DoS attempt shows up on J1939-21 as an abnormal ratio
+    of Conn_Abort frames and unsolicited CTS bursts against normal RTS/BAM
+    traffic. These counters are pure observability — they never gate RX
+    (the session-hardening paths do that); callers poll and raise alarms.
+    """
+
+    # RX-side TP.CM counters (per control byte)
+    rx_abort: int = 0
+    rx_rts: int = 0
+    rx_bam: int = 0
+    rx_cts: int = 0
+    # CTS frames addressed to a sender session that does not exist
+    # (unsolicited CTS — classic spoof/injection signature)
+    rx_unsolicited_cts: int = 0
+    # Aborts we emitted in response to detected anomalies
+    tx_abort_emitted: int = 0
+    # REVIEW 2-H2 (HIGH): J1939-22 FD TP frames (>8 bytes) that the
+    # classic J1939-21 engine must drop — surfaced, never silent.
+    dropped_fd_tp_frames: int = 0
+
+    @property
+    def abort_ratio(self) -> float:
+        """Abort share of all received TP.CM connection frames (RTS/CTS/ABORT).
+
+        A healthy bus stays near 0; a hijacker spraying Abort frames
+        against sessions drives this toward 1.
+        """
+        total = self.rx_abort + self.rx_rts + self.rx_cts
+        if total == 0:
+            return 0.0
+        return self.rx_abort / total
+
+    def is_suspect(self, *, min_frames: int = 20, ratio_threshold: float = 0.5) -> bool:
+        """Heuristic bus-hijack alarm (MEDIUM-7).
+
+        True when at least `min_frames` connection-mode TP.CM frames have
+        been observed AND the abort ratio exceeds `ratio_threshold`, or
+        when any unsolicited CTS has been observed at all. Conservative
+        defaults: needs >= 20 frames and > 50% aborts — a normal CMDT
+        exchange (RTS -> CTS -> DT -> ACK) never trips this.
+        """
+        if self.rx_unsolicited_cts > 0:
+            return True
+        if (self.rx_abort + self.rx_rts + self.rx_cts) < min_frames:
+            return False
+        return self.abort_ratio > ratio_threshold
+
+    def snapshot(self) -> dict[str, float | int]:
+        """Flat metric view for telemetry pipelines / logging."""
+        return {
+            "rx_abort": self.rx_abort,
+            "rx_rts": self.rx_rts,
+            "rx_bam": self.rx_bam,
+            "rx_cts": self.rx_cts,
+            "rx_unsolicited_cts": self.rx_unsolicited_cts,
+            "tx_abort_emitted": self.tx_abort_emitted,
+            "dropped_fd_tp_frames": self.dropped_fd_tp_frames,
+            "abort_ratio": round(self.abort_ratio, 4),
+            "is_suspect": self.is_suspect(),
+        }
 
 
 @dataclass(slots=True)
@@ -152,8 +323,23 @@ class J1939TransportProtocol:
         self.channel_id = channel_id
         self.clock = clock
         self.rx_cts_window = rx_cts_window
-        # Session storage strictly keyed by (source_address, destination_address, channel_id)
-        self._rx_sessions: dict[tuple[int, int, str], ReassemblySession] = {}
+        # REVIEW 1-H5 (HIGH): SAE J1939-21 mandates 50-200 ms between BAM
+        # TP.DT broadcast packets. start_tp_bam_paced() exposes the interval
+        # to TX schedulers; the default is the spec minimum (50 ms).
+        self.bam_pacing_interval_s: float = 0.050
+        # REVIEW hardening: cross-PGN RTS collision rate marks keyed by
+        # (SA, DA, channel). A slow/occasional cross-PGN RTS keeps the
+        # legacy abort-and-replace path (backward compatible); a burst of
+        # distinct-PGN RTS frames against one prefix is a spoof storm — the
+        # live session is then protected and the newcomer is aborted.
+        self._rts_prefix_marks: dict[tuple[int, int, str], list[float]] = {}
+        # REVIEW hardening: session storage keyed by
+        # (source_address, destination_address, channel_id, target_pgn).
+        # The old 3-tuple let a spoofed RTS with a different PGN abort a
+        # legitimate in-flight session (collision DoS + escalation). The
+        # 3-tuple key form is still accepted on lookup for backward
+        # compatibility (resolved to the matching PGN entry when unique).
+        self._rx_sessions: _PgnScopedSessionTable = _PgnScopedSessionTable()
         # CMDT sender sessions keyed by (my_address, peer_address, pgn, channel_id)
         self._tx_sessions: dict[tuple[int, int, int, str], CmdtSenderSession] = {}
         # Overflow outgoing frames when a single handle_rx_frame call yields
@@ -162,12 +348,33 @@ class J1939TransportProtocol:
         self._pending_tx_frames: list[CanFrame] = []
         self._sessions_lock = threading.RLock()
         self._per_sa_sessions: collections.Counter[str] = collections.Counter()
+        # MEDIUM-7: observable TP anomaly counters (ABORT/CTS storm).
+        self.anomaly_metrics = TransportAnomalyMetrics()
 
     def _get_now(self) -> float:
         """Return current monotonic time in seconds."""
         if self.clock is not None:
             return self.clock.now_monotonic()
         return time.monotonic()
+
+    def set_my_address(self, new_address: int) -> None:
+        """REVIEW 2-M4: update our J1939 source address (Address Claim dynamics).
+
+        SAE J1939-81 lets a node change its source address at runtime
+        (e.g. after a Commanded Address or contention loss). Protocol
+        responses (CTS/ACK/Abort/DT) embed `self.my_address` at emit
+        time, so a stale address mis-addresses every response. Call this
+        when the AddressClaimEngine re-claims a new SA.
+        """
+        if not (0 <= new_address <= 0xFF):
+            raise ValueError(f"J1939 source address must be 0..255, got {new_address}")
+        with self._sessions_lock:
+            if new_address != self.my_address:
+                logger.info(
+                    "J1939 transport source address changed",
+                    extra={"old": self.my_address, "new": new_address},
+                )
+            self.my_address = new_address
 
     def _reap_stale_sessions(self, now: float | None = None) -> int:
         """Reap inactive reassembly sessions and return the number of reaped sessions (MED-3).
@@ -191,12 +398,28 @@ class J1939TransportProtocol:
 
     def handle_rx_frame(self, frame: CanFrame) -> tuple[CompletedMessage | None, CanFrame | None]:
         """Process incoming frame according to SAE J1939-21 PDU format rules."""
-        if not frame.is_extended or len(frame.data) < 8:
-            # M-34 (micro): J1939-22/FD padded TP frames (CAN-FD transport
-            # carrying >8-byte payloads) currently fall into this guard and
-            # vanish without a trace. Log at DEBUG (hot path — every
-            # non-extended or short frame on a mixed bus passes here) so a
-            # J1939-22 capture is diagnosable instead of silently empty.
+        fd_tp = frame.is_fd and (frame.dlc > 8 or len(frame.data) > 8)
+        if not frame.is_extended or len(frame.data) < 8 or fd_tp:
+            # M-34 (micro) -> REVIEW 2-H2 (HIGH): J1939-22/FD TP frames
+            # (>8-byte transport payloads) are NOT decodable by the classic
+            # J1939-21 engine. They previously fell into this guard and
+            # vanished at DEBUG level. FD TP frames are now counted in
+            # anomaly_metrics.dropped_fd_tp_frames and logged at WARNING —
+            # a J1939-22 capture must be visible, not silently empty.
+            # Non-FD short/11-bit noise stays at DEBUG (hot path).
+            if fd_tp:
+                with self._sessions_lock:
+                    self.anomaly_metrics.dropped_fd_tp_frames += 1
+                logger.warning(
+                    "J1939-22 FD transport frame dropped — classic J1939-21 engine only",
+                    extra={
+                        "is_fd": frame.is_fd,
+                        "dlc": frame.dlc,
+                        "data_len": len(frame.data),
+                        "arbitration_id": frame.arbitration_id,
+                    },
+                )
+                return None, None
             logger.debug(
                 "Dropping non-J1939-21-transport frame (11-bit or short/DL)",
                 extra={
@@ -249,6 +472,16 @@ class J1939TransportProtocol:
         if pgn == PGN_TP_DT:
             return self._handle_tp_dt(frame, sa, da)
 
+        # REVIEW 3-3 (HIGH): ETP.CM / ETP.DT are recognized and surfaced —
+        # never silently dropped. Full ETP state machine is not implemented;
+        # logging makes an unsupported ETP ECU diagnosable instead of "no data".
+        if pgn in (PGN_ETP_CM, PGN_ETP_DT):
+            logger.warning(
+                "J1939 ETP frame received but Extended Transport Protocol is not supported",
+                extra={"pgn": pgn, "sa": sa, "da": da, "arbitration_id": frame.arbitration_id},
+            )
+            return None, None
+
         return None, None
 
     def handle_frame(self, frame: CanFrame) -> tuple[CompletedMessage | None, CanFrame | None]:
@@ -277,6 +510,7 @@ class J1939TransportProtocol:
             self._tx_sessions.clear()
             self._per_sa_sessions.clear()
             self._pending_tx_frames.clear()
+            self._rts_prefix_marks.clear()
 
     def reap_stale_sessions_public(self) -> int:
         """Lock-holding public reaper (P2-8, H-5) — safe from any thread."""
@@ -296,8 +530,13 @@ class J1939TransportProtocol:
         total_packets = frame.data[3]
         target_pgn = int.from_bytes(frame.data[5:8], byteorder="little")
 
-        # Session key strictly by (source_address, destination_address, channel_id)
-        session_key = (sa, da, frame.channel_id)
+        # REVIEW hardening: session key scoped by
+        # (source_address, destination_address, channel_id, target_pgn).
+        # A spoofed RTS with a different PGN no longer aborts a
+        # legitimate in-flight session — it opens a parallel entry
+        # (quota/capacity still bound). Same-4-tuple RTS keeps the
+        # previous abort-and-replace collision path.
+        session_key = (sa, da, frame.channel_id, target_pgn)
 
         # Validate SAE J1939-21 TP limits: max 1785 bytes, packets must match declared bytes
         if ctrl_byte in {TP_CTRL_BAM, TP_CTRL_RTS}:
@@ -319,6 +558,7 @@ class J1939TransportProtocol:
             self._reap_stale_sessions()
 
             if ctrl_byte == TP_CTRL_BAM:
+                self.anomaly_metrics.rx_bam += 1
                 # Broadcast Announce Message must be addressed to global broadcast address DA == 255 (0xFF)
                 if da != 255:
                     logger.warning(
@@ -328,6 +568,12 @@ class J1939TransportProtocol:
                     return None, None
                 # B-03: If an in-flight BAM is replaced by another BAM from same SA for a DIFFERENT PGN,
                 # record partial drop and log warning cleanly.
+                # REVIEW hardening: same-PGN duplicates keep the legacy
+                # replace path unconditionally. A cross-PGN BAM against a
+                # live prefix is rate-gated — a slow/occasional replacement
+                # keeps B-03 replace semantics (backward compatible); a
+                # burst of distinct-PGN BAMs is a spoof storm and the
+                # newcomer is rejected (live session protected).
                 old_bam = self._rx_sessions.get(session_key)
                 if old_bam is not None:
                     if old_bam.target_pgn != target_pgn:
@@ -341,6 +587,34 @@ class J1939TransportProtocol:
                             extra={"sa": sa, "old_pgn": hex(old_bam.target_pgn), "new_pgn": hex(target_pgn)},
                         )
                     self._release_session_slot(session_key, old_bam)
+                else:
+                    live_prefix = [
+                        (k, s)
+                        for k, s in self._rx_sessions.items()
+                        if isinstance(k, tuple)
+                        and len(k) == 4
+                        and k[0] == sa
+                        and k[1] == da
+                        and k[2] == frame.channel_id
+                    ]
+                    if live_prefix:
+                        prefix_key = (sa, da, frame.channel_id)
+                        if not self._check_prefix_collision_rate(prefix_key):
+                            logger.warning(
+                                "J1939 cross-PGN BAM storm — live session protected",
+                                extra={
+                                    "sa": sa,
+                                    "live_pgn": hex(live_prefix[0][1].target_pgn),
+                                    "new_pgn": hex(target_pgn),
+                                },
+                            )
+                            return None, None
+                        live_key, live_sess = live_prefix[0]
+                        logger.warning(
+                            "New BAM with different PGN replaces in-flight session (B-03)",
+                            extra={"sa": sa, "old_pgn": hex(live_sess.target_pgn), "new_pgn": hex(target_pgn)},
+                        )
+                        self._release_session_slot(live_key, live_sess)
 
                 # F-19: per source-address quota
                 if (
@@ -376,6 +650,7 @@ class J1939TransportProtocol:
                 return None, None
 
         if ctrl_byte == TP_CTRL_RTS:
+            self.anomaly_metrics.rx_rts += 1
             # Request To Send (Point-to-Point CMDT)
             # 1. Reject RTS addressed to global broadcast address DA == 255 (0xFF)
             if da == 255 or da != self.my_address:
@@ -388,12 +663,21 @@ class J1939TransportProtocol:
             # P7: the entire RTS session-mutation path runs under the sessions
             # lock — collision check, quota, capacity and slot creation.
             with self._sessions_lock:
-                # 2. Check for active session collision on (SA, DA, channel)
+                # 2. Check for active session collision on
+                # (SA, DA, channel, PGN).
+                # REVIEW hardening: same-PGN duplicates keep the legacy
+                # abort-and-replace path. A cross-PGN RTS against an
+                # ACTIVE prefix is rate-gated: an occasional (slow)
+                # cross-PGN RTS keeps abort-and-replace (backward
+                # compatible with the collision tests); a burst of
+                # distinct-PGN RTS frames is a spoof storm — the live
+                # session is then protected and the newcomer is rejected
+                # with an Abort (live PGN preserved).
                 existing_session = self._rx_sessions.get(session_key)
                 abort_frame: CanFrame | None = None
                 if existing_session is not None:
                     logger.warning(
-                        "J1939 TP session collision detected on (SA, DA, channel)",
+                        "J1939 TP session collision detected on (SA, DA, channel, PGN)",
                         extra={
                             "sa": sa,
                             "da": da,
@@ -406,6 +690,61 @@ class J1939TransportProtocol:
                         existing_session, reason=ABORT_REASON_SESSION_COLLISION
                     )
                     self._release_session_slot(session_key, existing_session)
+                else:
+                    # No same-PGN entry — look for a live cross-PGN prefix.
+                    prefix_key = (sa, da, frame.channel_id)
+                    live_prefix = [
+                        (k, s)
+                        for k, s in self._rx_sessions.items()
+                        if isinstance(k, tuple)
+                        and len(k) == 4
+                        and k[0] == sa
+                        and k[1] == da
+                        and k[2] == frame.channel_id
+                    ]
+                    if live_prefix:
+                        if not self._check_prefix_collision_rate(prefix_key):
+                            # Spoof storm: protect the live session, abort
+                            # the newcomer (its PGN survives in the frame).
+                            live_key, live_sess = live_prefix[0]
+                            logger.warning(
+                                "J1939 cross-PGN RTS storm — live session protected",
+                                extra={
+                                    "sa": sa,
+                                    "da": da,
+                                    "live_pgn": hex(live_sess.target_pgn),
+                                    "new_pgn": hex(target_pgn),
+                                },
+                            )
+                            storm_abort = self._create_abort_frame(
+                                ReassemblySession(
+                                    source_address=sa,
+                                    destination_address=da,
+                                    target_pgn=target_pgn,
+                                    total_bytes=total_bytes,
+                                    total_packets=total_packets,
+                                    is_bam=False,
+                                    channel_id=frame.channel_id,
+                                ),
+                                reason=ABORT_REASON_SESSION_COLLISION,
+                            )
+                            return None, storm_abort
+                        # Slow/occasional cross-PGN RTS: legacy
+                        # abort-and-replace of the live prefix entry.
+                        live_key, live_sess = live_prefix[0]
+                        logger.warning(
+                            "J1939 TP session collision detected on (SA, DA, channel) cross-PGN",
+                            extra={
+                                "sa": sa,
+                                "da": da,
+                                "old_pgn": hex(live_sess.target_pgn),
+                                "new_pgn": hex(target_pgn),
+                            },
+                        )
+                        abort_frame = self._create_abort_frame(
+                            live_sess, reason=ABORT_REASON_SESSION_COLLISION
+                        )
+                        self._release_session_slot(live_key, live_sess)
 
                 # F-19: per source-address quota (RTS path)
                 if (
@@ -454,6 +793,7 @@ class J1939TransportProtocol:
                 return None, cts_frame
 
         if ctrl_byte == TP_CTRL_ABORT:
+            self.anomaly_metrics.rx_abort += 1
             # Peer Connection Abort (P7: slot release under the sessions lock)
             with self._sessions_lock:
                 logger.warning(
@@ -465,19 +805,84 @@ class J1939TransportProtocol:
 
         return None, None
 
+    # Cross-PGN collision storm gate: at most this many fast cross-PGN
+    # RTS frames per window per (SA, DA, channel) before the live session
+    # is protected instead of replaced.
+    PREFIX_COLLISION_BURST: int = 3
+    PREFIX_COLLISION_WINDOW_S: float = 1.0
+    # REVIEW hardening: legacy (SA, DA, channel) compatibility view.
+    # _rx_sessions is PGN-scoped internally; this helper exposes the
+    # legacy 3-tuple projection for diagnostics/tests that predate the
+    # PGN-scoped key (read-only snapshot, no mutation).
+
+    def _check_prefix_collision_rate(self, prefix_key: tuple[int, int, str]) -> bool:
+        """Cross-PGN collision rate gate. Caller holds _sessions_lock.
+
+        Returns True when a legacy abort-and-replace may proceed (slow /
+        occasional collision), False when the prefix is under a spoof
+        storm (protect the live session).
+        """
+        now = self._get_now()
+        mark = self._rts_prefix_marks.get(prefix_key)
+        if mark is None:
+            self._rts_prefix_marks[prefix_key] = [now, 1.0]
+            return True
+        window_start, count = mark
+        if (now - window_start) > self.PREFIX_COLLISION_WINDOW_S:
+            mark[0] = now
+            mark[1] = 1.0
+            return True
+        if count >= self.PREFIX_COLLISION_BURST:
+            return False
+        mark[1] = count + 1.0
+        return True
+
     def _release_session_slot(
-        self, key: tuple[int, int, str], session: ReassemblySession | None
+        self, key: tuple, session: ReassemblySession | None
     ) -> None:
-        """Remove a session and decrement its per-SA quota slot."""
-        if session is None:
-            self._rx_sessions.pop(key, None)
+        """Remove a session and decrement its per-SA quota slot.
+
+        REVIEW hardening: accepts both 4-tuple (SA, DA, channel, PGN) and
+        legacy 3-tuple keys (resolved via the PGN-scoped table).
+        """
+        if session is not None:
+            full_key = (session.source_address, session.destination_address, session.channel_id, session.target_pgn)
+            removed = self._rx_sessions.pop(full_key, None)
+            if removed is None:
+                removed = self._rx_sessions.pop(key, None)
+            if removed is not None:
+                sa_key = str(session.source_address)
+                if self._per_sa_sessions[sa_key] <= 1:
+                    self._per_sa_sessions.pop(sa_key, None)
+                else:
+                    self._per_sa_sessions[sa_key] -= 1
             return
-        if self._rx_sessions.pop(key, None) is not None:
-            sa_key = str(session.source_address)
-            if self._per_sa_sessions[sa_key] <= 1:
-                self._per_sa_sessions.pop(sa_key, None)
-            else:
-                self._per_sa_sessions[sa_key] -= 1
+        self._rx_sessions.pop(key, None)
+
+    def _lookup_dt_session(self, sa: int, da: int, channel_id: str) -> tuple[tuple | None, ReassemblySession | None]:
+        """Resolve the RX session owning a TP.DT frame.
+
+        TP.DT carries no PGN, so the 4-tuple key cannot be built directly.
+        Unique match wins; ambiguous (parallel PGN) DT is dropped
+        fail-closed (no cross-PGN payload mixing).
+        """
+        candidates = [
+            (key, sess)
+            for key, sess in self._rx_sessions.items()
+            if isinstance(key, tuple)
+            and len(key) == 4
+            and key[0] == sa
+            and key[1] == da
+            and key[2] == channel_id
+        ]
+        if len(candidates) == 1:
+            return candidates[0]
+        if len(candidates) > 1:
+            logger.warning(
+                "J1939 TP.DT dropped: ambiguous parallel sessions (fail-closed)",
+                extra={"sa": sa, "da": da, "candidates": len(candidates)},
+            )
+        return None, None
 
     def _handle_tp_dt(
         self, frame: CanFrame, sa: int, da: int
@@ -485,15 +890,16 @@ class J1939TransportProtocol:
         seq_num = frame.data[0]
         payload = frame.data[1:8]
 
-        # Session lookup strictly keyed by (source_address, destination_address, channel_id)
+        # REVIEW hardening: PGN-scoped session lookup for TP.DT (which
+        # carries no PGN itself). Unique match wins; ambiguous parallel
+        # sessions drop the DT fail-closed.
         # P-C-002 fix: the entire session mutation — sequence check, payload
         # append, completion, and slot release — runs under one lock hold so
         # concurrent TP.DT frames cannot interleave with torn state.
-        session_key = (sa, da, frame.channel_id)
         with self._sessions_lock:
-            session = self._rx_sessions.get(session_key)
+            session_key, session = self._lookup_dt_session(sa, da, frame.channel_id)
 
-            if session is None:
+            if session is None or session_key is None:
                 return None, None
 
             now = self._get_now()
@@ -561,7 +967,7 @@ class J1939TransportProtocol:
                     ack_data[4] = 0xFF
                     ack_data[5:8] = session.target_pgn.to_bytes(3, byteorder="little")
 
-                    can_id = 0x18EC0000 | (session.source_address << 8) | (self.my_address & 0xFF)
+                    can_id = 0x1CEC0000 | (session.source_address << 8) | (self.my_address & 0xFF)
                     resp_frame = CanFrame.create(
                         channel_id=frame.channel_id,
                         arbitration_id=can_id,
@@ -576,11 +982,21 @@ class J1939TransportProtocol:
             # Partial transfer on a CMDT session: issue the next CTS window so
             # the sender can continue. The receiver's grant policy is bounded by
             # its remaining buffer, expressed via rx_cts_window (0 = grant all).
+            # REVIEW hardening: with capped emission (_create_cts_frame),
+            # an unconfigured window (0) defaults to CTS-cap-sized
+            # follow-ups — otherwise a capped initial grant would stall the
+            # transfer forever (self-DoS: no follow-up CTS ever issued).
             if not session.is_bam and session.destination_address == self.my_address:
-                rx_window = getattr(session, "rx_cts_window", 0) or getattr(self, "RX_CTS_WINDOW", 0)
+                rx_window = (
+                    getattr(session, "rx_cts_window", 0)
+                    or getattr(self, "RX_CTS_WINDOW", 0)
+                    or MAX_CTS_PACKET_COUNT
+                )
                 if rx_window > 0 and (session.expected_sequence - 1) % rx_window == 0:
                     remaining_packets = session.total_packets - (session.expected_sequence - 1)
-                    grant = min(rx_window, remaining_packets)
+                    # REVIEW hardening: clamp our own windowed grants to the
+                    # CTS cap (see _create_cts_frame).
+                    grant = min(rx_window, remaining_packets, MAX_CTS_PACKET_COUNT)
                     cts_data = bytearray(8)
                     cts_data[0] = TP_CTRL_CTS
                     cts_data[1] = grant
@@ -588,7 +1004,7 @@ class J1939TransportProtocol:
                     cts_data[3] = 0xFF
                     cts_data[4] = 0xFF
                     cts_data[5:8] = session.target_pgn.to_bytes(3, byteorder="little")
-                    can_id = 0x18EC0000 | (session.source_address << 8) | (self.my_address & 0xFF)
+                    can_id = 0x1CEC0000 | (session.source_address << 8) | (self.my_address & 0xFF)
                     return None, CanFrame.create(
                         channel_id=frame.channel_id,
                         arbitration_id=can_id,
@@ -600,10 +1016,27 @@ class J1939TransportProtocol:
             return None, None
 
     def _create_cts_frame(self, session: ReassemblySession) -> CanFrame:
-        """Construct standard J1939 TP.CM_CTS frame (PGN 60416 / 0xEC00 with Control Byte 0x11)."""
+        """Construct standard J1939 TP.CM_CTS frame (PGN 60416 / 0xEC00 with Control Byte 0x11).
+
+        REVIEW hardening: our own grants are capped at MAX_CTS_PACKET_COUNT
+        — large transfers proceed in capped windows. A grant-all emission
+        would trip the receiver-side cap (spoof protection) and abort our
+        own legitimate transfers (self-DoS), so emission and receipt caps
+        are symmetric by construction.
+        """
         grant = session.total_packets
         if session.max_packets_per_cts > 0 and session.max_packets_per_cts < session.total_packets:
             grant = min(grant, session.max_packets_per_cts)
+        # REVIEW 1-M1 (MEDIUM): rx_cts_window must bound the FIRST grant too
+        # — previously the initial CTS granted the whole transfer (or the
+        # sender's max) while the DT handler re-issued CTS every rx_window
+        # packets, producing duplicate CTS frames against a fully-granted
+        # sender. Windowed receivers now emit windowed grants from the start;
+        # the default rx_cts_window=0 path is unchanged.
+        rx_window = getattr(session, "rx_cts_window", 0) or getattr(self, "RX_CTS_WINDOW", 0)
+        if rx_window > 0:
+            grant = min(grant, rx_window)
+        grant = min(grant, MAX_CTS_PACKET_COUNT)
 
         cts_data = bytearray(8)
         cts_data[0] = TP_CTRL_CTS
@@ -613,7 +1046,7 @@ class J1939TransportProtocol:
         cts_data[4] = 0xFF
         cts_data[5:8] = session.target_pgn.to_bytes(3, byteorder="little")
 
-        can_id = 0x18EC0000 | (session.source_address << 8) | (self.my_address & 0xFF)
+        can_id = 0x1CEC0000 | (session.source_address << 8) | (self.my_address & 0xFF)
         return CanFrame.create(
             channel_id=session.channel_id,
             arbitration_id=can_id,
@@ -626,6 +1059,7 @@ class J1939TransportProtocol:
         """Construct standard J1939 TP.Conn_Abort frame (PGN 60416 / 0xEC00 with Control Byte 0xFF)."""
         if session.is_bam:
             return None  # Do not send abort for global broadcast
+        self.anomaly_metrics.tx_abort_emitted += 1  # MEDIUM-7 observability
 
         abort_data = bytearray(8)
         abort_data[0] = TP_CTRL_ABORT
@@ -633,7 +1067,7 @@ class J1939TransportProtocol:
         abort_data[2:5] = b"\xff\xff\xff"
         abort_data[5:8] = session.target_pgn.to_bytes(3, byteorder="little")
 
-        can_id = 0x18EC0000 | (session.source_address << 8) | (self.my_address & 0xFF)
+        can_id = 0x1CEC0000 | (session.source_address << 8) | (self.my_address & 0xFF)
         return CanFrame.create(
             channel_id=session.channel_id,
             arbitration_id=can_id,
@@ -645,7 +1079,11 @@ class J1939TransportProtocol:
     def start_tp_bam(self, pgn: int, data: bytes, channel_id: str | None = None) -> list[CanFrame]:
         """Segment data into J1939 BAM broadcast frames (TP.CM_BAM followed by TP.DT packets)."""
         if not (1 <= len(data) <= 1785):
-            raise ValueError(f"J1939 TP data length must be 1..1785 bytes, got {len(data)}")
+            raise ValueError(
+                f"J1939 TP data length must be 1..1785 bytes, got {len(data)}. "
+                "Larger payloads require SAE J1939-21 Annex A Extended Transport "
+                "Protocol (ETP, PGN 51200/50944) which is NOT implemented."
+            )
 
         ch = channel_id or self.channel_id
         total_bytes = len(data)
@@ -659,7 +1097,7 @@ class J1939TransportProtocol:
         bam_data[4] = 0xFF
         bam_data[5:8] = pgn.to_bytes(3, byteorder="little")
 
-        can_id_cm = 0x18ECFF00 | (self.my_address & 0xFF)
+        can_id_cm = 0x1CECFF00 | (self.my_address & 0xFF)
         frames: list[CanFrame] = [
             CanFrame.create(
                 channel_id=ch,
@@ -671,7 +1109,7 @@ class J1939TransportProtocol:
         ]
 
         # 2. TP.DT packets
-        can_id_dt = 0x18EBFF00 | (self.my_address & 0xFF)
+        can_id_dt = 0x1CEBFF00 | (self.my_address & 0xFF)
         for seq in range(1, total_packets + 1):
             chunk = data[(seq - 1) * 7 : seq * 7]
             dt_data = bytearray(8)
@@ -691,6 +1129,39 @@ class J1939TransportProtocol:
 
         return frames
 
+    def start_tp_bam_paced(
+        self,
+        pgn: int,
+        data: bytes,
+        channel_id: str | None = None,
+        interval_s: float | None = None,
+    ) -> list[tuple[CanFrame, float]]:
+        """BAM with SAE J1939-21 mandated 50-200 ms TP.DT pacing metadata.
+
+        REVIEW 1-H5 (HIGH): BAM is a broadcast with no flow control; the
+        standard mandates 50-200 ms between TP.DT packets so slow or
+        bridge-repeater ECUs do not silently lose packets (a loss is
+        undetectable — the receiver drops the whole transfer on T1
+        expiry). This scheduler-friendly API returns (frame,
+        earliest_tx_time_s) pairs on time.monotonic(): the CM_BAM
+        announce frame is due immediately; each TP.DT packet is due
+        `interval` after its predecessor. TX schedulers gate each frame
+        on its timestamp and route it through the TxSafetyGateway
+        choke-point. The default 50 ms is the spec minimum.
+        """
+        frames = self.start_tp_bam(pgn=pgn, data=data, channel_id=channel_id)
+        interval = self.bam_pacing_interval_s if interval_s is None else interval_s
+        if not (0.0 <= interval <= 0.200):
+            raise ValueError(f"BAM TP.DT pacing must be 0..200 ms per SAE J1939-21, got {interval}s")
+        now = self._get_now()
+        paced: list[tuple[CanFrame, float]] = []
+        next_due = now
+        for i, frame in enumerate(frames):
+            paced.append((frame, next_due))
+            if i > 0:  # the CM_BAM announce itself is not spaced; DTs are
+                next_due += interval
+        return paced
+
     def start_tp_cm_dt(
         self, target_address: int, pgn: int, data: bytes, channel_id: str | None = None
     ) -> list[CanFrame]:
@@ -705,7 +1176,11 @@ class J1939TransportProtocol:
         callers cannot violate the protocol by accident.
         """
         if not (1 <= len(data) <= 1785):
-            raise ValueError(f"J1939 TP data length must be 1..1785 bytes, got {len(data)}")
+            raise ValueError(
+                f"J1939 TP data length must be 1..1785 bytes, got {len(data)}. "
+                "Larger payloads require SAE J1939-21 Annex A Extended Transport "
+                "Protocol (ETP, PGN 51200/50944) which is NOT implemented."
+            )
 
         ch = channel_id or self.channel_id
         total_bytes = len(data)
@@ -718,7 +1193,7 @@ class J1939TransportProtocol:
         rts_data[4] = 0xFF
         rts_data[5:8] = pgn.to_bytes(3, byteorder="little")
 
-        can_id_cm = 0x18EC0000 | ((target_address & 0xFF) << 8) | (self.my_address & 0xFF)
+        can_id_cm = 0x1CEC0000 | ((target_address & 0xFF) << 8) | (self.my_address & 0xFF)
         return [
             CanFrame.create(
                 channel_id=ch,
@@ -742,10 +1217,14 @@ class J1939TransportProtocol:
         sending any TP.DT packet (T2), honour the CTS packet window, and wait
         for TP.CM_EndOfMsgACK after the last packet (T3). DT frames are
         produced incrementally via `advance_cmdt_transfer` as CTS frames
-        arrive; the RTS frame itself is returned immediately.
+        arrive;         the RTS frame itself is returned immediately.
         """
         if not (1 <= len(data) <= 1785):
-            raise ValueError(f"J1939 TP data length must be 1..1785 bytes, got {len(data)}")
+            raise ValueError(
+                f"J1939 TP data length must be 1..1785 bytes, got {len(data)}. "
+                "Larger payloads require SAE J1939-21 Annex A Extended Transport "
+                "Protocol (ETP, PGN 51200/50944) which is NOT implemented."
+            )
 
         ch = channel_id or self.channel_id
         total_bytes = len(data)
@@ -771,7 +1250,7 @@ class J1939TransportProtocol:
         rts_data[4] = 0xFF
         rts_data[5:8] = pgn.to_bytes(3, byteorder="little")
 
-        can_id_cm = 0x18EC0000 | ((target_address & 0xFF) << 8) | (self.my_address & 0xFF)
+        can_id_cm = 0x1CEC0000 | ((target_address & 0xFF) << 8) | (self.my_address & 0xFF)
         return CanFrame.create(
             channel_id=ch,
             arbitration_id=can_id_cm,
@@ -824,7 +1303,7 @@ class J1939TransportProtocol:
         """
         window_end = min(session.next_sequence + session.cts_window - 1, session.total_packets)
         dt_frames: list[CanFrame] = []
-        can_id_dt = 0x18EB0000 | ((session.destination_address & 0xFF) << 8) | (self.my_address & 0xFF)
+        can_id_dt = 0x1CEB0000 | ((session.destination_address & 0xFF) << 8) | (self.my_address & 0xFF)
         while session.next_sequence <= window_end:
             seq = session.next_sequence
             chunk = session.data[(seq - 1) * 7 : seq * 7]
@@ -861,9 +1340,19 @@ class J1939TransportProtocol:
         with self._sessions_lock:
             session = self._tx_sessions.get(key)
             if session is None:
+                # MEDIUM-7: a CTS with no matching sender session is
+                # unsolicited — a classic spoof/injection signature.
+                if ctrl_byte == TP_CTRL_CTS:
+                    self.anomaly_metrics.rx_cts += 1
+                    self.anomaly_metrics.rx_unsolicited_cts += 1
+                    logger.warning(
+                        "J1939 unsolicited TP.CM_CTS (no matching sender session)",
+                        extra={"sa": sa, "target_pgn": hex(target_pgn)},
+                    )
                 return [], None
 
             if ctrl_byte == TP_CTRL_CTS:
+                self.anomaly_metrics.rx_cts += 1
                 packet_count = frame.data[1]
                 next_seq = frame.data[2]
                 # P2-6: SAE J1939-21 semantics — CTS with zero packets means
@@ -872,6 +1361,18 @@ class J1939TransportProtocol:
                 # request. Both are legal; only truly impossible sequences
                 # (0 or > total_packets) abort.
                 if next_seq == 0 or next_seq > session.total_packets or next_seq > session.next_sequence:
+                    abort = self._create_tx_abort_frame(session, ABORT_REASON_UNEXPECTED_CONTROL)
+                    self._tx_sessions.pop(key, None)
+                    return [], abort
+                # REVIEW hardening: CTS grant cap — an inflated packet_count
+                # (up to 255) would burst the whole transfer in one window
+                # and overflow the receiver buffer. Grants above the cap
+                # abort the session (fail-closed, abort path preserved).
+                if packet_count > MAX_CTS_PACKET_COUNT:
+                    logger.warning(
+                        "J1939 CTS packet_count exceeds cap — aborting session",
+                        extra={"packet_count": packet_count, "cap": MAX_CTS_PACKET_COUNT},
+                    )
                     abort = self._create_tx_abort_frame(session, ABORT_REASON_UNEXPECTED_CONTROL)
                     self._tx_sessions.pop(key, None)
                     return [], abort
@@ -937,13 +1438,14 @@ class J1939TransportProtocol:
 
     def _create_tx_abort_frame(self, session: CmdtSenderSession, reason: int) -> CanFrame:
         """Construct TP.Conn_Abort frame for one of OUR sender sessions."""
+        self.anomaly_metrics.tx_abort_emitted += 1  # MEDIUM-7 observability
         abort_data = bytearray(8)
         abort_data[0] = TP_CTRL_ABORT
         abort_data[1] = reason
         abort_data[2:5] = b"\xff\xff\xff"
         abort_data[5:8] = session.target_pgn.to_bytes(3, byteorder="little")
 
-        can_id = 0x18EC0000 | ((session.destination_address & 0xFF) << 8) | (self.my_address & 0xFF)
+        can_id = 0x1CEC0000 | ((session.destination_address & 0xFF) << 8) | (self.my_address & 0xFF)
         return CanFrame.create(
             channel_id=session.channel_id,
             arbitration_id=can_id,
@@ -988,6 +1490,9 @@ __all__ = [
     "J1939TpError",
     "J1939TpTimeoutError",
     "J1939TransportProtocol",
+    "MAX_CTS_PACKET_COUNT",
+    "PGN_ETP_CM",
+    "PGN_ETP_DT",
     "PGN_TP_CM",
     "PGN_TP_DT",
     "ReassemblySession",
@@ -996,4 +1501,5 @@ __all__ = [
     "TP_CTRL_BAM",
     "TP_CTRL_CTS",
     "TP_CTRL_RTS",
+    "TransportAnomalyMetrics",
 ]

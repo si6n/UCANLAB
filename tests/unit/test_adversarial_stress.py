@@ -555,10 +555,16 @@ def test_gateway_estop_interlock_under_flood_and_recovery() -> None:
     # 1. Normal transmission works
     assert gateway.validate_and_transmit(valid_frame) is True
 
-    # 2. Malicious frame triggers E-Stop
+    # 2. Malicious frame = reject+alarm first; E-Stop latches on persistent pattern
     with pytest.raises(SafetyError) as exc:
         gateway.validate_and_transmit(malicious_frame)
     assert exc.value.code == "WHITELIST_VIOLATION"
+    assert estop.is_engaged is False
+    from src.safety.gateway import TxSafetyGateway as _GW
+
+    for _ in range(_GW.WHITELIST_ESTOP_AFTER - 1):
+        with pytest.raises(SafetyError):
+            gateway.validate_and_transmit(malicious_frame)
     assert estop.is_engaged is True
 
     # 3. Subsequent valid frames are instantly blocked by ESTOP_ACTIVE

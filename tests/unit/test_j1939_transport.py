@@ -57,7 +57,7 @@ def test_j1939_bam_reassembly() -> None:
 
     cm_frame = CanFrame.create(
         channel_id="ch0",
-        arbitration_id=0x18ECFF00,  # DA = 255 (Global), SA = 0
+        arbitration_id=0x1CECFF00,  # DA = 255 (Global), SA = 0
         data=bytes(bam_data),
         is_extended=True,
     )
@@ -69,7 +69,7 @@ def test_j1939_bam_reassembly() -> None:
     dt1_data = b"\x01" + b"\x11\x22\x33\x44\x55\x66\x77"
     dt1_frame = CanFrame.create(
         channel_id="ch0",
-        arbitration_id=0x18EBFF00,
+        arbitration_id=0x1CEBFF00,
         data=dt1_data,
         is_extended=True,
     )
@@ -81,7 +81,7 @@ def test_j1939_bam_reassembly() -> None:
     dt2_data = b"\x02" + b"\x88\x99\xaa\xbb\xcc\xdd\xee"
     dt2_frame = CanFrame.create(
         channel_id="ch0",
-        arbitration_id=0x18EBFF00,
+        arbitration_id=0x1CEBFF00,
         data=dt2_data,
         is_extended=True,
     )
@@ -110,7 +110,7 @@ def test_j1939_cmdt_rts_cts_flow_and_ack() -> None:
 
     rts_frame = CanFrame.create(
         channel_id="ch0",
-        arbitration_id=0x18ECF900,  # DA = 0xF9, SA = 0
+        arbitration_id=0x1CECF900,  # DA = 0xF9, SA = 0
         data=bytes(rts_data),
         is_extended=True,
     )
@@ -119,7 +119,7 @@ def test_j1939_cmdt_rts_cts_flow_and_ack() -> None:
     assert cts_frame is not None
 
     # Verify CTS frame structure
-    assert cts_frame.arbitration_id == 0x18EC00F9  # DA = 0, SA = 0xF9
+    assert cts_frame.arbitration_id == 0x1CEC00F9  # DA = 0, SA = 0xF9
     assert cts_frame.data[0] == TP_CTRL_CTS
     assert cts_frame.data[1] == 2  # Allowed packets
     assert cts_frame.data[2] == 1  # Next packet seq
@@ -128,7 +128,7 @@ def test_j1939_cmdt_rts_cts_flow_and_ack() -> None:
     # 2. DT Packet 1
     dt1 = CanFrame.create(
         channel_id="ch0",
-        arbitration_id=0x18EBF900,
+        arbitration_id=0x1CEBF900,
         data=b"\x01" + b"\x01\x02\x03\x04\x05\x06\x07",
         is_extended=True,
     )
@@ -137,7 +137,7 @@ def test_j1939_cmdt_rts_cts_flow_and_ack() -> None:
     # 3. DT Packet 2 (final 1 byte payload)
     dt2 = CanFrame.create(
         channel_id="ch0",
-        arbitration_id=0x18EBF900,
+        arbitration_id=0x1CEBF900,
         data=b"\x02" + b"\x08\xff\xff\xff\xff\xff\xff",
         is_extended=True,
     )
@@ -153,7 +153,7 @@ def test_j1939_cmdt_rts_cts_flow_and_ack() -> None:
     # Verify EndOfMsgACK frame
     assert ack_frame is not None
     assert ack_frame.data[0] == TP_CTRL_ACK
-    assert ack_frame.arbitration_id == 0x18EC00F9
+    assert ack_frame.arbitration_id == 0x1CEC00F9
     assert int.from_bytes(ack_frame.data[1:3], byteorder="little") == 8
     assert ack_frame.data[3] == 2
     assert int.from_bytes(ack_frame.data[5:8], byteorder="little") == 65227
@@ -173,7 +173,7 @@ def test_j1939_out_of_order_sequence_aborts_with_reason_1() -> None:
 
     rts_frame = CanFrame.create(
         channel_id="ch0",
-        arbitration_id=0x18ECF900,
+        arbitration_id=0x1CECF900,
         data=bytes(rts_data),
         is_extended=True,
     )
@@ -182,7 +182,7 @@ def test_j1939_out_of_order_sequence_aborts_with_reason_1() -> None:
     # Send sequence 2 directly instead of 1 (Out of order)
     dt_bad = CanFrame.create(
         channel_id="ch0",
-        arbitration_id=0x18EBF900,
+        arbitration_id=0x1CEBF900,
         data=b"\x02\x01\x02\x03\x04\x05\x06\x07",
         is_extended=True,
     )
@@ -210,7 +210,7 @@ def test_j1939_broadcast_rts_da_255_rejected() -> None:
 
     rts_frame = CanFrame.create(
         channel_id="ch0",
-        arbitration_id=0x18ECFF00,  # DA = 255 (Global Broadcast)
+        arbitration_id=0x1CECFF00,  # DA = 255 (Global Broadcast)
         data=bytes(rts_broadcast_data),
         is_extended=True,
     )
@@ -235,7 +235,7 @@ def test_j1939_session_collision_handling() -> None:
 
     rts1 = CanFrame.create(
         channel_id="ch0",
-        arbitration_id=0x18ECF900,
+        arbitration_id=0x1CECF900,
         data=bytes(rts1_data),
         is_extended=True,
     )
@@ -247,7 +247,7 @@ def test_j1939_session_collision_handling() -> None:
     # Ingest 1 DT packet so session is active
     dt1 = CanFrame.create(
         channel_id="ch0",
-        arbitration_id=0x18EBF900,
+        arbitration_id=0x1CEBF900,
         data=b"\x01" + b"1234567",
         is_extended=True,
     )
@@ -263,7 +263,7 @@ def test_j1939_session_collision_handling() -> None:
 
     rts2 = CanFrame.create(
         channel_id="ch0",
-        arbitration_id=0x18ECF900,
+        arbitration_id=0x1CECF900,
         data=bytes(rts2_data),
         is_extended=True,
     )
@@ -286,7 +286,7 @@ def test_j1939_session_collision_handling() -> None:
     # Ingest DT packets for new session
     dt_new1 = CanFrame.create(
         channel_id="ch0",
-        arbitration_id=0x18EBF900,
+        arbitration_id=0x1CEBF900,
         data=b"\x01" + b"ABCDEFG",
         is_extended=True,
     )
@@ -294,7 +294,7 @@ def test_j1939_session_collision_handling() -> None:
 
     dt_new2 = CanFrame.create(
         channel_id="ch0",
-        arbitration_id=0x18EBF900,
+        arbitration_id=0x1CEBF900,
         data=b"\x02" + b"H\xff\xff\xff\xff\xff\xff",
         is_extended=True,
     )
@@ -324,7 +324,7 @@ def test_j1939_session_collision_queues_cts_for_new_session() -> None:
     rts1_data[5:8] = (65226).to_bytes(3, byteorder="little")
     rts1 = CanFrame.create(
         channel_id="ch0",
-        arbitration_id=0x18ECF900,
+        arbitration_id=0x1CECF900,
         data=bytes(rts1_data),
         is_extended=True,
     )
@@ -340,7 +340,7 @@ def test_j1939_session_collision_queues_cts_for_new_session() -> None:
     rts2_data[5:8] = (65227).to_bytes(3, byteorder="little")
     rts2 = CanFrame.create(
         channel_id="ch0",
-        arbitration_id=0x18ECF900,
+        arbitration_id=0x1CECF900,
         data=bytes(rts2_data),
         is_extended=True,
     )
@@ -374,7 +374,7 @@ def test_j1939_bam_sequence_error_silent_eviction() -> None:
 
     bam = CanFrame.create(
         channel_id="ch0",
-        arbitration_id=0x18ECFF00,
+        arbitration_id=0x1CECFF00,
         data=bytes(bam_data),
         is_extended=True,
     )
@@ -384,7 +384,7 @@ def test_j1939_bam_sequence_error_silent_eviction() -> None:
     # Out of order DT packet (seq=2 instead of 1)
     bad_dt = CanFrame.create(
         channel_id="ch0",
-        arbitration_id=0x18EBFF00,
+        arbitration_id=0x1CEBFF00,
         data=b"\x02" + b"1234567",
         is_extended=True,
     )
@@ -402,7 +402,7 @@ def test_j1939_session_keying_strict_node_isolation() -> None:
     # 1. BAM from SA=0x01 (DA=255)
     bam01 = CanFrame.create(
         channel_id="ch0",
-        arbitration_id=0x18ECFF01,
+        arbitration_id=0x1CECFF01,
         data=bytes([TP_CTRL_BAM, 8, 0, 2, 0xFF, 0x01, 0x00, 0x00]),
         is_extended=True,
     )
@@ -411,7 +411,7 @@ def test_j1939_session_keying_strict_node_isolation() -> None:
     # 2. CMDT from SA=0x02 to DA=0xF9
     rts02 = CanFrame.create(
         channel_id="ch0",
-        arbitration_id=0x18ECF902,
+        arbitration_id=0x1CECF902,
         data=bytes([TP_CTRL_RTS, 8, 0, 2, 0xFF, 0x02, 0x00, 0x00]),
         is_extended=True,
     )
@@ -422,17 +422,17 @@ def test_j1939_session_keying_strict_node_isolation() -> None:
 
     # Interleave DT packets
     tp.handle_rx_frame(
-        CanFrame.create(channel_id="ch0", arbitration_id=0x18EBFF01, data=b"\x01" + b"BAM1234", is_extended=True)
+        CanFrame.create(channel_id="ch0", arbitration_id=0x1CEBFF01, data=b"\x01" + b"BAM1234", is_extended=True)
     )
     tp.handle_rx_frame(
-        CanFrame.create(channel_id="ch0", arbitration_id=0x18EBF902, data=b"\x01" + b"CMD1234", is_extended=True)
+        CanFrame.create(channel_id="ch0", arbitration_id=0x1CEBF902, data=b"\x01" + b"CMD1234", is_extended=True)
     )
 
     m1, _ = tp.handle_rx_frame(
-        CanFrame.create(channel_id="ch0", arbitration_id=0x18EBFF01, data=b"\x02" + b"5\xff\xff\xff\xff\xff\xff", is_extended=True)
+        CanFrame.create(channel_id="ch0", arbitration_id=0x1CEBFF01, data=b"\x02" + b"5\xff\xff\xff\xff\xff\xff", is_extended=True)
     )
     m2, ack2 = tp.handle_rx_frame(
-        CanFrame.create(channel_id="ch0", arbitration_id=0x18EBF902, data=b"\x02" + b"6\xff\xff\xff\xff\xff\xff", is_extended=True)
+        CanFrame.create(channel_id="ch0", arbitration_id=0x1CEBF902, data=b"\x02" + b"6\xff\xff\xff\xff\xff\xff", is_extended=True)
     )
 
     assert m1 is not None and m1.data == b"BAM12345" and m1.source_address == 1
@@ -458,20 +458,20 @@ def test_j1939_timeout_t1_eviction_and_abort() -> None:
     rts_data[4] = 0xFF
     rts_data[5:8] = (65226).to_bytes(3, byteorder="little")
 
-    rts_frame = CanFrame.create(channel_id="ch0", arbitration_id=0x18ECF900, data=bytes(rts_data), is_extended=True)
+    rts_frame = CanFrame.create(channel_id="ch0", arbitration_id=0x1CECF900, data=bytes(rts_data), is_extended=True)
     tp.handle_rx_frame(rts_frame)
 
     # 800 ms: past T1 (750) but still inside the T4 CMDT hold — session must
     # survive and the early DT must be accepted, not aborted.
     clock.advance(0.800)
-    dt_early = CanFrame.create(channel_id="ch0", arbitration_id=0x18EBF900, data=b"\x01" + b"1234567", is_extended=True)
+    dt_early = CanFrame.create(channel_id="ch0", arbitration_id=0x1CEBF900, data=b"\x01" + b"1234567", is_extended=True)
     msg, abort_frame = tp.handle_rx_frame(dt_early)
     assert abort_frame is None  # not timed out under T4 yet
     assert (0, 0xF9, "ch0") in tp._rx_sessions  # session still open
 
     # Advance past the full T4 hold; the next DT trips the timeout
     clock.advance(1.100)
-    dt_late = CanFrame.create(channel_id="ch0", arbitration_id=0x18EBF900, data=b"\x02" + b"1234567", is_extended=True)
+    dt_late = CanFrame.create(channel_id="ch0", arbitration_id=0x1CEBF900, data=b"\x02" + b"1234567", is_extended=True)
     msg, abort_frame = tp.handle_rx_frame(dt_late)
 
     assert msg is None
@@ -557,19 +557,19 @@ def test_j1939_bounds_and_overflow_rejection() -> None:
     tp = J1939TransportProtocol(my_address=0xF9)
 
     # 0 bytes declared
-    f_zero = CanFrame.create(channel_id="ch0", arbitration_id=0x18ECFF01, data=b"\x20\x00\x00\x00\xff\x00\xf0\x00", is_extended=True)
+    f_zero = CanFrame.create(channel_id="ch0", arbitration_id=0x1CECFF01, data=b"\x20\x00\x00\x00\xff\x00\xf0\x00", is_extended=True)
     m, r = tp.handle_rx_frame(f_zero)
     assert m is None and r is None
     assert len(tp._rx_sessions) == 0
 
     # 1786 bytes (> 1785 limit)
-    f_ovfl = CanFrame.create(channel_id="ch0", arbitration_id=0x18ECFF01, data=b"\x20\xfa\x06\xff\xff\x00\xf0\x00", is_extended=True)
+    f_ovfl = CanFrame.create(channel_id="ch0", arbitration_id=0x1CECFF01, data=b"\x20\xfa\x06\xff\xff\x00\xf0\x00", is_extended=True)
     m, r = tp.handle_rx_frame(f_ovfl)
     assert m is None and r is None
     assert len(tp._rx_sessions) == 0
 
     # Packet count mismatch (14 bytes declared with 1 packet instead of 2)
-    f_mismatch = CanFrame.create(channel_id="ch0", arbitration_id=0x18ECFF01, data=b"\x20\x0e\x00\x01\xff\x00\xf0\x00", is_extended=True)
+    f_mismatch = CanFrame.create(channel_id="ch0", arbitration_id=0x1CECFF01, data=b"\x20\x0e\x00\x01\xff\x00\xf0\x00", is_extended=True)
     m, r = tp.handle_rx_frame(f_mismatch)
     assert m is None and r is None
     assert len(tp._rx_sessions) == 0
@@ -598,7 +598,7 @@ def test_j1939_session_reaping_and_dos_prevention() -> None:
 
             cm_frame = CanFrame.create(
                 channel_id="ch0",
-                arbitration_id=0x18ECFF00 | sa,
+                arbitration_id=0x1CECFF00 | sa,
                 data=bytes(bam_data),
                 is_extended=True,
             )

@@ -207,7 +207,12 @@ class TestObdAdversarialEdgeCases:
             assert even_pids == expected_evens
 
     def test_obd_unregistered_pid_fallback(self) -> None:
-        """Verify unlisted/custom PIDs decode gracefully into raw hex representation."""
+        """Verify unlisted/custom PIDs decode gracefully into raw hex representation.
+
+        REVIEW hardening: unknown PIDs are NOT valid telemetry — the result
+        still carries the raw hex payload (nothing is invented) but is
+        marked is_valid=False with unit='unknown' so downstream consumers
+        can never present it as a physical reading."""
         registry = ObdPidRegistry()
         unlisted_pid = 0xFD
 
@@ -216,13 +221,14 @@ class TestObdAdversarialEdgeCases:
         assert result.pid == unlisted_pid
         assert "UNKNOWN_PID" in result.name
         assert result.value == "deadbeef"
-        assert result.unit == "raw"
-        assert result.is_valid is True
+        assert result.unit == "unknown"
+        assert result.is_valid is False
+        assert result.error_message is not None
 
-        # Empty payload
+        # Empty payload — same fail-closed contract
         result_empty = registry.decode(unlisted_pid, b"")
         assert result_empty.value == ""
-        assert result_empty.is_valid is True
+        assert result_empty.is_valid is False
 
     def test_obd_freeze_dtc_and_monitor_status_edge_cases(self) -> None:
         """Adversarial stress on Freeze Frame DTC (PID 0x02) and Monitor Status (PID 0x01)."""
@@ -342,7 +348,10 @@ class TestUdsAdversarialEdgeCases:
         assert res_fp.value["tester_id"] == "41424344"
 
     def test_uds_unknown_did_fallback(self) -> None:
-        """Verify unlisted DID returns structured raw hex payload."""
+        """Verify unlisted DID returns structured raw hex payload.
+
+        REVIEW hardening: unknown DIDs are NOT valid telemetry — raw hex is
+        preserved (no fabricated decode) but flagged is_valid=False."""
         registry = UdsDidRegistry()
         unlisted_did = 0x99AA
 
@@ -350,7 +359,9 @@ class TestUdsAdversarialEdgeCases:
         assert res.did == 0x99AA
         assert res.name == "UNKNOWN_DID_0x99AA"
         assert res.value == "CAFEBABE"
-        assert res.is_valid is True
+        assert res.unit == "unknown"
+        assert res.is_valid is False
+        assert res.error_message is not None
 
 
 # ============================================================================
@@ -365,10 +376,13 @@ class TestPollerConcurrencyAndStarvationStress:
         """Stress test: Register 100 simultaneous PID and DID jobs and verify execution."""
         tx_port = InMemoryTxPort()
         clock = DeterministicClock(initial_time=100.0)
+        # REVIEW hardening: the aggregate scheduler ceiling is 50 Hz
+        # (above it is a configuration error, fail-closed) — the 100-job
+        # concurrency coverage stays identical under the ceiling.
         poller = ActiveDiagnosticPoller(
             tx_port=tx_port,
             clock_provider=clock,
-            max_rate_hz=100.0,
+            max_rate_hz=50.0,
         )
 
         executed_pids: set[int] = set()
@@ -599,7 +613,10 @@ class TestPollerConcurrencyAndStarvationStress:
     def test_poller_multithreaded_hammer_stress(self) -> None:
         """Adversarial multithreaded hammer: 10 threads concurrently registering, stepping, and feeding frames."""
         tx_port = InMemoryTxPort()
-        poller = ActiveDiagnosticPoller(tx_port=tx_port, max_rate_hz=1000.0)
+        # REVIEW hardening: aggregate ceiling is 50 Hz; the hammer targets
+        # thread-safety under concurrent registration/step/feed, which the
+        # ceiling does not constrain.
+        poller = ActiveDiagnosticPoller(tx_port=tx_port, max_rate_hz=50.0)
         errors: list[Exception] = []
 
         def worker_register(worker_id: int) -> None:
@@ -937,10 +954,14 @@ class TestOemJ1939AdversarialAndBoundaries:
             assert sig is not None
             assert sig.is_valid is True
 
-        # Reserved retarder stage (e.g. 10)
+        # Reserved retarder stage (e.g. 10) — REVIEW hardening: map-miss
+        # codes decode fail-closed (is_valid=False, RESERVED/UNKNOWN label
+        # carrying the raw code), never a fabricated stage name.
         data_res = bytes([10, 0x64, 0x10, 0x50, 0x20, 0x00, 0x00, 0x00])
         res_res = registry.decode_payload(pgn=65410, data=data_res, manufacturer_hint="Scania")
-        assert "Stage (10)" in str(res_res.get_value("scania_retarder_lever_stage_request"))
+        reserved_sig = res_res.get_signal("scania_retarder_lever_stage_request")
+        assert "RESERVED/UNKNOWN (0x0A)" in str(reserved_sig.value)
+        assert reserved_sig.is_valid is False
 
         # 2. Volvo VEB Retarder (PGN 65352): Stages 0..4
         for stage in range(5):

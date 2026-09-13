@@ -24,6 +24,8 @@ Universal CAN-Bus Diagnostic & Telemetry Tool is a professional-grade automotive
   - Pub-Sub `FrameRouter`, LRU-cached `DbcSignalDecoder` with J1939 PGN mask matching.
   - `BinaryRingBuffer` (NumPy, zero-GC) and `RollingDiskBuffer` (Zstandard compression + HMAC-SHA256).
   - `ReassemblyPipeline`: Multi-packet transport to decoder bridge.
+  - `ai/`: Deterministic expert diagnostic engine (`diagnostic_copilot.py`) — fully offline, no cloud LLM + Golden-Traces case loader (`golden_cases.py`).
+- `src/core/models/diagnostics.py` (P1 Data Model): Frozen `SignalSample` / `DiagnosticEvent` + `VehicleSession` container for diagnostic evidence and Golden-Traces.
 - `src/cloud/` (Cloud Client):
   - Universal-CAN-Cloud REST client (`/api/v1`), Ed25519 license activation, resumable 5 MB chunked MDF4 telemetry upload.
 
@@ -50,6 +52,12 @@ Any agent modifying or interacting with transmission, flashing, or diagnostic in
 7. **Wiring Gate (LATENT Defect Lock)** (REVIEW Faz 4):
    - Several engine/protocol components carry verified-but-unwired defect fixes and are NOT wired into any production path today: `E2ESafetyValidator`/`E2ESafetyPackager`, `EcuFlashingEngine` (`flasher.py`), `AddressClaimEngine`, `OemJ1939Registry`, `ActiveDiagnosticPoller`, `ReassemblyPipeline`, `engine/discovery/**`, and `engine/exporters/**` (except `MatExporter`, wired into `export_logs("mat")`; `KmlExporter`/`Mdf4Exporter` await GPS/MDF signal-history plumbing).
    - BEFORE wiring any of these into a live RX/TX/telemetry path, the agent MUST review the P2-7/P2-8/H-KA/P1-10/P2-22/M-18 remediation notes in the corresponding source files and their regression tests, and MUST wire them through the `TxSafetyGateway` choke-point where they transmit. A pull request that activates one of these components without addressing its known defect notes must be rejected.
+8. **AI Layer: Fully Offline & TX Isolation** (P0, M7 / F-AI-ISO):
+   - The AI layer is FULLY OFFLINE (operator decision, M7): the cloud-LLM narration layer (Gemini/OpenAI, former `llm_narrator.py`) was REMOVED. No module under `src/engine/ai/**` may import HAL, TX-safety, protocol-client, or network-client modules (`src.hal.*`, `src.safety.gateway`, `src.safety.multiplexer`, `src.safety.estop`, `src.protocols.uds.client`, `src.protocols.uds.flasher`, `src.protocols.j1939.transport`, `src.core.contracts.ports`/`TxPort`, `urllib`, `http`, `socket`, `requests`). The forbidden list lives in `FORBIDDEN_AI_IMPORT_ROOTS` in `tests/safety/test_ai_tx_isolation.py` — extend the constant there to tighten future scans.
+   - Severity authority is the deterministic expert engine (`EXPERT_KNOWLEDGE_BASE`, `_analyze_local_expert`). There is no LLM: severity can only originate from the knowledge base / scenario rules.
+   - Action triggers (`CopilotActionTrigger`) may be minted ONLY from operator input or deterministic DTC mappings (`extract_action_triggers`). Foreign text is never scanned for actionable commands.
+   - Any change to `src/engine/ai/**` must keep `tests/safety/test_ai_tx_isolation.py` green — a pull request that breaks it must be rejected.
+   - Golden-Traces cases (`data/golden_traces/cases/`, loader `src/engine/ai/golden_cases.py`) are user-verified evidence: agents fill the skeleton from operator-supplied data only and fabricate NO field values (AGENTS.md §2.3 extension). Draft cases (`actual_fault` empty) are never calibration-eligible.
 
 ---
 

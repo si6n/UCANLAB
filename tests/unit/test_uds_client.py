@@ -117,9 +117,15 @@ def test_request_download_alfi_validation() -> None:
         UdsServiceBuilder.build_request_download(0x1234, 0x10, address_and_length_format_identifier=0x40)
     with pytest.raises(ValueError):
         UdsServiceBuilder.build_request_download(0x1234, 0x10, address_and_length_format_identifier=0x04)
-    # Nibble > 4 is invalid
+    # REVIEW 2-M5: nibble > 8 is invalid (1..8 legal — ISO 14229-1 permits
+    # 64-bit addressing; the old 1..4 cap rejected ALFI 0x88 builds).
     with pytest.raises(ValueError):
-        UdsServiceBuilder.build_request_download(0x1234, 0x10, address_and_length_format_identifier=0x55)
+        UdsServiceBuilder.build_request_download(0x1234, 0x10, address_and_length_format_identifier=0x99)
+    # 64-bit address + 64-bit size round-trips cleanly (8-byte widths)
+    s88 = UdsServiceBuilder.build_request_download(
+        0x1122334455667788, 0x100, address_and_length_format_identifier=0x88
+    )
+    assert s88 == b"\x34\x00\x88\x11\x22\x33\x44\x55\x66\x77\x88" + b"\x00\x00\x00\x00\x00\x00\x01\x00"
     # Value wider than the declared width overflows cleanly (ISO 14229-1: high=size, low=addr)
     # 0x42: size 4 bytes, addr 2 bytes -> 4-byte address 0xAABBCCDD must overflow
     with pytest.raises(ValueError):
@@ -183,7 +189,7 @@ def test_uds_client_sync_routines_and_session() -> None:
             data=b"\x02\x50\x03\x00\x00\x00\x00\x00",
         )
     )
-    resp1 = client.change_session(DiagnosticSessionType.EXTENDED_DIAGNOSTIC_SESSION)
+    resp1 = client.change_session(DiagnosticSessionType.EXTENDED_DIAGNOSTIC_SESSION, user_confirmed=True)
     assert resp1.is_positive is True
     assert resp1.service_id == UdsServiceId.DIAGNOSTIC_SESSION_CONTROL
 
@@ -498,3 +504,114 @@ def test_uds_client_multiframe_honours_bs_window() -> None:
 
     assert len(bus.sent_frames) == 4
     assert cf_count == 3
+
+
+def test_uds_client_new_services_and_virtual_server_ecu() -> None:
+    from src.hal.virtual import UdsServerEcu, VirtualBus
+
+    vbus = VirtualBus()
+    vbus.connect()
+    gateway = TxSafetyGateway.for_testing(bus=vbus)
+    gateway.update_vehicle_speed(0.0)
+    server = UdsServerEcu(bus=vbus, rx_id=0x7E0, tx_id=0x7E8, vin="VF1TESTVIN1234567", serial="SN-998877")
+    client = UdsClient(bus=vbus, tx_port=gateway, tx_id=0x7E0, rx_id=0x7E8)
+
+    # Wrap client._send_payload to pump server state
+    orig_tx = client._tx_frame
+
+    def pumping_tx(frame: CanFrame, is_critical_command: bool, user_confirmed: bool, budget_category: str = "protocol_burst") -> None:
+        orig_tx(frame, is_critical_command, user_confirmed, budget_category)
+        server.process_frame(frame)
+
+    client._tx_frame = pumping_tx  # type: ignore[method-assign]
+
+    # 1. Read DID 0xF190 (VIN)
+    resp_vin = client.read_did(0xF190)
+    assert resp_vin.is_positive is True
+    assert resp_vin.data == b"\xf1\x90VF1TESTVIN1234567"
+
+    # 2. Read DID 0xF18C (Serial)
+    resp_sn = client.read_did(0xF18C)
+    assert resp_sn.is_positive is True
+    assert resp_sn.data == b"\xf1\x8cSN-998877"
+
+    # 3. Read Memory By Address (0x23)
+    resp_mem = client.read_memory_by_address(0x08000000, 4)
+    assert resp_mem.is_positive is True
+    assert len(resp_mem.data) == 4
+    assert resp_mem.data == b"\xff\xff\xff\xff"
+
+    # 4. Read DTC Information (0x19 0x02)
+    resp_dtc = client.read_dtc_information()
+    assert resp_dtc.is_positive is True
+    assert resp_dtc.data[0] == 0x02  # sub-function echo
+
+    # 5. Request Upload (0x35)
+    resp_up = client.request_upload(0x08000000, 1024, user_confirmed=True)
+    assert resp_up.is_positive is True
+    assert resp_up.data[0] == 0x20  # lengthFormat
+
+    client.close()
+
+
+# ============================================================================
+# REVIEW 2-M6 / REVIEW 3-HIGH: builder input validation — no silent
+# truncation (& 0xFF / & 0xFFFF) of out-of-range values.
+# ============================================================================
+
+
+def test_uds_builder_validation_review2_m6() -> None:
+    """Out-of-range DID / level / routine / reset inputs raise ValueError
+    instead of silently truncating to a corrupt wire byte."""
+    from src.protocols.uds.services import (
+        RoutineControlType,
+        UdsServiceBuilder,
+    )
+
+    # DID bounds (0x22 / 0x2E)
+    with pytest.raises(ValueError, match="16-bit range"):
+        UdsServiceBuilder.build_read_data_by_identifier(0x10000)
+    with pytest.raises(ValueError, match="16-bit range"):
+        UdsServiceBuilder.build_read_data_by_identifier(-1)
+    with pytest.raises(ValueError, match="16-bit range"):
+        UdsServiceBuilder.build_write_data_by_identifier(0x1F190, b"\x01")
+
+    # Routine ID bounds (0x31)
+    with pytest.raises(ValueError, match="16-bit range"):
+        UdsServiceBuilder.build_routine_control(RoutineControlType.START_ROUTINE, 0x10000)
+
+    # Security access levels (0x27): range 0x01..0x7E, no parity enforcement
+    # (OEM profiles pass seed OR key sub-function; the builder emits level+1).
+    with pytest.raises(ValueError, match="seed level"):
+        UdsServiceBuilder.build_security_access_request_seed(0x00)
+    with pytest.raises(ValueError, match="seed level"):
+        UdsServiceBuilder.build_security_access_request_seed(0x80)  # out of range
+    with pytest.raises(ValueError, match="level"):
+        UdsServiceBuilder.build_security_access_send_key(0x00, b"\x01")
+    with pytest.raises(ValueError, match="level"):
+        UdsServiceBuilder.build_security_access_send_key(0x7E, b"\x01")  # 0x7E+1 overflows
+    # Valid: OEM-high levels accepted, byte is level+1 (key sub-function)
+    assert UdsServiceBuilder.build_security_access_request_seed(0x41) == bytes([0x27, 0x41])
+    assert UdsServiceBuilder.build_security_access_send_key(0x41, b"\xAA") == bytes([0x27, 0x42, 0xAA])
+
+    # ECU reset types (0x11): only 0x01/0x02/0x03
+    with pytest.raises(ValueError, match="reset type"):
+        UdsServiceBuilder.build_ecu_reset(0x04)
+    with pytest.raises(ValueError, match="reset type"):
+        UdsServiceBuilder.build_ecu_reset(-1)
+
+    # Diagnostic session types (0x10): only the defined enum values
+    with pytest.raises(ValueError, match="session type"):
+        UdsServiceBuilder.build_diagnostic_session_control(0x05)  # type: ignore[arg-type]
+
+    # Transfer data block sequence (0x36): 0..255
+    with pytest.raises(ValueError, match="Block sequence"):
+        UdsServiceBuilder.build_transfer_data(256, b"\x01")
+    with pytest.raises(ValueError, match="Block sequence"):
+        UdsServiceBuilder.build_transfer_data(-1, b"\x01")
+
+    # Happy: valid values still build identical wire bytes
+    assert UdsServiceBuilder.build_read_data_by_identifier(0xF190) == bytes([0x22, 0xF1, 0x90])
+    assert UdsServiceBuilder.build_ecu_reset(0x01) == bytes([0x11, 0x01])
+    assert UdsServiceBuilder.build_transfer_data(0x33, b"\x01") == bytes([0x36, 0x33, 0x01])
+

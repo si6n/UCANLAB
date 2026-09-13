@@ -1,0 +1,150 @@
+{
+  "schema_version": 1,
+  "_derivation_rule": "Dugumler YALNIZ inline EXPERT_KNOWLEDGE_BASE 'causes[]' kayitlarindan ve 7 senaryodan turetildi (diagnostic_copilot.py). Harici 9.300 DTC DB tureim disi. Her dugun source_ref tasir — uydurma dugum yasak (plan FAZ 4.1).",
+  "nodes": [
+    {
+      "id": "oil-pump-wear",
+      "title": "Yağ pompası aşınması / karterde yağ eksilmesi (SPN 100 FMI 1)",
+      "evidence_signals": ["EngineOilPressure", "oil_pressure"],
+      "expected_dtcs": ["SPN 100"],
+      "contradicting_signals": [],
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN100'].causes[0]"
+    },
+    {
+      "id": "oil-sensor-shorts",
+      "title": "Yağ basınç sensör tesisatı kısa devre / kopuk (SPN 100 FMI 3/4)",
+      "evidence_signals": [],
+      "expected_dtcs": ["SPN 100"],
+      "contradicting_signals": ["EngineOilPressure"],
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN100'].causes[1-2]"
+    },
+    {
+      "id": "vgt-stuck",
+      "title": "VGT kanatçık kurum sıkışması / wastegate arızası (aşırı basınç)",
+      "evidence_signals": ["TurboBoost", "boost_pressure", "turbo_boost"],
+      "expected_dtcs": ["SPN 102", "P0234"],
+      "contradicting_signals": [],
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN102'].causes[0]; scenario 6 overboost"
+    },
+    {
+      "id": "charge-air-leak",
+      "title": "Intercooler hortum yırtığı / kompresör çark hasarı (düşük basınç)",
+      "evidence_signals": ["TurboBoost", "boost_pressure", "turbo_boost"],
+      "expected_dtcs": ["SPN 102", "P0299"],
+      "contradicting_signals": [],
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN102'].causes[1]"
+    },
+    {
+      "id": "thermostat-stuck",
+      "title": "Termostat kapalı kalması / viskoz fan kilitlemez / radyatör tıkalı",
+      "evidence_signals": ["EngineCoolantTemp", "coolant_temp", "engine_coolant_temp"],
+      "expected_dtcs": ["SPN 110", "P0115"],
+      "contradicting_signals": [],
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN110'].causes[0]; scenario 7 overheat (>108C)"
+    },
+    {
+      "id": "coolant-sensor-open",
+      "title": "ECT sensör kablosu kopuk (ECU -40°C sanal okuma)",
+      "evidence_signals": [],
+      "expected_dtcs": ["SPN 110"],
+      "contradicting_signals": ["EngineCoolantTemp"],
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN110'].causes[1]"
+    },
+    {
+      "id": "dpf-soot-overload",
+      "title": "DPF partikül filtresi kurum yükü aşımı (>35 kPa delta-P)",
+      "evidence_signals": [],
+      "expected_dtcs": ["SPN 3251", "SPN 3719"],
+      "contradicting_signals": [],
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN3251'].causes[0]; scenario 4"
+    },
+    {
+      "id": "crank-sync-loss",
+      "title": "Krank/kam faz senkronizasyon kaybı (dişli boşluğu / açısal kayma)",
+      "evidence_signals": ["EngineSpeed"],
+      "expected_dtcs": ["SPN 190", "P0016"],
+      "contradicting_signals": [],
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN190'].causes[1]"
+    },
+    {
+      "id": "misfire-ignition",
+      "title": "Buji/bobin ateşleme kaçağı veya enjektör tıkanıklığı (teklemeler)",
+      "evidence_signals": ["EngineSpeed"],
+      "expected_dtcs": ["P0300", "P0301", "P0302", "P0303", "P0304"],
+      "contradicting_signals": [],
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['P0300'].causes[0-2]; scenario 5"
+    },
+    {
+      "id": "fuel-rail-low",
+      "title": "Yüksek basınç yakıt pompası aşınması / filtre tıkanıklığı",
+      "evidence_signals": [],
+      "expected_dtcs": ["P0087"],
+      "contradicting_signals": [],
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['P0087'].causes[0-1]"
+    },
+    {
+      "id": "def-level-low",
+      "title": "AdBlue (DEF) seviye düşüklüğü / kalite uygunsuzluğu",
+      "evidence_signals": [],
+      "expected_dtcs": ["SPN 1761", "SPN 3364"],
+      "contradicting_signals": [],
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN1761'].causes; EXPERT_KNOWLEDGE_BASE['SPN3364'].causes"
+    },
+    {
+      "id": "ebs-air-circuit1",
+      "title": "Fren devresi 1 pnömatik kaçak / kompresör arızası (<5.5 bar)",
+      "evidence_signals": [],
+      "expected_dtcs": ["SPN 1087"],
+      "contradicting_signals": [],
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN1087'].causes[0]"
+    },
+    {
+      "id": "hvil-open",
+      "title": "HVIL interlock hattı kesintisi (MSD/köprü açık)",
+      "evidence_signals": [],
+      "expected_dtcs": ["P0A0B"],
+      "contradicting_signals": [],
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['P0A0B'].causes[0-2]"
+    },
+    {
+      "id": "hv-isolation-loss",
+      "title": "HV izolasyon direnci düşüklüğü (nem sızması / sargı bozulması)",
+      "evidence_signals": [],
+      "expected_dtcs": ["P0AA6"],
+      "contradicting_signals": [],
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['P0AA6'].causes"
+    },
+    {
+      "id": "battery-soh-degradation",
+      "title": "EV batarya paketi SOH/cell-delta bozulması",
+      "evidence_signals": [],
+      "expected_dtcs": ["P0A80"],
+      "contradicting_signals": [],
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['P0A80'].causes"
+    },
+    {
+      "id": "can-bus-physical",
+      "title": "CAN fiziksel katman arızası (parazit/sonlandırma/baudrate)",
+      "evidence_signals": [],
+      "expected_dtcs": ["U0100", "U0126", "C1A00"],
+      "contradicting_signals": [],
+      "source_ref": "diagnostic_copilot.py evaluate_diagnostic_query Error Frame kolu (60 ohm sonlandırma notu); U-codes KB"
+    },
+    {
+      "id": "vvt-oil-sludge",
+      "title": "VVT selenoid yağ çamuru tıkanması / triger uzaması",
+      "evidence_signals": [],
+      "expected_dtcs": ["P0016"],
+      "contradicting_signals": [],
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['P0016'].causes"
+    },
+    {
+      "id": "injector-circuit",
+      "title": "Silindir enjektör devresi açık/kısa (SPN 651..656)",
+      "evidence_signals": [],
+      "expected_dtcs": ["SPN 651", "SPN 652", "SPN 653", "SPN 654", "SPN 655", "SPN 656"],
+      "contradicting_signals": [],
+      "source_ref": "diagnostic_copilot.py scenario 3 (SPN 651-656 enjektör senaryosu)"
+    }
+  ]
+}

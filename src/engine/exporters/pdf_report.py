@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import html as html_mod
+import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -12,6 +13,25 @@ from src.core.logging import get_logger
 from src.protocols.j1939.diagnostics import DMMessage
 
 logger = get_logger("engine.exporters.report")
+
+
+def _resolve_export_path(output_file: str | Path, exports_root: str | Path | None) -> Path:
+    explicit = exports_root is not None
+    root = Path(exports_root) if explicit else (Path.cwd() / "exports")
+    resolved = Path(output_file).resolve()
+    try:
+        is_inside = resolved.is_relative_to(root.resolve())
+    except Exception as exc:
+        raise ValueError(f"Export path validation failed: {exc}") from exc
+    if not is_inside:
+        if not explicit:
+            try:
+                if resolved.is_relative_to(Path(tempfile.gettempdir()).resolve()):
+                    return resolved
+            except Exception:
+                pass
+        raise ValueError(f"Export path escapes exports root: {resolved}")
+    return resolved
 
 
 @dataclass(slots=True)
@@ -34,9 +54,10 @@ class DiagnosticReportGenerator:
         metadata: ServiceReportMetadata,
         dm_messages: list[DMMessage],
         summary_stats: dict[str, str | int | float],
+        exports_root: str | Path | None = None,
     ) -> Path:
         """Generate structured HTML diagnostic report with cryptographic tamper-evident hash."""
-        path = Path(output_file)
+        path = _resolve_export_path(output_file, exports_root)
         path.parent.mkdir(parents=True, exist_ok=True)
 
         now_str = time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime())

@@ -34,6 +34,8 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
+          # supply-chain: keep tag+SHA comment pins as-is (no forced SHA-only rewrite — breakage risk).
+          cache-dependency-path: 'requirements*.txt'
 
       - name: Verify Action Pins (E-7)
         run: |
@@ -55,7 +57,7 @@ jobs:
 
       - name: Install Python Dependencies
         run: |
-          python -m pip install --upgrade pip
+          python -m pip install "pip==24.*"
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
 
@@ -92,6 +94,8 @@ jobs:
         with:
           python-version: '3.12'
           cache: 'pip'
+          # supply-chain: keep tag+SHA comment pins as-is (no forced SHA-only rewrite — breakage risk).
+          cache-dependency-path: 'requirements*.txt'
 
       - name: Create vcan0 interface & headless dependencies
         run: |
@@ -105,7 +109,7 @@ jobs:
 
       - name: Install Python Dependencies
         run: |
-          python -m pip install --upgrade pip
+          python -m pip install "pip==24.*"
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
 

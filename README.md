@@ -29,8 +29,9 @@ ISO 14229-1 (UDS) · ISO 15765-2 (DoCAN) · NMEA 2000 · TMC RP1210 (A/B/C)
   DBC export.
 - **Virtual channels** — torque, power (kW/HP), fuel efficiency, and
   propeller slip derived from raw J1939/N2K signals.
-- **AI diagnostic copilot** — offline rule-based root-cause analysis with
-  optional Gemini integration; never fabricates measurements.
+- **AI diagnostic copilot** — fully offline deterministic rule-based root-cause
+  analysis (no cloud LLM, no API keys, no data leaves the host); never
+  fabricates measurements.
 - **Export formats** — ASAM MDF4, MATLAB, KML, Vector ASC, CSV/JSON, plus
   SHA-256-signed tamper-evident HTML service reports.
 - **Black-box recording** — 300K-frame zero-GC NumPy ring buffer and

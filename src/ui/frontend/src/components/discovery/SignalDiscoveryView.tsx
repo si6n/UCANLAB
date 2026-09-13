@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
  Wand2, 
  Play, 
@@ -44,8 +44,8 @@ interface SignalDiscoveryViewProps {
 }
 
 export const SignalDiscoveryView: React.FC<SignalDiscoveryViewProps> = ({
- latestFrame,
- onStimulusChange
+  frames,
+  onStimulusChange
 }) => {
  // Wizard Step: 1 = Setup, 2 = Live Experiment, 3 = Evidence Inspector, 4 = Human Review & DBC
  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
@@ -69,24 +69,34 @@ export const SignalDiscoveryView: React.FC<SignalDiscoveryViewProps> = ({
 
  const targetConfig = TARGET_SIGNAL_CONFIGS[targetType];
 
- // Capture incoming frames during active experiment
- useEffect(() => {
- if (!latestFrame || (phase !== 'BASELINE' && phase !== 'STIMULUS' && phase !== 'RECOVERY')) {
- return;
- }
+  // Capture incoming frames during active experiment.
+  // REVIEW (batch loss): the effect keyed on `latestFrame` only — with 5-frame
+  // batched delivery the other 4 frames of every batch (and any ID not
+  // present in the final slice element) were systematically dropped. Track
+  // the last processed frame id and consume EVERY new frame instead.
+  const lastCapturedIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (phase !== 'BASELINE' && phase !== 'STIMULUS' && phase !== 'RECOVERY') {
+      return;
+    }
+    const windowFrames = frames ?? [];
+    const startIndex = windowFrames.findIndex(f => f.id !== lastCapturedIdRef.current);
+    const newFrames = windowFrames.slice(startIndex >= 0 ? startIndex : windowFrames.length);
+    if (newFrames.length === 0) return;
+    lastCapturedIdRef.current = windowFrames[windowFrames.length - 1].id ?? null;
 
- const stimulusPercent = phase === 'STIMULUS' ? 50 : 0;
- const record: CapturedFrameRecord = {
- timestampSec: latestFrame.timeSec,
- canIdHex: latestFrame.canIdHex,
- dlc: latestFrame.dlc,
- payloadHex: latestFrame.dataHex.join(' '),
- phase,
- stimulusPercent
- };
+    const stimulusPercent = phase === 'STIMULUS' ? 50 : 0;
+    const records: CapturedFrameRecord[] = newFrames.map(f => ({
+      timestampSec: f.timeSec,
+      canIdHex: f.canIdHex,
+      dlc: f.dlc,
+      payloadHex: f.dataHex.join(' '),
+      phase,
+      stimulusPercent
+    }));
 
- setCapturedFrames(prev => [...prev.slice(-400), record]);
- }, [latestFrame, phase]);
+    setCapturedFrames(prev => [...prev.slice(-(400 - records.length)), ...records].slice(-400));
+  }, [frames, phase]);
 
  // Start Multi-Phase Experiment Workflow (6 seconds per phase)
  const handleStartExperiment = () => {

@@ -150,11 +150,11 @@ def test_flasher_empty_transfer_data_rejected() -> None:
     config = FlashingConfig(
         memory_address=0x08000000,
         data=b"HELLO",
-        block_size=5,
+        block_size=64,
         user_confirmed=True,
     )
     with pytest.raises(ProtocolError, match="boş veya BSC içermiyor"):
-        engine._execute_flash_inner(config, time.monotonic(), 0, "00000000")
+        engine._execute_flash_inner(config, time.monotonic(), 0, "00000000", "00" * 32)
 
 
 # ==============================================================================
@@ -166,7 +166,7 @@ def test_j1939_bam_non_broadcast_rejected() -> None:
     # BAM addressed to 0x10 instead of 0xFF
     bam_non_bc = CanFrame.create(
         channel_id="ch0",
-        arbitration_id=0x18EC1000,  # DA=0x10, SA=0x00
+        arbitration_id=0x1CEC1000,  # DA=0x10, SA=0x00
         data=bytes([TP_CTRL_BAM, 14, 0, 2, 0xFF, 0xEE, 0xFE, 0]),
         is_extended=True,
     )
@@ -188,7 +188,7 @@ def test_j1939_cts_skipping_next_seq_aborts() -> None:
     # Receiver asks for packet 5 when next_sequence is 1 (illegal skip)
     bad_cts = CanFrame.create(
         channel_id="j1939_ch0",
-        arbitration_id=0x18EC10F9,  # DA=0x10, SA=0xF9
+        arbitration_id=0x1CEC10F9,  # DA=0x10, SA=0xF9
         data=bytes([TP_CTRL_CTS, 5, 5, 0xFF, 0xFF, 0xEE, 0xFE, 0]),
         is_extended=True,
     )
@@ -211,7 +211,7 @@ def test_j1939_ack_mismatched_pgn_aborts() -> None:
     # Peer sends ACK with wrong total_bytes (99 instead of 14)
     bad_ack = CanFrame.create(
         channel_id="j1939_ch0",
-        arbitration_id=0x18EC10F9,
+        arbitration_id=0x1CEC10F9,
         data=bytes([TP_CTRL_ACK, 99, 0, 2, 0xFF, 0xEE, 0xFE, 0]),
         is_extended=True,
     )
@@ -327,6 +327,9 @@ def test_cloud_license_offline_until_enforced() -> None:
 
 def test_safe_multiplexed_bus_flags_propagation() -> None:
     phys_bus = MagicMock()
+    phys_bus.channel_id = "ch0"
+    phys_bus.bitrate = 250000
+    phys_bus.is_fd = False
     gateway = MagicMock()
     router = FrameRouter()
 

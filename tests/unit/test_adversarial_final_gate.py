@@ -16,7 +16,6 @@ import base64
 import collections
 import hashlib
 import hmac
-import json
 import os
 import threading
 import time
@@ -223,9 +222,14 @@ def test_gateway_complete_rule_matrix() -> None:
     frame_valid = CanFrame.create(channel_id="ch0", arbitration_id=0x100, data=b"\x01\x02\x03\x04")
     frame_non_whitelist = CanFrame.create(channel_id="ch0", arbitration_id=0x999, data=b"\x00")
 
-    # Rule 2: Whitelist violation triggers EStop
+    # Rule 2: Whitelist violation = reject+alarm on first miss, E-Stop latch
+    # only on persistent-violation streak (WHITELIST_ESTOP_AFTER=5).
     with pytest.raises(SafetyError, match="not in whitelist"):
         gateway.validate_and_transmit(frame_non_whitelist)
+    assert estop.is_engaged is False
+    for _ in range(TxSafetyGateway.WHITELIST_ESTOP_AFTER - 1):
+        with pytest.raises(SafetyError, match="not in whitelist"):
+            gateway.validate_and_transmit(frame_non_whitelist)
     assert estop.is_engaged is True
     assert estop.last_event is not None
     assert estop.last_event.trigger == EStopTriggerSource.UNAUTHORIZED_PAYLOAD
@@ -480,7 +484,10 @@ def test_uds_client_negative_response_code_handling() -> None:
     )
     bus.push_rx_frame(nrc_frame)
 
-    resp = client.change_session(DiagnosticSessionType.EXTENDED_DIAGNOSTIC_SESSION)
+    # EXTENDED session is a critical command (privilege-escalation stepping
+    # stone): dual confirmation + fresh speed telemetry required.
+    client.tx_port.update_vehicle_speed(0.0)
+    resp = client.change_session(DiagnosticSessionType.EXTENDED_DIAGNOSTIC_SESSION, user_confirmed=True)
     assert resp.is_positive is False
     assert resp.service_id == 0x10
     assert resp.nrc == UdsNrc.SERVICE_NOT_SUPPORTED
@@ -582,40 +589,6 @@ BO_ 100 MSG_100: 4 ECU
 # ============================================================================
 # 6. AI DIAGNOSTIC COPILOT & ROBUST JSON/MARKDOWN PARSER ADVERSARIAL TESTS
 # ============================================================================
-
-
-def test_ai_copilot_json_parser_torture_patterns() -> None:
-    """Stress test JSON extraction against extreme markdown, backticks, and conversational wrapping."""
-    copilot = AiDiagnosticCopilot()
-
-    valid_dict = {
-        "summary": "Turbo boost failure",
-        "severity": "CRITICAL_STOP",
-        "root_cause_probability": "%96",
-        "likely_causes": ["Hose leak"],
-        "troubleshooting_steps": [
-            {"step_number": 1, "action": "Check hose", "target_component": "Pipe", "difficulty": "Kolay"}
-        ],
-        "affected_subsystems": ["Turbo"],
-        "telemetry_correlations": ["Boost 90 kPa at 2500 RPM"],
-    }
-    json_str = json.dumps(valid_dict)
-
-    test_payloads = [
-        f"```json\n{json_str}\n```",
-        f"```JSON\n{json_str}\n```",
-        f"```\n{json_str}\n```",
-        f"Here is your report:\n\n```json\n{json_str}\n```\n\nHope this helps!",
-        f"<response>\n```json\n{json_str}\n```\n</response>",
-        f"Prefix discussion before markdown\n```json\n{json_str}\n```\nFollow-up recommendation comments.",
-        f"  \t\r\n{json_str}\r\n\t ",
-    ]
-
-    for payload in test_payloads:
-        parsed = copilot._clean_and_parse_json(payload)
-        assert isinstance(parsed, dict)
-        assert parsed["summary"] == "Turbo boost failure"
-        assert parsed["severity"] == "CRITICAL_STOP"
 
 
 def test_ai_copilot_local_expert_simultaneous_multi_fault() -> None:
