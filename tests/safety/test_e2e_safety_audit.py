@@ -1,31 +1,29 @@
 """Comprehensive ASIL-B/D & ISO 26262 End-to-End Safety Audit for TxSafetyGateway."""
-import math
-import time
+from typing import Any
+
 import pytest
+
 from src.core.errors import SafetyError
 from src.core.models.can_frame import CanFrame
+from src.engine.ai.diagnostic_copilot import (
+    get_j1939_spn_database,
+    get_mode06_database,
+    get_uds_did_database,
+    load_external_dtc_database,
+)
+from src.hal.replay.safety_filter import ReplaySafetyFilter
 from src.hal.virtual import VirtualBus
+from src.protocols.uds.flasher import EcuFlashingEngine, FlashingConfig, FlashingStep
 from src.safety.estop import EmergencyStopSystem, EStopTriggerSource
-from src.safety.gateway import TxSafetyGateway
 from src.safety.exceptions import (
     DualConfirmationRequiredError,
     FrameSanityError,
-    SpeedInterlockError,
     SpeedDataStaleError,
+    SpeedInterlockError,
     WhitelistViolationError,
-    RateLimitExceededError,
 )
-from src.safety.state_machine import SafetyState, SafetySupervisor
-from src.safety.watchdog import TxWatchdogSupervisor
-from src.hal.replay.safety_filter import ReplaySafetyFilter
-from src.protocols.uds.flasher import EcuFlashingEngine, FlashingConfig, FlashingStep
-from src.engine.ai.diagnostic_copilot import (
-    load_external_dtc_database,
-    get_j1939_spn_database,
-    get_uds_did_database,
-    get_mode06_database,
-)
-from typing import Any
+from src.safety.gateway import TxSafetyGateway
+
 
 def test_audit_database_integrity_and_scale():
     load_external_dtc_database()

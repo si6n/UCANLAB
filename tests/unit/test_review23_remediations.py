@@ -18,7 +18,7 @@ import pytest
 from src.core.contracts.ports import InMemoryTxPort
 from src.core.models.can_frame import CanFrame
 from src.engine.exporters.mdf4_exporter import Mdf4Exporter
-from src.protocols.j1939.transport import J1939TransportProtocol, PGN_TP_CM, TP_CTRL_BAM
+from src.protocols.j1939.transport import TP_CTRL_BAM, J1939TransportProtocol
 from src.protocols.nmea2000.fast_packet import Nmea2000FastPacketDecoder
 from src.protocols.nmea2000.pgn_library import Nmea2000PgnDecoder
 from src.protocols.obd.poller import ActiveDiagnosticPoller, PollerState
@@ -47,7 +47,6 @@ def test_fd_tp_frame_dropped_with_warning_and_counter() -> None:
         dlc=9,
     )
 
-    import logging
 
     with mock.patch.object(
         __import__("src.protocols.j1939.transport", fromlist=["logger"]).logger,
@@ -313,7 +312,7 @@ def test_poller_stale_response_cannot_complete_newer_transaction() -> None:
 
     job = poller.step()
     assert job is not None
-    t1 = job.transaction_id
+    assert job.transaction_id  # non-empty transaction id issued for the request
 
     # Fresh response #1 completes the transaction exactly once.
     resp = _obd_resp(bytes([0x04, 0x41, 0x0C, 0x1F, 0x40, 0xAA, 0xAA, 0xAA]))

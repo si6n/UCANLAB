@@ -8,9 +8,9 @@ from pathlib import Path
 from src.core.models.diagnostics import DiagnosticDomain, VehicleSession
 from src.engine.ai.golden_similarity import (
     CaseMatch,
+    _normalize_code,
     find_similar_cases,
     similarity_confidence_label,
-    _normalize_code,
 )
 
 

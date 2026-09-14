@@ -6,8 +6,6 @@ physical hardware (virtual bus).
 
 from __future__ import annotations
 
-import time
-
 from src.ui.desktop_app import UniversalCanDesktopApp
 
 
@@ -152,7 +150,6 @@ class TestOperatorMeasurement:
         app = _app()
         assert app.record_operator_measurement("x", "abc").get("success") is False
         assert app.record_operator_measurement("", 1.0).get("success") is False
-        import math
 
         assert app.record_operator_measurement("x", float("nan")).get("success") is False
 

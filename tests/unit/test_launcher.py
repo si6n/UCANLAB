@@ -183,7 +183,6 @@ def test_updater_signature_verification_flow(monkeypatch) -> None:
     import base64
     import io
     import urllib.request
-    from http.client import HTTPResponse
 
     priv_key = ed25519.Ed25519PrivateKey.generate()
     pub_key = priv_key.public_key()

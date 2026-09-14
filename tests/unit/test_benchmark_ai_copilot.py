@@ -18,7 +18,6 @@ import pytest
 
 # Tüm modül benchmark/ölçüm testi olarak işaretlenir (~5s).
 # Hariç tutmak için: pytest -m "not benchmark"
-
 from src.engine.ai import diagnostic_copilot as dc
 from src.engine.ai.diagnostic_copilot import (
     AiDiagnosticCopilot,

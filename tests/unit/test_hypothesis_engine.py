@@ -17,7 +17,6 @@ from src.core.models.diagnostics import (
 from src.engine.ai.anomaly_detector import AnomalyFinding
 from src.engine.ai.golden_similarity import CaseMatch
 from src.engine.ai.hypothesis_engine import (
-    Hypothesis,
     RootCauseGraphError,
     load_root_cause_graph,
     rank_hypotheses,
@@ -131,6 +130,7 @@ class TestRanking:
         session = _session(["SPN 110 FMI 0"])
         real = rank_hypotheses(session, [_anomaly("EngineCoolantTemp", synthetic=False)], None, graph=graph)
         ops = rank_hypotheses(session, [_anomaly("EngineCoolantTemp", synthetic=True)], None, graph=graph)
+        assert real is not None  # sanity: real-source ranking produced a result
         # raw support for synthetic = DTC 0.4 + 0.4*0.5 = 0.6 vs 0.8 real
         # normalized against the same best per call, so compare raw support
         # text instead (deterministic marker).

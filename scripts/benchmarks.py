@@ -6,10 +6,8 @@ import cProfile
 import io
 import pstats
 import statistics
-import sys
 import time
 import tracemalloc
-from pathlib import Path
 
 # supply-chain: import guard instead of sys.path.insert (no import-time
 # path mutation; keeps frozen/packaged runs hermetic).

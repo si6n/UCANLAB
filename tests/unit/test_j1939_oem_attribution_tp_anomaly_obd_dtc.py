@@ -10,15 +10,14 @@ from src.core.models.can_frame import CanFrame
 from src.protocols.j1939.address_claim import J1939Name
 from src.protocols.j1939.oem.registry import OemJ1939Registry
 from src.protocols.j1939.transport import (
-    J1939TransportProtocol,
     TP_CTRL_ABORT,
     TP_CTRL_CTS,
     TP_CTRL_RTS,
+    J1939TransportProtocol,
     TransportAnomalyMetrics,
 )
 from src.protocols.obd.models import ObdDtcResult, decode_dtc_pair
 from src.protocols.obd.poller import ActiveDiagnosticPoller
-
 
 # ============================================================================
 # HIGH-7: OEM attribution via SA + NAME claim (PGN 60928)

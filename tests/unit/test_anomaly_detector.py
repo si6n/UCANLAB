@@ -14,7 +14,6 @@ from src.core.models.diagnostics import (
     VehicleSession,
 )
 from src.engine.ai.anomaly_detector import (
-    AnomalyFinding,
     ThresholdDatabaseError,
     detect_anomalies,
     load_thresholds,

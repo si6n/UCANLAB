@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import time
-
 from src.core.models.diagnostics import (
     DiagnosticDomain,
     DiagnosticEvent,
@@ -148,7 +146,6 @@ class TestActiveDtcEvents:
 
 class TestModelInvariants:
     def test_nonfinite_physical_value_rejected(self) -> None:
-        import math
 
         try:
             SignalSample(
