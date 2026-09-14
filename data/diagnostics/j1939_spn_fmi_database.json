@@ -51081,7 +51081,6 @@
    "pgn_acronym": "OHECS",
    "range": "OEM spesifikasyonu",
    "unit": "Standart J1939",
-   "description": "SAE J1939 Heavy-Duty Diagnostic Parameter: SPN 2882",
    "fault_matrix": {},
    "source": "tier_a",
    "name_source": "nhtsa-ss1033423",
@@ -51093,7 +51092,9 @@
    "pgn_priority": 6,
    "pgn_length": "Fixed",
    "pgn_description": "Allows for the selection of off-highway engine control modes, as they apply to different modes of engine operation which may be used to aid particular working environments. By offering characteristics suitable for the work in hand, the operator may select the desired mode (e.g. economy fuel ratings, droop settings, alternate idle points, multiple engine synchronization, etc.) to maximize performance under given conditions. The operator selects these inputs via hardwire switch operation, whereby ",
-   "pgn_label": "Off-Highway Engine Control Selection"
+   "pgn_label": "Off-Highway Engine Control Selection",
+   "description_bad_removed": "SAE J1939 Heavy-Duty Diagnostic Parameter: SPN 2882",
+   "description_cleaned_tur30": "yanlış SPN eşlemesi kaldırıldı"
   },
   "SPN_5128": {
    "spn": 5128,
@@ -51165,7 +51166,6 @@
    "pgn_acronym": "OI",
    "range": "OEM spesifikasyonu",
    "unit": "Standart J1939",
-   "description": "SAE J1939 Heavy-Duty Diagnostic Parameter: Signal Range High Active for WIF Sensor 2",
    "fault_matrix": {},
    "source": "tier_b",
    "name_source": "nhtsa-ss1033423",
@@ -51176,7 +51176,9 @@
    "pgn_rate": "10 s and on change but no faster than 1 s. Grandfathered definition for systems that implemented this message prior to April, 2022: 10 s or on change but no more often than 1 s.",
    "pgn_priority": 6,
    "pgn_length": "Fixed",
-   "pgn_label": "Operator indicators"
+   "pgn_label": "Operator indicators",
+   "description_bad_removed": "SAE J1939 Heavy-Duty Diagnostic Parameter: Signal Range High Active for WIF Sensor 2",
+   "description_cleaned_tur30": "yanlış SPN eşlemesi kaldırıldı"
   },
   "SPN_4376": {
    "spn": 4376,
@@ -51309,7 +51311,6 @@
    "pgn_acronym": "CCVS1",
    "range": "OEM spesifikasyonu",
    "unit": "Standart J1939",
-   "description": "SAE J1939 Heavy-Duty Diagnostic Parameter: Two Speed Axle Switch",
    "fault_matrix": [
     {
      "fmi": "9",
@@ -51363,7 +51364,9 @@
    "pgn_priority": 6,
    "pgn_length": "Fixed",
    "pgn_description": "Cruise Control/Vehicle Speed 1",
-   "pgn_label": "Cruise Control/Vehicle Speed 1"
+   "pgn_label": "Cruise Control/Vehicle Speed 1",
+   "description_bad_removed": "SAE J1939 Heavy-Duty Diagnostic Parameter: Two Speed Axle Switch",
+   "description_cleaned_tur30": "yanlış SPN eşlemesi kaldırıldı"
   },
   "SPN_637": {
    "spn": 637,
@@ -51374,7 +51377,6 @@
    "pgn_acronym": "TBD",
    "range": "OEM spesifikasyonu",
    "unit": "Standart J1939",
-   "description": "SAE J1939 Heavy-Duty Diagnostic Parameter: Crankshaft Position Sensor (CKP)",
    "fault_matrix": {},
    "source": "tier_b",
    "name_source": "nhtsa-ss1033423",
@@ -51401,7 +51403,9 @@
     "Guide Check Sensor Gap: Measure air gap between sensor tip and timing wheel",
     "Guide Visual Harness Inspection: Inspect sensor wiring from connector to ECM for chafing, burns, or contact with hot surfaces. Measure Sensor Voltage: With key ON, engine OFF, measure signal pin to ground"
    ],
-   "steps_source": "SAE J1939 diagnostic reference (j1939hub.com)"
+   "steps_source": "SAE J1939 diagnostic reference (j1939hub.com)",
+   "description_bad_removed": "SAE J1939 Heavy-Duty Diagnostic Parameter: Crankshaft Position Sensor (CKP)",
+   "description_cleaned_tur30": "yanlış SPN eşlemesi kaldırıldı"
   },
   "SPN_1163": {
    "spn": 1163,
@@ -51412,7 +51416,6 @@
    "pgn_acronym": "MBT2",
    "range": "OEM spesifikasyonu",
    "unit": "Standart J1939",
-   "description": "SAE J1939 Heavy-Duty Diagnostic Parameter: Motor Control Module (MCM) Temperature Sensor Signal Not Plausible",
    "fault_matrix": {},
    "source": "tier_b",
    "name_source": "nhtsa-ss1033423",
@@ -51423,7 +51426,9 @@
    "pgn_rate": "1 s",
    "pgn_priority": 6,
    "pgn_length": "Fixed",
-   "pgn_label": "Main Bearing Temperature 2"
+   "pgn_label": "Main Bearing Temperature 2",
+   "description_bad_removed": "SAE J1939 Heavy-Duty Diagnostic Parameter: Motor Control Module (MCM) Temperature Sensor Signal Not Plausible",
+   "description_cleaned_tur30": "yanlış SPN eşlemesi kaldırıldı"
   },
   "SPN_1611": {
    "spn": 1611,
@@ -51503,7 +51508,6 @@
    "pgn_acronym": "DISP1",
    "range": "OEM spesifikasyonu",
    "unit": "Standart J1939",
-   "description": "SAE J1939 Heavy-Duty Diagnostic Parameter: ICUC Data",
    "fault_matrix": {},
    "source": "tier_b",
    "name_source": "nhtsa-ss1033423",
@@ -51515,7 +51519,9 @@
    "pgn_priority": 6,
    "pgn_length": "Variable",
    "pgn_description": "This provides ASCII text information, for example to an display instrument. Broadcast rate should be on event and 1-5 seconds due to variable character length. This message is to convey information from an ecu to a display. In its most basic usage, it can be used to convey ASCII information to simple displays to show to the operator. The Text Display Characters will follow the standard J1939-71 display method. Control characters can be used but not displayed. The characters are to be terminated ",
-   "pgn_label": "Text Display"
+   "pgn_label": "Text Display",
+   "description_bad_removed": "SAE J1939 Heavy-Duty Diagnostic Parameter: ICUC Data",
+   "description_cleaned_tur30": "yanlış SPN eşlemesi kaldırıldı"
   },
   "SPN_4076": {
    "spn": 4076,
@@ -51749,7 +51755,6 @@
    "pgn_acronym": "AT1T1I1",
    "range": "OEM spesifikasyonu",
    "unit": "Standart J1939",
-   "description": "SAE J1939 Heavy-Duty Diagnostic Parameter: DEF quality sensor level short circuit",
    "fault_matrix": [
     {
      "fmi": "11",
@@ -51779,7 +51784,9 @@
    "pgn_length": "Fixed",
    "pgn_description": "Contains information on various tank levels",
    "pgn_label": "Aftertreatment 1 Diesel Exhaust Fluid Tank 1 Information 1",
-   "causes_source": "SAE J1939-73 FMI fault matrix (DB fault_matrix, Tur-30 türetme)"
+   "causes_source": "SAE J1939-73 FMI fault matrix (DB fault_matrix, Tur-30 türetme)",
+   "description_bad_removed": "SAE J1939 Heavy-Duty Diagnostic Parameter: DEF quality sensor level short circuit",
+   "description_cleaned_tur30": "yanlış SPN eşlemesi kaldırıldı"
   },
   "SPN_1127": {
    "spn": 1127,
@@ -52121,7 +52128,6 @@
    "pgn_acronym": "TTI2",
    "range": "OEM spesifikasyonu",
    "unit": "Standart J1939",
-   "description": "SAE J1939 Heavy-Duty Diagnostic Parameter: Very High Hydrocarbon Absorption in the Diesel Particulate Filter",
    "fault_matrix": {},
    "source": "tier_b",
    "name_source": "nhtsa-ss1033423",
@@ -52156,7 +52162,9 @@
    "pgn_priority": 7,
    "pgn_length": "Fixed Extendable",
    "pgn_label": "Trip Time Information 2",
-   "steps_source": "SAE J1939 diagnostic reference (j1939hub.com)"
+   "steps_source": "SAE J1939 diagnostic reference (j1939hub.com)",
+   "description_bad_removed": "SAE J1939 Heavy-Duty Diagnostic Parameter: Very High Hydrocarbon Absorption in the Diesel Particulate Filter",
+   "description_cleaned_tur30": "yanlış SPN eşlemesi kaldırıldı"
   },
   "SPN_5441": {
    "spn": 5441,
@@ -52314,7 +52322,6 @@
    "pgn_acronym": "TBD",
    "range": "OEM spesifikasyonu",
    "unit": "Standart J1939",
-   "description": "SAE J1939 Heavy-Duty Diagnostic Parameter: Sensor Supply Voltage Number 1 Circuit",
    "fault_matrix": [
     {
      "fmi": "3",
@@ -52355,7 +52362,9 @@
    "pgn_length": "Fixed",
    "pgn_description": "NOTE - Retarder can be disabled by commanding a torque limit of 0%. Use of the limit mode allows the use of the retarder only up to the limit specified in the request. This can be used to permit retarding of up to 50%, for example, if that limit is required by some device such as an EBS, or it can disable the use of the retarder by others, as when an ABS controller detects wheel slip. Note that the 10 ms transmission repetition rate is intended for temporary powertrain control (P32 of SPN 3350).",
    "pgn_label": "Torque/Speed Control 1",
-   "causes_source": "SAE J1939-73 FMI fault matrix (DB fault_matrix, Tur-30 türetme)"
+   "causes_source": "SAE J1939-73 FMI fault matrix (DB fault_matrix, Tur-30 türetme)",
+   "description_bad_removed": "SAE J1939 Heavy-Duty Diagnostic Parameter: Sensor Supply Voltage Number 1 Circuit",
+   "description_cleaned_tur30": "yanlış SPN eşlemesi kaldırıldı"
   },
   "SPN_1043": {
    "spn": 1043,
@@ -52366,7 +52375,6 @@
    "pgn_acronym": "TBD",
    "range": "OEM spesifikasyonu",
    "unit": "Standart J1939",
-   "description": "SAE J1939 Heavy-Duty Diagnostic Parameter: Accelerator Pedal Position Sensor Supply Voltage Circuit",
    "fault_matrix": [
     {
      "fmi": "3",
@@ -52407,7 +52415,9 @@
    "pgn_length": "Fixed",
    "pgn_description": "NOTE - Retarder can be disabled by commanding a torque limit of 0%. Use of the limit mode allows the use of the retarder only up to the limit specified in the request. This can be used to permit retarding of up to 50%, for example, if that limit is required by some device such as an EBS, or it can disable the use of the retarder by others, as when an ABS controller detects wheel slip. Note that the 10 ms transmission repetition rate is intended for temporary powertrain control (P32 of SPN 3350).",
    "pgn_label": "Torque/Speed Control 1",
-   "causes_source": "SAE J1939-73 FMI fault matrix (DB fault_matrix, Tur-30 türetme)"
+   "causes_source": "SAE J1939-73 FMI fault matrix (DB fault_matrix, Tur-30 türetme)",
+   "description_bad_removed": "SAE J1939 Heavy-Duty Diagnostic Parameter: Accelerator Pedal Position Sensor Supply Voltage Circuit",
+   "description_cleaned_tur30": "yanlış SPN eşlemesi kaldırıldı"
   },
   "SPN_3481": {
    "spn": 3481,
@@ -52441,7 +52451,6 @@
    "pgn_acronym": "A1SCREGP",
    "range": "OEM spesifikasyonu",
    "unit": "Standart J1939",
-   "description": "SAE J1939 Heavy-Duty Diagnostic Parameter: Diesel Exhaust Fluid Metering Unit Doser Heater Circuit Failed Open",
    "fault_matrix": {},
    "source": "tier_b",
    "name_source": "nhtsa-ss1033423",
@@ -52487,7 +52496,9 @@
     "Guide Visual line inspection: Remove both pressure hoses and check for blockages using compressed air and a borescope. Sensor signal test: With ignition on, measure sensor output voltage",
     "Guide Visual inspection: Check SCR inlet and outlet pressure lines for kinks, cracks, or loose connections. Sensor output test: With ignition on, engine off, measure sensor signal voltage"
    ],
-   "steps_source": "SAE J1939 diagnostic reference (j1939hub.com)"
+   "steps_source": "SAE J1939 diagnostic reference (j1939hub.com)",
+   "description_bad_removed": "SAE J1939 Heavy-Duty Diagnostic Parameter: Diesel Exhaust Fluid Metering Unit Doser Heater Circuit Failed Open",
+   "description_cleaned_tur30": "yanlış SPN eşlemesi kaldırıldı"
   },
   "SPN_6384": {
    "spn": 6384,
@@ -53728,7 +53739,6 @@
    "pgn_acronym": "TBD",
    "range": "OEM spesifikasyonu",
    "unit": "Standart J1939",
-   "description": "SAE J1939 Heavy-Duty Diagnostic Parameter: OPC Inductor Temperature too High",
    "fault_matrix": {},
    "source": "tier_b",
    "name_source": "nhtsa-ss1033423",
@@ -53736,7 +53746,9 @@
    "pgn_priority": 3,
    "pgn_length": "Fixed",
    "pgn_description": "NOTE - Retarder can be disabled by commanding a torque limit of 0%. Use of the limit mode allows the use of the retarder only up to the limit specified in the request. This can be used to permit retarding of up to 50%, for example, if that limit is required by some device such as an EBS, or it can disable the use of the retarder by others, as when an ABS controller detects wheel slip. Note that the 10 ms transmission repetition rate is intended for temporary powertrain control (P32 of SPN 3350).",
-   "pgn_label": "Torque/Speed Control 1"
+   "pgn_label": "Torque/Speed Control 1",
+   "description_bad_removed": "SAE J1939 Heavy-Duty Diagnostic Parameter: OPC Inductor Temperature too High",
+   "description_cleaned_tur30": "yanlış SPN eşlemesi kaldırıldı"
   },
   "SPN_8151": {
    "spn": 8151,
@@ -53828,7 +53840,6 @@
    "pgn_acronym": "TBD",
    "range": "OEM spesifikasyonu",
    "unit": "Standart J1939",
-   "description": "SAE J1939 Heavy-Duty Diagnostic Parameter: WIF Signal",
    "fault_matrix": [
     {
      "fmi": "12",
@@ -53866,7 +53877,9 @@
    "pgn_length": "Fixed",
    "pgn_description": "NOTE - Retarder can be disabled by commanding a torque limit of 0%. Use of the limit mode allows the use of the retarder only up to the limit specified in the request. This can be used to permit retarding of up to 50%, for example, if that limit is required by some device such as an EBS, or it can disable the use of the retarder by others, as when an ABS controller detects wheel slip. Note that the 10 ms transmission repetition rate is intended for temporary powertrain control (P32 of SPN 3350).",
    "pgn_label": "Torque/Speed Control 1",
-   "causes_source": "SAE J1939-73 FMI fault matrix (DB fault_matrix, Tur-30 türetme)"
+   "causes_source": "SAE J1939-73 FMI fault matrix (DB fault_matrix, Tur-30 türetme)",
+   "description_bad_removed": "SAE J1939 Heavy-Duty Diagnostic Parameter: WIF Signal",
+   "description_cleaned_tur30": "yanlış SPN eşlemesi kaldırıldı"
   },
   "SPN_608": {
    "spn": 608,
@@ -54549,7 +54562,6 @@
    "pgn_acronym": "TBD",
    "range": "OEM spesifikasyonu",
    "unit": "Standart J1939",
-   "description": "SAE J1939 Heavy-Duty Diagnostic Parameter: Invalid or Missing Data from Vehicle ECU",
    "fault_matrix": {},
    "source": "tier_b",
    "name_source": "nhtsa-ss1033423",
@@ -54576,7 +54588,9 @@
     "Guide Verify Node Power: Measure voltage at the suspect ECU’s power and ground pins during engine run",
     "Guide Verify Address Claims: Use J1939 analyzer to list all active source addresses"
    ],
-   "steps_source": "SAE J1939 diagnostic reference (j1939hub.com)"
+   "steps_source": "SAE J1939 diagnostic reference (j1939hub.com)",
+   "description_bad_removed": "SAE J1939 Heavy-Duty Diagnostic Parameter: Invalid or Missing Data from Vehicle ECU",
+   "description_cleaned_tur30": "yanlış SPN eşlemesi kaldırıldı"
   },
   "SPN_2836": {
    "spn": 2836,
@@ -55073,7 +55087,6 @@
    "pgn_acronym": "TBD",
    "range": "OEM spesifikasyonu",
    "unit": "Standart J1939",
-   "description": "SAE J1939 Heavy-Duty Diagnostic Parameter: Sensor Supply Voltage Number 2 Circuit",
    "fault_matrix": [
     {
      "fmi": "3",
@@ -55107,7 +55120,9 @@
    "pgn_length": "Fixed",
    "pgn_description": "NOTE - Retarder can be disabled by commanding a torque limit of 0%. Use of the limit mode allows the use of the retarder only up to the limit specified in the request. This can be used to permit retarding of up to 50%, for example, if that limit is required by some device such as an EBS, or it can disable the use of the retarder by others, as when an ABS controller detects wheel slip. Note that the 10 ms transmission repetition rate is intended for temporary powertrain control (P32 of SPN 3350).",
    "pgn_label": "Torque/Speed Control 1",
-   "causes_source": "SAE J1939-73 FMI fault matrix (DB fault_matrix, Tur-30 türetme)"
+   "causes_source": "SAE J1939-73 FMI fault matrix (DB fault_matrix, Tur-30 türetme)",
+   "description_bad_removed": "SAE J1939 Heavy-Duty Diagnostic Parameter: Sensor Supply Voltage Number 2 Circuit",
+   "description_cleaned_tur30": "yanlış SPN eşlemesi kaldırıldı"
   },
   "SPN_4095": {
    "spn": 4095,
@@ -55331,7 +55346,6 @@
    "pgn_acronym": "TBD",
    "range": "OEM spesifikasyonu",
    "unit": "Standart J1939",
-   "description": "SAE J1939 Heavy-Duty Diagnostic Parameter: Switched Output B Error",
    "fault_matrix": {},
    "source": "tier_b",
    "name_source": "nhtsa-ss1033423",
@@ -55399,7 +55413,9 @@
    "pgn_priority": 3,
    "pgn_length": "Fixed",
    "pgn_description": "NOTE - Retarder can be disabled by commanding a torque limit of 0%. Use of the limit mode allows the use of the retarder only up to the limit specified in the request. This can be used to permit retarding of up to 50%, for example, if that limit is required by some device such as an EBS, or it can disable the use of the retarder by others, as when an ABS controller detects wheel slip. Note that the 10 ms transmission repetition rate is intended for temporary powertrain control (P32 of SPN 3350).",
-   "pgn_label": "Torque/Speed Control 1"
+   "pgn_label": "Torque/Speed Control 1",
+   "description_bad_removed": "SAE J1939 Heavy-Duty Diagnostic Parameter: Switched Output B Error",
+   "description_cleaned_tur30": "yanlış SPN eşlemesi kaldırıldı"
   },
   "SPN_560": {
    "spn": 560,
