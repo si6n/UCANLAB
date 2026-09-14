@@ -436,7 +436,12 @@
    "pgn_priority": 6,
    "pgn_length": "Fixed",
    "pgn_description": "PG which identifies parameters that are either measuring various pressures within the engine or identifying engine fluid levels",
-   "pgn_label": "Engine Fluid Level/Pressure 1"
+   "pgn_label": "Engine Fluid Level/Pressure 1",
+   "resolution": 4.0,
+   "offset": 0,
+   "spn_length": 8,
+   "signal_source_url": "https://pyramidsolutions.com/wp-content/uploads/2018/07/J1939-Data-Mapping-Explained_Final-1.pdf",
+   "signal_source_license": "Public Domain (Factual Standard Data)"
   },
   "SPN_110": {
    "spn": 110,
@@ -718,7 +723,12 @@
    "pgn_rate": "1 s",
    "pgn_priority": 6,
    "pgn_length": "Fixed",
-   "pgn_label": "Engine Temperature 1"
+   "pgn_label": "Engine Temperature 1",
+   "resolution": 1.0,
+   "offset": -40,
+   "spn_length": 8,
+   "signal_source_url": "https://pyramidsolutions.com/wp-content/uploads/2018/07/J1939-Data-Mapping-Explained_Final-1.pdf",
+   "signal_source_license": "Public Domain (Factual Standard Data)"
   },
   "SPN_190": {
    "spn": 190,
@@ -1004,7 +1014,12 @@
    "pgn_priority": 3,
    "pgn_length": "Fixed",
    "pgn_description": "Engine related parameters",
-   "pgn_label": "Electronic Engine Controller 1"
+   "pgn_label": "Electronic Engine Controller 1",
+   "resolution": 0.125,
+   "offset": 0,
+   "spn_length": 16,
+   "signal_source_url": "https://github.com/jackm/j1939decode",
+   "signal_source_license": "MIT"
   },
   "SPN_102": {
    "spn": 102,
@@ -3811,7 +3826,12 @@
    "pgn_rate": "1 s",
    "pgn_priority": 6,
    "pgn_length": "Fixed",
-   "pgn_label": "Vehicle Electrical Power 1"
+   "pgn_label": "Vehicle Electrical Power 1",
+   "resolution": 0.05,
+   "offset": 0,
+   "spn_length": 16,
+   "signal_source_url": "https://www.auelectronics.com/downloads/usermanual_gw2.pdf",
+   "signal_source_license": "Public Domain (Factual Standard Data)"
   },
   "SPN_91": {
    "spn": 91,
@@ -4848,7 +4868,12 @@
    "pgn_priority": 6,
    "pgn_length": "Fixed",
    "pgn_label": "Engine Temperature 1",
-   "causes_source": "j1939hub_dtc_details + j1939hub_pages + justanswer"
+   "causes_source": "j1939hub_dtc_details + j1939hub_pages + justanswer",
+   "resolution": 1.0,
+   "offset": -40,
+   "spn_length": 8,
+   "signal_source_url": "https://pyramidsolutions.com/wp-content/uploads/2018/07/J1939-Data-Mapping-Explained_Final-1.pdf",
+   "signal_source_license": "Public Domain (Factual Standard Data)"
   },
   "SPN_175": {
    "spn": 175,
@@ -5074,7 +5099,12 @@
    "pgn_rate": "1 s",
    "pgn_priority": 6,
    "pgn_length": "Fixed",
-   "pgn_label": "Engine Temperature 1"
+   "pgn_label": "Engine Temperature 1",
+   "resolution": 0.03125,
+   "offset": -273,
+   "spn_length": 16,
+   "signal_source_url": "https://pyramidsolutions.com/wp-content/uploads/2018/07/J1939-Data-Mapping-Explained_Final-1.pdf",
+   "signal_source_license": "Public Domain (Factual Standard Data)"
   },
   "SPN_183": {
    "spn": 183,
@@ -7872,7 +7902,12 @@
    "pgn_priority": 6,
    "pgn_length": "Fixed",
    "pgn_description": "Cruise Control/Vehicle Speed 1",
-   "pgn_label": "Cruise Control/Vehicle Speed 1"
+   "pgn_label": "Cruise Control/Vehicle Speed 1",
+   "resolution": 0.00390625,
+   "offset": 0,
+   "spn_length": 16,
+   "signal_source_url": "https://www.auelectronics.com/downloads/usermanual_gw2.pdf",
+   "signal_source_license": "Public Domain (Factual Standard Data)"
   },
   "SPN_96": {
    "spn": 96,
@@ -9440,7 +9475,12 @@
    "pgn_priority": 3,
    "pgn_length": "Fixed",
    "pgn_description": "Engine related parameters",
-   "pgn_label": "Electronic Engine Controller 1"
+   "pgn_label": "Electronic Engine Controller 1",
+   "resolution": 1.0,
+   "offset": -125,
+   "spn_length": 8,
+   "signal_source_url": "https://github.com/DanielMartensson/Open-SAE-J1939",
+   "signal_source_license": "MIT"
   },
   "SPN_524": {
    "spn": 524,
@@ -54086,7 +54126,12 @@
    "pgn_priority": 6,
    "pgn_length": "Fixed",
    "pgn_label": "Vehicle Distance",
-   "causes_source": "SAE J1939 diagnostic reference (j1939hub.com)"
+   "causes_source": "SAE J1939 diagnostic reference (j1939hub.com)",
+   "resolution": 0.125,
+   "offset": 0,
+   "spn_length": 32,
+   "signal_source_url": "https://www.auelectronics.com/downloads/usermanual_gw2.pdf",
+   "signal_source_license": "Public Domain (Factual Standard Data)"
   },
   "SPN_252": {
    "spn": 252,
