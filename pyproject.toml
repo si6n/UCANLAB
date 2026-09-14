@@ -32,6 +32,7 @@ exclude = [
     "__pycache__",
     "build",
     "dist",
+    "arsiv_ajan_scriptleri",  # archived agent scratch scripts (not shipped)
 ]
 
 [tool.ruff.lint]
