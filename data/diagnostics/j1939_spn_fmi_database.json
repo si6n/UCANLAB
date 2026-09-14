@@ -56426,7 +56426,12 @@
     "pgn61455:peterbilt"
    ],
    "sa_method": "indirect_pgn",
-   "title_tr_source": "tam çeviri (Tur-30, name alanından okunup anlaşılarak)"
+   "title_tr_source": "tam çeviri (Tur-30, name alanından okunup anlaşılarak)",
+   "causes": [
+    "SPN 5713 FMI 20: NOx Out Sensor Self-diagnosis NOx Drifted High (Detroit Diesel DD5/DD8/DD13/DD15 Gen5).",
+    "SPN 5713 FMI 21: NOx Out Sensor Self-Diagnosis NOx Drifted Low (Detroit Diesel DD5/DD8/DD13/DD15 Gen5)."
+   ],
+   "causes_source": "DieselLaptops OEM fault table (merge_candidates_v2, International MaxxForce DT 2010)"
   },
   "SPN_1112": {
    "spn": 1112,
@@ -68425,7 +68430,14 @@
    "pgn_length": "Fixed",
    "pgn_description": "Contains information about the aftertreatment 1 fuel system",
    "pgn_label": "Aftertreatment 1 Fuel Control 1",
-   "title_tr_source": "tam çeviri (Tur-30, name alanından okunup anlaşılarak)"
+   "title_tr_source": "tam çeviri (Tur-30, name alanından okunup anlaşılarak)",
+   "causes": [
+    "SPN 3479 FMI 3: AFT Fuel Doser Valve – Short to PWR.",
+    "SPN 3479 FMI 4: AFT Fuel Doser Valve – Open or Short to GND.",
+    "SPN 3479 FMI 5: AFT Fuel Pressure Control Valve – Open or Short to GND on LOW Side.",
+    "SPN 3479 FMI 6: AFT Fuel Pressure Control Valve – Open or Short to PWR on HIGH Side."
+   ],
+   "causes_source": "DieselLaptops OEM fault table (merge_candidates_v2, International MaxxForce DT 2010)"
   },
   "SPN_4097": {
    "spn": 4097,
@@ -114886,7 +114898,11 @@
    ],
    "source": "sitrak_ccby4",
    "evidence_url": "https://github.com/STAS63-bit/sitrak-error-codes",
-   "attribution": "(c) Megadata / megadata.pro - CC BY 4.0 - https://megadata.pro"
+   "attribution": "(c) Megadata / megadata.pro - CC BY 4.0 - https://megadata.pro",
+   "causes": [
+    "SPN 13397 FMI 24 (55 34 18): Камера закрывается [RU]."
+   ],
+   "causes_source": "SITRAK/Bosch ECU fault description (CC BY 4.0, (c) Megadata/megadata.pro, github STAS63-bit/sitrak-error-codes)"
   },
   "SPN_13521": {
    "spn": 13521,
@@ -115762,7 +115778,11 @@
    "pgn_priority": 7,
    "pgn_length": "Fixed Extendable",
    "pgn_description": "Historical data for High Voltage Energy Storage Pack 7.",
-   "pgn_label": "High Voltage Energy Storage Pack 7 History"
+   "pgn_label": "High Voltage Energy Storage Pack 7 History",
+   "causes": [
+    "SPN 14165 FMI 25 (55 37 19): Камера не установлена [RU]."
+   ],
+   "causes_source": "SITRAK/Bosch ECU fault description (CC BY 4.0, (c) Megadata/megadata.pro, github STAS63-bit/sitrak-error-codes)"
   },
   "SPN_14358": {
    "spn": 14358,
@@ -116349,7 +116369,11 @@
    "pgn_priority": 3,
    "pgn_length": "Fixed",
    "pgn_description": "Control commands to be sent to High Voltage Energy Storage Pack 14.",
-   "pgn_label": "High Voltage Energy Storage Pack 14 Control 1"
+   "pgn_label": "High Voltage Energy Storage Pack 14 Control 1",
+   "causes": [
+    "SPN 15701 FMI 24 (55 3d 18): Обнаружение аномалий радиолокационной станцией [RU]."
+   ],
+   "causes_source": "SITRAK/Bosch ECU fault description (CC BY 4.0, (c) Megadata/megadata.pro, github STAS63-bit/sitrak-error-codes)"
   },
   "SPN_15894": {
    "spn": 15894,
@@ -117436,7 +117460,11 @@
    ],
    "source": "sitrak_ccby4",
    "evidence_url": "https://github.com/STAS63-bit/sitrak-error-codes",
-   "attribution": "(c) Megadata / megadata.pro - CC BY 4.0 - https://megadata.pro"
+   "attribution": "(c) Megadata / megadata.pro - CC BY 4.0 - https://megadata.pro",
+   "causes": [
+    "SPN 18773 FMI 24 (55 49 18): AEB Система не откалибрована [RU]."
+   ],
+   "causes_source": "SITRAK/Bosch ECU fault description (CC BY 4.0, (c) Megadata/megadata.pro, github STAS63-bit/sitrak-error-codes)"
   },
   "SPN_18866": {
    "spn": 18866,
@@ -117705,7 +117733,11 @@
    ],
    "source": "sitrak_ccby4",
    "evidence_url": "https://github.com/STAS63-bit/sitrak-error-codes",
-   "attribution": "(c) Megadata / megadata.pro - CC BY 4.0 - https://megadata.pro"
+   "attribution": "(c) Megadata / megadata.pro - CC BY 4.0 - https://megadata.pro",
+   "causes": [
+    "SPN 19541 FMI 25 (55 4c 19): РЛС не маркирована [RU]."
+   ],
+   "causes_source": "SITRAK/Bosch ECU fault description (CC BY 4.0, (c) Megadata/megadata.pro, github STAS63-bit/sitrak-error-codes)"
   },
   "SPN_19544": {
    "spn": 19544,
@@ -180180,7 +180212,12 @@
    ],
    "source": "sitrak_ccby4",
    "evidence_url": "https://github.com/STAS63-bit/sitrak-error-codes",
-   "attribution": "(c) Megadata / megadata.pro - CC BY 4.0 - https://megadata.pro"
+   "attribution": "(c) Megadata / megadata.pro - CC BY 4.0 - https://megadata.pro",
+   "causes": [
+    "SPN 522148 FMI 22: SAE J1939 error for Medium concentration measured by quality sensor.",
+    "SPN 522148 FMI 23: The error is reported if the SAE J1939 check fails for Signal not in range or Erroneous signal for Tank temperature measured by quality sensor."
+   ],
+   "causes_source": "SITRAK/Bosch ECU fault description (CC BY 4.0, (c) Megadata/megadata.pro, github STAS63-bit/sitrak-error-codes)"
   },
   "SPN_522149": {
    "spn": 522149,
@@ -180211,7 +180248,13 @@
    ],
    "source": "sitrak_ccby4",
    "evidence_url": "https://github.com/STAS63-bit/sitrak-error-codes",
-   "attribution": "(c) Megadata / megadata.pro - CC BY 4.0 - https://megadata.pro"
+   "attribution": "(c) Megadata / megadata.pro - CC BY 4.0 - https://megadata.pro",
+   "causes": [
+    "SPN 522149 FMI 22: SAE J1939 error for urea tank level message.",
+    "SPN 522149 FMI 23: The error is reported if the SAE J1939 check fails for Signal not in range or Erroneous signal or Signal not available for Catalyst Tank temperature.",
+    "SPN 522149 FMI 24: SAE J1939 error for Urea catalyst Tank Level 2."
+   ],
+   "causes_source": "SITRAK/Bosch ECU fault description (CC BY 4.0, (c) Megadata/megadata.pro, github STAS63-bit/sitrak-error-codes)"
   },
   "SPN_522150": {
    "spn": 522150,
@@ -180435,7 +180478,13 @@
    ],
    "source": "sitrak_ccby4",
    "evidence_url": "https://github.com/STAS63-bit/sitrak-error-codes",
-   "attribution": "(c) Megadata / megadata.pro - CC BY 4.0 - https://megadata.pro"
+   "attribution": "(c) Megadata / megadata.pro - CC BY 4.0 - https://megadata.pro",
+   "causes": [
+    "SPN 522155 FMI 22: DFC for monitoring the succesful regeneration of PFlt.",
+    "SPN 522155 FMI 23: particulate sensor signal not valid.",
+    "SPN 522155 FMI 24: Monitoring of the SF adjustment value of the particulate sensor."
+   ],
+   "causes_source": "SITRAK/Bosch ECU fault description (CC BY 4.0, (c) Megadata/megadata.pro, github STAS63-bit/sitrak-error-codes)"
   },
   "SPN_522158": {
    "spn": 522158,
