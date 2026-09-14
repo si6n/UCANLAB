@@ -151,6 +151,38 @@ class TestCardComposition:
         )
         assert card.headline_tr == "Motor yağ basıncı hatası olabilir"
         assert card.risk_level == "RED"
+        assert card.source_badges == ("Yerel bilgi tabanı",)
+
+    def test_j1939_db_bridge_for_non_kb_spn(self) -> None:
+        # SPN 629 is in j1939_spn_fmi_database.json (3,710 SPNs) but NOT in user_kb.json (Boşluk 10)
+        card = compose_user_card(
+            _report(FaultSeverity.MEDIUM, 1), _session([("SPN 629 FMI 12", "MEDIUM")]), user_kb=KB
+        )
+        assert "Ana Motor Beyni" in card.headline_tr
+        assert card.headline_tr.endswith("olabilir")
+        assert "ECU Dahili Donanım" in card.summary_tr or "Ana Motor Beyni" in card.summary_tr
+        assert card.source_badges == ("J1939 SPN veritabanı",)
+        assert is_honest_card(card)
+
+    def test_j1939_db_bridge_multiple_codes(self) -> None:
+        card = compose_user_card(
+            _report(FaultSeverity.MEDIUM, 2),
+            _session([("SPN 629 FMI 12", "MEDIUM"), ("SPN 3216 FMI 4", "MEDIUM")]),
+            user_kb=KB,
+        )
+        assert "Ana Motor Beyni" in card.headline_tr
+        assert "toplam 2 adet aktif hata kaydı" in card.summary_tr
+        assert card.source_badges == ("J1939 SPN veritabanı",)
+        assert is_honest_card(card)
+
+    def test_j1939_db_bridge_format_variants(self) -> None:
+        for code_str in ("SPN629-FMI12", "SPN_629", "SPN 629"):
+            card = compose_user_card(
+                _report(FaultSeverity.MEDIUM, 1), _session([(code_str, "MEDIUM")]), user_kb=KB
+            )
+            assert "Ana Motor Beyni" in card.headline_tr
+            assert card.source_badges == ("J1939 SPN veritabanı",)
+            assert is_honest_card(card)
 
     def test_card_to_dict_shape(self) -> None:
         card = compose_user_card(_report(FaultSeverity.MEDIUM, 1), _session([("P0301", "MEDIUM")]), user_kb=KB)

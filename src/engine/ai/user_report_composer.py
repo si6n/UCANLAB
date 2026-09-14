@@ -12,11 +12,15 @@ ustaya not / güven katmanı kaldırıldı.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
 from src.core.models.diagnostics import VehicleSession
-from src.engine.ai.diagnostic_copilot import DiagnosticAnalysisReport
+from src.engine.ai.diagnostic_copilot import (
+    DiagnosticAnalysisReport,
+    get_j1939_spn_database,
+)
 from src.engine.ai.drive_safety_policy import (
     EV_HV_WARNING_TR,
     RISK_ADVICE,
@@ -82,6 +86,18 @@ def _kb_code_variants(code: str) -> list[str]:
     return variants
 
 
+def _extract_spn_number(code: str) -> int | None:
+    """Extract numeric SPN ID from code variants like 'SPN 629 FMI 12', 'SPN629', 'SPN_629'."""
+    cleaned = (code or "").strip().upper()
+    m = re.search(r"\bSPN[_\s-]*([0-9]+)\b", cleaned)
+    if m:
+        try:
+            return int(m.group(1))
+        except ValueError:
+            return None
+    return None
+
+
 def compose_user_card(
     report: DiagnosticAnalysisReport,
     session: VehicleSession,
@@ -92,7 +108,7 @@ def compose_user_card(
 
     - Boş oturum/kanıt -> GRAY + doküman §40 dürüst kart (asla GREEN değil).
     - EV/HV kod -> RED zorlaması + §24 uyarısı.
-    - KB'de olmayan kod -> genel dürüst şablon (uydurma yok).
+    - KB'de olmayan kod -> J1939 SPN veritabanı veya genel dürüst şablon (uydurma yok).
     """
     kb = user_kb if user_kb is not None else load_user_kb()
     dtc_codes = _session_dtc_codes(session)
@@ -123,15 +139,44 @@ def compose_user_card(
         if entry is not None:
             break
 
+    # ── J1939 SPN DB lookup: KB'de olmayan SPN kodları için köprü (Boşluk 10) ──
+    spn_info: dict[str, Any] | None = None
+    if entry is None:
+        try:
+            j1939_db = get_j1939_spn_database()
+            spns = j1939_db.get("spns", {}) if isinstance(j1939_db, dict) else {}
+            for code in dtc_codes:
+                spn_num = _extract_spn_number(code)
+                if spn_num is not None and f"SPN_{spn_num}" in spns:
+                    spn_info = spns[f"SPN_{spn_num}"]
+                    break
+        except Exception:
+            spn_info = None
+
     ev_codes = [c for c in dtc_codes if is_ev_hv_code(c)]
     if ev_codes:
         risk = "RED"
 
-    # ── Texts: KB kaydı varsa KB, yoksa dürüst genel şablon ──
+    # ── Texts: KB kaydı varsa KB, yoksa J1939 DB, yoksa dürüst genel şablon ──
     if entry is not None:
         headline = entry.user_title_tr
         summary = entry.user_summary_tr
         badges: tuple[str, ...] = ("Yerel bilgi tabanı",)
+    elif spn_info is not None:
+        title_tr = (spn_info.get("title_tr") or spn_info.get("name") or "J1939 SPN Arızası").strip()
+        subsystem = (spn_info.get("subsystem") or "Ağır Vasıta J1939").strip()
+
+        if title_tr.lower().endswith("olabilir"):
+            headline = title_tr
+        elif title_tr.lower().endswith(("arızası", "hatası", "sorunu", "uyarısı")):
+            headline = f"{title_tr} olabilir"
+        else:
+            headline = f"{title_tr} sorunu olabilir"
+
+        summary = f"Ağır vasıta {subsystem} sisteminde ({title_tr}) aktif durum kaydedildi."
+        if len(dtc_codes) > 1:
+            summary += f" Araçta toplam {len(dtc_codes)} adet aktif hata kaydı bulunmaktadır."
+        badges = ("J1939 SPN veritabanı",)
     else:
         headline = "Arıza kaydedildi"
         summary = (
