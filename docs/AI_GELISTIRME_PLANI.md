@@ -148,7 +148,7 @@ j1939_spn_fmi_database.json: 3710 SPN; fault_matrix 3529; title_tr 3710; associa
 
 ### Faz 5 — Kullanıcı kartı J1939 köprüsü (P3)
 
-- [ ] `user_report_composer.compose_user_card`: KB'de olmayan `SPN{n}` kodları için `get_j1939_spn_database()`'den `title_tr` ile dürüst kart üret (uydurma yok — yalnız DB alanları)
+- [x] `user_report_composer.compose_user_card`: KB'de olmayan `SPN{n}` kodları için `get_j1939_spn_database()`'den `title_tr` ile dürüst kart üret (uydurma yok — yalnız DB alanları) [UYGULANDI]
 - [ ] `user_kb.json`'a yüksek-darbe SPN'ler için operatör onaylı kart ekle (Golden-Traces disiplini: operatör verisi olmadan draft kalır)
 
 ---

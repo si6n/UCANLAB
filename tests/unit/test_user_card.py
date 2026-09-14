@@ -11,6 +11,8 @@ Covers the safety-critical card invariants:
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from src.core.models.diagnostics import (
@@ -213,7 +215,7 @@ class TestUserKbValidator:
             "code", "user_title_tr", "user_summary_tr", "user_risk", "source_ref",
         }
 
-    def _base_entry(self) -> dict:
+    def _base_entry(self) -> dict[str, Any]:
         return {
             "code": "P0300", "user_title_tr": "x", "user_summary_tr": "x",
             "user_risk": "YELLOW", "source_ref": "test ref",
