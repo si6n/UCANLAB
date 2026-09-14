@@ -34,7 +34,7 @@ pytestmark = pytest.mark.benchmark
 REPO_ROOT = Path(__file__).resolve().parents[2]
 J1939_DB = REPO_ROOT / "data" / "diagnostics" / "j1939_spn_fmi_database.json"
 
-EXPECTED_SPNS = 3_710
+EXPECTED_SPNS = 3_910
 # J1939 FMI 12 = "Bad intelligent device or component" içeren referans DTC.
 REF_SPN = 629
 REF_FMI = 12

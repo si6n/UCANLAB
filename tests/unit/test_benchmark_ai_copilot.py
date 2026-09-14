@@ -34,7 +34,7 @@ SPN_DB = DATA_DIR / "j1939_spn_fmi_database.json"
 
 # Expected production catalog sizes (task contract).
 EXPECTED_DTCS = 14352
-EXPECTED_SPNS = 3_710
+EXPECTED_SPNS = 3_910
 
 
 

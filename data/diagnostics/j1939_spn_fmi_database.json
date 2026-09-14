@@ -3,7 +3,7 @@
   "title": "SAE J1939 Heavy Duty & Commercial Vehicle Diagnostic Database",
   "version": "1.10.0",
   "standard": "SAE J1939-71 / J1939-73",
-  "total_spns": 3710,
+  "total_spns": 3910,
   "total_fmis": 32,
   "last_updated": "2026-09-13",
   "sources": [
@@ -37,7 +37,8 @@
     "3oem_consensus"
    ]
   },
-  "last_enrichment": "Tur-31: SITRAK GH (STAS63-bit) fault_matrix zenginleştirme"
+  "last_enrichment": "Tur-31: SITRAK GH (STAS63-bit) fault_matrix zenginleştirme",
+  "last_new_spn": "Tur-31: SITRAK GH yeni SPN kayıtları"
  },
  "fmi_definitions": {
   "0": {
@@ -211114,6 +211115,2830 @@
    ],
    "causes_source": "SAE J1939-73 FMI fault matrix (DB fault_matrix, Tur-30 türetme)",
    "steps_class_fixed_tur30": "SPN sınıfına göre jenerik adım düzeltildi"
+  },
+  "SPN_35": {
+   "spn": 35,
+   "name": "Данные EEPROM VD 1",
+   "title_tr": "VD 1 EEPROM verisi",
+   "subsystem": "AMT / Otomatik Vites Kutusu",
+   "fault_matrix": {
+    "2": {
+     "fault_title": "VD 1 EEPROM verisi - Veri tutarsız, kesintili veya hatalı",
+     "fmi_name": "Veri tutarsız, kesintili veya hatalı",
+     "severity": "medium",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_342": {
+   "spn": 342,
+   "name": "Данные EEPROM CA",
+   "title_tr": "CA EEPROM verisi",
+   "subsystem": "AMT / Otomatik Vites Kutusu",
+   "fault_matrix": {
+    "2": {
+     "fault_title": "CA EEPROM verisi - Veri tutarsız, kesintili veya hatalı",
+     "fmi_name": "Veri tutarsız, kesintili veya hatalı",
+     "severity": "medium",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_343": {
+   "spn": 343,
+   "name": "Данные EEPROM GA",
+   "title_tr": "GA EEPROM verisi",
+   "subsystem": "AMT / Otomatik Vites Kutusu",
+   "fault_matrix": {
+    "2": {
+     "fault_title": "GA EEPROM verisi - Veri tutarsız, kesintili veya hatalı",
+     "fmi_name": "Veri tutarsız, kesintili veya hatalı",
+     "severity": "medium",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_344": {
+   "spn": 344,
+   "name": "Данные EEPROM NSC",
+   "title_tr": "NSC EEPROM verisi",
+   "subsystem": "AMT / Otomatik Vites Kutusu",
+   "fault_matrix": {
+    "2": {
+     "fault_title": "NSC EEPROM verisi - Veri tutarsız, kesintili veya hatalı",
+     "fmi_name": "Veri tutarsız, kesintili veya hatalı",
+     "severity": "medium",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_346": {
+   "spn": 346,
+   "name": "Данные EEPROM CS",
+   "title_tr": "CS EEPROM verisi",
+   "subsystem": "AMT / Otomatik Vites Kutusu",
+   "fault_matrix": {
+    "2": {
+     "fault_title": "CS EEPROM verisi - Veri tutarsız, kesintili veya hatalı",
+     "fmi_name": "Veri tutarsız, kesintili veya hatalı",
+     "severity": "medium",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_347": {
+   "spn": 347,
+   "name": "Данные EEPROM AGD",
+   "title_tr": "AGD EEPROM verisi",
+   "subsystem": "AMT / Otomatik Vites Kutusu",
+   "fault_matrix": {
+    "2": {
+     "fault_title": "AGD EEPROM verisi - Veri tutarsız, kesintili veya hatalı",
+     "fmi_name": "Veri tutarsız, kesintili veya hatalı",
+     "severity": "medium",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_348": {
+   "spn": 348,
+   "name": "Данные EEPROM TBC",
+   "title_tr": "TBC EEPROM verisi",
+   "subsystem": "AMT / Otomatik Vites Kutusu",
+   "fault_matrix": {
+    "2": {
+     "fault_title": "TBC EEPROM verisi - Veri tutarsız, kesintili veya hatalı",
+     "fmi_name": "Veri tutarsız, kesintili veya hatalı",
+     "severity": "medium",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_592": {
+   "spn": 592,
+   "name": "EEC1",
+   "title_tr": "EEC1 (Motor ECU Mesajı 1)",
+   "subsystem": "AMT / Otomatik Vites Kutusu",
+   "fault_matrix": {
+    "2": {
+     "fault_title": "EEC1 (Motor ECU Mesajı 1) - Veri tutarsız, kesintili veya hatalı",
+     "fmi_name": "Veri tutarsız, kesintili veya hatalı",
+     "severity": "medium",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    },
+    "9": {
+     "fault_title": "EEC1 (Motor ECU Mesajı 1) - Anormal güncelleme hızı",
+     "fmi_name": "Anormal güncelleme hızı",
+     "severity": "medium",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_594": {
+   "spn": 594,
+   "name": "EEC3",
+   "title_tr": "EEC3 (Motor ECU Mesajı 3)",
+   "subsystem": "AMT / Otomatik Vites Kutusu",
+   "fault_matrix": {
+    "2": {
+     "fault_title": "EEC3 (Motor ECU Mesajı 3) - Veri tutarsız, kesintili veya hatalı",
+     "fmi_name": "Veri tutarsız, kesintili veya hatalı",
+     "severity": "medium",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    },
+    "9": {
+     "fault_title": "EEC3 (Motor ECU Mesajı 3) - Anormal güncelleme hızı",
+     "fmi_name": "Anormal güncelleme hızı",
+     "severity": "medium",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_603": {
+   "spn": 603,
+   "name": "EC1",
+   "title_tr": "EC1 (Motor Katalizör Mesajı 1)",
+   "subsystem": "AMT / Otomatik Vites Kutusu",
+   "fault_matrix": {
+    "2": {
+     "fault_title": "EC1 (Motor Katalizör Mesajı 1) - Veri tutarsız, kesintili veya hatalı",
+     "fmi_name": "Veri tutarsız, kesintili veya hatalı",
+     "severity": "medium",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    },
+    "9": {
+     "fault_title": "EC1 (Motor Katalizör Mesajı 1) - Anormal güncelleme hızı",
+     "fmi_name": "Anormal güncelleme hızı",
+     "severity": "medium",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_743": {
+   "spn": 743,
+   "name": "Fan relay (X3/10) short to ground",
+   "title_tr": "Fan rölesi (X3/10) şasiye kısa devre",
+   "subsystem": "Voith Retarder (Yavaşlatıcı)",
+   "fault_matrix": {
+    "4": {
+     "fault_title": "Fan rölesi (X3/10) şasiye kısa devre - Gerilim normalin altında veya kısa devre (düşük)",
+     "fmi_name": "Gerilim normalin altında veya kısa devre (düşük)",
+     "severity": "high",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_3003": {
+   "spn": 3003,
+   "name": "ECU-internal fault concerning safety component",
+   "title_tr": "ECU dahili arıza — güvenlik bileşeni ilgili",
+   "subsystem": "Voith Retarder (Yavaşlatıcı)",
+   "fault_matrix": {
+    "12": {
+     "fault_title": "ECU dahili arıza — güvenlik bileşeni ilgili - Bozuk akıllı cihaz veya bileşen (Dahili arıza)",
+     "fmi_name": "Bozuk akıllı cihaz veya bileşen (Dahili arıza)",
+     "severity": "high",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_3004": {
+   "spn": 3004,
+   "name": "ECU-internal fault concerning parameters",
+   "title_tr": "ECU dahili arıza — parametreler ilgili",
+   "subsystem": "Voith Retarder (Yavaşlatıcı)",
+   "fault_matrix": {
+    "12": {
+     "fault_title": "ECU dahili arıza — parametreler ilgili - Bozuk akıllı cihaz veya bileşen (Dahili arıza)",
+     "fmi_name": "Bozuk akıllı cihaz veya bileşen (Dahili arıza)",
+     "severity": "high",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_3015": {
+   "spn": 3015,
+   "name": "CAN timeout error (EEC2/ETC1/EBC1/CCVS/TCO1)",
+   "title_tr": "CAN zaman aşımı hatası (EEC2/ETC1/EBC1/CCVS/TCO1)",
+   "subsystem": "Voith Retarder (Yavaşlatıcı)",
+   "fault_matrix": {
+    "9": {
+     "fault_title": "CAN zaman aşımı hatası (EEC2/ETC1/EBC1/CCVS/TCO1) - Anormal güncelleme hızı",
+     "fmi_name": "Anormal güncelleme hızı",
+     "severity": "medium",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_3033": {
+   "spn": 3033,
+   "name": "Brake light relay (BLR; X1/16) short to ground",
+   "title_tr": "Fren lambası rölesi (BLR; X1/16) şasiye kısa devre",
+   "subsystem": "Voith Retarder (Yavaşlatıcı)",
+   "fault_matrix": {
+    "4": {
+     "fault_title": "Fren lambası rölesi (BLR; X1/16) şasiye kısa devre - Gerilim normalin altında veya kısa devre (düşük)",
+     "fmi_name": "Gerilim normalin altında veya kısa devre (düşük)",
+     "severity": "high",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_3034": {
+   "spn": 3034,
+   "name": "Engine brake relay (OUT1; X2/1) short to ground",
+   "title_tr": "Motor freni rölesi (OUT1; X2/1) şasiye kısa devre",
+   "subsystem": "Voith Retarder (Yavaşlatıcı)",
+   "fault_matrix": {
+    "4": {
+     "fault_title": "Motor freni rölesi (OUT1; X2/1) şasiye kısa devre - Gerilim normalin altında veya kısa devre (düşük)",
+     "fmi_name": "Gerilim normalin altında veya kısa devre (düşük)",
+     "severity": "high",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_5625": {
+   "spn": 5625,
+   "name": "Ошибка case for HP turbine bypass клапан stuck condition",
+   "title_tr": "HP türbin bypass valfi takılma durumu arızası",
+   "subsystem": "Bosch MC11/MC13 Motor ECU",
+   "fault_matrix": {
+    "7": {
+     "fault_title": "HP türbin bypass valfi takılma durumu arızası - Mekanik sistem doğru yanıt vermiyor veya ayar dışı",
+     "fmi_name": "Mekanik sistem doğru yanıt vermiyor veya ayar dışı",
+     "severity": "medium",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_61440": {
+   "spn": 61440,
+   "name": "CAN TSC1_ACC error — torque request ending not correct (timeout) or message counter/checksum not plausible",
+   "title_tr": "CAN TSC1_ACC hatası — tork talebi düzgün sonlanmadı (zaman aşımı) veya mesaj sayacı/sağlama tutarsız",
+   "subsystem": "Voith Retarder (Yavaşlatıcı)",
+   "fault_matrix": {
+    "9": {
+     "fault_title": "CAN TSC1_ACC hatası — tork talebi düzgün sonlanmadı (zaman aşımı) veya mesaj sayacı/sağlama tutarsız - Anormal güncelleme hızı",
+     "fmi_name": "Anormal güncelleme hızı",
+     "severity": "medium",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_61441": {
+   "spn": 61441,
+   "name": "CAN TSC1_AD error — torque request ending not correct (timeout) or message counter/checksum not plausible",
+   "title_tr": "CAN TSC1_AD hatası — tork talebi düzgün sonlanmadı (zaman aşımı) veya mesaj sayacı/sağlama tutarsız",
+   "subsystem": "Voith Retarder (Yavaşlatıcı)",
+   "fault_matrix": {
+    "9": {
+     "fault_title": "CAN TSC1_AD hatası — tork talebi düzgün sonlanmadı (zaman aşımı) veya mesaj sayacı/sağlama tutarsız - Anormal güncelleme hızı",
+     "fmi_name": "Anormal güncelleme hızı",
+     "severity": "medium",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_61444": {
+   "spn": 61444,
+   "name": "CAN TSC1_FRD error — torque request ending not correct (timeout) or message counter/checksum not plausible",
+   "title_tr": "CAN TSC1_FRD hatası — tork talebi düzgün sonlanmadı (zaman aşımı) veya mesaj sayacı/sağlama tutarsız",
+   "subsystem": "Voith Retarder (Yavaşlatıcı)",
+   "fault_matrix": {
+    "9": {
+     "fault_title": "CAN TSC1_FRD hatası — tork talebi düzgün sonlanmadı (zaman aşımı) veya mesaj sayacı/sağlama tutarsız - Anormal güncelleme hızı",
+     "fmi_name": "Anormal güncelleme hızı",
+     "severity": "medium",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_61447": {
+   "spn": 61447,
+   "name": "CAN TSC1_V error — torque request ending not correct (timeout) or message counter/checksum not plausible",
+   "title_tr": "CAN TSC1_V hatası — tork talebi düzgün sonlanmadı (zaman aşımı) veya mesaj sayacı/sağlama tutarsız",
+   "subsystem": "Voith Retarder (Yavaşlatıcı)",
+   "fault_matrix": {
+    "9": {
+     "fault_title": "CAN TSC1_V hatası — tork talebi düzgün sonlanmadı (zaman aşımı) veya mesaj sayacı/sağlama tutarsız - Anormal güncelleme hızı",
+     "fmi_name": "Anormal güncelleme hızı",
+     "severity": "medium",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_61472": {
+   "spn": 61472,
+   "name": "CAN TSC1_ACC error — torque request ending not correct (timeout) or message counter/checksum not plausible",
+   "title_tr": "CAN TSC1_ACC hatası — tork talebi düzgün sonlanmadı (zaman aşımı) veya mesaj sayacı/sağlama tutarsız",
+   "subsystem": "Voith Retarder (Yavaşlatıcı)",
+   "fault_matrix": {
+    "2": {
+     "fault_title": "CAN TSC1_ACC hatası — tork talebi düzgün sonlanmadı (zaman aşımı) veya mesaj sayacı/sağlama tutarsız - Veri tutarsız, kesintili veya hatalı",
+     "fmi_name": "Veri tutarsız, kesintili veya hatalı",
+     "severity": "medium",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_61473": {
+   "spn": 61473,
+   "name": "CAN TSC1_AD error — torque request ending not correct (timeout) or message counter/checksum not plausible",
+   "title_tr": "CAN TSC1_AD hatası — tork talebi düzgün sonlanmadı (zaman aşımı) veya mesaj sayacı/sağlama tutarsız",
+   "subsystem": "Voith Retarder (Yavaşlatıcı)",
+   "fault_matrix": {
+    "2": {
+     "fault_title": "CAN TSC1_AD hatası — tork talebi düzgün sonlanmadı (zaman aşımı) veya mesaj sayacı/sağlama tutarsız - Veri tutarsız, kesintili veya hatalı",
+     "fmi_name": "Veri tutarsız, kesintili veya hatalı",
+     "severity": "medium",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_61476": {
+   "spn": 61476,
+   "name": "CAN TSC1_FRD error — torque request ending not correct (timeout) or message counter/checksum not plausible",
+   "title_tr": "CAN TSC1_FRD hatası — tork talebi düzgün sonlanmadı (zaman aşımı) veya mesaj sayacı/sağlama tutarsız",
+   "subsystem": "Voith Retarder (Yavaşlatıcı)",
+   "fault_matrix": {
+    "2": {
+     "fault_title": "CAN TSC1_FRD hatası — tork talebi düzgün sonlanmadı (zaman aşımı) veya mesaj sayacı/sağlama tutarsız - Veri tutarsız, kesintili veya hatalı",
+     "fmi_name": "Veri tutarsız, kesintili veya hatalı",
+     "severity": "medium",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_61479": {
+   "spn": 61479,
+   "name": "CAN TSC1_V error — torque request ending not correct (timeout) or message counter/checksum not plausible",
+   "title_tr": "CAN TSC1_V hatası — tork talebi düzgün sonlanmadı (zaman aşımı) veya mesaj sayacı/sağlama tutarsız",
+   "subsystem": "Voith Retarder (Yavaşlatıcı)",
+   "fault_matrix": {
+    "2": {
+     "fault_title": "CAN TSC1_V hatası — tork talebi düzgün sonlanmadı (zaman aşımı) veya mesaj sayacı/sağlama tutarsız - Veri tutarsız, kesintili veya hatalı",
+     "fmi_name": "Veri tutarsız, kesintili veya hatalı",
+     "severity": "medium",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_61504": {
+   "spn": 61504,
+   "name": "CAN TSC1_ACC error — torque request ending not correct (timeout) or message counter/checksum not plausible",
+   "title_tr": "CAN TSC1_ACC hatası — tork talebi düzgün sonlanmadı (zaman aşımı) veya mesaj sayacı/sağlama tutarsız",
+   "subsystem": "Voith Retarder (Yavaşlatıcı)",
+   "fault_matrix": {
+    "2": {
+     "fault_title": "CAN TSC1_ACC hatası — tork talebi düzgün sonlanmadı (zaman aşımı) veya mesaj sayacı/sağlama tutarsız - Veri tutarsız, kesintili veya hatalı",
+     "fmi_name": "Veri tutarsız, kesintili veya hatalı",
+     "severity": "medium",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_61505": {
+   "spn": 61505,
+   "name": "CAN TSC1_AD error — torque request ending not correct (timeout) or message counter/checksum not plausible",
+   "title_tr": "CAN TSC1_AD hatası — tork talebi düzgün sonlanmadı (zaman aşımı) veya mesaj sayacı/sağlama tutarsız",
+   "subsystem": "Voith Retarder (Yavaşlatıcı)",
+   "fault_matrix": {
+    "2": {
+     "fault_title": "CAN TSC1_AD hatası — tork talebi düzgün sonlanmadı (zaman aşımı) veya mesaj sayacı/sağlama tutarsız - Veri tutarsız, kesintili veya hatalı",
+     "fmi_name": "Veri tutarsız, kesintili veya hatalı",
+     "severity": "medium",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_61508": {
+   "spn": 61508,
+   "name": "CAN TSC1_FRD error — torque request ending not correct (timeout) or message counter/checksum not plausible",
+   "title_tr": "CAN TSC1_FRD hatası — tork talebi düzgün sonlanmadı (zaman aşımı) veya mesaj sayacı/sağlama tutarsız",
+   "subsystem": "Voith Retarder (Yavaşlatıcı)",
+   "fault_matrix": {
+    "2": {
+     "fault_title": "CAN TSC1_FRD hatası — tork talebi düzgün sonlanmadı (zaman aşımı) veya mesaj sayacı/sağlama tutarsız - Veri tutarsız, kesintili veya hatalı",
+     "fmi_name": "Veri tutarsız, kesintili veya hatalı",
+     "severity": "medium",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_61511": {
+   "spn": 61511,
+   "name": "CAN TSC1_V error — torque request ending not correct (timeout) or message counter/checksum not plausible",
+   "title_tr": "CAN TSC1_V hatası — tork talebi düzgün sonlanmadı (zaman aşımı) veya mesaj sayacı/sağlama tutarsız",
+   "subsystem": "Voith Retarder (Yavaşlatıcı)",
+   "fault_matrix": {
+    "2": {
+     "fault_title": "CAN TSC1_V hatası — tork talebi düzgün sonlanmadı (zaman aşımı) veya mesaj sayacı/sağlama tutarsız - Veri tutarsız, kesintili veya hatalı",
+     "fmi_name": "Veri tutarsız, kesintili veya hatalı",
+     "severity": "medium",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_176210": {
+   "spn": 176210,
+   "name": "AEBS EEPROM Ошибка чтения",
+   "title_tr": "AEBS EEPROM okuma hatası",
+   "subsystem": "Kia/AEBS Gelişmiş Fren Sistemi",
+   "fault_matrix": {
+    "2": {
+     "fault_title": "AEBS EEPROM okuma hatası - Veri tutarsız, kesintili veya hatalı",
+     "fmi_name": "Veri tutarsız, kesintili veya hatalı",
+     "severity": "medium",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    },
+    "3": {
+     "fault_title": "AEBS EEPROM okuma hatası - Gerilim normalin üzerinde veya kısa devre (yüksek)",
+     "fmi_name": "Gerilim normalin üzerinde veya kısa devre (yüksek)",
+     "severity": "high",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_262337": {
+   "spn": 262337,
+   "name": "Шасси CANbussoff",
+   "title_tr": "Şasi CAN Bus-off",
+   "subsystem": "Kia/AEBS Gelişmiş Fren Sistemi",
+   "fault_matrix": {
+    "7": {
+     "fault_title": "Şasi CAN Bus-off - Mekanik sistem doğru yanıt vermiyor veya ayar dışı",
+     "fmi_name": "Mekanik sistem doğru yanıt vermiyor veya ayar dışı",
+     "severity": "medium",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_262593": {
+   "spn": 262593,
+   "name": "Зрение CANbussoff",
+   "title_tr": "Görüntü (kamera) CAN Bus-off",
+   "subsystem": "Kia/AEBS Gelişmiş Fren Sistemi",
+   "fault_matrix": {
+    "7": {
+     "fault_title": "Görüntü (kamera) CAN Bus-off - Mekanik sistem doğru yanıt vermiyor veya ayar dışı",
+     "fmi_name": "Mekanik sistem doğru yanıt vermiyor veya ayar dışı",
+     "severity": "medium",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516403": {
+   "spn": 516403,
+   "name": "P1202F0",
+   "title_tr": "PCU DTC kodu P1202F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P1202F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516404": {
+   "spn": 516404,
+   "name": "P120364",
+   "title_tr": "PCU DTC kodu P120364",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P120364 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516405": {
+   "spn": 516405,
+   "name": "P120412",
+   "title_tr": "PCU DTC kodu P120412",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P120412 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516406": {
+   "spn": 516406,
+   "name": "P120512",
+   "title_tr": "PCU DTC kodu P120512",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P120512 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516407": {
+   "spn": 516407,
+   "name": "P120785",
+   "title_tr": "PCU DTC kodu P120785",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P120785 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516408": {
+   "spn": 516408,
+   "name": "P1208A3",
+   "title_tr": "PCU DTC kodu P1208A3",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P1208A3 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516409": {
+   "spn": 516409,
+   "name": "P1209F0",
+   "title_tr": "PCU DTC kodu P1209F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P1209F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516410": {
+   "spn": 516410,
+   "name": "P120A62",
+   "title_tr": "PCU DTC kodu P120A62",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P120A62 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516411": {
+   "spn": 516411,
+   "name": "P120B29",
+   "title_tr": "PCU DTC kodu P120B29",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P120B29 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516412": {
+   "spn": 516412,
+   "name": "P120C29",
+   "title_tr": "PCU DTC kodu P120C29",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P120C29 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516413": {
+   "spn": 516413,
+   "name": "P120DF0",
+   "title_tr": "PCU DTC kodu P120DF0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P120DF0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516414": {
+   "spn": 516414,
+   "name": "P120E13",
+   "title_tr": "PCU DTC kodu P120E13",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P120E13 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516415": {
+   "spn": 516415,
+   "name": "U110000",
+   "title_tr": "PCU DTC kodu U110000",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U110000 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516416": {
+   "spn": 516416,
+   "name": "U1101F0",
+   "title_tr": "PCU DTC kodu U1101F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1101F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516417": {
+   "spn": 516417,
+   "name": "P121529",
+   "title_tr": "PCU DTC kodu P121529",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P121529 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516418": {
+   "spn": 516418,
+   "name": "U110200",
+   "title_tr": "PCU DTC kodu U110200",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U110200 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516419": {
+   "spn": 516419,
+   "name": "U1103F0",
+   "title_tr": "PCU DTC kodu U1103F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1103F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516420": {
+   "spn": 516420,
+   "name": "U1104F2",
+   "title_tr": "PCU DTC kodu U1104F2",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1104F2 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516421": {
+   "spn": 516421,
+   "name": "U1105F0",
+   "title_tr": "PCU DTC kodu U1105F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1105F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516422": {
+   "spn": 516422,
+   "name": "U1106F0",
+   "title_tr": "PCU DTC kodu U1106F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1106F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516423": {
+   "spn": 516423,
+   "name": "U1107F0",
+   "title_tr": "PCU DTC kodu U1107F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1107F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516424": {
+   "spn": 516424,
+   "name": "U1108F0",
+   "title_tr": "PCU DTC kodu U1108F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1108F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516427": {
+   "spn": 516427,
+   "name": "U1109F0",
+   "title_tr": "PCU DTC kodu U1109F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1109F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516428": {
+   "spn": 516428,
+   "name": "U110AF0",
+   "title_tr": "PCU DTC kodu U110AF0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U110AF0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516430": {
+   "spn": 516430,
+   "name": "U1155F0",
+   "title_tr": "PCU DTC kodu U1155F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1155F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516431": {
+   "spn": 516431,
+   "name": "U110DF0",
+   "title_tr": "PCU DTC kodu U110DF0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U110DF0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516432": {
+   "spn": 516432,
+   "name": "U110CF0",
+   "title_tr": "PCU DTC kodu U110CF0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U110CF0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516433": {
+   "spn": 516433,
+   "name": "U110EF0",
+   "title_tr": "PCU DTC kodu U110EF0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U110EF0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516434": {
+   "spn": 516434,
+   "name": "U110FF0",
+   "title_tr": "PCU DTC kodu U110FF0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U110FF0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516435": {
+   "spn": 516435,
+   "name": "U1110F0",
+   "title_tr": "PCU DTC kodu U1110F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1110F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516436": {
+   "spn": 516436,
+   "name": "U1111F0",
+   "title_tr": "PCU DTC kodu U1111F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1111F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516438": {
+   "spn": 516438,
+   "name": "U1113F0",
+   "title_tr": "PCU DTC kodu U1113F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1113F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516439": {
+   "spn": 516439,
+   "name": "U1114F0",
+   "title_tr": "PCU DTC kodu U1114F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1114F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516443": {
+   "spn": 516443,
+   "name": "U1118F0",
+   "title_tr": "PCU DTC kodu U1118F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1118F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516444": {
+   "spn": 516444,
+   "name": "U1119F0",
+   "title_tr": "PCU DTC kodu U1119F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1119F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516445": {
+   "spn": 516445,
+   "name": "U111AF0",
+   "title_tr": "PCU DTC kodu U111AF0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U111AF0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516449": {
+   "spn": 516449,
+   "name": "U111EF1",
+   "title_tr": "PCU DTC kodu U111EF1",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U111EF1 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516450": {
+   "spn": 516450,
+   "name": "U111FF0",
+   "title_tr": "PCU DTC kodu U111FF0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U111FF0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516451": {
+   "spn": 516451,
+   "name": "U1120F0",
+   "title_tr": "PCU DTC kodu U1120F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1120F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516452": {
+   "spn": 516452,
+   "name": "U1122F0",
+   "title_tr": "PCU DTC kodu U1122F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1122F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516453": {
+   "spn": 516453,
+   "name": "U1123F0",
+   "title_tr": "PCU DTC kodu U1123F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1123F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516454": {
+   "spn": 516454,
+   "name": "U1124F0",
+   "title_tr": "PCU DTC kodu U1124F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1124F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516455": {
+   "spn": 516455,
+   "name": "U1125F0",
+   "title_tr": "PCU DTC kodu U1125F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1125F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516456": {
+   "spn": 516456,
+   "name": "U1126F0",
+   "title_tr": "PCU DTC kodu U1126F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1126F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516457": {
+   "spn": 516457,
+   "name": "U1127F0",
+   "title_tr": "PCU DTC kodu U1127F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1127F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516458": {
+   "spn": 516458,
+   "name": "U1128F1",
+   "title_tr": "PCU DTC kodu U1128F1",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1128F1 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516459": {
+   "spn": 516459,
+   "name": "U1129F0",
+   "title_tr": "PCU DTC kodu U1129F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1129F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516460": {
+   "spn": 516460,
+   "name": "U112AF0",
+   "title_tr": "PCU DTC kodu U112AF0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U112AF0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516462": {
+   "spn": 516462,
+   "name": "U112CF0",
+   "title_tr": "PCU DTC kodu U112CF0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U112CF0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516463": {
+   "spn": 516463,
+   "name": "U112DF0",
+   "title_tr": "PCU DTC kodu U112DF0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U112DF0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516464": {
+   "spn": 516464,
+   "name": "U112EF0",
+   "title_tr": "PCU DTC kodu U112EF0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U112EF0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516465": {
+   "spn": 516465,
+   "name": "U112FF0",
+   "title_tr": "PCU DTC kodu U112FF0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U112FF0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516466": {
+   "spn": 516466,
+   "name": "U1130F0",
+   "title_tr": "PCU DTC kodu U1130F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1130F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516467": {
+   "spn": 516467,
+   "name": "U1131F0",
+   "title_tr": "PCU DTC kodu U1131F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1131F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516468": {
+   "spn": 516468,
+   "name": "U1132F0",
+   "title_tr": "PCU DTC kodu U1132F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1132F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516469": {
+   "spn": 516469,
+   "name": "U1133F0",
+   "title_tr": "PCU DTC kodu U1133F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1133F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516470": {
+   "spn": 516470,
+   "name": "U1134F0",
+   "title_tr": "PCU DTC kodu U1134F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1134F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516471": {
+   "spn": 516471,
+   "name": "U1135F0",
+   "title_tr": "PCU DTC kodu U1135F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1135F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516472": {
+   "spn": 516472,
+   "name": "U1136F0",
+   "title_tr": "PCU DTC kodu U1136F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1136F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516473": {
+   "spn": 516473,
+   "name": "U1137F0",
+   "title_tr": "PCU DTC kodu U1137F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1137F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516476": {
+   "spn": 516476,
+   "name": "U113AF2",
+   "title_tr": "PCU DTC kodu U113AF2",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U113AF2 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516477": {
+   "spn": 516477,
+   "name": "U113BF0",
+   "title_tr": "PCU DTC kodu U113BF0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U113BF0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516478": {
+   "spn": 516478,
+   "name": "U113CF0",
+   "title_tr": "PCU DTC kodu U113CF0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U113CF0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516479": {
+   "spn": 516479,
+   "name": "U113DF0",
+   "title_tr": "PCU DTC kodu U113DF0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U113DF0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516480": {
+   "spn": 516480,
+   "name": "U113EF0",
+   "title_tr": "PCU DTC kodu U113EF0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U113EF0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516481": {
+   "spn": 516481,
+   "name": "U113FF3",
+   "title_tr": "PCU DTC kodu U113FF3",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U113FF3 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516483": {
+   "spn": 516483,
+   "name": "U1140F2",
+   "title_tr": "PCU DTC kodu U1140F2",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1140F2 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516484": {
+   "spn": 516484,
+   "name": "U1141F0",
+   "title_tr": "PCU DTC kodu U1141F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1141F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516485": {
+   "spn": 516485,
+   "name": "U1142F0",
+   "title_tr": "PCU DTC kodu U1142F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1142F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516486": {
+   "spn": 516486,
+   "name": "U1143F0",
+   "title_tr": "PCU DTC kodu U1143F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1143F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516487": {
+   "spn": 516487,
+   "name": "U1144F0",
+   "title_tr": "PCU DTC kodu U1144F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1144F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516488": {
+   "spn": 516488,
+   "name": "U1145F1",
+   "title_tr": "PCU DTC kodu U1145F1",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1145F1 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516489": {
+   "spn": 516489,
+   "name": "U1146F2",
+   "title_tr": "PCU DTC kodu U1146F2",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1146F2 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516490": {
+   "spn": 516490,
+   "name": "U1147F3",
+   "title_tr": "PCU DTC kodu U1147F3",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1147F3 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516491": {
+   "spn": 516491,
+   "name": "U1148F0",
+   "title_tr": "PCU DTC kodu U1148F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1148F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516492": {
+   "spn": 516492,
+   "name": "U1149F1",
+   "title_tr": "PCU DTC kodu U1149F1",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1149F1 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516493": {
+   "spn": 516493,
+   "name": "U114AF2",
+   "title_tr": "PCU DTC kodu U114AF2",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U114AF2 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516494": {
+   "spn": 516494,
+   "name": "U114BF0",
+   "title_tr": "PCU DTC kodu U114BF0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U114BF0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516496": {
+   "spn": 516496,
+   "name": "P120FF0",
+   "title_tr": "PCU DTC kodu P120FF0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P120FF0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516498": {
+   "spn": 516498,
+   "name": "P121100",
+   "title_tr": "PCU DTC kodu P121100",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P121100 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516514": {
+   "spn": 516514,
+   "name": "P1221F0",
+   "title_tr": "PCU DTC kodu P1221F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P1221F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516515": {
+   "spn": 516515,
+   "name": "P122264",
+   "title_tr": "PCU DTC kodu P122264",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P122264 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516516": {
+   "spn": 516516,
+   "name": "P1224F0",
+   "title_tr": "PCU DTC kodu P1224F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P1224F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516518": {
+   "spn": 516518,
+   "name": "P122500",
+   "title_tr": "PCU DTC kodu P122500",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P122500 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516519": {
+   "spn": 516519,
+   "name": "P122612",
+   "title_tr": "PCU DTC kodu P122612",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P122612 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516520": {
+   "spn": 516520,
+   "name": "P1227F0",
+   "title_tr": "PCU DTC kodu P1227F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P1227F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516521": {
+   "spn": 516521,
+   "name": "P122900",
+   "title_tr": "PCU DTC kodu P122900",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P122900 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516522": {
+   "spn": 516522,
+   "name": "P122E00",
+   "title_tr": "PCU DTC kodu P122E00",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P122E00 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516523": {
+   "spn": 516523,
+   "name": "P122F00",
+   "title_tr": "PCU DTC kodu P122F00",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P122F00 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516524": {
+   "spn": 516524,
+   "name": "P123000",
+   "title_tr": "PCU DTC kodu P123000",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P123000 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516525": {
+   "spn": 516525,
+   "name": "P123113",
+   "title_tr": "PCU DTC kodu P123113",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P123113 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516526": {
+   "spn": 516526,
+   "name": "P123264",
+   "title_tr": "PCU DTC kodu P123264",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P123264 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516527": {
+   "spn": 516527,
+   "name": "P1233F0",
+   "title_tr": "PCU DTC kodu P1233F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P1233F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516536": {
+   "spn": 516536,
+   "name": "P123BF0",
+   "title_tr": "PCU DTC kodu P123BF0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P123BF0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516537": {
+   "spn": 516537,
+   "name": "P123C04",
+   "title_tr": "PCU DTC kodu P123C04",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P123C04 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516538": {
+   "spn": 516538,
+   "name": "P123D04",
+   "title_tr": "PCU DTC kodu P123D04",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P123D04 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516539": {
+   "spn": 516539,
+   "name": "P123E04",
+   "title_tr": "PCU DTC kodu P123E04",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P123E04 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516540": {
+   "spn": 516540,
+   "name": "P123F04",
+   "title_tr": "PCU DTC kodu P123F04",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P123F04 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516541": {
+   "spn": 516541,
+   "name": "P124004",
+   "title_tr": "PCU DTC kodu P124004",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P124004 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516542": {
+   "spn": 516542,
+   "name": "P124104",
+   "title_tr": "PCU DTC kodu P124104",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P124104 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516543": {
+   "spn": 516543,
+   "name": "P1242F9",
+   "title_tr": "PCU DTC kodu P1242F9",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P1242F9 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516544": {
+   "spn": 516544,
+   "name": "P124500",
+   "title_tr": "PCU DTC kodu P124500",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P124500 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516545": {
+   "spn": 516545,
+   "name": "P124629",
+   "title_tr": "PCU DTC kodu P124629",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P124629 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516546": {
+   "spn": 516546,
+   "name": "P124712",
+   "title_tr": "PCU DTC kodu P124712",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P124712 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516547": {
+   "spn": 516547,
+   "name": "P124812",
+   "title_tr": "PCU DTC kodu P124812",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P124812 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516548": {
+   "spn": 516548,
+   "name": "P124917",
+   "title_tr": "PCU DTC kodu P124917",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P124917 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516549": {
+   "spn": 516549,
+   "name": "P124A12",
+   "title_tr": "PCU DTC kodu P124A12",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P124A12 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516550": {
+   "spn": 516550,
+   "name": "P124B12",
+   "title_tr": "PCU DTC kodu P124B12",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P124B12 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516551": {
+   "spn": 516551,
+   "name": "P124C12",
+   "title_tr": "PCU DTC kodu P124C12",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P124C12 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516552": {
+   "spn": 516552,
+   "name": "P124D85",
+   "title_tr": "PCU DTC kodu P124D85",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P124D85 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516553": {
+   "spn": 516553,
+   "name": "P124E85",
+   "title_tr": "PCU DTC kodu P124E85",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P124E85 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516554": {
+   "spn": 516554,
+   "name": "P124F85",
+   "title_tr": "PCU DTC kodu P124F85",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P124F85 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516555": {
+   "spn": 516555,
+   "name": "P125085",
+   "title_tr": "PCU DTC kodu P125085",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P125085 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516556": {
+   "spn": 516556,
+   "name": "P125112",
+   "title_tr": "PCU DTC kodu P125112",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P125112 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516557": {
+   "spn": 516557,
+   "name": "P125111",
+   "title_tr": "PCU DTC kodu P125111",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P125111 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516558": {
+   "spn": 516558,
+   "name": "P125213",
+   "title_tr": "PCU DTC kodu P125213",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P125213 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516559": {
+   "spn": 516559,
+   "name": "P125364",
+   "title_tr": "PCU DTC kodu P125364",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P125364 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516560": {
+   "spn": 516560,
+   "name": "P125464",
+   "title_tr": "PCU DTC kodu P125464",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P125464 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516561": {
+   "spn": 516561,
+   "name": "P125501",
+   "title_tr": "PCU DTC kodu P125501",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P125501 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516563": {
+   "spn": 516563,
+   "name": "P125785",
+   "title_tr": "PCU DTC kodu P125785",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P125785 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516564": {
+   "spn": 516564,
+   "name": "P125885",
+   "title_tr": "PCU DTC kodu P125885",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P125885 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516565": {
+   "spn": 516565,
+   "name": "P125922",
+   "title_tr": "PCU DTC kodu P125922",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P125922 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516566": {
+   "spn": 516566,
+   "name": "P125A29",
+   "title_tr": "PCU DTC kodu P125A29",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P125A29 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516567": {
+   "spn": 516567,
+   "name": "P125B12",
+   "title_tr": "PCU DTC kodu P125B12",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P125B12 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516568": {
+   "spn": 516568,
+   "name": "P125CF0",
+   "title_tr": "PCU DTC kodu P125CF0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P125CF0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516569": {
+   "spn": 516569,
+   "name": "P125D81",
+   "title_tr": "PCU DTC kodu P125D81",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P125D81 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516570": {
+   "spn": 516570,
+   "name": "P126335",
+   "title_tr": "PCU DTC kodu P126335",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P126335 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516571": {
+   "spn": 516571,
+   "name": "P12F0F0",
+   "title_tr": "PCU DTC kodu P12F0F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P12F0F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516572": {
+   "spn": 516572,
+   "name": "P12F1F7",
+   "title_tr": "PCU DTC kodu P12F1F7",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P12F1F7 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516573": {
+   "spn": 516573,
+   "name": "P12F2FA",
+   "title_tr": "PCU DTC kodu P12F2FA",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P12F2FA - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516574": {
+   "spn": 516574,
+   "name": "P12F3F0",
+   "title_tr": "PCU DTC kodu P12F3F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P12F3F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516576": {
+   "spn": 516576,
+   "name": "U114DF0",
+   "title_tr": "PCU DTC kodu U114DF0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U114DF0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516578": {
+   "spn": 516578,
+   "name": "U114EF0",
+   "title_tr": "PCU DTC kodu U114EF0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U114EF0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516579": {
+   "spn": 516579,
+   "name": "U114FF0",
+   "title_tr": "PCU DTC kodu U114FF0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U114FF0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516580": {
+   "spn": 516580,
+   "name": "U1150F0",
+   "title_tr": "PCU DTC kodu U1150F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1150F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516581": {
+   "spn": 516581,
+   "name": "U1151F0",
+   "title_tr": "PCU DTC kodu U1151F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1151F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516582": {
+   "spn": 516582,
+   "name": "U1152F0",
+   "title_tr": "PCU DTC kodu U1152F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1152F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516583": {
+   "spn": 516583,
+   "name": "P1200F0",
+   "title_tr": "PCU DTC kodu P1200F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P1200F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516584": {
+   "spn": 516584,
+   "name": "P1201F0",
+   "title_tr": "PCU DTC kodu P1201F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P1201F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516586": {
+   "spn": 516586,
+   "name": "P122AF0",
+   "title_tr": "PCU DTC kodu P122AF0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P122AF0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516587": {
+   "spn": 516587,
+   "name": "P122BF0",
+   "title_tr": "PCU DTC kodu P122BF0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P122BF0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516589": {
+   "spn": 516589,
+   "name": "P122CF0",
+   "title_tr": "PCU DTC kodu P122CF0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P122CF0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516590": {
+   "spn": 516590,
+   "name": "P122DF0",
+   "title_tr": "PCU DTC kodu P122DF0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P122DF0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516591": {
+   "spn": 516591,
+   "name": "P1264F0",
+   "title_tr": "PCU DTC kodu P1264F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P1264F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516592": {
+   "spn": 516592,
+   "name": "P1228F2",
+   "title_tr": "PCU DTC kodu P1228F2",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P1228F2 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516593": {
+   "spn": 516593,
+   "name": "U1121F0",
+   "title_tr": "PCU DTC kodu U1121F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1121F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516594": {
+   "spn": 516594,
+   "name": "U1154F0",
+   "title_tr": "PCU DTC kodu U1154F0",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1154F0 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516595": {
+   "spn": 516595,
+   "name": "U1121F1",
+   "title_tr": "PCU DTC kodu U1121F1",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu U1121F1 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516596": {
+   "spn": 516596,
+   "name": "P122013",
+   "title_tr": "PCU DTC kodu P122013",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P122013 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_516597": {
+   "spn": 516597,
+   "name": "P126217",
+   "title_tr": "PCU DTC kodu P126217",
+   "subsystem": "Güç Kumanda Ünitesi (PCU)",
+   "fault_matrix": {
+    "0": {
+     "fault_title": "PCU DTC kodu P126217 - Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "fmi_name": "Veri geçerli fakat normal aralığın üzerinde - En ciddi seviye",
+     "severity": "critical",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_520100": {
+   "spn": 520100,
+   "name": "A4EFEC",
+   "title_tr": "CAN adresi A4EFEC (OEM tanımsız sinyal)",
+   "subsystem": "OEM Genişletilmiş Güç Ünitesi 2 (OGP2)",
+   "fault_matrix": {
+    "12": {
+     "fault_title": "CAN adresi A4EFEC (OEM tanımsız sinyal) - Bozuk akıllı cihaz veya bileşen (Dahili arıza)",
+     "fmi_name": "Bozuk akıllı cihaz veya bileşen (Dahili arıza)",
+     "severity": "high",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_520101": {
+   "spn": 520101,
+   "name": "A5EFEC",
+   "title_tr": "CAN adresi A5EFEC (OEM tanımsız sinyal)",
+   "subsystem": "OEM Genişletilmiş Güç Ünitesi 2 (OGP2)",
+   "fault_matrix": {
+    "12": {
+     "fault_title": "CAN adresi A5EFEC (OEM tanımsız sinyal) - Bozuk akıllı cihaz veya bileşen (Dahili arıza)",
+     "fmi_name": "Bozuk akıllı cihaz veya bileşen (Dahili arıza)",
+     "severity": "high",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_520102": {
+   "spn": 520102,
+   "name": "A6EFEC",
+   "title_tr": "CAN adresi A6EFEC (OEM tanımsız sinyal)",
+   "subsystem": "OEM Genişletilmiş Güç Ünitesi 2 (OGP2)",
+   "fault_matrix": {
+    "12": {
+     "fault_title": "CAN adresi A6EFEC (OEM tanımsız sinyal) - Bozuk akıllı cihaz veya bileşen (Dahili arıza)",
+     "fmi_name": "Bozuk akıllı cihaz veya bileşen (Dahili arıza)",
+     "severity": "high",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_520103": {
+   "spn": 520103,
+   "name": "A7EFEC",
+   "title_tr": "CAN adresi A7EFEC (OEM tanımsız sinyal)",
+   "subsystem": "OEM Genişletilmiş Güç Ünitesi 2 (OGP2)",
+   "fault_matrix": {
+    "12": {
+     "fault_title": "CAN adresi A7EFEC (OEM tanımsız sinyal) - Bozuk akıllı cihaz veya bileşen (Dahili arıza)",
+     "fmi_name": "Bozuk akıllı cihaz veya bileşen (Dahili arıza)",
+     "severity": "high",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_520104": {
+   "spn": 520104,
+   "name": "A8EFEC",
+   "title_tr": "CAN adresi A8EFEC (OEM tanımsız sinyal)",
+   "subsystem": "OEM Genişletilmiş Güç Ünitesi 2 (OGP2)",
+   "fault_matrix": {
+    "12": {
+     "fault_title": "CAN adresi A8EFEC (OEM tanımsız sinyal) - Bozuk akıllı cihaz veya bileşen (Dahili arıza)",
+     "fmi_name": "Bozuk akıllı cihaz veya bileşen (Dahili arıza)",
+     "severity": "high",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_520105": {
+   "spn": 520105,
+   "name": "A9EFEC",
+   "title_tr": "CAN adresi A9EFEC (OEM tanımsız sinyal)",
+   "subsystem": "OEM Genişletilmiş Güç Ünitesi 2 (OGP2)",
+   "fault_matrix": {
+    "12": {
+     "fault_title": "CAN adresi A9EFEC (OEM tanımsız sinyal) - Bozuk akıllı cihaz veya bileşen (Dahili arıza)",
+     "fmi_name": "Bozuk akıllı cihaz veya bileşen (Dahili arıza)",
+     "severity": "high",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_520335": {
+   "spn": 520335,
+   "name": "8FF0EC",
+   "title_tr": "CAN adresi 8FF0EC (OEM tanımsız sinyal)",
+   "subsystem": "OEM Genişletilmiş Güç Ünitesi 2 (OGP2)",
+   "fault_matrix": {
+    "12": {
+     "fault_title": "CAN adresi 8FF0EC (OEM tanımsız sinyal) - Bozuk akıllı cihaz veya bileşen (Dahili arıza)",
+     "fmi_name": "Bozuk akıllı cihaz veya bileşen (Dahili arıza)",
+     "severity": "high",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_520434": {
+   "spn": 520434,
+   "name": "DFC_MoXEMMHwLTMCUFW",
+   "title_tr": "Donanım yaşam yönetimi — MCU yazılımı hatası",
+   "subsystem": "Bosch MC11/MC13 Motor ECU",
+   "fault_matrix": {
+    "2": {
+     "fault_title": "Donanım yaşam yönetimi — MCU yazılımı hatası - Veri tutarsız, kesintili veya hatalı",
+     "fmi_name": "Veri tutarsız, kesintili veya hatalı",
+     "severity": "medium",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_520435": {
+   "spn": 520435,
+   "name": "DFC_MoXEMMHwLTMonBIST",
+   "title_tr": "Donanım yaşam yönetimi — iç self-test (BIST) hatası",
+   "subsystem": "Bosch MC11/MC13 Motor ECU",
+   "fault_matrix": {
+    "2": {
+     "fault_title": "Donanım yaşam yönetimi — iç self-test (BIST) hatası - Veri tutarsız, kesintili veya hatalı",
+     "fmi_name": "Veri tutarsız, kesintili veya hatalı",
+     "severity": "medium",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_520436": {
+   "spn": 520436,
+   "name": "DFC_MoXEMMHwLTRegMonTest",
+   "title_tr": "Donanım yaşam yönetimi — regülatör izleme testi hatası",
+   "subsystem": "Bosch MC11/MC13 Motor ECU",
+   "fault_matrix": {
+    "2": {
+     "fault_title": "Donanım yaşam yönetimi — regülatör izleme testi hatası - Veri tutarsız, kesintili veya hatalı",
+     "fmi_name": "Veri tutarsız, kesintili veya hatalı",
+     "severity": "medium",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_520437": {
+   "spn": 520437,
+   "name": "DFC_MoXEMMHwLTStbySMUAlvTest",
+   "title_tr": "Donanım yaşam yönetimi — bekleme modu SMU alarm testi hatası",
+   "subsystem": "Bosch MC11/MC13 Motor ECU",
+   "fault_matrix": {
+    "2": {
+     "fault_title": "Donanım yaşam yönetimi — bekleme modu SMU alarm testi hatası - Veri tutarsız, kesintili veya hatalı",
+     "fmi_name": "Veri tutarsız, kesintili veya hatalı",
+     "severity": "medium",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_520438": {
+   "spn": 520438,
+   "name": "DFC_MoXEMMHwLTTempSens",
+   "title_tr": "Donanım yaşam yönetimi — sıcaklık sensörü hatası",
+   "subsystem": "Bosch MC11/MC13 Motor ECU",
+   "fault_matrix": {
+    "2": {
+     "fault_title": "Donanım yaşam yönetimi — sıcaklık sensörü hatası - Veri tutarsız, kesintili veya hatalı",
+     "fmi_name": "Veri tutarsız, kesintili veya hatalı",
+     "severity": "medium",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_520439": {
+   "spn": 520439,
+   "name": "DFC_MoXEMMHwLTUCBCfg",
+   "title_tr": "Donanım yaşam yönetimi — UCB yapılandırma hatası",
+   "subsystem": "Bosch MC11/MC13 Motor ECU",
+   "fault_matrix": {
+    "2": {
+     "fault_title": "Donanım yaşam yönetimi — UCB yapılandırma hatası - Veri tutarsız, kesintili veya hatalı",
+     "fmi_name": "Veri tutarsız, kesintili veya hatalı",
+     "severity": "medium",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_520444": {
+   "spn": 520444,
+   "name": "DFC_RBA_IODIAGPWR_rba_IoExtCy326_SignalVltSply_GS1OV",
+   "title_tr": "Sinyal besleme hattı GS1 aşırı gerilim (IO diyagnostik)",
+   "subsystem": "Bosch MC11/MC13 Motor ECU",
+   "fault_matrix": {
+    "2": {
+     "fault_title": "Sinyal besleme hattı GS1 aşırı gerilim (IO diyagnostik) - Veri tutarsız, kesintili veya hatalı",
+     "fmi_name": "Veri tutarsız, kesintili veya hatalı",
+     "severity": "medium",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_520445": {
+   "spn": 520445,
+   "name": "DFC_RBA_IODIAGPWR_rba_IoExtCy326_SignalVltSply_GS1SCG",
+   "title_tr": "Sinyal besleme hattı GS1 şasiye kısa devre (IO diyagnostik)",
+   "subsystem": "Bosch MC11/MC13 Motor ECU",
+   "fault_matrix": {
+    "2": {
+     "fault_title": "Sinyal besleme hattı GS1 şasiye kısa devre (IO diyagnostik) - Veri tutarsız, kesintili veya hatalı",
+     "fmi_name": "Veri tutarsız, kesintili veya hatalı",
+     "severity": "medium",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_520500": {
+   "spn": 520500,
+   "name": "34F1F3",
+   "title_tr": "CAN adresi 34F1F3 (OEM tanımsız sinyal)",
+   "subsystem": "OEM Genişletilmiş Güç Ünitesi 2 (OGP2)",
+   "fault_matrix": {
+    "19": {
+     "fault_title": "CAN adresi 34F1F3 (OEM tanımsız sinyal) - Aldatılmış / Alınan ağ verisi hatalı",
+     "fmi_name": "Aldatılmış / Alınan ağ verisi hatalı",
+     "severity": "medium",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_520501": {
+   "spn": 520501,
+   "name": "35F1EC",
+   "title_tr": "CAN adresi 35F1EC (OEM tanımsız sinyal)",
+   "subsystem": "OEM Genişletilmiş Güç Ünitesi 2 (OGP2)",
+   "fault_matrix": {
+    "12": {
+     "fault_title": "CAN adresi 35F1EC (OEM tanımsız sinyal) - Bozuk akıllı cihaz veya bileşen (Dahili arıza)",
+     "fmi_name": "Bozuk akıllı cihaz veya bileşen (Dahili arıza)",
+     "severity": "high",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
+  },
+  "SPN_524051": {
+   "spn": 524051,
+   "name": "Реле ACC",
+   "title_tr": "ACC rölesi",
+   "subsystem": "Kasa Kontrol Ünitesi (CBCU)",
+   "fault_matrix": {
+    "4": {
+     "fault_title": "ACC rölesi - Gerilim normalin altında veya kısa devre (düşük)",
+     "fmi_name": "Gerilim normalin altında veya kısa devre (düşük)",
+     "severity": "high",
+     "source": "SITRAK CC BY 4.0 (megadata.pro)"
+    }
+   }
   }
  }
 }
