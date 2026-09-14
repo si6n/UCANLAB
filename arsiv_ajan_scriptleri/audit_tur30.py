@@ -1,6 +1,5 @@
 import json
-from collections import Counter, defaultdict
-import re
+from collections import Counter
 
 with open('output/j1939_spn_fmi_database.json', 'r', encoding='utf-8') as f:
     db = json.load(f)
