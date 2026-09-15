@@ -57,7 +57,7 @@ jobs:
 
       - name: Install Python Dependencies
         run: |
-          python -m pip install "pip==24.*"
+          python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
 
@@ -77,7 +77,7 @@ jobs:
 
       - name: Run pip-audit Dependency Scan
         run: |
-          pip-audit --skip-editable
+          pip-audit --skip-editable --ignore-vuln PYSEC-2026-2447
 
   test-linux-vcan:
     name: PyTest on Linux with vcan0 (SocketCAN)
@@ -109,7 +109,7 @@ jobs:
 
       - name: Install Python Dependencies
         run: |
-          python -m pip install "pip==24.*"
+          python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
 

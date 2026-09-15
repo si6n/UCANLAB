@@ -24,7 +24,7 @@ pywebview>=5.0.0,<7  # pinned upper bound (supply-chain)
 pyinstaller>=6.0.0,<7  # pinned upper bound (supply-chain)
 
 # Security, Cryptography & Licensing
-cryptography>=42.0.0,<46  # pinned upper bound (supply-chain)
+cryptography>=42.0.0,<52  # pinned upper bound (supply-chain)
 pydantic>=2.6.0,<3  # pinned upper bound (supply-chain)
 pydantic-settings>=2.2.0,<3  # pinned upper bound (supply-chain)
 
