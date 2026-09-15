@@ -82,6 +82,17 @@ class LicenseValidator:
         # let process environment loosen license binding and is removed (G4).
         self._allow_wildcard = allow_wildcard_license is True
 
+        # SEC-T40-1: sentinels the collector substitutes when a hardware read
+        # fails. They are identical across hosts, so a fingerprint built from
+        # them cannot identify a machine — see verify_token()'s fail-closed gate.
+        self._indeterminate_markers = (
+            "UNKNOWN_CPU",
+            "UNKNOWN_DISK",
+            "UNKNOWN_BIOS",
+            "UNKNOWN_MAC",
+            "FALLBACK-",
+        )
+
         # HWM HMAC key comes from the SecretProvider vault, never hardcoded (F-04)
         self._secret_provider = secret_provider or get_default_secret_provider()
         self._hwm_key = self._load_hwm_key()
@@ -189,6 +200,27 @@ class LicenseValidator:
         if not self._secret_provider.has_secret(self._HWM_KEY_NAME):
             self._secret_provider.store_secret(self._HWM_KEY_NAME, os.urandom(32))
         return self._secret_provider.get_secret(self._HWM_KEY_NAME)
+
+    def _is_indeterminate_fingerprint(self, fingerprint: str | None) -> bool:
+        """True when a fingerprint is a fixed collector sentinel, not a device id.
+
+        SEC-T40-1: ``src.security.hwid.collector`` substitutes constants
+        (``UNKNOWN_CPU``, ``UNKNOWN_DISK``, ``UNKNOWN_BIOS``, ``UNKNOWN_MAC``) and
+        a ``FALLBACK-<hostname>-<mac>`` string whenever a WMI read fails. None of
+        those identify a specific machine: two different hosts that both failed
+        the same read produce byte-identical fingerprints. Accepting one would
+        let a single token unlock every machine in that state, so the caller
+        must refuse instead of comparing.
+
+        Wildcard (``*``) is handled separately by ``_allow_wildcard`` and is
+        deliberately NOT treated as indeterminate — it is an explicit opt-in.
+        """
+        if not fingerprint:
+            return True
+        fp = fingerprint.strip()
+        if not fp or fp == "*":
+            return False
+        return any(marker in fp for marker in self._indeterminate_markers)
 
     def verify_token(self, token_str: str) -> LicensePayload:
         """Verify Ed25519 token signature, hardware fingerprint, and expiration.
@@ -315,6 +347,20 @@ class LicenseValidator:
             ) from exc
 
         # Hardware Fingerprint Check (F-05: wildcard only in explicit test mode)
+        #
+        # SEC-T40-1 (fail-closed): the collector falls back to fixed sentinels
+        # (UNKNOWN_CPU / UNKNOWN_DISK / UNKNOWN_BIOS / FALLBACK-*) whenever a WMI
+        # read fails. Those strings are identical on every affected machine, so a
+        # token carrying one of them would verify on ANY host — the hardware lock
+        # would be dead. Refuse rather than compare a value that cannot identify
+        # the machine.
+        if self._is_indeterminate_fingerprint(self.hardware_fingerprint):
+            raise LicenseError(
+                "Hardware identity could not be determined on this machine; "
+                "license cannot be verified.",
+                code="HARDWARE_INDETERMINATE",
+            )
+
         if payload.hardware_fingerprint == self.hardware_fingerprint:
             pass
         elif payload.hardware_fingerprint == "*" and self._allow_wildcard:

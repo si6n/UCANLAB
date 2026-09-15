@@ -666,3 +666,93 @@ def test_hwm_write_is_atomic(tmp_path: Path) -> None:
     hwm_str, sync_str = hwm_part.split(":")
     assert hwm_str == str(now)
     assert len(mac) == 64
+
+
+def test_indeterminate_fingerprint_is_refused_fail_closed() -> None:
+    """SEC-T40-1: a collector sentinel must never satisfy the hardware lock.
+
+    src/security/hwid/collector.py substitutes UNKNOWN_CPU / UNKNOWN_DISK /
+    UNKNOWN_BIOS and FALLBACK-<host>-<mac> when a WMI read fails. Those strings
+    are byte-identical across hosts, so a token carrying one would verify on ANY
+    machine in that state — the hardware bind would be dead. The validator must
+    refuse before comparing.
+    """
+    priv_key = ed25519.Ed25519PrivateKey.generate()
+    now = int(time.time())
+
+    sentinels = [
+        "UNKNOWN_CPU-UNKNOWN_DISK-UNKNOWN_BIOS",
+        "FALLBACK-DESKTOP-ABC-AA:BB:CC:DD:EE:FF",
+    ]
+
+    for sentinel in sentinels:
+        payload_dict = {
+            "user_id": "usr_multi",
+            "tier": "ENTERPRISE",
+            "hardware_fingerprint": sentinel,
+            "issued_at": now - 60,
+            "expires_at": now + 86400 * 365,
+        }
+        token_str = LicenseValidator.generate_signed_token(priv_key, payload_dict)
+
+        # Both sides carry the SAME sentinel — the pre-fix code returned success.
+        validator = LicenseValidator(
+            public_key=priv_key.public_key(),
+            hardware_fingerprint=sentinel,
+            last_online_sync_ts=now,
+        )
+        validator.clock = FakeWallClock(now)
+
+        with pytest.raises(LicenseError) as exc_info:
+            validator.verify_token(token_str)
+        assert exc_info.value.code == "HARDWARE_INDETERMINATE", (
+            f"sentinel {sentinel!r} must be refused as indeterminate"
+        )
+
+
+def test_wildcard_is_not_treated_as_indeterminate() -> None:
+    """The explicit opt-in wildcard path must keep working (guard against
+    over-broad matching in _is_indeterminate_fingerprint)."""
+    priv_key = ed25519.Ed25519PrivateKey.generate()
+    now = int(time.time())
+    payload_dict = {
+        "user_id": "usr_test",
+        "tier": "ENTERPRISE",
+        "hardware_fingerprint": "*",
+        "issued_at": now - 60,
+        "expires_at": now + 86400,
+    }
+    token_str = LicenseValidator.generate_signed_token(priv_key, payload_dict)
+
+    validator = LicenseValidator(
+        public_key=priv_key.public_key(),
+        hardware_fingerprint="HW_REAL_DEVICE",
+        last_online_sync_ts=now,
+        allow_wildcard_license=True,
+    )
+    validator.clock = FakeWallClock(now)
+    payload = validator.verify_token(token_str)
+    assert payload.hardware_fingerprint == "*"
+
+
+def test_real_fingerprint_still_verifies() -> None:
+    """The normal path must not regress: a genuine device fingerprint verifies."""
+    priv_key = ed25519.Ed25519PrivateKey.generate()
+    now = int(time.time())
+    fp = "a1b2c3d4e5f60718-random-real-device-uuid"
+    payload_dict = {
+        "user_id": "usr_real",
+        "tier": "PRO",
+        "hardware_fingerprint": fp,
+        "issued_at": now - 60,
+        "expires_at": now + 86400,
+    }
+    token_str = LicenseValidator.generate_signed_token(priv_key, payload_dict)
+
+    validator = LicenseValidator(
+        public_key=priv_key.public_key(),
+        hardware_fingerprint=fp,
+        last_online_sync_ts=now,
+    )
+    validator.clock = FakeWallClock(now)
+    assert validator.verify_token(token_str).hardware_fingerprint == fp
