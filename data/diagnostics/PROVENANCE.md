@@ -44,6 +44,43 @@ ISO 14229:2006 Annex F standart data-identifier kataloğu (python-udsoncan
 
 ## dtc_database (JSON + CSV)
 
+### v2.3.0 — 2026-09-15 (Tur-46: T45 DTC harvest'i paralel `_en` alanlarıyla birleştirme, 14.352 sabit)
+
+`scripts/merge_t45_dtc.py` (T46-A, kanban t_edda7bef) birleştirmesi.
+
+**KURAL — DİL AYRIMI.** DB'nin kendi `symptoms` / `causes` / `title` /
+`description` alanları **Türkçe**'dir. T45 hasadı **İngilizce** olduğu için bu
+alanlara yazılmadı; her İngilizce metin PARALEL bir `*_en` alanına konuldu ve
+her alanın kaynağı `*_en_source` ile damgalandı. Çeviri yapılmadı (ayrı tur).
+Üzerine yazma yok: yalnız boş/eksik alanlar dolduruldu; mevcut provenance
+(`evidence_url` 4866, `source` 4866, `causes_source` 5049) dokunulmadan kaldı.
+
+Kaynaklar (T45'te ücretsiz doğrulandı):
+
+| Kaynak | Girdi | Katkı |
+|---|---|---|
+| troublecodes.net | `spn_gap_hunter/output/t45c_tcn_symptoms.json` (617 satır / 336 kod) | gerçek İngilizce semptom + neden + tanım |
+| obdhut.com | `spn_gap_hunter/output/t45c_dtc_symptoms.json` (4.515 satır / 4.515 kod) | İngilizce neden + tanım (kaynakta `symptoms`=`causes` kopyasıydı, boşaltıldı) |
+
+- **Zenginleşen alanlar:** `symptoms_en` **336**, `causes_en` **4.512**,
+  `description_en` **4.512**, `title_en` **4.512** → 13.872 alan /
+  **4.515 kayıt** (31,5% kapsam). `symptoms_en` yalnız troublecodes.net
+  satırlarından geldi (obdhut semptomu güvenilmezdi).
+- **Kayıt sayısı 14.352 → 14.352 (değişmedi).** Yeni kod açılmadı;
+  bilinmeyen kod 0, kaynaksız kayıt 0 (atlanmadı). Kaynak URL'si olmayan satır
+  birleştirilmez (kural).
+- **Idempotent + deterministik:** script iki kez çalıştırıldı, DB SHA-256
+  `7541c4659cd19e2cf4dc3e7539060e2dc91c4940a9923963f87dbe02d66ba9c0` her iki
+  koşuda aynı; ikinci koşuda `fields_written=0`.
+- Her zengineştirilen kayda `_t46_merge: "t46a"` işareti konuldu.
+- **Doğrulama:** `tests/unit/test_t46_merge.py` → 14/14 PASS; tam suite
+  1746 PASS (düşüş yok); `ruff check scripts/ tests/` temiz (T46 dosyaları).
+  Merge öncesi 753 kayıtta `symptoms` zaten İngilizce (owner-complaint/Tur-25
+  mirası, T45 hasadıyla örtüşmüyor) — T46 bunu ARTIRMADI (yeni ASCII-only
+  semptom: **0**), kanıt `spn_gap_hunter/output/_t46_preexisting.py`.
+- Yedek: `data/diagnostics/dtc_database.json.bak_t46_20260915_204830`
+  (22.309.248 bayt, SHA-256 `5d6221ab734e178c3d3e307a68040fa80465209a380d8d08b60a44aa2727b51b`).
+
 ### v2.2.0 — 2026-09-12 (Tur-25: Wal33D MIT entegrasyonu + 721 hatalı başlık onarımı, 9.300 → 14.166)
 
 `CAN-DTC-Collector/spn_gap_hunter/merge_tur25_wal33d.py` + `merge_tur25_dtc_titlefix.py`
