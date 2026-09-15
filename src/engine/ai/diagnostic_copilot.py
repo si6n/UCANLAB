@@ -1798,6 +1798,242 @@ def search_nhtsa_recalls(
     return results
 
 
+# ----------------------------------------------------------------------------
+# T42 P2-2: arac markasi tanima (tek kaynak) + OEM filtreleme.
+# Marka hem DTC `oem_variants` (manufacturer) hem J1939 `oem_engine_families`
+# (aile adi: "Cummins ...") hem de NHTSA katmanlarinda ayni sozlukle eslesir.
+# Determinizm: sabit eslesme listesi, ilk eslesme kazanir; ayni girdi -> ayni
+# cikti. Marka yoksa None doner ve cagiran taraf bugunku davranisi korur
+# (fail-safe: filtre yok = hicbir OEM gizlenmez).
+# ----------------------------------------------------------------------------
+_KNOWN_VEHICLE_MAKES: tuple[tuple[str, str], ...] = (
+    ("ford", "ford"),
+    ("lincoln", "lincoln"),
+    ("mercury", "mercury"),
+    ("tesla", "tesla"),
+    ("chevrolet", "chevrolet"),
+    ("chevy", "chevrolet"),
+    ("cadillac", "cadillac"),
+    ("gmc", "gmc"),
+    ("buick", "buick"),
+    ("saturn", "saturn"),
+    ("oldsmobile", "oldsmobile"),
+    ("pontiac", "pontiac"),
+    ("toyota", "toyota"),
+    ("lexus", "lexus"),
+    ("honda", "honda"),
+    ("acura", "acura"),
+    ("nissan", "nissan"),
+    ("infiniti", "infiniti"),
+    ("subaru", "subaru"),
+    ("mazda", "mazda"),
+    ("mitsubishi", "mitsubishi"),
+    ("volkswagen", "volkswagen"),
+    ("vw", "volkswagen"),
+    ("audi", "audi"),
+    ("bmw", "bmw"),
+    ("mercedes", "mercedes"),
+    ("hyundai", "hyundai"),
+    ("kia", "kia"),
+    ("ram", "ram"),
+    ("dodge", "dodge"),
+    ("jeep", "jeep"),
+    ("chrysler", "chrysler"),
+    ("volvo", "volvo"),
+    ("cummins", "cummins"),
+    ("detroit", "detroit"),
+    ("paccar", "paccar"),
+    ("cat", "caterpillar"),
+    ("caterpillar", "caterpillar"),
+    ("international", "international"),
+    ("freightliner", "freightliner"),
+    ("kenworth", "kenworth"),
+    ("peterbilt", "peterbilt"),
+)
+
+# Marka etiketinin, serbest metinde ve DB alanlarinda eslesmesi icin ortak
+# takma ad sozlugu (kanonik anahtar -> aranacak desenler).
+_MAKE_ALIASES: dict[str, tuple[str, ...]] = {
+    "chevrolet": ("chevrolet", "chevy"),
+    "caterpillar": ("caterpillar", "cat"),
+    "mercedes": ("mercedes",),
+    "volkswagen": ("volkswagen", "vw"),
+}
+
+
+def detect_vehicle_make(text: str | None) -> str | None:
+    """Return the canonical vehicle make mentioned in ``text``, else ``None``.
+
+    Shared vocabulary for P2-2 (OEM-filtered selection) and P2-3 (complaint
+    fusion). Deterministic: a fixed ordered alias table, first match wins.
+    ``None`` means "no make given" — callers must then keep the previous
+    unfiltered behaviour (fail-safe, no OEM is hidden).
+    """
+    if not text:
+        return None
+    norm = str(text).lower()
+    for kw, canonical in _KNOWN_VEHICLE_MAKES:
+        if re.search(rf"\b{re.escape(kw)}\b", norm):
+            return canonical
+    return None
+
+
+def _make_matches(text: str, make: str) -> bool:
+    """True if ``make`` (canonical or alias) appears as a word in ``text``."""
+    low = str(text or "").lower()
+    if not low or not make:
+        return False
+    patterns = _MAKE_ALIASES.get(make, (make,))
+    return any(re.search(rf"\b{re.escape(p)}\b", low) for p in patterns)
+
+
+def filter_oem_variants(variants: Any, vehicle_make: str | None) -> tuple[list[Any], int]:
+    """OEM-filtered ``oem_variants`` selection (T42 P2-2).
+
+    Returns ``(kept_variants, hidden_count)``.
+
+    - ``vehicle_make`` is ``None`` -> every variant is returned, ``hidden=0``
+      (today's behaviour, fail-safe).
+    - a make is given -> only variants whose ``manufacturer`` matches the make
+      (or the generic ``OTHER`` bucket) are kept; unrelated OEMs are hidden.
+    - if the filter would hide *everything* (no variant belongs to the make)
+      the original list is returned so the report never loses evidence —
+      ``hidden`` then reports how many unrelated entries were still shown.
+    """
+    if not isinstance(variants, list) or not variants:
+        return [], 0
+    if not vehicle_make:
+        return list(variants), 0
+
+    kept: list[Any] = []
+    hidden = 0
+    for item in variants:
+        if isinstance(item, dict):
+            mfr = str(item.get("manufacturer") or item.get("make") or "").strip()
+        else:
+            mfr = ""
+        if not mfr:
+            kept.append(item)  # unknown OEM — never hide (fail-safe)
+        elif mfr.upper() == "OTHER" or _make_matches(mfr, vehicle_make):
+            kept.append(item)
+        else:
+            hidden += 1
+
+    if not kept:
+        # Filter matched nothing: keep the original evidence, report the miss.
+        return list(variants), len(variants)
+    return kept, hidden
+
+
+def filter_oem_families(families: Any, vehicle_make: str | None) -> tuple[list[str], int]:
+    """OEM-filtered J1939 ``oem_engine_families`` selection (T42 P2-2).
+
+    Returns ``(kept_families, hidden_count)``. Same fail-safe contract as
+    :func:`filter_oem_variants`: no make -> nothing filtered.
+    """
+    if not isinstance(families, list) or not families:
+        return [], 0
+    fams = [str(f) for f in families if str(f).strip()]
+    if not vehicle_make:
+        return fams, 0
+
+    kept = [f for f in fams if _make_matches(f, vehicle_make)]
+    hidden = len(fams) - len(kept)
+    if not kept:
+        return fams, len(fams)
+    return kept, hidden
+
+
+def search_nhtsa_complaints(
+    make: str | None = None,
+    year: int | None = None,
+    component: str | None = None,
+    query: str | None = None,
+    limit: int = 5,
+    data_path: Path | str | None = None,
+) -> dict[str, Any]:
+    """Search the NHTSA owner-complaint corpus by vehicle make/year (T42 P2-3).
+
+    Returns ``{"matched_vehicles": [...], "complaints": [...], "total_vehicles":
+    int, "total_complaints": int}``. The 5.9 MB corpus is read through the
+    already-cached :func:`get_nhtsa_complaints_database` accessor (lazy load +
+    singleton cache) so opening the engine never pays the parse cost.
+
+    Deterministic: corpus order is preserved (no sorting/re-scoring), first
+    ``limit`` matches win.
+    """
+    db = get_nhtsa_complaints_database(data_path)
+    result: dict[str, Any] = {
+        "matched_vehicles": [],
+        "complaints": [],
+        "total_vehicles": 0,
+        "total_complaints": 0,
+    }
+    if not isinstance(db, dict):
+        return result
+
+    vehicles = db.get("vehicles") or []
+    complaints = db.get("complaints") or []
+    result["total_vehicles"] = len(vehicles) if isinstance(vehicles, list) else 0
+    result["total_complaints"] = len(complaints) if isinstance(complaints, list) else 0
+
+    if not isinstance(vehicles, list):
+        return result
+
+    make_clean = (make or "").lower().strip()
+    comp_clean = (component or "").lower().strip()
+    query_clean = (query or "").lower().strip()
+
+    for v in vehicles:
+        if not isinstance(v, dict):
+            continue
+        v_make = str(v.get("make", "")).strip()
+        if make_clean and not _make_matches(v_make, make_clean):
+            # _make_matches expects canonical make; also accept raw substring
+            if make_clean not in v_make.lower():
+                continue
+        if year:
+            try:
+                if int(v.get("year", 0)) != int(year):
+                    continue
+            except (TypeError, ValueError):
+                continue
+
+        evidences = v.get("can_related") or []
+        if not isinstance(evidences, list):
+            evidences = []
+        if comp_clean or query_clean:
+            filtered = []
+            for e in evidences:
+                if not isinstance(e, dict):
+                    continue
+                blob = f"{e.get('components', '')} {e.get('summary', '')}".lower()
+                if comp_clean and comp_clean not in blob:
+                    continue
+                if query_clean and query_clean not in blob:
+                    continue
+                filtered.append(e)
+            if (comp_clean or query_clean) and not filtered:
+                continue
+            evidences = filtered
+
+        result["matched_vehicles"].append({
+            "make": v_make,
+            "model": str(v.get("model", "")).strip(),
+            "year": v.get("year"),
+            "raw_count": v.get("raw_count", len(evidences)),
+        })
+        for e in evidences:
+            if isinstance(e, dict):
+                result["complaints"].append(e)
+            if len(result["complaints"]) >= limit:
+                break
+        if len(result["complaints"]) >= limit:
+            break
+
+    return result
+
+
 def format_nhtsa_recall_report(recall: dict[str, Any]) -> str:
     """Format an NHTSA safety recall into a concise, actionable summary."""
     camp = recall.get("campaign_number", "Bilinmiyor")
@@ -2279,6 +2515,14 @@ class CausalBayesianInferenceEngine:
             telemetry = {**telemetry, **bus_metrics}
         intents = AutomotiveTokenizer.extract_semantic_intents(user_query)
         norm_query = AutomotiveTokenizer.normalize_text(user_query)
+        # T42 P2-2/P2-3: arac markasi (varsa) tek noktada tespit edilir ve
+        # OEM varyant filtresi + complaints kanit füzyonuna gecirilir. Marka
+        # yoksa None kalir; tum alt yollar eski (filtresiz) davranisi korur.
+        vehicle_make = detect_vehicle_make(norm_query)
+        # T42 P2-3: yil filtresi icin yil da cikarilir (1980-2026 araligi).
+        # Yoksa None kalir ve complaints sorgusu yilsiz calisir (fail-safe).
+        _ym = re.search(r"\b(19[89][0-9]|20[0-2][0-9])\b", user_query)
+        vehicle_year = int(_ym.group(1)) if _ym else None
 
         # 0. CAN Traffic & Bus Load Anomaly Awareness
         is_traffic_query = any(w in norm_query for w in ["trafik", "hat yuku", "bus load", "anomali", "error frame", "hata karesi", "patlama", "babbling"])
@@ -2472,7 +2716,7 @@ class CausalBayesianInferenceEngine:
                 j1939_db = get_j1939_spn_database()
                 spn_entry = j1939_db.get("spns", {}).get(f"SPN_{spn_num}")
                 if spn_entry:
-                    return cls._format_j1939_technician_report(spn_entry, norm_query, telemetry)
+                    return cls._format_j1939_technician_report(spn_entry, norm_query, telemetry, vehicle_make)
                 else:
                     return (
                         f"⚠️ **[SPN {spn_num}] Kaydı Bulunamadı:**\n"
@@ -2600,7 +2844,7 @@ class CausalBayesianInferenceEngine:
                     target_code = _codes[0]
                 # P2-6: rezerve kod uyarisi tek-kod raporuna eklenir (fail-safe).
                 if target_code and target_code in EXPERT_KNOWLEDGE_BASE and _reserve_note:
-                    return cls._format_4stage_technician_report(target_code, telemetry) + "\n\n" + _reserve_note
+                    return cls._format_4stage_technician_report(target_code, telemetry, vehicle_make, vehicle_year) + "\n\n" + _reserve_note
 
             # COKLU-DTC Birlesik Analiz (P2-1): birden fazla kod -> birlestir.
             if len(_codes) >= 2:
@@ -2610,7 +2854,7 @@ class CausalBayesianInferenceEngine:
 
         if target_code:
             if target_code in EXPERT_KNOWLEDGE_BASE:
-                _single_report = cls._format_4stage_technician_report(target_code, telemetry)
+                _single_report = cls._format_4stage_technician_report(target_code, telemetry, vehicle_make, vehicle_year)
                 _res_note = get_reserved_code_notice(target_code)
                 return _single_report + ("\n\n" + _res_note if _res_note else "")
             else:
@@ -2633,51 +2877,51 @@ class CausalBayesianInferenceEngine:
         # 5. Semantic Intent Matching using Causal Graph
         if intents.get("EV_HV_BATTERY", 0.0) >= 0.5 or any(w in norm_query for w in ["izolasyon", "hvil", "batarya", "megger", "precharge", "turtle"]):
             if "izolasyon" in norm_query or "megger" in norm_query or "kacak" in norm_query:
-                return cls._format_4stage_technician_report("P0AA6", telemetry)
+                return cls._format_4stage_technician_report("P0AA6", telemetry, vehicle_make, vehicle_year)
             if "hvil" in norm_query or "interlock" in norm_query or "salter" in norm_query:
-                return cls._format_4stage_technician_report("P0A0B", telemetry)
+                return cls._format_4stage_technician_report("P0A0B", telemetry, vehicle_make, vehicle_year)
             if "precharge" in norm_query or "kontaktor" in norm_query:
-                return cls._format_4stage_technician_report("P0AA1", telemetry)
-            return cls._format_4stage_technician_report("P0A80", telemetry)
+                return cls._format_4stage_technician_report("P0AA1", telemetry, vehicle_make, vehicle_year)
+            return cls._format_4stage_technician_report("P0A80", telemetry, vehicle_make, vehicle_year)
 
         if intents.get("HEAVY_DUTY_J1939", 0.0) >= 0.5 or any(w in norm_query for w in ["adblue", "def", "dpf", "scr", "yag basinci", "fmi", "derate"]):
             if "yag" in norm_query:
-                return cls._format_4stage_technician_report("SPN100", telemetry)
+                return cls._format_4stage_technician_report("SPN100", telemetry, vehicle_make, vehicle_year)
             if "dpf" in norm_query or "rejenerasyon" in norm_query:
-                return cls._format_4stage_technician_report("SPN3251", telemetry)
+                return cls._format_4stage_technician_report("SPN3251", telemetry, vehicle_make, vehicle_year)
             if "adblue" in norm_query or "def" in norm_query or "kalite" in norm_query:
-                return cls._format_4stage_technician_report("SPN3364", telemetry)
+                return cls._format_4stage_technician_report("SPN3364", telemetry, vehicle_make, vehicle_year)
             if "enjektor" in norm_query:
-                return cls._format_4stage_technician_report("SPN651", telemetry)
+                return cls._format_4stage_technician_report("SPN651", telemetry, vehicle_make, vehicle_year)
             if "fren" in norm_query or "hava" in norm_query:
-                return cls._format_4stage_technician_report("SPN1087", telemetry)
-            return cls._format_4stage_technician_report("SPN4364", telemetry)
+                return cls._format_4stage_technician_report("SPN1087", telemetry, vehicle_make, vehicle_year)
+            return cls._format_4stage_technician_report("SPN4364", telemetry, vehicle_make, vehicle_year)
 
         if intents.get("MARINE_NMEA2000", 0.0) >= 0.5 or any(w in norm_query for w in ["impeller", "cark", "marin", "deniz suyu", "esnjor", "mixing elbow", "pervane", "slip"]):
             if "impeller" in norm_query or "cark" in norm_query or "deniz suyu" in norm_query:
-                return cls._format_4stage_technician_report("N2K_IMPELLER", telemetry)
+                return cls._format_4stage_technician_report("N2K_IMPELLER", telemetry, vehicle_make, vehicle_year)
             if "egzoz" in norm_query or "dirsek" in norm_query or "elbow" in norm_query or "waterlock" in norm_query:
-                return cls._format_4stage_technician_report("N2K_EXHAUST_ELBOW", telemetry)
+                return cls._format_4stage_technician_report("N2K_EXHAUST_ELBOW", telemetry, vehicle_make, vehicle_year)
             if "esnjor" in norm_query or "kirec" in norm_query or "yuksek yuk" in norm_query:
-                return cls._format_4stage_technician_report("N2K_HEAT_EXCHANGER", telemetry)
-            return cls._format_4stage_technician_report("N2K_PROP_SLIP", telemetry)
+                return cls._format_4stage_technician_report("N2K_HEAT_EXCHANGER", telemetry, vehicle_make, vehicle_year)
+            return cls._format_4stage_technician_report("N2K_PROP_SLIP", telemetry, vehicle_make, vehicle_year)
 
         if intents.get("CAN_PHYSICAL_LAYER", 0.0) >= 0.5 or any(w in norm_query for w in ["120 ohm", "60 ohm", "sonlandirma", "direnc", "can h", "can l", "kisa devre", "pinout"]):
             if "voltaj" in norm_query or "bias" in norm_query or "offset" in norm_query:
-                return cls._format_4stage_technician_report("CAN_VOLT_FAULT", telemetry)
-            return cls._format_4stage_technician_report("CAN_TERM_60", telemetry)
+                return cls._format_4stage_technician_report("CAN_VOLT_FAULT", telemetry, vehicle_make, vehicle_year)
+            return cls._format_4stage_technician_report("CAN_TERM_60", telemetry, vehicle_make, vehicle_year)
 
         if intents.get("MISFIRE", 0.0) >= 0.5 or any(w in norm_query for w in ["tekliyor", "tekleme", "sarsinti", "atesleme", "buji"]):
-            return cls._format_4stage_technician_report("P0300", telemetry)
+            return cls._format_4stage_technician_report("P0300", telemetry, vehicle_make, vehicle_year)
 
         if intents.get("TURBO_BOOST", 0.0) >= 0.5 or any(w in norm_query for w in ["turbo", "overboost", "underboost", "kara duman", "bayiliyor", "cekis"]):
-            return cls._format_4stage_technician_report("P0234", telemetry)
+            return cls._format_4stage_technician_report("P0234", telemetry, vehicle_make, vehicle_year)
 
         if intents.get("OVERHEAT_COOLING", 0.0) >= 0.5 or any(w in norm_query for w in ["hararet", "termostat", "radyator", "fan", "su kaynatiyor", "ust kapak contasi"]):
-            return cls._format_4stage_technician_report("SPN110", telemetry)
+            return cls._format_4stage_technician_report("SPN110", telemetry, vehicle_make, vehicle_year)
 
         if "u0100" in norm_query or "iletisim koptu" in norm_query or "beyin cevap vermiyor" in norm_query:
-            return cls._format_4stage_technician_report("U0100", telemetry)
+            return cls._format_4stage_technician_report("U0100", telemetry, vehicle_make, vehicle_year)
 
         # 5.9 T41 P1-4: semptom -> kod aramasi (fallback oncesi). DTC DB'sindeki
         # 14.166 `symptoms` kaydi motorda hic okunmuyordu. Deterministik skor:
@@ -2692,7 +2936,7 @@ class CausalBayesianInferenceEngine:
                     f"\n\n🔎 **Semptom Eşleşmesi:** \"{', '.join(str(m) for m in _matched[:4])}\" "
                     f"ifadeleri [{_best}] kaydının semptom/kategori metniyle eşleşti."
                 )
-                _report = cls._format_4stage_technician_report(_best, telemetry)
+                _report = cls._format_4stage_technician_report(_best, telemetry, vehicle_make, vehicle_year)
                 return _report + _hit_note
 
         # 6. Fallback General Diagnosis (Honest about lack of data, concise and simplified)
@@ -2802,8 +3046,20 @@ class CausalBayesianInferenceEngine:
         return attach_action_triggers(report_text, actions)
 
     @classmethod
-    def _format_4stage_technician_report(cls, code: str, telemetry: dict[str, float]) -> str:
-        """Format an industry-standard 4-stage master technician field guide in concise format."""
+    def _format_4stage_technician_report(
+        cls,
+        code: str,
+        telemetry: dict[str, float],
+        vehicle_make: str | None = None,
+        vehicle_year: int | None = None,
+    ) -> str:
+        """Format an industry-standard 4-stage master technician field guide in concise format.
+
+        ``vehicle_make`` / ``vehicle_year`` (T42 P2-2/P2-3): when the operator
+        named a vehicle make/year, OEM-variant evidence is filtered to that make
+        and the complaint corpus is queried with make/year filters. When both are
+        ``None`` the previous unfiltered behaviour is preserved (fail-safe).
+        """
         info = EXPERT_KNOWLEDGE_BASE[code]
         rpm = telemetry.get("EngineSpeed", 0.0)
         boost = telemetry.get("BoostPressure", 0.0)
@@ -2842,11 +3098,14 @@ class CausalBayesianInferenceEngine:
 
         # REVIEW (Tur-27 P0, @tuner AI plan Boguluk 2): merge edilmis ama HIC okunmayan
         # OEM zenginlik katmanlari. Geriye-uyumlu: alan yoksa blok uretilmez.
+        # T42 P2-2: arac markasi verildiyse OEM varyantlari markaya gore
+        # filtrelenir; alakasiz OEM gizlenir. Marka yoksa eski davranis birebir.
         oem_block = ""
         ov = info.get("oem_variants")
         if isinstance(ov, list) and ov:
+            kept, hidden = filter_oem_variants(ov, vehicle_make)
             lines = []
-            for item in ov[:3]:
+            for item in kept[:3]:
                 if isinstance(item, dict):
                     mk = item.get("manufacturer") or item.get("make") or "OEM"
                     ds = item.get("description") or item.get("meaning") or ""
@@ -2855,7 +3114,12 @@ class CausalBayesianInferenceEngine:
                 elif isinstance(item, str):
                     lines.append(f"  • {item[:160]}")
             if lines:
-                oem_block += "\n\n🏭 **OEM Varyantları (aynı kod, marka bazlı anlam):**\n" + "\n".join(lines)
+                hdr = "🏭 **OEM Varyantları (aynı kod, marka bazlı anlam):**"
+                if vehicle_make:
+                    hdr = f"🏭 **OEM Varyantları — {vehicle_make.upper()} (marka filtreli):**"
+                oem_block += f"\n\n{hdr}\n" + "\n".join(lines)
+                if hidden:
+                    oem_block += f"\n  *(+{hidden} farklı marka varyantı gizlendi — marka filtresi aktif)*"
 
         gm = info.get("gm_monitor")
         if isinstance(gm, dict) and (gm.get("parameter") or gm.get("monitor")):
@@ -2876,6 +3140,39 @@ class CausalBayesianInferenceEngine:
                 _makes = {str(x.get("make", "")).strip() for x in ev if isinstance(x, dict) and x.get("make")}
                 if _makes:
                     oem_block += f"\n  *Alan kapsamı:* {len(ev)} vaka / {len(_makes)} marka"
+
+        # T42 P2-3: NHTSA sahip-sikayeti korpusu (4.388 kayit) motorda HIC
+        # okunmuyordu. Marka/yil verildiginde sikayetler o araca gore
+        # filtrelenir (search_nhtsa_complaints — lazy load + cache). Uydurma yok:
+        # yalnizca DB'de var olan ozetler basilir; marka yoksa yalnizca genel
+        # kapsam satiri gosterilir (bugunku davranisa ek, filtre yok).
+        try:
+            _cmp = search_nhtsa_complaints(make=vehicle_make, year=vehicle_year, limit=2)
+            _cmp_hits = _cmp.get("complaints") or []
+            if _cmp_hits:
+                _lines = []
+                for _e in _cmp_hits[:2]:
+                    _comp = str(_e.get("components", "")).split(",")[0].strip()
+                    _sum = str(_e.get("summary", "")).strip()
+                    if _comp or _sum:
+                        _lines.append(
+                            f"  • [{_comp}] {_sum[:180]}" if _comp else f"  • {_sum[:180]}"
+                        )
+                if _lines:
+                    _scope = (
+                        f"{len(_cmp.get('matched_vehicles', []))} araç / "
+                        f"{len(_cmp_hits)} şikayet"
+                    )
+                    if vehicle_make:
+                        _hdr = (
+                            "🗣️ **Sahip Şikayetleri (NHTSA complaints — "
+                            f"{vehicle_make.upper()} marka filtreli):**"
+                        )
+                    else:
+                        _hdr = "🗣️ **Sahip Şikayetleri (NHTSA complaints):**"
+                    oem_block += f"\n\n{_hdr} {_scope}\n" + "\n".join(_lines)
+        except Exception as exc:  # fail-safe: complaints asla raporu düsürmez
+            logger.debug("NHTSA complaints fusion skipped: %s", exc)
 
         # T41 P1-3: `j1939_spn_fmi` kopru alani (697 DTC kaydinda DOLU) hic
         # okunmuyordu. OBD DTC -> ilgili J1939 SPN/FMI gecisini kur; agir vasita
@@ -2938,8 +3235,19 @@ class CausalBayesianInferenceEngine:
         return attach_action_triggers(report_text, actions)
 
     @classmethod
-    def _format_j1939_technician_report(cls, spn_entry: dict[str, Any], query: str, telemetry: dict[str, float]) -> str:
-        """Format a heavy-duty commercial vehicle J1939 SPN & FMI diagnostic guide in concise format."""
+    def _format_j1939_technician_report(
+        cls,
+        spn_entry: dict[str, Any],
+        query: str,
+        telemetry: dict[str, float],
+        vehicle_make: str | None = None,
+    ) -> str:
+        """Format a heavy-duty commercial vehicle J1939 SPN & FMI diagnostic guide in concise format.
+
+        ``vehicle_make`` (T42 P2-2): when given, ``oem_engine_families`` /
+        ``oem_field_evidence`` are filtered to that make so unrelated engine
+        families are hidden. ``None`` preserves the previous behaviour.
+        """
         spn = spn_entry.get("spn", 0)
         name = spn_entry.get("name", "Bilinmeyen SPN")
         title_tr = spn_entry.get("title_tr", name)
@@ -3051,6 +3359,45 @@ class CausalBayesianInferenceEngine:
                         _add_line(f"**{mk}:** {tx}" if mk else str(tx), 150)
                 elif isinstance(e, str):
                     _add_line(e, 150)
+
+        # T42 P2-2: `oem_engine_families` (64 SPN'de dolu liste) ve
+        # `oem_field_evidence` (400 SPN'de dict: {family_count, families,
+        # field_fmi_meanings}) motorda karar vermiyordu — yalnizca
+        # `oem_field_evidence` list sanilyordu (aslinda dict), bu yuzden HIC
+        # gorunmuyordu. Arac markasi verildiyse aileler markaya gore filtrelenir,
+        # alakasiz motor aileleri gizlenir; marka yoksa hepsi basilir (fail-safe).
+        _fam_hidden = 0
+        _families: list[str] = []
+        _fam_src = spn_entry.get("oem_engine_families")
+        if not isinstance(_fam_src, list) or not _fam_src:
+            if isinstance(fe, dict):
+                _fam_src = fe.get("families")
+        if isinstance(_fam_src, list) and _fam_src:
+            _families, _fam_hidden = filter_oem_families(_fam_src, vehicle_make)
+        if _families:
+            _fam_hdr = "🚚 **OEM Motor Aileleri (DB):**"
+            if vehicle_make:
+                _fam_hdr = f"🚚 **OEM Motor Aileleri — {vehicle_make.upper()} (marka filtreli):**"
+            _fam_txt = ", ".join(str(f)[:60] for f in _families[:8])
+            oem_lines.append(f"  • {_fam_hdr} {_fam_txt}")
+            if _fam_hidden:
+                oem_lines.append(f"  • *(+{_fam_hidden} farklı marka motor ailesi gizlendi)*")
+
+        # T42 P2-2: saha kaniti FMI anlamlari (field_fmi_meanings) — FMI
+        # sorgusu varsa o FMI'nin saha anlami DB'den basilir.
+        if isinstance(fe, dict) and fmi_match:
+            _ffm = fe.get("field_fmi_meanings")
+            if isinstance(_ffm, dict):
+                _meanings = _ffm.get(str(fmi_match.group(1)))
+                if isinstance(_meanings, list) and _meanings:
+                    _uniq = []
+                    for _m in _meanings:
+                        _ms = str(_m).strip()
+                        if _ms and _ms not in _uniq:
+                            _uniq.append(_ms)
+                    if _uniq:
+                        oem_lines.append(f"  • **Saha FMI Anlamı:** {_uniq[0][:200]}")
+
         oem_block = ""
         if oem_lines:
             _fmi_hdr = ""
