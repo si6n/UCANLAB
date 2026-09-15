@@ -1918,6 +1918,167 @@ def search_dtc_by_symptom(norm_query: str, limit: int = 1) -> list[dict[str, Any
     ]
 
 
+# ----------------------------------------------------------------------------
+# T42 P2-6: rezerve (ISO/SAE reserved) DTC ayrimi. DB'de 390 kayit `is_reserved`
+# + `reserved_note` tasir; bu kayitlar icin standart bir anlam YOKTUR (uretici
+# atamasi bekler). Motor bunlari normal kod gibi sunarsa YANLIS teshis uretir.
+# Fail-safe: yalnizca DB'de `is_reserved` DOLU ise blok uretilir; alan yoksa
+# (kural: uydurma yok) hicbir sey basilmaz.
+# ----------------------------------------------------------------------------
+
+
+def get_reserved_code_notice(code: str) -> str | None:
+    """Rezerve kod icin "standart degil, ureticiye ozel" uyari blogu dondur.
+
+    ``EXPERT_KNOWLEDGE_BASE`` icindeki kayit ``is_reserved`` truthy ise,
+    DB'deki ``reserved_note`` metni (varsa) ile birlikte deterministik bir
+    uyari blogu uretir. Rezerve degilse / kayit yoksa ``None`` dondurur
+    (fail-safe — uydurma blok yok).
+    """
+    ensure_external_dtc_database_loaded()
+    info = EXPERT_KNOWLEDGE_BASE.get(str(code or "").strip().upper())
+    if not isinstance(info, dict) or not info.get("is_reserved"):
+        return None
+    note = str(info.get("reserved_note") or "").strip()
+    lines = [
+        "⛔ **REZERVE KOD — STANDART DEĞİL (ÜRETİCİYE ÖZEL):**",
+        "  • Bu arıza kodu ISO/SAE standart tablosunda **üretici atamasına bırakılmıştır**; "
+        "genel geçer bir teşhis anlamı yoktur.",
+    ]
+    if note:
+        lines.append(f"  • **Veritabanı notu:** {note[:220]}")
+    lines.append(
+        "  • **Öneri:** Aracın markasına özel servis kılavuzundan / üretici teşhis "
+        "yazılımından (OEM scan tool) kod anlamını doğrulayın. Bu kodu genel "
+        "arızaymış gibi yorumlayıp parça değişimi YAPMAYIN."
+    )
+    return "\n".join(lines)
+
+
+# ----------------------------------------------------------------------------
+# T42 P2-1: coklu-DTC birlesik analiz. Sorgu yolu bugun yalniz `active_dtcs[0]`
+# isliyordu. Tum aktif kodlar birlikte kumelenir:
+#   (1) ortak alt-sistem (DB `subsystem`) -> tekrarli arizali alan tespiti
+#   (2) DB-turevli iliski: `_RELATED_CODE_GROUPS` (10 sabit kume) yerine aktif
+#       kodlarin {subsystem, J1939 associated_pgn} ortakligindan turetilen
+#       cografi/kok-neden gruplari (uydurma yok — alanlar DB'de dolu degilse
+#       o boyut atlanir).
+# Determinizm: kodlar normalize edilip siralanir; gruplar (uyelik sayisi desc,
+# ilk uye asc) ile tie-break edilir. Ayni girdi -> ayni cikti.
+# ----------------------------------------------------------------------------
+
+
+def _t42_norm_code(raw: Any) -> str:
+    """`code`/`spn` alanini kanonik anahtara cevir (SPN123 / P0300)."""
+    s = str(raw or "").strip().upper()
+    m = _CODE_ALIAS_RE.match(s)
+    return f"SPN{m.group(1)}" if m else s
+
+
+def _t42_dtc_key(dtc: Any) -> str:
+    """Bir aktif-DTC kaydindan deterministik anahtar uret.
+
+    Once ``code`` sonra ``SPN<spn>`` fallback'i denenir; ikisi de bossa
+    bos string doner. Uydurma YOK.
+    """
+    if not isinstance(dtc, dict):
+        return ""
+    key = _t42_norm_code(dtc.get("code"))
+    if not key and dtc.get("spn") is not None:
+        key = f"SPN{dtc.get('spn')}"
+    return key
+
+
+def _t42_lookup_dtc_fields(code: str) -> dict[str, Any]:
+    """Kod icin DB/knowledge-base teşhis alanlarini birlestir.
+
+    Donen anahtarlar: ``subsystem``, ``pgn``. Eksik alan eklenmez
+    (fail-safe). J1939 SPN girdilerinde ``associated_pgn`` DB-doldurulmus
+    ise kullanilir.
+    """
+    out: dict[str, Any] = {}
+    key = _t42_norm_code(code)
+    if not key:
+        return out
+    ensure_external_dtc_database_loaded()
+    info = EXPERT_KNOWLEDGE_BASE.get(key)
+    if isinstance(info, dict):
+        sub = info.get("subsystem")
+        if isinstance(sub, str) and sub.strip():
+            out["subsystem"] = sub.strip()
+    m = _CODE_ALIAS_RE.match(key)
+    if m:
+        try:
+            db = get_j1939_spn_database()
+            entry = (db.get("spns") or {}).get(f"SPN_{m.group(1)}")
+            if isinstance(entry, dict):
+                if "subsystem" not in out:
+                    sub = entry.get("subsystem")
+                    if isinstance(sub, str) and sub.strip():
+                        out["subsystem"] = sub.strip()
+                pgn = entry.get("associated_pgn")
+                if isinstance(pgn, int) and pgn > 0:
+                    out["pgn"] = pgn
+        except Exception:
+            pass
+    return out
+
+
+def analyze_active_dtc_clusters(active_dtcs: list[Any]) -> dict[str, Any]:
+    """Aktif DTC kumesi icin birlesik, deterministik kumeleme sonucu.
+
+    Donen sozluk:
+      - ``codes``: normalize edilmis, kodsuz kayitlar atilmis kod listesi (sirali)
+      - ``reserved_codes``: rezerve (ureticiye ozel) kodlar (sirali)
+      - ``subsystem_groups``: ``[(subsystem, [codes...])]`` — tekrarli alt-sistemler
+      - ``pgn_groups``: ``[(pgn, [codes...])]`` — ortak J1939 PGN (paylasilan yol)
+    Gruplama yalnizca DB'de DOLU alanlardan turetilir; uydurma yok. Bir boyut
+    icin veri yoksa o boyut bos doner.
+    """
+    seen: list[str] = []
+    for d in active_dtcs or []:
+        k = _t42_dtc_key(d)
+        if k and k not in seen:
+            seen.append(k)
+    seen.sort()
+    if not seen:
+        return {"codes": [], "reserved_codes": [], "subsystem_groups": [], "pgn_groups": []}
+
+    ensure_external_dtc_database_loaded()
+    reserved = [
+        c for c in seen
+        if isinstance(EXPERT_KNOWLEDGE_BASE.get(c), dict) and EXPERT_KNOWLEDGE_BASE[c].get("is_reserved")
+    ]
+
+    sub_map: dict[str, list[str]] = {}
+    pgn_map: dict[int, list[str]] = {}
+    for c in seen:
+        fields = _t42_lookup_dtc_fields(c)
+        sub = fields.get("subsystem")
+        if sub:
+            sub_map.setdefault(sub, []).append(c)
+        pgn = fields.get("pgn")
+        if pgn:
+            pgn_map.setdefault(pgn, []).append(c)
+
+    # yalniz >=2 uye tasiyan ortaklik gruplari ilgi cekicidir (tek kod zaten
+    # tek-kod yolu ile islenir). Grup sirasi: uye sayisi desc, ad/pgn asc.
+    sub_groups = sorted(
+        ((s, sorted(cs)) for s, cs in sub_map.items() if len(cs) >= 2),
+        key=lambda t: (-len(t[1]), t[0]),
+    )
+    pgn_groups = sorted(
+        ((p, sorted(cs)) for p, cs in pgn_map.items() if len(cs) >= 2),
+        key=lambda t: (-len(t[1]), t[0]),
+    )
+    return {
+        "codes": seen,
+        "reserved_codes": reserved,
+        "subsystem_groups": sub_groups,
+        "pgn_groups": pgn_groups,
+    }
+
+
 # ============================================================================
 # COMPLETE ISO 14229 UDS NEGATIVE RESPONSE CODE (NRC) CATALOG
 # ============================================================================
@@ -2417,18 +2578,41 @@ class CausalBayesianInferenceEngine:
         target_code = direct_dtc
         is_general_fault_query = any(w in norm_query for w in ["ariza", "dtc", "hata kodu", "fault", "nedir", "analiz et", "neden"])
         if not target_code and not can_id_hex and is_general_fault_query and active_dtcs:
-            first_dtc = active_dtcs[0]
-            if isinstance(first_dtc, dict):
-                spn = first_dtc.get("spn")
-                code_str = str(first_dtc.get("code", ""))
-                if spn and f"SPN{spn}" in EXPERT_KNOWLEDGE_BASE:
-                    target_code = f"SPN{spn}"
-                elif code_str in EXPERT_KNOWLEDGE_BASE:
-                    target_code = code_str
+            # T42 P2-1: eskiden yalniz `active_dtcs[0]` isleniyordu. Artik TUM
+            # aktif kodlar degerlendirilir: tek koda dusulebiliyorsa eski yol
+            # (tek-DTC raporu, test kilidi korunur); birden fazla kod varsa
+            # BIRLESIK analiz + ortak alt-sistem/PGN kumelemesi basilir.
+            _clusters = analyze_active_dtc_clusters(active_dtcs)
+            _codes = _clusters["codes"]
+            _reserve_note = get_reserved_code_notice(_codes[0]) if _codes else None
+
+            # tek-kod yolu: aktif kodlardan TAM OLARAK biri bildirilmisse
+            if len(_codes) == 1:
+                first_dtc = active_dtcs[0]
+                if isinstance(first_dtc, dict):
+                    spn = first_dtc.get("spn")
+                    code_str = str(first_dtc.get("code", ""))
+                    if spn and f"SPN{spn}" in EXPERT_KNOWLEDGE_BASE:
+                        target_code = f"SPN{spn}"
+                    elif code_str in EXPERT_KNOWLEDGE_BASE:
+                        target_code = code_str
+                if not target_code and _codes[0] in EXPERT_KNOWLEDGE_BASE:
+                    target_code = _codes[0]
+                # P2-6: rezerve kod uyarisi tek-kod raporuna eklenir (fail-safe).
+                if target_code and target_code in EXPERT_KNOWLEDGE_BASE and _reserve_note:
+                    return cls._format_4stage_technician_report(target_code, telemetry) + "\n\n" + _reserve_note
+
+            # COKLU-DTC Birlesik Analiz (P2-1): birden fazla kod -> birlestir.
+            if len(_codes) >= 2:
+                known = [c for c in _codes if c in EXPERT_KNOWLEDGE_BASE]
+                if known:
+                    return cls._format_multi_dtc_combined_report(known, telemetry, _clusters)
 
         if target_code:
             if target_code in EXPERT_KNOWLEDGE_BASE:
-                return cls._format_4stage_technician_report(target_code, telemetry)
+                _single_report = cls._format_4stage_technician_report(target_code, telemetry)
+                _res_note = get_reserved_code_notice(target_code)
+                return _single_report + ("\n\n" + _res_note if _res_note else "")
             else:
                 cat_char = target_code[0].upper()
                 is_oem = len(target_code) > 1 and target_code[1] in ("1", "2")
@@ -2525,6 +2709,97 @@ class CausalBayesianInferenceEngine:
         if extracted:
             return attach_action_triggers(fallback_text, extracted)
         return fallback_text
+
+    @classmethod
+    def _format_multi_dtc_combined_report(
+        cls,
+        codes: list[str],
+        telemetry: dict[str, float],
+        clusters: dict[str, Any],
+    ) -> str:
+        """T42 P2-1: coklu-DTC BIRLESIK analiz raporu.
+
+        Aktif tum kodlar birlikte degerlendirilir:
+          • ortak alt-sistem gruplari (DB `subsystem`)
+          • ortak J1939 PGN gruplari (paylasilan veri yolu) — DB-doldurulmus
+            `associated_pgn` varsa
+          • rezerve (ureticiye ozel) kodlar icin yanlis-teshis uyarisi (P2-6)
+          • her kod icin kisa 1-satir ozet (ad + alt sistem + onem)
+
+        Determinizm: ``codes`` cagirandan SIRALI gelir; her grup icin uye listesi
+        sirali basilir. Ayni girdi -> ayni cikti. Uydurma YOK — alan DB'de
+        yoksa ilgili satir/blok uretilmez (fail-safe).
+        """
+        rpm = telemetry.get("EngineSpeed", 0.0)
+        boost = telemetry.get("BoostPressure", 0.0)
+        temp = telemetry.get("CoolantTemp", 85.0)
+        telemetry_str = f" | {rpm:.0f} RPM, {boost:.2f} Bar, {temp:.1f}°C" if rpm > 0 or boost > 0 else ""
+
+        lines: list[str] = [
+            f"🧩 **ÇOKLU-DTC BİRLEŞİK ANALİZ ({len(codes)} aktif kod):**{telemetry_str}",
+        ]
+
+        # (1) ortak alt-sistem gruplari
+        sub_groups = clusters.get("subsystem_groups") or []
+        if sub_groups:
+            lines.append("\n🔗 **Ortak Alt-Sistem Kümeleri (aynı alanda çoklu arıza → ortak kök neden şüphesi):**")
+            for sub, members in sub_groups[:5]:
+                lines.append(f"  • **{sub}** — {len(members)} kod: {', '.join(members)}")
+        else:
+            lines.append(
+                "\n🔗 **Ortak Alt-Sistem:** Aktif kodlar farklı alt sistemlere dağılmış; "
+                "tek bir ortak alan tespit edilmedi."
+            )
+
+        # (2) ortak J1939 PGN (paylasilan veri yolu) — yalniz DB'de dolu ise
+        pgn_groups = clusters.get("pgn_groups") or []
+        if pgn_groups:
+            lines.append("\n📡 **Ortak J1939 PGN (paylaşılan veri yolu/çerçeve):**")
+            for pgn, members in pgn_groups[:4]:
+                lines.append(f"  • **PGN {pgn}** — {len(members)} kod: {', '.join(members)}")
+
+        # (3) her kod icin deterministik 1-satir ozet
+        lines.append("\n🧾 **Aktif Kod Özeti:**")
+        for c in codes:
+            info = EXPERT_KNOWLEDGE_BASE.get(c)
+            if not isinstance(info, dict):
+                continue
+            title = str(info.get("title", c))
+            subsys = str(info.get("subsystem", "Genel Teşhis"))
+            sev = str(info.get("severity", "MEDIUM"))
+            tag = " ⛔*(rezerve/üreticiye özel)*" if info.get("is_reserved") else ""
+            lines.append(f"  • **[{c}]** {title[:90]} — {subsys} *(Öncelik: {sev})*{tag}")
+
+        # (4) kok-neden onerisi: en kalabalik ortak alt-sistem
+        if sub_groups:
+            top_sub, top_members = sub_groups[0]
+            lines.append(
+                f"\n🎯 **Kök-Neden Önerisi:** En yoğun ortak alan **{top_sub}** "
+                f"({len(top_members)} kod). Önce bu alt sistemin besleme/şase ve "
+                f"ortak sensör hatlarını kontrol edin — çoklu kod genelde tek bir "
+                f"ortak besleme/kablolama arızasından türer."
+            )
+
+        # (5) P2-6: rezerve kod uyarisi (yanlis teshisi engeller)
+        reserved_codes = clusters.get("reserved_codes") or []
+        if reserved_codes:
+            lines.append(
+                f"\n⛔ **REZERVE KOD UYARISI:** Aktif kodlardan {len(reserved_codes)} tanesi "
+                f"ISO/SAE standart tablosunda **üreticiye bırakılmıştır** (rezerve): "
+                f"{', '.join(reserved_codes[:8])}. Bu kodlar için genel geçer anlam YOKTUR; "
+                f"OEM servis kılavuzundan doğrulanmadan parça değişimi YAPMAYIN."
+            )
+
+        lines.append(
+            "\n💡 **Sonraki Adım:** Kodları canlı DM1 yayını ile karşılaştırıp freeze-frame "
+            "(UDS `0x19 0x02`) çevre koşullarını okuyun; ortak alan grubundaki kodlar için "
+            "tek bir kök neden onarımı yeterli olabilir."
+        )
+
+        report_text = "\n".join(lines)
+        actions = [make_uds_clear_dtc_action()]
+        actions.extend(extract_action_triggers(report_text))
+        return attach_action_triggers(report_text, actions)
 
     @classmethod
     def _format_4stage_technician_report(cls, code: str, telemetry: dict[str, float]) -> str:
@@ -3232,6 +3507,28 @@ class AiDiagnosticCopilot:
                     line = f"İlişkili kod kümesi [{', '.join(sorted(grp))}]: {desc}"
                     if line not in ctx.correlations:
                         ctx.correlations.append(line)
+
+            # T42 P2-1: DB-turevli iliski kumeleri. Sabit 10'luk tabloya ek olarak
+            # aktif kodlarin {subsystem, J1939 associated_pgn} ortakligi kumelenir.
+            # Uydurma yok — alan DB'de dolu degilse o boyut atlanir.
+            _clusters = analyze_active_dtc_clusters(active_dtcs)
+            if len(_clusters["codes"]) >= 2:
+                for _sub, _members in _clusters["subsystem_groups"][:5]:
+                    line = f"Ortak alt-sistem [{_sub}] ({len(_members)} kod): {', '.join(_members)}"
+                    if line not in ctx.correlations:
+                        ctx.correlations.append(line)
+                for _pgn, _members in _clusters["pgn_groups"][:4]:
+                    line = f"Ortak J1939 PGN {_pgn} ({len(_members)} kod): {', '.join(_members)}"
+                    if line not in ctx.correlations:
+                        ctx.correlations.append(line)
+            # T42 P2-6: rezerve (ureticiye ozel) kodlar -> yanlis teshis uyarisi.
+            for _rc in _clusters["reserved_codes"][:8]:
+                line = (
+                    f"⛔ Rezerve kod [{_rc}]: ISO/SAE standart değil, üreticiye özel — "
+                    f"OEM kılavuzundan doğrulanmadan teşhis/parça değişimi yapılmamalı."
+                )
+                if line not in ctx.correlations:
+                    ctx.correlations.append(line)
         except Exception:
             pass
 
