@@ -1,111 +1,49 @@
-# GÖREV: AŞAMA 3 — Çevrimdışı AI Motoru Denetimi
+# DENETİM: AŞAMA 3 — Çevrimdışı Teşhis ve AI Motoru
 
-Sen bu repoda çalışan kıdemli bir uygulama güvenliği ve ML denetçisisin.
-Ürün: ticari CAN/CAN-FD teşhis platformu. Hedef: ISO 26262 ASIL-B/D.
-Repo senin çalışma alanın — dosyaları doğrudan okuyabilirsin.
+Ürün: Ticari CAN/CAN-FD Teşhis Platformu.
+Rol: Kıdemli AI/ML Güvenliği ve Determinizm Denetçisi.
 
-**Bu motor ÇEVRİMDIŞI olmak zorunda.** Ağ çağrısı bulursan bu KRİTİK bulgudur.
-
----
-
-## 1. OKU
-
-`src/engine/ai/diagnostic_copilot.py` büyük (~3400 satır).
-**İki parçada oku:** önce satır 1-1700, sonra 1701-son.
-
-Ayrıca:
+## 1. Kapsam
+- `src/engine/ai/diagnostic_copilot.py`
 - `src/engine/ai/evidence_gate.py`
 - `src/engine/ai/anomaly_detector.py`
 - `src/engine/ai/hypothesis_engine.py`
 
----
+## 2. Denetim Odak Noktaları
+- **Çevrimdışı İzolasyon (Air-gap):** Kesinlikle dış ağ çağrısı olmamalıdır (`socket`, `requests`, `urllib`, `httpx`, telemetri, beaconing). Herhangi bir dış ağ isteği KRİTİK kabul edilir.
+- **Determinizm ve Güven:** DTC/SPN önerileri deterministik kural/veri tabanlı mı? Halüsinasyon veya veritabanında olmayan DTC/SPN üretme riski var mı?
+- **Evidence Gate Bypass:** Kanıtsız hipotezlerin veya teşhis sonuçlarının rapora sızabilmesi. İstisna (`except`) bloklarında kapının by-pass edilmesi.
+- **Zaman Serisi ve Telemetri Korelasyonu:** Gecikmeli sinyaller, jitter veya saat dilimi kaymalarında hatalı korelasyon / yanlış pozitif teşhis riskleri.
+- **Veri Tüketim Eksikliği:** Yerel veritabanlarının (`data/diagnostics/j1939_spn_fmi_database.json`, `dtc_database.json`) ne kadarının motor tarafından tüketildiği; modelin zenginleştirilebileceği atıl alanlar.
 
-## 2. İNCELE
-
-Odak soruları:
-
-- **Ağ erişimi var mı?** `socket`, `urllib`, `requests`, `http`, `aiohttp`,
-  `httpx`, telemetri, "phone home", lisans sunucusu çağrısı ara. Varsa KRİTİK.
-- **Severity nereden geliyor?** Deterministik mi (kural tabanlı), yoksa
-  üretilmiş/rastgele mi? Aynı girdi her zaman aynı çıktıyı veriyor mu?
-  **Uydurma riski:** model olmayan bir DTC veya SPN üretiyor mu?
-- **Kanıt kapısı (`evidence_gate`) atlatılabilir mi?** Kanıtsız bir sonuç
-  rapora sızabilir mi? Kapı `try/except` ile sessizce geçiliyor mu?
-- **Zaman serisi + DTC korelasyonu doğru mu?** Yanlış pozitif/negatif riski,
-  zaman penceresi hesabı, saat dilimi/UTC karışıklığı.
-- **Veri kullanımı:** `data/diagnostics/j1939_spn_fmi_database.json` (3.910 SPN)
-  ve `data/diagnostics/dtc_database.json` (14.352 DTC) alanlarının kaçı
-  gerçekten kullanılıyor? Kullanılmayan alanlar var mı? (Bu, motoru
-  güçlendirme fırsatıdır — belirt.)
-- Çevrimdışı çalışırken model yoksa nasıl karar veriyor? Sabit yanıt mı dönüyor?
-
----
-
-## 3. YAZ
-
-Raporu **`docs/review/ASAMA-3-ai-motoru.md`** dosyasına yaz.
+## 3. Rapor Formatı
+Bulguları **`docs/review/ASAMA-3-ai-motoru.md`** dosyasına yaz:
 
 ```markdown
-# ASAMA 3: Çevrimdışı AI Motoru
-Denetçi: <model adı> | Tarih: <YYYY-MM-DD>
-Kapsam: <okunan dosyalar ve satır sayıları>
+# ASAMA 3: Çevrimdışı AI Motoru Raporu
+Denetçi: <model> | Tarih: <YYYY-MM-DD>
+Kapsam: <dosyalar ve satır sayıları>
 
-## 1. Genel Değerlendirme
-<3-5 cümle: motor ne yapıyor, olgunluk, en büyük risk>
+## 1. Yönetici Özeti
+<Çevrimdışı bütünlük, determinizm düzeyi, yanlış teşhis riskleri ve model kalitesi.>
 
-## 2. Bulgular
+## 2. Bulgu Tablosu
 | # | dosya:satır | severity | sorun | senaryo | düzeltme |
 |---|---|---|---|---|---|
+*Severity: KRİTİK | YÜKSEK | ORTA | DÜŞÜK | BİLGİ*
 
-## 3. Severity Özeti
-KRİTİK: N | YÜKSEK: N | ORTA: N | DÜŞÜK: N | BİLGİ: N
+## 3. Detaylı Bulgular (Tüm KRİTİK ve YÜKSEK Seviyeler)
+### [Bulgu Kodu] <Kısa Başlık>
+- **Konum:** `dosya:satır`
+- **Etki / Risk:** <Teşhis doğruluğu veya güvenlik etkisi>
+- **Kanıt / Zafiyet Analizi:** <Kod alıntısı ve teknik açıklama>
+- **Tetiklenme Senaryosu:** <Hatalı teşhis veya sızıntı mekanizması>
+- **Düzeltme (Remediation):** <Örnek güvenli kod parçası>
 
-## 4. En Önemli 3 Bulgu (detay)
-### B1: <başlık>
-- **Kanıt** (satır numaralı kod alıntısı)
-- **Neden sorun**
-- **Somut senaryo**
-- **Düzeltme**
-### B2, B3 aynı formatta
-
-## 5. Doğrulanamayanlar
-
-## 6. Sonraki Aşama İçin Not
-
-## 7. Veri Kullanım Analizi (bu aşamaya özel)
-| Veri kaynağı | Toplam alan | Kullanılan | Kullanılmayan | Öneri |
-|---|---|---|---|---|
-<Motoru güçlendirmek için hangi veri kullanılmıyor, nasıl kullanılabilir>
+## 4. Veri Tüketim & Model Güçlendirme Analizi
+<Yerel teşhis veritabanlarında olup motorda değerlendirilmeyen alanlar ve entegrasyon önerileri.>
 ```
 
----
-
-## 4. BİLDİR
-
-```
-AŞAMA 3 TAMAM — KRİTİK: x, YÜKSEK: y, ORTA: z, DÜŞÜK: w
-Rapor: docs/review/ASAMA-3-ai-motoru.md
-Ağ erişimi: <VAR/YOK>
-İlk 3 bulgu:
-- <dosya:satır> <kısa başlık>
-- <dosya:satır> <kısa başlık>
-- <dosya:satır> <kısa başlık>
-Kullanılmayan veri: <kısa özet>
-```
-
----
-
-## ÖNCEKİ AŞAMALAR BULGU ÖZETİ
-
-<Aşama 1 ve 2'nin bildirim satırlarını yapıştır.>
-
----
-
-## KURALLAR
-
-1. **Bulgu uydurma.** Yalnızca okuduğun kodla kanıtlayabildiğini yaz.
-2. **Her bulgu `dosya:satır` içermeli.**
-3. **Severity gerekçelendir.**
-4. **Kod değiştirme.** Sadece analiz ve rapor.
-5. Türkçe yaz.
-6. Sadece bu aşamayı yap.
+## 4. Tamamlama Bildirimi
+Bitince sadece özeti yaz:
+`AŞAMA 3 TAMAM | KRİTİK: X, YÜKSEK: Y, ORTA: Z | Ağ Erişimi: YOK | Rapor: docs/review/ASAMA-3-ai-motoru.md`

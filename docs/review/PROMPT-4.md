@@ -1,109 +1,47 @@
-# GÖREV: AŞAMA 4 — Protokol Katmanları Denetimi
+# DENETİM: AŞAMA 4 — Protokol Katmanları (J1939 / ISO-TP / UDS / Flasher)
 
-Sen bu repoda çalışan kıdemli bir gömülü sistem ve protokol denetçisisin.
-Ürün: ticari CAN/CAN-FD teşhis platformu. Hedef: ISO 26262 ASIL-B/D.
-Repo senin çalışma alanın — dosyaları doğrudan okuyabilirsin.
+Ürün: Ticari CAN/CAN-FD Teşhis Platformu (ISO 26262 ASIL-B/D hedefli).
+Rol: Kıdemli Otomotiv Protokol ve Gömülü Sistem Denetçisi.
 
----
-
-## 1. OKU
-
+## 1. Kapsam
 - `src/protocols/j1939/transport.py`
 - `src/protocols/uds/isotp.py`
 - `src/protocols/uds/flasher.py`
 - `src/protocols/uds/client.py`
 
----
+## 2. Denetim Odak Noktaları
+- **J1939 Transport Protocol (TP):** BAM ve RTS/CTS oturumlarında tampon büyüme sınırları, yetim/kesilen oturumların bellek sızıntısı yapması, sequence number taşması, eşzamanlı multi-peer çakışmaları.
+- **ISO-TP (ISO 15765-2):** Reassembly tampon güvenliği (4095 byte ve CAN-FD sınırları), FF/CF/FC akış kontrol durum makineleri, geçersiz BS / STmin değerlerinin işlenmesi, DoS/OOM riskleri.
+- **UDS Client & Security:** Seed/Key (SecurityAccess 0x27) atlatma riskleri, NRC (özellikle 0x78 responsePending, 0x33, 0x35) zaman aşımı yönetimi, P2/P2* sayaç doğruluğu.
+- **ECU Flasher:** Firmware yükleme öncesi imza/CRC doğrulaması var mı? İletişim kopması / güç kesintisinde ECU tuğla olma (bricking) riskine karşı rollback ve kurtarma garantileri.
 
-## 2. İNCELE
-
-Odak soruları:
-
-**J1939 TP (transport.py):**
-- BAM ve RTS/CTS akışları: çok paketli mesaj tamponu sınırsız büyüyebilir mi?
-- Yarım kalan oturum (peer mesajı keserse) ne oluyor? Tampon sızar mı?
-- Sayaç (sequence number) doğrulaması var mı? Taşma?
-- Aynı anda iki peer'den mesaj gelirse çakışma?
-- Zaman aşımı (timeout) yönetimi — asılı oturum temizliği
-
-**ISO-TP (isotp.py):**
-- Sequence number doğrulaması, FF/CF/FC durum makinesi
-- Blok boyutu (BS) ve STmin doğrulaması, geçersiz değer
-- Tampon sınırı: bildirilen uzunluk (`FF` içindeki) gerçek ayırmadan büyükse?
-- Timeout ve N_As / N_Bs / N_Cr yönetimi
-- Reassembly'de bellek ayırma saldırısı (4095 byte sınırı)
-
-**Flasher (flasher.py):**
-- Firmware imza/CRC doğrulaması var mı? Doğrulama **yüklemeden önce** mi?
-- Güç kesilirse / yarıda kesilirse ne oluyor? Geri dönüş (rollback) var mı?
-- Blok sırası, adres sınırı, taşma
-- `0x34/0x36/0x37` (RequestDownload/TransferData/RequestTransferExit) akışı
-
-**UDS (client.py):**
-- NRC (negative response code) yönetimi — hangi NRC'ler ele alınmış?
-- Oturum (session) ve SecurityAccess atlatma: seed/key akışı doğru mu?
-- Sabit bekleme (`P2*`) ve tekrar deneme sınırı
-- Servis kimliği doğrulaması: hatalı SID sessizce düşüyor mu?
-
----
-
-## 3. YAZ
-
-Raporu **`docs/review/ASAMA-4-protokoller.md`** dosyasına yaz.
+## 3. Rapor Formatı
+Bulguları **`docs/review/ASAMA-4-protokoller.md`** dosyasına yaz:
 
 ```markdown
-# ASAMA 4: Protokol Katmanları
-Denetçi: <model adı> | Tarih: <YYYY-MM-DD>
-Kapsam: <okunan dosyalar ve satır sayıları>
+# ASAMA 4: Protokol Katmanları Raporu
+Denetçi: <model> | Tarih: <YYYY-MM-DD>
+Kapsam: <dosyalar ve satır sayıları>
 
-## 1. Genel Değerlendirme
+## 1. Yönetici Özeti
+<Protokol yığınının standarda uygunluğu, robustluk, DoS/OOM direnci ve kritik riskler.>
 
-## 2. Bulgular
+## 2. Bulgu Tablosu
 | # | dosya:satır | severity | sorun | senaryo | düzeltme |
 |---|---|---|---|---|---|
+*Severity: KRİTİK | YÜKSEK | ORTA | DÜŞÜK | BİLGİ*
 
-## 3. Severity Özeti
-KRİTİK: N | YÜKSEK: N | ORTA: N | DÜŞÜK: N | BİLGİ: N
+## 3. Detaylı Bulgular (Tüm KRİTİK ve YÜKSEK Seviyeler)
+### [Bulgu Kodu] <Kısa Başlık>
+- **Konum:** `dosya:satır`
+- **Etki / Risk:** <Protokol çökmesi, ECU hasarı veya veri bozulması etkisi>
+- **Kanıt / Zafiyet Analizi:** <Kod alıntısı ve teknik açıklama>
+- **İstismar / Tetiklenme Senaryosu:** <Protokol seviyesinde senaryo>
+- **Düzeltme (Remediation):** <Örnek güvenli kod parçası>
 
-## 4. En Önemli 3 Bulgu (detay)
-### B1: <başlık>
-- **Kanıt** (satır numaralı kod alıntısı)
-- **Neden sorun**
-- **Somut senaryo**
-- **Düzeltme**
-### B2, B3 aynı formatta
-
-## 5. Doğrulanamayanlar
-
-## 6. Sonraki Aşama İçin Not
+## 4. Doğrulanamayan / Standart Uyuşmazlıkları
 ```
 
----
-
-## 4. BİLDİR
-
-```
-AŞAMA 4 TAMAM — KRİTİK: x, YÜKSEK: y, ORTA: z, DÜŞÜK: w
-Rapor: docs/review/ASAMA-4-protokoller.md
-İlk 3 bulgu:
-- <dosya:satır> <kısa başlık>
-- <dosya:satır> <kısa başlık>
-- <dosya:satır> <kısa başlık>
-```
-
----
-
-## ÖNCEKİ AŞAMALAR BULGU ÖZETİ
-
-<Aşama 1-3 bildirimlerini yapıştır.>
-
----
-
-## KURALLAR
-
-1. **Bulgu uydurma.** Yalnızca okuduğun kodla kanıtlayabildiğini yaz.
-2. **Her bulgu `dosya:satır` içermeli.**
-3. **Severity gerekçelendir.**
-4. **Kod değiştirme.** Sadece analiz ve rapor.
-5. Türkçe yaz.
-6. Sadece bu aşamayı yap.
+## 4. Tamamlama Bildirimi
+Bitince sadece özeti yaz:
+`AŞAMA 4 TAMAM | KRİTİK: X, YÜKSEK: Y, ORTA: Z | Rapor: docs/review/ASAMA-4-protokoller.md`
