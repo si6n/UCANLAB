@@ -11,6 +11,7 @@ from dataclasses import dataclass
 
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
+from src.core.errors import LicenseError
 from src.core.logging import get_logger
 from src.safety.secret_provider import SecretProvider, get_default_secret_provider
 from src.security.cloud.client import CloudClient, CloudConfig
@@ -63,13 +64,34 @@ class LauncherAuthManager:
         if public_key is not None:
             self.public_key = public_key
         else:
+            # T41 / LA-1 (Y-3): a corrupt/mis-packaged embedded public key used
+            # to be swallowed by a bare `except Exception` and silently dropped
+            # licensing (flow=None → FREE). That is a fail-OPEN: the failure
+            # must be loud and terminal instead. Decode errors now raise
+            # LicenseError (fail-closed) after a CRITICAL log.
             try:
-                pub_bytes = base64.b64decode(DEFAULT_EMBEDDED_CLOUD_PUBLIC_KEY_B64)
+                pub_bytes = base64.b64decode(DEFAULT_EMBEDDED_CLOUD_PUBLIC_KEY_B64, validate=True)
                 self.public_key = ed25519.Ed25519PublicKey.from_public_bytes(pub_bytes)
-            except Exception:
-                self.public_key = None
+            except Exception as exc:
+                logger.critical(
+                    "Embedded cloud public key is invalid — refusing to start "
+                    "with licensing disabled (fail-closed)",
+                    extra={"error": str(exc)},
+                )
+                raise LicenseError(
+                    "Embedded license public key is invalid or corrupt; "
+                    "refusing to run with license verification disabled.",
+                    code="EMBEDDED_KEY_INVALID",
+                    cause=exc,
+                ) from exc
 
-        self.flow = LicenseFlow(self.client, self.public_key) if self.public_key else None
+        if self.public_key is None:  # defensive: unreachable, never fail open
+            logger.critical("License flow public key could not be established")
+            raise LicenseError(
+                "License public key unavailable after initialization.",
+                code="EMBEDDED_KEY_INVALID",
+            )
+        self.flow = LicenseFlow(self.client, self.public_key)
 
     @property
     def hwid(self) -> str:

@@ -1848,6 +1848,76 @@ def ensure_external_dtc_database_loaded() -> None:
         load_external_dtc_database()
         _DTC_DB_LOADED = True
 
+
+# ----------------------------------------------------------------------------
+# T41 P1-4: semptom -> kod aramasi (14.166 DTC kaydinda `symptoms` DOLU ama
+# motorda HIC okunmuyordu). Serbest-metin sorgu, onceki teshis yollarinin
+# hicbiriyle eslesmezse semptom/baslik metinlerinde deterministik olarak
+# aranir. Determinizm: sabit kod sirasi (sozluk ekleme sirasi), saf string
+# karsilastirma, rastgelelik/skor-esigi yan etkisi yok.
+# ----------------------------------------------------------------------------
+_SYMPTOM_SEARCH_STOPWORDS: frozenset[str] = frozenset({
+    "ariza", "arizasi", "hata", "kodu", "nedir", "ne", "nasil", "neden",
+    "var", "bir", "bu", "ve", "ile", "icin", "cok", "az", "mi", "mu",
+    "fault", "code", "the", "and", "why", "what",
+})
+
+
+def _symptom_search_terms(norm_query: str) -> list[str]:
+    """Deterministik sorgu terimleri: normalize edilmis kelimeler.
+
+    Yalniz uzunluk >= 4 ve stopword olmayan kelimeler; en fazla 6 terim.
+    Sira korunur (determinizm).
+    """
+    terms: list[str] = []
+    for raw in str(norm_query or "").split():
+        w = raw.strip()
+        if len(w) < 4 or w in _SYMPTOM_SEARCH_STOPWORDS:
+            continue
+        if w not in terms:
+            terms.append(w)
+        if len(terms) >= 6:
+            break
+    return terms
+
+
+def search_dtc_by_symptom(norm_query: str, limit: int = 1) -> list[dict[str, Any]]:
+    """DTC `symptoms`/`title` alanlarinda serbest-metin aramasi (T41 P1-4).
+
+    Returns a deterministic, ranked list of ``{"code", "score", "matched"}``
+    dicts (best first). Ties break on insertion order of the catalog, so the
+    same input always yields the same output. Read-only: no network/HAL.
+    """
+    terms = _symptom_search_terms(norm_query)
+    if not terms:
+        return []
+    ensure_external_dtc_database_loaded()
+    hits: list[tuple[int, int, str, list[str]]] = []
+    for order, (code, info) in enumerate(EXPERT_KNOWLEDGE_BASE.items()):
+        if not isinstance(info, dict):
+            continue
+        hay_parts: list[str] = []
+        sym = info.get("symptoms")
+        if isinstance(sym, list):
+            hay_parts.extend(str(x) for x in sym)
+        for key in ("title", "title_tr"):
+            v = info.get(key)
+            if isinstance(v, str):
+                hay_parts.append(v)
+        if not hay_parts:
+            continue
+        hay = AutomotiveTokenizer.normalize_text(" ".join(hay_parts))
+        matched = [t for t in terms if t in hay]
+        if matched:
+            hits.append((len(matched), order, str(code), matched))
+    # sort: more matched terms first, then catalog insertion order (stable).
+    hits.sort(key=lambda h: (-h[0], h[1]))
+    return [
+        {"code": c, "score": n, "matched": m}
+        for (n, _order, c, m) in hits[: max(1, limit)]
+    ]
+
+
 # ============================================================================
 # COMPLETE ISO 14229 UDS NEGATIVE RESPONSE CODE (NRC) CATALOG
 # ============================================================================
@@ -2425,6 +2495,22 @@ class CausalBayesianInferenceEngine:
         if "u0100" in norm_query or "iletisim koptu" in norm_query or "beyin cevap vermiyor" in norm_query:
             return cls._format_4stage_technician_report("U0100", telemetry)
 
+        # 5.9 T41 P1-4: semptom -> kod aramasi (fallback oncesi). DTC DB'sindeki
+        # 14.166 `symptoms` kaydi motorda hic okunmuyordu. Deterministik skor:
+        # en fazla eslesen terim; esitlikte katalog sirasi. Yalnizca gercek
+        # DB eslesmesi varsa rapor uretilir — uydurma kod onerilmez.
+        symptom_hits = search_dtc_by_symptom(norm_query, limit=1)
+        if symptom_hits:
+            _best = symptom_hits[0]["code"]
+            if _best in EXPERT_KNOWLEDGE_BASE:
+                _matched = symptom_hits[0].get("matched") or []
+                _hit_note = (
+                    f"\n\n🔎 **Semptom Eşleşmesi:** \"{', '.join(str(m) for m in _matched[:4])}\" "
+                    f"ifadeleri [{_best}] kaydının semptom/kategori metniyle eşleşti."
+                )
+                _report = cls._format_4stage_technician_report(_best, telemetry)
+                return _report + _hit_note
+
         # 6. Fallback General Diagnosis (Honest about lack of data, concise and simplified)
         fallback_text = (
             f"ℹ️ **Bilgi Bulunamadı:** '{user_query[:60]}' hakkında yerel teşhis veritabanında doğrudan bir eşleşme bulunamadı.\n\n"
@@ -2516,6 +2602,45 @@ class CausalBayesianInferenceEngine:
                 if _makes:
                     oem_block += f"\n  *Alan kapsamı:* {len(ev)} vaka / {len(_makes)} marka"
 
+        # T41 P1-3: `j1939_spn_fmi` kopru alani (697 DTC kaydinda DOLU) hic
+        # okunmuyordu. OBD DTC -> ilgili J1939 SPN/FMI gecisini kur; agir vasita
+        # teshisinde kod cevirisi saglar. Uydurma yok — yalnizca DB'de dolu
+        # kayitlar basilir.
+        bridge_block = ""
+        _bridge = info.get("j1939_spn_fmi")
+        if isinstance(_bridge, list) and _bridge:
+            _b_lines: list[str] = []
+            for _b in _bridge[:3]:
+                if not isinstance(_b, dict):
+                    continue
+                _bspn = _b.get("spn")
+                if _bspn is None:
+                    continue
+                _bname = str(_b.get("name", "") or "").strip()
+                _bfmi = _b.get("fm")
+                _bfmi_str = ""
+                if isinstance(_bfmi, list) and _bfmi:
+                    _bfmi_str = f" | FMI: {', '.join(str(x) for x in _bfmi[:4])}"
+                _bsys = _b.get("systems")
+                _bsys_str = ""
+                if isinstance(_bsys, list) and _bsys:
+                    _bsys_str = f" | Sistem: {', '.join(str(x) for x in _bsys[:3])}"
+                _resolved = ""
+                try:
+                    _jdb = get_j1939_spn_database()
+                    _spn_row = (_jdb.get("spns") or {}).get(f"SPN_{int(str(_bspn))}")
+                    if isinstance(_spn_row, dict):
+                        _resolved = _spn_row.get("title_tr") or _spn_row.get("name") or ""
+                except Exception:
+                    _resolved = ""
+                _label = _bname or _resolved
+                _b_lines.append(
+                    f"  • **SPN {_bspn}**" + (f" — {str(_label)[:120]}" if _label else "")
+                    + f"{_bfmi_str}{_bsys_str}"
+                )
+            if _b_lines:
+                bridge_block = "\n\n🔗 **İlgili J1939 SPN Köprüsü (DTC↔SPN):**\n" + "\n".join(_b_lines)
+
         report_text = (
             f"🚨 **[{code}] — {info.get('title', code)}** *(Öncelik: {info.get('severity', 'MEDIUM')})*\n"
             f"🏷️ **Alt Sistem:** {info.get('subsystem', 'Genel Teşhis')}{telemetry_str}\n\n"
@@ -2525,6 +2650,7 @@ class CausalBayesianInferenceEngine:
             f"⚡ **Aşama 2: Kesin Multimetre & Osiloskop Toleransları:**\n  • {measurement_block}\n"
             f"💻 **Aşama 3: UDS / J1939 Özel Teşhis Rutinleri:**\n  • `{routine_block}`\n"
             f"🔧 **Aşama 4: Parça Değişim & Adaptasyon Prosedürü:**\n  • Parça değişimi sonrası kontak açıkken `UDS 0x14` ile arıza hafızasını temizleyin."
+            f"{bridge_block}"
             f"{nhtsa_block}"
             f"{oem_block}"
         )
@@ -2597,8 +2723,19 @@ class CausalBayesianInferenceEngine:
                 fmi_info_str = (
                     f"⚡ **FMI {fmi_num} ({fmi_tree.get('fmi_name', '')}):** "
                     f"{fmi_tree.get('fault_title', fmi_tree.get('description_tr', ''))}\n"
-                    f"• **Eylem:** {fmi_tree.get('diagnostic_action', fmi_tree.get('action', 'Sensör devresini kontrol edin.'))}\n\n"
+                    f"• **Eylem:** {fmi_tree.get('diagnostic_action', fmi_tree.get('action', 'Sensör devresini kontrol edin.'))}\n"
                 )
+                # T41 P1-5: fault_matrix satirinda DOLU olan ama rapora hic
+                # girmeyen `severity_basis` (onem gerekcesi) ve `lamp` (ariza
+                # lambasi) alanlarini yuzeye cikar. Uydurma yok — alan yoksa
+                # satir uretilmez.
+                _sev_basis = str(fmi_tree.get("severity_basis", "") or "").strip()
+                if _sev_basis:
+                    fmi_info_str += f"• **Önem Gerekçesi:** {_sev_basis[:200]}\n"
+                _lamp = str(fmi_tree.get("lamp", "") or "").strip()
+                if _lamp:
+                    fmi_info_str += f"• **Gösterge Lambası:** {_lamp[:80]}\n"
+                fmi_info_str += "\n"
 
         # REVIEW (Tur-27 P0, @tuner AI plan Boguluk 2): SPN girdilerindeki OEM saha
         # kanıtları (dd_procedures, oem_field_evidence) daha once raporda HIC gorunmuyordu.
@@ -2657,6 +2794,52 @@ class CausalBayesianInferenceEngine:
                 _show = [str(x)[:60] for x in _occ[:5]]
                 oem_block += "\n\n🚚 **Görüldüğü Araçlar/Platformlar:** " + ", ".join(_show)
 
+        # T41 P1-2: J1939 SPN girdisindeki `causes` (3.710 SPN dolu) ve `steps`
+        # (3.444 SPN dolu) alanlari motorda HIC okunmuyordu. Uydurma yok —
+        # yalnizca DB'de dolu olan liste elemanlari basilir (fail-safe).
+        j1939_causes_block = ""
+        _jc = spn_entry.get("causes")
+        if isinstance(_jc, list):
+            _jc_lines = [str(c).strip() for c in _jc if isinstance(c, str) and str(c).strip()]
+            if _jc_lines:
+                j1939_causes_block = "\n\n🔍 **J1939 Olası Nedenler (DB):**\n" + "\n".join(
+                    f"  • {c[:200]}" for c in _jc_lines[:4]
+                )
+        j1939_steps_block = ""
+        _js = spn_entry.get("steps")
+        if isinstance(_js, list):
+            _js_lines = [str(s).strip() for s in _js if isinstance(s, str) and str(s).strip()]
+            if _js_lines:
+                j1939_steps_block = "\n\n📋 **J1939 Onarım Adımları (DB):**\n" + "\n".join(
+                    f"  {i + 1}. {s[:200]}" for i, s in enumerate(_js_lines[:4])
+                )
+
+        # T41 P1-1: Eaton PIM tam prosedürleri (`procedures_full`, 59 SPN) motor
+        # tarafindan HIC okunmuyordu (T36-T39 kurtarma emegi atildi). Yalnizca
+        # DB'de var olan alanlar basilir — uydurma prosedur uretilmez.
+        procedures_block = ""
+        _pf = spn_entry.get("procedures_full")
+        if isinstance(_pf, list) and _pf:
+            _pf_lines: list[str] = []
+            for _proc in _pf[:1]:
+                if not isinstance(_proc, dict):
+                    continue
+                _ec = str(_proc.get("eaton_fault_code", "") or "").strip()
+                if _ec:
+                    _pf_lines.append(f"  • **{_ec[:120]}**")
+                for _key, _label in (
+                    ("overview", "Genel Bakış"),
+                    ("detection", "Tespit"),
+                    ("conditions_set_active", "Aktif Olma Koşulu"),
+                    ("fallback", "Yedek Mod / Etki"),
+                    ("possible_causes", "Olası Nedenler"),
+                ):
+                    _val = str(_proc.get(_key, "") or "").strip()
+                    if _val:
+                        _pf_lines.append(f"  • **{_label}:** {_val[:240]}")
+            if _pf_lines:
+                procedures_block = "\n\n📖 **Eaton OEM Tam Prosedürü (PIM):**\n" + "\n".join(_pf_lines)
+
         report_text = (
             f"🚛 **[SPN {spn}] — {title_tr} ({name})**\n"
             f"🏷️ **Alt Sistem:** {subsystem} | {pgn_line} | **Aralık:** {range_str}\n"
@@ -2665,6 +2848,9 @@ class CausalBayesianInferenceEngine:
             f"📋 **SAE J1939-73 Saha Teşhis Adımları:**\n"
             f"1. {step1_pgn}\n"
             f"2. Sensör besleme voltajını (5V/12V) ve şasi hattını multimetre ile test edin."
+            f"{j1939_causes_block}"
+            f"{j1939_steps_block}"
+            f"{procedures_block}"
             f"{oem_block}"
         )
         actions = [make_j1939_dm1_action(), make_j1939_dm11_action()]
@@ -3084,9 +3270,26 @@ class AiDiagnosticCopilot:
                 synth_cause = f"{name}" + (f" — {fault_title}" if fault_title else "")
                 if synth_cause not in likely_causes:
                     likely_causes.append(synth_cause)
+                # T41 P1-2: J1939 girdisindeki DOLU `causes`/`steps` alanlari
+                # oturum yolunda HIC okunmuyordu (yalniz DTC DB tarafi okunuyordu).
+                # Deterministik: liste sirasi korunur, dedupe edilir, uydurma yok.
+                _j_causes = j1939_entry.get("causes")
+                if isinstance(_j_causes, list):
+                    for _c in _j_causes[:3]:
+                        _cs = str(_c).strip()
+                        if _cs and _cs not in likely_causes:
+                            likely_causes.append(_cs[:200])
                 if len(steps) < 5:
                     act = diag_action or f"{name} devresini/verisini kontrol edin"
                     steps.append(TroubleshootingStep(len(steps) + 1, act[:200], f"SPN {d.get('spn')}", "Orta (Alet Gerekir)"))
+                _j_steps = j1939_entry.get("steps")
+                if isinstance(_j_steps, list):
+                    for _s in _j_steps:
+                        if len(steps) >= 5:
+                            break
+                        _ss = str(_s).strip()
+                        if _ss:
+                            steps.append(TroubleshootingStep(len(steps) + 1, _ss[:200], f"SPN {d.get('spn')}", "Orta (Alet Gerekir)"))
                 fmi_sev = str(fmi_row.get("severity", "")).upper()
                 if fmi_sev == "CRITICAL_STOP":
                     severity = _raise_severity(severity, FaultSeverity.CRITICAL_STOP)

@@ -212,15 +212,20 @@ class LicenseValidator:
         let a single token unlock every machine in that state, so the caller
         must refuse instead of comparing.
 
+        Matching is case-insensitive on purpose (review T41): the collector
+        emits uppercase today, but nothing enforces that, and a lowercase
+        ``unknown_cpu`` would otherwise slip past this gate while still naming
+        no device.
+
         Wildcard (``*``) is handled separately by ``_allow_wildcard`` and is
         deliberately NOT treated as indeterminate — it is an explicit opt-in.
         """
         if not fingerprint:
             return True
-        fp = fingerprint.strip()
+        fp = fingerprint.strip().lower()
         if not fp or fp == "*":
             return False
-        return any(marker in fp for marker in self._indeterminate_markers)
+        return any(marker.lower() in fp for marker in self._indeterminate_markers)
 
     def verify_token(self, token_str: str) -> LicensePayload:
         """Verify Ed25519 token signature, hardware fingerprint, and expiration.

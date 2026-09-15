@@ -103,7 +103,9 @@ def _run_powershell(command: str) -> str:
         )
         return result.stdout.strip()
     except (subprocess.TimeoutExpired, OSError, FileNotFoundError) as exc:
-        logger.warning(f"PowerShell command failed: {command}", extra={"error": str(exc)})
+        # T41 / H-2: do NOT log the command text (reconnaissance leak + potential
+        # log injection surface). Log a fixed label and the exception only.
+        logger.warning("PowerShell command failed", extra={"error": str(exc)})
         return ""
 
 

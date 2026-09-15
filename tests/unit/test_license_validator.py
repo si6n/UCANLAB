@@ -756,3 +756,29 @@ def test_real_fingerprint_still_verifies() -> None:
     )
     validator.clock = FakeWallClock(now)
     assert validator.verify_token(token_str).hardware_fingerprint == fp
+
+
+def test_sentinel_match_is_case_insensitive() -> None:
+    """Review T41: the collector emits uppercase sentinels today, but nothing
+    enforces it. A lowercase 'unknown_cpu' names no device either, so it must be
+    refused rather than slipping past a case-sensitive comparison."""
+    priv_key = ed25519.Ed25519PrivateKey.generate()
+    now = int(time.time())
+    for lowered in ["unknown_cpu-unknown_disk", "fallback-host-aa:bb", "Unknown_Bios"]:
+        payload_dict = {
+            "user_id": "usr_ci",
+            "tier": "PRO",
+            "hardware_fingerprint": lowered,
+            "issued_at": now - 60,
+            "expires_at": now + 86400,
+        }
+        token_str = LicenseValidator.generate_signed_token(priv_key, payload_dict)
+        validator = LicenseValidator(
+            public_key=priv_key.public_key(),
+            hardware_fingerprint=lowered,
+            last_online_sync_ts=now,
+        )
+        validator.clock = FakeWallClock(now)
+        with pytest.raises(LicenseError) as exc_info:
+            validator.verify_token(token_str)
+        assert exc_info.value.code == "HARDWARE_INDETERMINATE"

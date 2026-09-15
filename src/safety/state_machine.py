@@ -5,7 +5,10 @@ Complies with Saha Risk Kataloğu v1.2 Sections 4, 5, 6, 37, 38 and CAN-12, CAN-
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import re
+import secrets as _secrets
 import threading
 import time
 from collections import deque
@@ -88,6 +91,8 @@ class SafetySupervisor:
         self,
         initial_state: SafetyState = SafetyState.STARTUP,
         estop: Any | None = None,
+        auth_secret: bytes | None = None,
+        allow_unauthenticated_arm: bool = False,
     ) -> None:
         # Fail-open start guard: TX-permitting states can never be the boot state.
         if initial_state in {SafetyState.ARMED_TX, SafetyState.ACTIVE}:
@@ -95,9 +100,22 @@ class SafetySupervisor:
                 f"Refusing fail-open boot state {initial_state.value}: "
                 "initial_state must be STARTUP/SAFE/PASSIVE/FAULT"
             )
+        if auth_secret is not None and not isinstance(auth_secret, (bytes, bytearray)):
+            raise TypeError("auth_secret must be bytes or None")
         self._state = initial_state
         self._estop = estop
         self._estop_bound = estop is not None
+        # T41 / S-1 (Y-2): the ARMED_TX/ACTIVE gate is the single functional
+        # authorization point for TX. When an HMAC `auth_secret` is configured,
+        # arm_tx/activate_tx REQUIRE a valid single-use token — a missing token
+        # fails CLOSED with SafetyError. `allow_unauthenticated_arm=True` is an
+        # explicit, default-OFF escape hatch for staged migrations.
+        # When auth_secret is None there is no authenticator wired: the legacy
+        # (unauthenticated) path is preserved for backward compatibility and
+        # logs a WARNING so the missing identity check is visible.
+        self._auth_secret: bytes | None = bytes(auth_secret) if auth_secret is not None else None
+        self._allow_unauthenticated_arm: bool = bool(allow_unauthenticated_arm)
+        self._consumed_arm_tokens: deque[bytes] = deque(maxlen=1024)
         self._epoch: int = 0
         self._state_change_timestamp_ns: int = time.monotonic_ns()
         self._last_duration_ns: int = 0
@@ -317,20 +335,120 @@ class SafetySupervisor:
         """Safely transition to PASSIVE (Listen-Only) mode."""
         self.transition_to(SafetyState.PASSIVE, reason=reason)
 
-    def arm_tx(self, reason: str = "Operator explicitly ARMED TX pipeline", auth_token: str | None = None) -> None:
+    def issue_arm_token(self, ttl_s: float = 30.0) -> str:
+        """Mint a single-use HMAC authorization token for arm_tx/activate_tx.
+
+        Requires a configured `auth_secret` (see __init__). The token binds a
+        random nonce + monotonic expiry under the secret; it is verified with
+        hmac.compare_digest and burned on first use, so a replayed token fails
+        closed. Format: ``<expiry_ns>.<nonce_hex>.<mac_hex>``.
+        """
+        if self._auth_secret is None:
+            raise SafetyError(
+                "Arm tokens require a configured supervisor auth_secret",
+                code="ARM_AUTH_NOT_CONFIGURED",
+            )
+        expiry_ns = time.monotonic_ns() + int(max(1.0, ttl_s) * 1_000_000_000)
+        nonce = _secrets.token_bytes(16)
+        payload = expiry_ns.to_bytes(8, "big", signed=False) + nonce
+        mac = hmac.new(self._auth_secret, payload, hashlib.sha256).digest()
+        return f"{expiry_ns}.{nonce.hex()}.{mac.hex()}"
+
+    def _verify_arm_token(self, auth_token: str) -> None:
+        """Verify a presented arm token (fail-closed: expiry + single-use + HMAC)."""
+        assert self._auth_secret is not None
+        token = auth_token.strip() if isinstance(auth_token, str) else ""
+        parts = token.split(".")
+        if len(parts) != 3:
+            raise SafetyError(
+                "TX authorization rejected: malformed auth token",
+                code="ARM_AUTH_INVALID",
+            )
+        expiry_s, nonce_hex, mac_hex = parts
+        try:
+            expiry_ns = int(expiry_s)
+            nonce = bytes.fromhex(nonce_hex)
+            mac = bytes.fromhex(mac_hex)
+        except ValueError as exc:
+            raise SafetyError(
+                "TX authorization rejected: malformed auth token",
+                code="ARM_AUTH_INVALID",
+            ) from exc
+        payload = expiry_ns.to_bytes(8, "big", signed=False) + nonce
+        expected = hmac.new(self._auth_secret, payload, hashlib.sha256).digest()
+        if not hmac.compare_digest(mac, expected):
+            raise SafetyError(
+                "TX authorization rejected: invalid auth token",
+                code="ARM_AUTH_INVALID",
+            )
+        if time.monotonic_ns() > expiry_ns:
+            raise SafetyError(
+                "TX authorization rejected: auth token expired",
+                code="ARM_AUTH_EXPIRED",
+            )
+        if payload in self._consumed_arm_tokens:
+            raise SafetyError(
+                "TX authorization rejected: auth token already consumed",
+                code="ARM_AUTH_REPLAYED",
+            )
+        self._consumed_arm_tokens.append(payload)
+
+    def _require_arm_authorization(self, operation: str, auth_token: str | None) -> None:
+        """Enforce the TX-authorization gate for arm_tx/activate_tx (T41 / S-1).
+
+        Fail-closed policy:
+          * ``auth_secret`` configured -> a valid, unexpired, single-use token
+            is REQUIRED (missing/invalid => SafetyError). The legacy
+            ``allow_unauthenticated_arm`` opt-in downgrades this to a WARNING.
+          * ``auth_secret`` None -> no authenticator is wired; the legacy
+            unauthenticated path is preserved with a WARNING (backward compat).
+        """
+        if self._auth_secret is not None:
+            if auth_token is None:
+                if self._allow_unauthenticated_arm:
+                    logger.warning(
+                        "%s without auth_token (allow_unauthenticated_arm=True legacy override)",
+                        operation,
+                    )
+                    return
+                logger.critical(
+                    "%s without auth_token while auth_secret is configured — FAIL CLOSED",
+                    operation,
+                )
+                raise SafetyError(
+                    f"{operation} rejected: auth_token is required "
+                    "(a supervisor auth_secret is configured)",
+                    code="ARM_AUTH_REQUIRED",
+                )
+            self._verify_arm_token(auth_token)
+            return
+        logger.warning(
+            "%s without auth_secret configured (legacy unauthenticated path)",
+            operation,
+        )
+
+    def arm_tx(
+        self,
+        reason: str = "Operator explicitly ARMED TX pipeline",
+        auth_token: str | None = None,
+    ) -> None:
         """Explicitly arm the TX pipeline.
 
-        auth_token is optional for backward compatibility (None keeps current
-        behavior with a warning; future hardening will require it).
+        The authorization gate is enforced by ``_require_arm_authorization``:
+        when an ``auth_secret`` is configured on this supervisor, ``auth_token``
+        is mandatory and HMAC-verified (fail-closed). See the constructor for
+        the ``allow_unauthenticated_arm`` compatibility flag.
         """
-        if auth_token is None:
-            logger.warning("arm_tx without auth_token (legacy path, will require token)")
+        self._require_arm_authorization("arm_tx", auth_token)
         self.transition_to(SafetyState.ARMED_TX, reason=reason)
 
-    def activate_tx(self, reason: str = "TX active transmission ongoing", auth_token: str | None = None) -> None:
-        """Transition from ARMED_TX to ACTIVE."""
-        if auth_token is None:
-            logger.warning("activate_tx without auth_token (legacy path, will require token)")
+    def activate_tx(
+        self,
+        reason: str = "TX active transmission ongoing",
+        auth_token: str | None = None,
+    ) -> None:
+        """Transition from ARMED_TX to ACTIVE (same authorization gate as arm_tx)."""
+        self._require_arm_authorization("activate_tx", auth_token)
         self.transition_to(SafetyState.ACTIVE, reason=reason)
 
     def trigger_fault(self, reason: str = "Safety fault detected") -> None:

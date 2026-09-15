@@ -136,6 +136,7 @@ class TxSafetyGateway:
         e2e_packager: E2ESafetyPackager | None = None,
         e2e_profiles: Mapping[int, E2EProfileConfig] | None = None,
         confirmation_secret: bytes | None = None,
+        allow_legacy_boolean_confirm: bool = False,
     ) -> None:
         self._bus = bus
         if estop is not None:
@@ -170,6 +171,12 @@ class TxSafetyGateway:
         self._confirmation_secret: bytes | None = (
             bytes(confirmation_secret) if confirmation_secret is not None else None
         )
+        # T41 / G-1 (Y-1): when a confirmation secret IS configured, the HMAC
+        # ConfirmationToken is the ONLY accepted proof — a bare `user_confirmed`
+        # boolean must NOT bypass it. The explicit, default-OFF escape hatch
+        # below exists solely for staged migrations; enabling it restores the
+        # legacy behavior with a WARNING instead of the fail-closed rejection.
+        self._allow_legacy_boolean_confirm: bool = bool(allow_legacy_boolean_confirm)
         self._consumed_confirmations: set[bytes] = set()
         # Whitelist single-miss streak: first miss = reject+alarm, persistent
         # pattern (>= WHITELIST_ESTOP_AFTER) = latch E-Stop.
@@ -616,9 +623,11 @@ class TxSafetyGateway:
             #
             # Backward compat: the `user_confirmed` boolean is KEPT (API break
             # is out of scope). It is documented as operator-assertion only.
-            # When a confirmation secret is configured AND a confirmation_token
-            # is presented, the token is HMAC-verified (single-use, TTL-bound);
-            # a missing/invalid token fails closed even if the boolean is True.
+            # When a confirmation secret is configured, the HMAC token is the
+            # ONLY accepted proof: a missing token fails CLOSED even when the
+            # boolean is True (T41 / G-1 fix). The legacy boolean path is
+            # reachable only via an explicit, default-OFF constructor opt-in
+            # (`allow_legacy_boolean_confirm=True`), which logs a WARNING.
             # -----------------------------------------------------------------
             if is_critical_command:
                 if self._confirmation_secret is not None and confirmation_token is not None:
@@ -628,8 +637,14 @@ class TxSafetyGateway:
                         "Critical command rejected: Operator dual-confirmation missing",
                     )
                 if self._confirmation_secret is not None and confirmation_token is None:
-                    # Secret configured but caller still on legacy boolean path:
-                    # allow (compat) but audit — migration target is tokens.
+                    if not self._allow_legacy_boolean_confirm:
+                        # Fail-closed: a configured secret means cryptographic
+                        # proof is mandatory — the boolean is NOT sufficient.
+                        raise DualConfirmationRequiredError(
+                            "Critical command rejected: confirmation token required "
+                            "(a confirmation secret is configured on this gateway)",
+                        )
+                    # Explicit legacy opt-in: allow (compat) but audit loudly.
                     logger.warning(
                         "Critical command used legacy boolean confirmation "
                         "(no ConfirmationToken presented)",
