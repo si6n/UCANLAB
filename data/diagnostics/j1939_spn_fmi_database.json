@@ -11652,11 +11652,12 @@
      "source": "SITRAK CC BY 4.0 (megadata.pro, Tur-31 @cockpit)"
     },
     "3": {
-     "fault_title": "FMI 3: Gerilim normalin üzerinde veya artı beslemeye kısa devre",
+     "fault_title": "Denetleyici #1 Arızası - Gerilim normalin üzerinde veya artı beslemeye kısa devre",
      "fmi_name": "Gerilim normalin üzerinde veya kısa devre (yüksek)",
      "severity": "MEDIUM",
      "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
-     "fault_title_tr": "Denetleyici #1 Arızası - Gerilim normalin üzerinde veya kısa devre (yüksek)"
+     "fault_title_tr": "Denetleyici #1 Arızası - Gerilim normalin üzerinde veya kısa devre (yüksek)",
+     "fault_title_generic": "FMI 3: Gerilim normalin üzerinde veya artı beslemeye kısa devre"
     },
     "4": {
      "fault_title": "DemEvent rba_MultiStackTrace_Threshold'den uretilen DFC (teshis ariza kontrolu): Yigin bellegi esik asimi",
@@ -11671,11 +11672,12 @@
      "source": "SITRAK CC BY 4.0 (megadata.pro, Tur-31 @cockpit)"
     },
     "7": {
-     "fault_title": "FMI 7: Mekanik sistem yanıt vermiyor veya kalibrasyon dışı",
+     "fault_title": "Denetleyici #1 Arızası - Mekanik sistem yanıt vermiyor veya kalibrasyon dışı",
      "fmi_name": "Mekanik sistem doğru yanıt vermiyor veya ayar dışı",
      "severity": "MEDIUM",
      "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
-     "fault_title_tr": "Denetleyici #1 Arızası - Mekanik sistem doğru yanıt vermiyor veya ayar dışı"
+     "fault_title_tr": "Denetleyici #1 Arızası - Mekanik sistem doğru yanıt vermiyor veya ayar dışı",
+     "fault_title_generic": "FMI 7: Mekanik sistem yanıt vermiyor veya kalibrasyon dışı"
     },
     "9": {
      "fault_title": "ABS valfi - aktifleşme süresi",
@@ -42374,18 +42376,20 @@
      "severity_basis": "alt sistem bağlamı (Tur-31)"
     },
     "2": {
-     "fault_title": "FMI 2: Veriler kararsız, kesintili veya hatalı",
+     "fault_title": "Denetleyici #2 - Veriler kararsız, kesintili veya hatalı",
      "fmi_name": "Veri tutarsız, kesintili veya hatalı",
      "severity": "MEDIUM",
      "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
-     "fault_title_tr": "Denetleyici #2 - Veri tutarsız, kesintili veya hatalı"
+     "fault_title_tr": "Denetleyici #2 - Veri tutarsız, kesintili veya hatalı",
+     "fault_title_generic": "FMI 2: Veriler kararsız, kesintili veya hatalı"
     },
     "11": {
-     "fault_title": "FMI 11: Arıza nedeni belirlenemiyor",
+     "fault_title": "Denetleyici #2 - Arıza nedeni belirlenemiyor",
      "fmi_name": "Arıza modu tanımlanamadı / kök neden bilinmiyor",
      "severity": "MEDIUM",
      "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
-     "fault_title_tr": "Denetleyici #2 - Arıza modu tanımlanamadı / kök neden bilinmiyor"
+     "fault_title_tr": "Denetleyici #2 - Arıza modu tanımlanamadı / kök neden bilinmiyor",
+     "fault_title_generic": "FMI 11: Arıza nedeni belirlenemiyor"
     }
    },
    "oem_field_evidence": {
@@ -55731,11 +55735,12 @@
      "severity_basis": "alt sistem bağlamı (Tur-31)"
     },
     "31": {
-     "fault_title": "FMI 31: Durum mevcut değil",
+     "fault_title": "Kaynak Adresi 11 - Durum mevcut değil",
      "fmi_name": "Koşul mevcut / Belirli bir durum mevcut",
      "severity": "MEDIUM",
      "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
-     "fault_title_tr": "Kaynak Adresi 11 - Koşul mevcut / Belirli bir durum mevcut"
+     "fault_title_tr": "Kaynak Adresi 11 - Koşul mevcut / Belirli bir durum mevcut",
+     "fault_title_generic": "FMI 31: Durum mevcut değil"
     }
    },
    "oem_field_evidence": {
@@ -57979,11 +57984,12 @@
      "severity": "MEDIUM"
     },
     "14": {
-     "fault_title": "FMI 14: Özel talimatlar",
+     "fault_title": "Motor Magnetic Devri/Hızı / Pozisyonu Lost Both of Two Signals - Özel talimatlar",
      "fmi_name": "Özel talimatlar",
      "severity": "MEDIUM",
      "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
-     "fault_title_tr": "Motor Magnetic Devri/Hızı / Pozisyonu Lost Both of Two Signals - Özel talimatlar"
+     "fault_title_tr": "Motor Magnetic Devri/Hızı / Pozisyonu Lost Both of Two Signals - Özel talimatlar",
+     "fault_title_generic": "FMI 14: Özel talimatlar"
     },
     "19": {
      "fault_title": "NH3 sensoru akuye kisa devre",
@@ -75428,7 +75434,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 0 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 0 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     },
     "1": {
      "fault_title": "Kapalı devre hava-yakıt oranı kontrolü sınıra ulaştı / doğal gaz aşırı zengin",
@@ -75540,7 +75547,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 9 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 9 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     },
     "3": {
      "fault_title": "Kısa devre (beslemeye)",
@@ -76149,7 +76157,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 151 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 151 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -76191,7 +76200,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 155 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 155 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -76340,7 +76350,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 201 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 201 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -76385,7 +76396,8 @@
      "diagnostic_action": "Kaynak sayfada saha teşhisi anlatımı mevcut (j1939hub.com).",
      "severity": "MEDIUM",
      "source_note": "j1939hub.com temsili sayfa",
-     "fault_title_en": "SPN 204 - Abnormal Frequency, Pulse Width Or Period"
+     "fault_title_en": "SPN 204 - Abnormal Frequency, Pulse Width Or Period",
+     "fault_title_source": "fmi_catalog_generic"
     },
     "5": {
      "fault_title": "Terminal 30B beslemesi",
@@ -76440,7 +76452,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 205 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 205 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -76486,7 +76499,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 211 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 211 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -76529,7 +76543,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 212 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 212 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -76569,7 +76584,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 214 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 214 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -76614,7 +76630,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 216 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 216 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -76661,7 +76678,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 221 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 221 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -76910,7 +76928,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 239 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 239 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -77130,7 +77149,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 253 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 253 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     },
     "3": {
      "fault_title": "VCE2 beslemesi (kavrama silindiri - hızlı çıkış)",
@@ -77218,7 +77238,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 254 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 254 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     },
     "2": {
      "fault_title": "Bileşen: kontrol ünitesi (dahili arıza)",
@@ -77328,7 +77349,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 266 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 266 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -77374,7 +77396,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 270 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 270 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -77419,7 +77442,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 278 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 278 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -77465,7 +77489,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 324 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 324 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -77634,7 +77659,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 362 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 362 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -77681,7 +77707,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 385 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 385 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -79436,11 +79463,12 @@
      "fault_title_tr": "Wheel Sensörü ABS Axle 1 Left - Bozuk akıllı cihaz veya bileşen (Dahili arıza)"
     },
     "13": {
-     "fault_title": "FMI 13: Değer kalibrasyon dışı",
+     "fault_title": "Wheel Sensörü ABS Axle 1 Left - Değer kalibrasyon dışı",
      "fmi_name": "Kalibrasyon dışı",
      "severity": "MEDIUM",
      "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
-     "fault_title_tr": "Wheel Sensörü ABS Axle 1 Left - Kalibrasyon dışı"
+     "fault_title_tr": "Wheel Sensörü ABS Axle 1 Left - Kalibrasyon dışı",
+     "fault_title_generic": "FMI 13: Değer kalibrasyon dışı"
     },
     "14": {
      "fault_title": "ABS aks 1 sol tekerlek sensoru - ozel talimatlar",
@@ -79572,11 +79600,12 @@
      "fault_title_tr": "Wheel Sensörü ABS Axle 1 Right - Bozuk akıllı cihaz veya bileşen (Dahili arıza)"
     },
     "13": {
-     "fault_title": "FMI 13: Değer kalibrasyon dışı",
+     "fault_title": "Wheel Sensörü ABS Axle 1 Right - Değer kalibrasyon dışı",
      "fmi_name": "Kalibrasyon dışı",
      "severity": "MEDIUM",
      "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
-     "fault_title_tr": "Wheel Sensörü ABS Axle 1 Right - Kalibrasyon dışı"
+     "fault_title_tr": "Wheel Sensörü ABS Axle 1 Right - Kalibrasyon dışı",
+     "fault_title_generic": "FMI 13: Değer kalibrasyon dışı"
     },
     "14": {
      "fault_title": "ABS aks 1 sag tekerlek sensoru - ozel talimatlar",
@@ -79708,11 +79737,12 @@
      "fault_title_tr": "Wheel Sensörü ABS Axle 2 Left - Bozuk akıllı cihaz veya bileşen (Dahili arıza)"
     },
     "13": {
-     "fault_title": "FMI 13: Değer kalibrasyon dışı",
+     "fault_title": "Wheel Sensörü ABS Axle 2 Left - Değer kalibrasyon dışı",
      "fmi_name": "Kalibrasyon dışı",
      "severity": "MEDIUM",
      "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
-     "fault_title_tr": "Wheel Sensörü ABS Axle 2 Left - Kalibrasyon dışı"
+     "fault_title_tr": "Wheel Sensörü ABS Axle 2 Left - Kalibrasyon dışı",
+     "fault_title_generic": "FMI 13: Değer kalibrasyon dışı"
     },
     "14": {
      "fault_title": "ABS aks 2 sol tekerlek sensoru - ozel talimatlar",
@@ -79850,11 +79880,12 @@
      "fault_title_tr": "Wheel Sensörü ABS Axle 2 Right - Bozuk akıllı cihaz veya bileşen (Dahili arıza)"
     },
     "13": {
-     "fault_title": "FMI 13: Değer kalibrasyon dışı",
+     "fault_title": "Wheel Sensörü ABS Axle 2 Right - Değer kalibrasyon dışı",
      "fmi_name": "Kalibrasyon dışı",
      "severity": "MEDIUM",
      "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
-     "fault_title_tr": "Wheel Sensörü ABS Axle 2 Right - Kalibrasyon dışı"
+     "fault_title_tr": "Wheel Sensörü ABS Axle 2 Right - Kalibrasyon dışı",
+     "fault_title_generic": "FMI 13: Değer kalibrasyon dışı"
     },
     "14": {
      "fault_title": "ABS aks 2 sag tekerlek sensoru - ozel talimatlar",
@@ -79994,11 +80025,12 @@
      "fault_title_tr": "Wheel Sensörü ABS Axle 3 Left - Bozuk akıllı cihaz veya bileşen (Dahili arıza)"
     },
     "13": {
-     "fault_title": "FMI 13: Değer kalibrasyon dışı",
+     "fault_title": "Wheel Sensörü ABS Axle 3 Left - Değer kalibrasyon dışı",
      "fmi_name": "Kalibrasyon dışı",
      "severity": "MEDIUM",
      "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
-     "fault_title_tr": "Wheel Sensörü ABS Axle 3 Left - Kalibrasyon dışı"
+     "fault_title_tr": "Wheel Sensörü ABS Axle 3 Left - Kalibrasyon dışı",
+     "fault_title_generic": "FMI 13: Değer kalibrasyon dışı"
     },
     "14": {
      "fault_title": "ABS aks 3 sol tekerlek sensoru - ozel talimatlar",
@@ -80138,11 +80170,12 @@
      "fault_title_tr": "Wheel Sensörü ABS Axle 3 Right - Bozuk akıllı cihaz veya bileşen (Dahili arıza)"
     },
     "13": {
-     "fault_title": "FMI 13: Değer kalibrasyon dışı",
+     "fault_title": "Wheel Sensörü ABS Axle 3 Right - Değer kalibrasyon dışı",
      "fmi_name": "Kalibrasyon dışı",
      "severity": "MEDIUM",
      "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
-     "fault_title_tr": "Wheel Sensörü ABS Axle 3 Right - Kalibrasyon dışı"
+     "fault_title_tr": "Wheel Sensörü ABS Axle 3 Right - Kalibrasyon dışı",
+     "fault_title_generic": "FMI 13: Değer kalibrasyon dışı"
     },
     "14": {
      "fault_title": "ABS aks 3 sag tekerlek sensoru - ozel talimatlar",
@@ -80222,18 +80255,20 @@
      "fault_title_tr": "Basıncı Modulation Valf ABS Axle 2 Right - Akım normalin üzerinde veya devre şasiye kısa devre"
     },
     "13": {
-     "fault_title": "FMI 13: Değer kalibrasyon dışı",
+     "fault_title": "Basıncı Modulation Valf ABS Axle 2 Right - Değer kalibrasyon dışı",
      "fmi_name": "Kalibrasyon dışı",
      "severity": "MEDIUM",
      "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
-     "fault_title_tr": "Basıncı Modulation Valf ABS Axle 2 Right - Kalibrasyon dışı"
+     "fault_title_tr": "Basıncı Modulation Valf ABS Axle 2 Right - Kalibrasyon dışı",
+     "fault_title_generic": "FMI 13: Değer kalibrasyon dışı"
     },
     "14": {
-     "fault_title": "FMI 14: Özel talimatlar",
+     "fault_title": "Basıncı Modulation Valf ABS Axle 2 Right - Özel talimatlar",
      "fmi_name": "Özel talimatlar",
      "severity": "MEDIUM",
      "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
-     "fault_title_tr": "Basıncı Modulation Valf ABS Axle 2 Right - Özel talimatlar"
+     "fault_title_tr": "Basıncı Modulation Valf ABS Axle 2 Right - Özel talimatlar",
+     "fault_title_generic": "FMI 14: Özel talimatlar"
     }
    },
    "source": "tur23_j1939hub",
@@ -80507,11 +80542,12 @@
      "fault_title_tr": "Dif 1 - ASR Valf - Kalibrasyon dışı"
     },
     "14": {
-     "fault_title": "FMI 14: Özel talimatlar",
+     "fault_title": "Dif 1 - ASR Valf - Özel talimatlar",
      "fmi_name": "Özel talimatlar",
      "severity": "MEDIUM",
      "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
-     "fault_title_tr": "Dif 1 - ASR Valf - Özel talimatlar"
+     "fault_title_tr": "Dif 1 - ASR Valf - Özel talimatlar",
+     "fault_title_generic": "FMI 14: Özel talimatlar"
     }
    },
    "source": "tur23_j1939hub",
@@ -80645,11 +80681,12 @@
      "fault_title_tr": "Dif 2 - ASR Valf - Kalibrasyon dışı"
     },
     "14": {
-     "fault_title": "FMI 14: Özel talimatlar",
+     "fault_title": "Dif 2 - ASR Valf - Özel talimatlar",
      "fmi_name": "Özel talimatlar",
      "severity": "MEDIUM",
      "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
-     "fault_title_tr": "Dif 2 - ASR Valf - Özel talimatlar"
+     "fault_title_tr": "Dif 2 - ASR Valf - Özel talimatlar",
+     "fault_title_generic": "FMI 14: Özel talimatlar"
     }
    },
    "source": "tur23_j1939hub",
@@ -80704,11 +80741,12 @@
      "source": "SITRAK CC BY 4.0 (megadata.pro, Tur-31 @cockpit)"
     },
     "7": {
-     "fault_title": "FMI 7: Mekanik sistem yanıt vermiyor veya kalibrasyon dışı",
+     "fault_title": "Hız Sinyali Girişi - Mekanik sistem yanıt vermiyor veya kalibrasyon dışı",
      "fmi_name": "Mekanik sistem doğru yanıt vermiyor veya ayar dışı",
      "severity": "MEDIUM",
      "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
-     "fault_title_tr": "Hız Sinyali Girişi - Mekanik sistem doğru yanıt vermiyor veya ayar dışı"
+     "fault_title_tr": "Hız Sinyali Girişi - Mekanik sistem doğru yanıt vermiyor veya ayar dışı",
+     "fault_title_generic": "FMI 7: Mekanik sistem yanıt vermiyor veya kalibrasyon dışı"
     },
     "8": {
      "fault_title": "Hız sinyali girişi",
@@ -80968,7 +81006,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 906 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 906 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     },
     "2": {
      "fault_title": "Ön aks sağ tekerleğin ön aks hızına göre izafi hızı (SPN 904)",
@@ -81092,7 +81131,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 908 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 908 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     },
     "2": {
      "fault_title": "Arka aks 1 sağ tekerleğin ön aks hızına göre izafi hızı (SPN 904)",
@@ -81279,11 +81319,12 @@
      "severity_basis": "alt sistem bağlamı (Tur-31)"
     },
     "2": {
-     "fault_title": "FMI 2: Veriler kararsız, kesintili veya hatalı",
+     "fault_title": "Fren Light Şalteri / Anahtarı 1 - Veriler kararsız, kesintili veya hatalı",
      "fmi_name": "Veri tutarsız, kesintili veya hatalı",
      "severity": "MEDIUM",
      "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
-     "fault_title_tr": "Fren Light Şalteri / Anahtarı 1 - Veri tutarsız, kesintili veya hatalı"
+     "fault_title_tr": "Fren Light Şalteri / Anahtarı 1 - Veri tutarsız, kesintili veya hatalı",
+     "fault_title_generic": "FMI 2: Veriler kararsız, kesintili veya hatalı"
     },
     "3": {
      "fault_title": "Fren lambaları anahtarı 1",
@@ -81305,11 +81346,12 @@
      "source": "SITRAK CC BY 4.0 (megadata.pro, Tur-31 @cockpit)"
     },
     "7": {
-     "fault_title": "FMI 7: Mekanik sistem yanıt vermiyor veya kalibrasyon dışı",
+     "fault_title": "Fren Light Şalteri / Anahtarı 1 - Mekanik sistem yanıt vermiyor veya kalibrasyon dışı",
      "fmi_name": "Mekanik sistem doğru yanıt vermiyor veya ayar dışı",
      "severity": "MEDIUM",
      "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
-     "fault_title_tr": "Fren Light Şalteri / Anahtarı 1 - Mekanik sistem doğru yanıt vermiyor veya ayar dışı"
+     "fault_title_tr": "Fren Light Şalteri / Anahtarı 1 - Mekanik sistem doğru yanıt vermiyor veya ayar dışı",
+     "fault_title_generic": "FMI 7: Mekanik sistem yanıt vermiyor veya kalibrasyon dışı"
     }
    },
    "source": "tur23_j1939hub",
@@ -81357,11 +81399,12 @@
      "source_note": "j1939hub.com temsili sayfa"
     },
     "2": {
-     "fault_title": "FMI 2: Veriler kararsız, kesintili veya hatalı",
+     "fault_title": "Aks Yük Sensörü - Veriler kararsız, kesintili veya hatalı",
      "fmi_name": "Veri tutarsız, kesintili veya hatalı",
      "severity": "MEDIUM",
      "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
-     "fault_title_tr": "Aks Yük Sensörü - Veri tutarsız, kesintili veya hatalı"
+     "fault_title_tr": "Aks Yük Sensörü - Veri tutarsız, kesintili veya hatalı",
+     "fault_title_generic": "FMI 2: Veriler kararsız, kesintili veya hatalı"
     }
    },
    "source": "tur23_j1939hub",
@@ -83014,7 +83057,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 2567 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 2567 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -85406,7 +85450,8 @@
      "diagnostic_action": "Kaynak sayfada saha teşhisi anlatımı mevcut (j1939hub.com).",
      "severity": "MEDIUM",
      "source_note": "j1939hub.com temsili sayfa",
-     "fault_title_en": "SPN 52353 - Condition Exists"
+     "fault_title_en": "SPN 52353 - Condition Exists",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -85445,7 +85490,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 61446 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 61446 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -85492,7 +85538,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 61683 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 61683 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -85539,7 +85586,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 65535 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 65535 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -85592,7 +85640,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 86566 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 86566 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -85639,7 +85688,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 459520 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 459520 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -85686,7 +85736,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 516497 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 516497 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -85731,7 +85782,8 @@
      "diagnostic_action": "Kaynak sayfada saha teşhisi anlatımı mevcut (j1939hub.com).",
      "severity": "MEDIUM",
      "source_note": "j1939hub.com temsili sayfa",
-     "fault_title_en": "SPN 516499 - Bad Intelligent Device Or Component"
+     "fault_title_en": "SPN 516499 - Bad Intelligent Device Or Component",
+     "fault_title_source": "fmi_catalog_generic"
     },
     "0": {
      "fault_title": "P121217",
@@ -85779,7 +85831,8 @@
      "diagnostic_action": "Kaynak sayfada saha teşhisi anlatımı mevcut (j1939hub.com).",
      "severity": "MEDIUM",
      "source_note": "j1939hub.com temsili sayfa",
-     "fault_title_en": "SPN 517503 - Special Instructions"
+     "fault_title_en": "SPN 517503 - Special Instructions",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -85820,7 +85873,8 @@
      "diagnostic_action": "SPN 517529 FMI 13: Meaning, Symptoms and Troubleshooting Skip to content J1939 Hub Menu J1939 Categories SPN FMI Lookup PGN Lookup FMI Decoder CAN Frame Decoder J1939 CAN Bus Traffic Simulator DBC Generator J1939 CAN Log Analyzer SPN 517529 FMI 13: Meaning, Symptoms and Troubleshooting July 21, 2026 May 28, 2026 by 55yhaymas Home - General & Network - SPN 517529 FMI 13: Meaning, Symptoms and Troubleshooting Diagnostic Code SPN 517529 FMI 13: Meaning and Fix SPN 517529 FMI 13 indicates a manufacturer-specific parameter has drifted outside calibration limits within the ECM's control algorithms. This fault commonly appears after ECM software updates or when aftermarket modifications interfere with OEM calibration tables.",
      "severity": "MEDIUM",
      "source_note": "j1939hub.com temsili sayfa",
-     "fault_title_en": "SPN 517529 - Out Of Calibration"
+     "fault_title_en": "SPN 517529 - Out Of Calibration",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -85860,7 +85914,8 @@
      "diagnostic_action": "Kaynak sayfada saha teşhisi anlatımı mevcut (j1939hub.com).",
      "severity": "MEDIUM",
      "source_note": "j1939hub.com temsili sayfa",
-     "fault_title_en": "SPN 517653 - Mechanical System Not Responding Or Out Of Adjustment"
+     "fault_title_en": "SPN 517653 - Mechanical System Not Responding Or Out Of Adjustment",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -85902,7 +85957,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 517684 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 517684 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -85948,7 +86004,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 520197 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 520197 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     },
     "4": {
      "fault_title": "Vuruntu sensörü 2 açık devre",
@@ -86109,7 +86166,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 520207 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 520207 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     },
     "2": {
      "fault_title": "EEPROM sistem tedarikçi bilgisi hatası",
@@ -86191,7 +86249,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 520210 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 520210 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     },
     "1": {
      "fault_title": "ESC geçici devre dışı",
@@ -86369,7 +86428,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 520211 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 520211 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     },
     "2": {
      "fault_title": "J1939 ESC1 geçersiz dönüş sinyali",
@@ -86481,7 +86541,8 @@
      "diagnostic_action": "SPN 520216 FMI 31: Meaning, Symptoms and Troubleshooting Skip to content J1939 Hub Menu J1939 Categories SPN FMI Lookup PGN Lookup FMI Decoder CAN Frame Decoder J1939 CAN Bus Traffic Simulator DBC Generator J1939 CAN Log Analyzer SPN 520216 FMI 31: Meaning, Symptoms and Troubleshooting August 7, 2026 May 28, 2026 by 55yhaymas Home - General & Network - SPN 520216 FMI 31: Meaning, Symptoms and Troubleshooting Diagnostic Code SPN 520216 FMI 31: Meaning and Fix SPN 520216 FMI 31 indicates a manufacturer-assignable condition exists, often related to internal ECM monitoring circuits. In practice, this code activates after a failed forced DPF regeneration where the ECM detects an unexpected voltage on a proprietary sensor input, such as an exhaust backpressure transducer.",
      "severity": "MEDIUM",
      "source_note": "j1939hub.com temsili sayfa",
-     "fault_title_en": "SPN 520216 - Condition Exists"
+     "fault_title_en": "SPN 520216 - Condition Exists",
+     "fault_title_source": "fmi_catalog_generic"
     },
     "3": {
      "fault_title": "2. avara aks basınç sensörü besleme kaynağına kısa devre veya sensör şaseye açık devre",
@@ -86615,7 +86676,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 520245 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 520245 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     },
     "19": {
      "fault_title": "Dahili arıza",
@@ -86716,7 +86778,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 520256 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 520256 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     },
     "2": {
      "fault_title": "DFC_AirTMonPlaus_3 soğuk başlatmada sıcaklık sensörü geçerlilik hatası (kombinasyon 3)",
@@ -86811,7 +86874,8 @@
      "diagnostic_action": "Kaynak sayfada saha teşhisi anlatımı mevcut (j1939hub.com).",
      "severity": "MEDIUM",
      "source_note": "j1939hub.com temsili sayfa",
-     "fault_title_en": "SPN 520289 - Voltage Below Normal, Or Shorted To Low Source"
+     "fault_title_en": "SPN 520289 - Voltage Below Normal, Or Shorted To Low Source",
+     "fault_title_source": "fmi_catalog_generic"
     },
     "3": {
      "fault_title": "DFC_FlFCDetSRCMax yağ filtresi tıkanıklık sensörü",
@@ -86896,7 +86960,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 520296 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 520296 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     },
     "2": {
      "fault_title": "SMU donanim modulunden okunan EMM alarm grubu 7 arizasi 16 durumu",
@@ -86985,7 +87050,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 520329 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 520329 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     },
     "2": {
      "fault_title": "DPF besleme kısa devre arızası",
@@ -87054,7 +87120,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 520349 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 520349 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     },
     "2": {
      "fault_title": "SMU donanim modulunden okunan EMM alarm grubu 0 arizasi 16 durumu",
@@ -87121,7 +87188,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 520355 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 520355 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     },
     "2": {
      "fault_title": "SMU donanim modulunden okunan EMM alarm grubu 11 arizasi 3 durumu",
@@ -87180,7 +87248,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 520372 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 520372 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     },
     "2": {
      "fault_title": "SMU donanim modulunden okunan EMM alarm grubu 1 arizasi 8 durumu",
@@ -87244,7 +87313,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 520422 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 520422 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     },
     "2": {
      "fault_title": "SMU donanim modulunden okunan EMM alarm grubu 8 arizasi 1 durumu",
@@ -87303,7 +87373,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 520423 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 520423 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     },
     "2": {
      "fault_title": "SMU donanim modulunden okunan EMM alarm grubu 8 arizasi 21 durumu",
@@ -87362,7 +87433,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 520581 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 520581 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     },
     "1": {
      "fault_title": "Turbo sarj hizi asgari esigin altinda",
@@ -87421,7 +87493,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 520880 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 520880 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -87468,7 +87541,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 520919 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 520919 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -87515,7 +87589,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 520953 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 520953 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -87562,7 +87637,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 520970 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 520970 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -87609,7 +87685,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 521001 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 521001 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     },
     "3": {
      "fault_title": "Arka aks elektromanyetik valf 3/2 - beslemeye kısa devre",
@@ -87681,7 +87758,8 @@
      "diagnostic_action": "Kaynak sayfada saha teşhisi anlatımı mevcut (j1939hub.com).",
      "severity": "MEDIUM",
      "source_note": "j1939hub.com temsili sayfa",
-     "fault_title_en": "SPN 521006 - Special Instructions"
+     "fault_title_en": "SPN 521006 - Special Instructions",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -87723,7 +87801,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 521049 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 521049 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     },
     "3": {
      "fault_title": "2. takip aksı kaldırma elektromanyetik valfi - beslemeye kısa devre",
@@ -87797,7 +87876,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 521050 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 521050 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     },
     "3": {
      "fault_title": "2. avara aks indirme solenoid valfi besleme kaynağına kısa devre",
@@ -87871,7 +87951,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 521052 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 521052 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     },
     "3": {
      "fault_title": "Sol ön aks solenoid valfi besleme kaynağına kısa devre",
@@ -87940,7 +88021,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 521242 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 521242 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -87986,7 +88068,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 521485 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 521485 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -88033,7 +88116,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 522116 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 522116 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     },
     "2": {
      "fault_title": "Bu DFC (teshis ariza kontrolunde), DM1DCU mesaj numarasindan alinan SPN Com_numDM1DCUSPN3_CA ile eslesirse hata ayarlanir",
@@ -88092,7 +88176,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 523002 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 523002 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -88137,7 +88222,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 523009 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 523009 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     },
     "2": {
      "fault_title": "Baslangic durumunda dolu sistem tespiti",
@@ -88196,7 +88282,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 523010 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 523010 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     },
     "1": {
      "fault_title": "SCR sistemi püskürtme anında basınç aşırı düşük arızası",
@@ -88255,7 +88342,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 523318 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 523318 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -88294,7 +88382,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 523330 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 523330 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -88341,7 +88430,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 523512 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 523512 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -88381,7 +88471,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 523515 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 523515 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -88428,7 +88519,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 523520 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 523520 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -88475,7 +88567,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 523525 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 523525 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -88522,7 +88615,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 523530 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 523530 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -88569,7 +88663,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 523531 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 523531 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -88615,7 +88710,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 524011 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 524011 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -88668,7 +88764,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 524042 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 524042 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     },
     "1": {
      "fault_title": "Döngü 3 PV pnömatik anahtarı",
@@ -88750,7 +88847,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 524071 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 524071 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     },
     "4": {
      "fault_title": "Çalışma farı 1 şaseye kısa devre",
@@ -88828,7 +88926,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 524249 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 524249 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -88873,7 +88972,8 @@
      "diagnostic_action": "SPN 524251 FMI 7: Meaning, Symptoms and Troubleshooting Skip to content J1939 Hub Menu J1939 Categories SPN FMI Lookup PGN Lookup FMI Decoder CAN Frame Decoder J1939 CAN Bus Traffic Simulator DBC Generator J1939 CAN Log Analyzer SPN 524251 FMI 7: Meaning, Symptoms and Troubleshooting August 8, 2026 May 28, 2026 by 55yhaymas Home - General & Network - SPN 524251 FMI 7: Meaning, Symptoms and Troubleshooting Diagnostic Code SPN 524251 FMI 7: Meaning and Fix SPN 524251 FMI 7 indicates a mechanical system not responding properly, as per SAE J1939 standards. This fault often appears in scenarios where components like actuators or valves fail to operate as expected, possibly after routine maintenance or part replacements.",
      "severity": "MEDIUM",
      "source_note": "j1939hub.com temsili sayfa",
-     "fault_title_en": "SPN 524251 - Mechanical System Not Responding Or Out Of Adjustment"
+     "fault_title_en": "SPN 524251 - Mechanical System Not Responding Or Out Of Adjustment",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -88915,7 +89015,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 524255 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 524255 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -88960,7 +89061,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 524257 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 524257 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -89007,7 +89109,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 524258 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 524258 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -89049,7 +89152,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 524259 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 524259 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -89096,7 +89200,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 524264 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 524264 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -89143,7 +89248,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 524265 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 524265 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -89190,7 +89296,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 524267 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 524267 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -89235,7 +89342,8 @@
      "diagnostic_action": "Kaynak sayfada saha teşhisi anlatımı mevcut (j1939hub.com).",
      "severity": "MEDIUM",
      "source_note": "j1939hub.com temsili sayfa",
-     "fault_title_en": "SPN 524279 - Data Erratic, Intermittent Or Incorrect"
+     "fault_title_en": "SPN 524279 - Data Erratic, Intermittent Or Incorrect",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -89278,7 +89386,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 524285 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 524285 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -89322,7 +89431,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 524286 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 524286 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -89369,7 +89479,8 @@
      "source_note": "j1939hub.com temsili sayfa",
      "severity_before_tur31": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
-     "fault_title_en": "SPN 524287 - Data Valid But Above Normal Operational Range - Most Severe Level"
+     "fault_title_en": "SPN 524287 - Data Valid But Above Normal Operational Range - Most Severe Level",
+     "fault_title_source": "fmi_catalog_generic"
     }
    },
    "source": "tur23_j1939hub",
@@ -97764,8 +97875,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 13: Değer kalibrasyon dışı",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "ABS solenoid valf IV güce kısa devre / güç sürücü arıza tespiti (ön sol) - Değer kalibrasyon dışı",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 13: Değer kalibrasyon dışı"
     },
     "14": {
      "fmi": "14",
@@ -97860,8 +97972,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 13: Değer kalibrasyon dışı",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "ABS solenoid valf IV güce kısa devre / ABS solenoid valf elektrik sürücü arızası (ön sağ) - Değer kalibrasyon dışı",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 13: Değer kalibrasyon dışı"
     },
     "14": {
      "fmi": "14",
@@ -97949,8 +98062,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 13: Değer kalibrasyon dışı",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "ABS solenoid valf IV güce kısa devre / ABS solenoid valf elektrik sürücü arızası (sol) - Değer kalibrasyon dışı",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 13: Değer kalibrasyon dışı"
     },
     "14": {
      "fmi": "14",
@@ -97959,8 +98073,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 14: Özel talimatlar",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "ABS solenoid valf IV güce kısa devre / ABS solenoid valf elektrik sürücü arızası (sol) - Özel talimatlar",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 14: Özel talimatlar"
     }
    },
    "description": "ABS solenoid valve IV short to power / ABS solenoid valve electric drive fault (left)",
@@ -98035,8 +98150,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 13: Değer kalibrasyon dışı",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "ABS solenoid valf IV güce kısa devre / ABS solenoid valf elektrik sürücü arızası (ek aks sol) - Değer kalibrasyon dışı",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 13: Değer kalibrasyon dışı"
     },
     "14": {
      "fmi": "14",
@@ -98045,8 +98161,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 14: Özel talimatlar",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "ABS solenoid valf IV güce kısa devre / ABS solenoid valf elektrik sürücü arızası (ek aks sol) - Özel talimatlar",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 14: Özel talimatlar"
     }
    },
    "description": "ABS solenoid valve IV short to power / ABS solenoid valve electric drive fault (additional axle left)",
@@ -98121,8 +98238,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 13: Değer kalibrasyon dışı",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "ABS solenoid valf IV güce kısa devre / ABS solenoid valf elektrik sürücü arızası (ek aks sağ) - Değer kalibrasyon dışı",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 13: Değer kalibrasyon dışı"
     },
     "14": {
      "fmi": "14",
@@ -98131,8 +98249,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 14: Özel talimatlar",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "ABS solenoid valf IV güce kısa devre / ABS solenoid valf elektrik sürücü arızası (ek aks sağ) - Özel talimatlar",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 14: Özel talimatlar"
     }
    },
    "description": "ABS solenoid valve IV short to power / ABS solenoid valve electric drive fault (additional axle right)",
@@ -98177,8 +98296,9 @@
      "severity": "CRITICAL_STOP",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 2: Veriler kararsız, kesintili veya hatalı",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "Retarder rölesi - gerilim normalin altında veya şaseye kısa devre - Veriler kararsız, kesintili veya hatalı",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 2: Veriler kararsız, kesintili veya hatalı"
     },
     "3": {
      "fmi": "3",
@@ -98309,8 +98429,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 2: Veriler kararsız, kesintili veya hatalı",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 2: Veri kararsız, kesintili veya hatalı - Veriler kararsız, kesintili veya hatalı",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 2: Veriler kararsız, kesintili veya hatalı"
     },
     "5": {
      "fmi": "5",
@@ -98360,8 +98481,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 13: Değer kalibrasyon dışı",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 13: Value kalibrasyon dışı - Değer kalibrasyon dışı",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 13: Değer kalibrasyon dışı"
     }
    },
    "description": "FMI 13: Value out of calibration",
@@ -99116,8 +99238,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 3: Gerilim normalin üzerinde veya artı beslemeye kısa devre",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Gerilim normalin üzerinde veya artı beslemeye kısa devre",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 3: Gerilim normalin üzerinde veya artı beslemeye kısa devre"
     },
     "4": {
      "fmi": "4",
@@ -99126,8 +99249,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Gerilim normalin altında veya şaseye kısa devre",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 4: Gerilim normalin altında veya şaseye kısa devre"
     },
     "5": {
      "fmi": "5",
@@ -99136,8 +99260,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 5: Akım normalin altında veya devre kopuk",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Akım normalin altında veya devre kopuk",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 5: Akım normalin altında veya devre kopuk"
     }
    },
    "description": "FMI 4: Voltage below normal or short to ground",
@@ -99188,8 +99313,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 3: Gerilim normalin üzerinde veya artı beslemeye kısa devre",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Gerilim normalin üzerinde veya artı beslemeye kısa devre",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 3: Gerilim normalin üzerinde veya artı beslemeye kısa devre"
     },
     "4": {
      "fmi": "4",
@@ -99198,8 +99324,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Gerilim normalin altında veya şaseye kısa devre",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 4: Gerilim normalin altında veya şaseye kısa devre"
     },
     "5": {
      "fmi": "5",
@@ -99208,8 +99335,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 5: Akım normalin altında veya devre kopuk",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Akım normalin altında veya devre kopuk",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 5: Akım normalin altında veya devre kopuk"
     }
    },
    "description": "FMI 4: Voltage below normal or short to ground",
@@ -99253,8 +99381,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 3: Gerilim normalin üzerinde veya artı beslemeye kısa devre",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Gerilim normalin üzerinde veya artı beslemeye kısa devre",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 3: Gerilim normalin üzerinde veya artı beslemeye kısa devre"
     },
     "4": {
      "fmi": "4",
@@ -99263,8 +99392,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Gerilim normalin altında veya şaseye kısa devre",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 4: Gerilim normalin altında veya şaseye kısa devre"
     },
     "5": {
      "fmi": "5",
@@ -99273,8 +99403,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 5: Akım normalin altında veya devre kopuk",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Akım normalin altında veya devre kopuk",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 5: Akım normalin altında veya devre kopuk"
     }
    },
    "description": "FMI 4: Voltage below normal or short to ground",
@@ -99315,8 +99446,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 3: Gerilim normalin üzerinde veya artı beslemeye kısa devre",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Gerilim normalin üzerinde veya artı beslemeye kısa devre",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 3: Gerilim normalin üzerinde veya artı beslemeye kısa devre"
     },
     "4": {
      "fmi": "4",
@@ -99325,8 +99457,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Gerilim normalin altında veya şaseye kısa devre",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 4: Gerilim normalin altında veya şaseye kısa devre"
     },
     "5": {
      "fmi": "5",
@@ -99335,8 +99468,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 5: Akım normalin altında veya devre kopuk",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Akım normalin altında veya devre kopuk",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 5: Akım normalin altında veya devre kopuk"
     }
    },
    "description": "FMI 4: Voltage below normal or short to ground",
@@ -99377,8 +99511,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 3: Gerilim normalin üzerinde veya artı beslemeye kısa devre",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Gerilim normalin üzerinde veya artı beslemeye kısa devre",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 3: Gerilim normalin üzerinde veya artı beslemeye kısa devre"
     },
     "4": {
      "fmi": "4",
@@ -99387,8 +99522,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Gerilim normalin altında veya şaseye kısa devre",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 4: Gerilim normalin altında veya şaseye kısa devre"
     },
     "5": {
      "fmi": "5",
@@ -99397,8 +99533,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 5: Akım normalin altında veya devre kopuk",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Akım normalin altında veya devre kopuk",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 5: Akım normalin altında veya devre kopuk"
     }
    },
    "description": "FMI 4: Voltage below normal or short to ground",
@@ -99439,8 +99576,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 3: Gerilim normalin üzerinde veya artı beslemeye kısa devre",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Gerilim normalin üzerinde veya artı beslemeye kısa devre",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 3: Gerilim normalin üzerinde veya artı beslemeye kısa devre"
     },
     "4": {
      "fmi": "4",
@@ -99449,8 +99587,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Gerilim normalin altında veya şaseye kısa devre",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 4: Gerilim normalin altında veya şaseye kısa devre"
     },
     "5": {
      "fmi": "5",
@@ -99459,8 +99598,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 5: Akım normalin altında veya devre kopuk",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Akım normalin altında veya devre kopuk",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 5: Akım normalin altında veya devre kopuk"
     }
    },
    "description": "FMI 4: Voltage below normal or short to ground",
@@ -99501,8 +99641,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 3: Gerilim normalin üzerinde veya artı beslemeye kısa devre",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Gerilim normalin üzerinde veya artı beslemeye kısa devre",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 3: Gerilim normalin üzerinde veya artı beslemeye kısa devre"
     },
     "4": {
      "fmi": "4",
@@ -99511,8 +99652,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Gerilim normalin altında veya şaseye kısa devre",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 4: Gerilim normalin altında veya şaseye kısa devre"
     },
     "5": {
      "fmi": "5",
@@ -99521,8 +99663,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 5: Akım normalin altında veya devre kopuk",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Akım normalin altında veya devre kopuk",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 5: Akım normalin altında veya devre kopuk"
     }
    },
    "description": "FMI 4: Voltage below normal or short to ground",
@@ -99563,8 +99706,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 3: Gerilim normalin üzerinde veya artı beslemeye kısa devre",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Gerilim normalin üzerinde veya artı beslemeye kısa devre",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 3: Gerilim normalin üzerinde veya artı beslemeye kısa devre"
     },
     "4": {
      "fmi": "4",
@@ -99573,8 +99717,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Gerilim normalin altında veya şaseye kısa devre",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 4: Gerilim normalin altında veya şaseye kısa devre"
     },
     "5": {
      "fmi": "5",
@@ -99583,8 +99728,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 5: Akım normalin altında veya devre kopuk",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Akım normalin altında veya devre kopuk",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 5: Akım normalin altında veya devre kopuk"
     }
    },
    "description": "FMI 4: Voltage below normal or short to ground",
@@ -99625,8 +99771,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 3: Gerilim normalin üzerinde veya artı beslemeye kısa devre",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Gerilim normalin üzerinde veya artı beslemeye kısa devre",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 3: Gerilim normalin üzerinde veya artı beslemeye kısa devre"
     },
     "4": {
      "fmi": "4",
@@ -99635,8 +99782,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Gerilim normalin altında veya şaseye kısa devre",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 4: Gerilim normalin altında veya şaseye kısa devre"
     },
     "5": {
      "fmi": "5",
@@ -99645,8 +99793,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 5: Akım normalin altında veya devre kopuk",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Akım normalin altında veya devre kopuk",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 5: Akım normalin altında veya devre kopuk"
     }
    },
    "description": "FMI 4: Voltage below normal or short to ground",
@@ -99687,8 +99836,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 3: Gerilim normalin üzerinde veya artı beslemeye kısa devre",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 7: Mekanik sistem yanıt vermiyor veya kalibrasyon dışı - Gerilim normalin üzerinde veya artı beslemeye kısa devre",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 3: Gerilim normalin üzerinde veya artı beslemeye kısa devre"
     },
     "4": {
      "fmi": "4",
@@ -99697,8 +99847,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 7: Mekanik sistem yanıt vermiyor veya kalibrasyon dışı - Gerilim normalin altında veya şaseye kısa devre",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 4: Gerilim normalin altında veya şaseye kısa devre"
     },
     "5": {
      "fmi": "5",
@@ -99707,8 +99858,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 5: Akım normalin altında veya devre kopuk",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 7: Mekanik sistem yanıt vermiyor veya kalibrasyon dışı - Akım normalin altında veya devre kopuk",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 5: Akım normalin altında veya devre kopuk"
     },
     "7": {
      "fmi": "7",
@@ -99717,8 +99869,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 7: Mekanik sistem yanıt vermiyor veya kalibrasyon dışı",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 7: Mekanik sistem yanıt vermiyor veya kalibrasyon dışı - Mekanik sistem yanıt vermiyor veya kalibrasyon dışı",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 7: Mekanik sistem yanıt vermiyor veya kalibrasyon dışı"
     }
    },
    "description": "FMI 7: Mechanical system not responding or out of calibration",
@@ -99764,8 +99917,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 3: Gerilim normalin üzerinde veya artı beslemeye kısa devre",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Gerilim normalin üzerinde veya artı beslemeye kısa devre",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 3: Gerilim normalin üzerinde veya artı beslemeye kısa devre"
     },
     "4": {
      "fmi": "4",
@@ -99774,8 +99928,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Gerilim normalin altında veya şaseye kısa devre",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 4: Gerilim normalin altında veya şaseye kısa devre"
     },
     "5": {
      "fmi": "5",
@@ -99784,8 +99939,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 5: Akım normalin altında veya devre kopuk",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Akım normalin altında veya devre kopuk",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 5: Akım normalin altında veya devre kopuk"
     }
    },
    "description": "FMI 4: Voltage below normal or short to ground",
@@ -99826,8 +99982,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 3: Gerilim normalin üzerinde veya artı beslemeye kısa devre",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Gerilim normalin üzerinde veya artı beslemeye kısa devre",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 3: Gerilim normalin üzerinde veya artı beslemeye kısa devre"
     },
     "4": {
      "fmi": "4",
@@ -99836,8 +99993,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Gerilim normalin altında veya şaseye kısa devre",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 4: Gerilim normalin altında veya şaseye kısa devre"
     },
     "5": {
      "fmi": "5",
@@ -99846,8 +100004,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 5: Akım normalin altında veya devre kopuk",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Akım normalin altında veya devre kopuk",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 5: Akım normalin altında veya devre kopuk"
     }
    },
    "description": "FMI 4: Voltage below normal or short to ground",
@@ -101551,8 +101710,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 14: Özel talimatlar",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "Römork kontrolü elektronik basınç kontrolü - mekanik sistem doğru yanıt vermiyor veya ayar dışı - Özel talimatlar",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 14: Özel talimatlar"
     }
    },
    "description": "Trailer control electronic pressure control - mechanical system not responding correctly or out of adjustment",
@@ -102000,8 +102160,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 3: Gerilim normalin üzerinde veya artı beslemeye kısa devre",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "Fren sinyal vericisi (ayak freni valfi) - dahili cihaz veya bileşen arızası - Gerilim normalin üzerinde veya artı beslemeye kısa devre",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 3: Gerilim normalin üzerinde veya artı beslemeye kısa devre"
     },
     "4": {
      "fmi": "4",
@@ -102010,8 +102171,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "Fren sinyal vericisi (ayak freni valfi) - dahili cihaz veya bileşen arızası - Gerilim normalin altında veya şaseye kısa devre",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 4: Gerilim normalin altında veya şaseye kısa devre"
     },
     "6": {
      "fmi": "6",
@@ -102020,8 +102182,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 6: Akım normalin üzerinde veya şaseye kısa devre",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "Fren sinyal vericisi (ayak freni valfi) - dahili cihaz veya bileşen arızası - Akım normalin üzerinde veya şaseye kısa devre",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 6: Akım normalin üzerinde veya şaseye kısa devre"
     },
     "8": {
      "fmi": "8",
@@ -102039,8 +102202,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 11: Arıza nedeni belirlenemiyor",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "Fren sinyal vericisi (ayak freni valfi) - dahili cihaz veya bileşen arızası - Arıza nedeni belirlenemiyor",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 11: Arıza nedeni belirlenemiyor"
     },
     "12": {
      "fmi": "12",
@@ -102058,8 +102222,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 13: Değer kalibrasyon dışı",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "Fren sinyal vericisi (ayak freni valfi) - dahili cihaz veya bileşen arızası - Değer kalibrasyon dışı",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 13: Değer kalibrasyon dışı"
     },
     "14": {
      "fmi": "14",
@@ -102068,8 +102233,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 14: Özel talimatlar",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "Fren sinyal vericisi (ayak freni valfi) - dahili cihaz veya bileşen arızası - Özel talimatlar",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 14: Özel talimatlar"
     }
    },
    "description": "Brake signal transmitter (foot brake valve) - internal device or component failure",
@@ -106323,8 +106489,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 2: Veriler kararsız, kesintili veya hatalı",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 2: Veri kararsız, kesintili veya hatalı - Veriler kararsız, kesintili veya hatalı",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 2: Veriler kararsız, kesintili veya hatalı"
     }
    },
    "description": "FMI 2: Data erratic, intermittent or incorrect",
@@ -116385,8 +116552,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 7: Mekanik sistem yanıt vermiyor veya kalibrasyon dışı",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 7: Mekanik sistem yanıt vermiyor veya kalibrasyon dışı - Mekanik sistem yanıt vermiyor veya kalibrasyon dışı",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 7: Mekanik sistem yanıt vermiyor veya kalibrasyon dışı"
     }
    },
    "description": "FMI 7: Mechanical system not responding or out of calibration",
@@ -116422,8 +116590,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 7: Mekanik sistem yanıt vermiyor veya kalibrasyon dışı",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 7: Mekanik sistem yanıt vermiyor veya kalibrasyon dışı - Mekanik sistem yanıt vermiyor veya kalibrasyon dışı",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 7: Mekanik sistem yanıt vermiyor veya kalibrasyon dışı"
     }
    },
    "description": "FMI 7: Mechanical system not responding or out of calibration",
@@ -116459,8 +116628,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 7: Mekanik sistem yanıt vermiyor veya kalibrasyon dışı",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 7: Mekanik sistem yanıt vermiyor veya kalibrasyon dışı - Mekanik sistem yanıt vermiyor veya kalibrasyon dışı",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 7: Mekanik sistem yanıt vermiyor veya kalibrasyon dışı"
     }
    },
    "description": "FMI 7: Mechanical system not responding or out of calibration",
@@ -116496,8 +116666,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 7: Mekanik sistem yanıt vermiyor veya kalibrasyon dışı",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 7: Mekanik sistem yanıt vermiyor veya kalibrasyon dışı - Mekanik sistem yanıt vermiyor veya kalibrasyon dışı",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 7: Mekanik sistem yanıt vermiyor veya kalibrasyon dışı"
     }
    },
    "description": "FMI 7: Mechanical system not responding or out of calibration",
@@ -116533,8 +116704,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 7: Mekanik sistem yanıt vermiyor veya kalibrasyon dışı",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 7: Mekanik sistem yanıt vermiyor veya kalibrasyon dışı - Mekanik sistem yanıt vermiyor veya kalibrasyon dışı",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 7: Mekanik sistem yanıt vermiyor veya kalibrasyon dışı"
     }
    },
    "description": "FMI 7: Mechanical system not responding or out of calibration",
@@ -116570,8 +116742,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 7: Mekanik sistem yanıt vermiyor veya kalibrasyon dışı",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 7: Mekanik sistem yanıt vermiyor veya kalibrasyon dışı - Mekanik sistem yanıt vermiyor veya kalibrasyon dışı",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 7: Mekanik sistem yanıt vermiyor veya kalibrasyon dışı"
     }
    },
    "description": "FMI 7: Mechanical system not responding or out of calibration",
@@ -125314,8 +125487,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 11: Arıza nedeni belirlenemiyor",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 12: Cihaz veya bileşen arızası - Arıza nedeni belirlenemiyor",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 11: Arıza nedeni belirlenemiyor"
     },
     "12": {
      "fmi": "12",
@@ -125324,8 +125498,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 12: Cihaz veya bileşen arızası",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 12: Cihaz veya bileşen arızası - Cihaz veya bileşen arızası",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 12: Cihaz veya bileşen arızası"
     }
    },
    "description": "FMI 12: Device or component fault",
@@ -125363,8 +125538,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 11: Arıza nedeni belirlenemiyor",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 12: Cihaz veya bileşen arızası - Arıza nedeni belirlenemiyor",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 11: Arıza nedeni belirlenemiyor"
     },
     "12": {
      "fmi": "12",
@@ -125373,8 +125549,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 12: Cihaz veya bileşen arızası",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 12: Cihaz veya bileşen arızası - Cihaz veya bileşen arızası",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 12: Cihaz veya bileşen arızası"
     }
    },
    "description": "FMI 12: Device or component fault",
@@ -125412,8 +125589,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 11: Arıza nedeni belirlenemiyor",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 12: Cihaz veya bileşen arızası - Arıza nedeni belirlenemiyor",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 11: Arıza nedeni belirlenemiyor"
     },
     "12": {
      "fmi": "12",
@@ -125422,8 +125600,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 12: Cihaz veya bileşen arızası",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 12: Cihaz veya bileşen arızası - Cihaz veya bileşen arızası",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 12: Cihaz veya bileşen arızası"
     }
    },
    "description": "FMI 12: Device or component fault",
@@ -179848,8 +180027,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 14: Özel talimatlar",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "Vites aralığı sürücü silindiri üzerindeki VR2 selenoid valfi veya kablo demeti düzgün çalışmıyor. 5 = akım normalin altında veya açık devre - Özel talimatlar",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 14: Özel talimatlar"
     },
     "19": {
      "fmi": "19",
@@ -179962,8 +180142,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 14: Özel talimatlar",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "VSP1 selenoid valfi (ayırıcı sürücüsü - geri çekilmiş) şaseye kısa devre 4 = gerilim normalin altında veya alçak gerilim kaynağına kısa devre - Özel talimatlar",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 14: Özel talimatlar"
     },
     "19": {
      "fmi": "19",
@@ -180700,8 +180881,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 13: Değer kalibrasyon dışı",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "CFV gerçek gaz basıncı hedef değerin altında - Değer kalibrasyon dışı",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 13: Değer kalibrasyon dışı"
     },
     "15": {
      "fmi": "15",
@@ -183059,8 +183241,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 31: Durum mevcut değil",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "Dahili makulilik kontrolü şanzıman çıkış şaftı hız sensörü arızası tespit etti (açık devre) - Durum mevcut değil",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 31: Durum mevcut değil"
     }
    },
    "description": "Internal plausibility check detected transmission output shaft speed sensor fault (open circuit)",
@@ -193227,8 +193410,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Gerilim normalin altında veya şaseye kısa devre",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 4: Gerilim normalin altında veya şaseye kısa devre"
     }
    },
    "description": "FMI 4: Voltage below normal or short to ground",
@@ -199423,8 +199607,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 2: Veriler kararsız, kesintili veya hatalı",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 2: Veri düzensiz, kesintili veya hatalı - Veriler kararsız, kesintili veya hatalı",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 2: Veriler kararsız, kesintili veya hatalı"
     }
    },
    "description": "FMI 2: Data erratic, intermittent or incorrect",
@@ -199459,8 +199644,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 15: Veriler geçerli fakat normal çalışma aralığının üzerinde (en hafif seviye)",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 15: Veri geçerli ancak normal çalışma aralığının üzerinde (en az ciddi) - Veriler geçerli fakat normal çalışma aralığının üzerinde (en hafif seviye)",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 15: Veriler geçerli fakat normal çalışma aralığının üzerinde (en hafif seviye)"
     }
    },
    "description": "FMI 15: Data valid but above normal operating range (least severe)",
@@ -199495,8 +199681,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 2: Veriler kararsız, kesintili veya hatalı",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 2: Veri düzensiz, kesintili veya hatalı - Veriler kararsız, kesintili veya hatalı",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 2: Veriler kararsız, kesintili veya hatalı"
     }
    },
    "description": "FMI 2: Data erratic, intermittent or incorrect",
@@ -199531,8 +199718,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 2: Veriler kararsız, kesintili veya hatalı",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 2: Veri düzensiz, kesintili veya hatalı - Veriler kararsız, kesintili veya hatalı",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 2: Veriler kararsız, kesintili veya hatalı"
     }
    },
    "description": "FMI 2: Data erratic, intermittent or incorrect",
@@ -199567,8 +199755,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 2: Veriler kararsız, kesintili veya hatalı",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 2: Veri düzensiz, kesintili veya hatalı - Veriler kararsız, kesintili veya hatalı",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 2: Veriler kararsız, kesintili veya hatalı"
     }
    },
    "description": "FMI 2: Data erratic, intermittent or incorrect",
@@ -199603,8 +199792,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 2: Veriler kararsız, kesintili veya hatalı",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 2: Veri düzensiz, kesintili veya hatalı - Veriler kararsız, kesintili veya hatalı",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 2: Veriler kararsız, kesintili veya hatalı"
     }
    },
    "description": "FMI 2: Data erratic, intermittent or incorrect",
@@ -199859,8 +200049,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 2: Veriler kararsız, kesintili veya hatalı",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 2: Veri düzensiz, kesintili veya hatalı - Veriler kararsız, kesintili veya hatalı",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 2: Veriler kararsız, kesintili veya hatalı"
     }
    },
    "description": "FMI 2: Data erratic, intermittent or incorrect",
@@ -199895,8 +200086,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 2: Veriler kararsız, kesintili veya hatalı",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 2: Veri düzensiz, kesintili veya hatalı - Veriler kararsız, kesintili veya hatalı",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 2: Veriler kararsız, kesintili veya hatalı"
     }
    },
    "description": "FMI 2: Data erratic, intermittent or incorrect",
@@ -199931,8 +200123,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 2: Veriler kararsız, kesintili veya hatalı",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 2: Veri düzensiz, kesintili veya hatalı - Veriler kararsız, kesintili veya hatalı",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 2: Veriler kararsız, kesintili veya hatalı"
     }
    },
    "description": "FMI 2: Data erratic, intermittent or incorrect",
@@ -199967,8 +200160,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 2: Veriler kararsız, kesintili veya hatalı",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 2: Veri düzensiz, kesintili veya hatalı - Veriler kararsız, kesintili veya hatalı",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 2: Veriler kararsız, kesintili veya hatalı"
     }
    },
    "description": "FMI 2: Data erratic, intermittent or incorrect",
@@ -200003,8 +200197,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 2: Veriler kararsız, kesintili veya hatalı",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 2: Veri düzensiz, kesintili veya hatalı - Veriler kararsız, kesintili veya hatalı",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 2: Veriler kararsız, kesintili veya hatalı"
     }
    },
    "description": "FMI 2: Data erratic, intermittent or incorrect",
@@ -200039,8 +200234,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 2: Veriler kararsız, kesintili veya hatalı",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 2: Veri düzensiz, kesintili veya hatalı - Veriler kararsız, kesintili veya hatalı",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 2: Veriler kararsız, kesintili veya hatalı"
     }
    },
    "description": "FMI 2: Data erratic, intermittent or incorrect",
@@ -200841,8 +201037,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 3: Gerilim normalin üzerinde veya artı beslemeye kısa devre",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Gerilim normalin üzerinde veya artı beslemeye kısa devre",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 3: Gerilim normalin üzerinde veya artı beslemeye kısa devre"
     },
     "4": {
      "fmi": "4",
@@ -200851,8 +201048,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Gerilim normalin altında veya şaseye kısa devre",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 4: Gerilim normalin altında veya şaseye kısa devre"
     }
    },
    "description": "FMI 4: Voltage below normal or short to ground",
@@ -201095,8 +201293,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Gerilim normalin altında veya şaseye kısa devre",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 4: Gerilim normalin altında veya şaseye kısa devre"
     },
     "5": {
      "fmi": "5",
@@ -201105,8 +201304,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 5: Akım normalin altında veya devre kopuk",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Akım normalin altında veya devre kopuk",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 5: Akım normalin altında veya devre kopuk"
     }
    },
    "description": "FMI 4: Voltage below normal or short to ground",
@@ -201144,8 +201344,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Gerilim normalin altında veya şaseye kısa devre",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 4: Gerilim normalin altında veya şaseye kısa devre"
     },
     "5": {
      "fmi": "5",
@@ -201154,8 +201355,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 5: Akım normalin altında veya devre kopuk",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Akım normalin altında veya devre kopuk",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 5: Akım normalin altında veya devre kopuk"
     }
    },
    "description": "FMI 4: Voltage below normal or short to ground",
@@ -201193,8 +201395,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Gerilim normalin altında veya şaseye kısa devre",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 4: Gerilim normalin altında veya şaseye kısa devre"
     },
     "5": {
      "fmi": "5",
@@ -201203,8 +201406,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 5: Akım normalin altında veya devre kopuk",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Akım normalin altında veya devre kopuk",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 5: Akım normalin altında veya devre kopuk"
     }
    },
    "description": "FMI 4: Voltage below normal or short to ground",
@@ -201242,8 +201446,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 3: Gerilim normalin üzerinde veya artı beslemeye kısa devre",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Gerilim normalin üzerinde veya artı beslemeye kısa devre",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 3: Gerilim normalin üzerinde veya artı beslemeye kısa devre"
     },
     "4": {
      "fmi": "4",
@@ -201252,8 +201457,9 @@
      "severity": "MEDIUM",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 4: Gerilim normalin altında veya şaseye kısa devre - Gerilim normalin altında veya şaseye kısa devre",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 4: Gerilim normalin altında veya şaseye kısa devre"
     }
    },
    "description": "FMI 4: Voltage below normal or short to ground",
@@ -201290,8 +201496,9 @@
      "severity": "HIGH",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 1: Veriler geçerli fakat normal çalışma aralığının altında (en ciddi seviye)",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 1: Veri geçerli ancak normal çalışma aralığının altında (en ciddi) - Veriler geçerli fakat normal çalışma aralığının altında (en ciddi seviye)",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 1: Veriler geçerli fakat normal çalışma aralığının altında (en ciddi seviye)"
     }
    },
    "description": "FMI 1: Data valid but below normal operating range (most severe)",
@@ -201327,8 +201534,9 @@
      "severity": "HIGH",
      "severity_basis": "alt sistem bağlamı (Tur-31)",
      "fault_title_tr": "",
-     "fault_title": "FMI 1: Veriler geçerli fakat normal çalışma aralığının altında (en ciddi seviye)",
-     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)"
+     "fault_title": "FMI 1: Veri geçerli ancak normal çalışma aralığının altında (en ciddi) - Veriler geçerli fakat normal çalışma aralığının altında (en ciddi seviye)",
+     "source": "SITRAK/OEM fault-code DB RU (CC BY 4.0, (c) МегаДата / megadata.pro)",
+     "fault_title_generic": "FMI 1: Veriler geçerli fakat normal çalışma aralığının altında (en ciddi seviye)"
     }
    },
    "description": "FMI 1: Data valid but below normal operating range (most severe)",
