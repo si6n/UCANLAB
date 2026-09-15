@@ -134,7 +134,8 @@ def test_y2_valid_hmac_token_arms_and_activates() -> None:
     assert supervisor.current_state == SafetyState.ACTIVE
 
 
-def test_y2_allow_unauthenticated_flag_overrides() -> None:
+def test_y2_allow_unauthenticated_flag_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("UCANLAB_TEST_MODE", "1")
     supervisor = _passive_supervisor(
         auth_secret=b"t41-arm-secret-32-bytes-long!!!",
         allow_unauthenticated_arm=True,

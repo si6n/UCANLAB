@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import os
 import re
 import secrets as _secrets
 import threading
@@ -109,12 +110,21 @@ class SafetySupervisor:
         # authorization point for TX. When an HMAC `auth_secret` is configured,
         # arm_tx/activate_tx REQUIRE a valid single-use token — a missing token
         # fails CLOSED with SafetyError. `allow_unauthenticated_arm=True` is an
-        # explicit, default-OFF escape hatch for staged migrations.
-        # When auth_secret is None there is no authenticator wired: the legacy
-        # (unauthenticated) path is preserved for backward compatibility and
-        # logs a WARNING so the missing identity check is visible.
+        # explicit, default-OFF escape hatch for staged migrations — it is
+        # TEST/SIMULATION ONLY and is refused unless UCANLAB_TEST_MODE=1.
+        if allow_unauthenticated_arm and os.environ.get("UCANLAB_TEST_MODE") != "1":
+            raise RuntimeError(
+                "allow_unauthenticated_arm=True disables TX operator "
+                "authentication and is TEST-ONLY: set UCANLAB_TEST_MODE=1 "
+                "to acknowledge (refusing to start otherwise)"
+            )
         self._auth_secret: bytes | None = bytes(auth_secret) if auth_secret is not None else None
         self._allow_unauthenticated_arm: bool = bool(allow_unauthenticated_arm)
+        if self._allow_unauthenticated_arm:
+            logger.warning(
+                "SafetySupervisor started with allow_unauthenticated_arm=True — "
+                "TX arming is NOT operator-authenticated (test/simulation only)"
+            )
         self._consumed_arm_tokens: deque[bytes] = deque(maxlen=1024)
         self._epoch: int = 0
         self._state_change_timestamp_ns: int = time.monotonic_ns()
@@ -407,7 +417,8 @@ class SafetySupervisor:
             if auth_token is None:
                 if self._allow_unauthenticated_arm:
                     logger.warning(
-                        "%s without auth_token (allow_unauthenticated_arm=True legacy override)",
+                        "%s without auth_token — allow_unauthenticated_arm=True "
+                        "override in effect (TEST-ONLY, TX not operator-authenticated)",
                         operation,
                     )
                     return
