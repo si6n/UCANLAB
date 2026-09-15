@@ -143,6 +143,10 @@ def test_linux_secret_backend_custom_master_key(tmp_path: Path) -> None:
         backend_wrong.get_secret("CUSTOM")
 
 
+@pytest.mark.skipif(
+    sys.platform != "win32",
+    reason="Windows DPAPI (CryptProtectData) is only available on Windows",
+)
 def test_windows_dpapi_secret_backend_lifecycle(tmp_path: Path) -> None:
     """Test WindowsDPAPISecretBackend storage, retrieval, and persistence."""
     storage_file = tmp_path / "secrets.dpapi"

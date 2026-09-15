@@ -1,6 +1,18 @@
 """Unit tests for WindowsPowerManager and KeepSystemAwake."""
 
+import sys
+
+import pytest
+
 from src.hal.power.win32_power import KeepSystemAwake, WindowsPowerManager
+
+# SetThreadExecutionState is a Windows-only kernel32 call. On Linux/macOS the
+# manager deliberately no-ops, so the lease assertions below cannot hold there
+# (GitLab CI's Linux runner exposed this). Keep the tests executing on Windows
+# — where the real behaviour lives — instead of weakening the assertions.
+windows_only = pytest.mark.skipif(
+    sys.platform != "win32", reason="Windows SetThreadExecutionState semantics"
+)
 
 
 def test_win32_power_manager_calls() -> None:
@@ -13,6 +25,7 @@ def test_win32_power_manager_calls() -> None:
         pass
 
 
+@windows_only
 def test_nested_keep_awake_inner_release_keeps_outer_active() -> None:
     """D10: the inner context's exit must NOT restore sleep while the outer
     context still holds its lease (SetThreadExecutionState is per-thread)."""
@@ -32,6 +45,7 @@ def test_nested_keep_awake_inner_release_keeps_outer_active() -> None:
     WindowsPowerManager.reset_for_testing()
 
 
+@windows_only
 def test_unbalanced_restore_sleep_is_rejected() -> None:
     """D10: restore without a matching prevent logs-and-refuses instead of
     silently restoring kernel sleep under someone else's lease."""

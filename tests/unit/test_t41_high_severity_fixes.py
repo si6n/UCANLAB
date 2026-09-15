@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import base64
 import logging
+import sys
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric import ed25519
@@ -193,6 +194,10 @@ def test_y3_valid_explicit_key_still_works() -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.skipif(
+    sys.platform != "win32",
+    reason="_run_powershell is Windows-only; the logging assertion needs it to reach its except branch",
+)
 def test_h2_powershell_failure_does_not_log_command(monkeypatch: pytest.MonkeyPatch) -> None:
     """A failing PowerShell call must log a fixed label, never the command text."""
     import logging as _logging
