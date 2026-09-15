@@ -23,7 +23,7 @@ GMLAN; ücretsiz, robots engelsiz):
   ham havuzda (`raw_mode06_tur24.json`); MID şemasına uymadığı için DB'ye
   girmedi, sonraki turda CID katmanı olarak değerlendirilecek.
 - `name_tr` yeni kayıtlarda bilinçli olarak boş (çeviri ayrı tur).
-- Ham kanıt: `spn_gap_hunter/cache/gm_mode06/` (2 ana PDF + 69 model-yılı
+- Ham kanıt: `C:/Users/canak/Desktop/UCANLAB-ARSIV/gm_mode06_raw/` (2 ana PDF + 69 model-yılı
   parametre dosyası + 20 Bmode6 PDF).
 
 ## uds_did_database (JSON + CSV)

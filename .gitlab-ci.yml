@@ -1,0 +1,158 @@
+# UCANLAB — GitLab CI
+#
+# Mirror of .github/workflows/ci.yml (GitLab is the private backup + CI runner).
+# Job mapping:
+#   test             <- GitHub job "test"            (Windows py3.12/3.13, full suite + coverage)
+#   test-linux       <- GitHub job "test-linux-vcan"  (Linux py3.12, vcan0 SocketCAN)
+#   lint             <- ruff + bandit + pip-audit (split out for faster feedback)
+#   frontend-build   <- GitHub job "frontend-build"
+#
+# CodeQL has no GitLab equivalent (GitLab SAST is Ultimate-only); the
+# `.pre` `sast`-style job is intentionally omitted rather than faked.
+
+stages:
+  - lint
+  - test
+  - build
+
+default:
+  interruptible: true
+  timeout: 45m
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.pip-cache"
+  QT_QPA_PLATFORM: offscreen
+  PYTHONDONTWRITEBYTECODE: "1"
+
+# ── Templates ────────────────────────────────────────────────────────────────
+
+.pip-install: &pip-install
+  - python -m pip install --upgrade pip
+  - pip install -r requirements.txt
+  - pip install -r requirements-dev.txt
+
+# Guards against regressing to an asammdf release without a cp3xx-abi3 wheel:
+# on py3.13 that silently falls back to the sdist, where the MinGW-w64 numpy
+# metadata build dies (0xC0000005). Kept identical to the GitHub guard.
+.asammdf-wheel-guard: &asammdf-wheel-guard
+  - >-
+    python -c "import asammdf, pathlib; p = pathlib.Path(asammdf.__file__).resolve();
+    print('asammdf', asammdf.__version__, '->', p);
+    assert 'pip-build-env' not in str(p).lower(), 'asammdf built from sdist'"
+
+# ── Lint & security (fast feedback, runs first) ──────────────────────────────
+
+ruff:
+  stage: lint
+  image: python:3.12-slim
+  cache:
+    key: "pip-$CI_COMMIT_REF_SLUG"
+    paths:
+      - .pip-cache/
+  script:
+    - python -m pip install --upgrade pip
+    - pip install "ruff>=0.3.0"
+    - ruff check .
+
+bandit:
+  stage: lint
+  image: python:3.12-slim
+  script:
+    - python -m pip install --upgrade pip
+    - pip install "bandit>=1.7.8"
+    - bandit -r src/ -ll -q
+  allow_failure: false
+
+pip-audit:
+  stage: lint
+  image: python:3.12-slim
+  script:
+    - python -m pip install --upgrade pip
+    - *pip-install
+    - pip-audit --skip-editable --ignore-vuln PYSEC-2026-2447
+  allow_failure: true   # upstream advisory database changes daily
+
+# ── Test: Linux, Python 3.12 (main coverage gate) ────────────────────────────
+# GitLab CI cannot request a Windows runner without one being provisioned on
+# this account, so the canonical suite runs on Linux here. The Windows matrix
+# (3.12/3.13) remains enforced by the GitHub Actions workflow.
+
+test:
+  stage: test
+  image: python:3.12-slim
+  cache:
+    key: "pip-$CI_COMMIT_REF_SLUG"
+    paths:
+      - .pip-cache/
+  before_script:
+    - apt-get update -y && apt-get install -y --no-install-recommends
+      libegl1 libgl1 libxkbcommon-x11-0 libdbus-1-3 libxcb-cursor0 git
+    - *pip-install
+    - *asammdf-wheel-guard
+  script:
+    - pytest -v --durations=10 --cov=src --cov-fail-under=80
+  coverage: '/TOTAL.*\s+(\d+%)$/'
+  artifacts:
+    when: always
+    expire_in: 1 week
+    reports:
+      junit: junit.xml
+    paths:
+      - htmlcov/
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+
+# ── Test: Linux with vcan0 (SocketCAN hardware integration) ──────────────────
+
+test-vcan:
+  stage: test
+  image: python:3.12-slim
+  variables:
+    GIT_DEPTH: 1
+  before_script:
+    - apt-get update -y && apt-get install -y --no-install-recommends
+      libegl1 libgl1 libxkbcommon-x11-0 libdbus-1-3 libxcb-cursor0
+      kmod iproute2 git
+    - modprobe can || true
+    - modprobe can_raw || true
+    - modprobe vcan || true
+    - ip link add dev vcan0 type vcan || true
+    - ip link set up vcan0 || true
+    - ip link show vcan0 || true
+    - *pip-install
+    - *asammdf-wheel-guard
+  script:
+    - pytest -v -k "vcan or virtual_bus or hardware"
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+
+# ── Frontend React build ─────────────────────────────────────────────────────
+
+frontend-build:
+  stage: build
+  image: node:20-slim
+  cache:
+    key: "npm-$CI_COMMIT_REF_SLUG"
+    paths:
+      - src/ui/frontend/node_modules/
+  before_script:
+    - cd src/ui/frontend
+  script:
+    - npm ci
+    - npm run build
+  artifacts:
+    expire_in: 1 week
+    paths:
+      - src/ui/frontend/dist/
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push"'
+      changes:
+        - src/ui/frontend/**/*
+        - package.json
+        - package-lock.json
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'

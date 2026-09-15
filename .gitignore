@@ -106,11 +106,10 @@ data/traces/marine/project_haris/raw/
 .logseq/bak/
 .logseq/version-control/
 # ── Obsidian Vault ─────────────────────────────────────────────
-# Notlar takip edilir, kisisel UI ayarlari haric
-obsidian-vault/.obsidian/workspace.json
-obsidian-vault/.obsidian/workspace-mobile.json
-obsidian-vault/.obsidian/cache
-obsidian-vault/.trash/
+# NOT: Vault TAMAMEN ignore edilir. Kisisel not alani + ajan raporlari
+# urun deposuna girmez; ajanlar dosya yolu uzerinden okur.
+# Vault'i git'te tutmak isterseniz asagidaki kurali silin.
+obsidian-vault/
 
 # --- Ad-hoc scratch / agent working files (Tur-27) ---
 # Gecici ceviri + tarama scriptleri (kalici DEGIL — repo disi tutulur)
