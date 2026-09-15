@@ -1,0 +1,321 @@
+{
+  "sync_timestamp": "2026-09-06T17:32:02Z",
+  "local_before": 166,
+  "remote_total": 122,
+  "missing_found": 31,
+  "downloaded": 31,
+  "skipped_invalid": 0,
+  "local_after": 197,
+  "new_files": [
+    {
+      "filename": "test.dbc",
+      "messages_count": 3,
+      "signals_count": 18,
+      "size_bytes": 1004,
+      "sha256": "512850d15e8e90568a9c85ddc86a0c737c701147057b2939cd62fbabda3f7ae8",
+      "source_repo": "commaai/opendbc",
+      "source_path": "opendbc/can/tests/test.dbc",
+      "is_valid": true
+    },
+    {
+      "filename": "_stellantis_common.dbc",
+      "messages_count": 21,
+      "signals_count": 135,
+      "size_bytes": 8626,
+      "sha256": "f2d2ca93f83c7d709155100455ab9cbcf68dcadc780f1765ec924c2ec7a53f9f",
+      "source_repo": "commaai/opendbc",
+      "source_path": "opendbc/dbc/generator/chrysler/_stellantis_common.dbc",
+      "is_valid": true
+    },
+    {
+      "filename": "_community.dbc",
+      "messages_count": 2,
+      "signals_count": 10,
+      "size_bytes": 751,
+      "sha256": "ca5b616d5b6ac156af34d5a0bc2257bc5108859e7882a18d6ae4e8f216903af4",
+      "source_repo": "commaai/opendbc",
+      "source_path": "opendbc/dbc/generator/gm/_community.dbc",
+      "is_valid": true
+    },
+    {
+      "filename": "_bosch_2018.dbc",
+      "messages_count": 20,
+      "signals_count": 166,
+      "size_bytes": 10129,
+      "sha256": "5a274ffb115296267f925a8742a8afc59479a3c68fbc7e58893e655bba59c9e1",
+      "source_repo": "commaai/opendbc",
+      "source_path": "opendbc/dbc/generator/honda/_bosch_2018.dbc",
+      "is_valid": true
+    },
+    {
+      "filename": "_bosch_radar_acc.dbc",
+      "messages_count": 2,
+      "signals_count": 25,
+      "size_bytes": 1697,
+      "sha256": "7c09b259694103e0d50c7cc7fa54812d66e24b1369657ba2ffc9e159f182a201",
+      "source_repo": "commaai/opendbc",
+      "source_path": "opendbc/dbc/generator/honda/_bosch_radar_acc.dbc",
+      "is_valid": true
+    },
+    {
+      "filename": "_bosch_standstill.dbc",
+      "messages_count": 1,
+      "signals_count": 6,
+      "size_bytes": 309,
+      "sha256": "4e054346f3f45a837463507bf6c3c66ca4b9f017e37626a7d60680ab74bd87e8",
+      "source_repo": "commaai/opendbc",
+      "source_path": "opendbc/dbc/generator/honda/_bosch_standstill.dbc",
+      "is_valid": true
+    },
+    {
+      "filename": "_community.dbc",
+      "messages_count": 2,
+      "signals_count": 10,
+      "size_bytes": 751,
+      "sha256": "ca5b616d5b6ac156af34d5a0bc2257bc5108859e7882a18d6ae4e8f216903af4",
+      "source_repo": "commaai/opendbc",
+      "source_path": "opendbc/dbc/generator/honda/_community.dbc",
+      "is_valid": true
+    },
+    {
+      "filename": "_gearbox_common.dbc",
+      "messages_count": 2,
+      "signals_count": 25,
+      "size_bytes": 2257,
+      "sha256": "11142899f701ca5c1cf3e3923e20a6aeda04180f962149845a20b69420d340a0",
+      "source_repo": "commaai/opendbc",
+      "source_path": "opendbc/dbc/generator/honda/_gearbox_common.dbc",
+      "is_valid": true
+    },
+    {
+      "filename": "_honda_common.dbc",
+      "messages_count": 23,
+      "signals_count": 160,
+      "size_bytes": 9432,
+      "sha256": "916cddc0e82f2db34e1ef13e4e69d26be51f0c87a860a17d629a08e16485dafc",
+      "source_repo": "commaai/opendbc",
+      "source_path": "opendbc/dbc/generator/honda/_honda_common.dbc",
+      "is_valid": true
+    },
+    {
+      "filename": "_lkas_hud_5byte.dbc",
+      "messages_count": 1,
+      "signals_count": 20,
+      "size_bytes": 1295,
+      "sha256": "29c98242f5c753aaa3d521f5eb706e4b2a1a1e4b40fdc72b7b2873c5a1c885d6",
+      "source_repo": "commaai/opendbc",
+      "source_path": "opendbc/dbc/generator/honda/_lkas_hud_5byte.dbc",
+      "is_valid": true
+    },
+    {
+      "filename": "_lkas_hud_8byte.dbc",
+      "messages_count": 1,
+      "signals_count": 21,
+      "size_bytes": 1435,
+      "sha256": "3ef3193431b83eb73a43c3a4edbe848e5f5689ffb0df31938ff24f1e4db14fc9",
+      "source_repo": "commaai/opendbc",
+      "source_path": "opendbc/dbc/generator/honda/_lkas_hud_8byte.dbc",
+      "is_valid": true
+    },
+    {
+      "filename": "_nidec_common.dbc",
+      "messages_count": 5,
+      "signals_count": 44,
+      "size_bytes": 3014,
+      "sha256": "bae70eacd85d3964947da5b648d5b9e39e63efadfd434f9b4708d996f11d7e49",
+      "source_repo": "commaai/opendbc",
+      "source_path": "opendbc/dbc/generator/honda/_nidec_common.dbc",
+      "is_valid": true
+    },
+    {
+      "filename": "_nidec_scm_group_a.dbc",
+      "messages_count": 2,
+      "signals_count": 14,
+      "size_bytes": 968,
+      "sha256": "690d92c14491617473b9daa917b4844df27a624594037e7da3c6681479c86d6f",
+      "source_repo": "commaai/opendbc",
+      "source_path": "opendbc/dbc/generator/honda/_nidec_scm_group_a.dbc",
+      "is_valid": true
+    },
+    {
+      "filename": "_nidec_scm_group_b.dbc",
+      "messages_count": 2,
+      "signals_count": 13,
+      "size_bytes": 889,
+      "sha256": "eac5fabd271efcdf9d5d7b239c565cec72342ec87a0c888b63c5476c5d0b96aa",
+      "source_repo": "commaai/opendbc",
+      "source_path": "opendbc/dbc/generator/honda/_nidec_scm_group_b.dbc",
+      "is_valid": true
+    },
+    {
+      "filename": "_steering_control_a.dbc",
+      "messages_count": 2,
+      "signals_count": 13,
+      "size_bytes": 897,
+      "sha256": "1abdd4e1d4155e10b062afa2661af95d28d76aadd6929b48c3cb3ac07ef75252",
+      "source_repo": "commaai/opendbc",
+      "source_path": "opendbc/dbc/generator/honda/_steering_control_a.dbc",
+      "is_valid": true
+    },
+    {
+      "filename": "_steering_control_b.dbc",
+      "messages_count": 2,
+      "signals_count": 12,
+      "size_bytes": 849,
+      "sha256": "74653c46d48592a7dcca4a84446edede73009d6b06ebe26693d8dd4d2151036e",
+      "source_repo": "commaai/opendbc",
+      "source_path": "opendbc/dbc/generator/honda/_steering_control_b.dbc",
+      "is_valid": true
+    },
+    {
+      "filename": "_steering_control_c.dbc",
+      "messages_count": 2,
+      "signals_count": 12,
+      "size_bytes": 850,
+      "sha256": "6bbb7f11467cde05c1f063ca08e91d62d2cc9245819901b26c0ed0d2b5afd55a",
+      "source_repo": "commaai/opendbc",
+      "source_path": "opendbc/dbc/generator/honda/_steering_control_c.dbc",
+      "is_valid": true
+    },
+    {
+      "filename": "_steering_sensors_a.dbc",
+      "messages_count": 1,
+      "signals_count": 8,
+      "size_bytes": 472,
+      "sha256": "1c889c82b17f3d82338ce38ff1c8fbb049f22fc10235e8c08d1be827e02f43cb",
+      "source_repo": "commaai/opendbc",
+      "source_path": "opendbc/dbc/generator/honda/_steering_sensors_a.dbc",
+      "is_valid": true
+    },
+    {
+      "filename": "_steering_sensors_b.dbc",
+      "messages_count": 1,
+      "signals_count": 4,
+      "size_bytes": 240,
+      "sha256": "e64173beb15639bfbd58f6ab9aff0d6331c621c19fd55c84bcf895f3bbfa0ccc",
+      "source_repo": "commaai/opendbc",
+      "source_path": "opendbc/dbc/generator/honda/_steering_sensors_b.dbc",
+      "is_valid": true
+    },
+    {
+      "filename": "_steering_sensors_c.dbc",
+      "messages_count": 1,
+      "signals_count": 4,
+      "size_bytes": 303,
+      "sha256": "5df25a33bfc90c9792fb3154a0e39558eef410fce1e54edcd7fb87eb8a20c8ea",
+      "source_repo": "commaai/opendbc",
+      "source_path": "opendbc/dbc/generator/honda/_steering_sensors_c.dbc",
+      "is_valid": true
+    },
+    {
+      "filename": "_hyundai_canfd_common.dbc",
+      "messages_count": 37,
+      "signals_count": 113,
+      "size_bytes": 10081,
+      "sha256": "f2366b5485208e17ce878f9a4b68e5a3100f45da156bb1fbed20897ae8b87200",
+      "source_repo": "commaai/opendbc",
+      "source_path": "opendbc/dbc/generator/hyundai/_hyundai_canfd_common.dbc",
+      "is_valid": true
+    },
+    {
+      "filename": "_nissan_common.dbc",
+      "messages_count": 10,
+      "signals_count": 95,
+      "size_bytes": 6519,
+      "sha256": "84afff351c1920fb6502961c63e1c82f8b1f1b66e5dee453e7ee36bf5a5ca861",
+      "source_repo": "commaai/opendbc",
+      "source_path": "opendbc/dbc/generator/nissan/_nissan_common.dbc",
+      "is_valid": true
+    },
+    {
+      "filename": "_subaru_global.dbc",
+      "messages_count": 27,
+      "signals_count": 189,
+      "size_bytes": 12739,
+      "sha256": "b66ceda007b4133fdc88a885fb58d5456a71ccdd53b81b5018c8a1f87d248194",
+      "source_repo": "commaai/opendbc",
+      "source_path": "opendbc/dbc/generator/subaru/_subaru_global.dbc",
+      "is_valid": true
+    },
+    {
+      "filename": "_subaru_preglobal_2015.dbc",
+      "messages_count": 26,
+      "signals_count": 132,
+      "size_bytes": 8811,
+      "sha256": "57b0cb2c84b29494820b4581be2db15fd3b127ac85794855c35254c159071e24",
+      "source_repo": "commaai/opendbc",
+      "source_path": "opendbc/dbc/generator/subaru/_subaru_preglobal_2015.dbc",
+      "is_valid": true
+    },
+    {
+      "filename": "_community.dbc",
+      "messages_count": 2,
+      "signals_count": 10,
+      "size_bytes": 751,
+      "sha256": "ca5b616d5b6ac156af34d5a0bc2257bc5108859e7882a18d6ae4e8f216903af4",
+      "source_repo": "commaai/opendbc",
+      "source_path": "opendbc/dbc/generator/toyota/_community.dbc",
+      "is_valid": true
+    },
+    {
+      "filename": "_toyota_2017.dbc",
+      "messages_count": 50,
+      "signals_count": 310,
+      "size_bytes": 27735,
+      "sha256": "818872b1c1034983f61a51460a9b175b4bfe01f3d34f537c3d21f420991a8a48",
+      "source_repo": "commaai/opendbc",
+      "source_path": "opendbc/dbc/generator/toyota/_toyota_2017.dbc",
+      "is_valid": true
+    },
+    {
+      "filename": "_toyota_adas_standard.dbc",
+      "messages_count": 5,
+      "signals_count": 36,
+      "size_bytes": 3011,
+      "sha256": "432ca7e0c0e42d05030042f14f0c9fd1036fed44e90f297465c51fa45032aa34",
+      "source_repo": "commaai/opendbc",
+      "source_path": "opendbc/dbc/generator/toyota/_toyota_adas_standard.dbc",
+      "is_valid": true
+    },
+    {
+      "filename": "_vw_meb_common.dbc",
+      "messages_count": 126,
+      "signals_count": 1745,
+      "size_bytes": 259549,
+      "sha256": "1e46f3f035355bd71096b5732be78464e1ef32e1c9632fee40b88e7f2d233785",
+      "source_repo": "commaai/opendbc",
+      "source_path": "opendbc/dbc/generator/volkswagen/_vw_meb_common.dbc",
+      "is_valid": true
+    },
+    {
+      "filename": "LeafPowertrainBus.dbc",
+      "messages_count": 10,
+      "signals_count": 21,
+      "size_bytes": 2001,
+      "sha256": "ab99fc2b0af350d2e479187d9b4ec2f09666039c9aadf9fd74fdca9be4a4b5da",
+      "source_repo": "collin80/SavvyCAN",
+      "source_path": "examples/LeafPowertrainBus.dbc",
+      "is_valid": true
+    },
+    {
+      "filename": "ThinkCity.dbc",
+      "messages_count": 501,
+      "signals_count": 548,
+      "size_bytes": 274509,
+      "sha256": "7f1a27346dfe44ae0c23b58188f54fd007bf75b34f41b1ceeebbf67e16e96982",
+      "source_repo": "collin80/SavvyCAN",
+      "source_path": "examples/ThinkCity.dbc",
+      "is_valid": true
+    },
+    {
+      "filename": "bms.dbc",
+      "messages_count": 6,
+      "signals_count": 30,
+      "size_bytes": 2383,
+      "sha256": "674294dee1d5576401cd36f0e3dad3cff12224d9b3b6d8e56d28dd6954e73c6d",
+      "source_repo": "collin80/SavvyCAN",
+      "source_path": "examples/bms.dbc",
+      "is_valid": true
+    }
+  ]
+}
