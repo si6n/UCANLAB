@@ -61,6 +61,16 @@ jobs:
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
 
+      - name: Verify asammdf came from a binary wheel (no sdist build)
+        # Guards against regressing to an asammdf release without a cp3xx-abi3
+        # wheel: on py3.13 that silently falls back to the sdist, where the
+        # MinGW-w64 numpy metadata build crashes the runner (0xC0000005).
+        # The command string below is a fixed literal (no event data), so it is
+        # not an Actions injection surface.
+        shell: pwsh
+        run: |
+          python -c "import asammdf, pathlib; p = pathlib.Path(asammdf.__file__).resolve(); print('asammdf', asammdf.__version__, '->', p); assert 'pip-build-env' not in str(p).lower(), 'asammdf built from sdist'"
+
       - name: Run Ruff Static Analysis
         run: |
           ruff check .
@@ -112,6 +122,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
+
+      - name: Verify asammdf came from a binary wheel (no sdist build)
+        # Same guard as the windows job: a wheelless asammdf release would be
+        # compiled from sdist here too. The command is a fixed literal.
+        run: |
+          python -c "import asammdf, pathlib; p = pathlib.Path(asammdf.__file__).resolve(); print('asammdf', asammdf.__version__, '->', p); assert 'pip-build-env' not in str(p).lower(), 'asammdf built from sdist'"
 
       - name: Run PyTest (vcan hardware integration)
         env:
