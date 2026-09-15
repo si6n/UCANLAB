@@ -70,14 +70,6 @@
    "translations_applied_steps": 32,
    "procedures_touched": 164,
    "policy": "English originals are preserved untouched in `<field>` and `steps`; Turkish lives alongside in `<field>_tr` and `steps_tr` so nothing is re-translated or lost."
-  },
-  "t53_cleanup": {
-   "date": "2026-09-16",
-   "clipped_recovered_truckfaultcode": 27,
-   "clipped_removed_seo_generic": 2,
-   "seo_removed": 11,
-   "note": "T30 kalan kirpik causes tamamlandi (kaynak: yerel arsiv); genel/SEO satirlari silindi",
-   "sha256_before": "f85074e6285511e0b6b8e21b275677c907cc3a746c2637402944f009a20929bc"
   }
  },
  "fmi_definitions": {
@@ -911,8 +903,8 @@
    ],
    "pgn_source": "j1939_71_broadcast",
    "causes": [
-    "Coolant loss from an external leak: failed hose, water pump seal, head gasket, or radiator fitting Thermostat stuck in the closed position, preventing hot coolant from reaching the radiator Fan clutch slipping or disengaged, reducing airflow through the radiator at lower road speeds Radiator core clogged with scale, debris, bugs, or insect buildup reducing heat rejection Water pump impeller slipping or failed, reducing coolant circulation rate Sustained high-load operation in high ambient temperatures exceeding the cooling system's capacity",
-    "Coolant loss from an external leak: failed hose, water pump seal, head gasket, or radiator Thermostat stuck closed, preventing hot coolant from circulating through the radiator Fan clutch slipping or not engaging, reducing airflow through the radiator at low road speeds Radiator core clogged with scale, road debris, bugs, or internal scaling reducing heat rejection Water pump impeller slipping or cavitating, reducing coolant flow rate through the circuit High ambient temperature combined with sustained grade climbing or loaded operation exceeding cooling capacity",
+    "Coolant loss from an external leak: failed hose, water pump seal, head gasket, or radiator fitting Thermostat stuck in the closed position, preventing hot coolant from reaching the radiator Fan clutch slipping or disengaged, reduc…",
+    "Coolant loss from an external leak: failed hose, water pump seal, head gasket, or radiator Thermostat stuck closed, preventing hot coolant from circulating through the radiator Fan clutch slipping or not engaging, reducing airflow…",
     "Common problems contributing to this warning include coolant sensor failures and overheating caused by radiator clogging or thermostat malfunctions."
    ],
    "steps": [
@@ -951,21 +943,7 @@
     "a low level points to a leak somewhere in the system Inspect hose connections, the water pump area, and the front of the radiator for coolant residue, wet spots, or dried deposits Confirm the fan engages when the engine …",
     "a fan clutch that slips or disengages is a common cause in vocational and construction duty cycles Connect Detroit DiagnosticLink and view live coolant temperature alongside fan command status and any related protection-…"
    ],
-   "steps_tr_source": "@uplink Tur-34 (cümle bazlı tam çeviri)",
-   "_t53_causes_recovered": [
-    {
-     "idx": 0,
-     "old_len": 231,
-     "new_len": 546,
-     "source": "https://truckfaultcode.com/fault-codes/cummins-spn-110-fmi-0/"
-    },
-    {
-     "idx": 1,
-     "old_len": 231,
-     "new_len": 569,
-     "source": "https://truckfaultcode.com/fault-codes/detroit-spn-110-fmi-0/"
-    }
-   ]
+   "steps_tr_source": "@uplink Tur-34 (cümle bazlı tam çeviri)"
   },
   "SPN_190": {
    "spn": 190,
@@ -1716,8 +1694,8 @@
    "pgn_source": "j1939_71_broadcast",
    "causes": [
     "This code may be triggered by a faulty turbo actuator, stuck variable geometry turbo (VGT), restricted intake system, charge air cooler leaks, or inaccurate manifold pressure sensor readings.",
-    "Boost leak at intercooler connections, charge air cooler hoses, or turbocharger outlet ducting Intake manifold pressure sensor connector corroded, pinched, or with a pulled-back terminal Variable geometry turbocharger vanes stuck or VGT actuator not responding to commanded position Air filter severely restricted, reducing air supply volume to the turbo inlet Charge air cooler core cracked or end-tank seal failed, allowing pressurized boost to escape EGR valve stuck open, diluting the intake charge and reducing manifold pressure relative to ECM expectations",
-    "Boost leak at charge air hoses, intercooler connections, or turbocharger outlet ducting MAP sensor connector corrosion, pushed-back terminals, or chafed wiring near the intake manifold Variable geometry turbocharger vanes stuck or VGT actuator not reaching commanded position Air filter severely restricted, reducing volume delivered to the turbo inlet Charge air cooler core cracked or end-tank seal failed, allowing compressed boost to escape EGR valve stuck open, diluting intake charge and reducing net manifold pressure",
+    "Boost leak at intercooler connections, charge air cooler hoses, or turbocharger outlet ducting Intake manifold pressure sensor connector corroded, pinched, or with a pulled-back terminal Variable geometry turbocharger vanes stuck …",
+    "Boost leak at charge air hoses, intercooler connections, or turbocharger outlet ducting MAP sensor connector corrosion, pushed-back terminals, or chafed wiring near the intake manifold Variable geometry turbocharger vanes stuck or…",
     "Common causes include clogged fuel filters and turbocharger problems."
    ],
    "steps": [
@@ -1759,21 +1737,7 @@
     "Inspect charge air hose connections at the turbo outlet, charge air cooler, and intake manifold perform a pressurized boost leak test with the engine off to locate leaks efficiently Check the MAP sensor connector for c…",
     "a plugged filter reduces turbo inlet airflow and can cause real low-boost conditions Review VGT actuator position feedback in DiagnosticLink a VGT that cannot reach target position reduces boost output independent of s…"
    ],
-   "steps_tr_source": "@uplink Tur-34 (cümle bazlı tam çeviri)",
-   "_t53_causes_recovered": [
-    {
-     "idx": 1,
-     "old_len": 231,
-     "new_len": 562,
-     "source": "https://truckfaultcode.com/fault-codes/cummins-spn-102-fmi-4/"
-    },
-    {
-     "idx": 2,
-     "old_len": 231,
-     "new_len": 524,
-     "source": "https://truckfaultcode.com/fault-codes/detroit-spn-102-fmi-4/"
-    }
-   ]
+   "steps_tr_source": "@uplink Tur-34 (cümle bazlı tam çeviri)"
   },
   "SPN_157": {
    "spn": 157,
@@ -2076,9 +2040,9 @@
    ],
    "pgn_source": "j1939_71_broadcast",
    "causes": [
-    "High-pressure fuel pump internal wear or bypass, unable to maintain commanded pressure at target levels Pressure control valve (PCV) failing to hold pressure - stuck partially open or worn internal sealing surfaces Injector high-pressure leak-off: one or more injectors returning more fuel to the drain circuit than their design allows Fuel supply restriction limiting HP pump inlet flow: plugged primary or secondary filter, weak lift pump, or kinked supply line Fuel rail pressure sensor drift - reporting low but not at a level that triggers FMI 4; a slight mismatch between actual and sensed pressure",
+    "High-pressure fuel pump internal wear or bypass, unable to maintain commanded pressure at target levels Pressure control valve (PCV) failing to hold pressure - stuck partially open or worn internal sealing surfaces Injector high-p…",
     "a slight mismatch between actual and sensed pressure",
-    "High-pressure fuel pump internal wear, reducing peak pressure capability Pressure control valve (PCV) failing - stuck partially open or losing internal sealing Injector internal leak-off: worn injectors returning more fuel to drain than their design specification allows Fuel supply restriction on the low-pressure side: plugged primary or secondary filter, weak lift pump, or crimped supply line Fuel rail pressure sensor drift - reporting low while the circuit remains functional (would not set FMI 4)",
+    "High-pressure fuel pump internal wear, reducing peak pressure capability Pressure control valve (PCV) failing - stuck partially open or losing internal sealing Injector internal leak-off: worn injectors returning more fuel to drai…",
     "Common problems associated with this fault include frequent sensor signal interruptions and intermittent engine misfires."
    ],
    "steps": [
@@ -2113,21 +2077,7 @@
     "Replace fuel filters if service is overdue supply-side restriction is the lowest-cost item to eliminate first Connect Detroit DiagnosticLink and compare commanded rail pressure versus actual at idle and at elevated RPM",
     "a large gap at idle points toward the HP pump, PCV, or injector leak-off DiagnosticLink's injector contribution or balance rate data can identify whether one injector is returning significantly more fuel than the oth…"
    ],
-   "steps_tr_source": "@uplink Tur-34 (cümle bazlı tam çeviri)",
-   "_t53_causes_recovered": [
-    {
-     "idx": 0,
-     "old_len": 231,
-     "new_len": 604,
-     "source": "https://truckfaultcode.com/fault-codes/cummins-spn-157-fmi-18/"
-    },
-    {
-     "idx": 2,
-     "old_len": 231,
-     "new_len": 503,
-     "source": "https://truckfaultcode.com/fault-codes/detroit-spn-157-fmi-18/"
-    }
-   ]
+   "steps_tr_source": "@uplink Tur-34 (cümle bazlı tam çeviri)"
   },
   "SPN_3251": {
    "spn": 3251,
@@ -2437,7 +2387,7 @@
     "Poor DEF quality reducing SCR conversion efficiency",
     "DEF dosing system fault reducing catalyst effectiveness",
     "Damaged sensor wiring or connector",
-    "Soot accumulation from insufficient passive regen - common in city, construction, or vocational duty cycles Failed active regen attempts: incomplete regen due to low exhaust temperature, DEF issues, or operator interruption Ash loading past the point where regeneration removes the blockage (high-mileage filters) DPF differential pressure sensor tube clogged with soot or moisture, giving a falsely elevated reading Leaking sensor tube fitting creating a false pressure differential"
+    "Soot accumulation from insufficient passive regen - common in city, construction, or vocational duty cycles Failed active regen attempts: incomplete regen due to low exhaust temperature, DEF issues, or operator interruption Ash lo…"
    ],
    "steps": [
     "Kablo bağlantılarını kontrol edin ve NOx sensörünün çalışmasını test edin.",
@@ -2487,15 +2437,7 @@
     "Insite will show regen history Inspect the delta-P sensor tubes (small-diameter rubber or metal tubes connecting sensor to DPF inlet and outlet) for cracks, kinks, or soot blockage Review engine oil consumption",
     "heavy oil consumption can introduce additional ash into the DPF faster than normal If the filter has high mileage (250,000+ miles since last service), a DPF cleaning or replacement may be the appropriate path regardless …"
    ],
-   "steps_tr_source": "@uplink Tur-34 (cümle bazlı tam çeviri)",
-   "_t53_causes_recovered": [
-    {
-     "idx": 8,
-     "old_len": 231,
-     "new_len": 483,
-     "source": "https://truckfaultcode.com/fault-codes/cummins-spn-3251-fmi-0/"
-    }
-   ]
+   "steps_tr_source": "@uplink Tur-34 (cümle bazlı tam çeviri)"
   },
   "SPN_3719": {
    "spn": 3719,
@@ -2688,7 +2630,7 @@
    "pgn_source": "j1939_71_broadcast",
    "causes": [
     "This fault code is triggered when excessive soot accumulates inside the DPF due to frequent short trips, excessive idling, failed active regeneration, or malfunctioning aftertreatment components.",
-    "Extended idle time - construction sites, loading docks, overnight idling - without adequate drive time for passive regen temperatures Urban or stop-and-go routes where exhaust temperatures rarely reach passive regen thresholds Interrupted active regens - drivers stopping or shutting down before a parked regen completes Engine oil consumption contributing excessive ash alongside normal soot loading Exhaust temperature sensor issues affecting the ECM's ability to manage regen temperature (uncommon)"
+    "Extended idle time - construction sites, loading docks, overnight idling - without adequate drive time for passive regen temperatures Urban or stop-and-go routes where exhaust temperatures rarely reach passive regen thresholds Int…"
    ],
    "steps": [
     "Perform a parked regeneration as soon as possible.",
@@ -2724,15 +2666,7 @@
     "If regeneration fails or the code returns, seek professional diagnostics to inspect the DPF system and related sensors.",
     "Connect DiagnosticLink and review the current DPF soot load percentage and the delta-P sensor reading Check whether a parked regen has been requested and whether any previous regen attempts were incomplete or interrupted…"
    ],
-   "steps_tr_source": "@uplink Tur-34 (cümle bazlı tam çeviri)",
-   "_t53_causes_recovered": [
-    {
-     "idx": 1,
-     "old_len": 231,
-     "new_len": 501,
-     "source": "https://truckfaultcode.com/fault-codes/detroit-spn-3719-fmi-31/"
-    }
-   ]
+   "steps_tr_source": "@uplink Tur-34 (cümle bazlı tam çeviri)"
   },
   "SPN_4364": {
    "spn": 4364,
@@ -3003,8 +2937,8 @@
    "pgn_source": "j1939_71_broadcast",
    "causes": [
     "This fault is commonly triggered by a stuck EGR valve, clogged EGR cooler, faulty EGR differential pressure sensor, or restricted exhaust passages.",
-    "DEF quality below specification: diluted fluid, wrong fluid, or fluid degraded from age or heat cycling DEF dosing system fault: injector clogged, pump pressure low, or incorrect DEF quantity being delivered relative to exhaust conditions SCR catalyst degraded from thermal aging, sulfur poisoning, or hydrocarbon fouling from repeated failed or incomplete DPF regen events Upstream NOx sensor reading lower than actual NOx, making the catalyst appear less efficient than it is Downstream NOx sensor reading higher than actual NOx, artificially deflating the efficiency calculation Exhaust leak between the DEF dosing injector and the SCR catalyst, reducing the DEF concentration available for the catalytic reaction",
-    "SCR catalyst aged beyond effective conversion capability - common after 300,000 - 00,000+ miles depending on DEF quality history Poor DEF quality reducing the amount of effective reductant available to the catalyst DEF dosing rate below target - worn dosing pump, clogged injector, or air ingestion in the DEF supply line Upstream or downstream NOx sensor drifting, producing a false efficiency calculation Exhaust system leak between the dosing injector and SCR brick, diluting the reductant before it reaches the catalyst",
+    "DEF quality below specification: diluted fluid, wrong fluid, or fluid degraded from age or heat cycling DEF dosing system fault: injector clogged, pump pressure low, or incorrect DEF quantity being delivered relative to exhaust co…",
+    "SCR catalyst aged beyond effective conversion capability - common after 300,000 - 00,000+ miles depending on DEF quality history Poor DEF quality reducing the amount of effective reductant available to the catalyst DEF dosing rate …",
     "common problems affect how the engine runs and its environmental impact."
    ],
    "steps": [
@@ -3046,21 +2980,7 @@
     "drain a small sample to inspect clarity and verify the fluid hasn't been contaminated Review DEF dosing system performance data in DiagnosticLink look for dosing commanded vs.",
     "actual delivered discrepancies Inspect the DEF injector and dosing lines for crystallized DEF (a sign of injector drip or fitting leaks) at the injector boss If the catalyst is high-mileage and both sensors look healthy,…"
    ],
-   "steps_tr_source": "@uplink Tur-34 (cümle bazlı tam çeviri)",
-   "_t53_causes_recovered": [
-    {
-     "idx": 1,
-     "old_len": 231,
-     "new_len": 716,
-     "source": "https://truckfaultcode.com/fault-codes/cummins-spn-4364-fmi-18/"
-    },
-    {
-     "idx": 2,
-     "old_len": 232,
-     "new_len": 523,
-     "source": "https://truckfaultcode.com/fault-codes/detroit-spn-4364-fmi-18/"
-    }
-   ]
+   "steps_tr_source": "@uplink Tur-34 (cümle bazlı tam çeviri)"
   },
   "SPN_3361": {
    "spn": 3361,
@@ -3685,8 +3605,8 @@
    ],
    "causes": [
     "This fault is typically triggered by contaminated DEF, incorrect DEF concentration, failed DEF quality sensor, or wiring issues within the aftertreatment system.",
-    "DEF tank filled with water, windshield washer fluid, or other wrong fluid DEF diluted by water intrusion from a leaking cap, filler neck, or condensation in an improperly sealed tank DEF that has degraded from age, heat cycling, or improper storage DEF quality sensor failure or contamination (uncommon but possible after high-mileage operation) Aftertreatment dosing module wiring harness issue affecting sensor signal accuracy",
-    "DEF tank filled with water or the wrong type of fluid Water intrusion through a damaged or missing DEF cap or filler neck seal DEF that has degraded - DEF older than one year or stored improperly degrades DEF quality sensor failure, particularly after high-temperature exposure or if the sensor has been submerged Wiring harness fault between the DEF tank module and the aftertreatment control module",
+    "DEF tank filled with water, windshield washer fluid, or other wrong fluid DEF diluted by water intrusion from a leaking cap, filler neck, or condensation in an improperly sealed tank DEF that has degraded from age, heat cycling, o…",
+    "DEF tank filled with water or the wrong type of fluid Water intrusion through a damaged or missing DEF cap or filler neck seal DEF that has degraded - DEF older than one year or stored improperly degrades DEF quality sensor failur…",
     "Common causes include defects or corrosion affecting the DEF injector, heater, or sensor connections."
    ],
    "steps": [
@@ -3733,21 +3653,7 @@
     "discolored, cloudy, or odorless fluid suggests contamination Inspect the DEF fill cap for cracking or missing seal",
     "check the fill neck area for water staining or ice residue Check whether the DEF level is very low extremely low levels can cause the sensor to read outside its normal range even with good fluid If fluid quality checks…"
    ],
-   "steps_tr_source": "@uplink Tur-34 (cümle bazlı tam çeviri)",
-   "_t53_causes_recovered": [
-    {
-     "idx": 1,
-     "old_len": 231,
-     "new_len": 428,
-     "source": "https://truckfaultcode.com/fault-codes/cummins-spn-3364-fmi-1/"
-    },
-    {
-     "idx": 2,
-     "old_len": 231,
-     "new_len": 400,
-     "source": "https://truckfaultcode.com/fault-codes/detroit-spn-3364-fmi-1/"
-    }
-   ]
+   "steps_tr_source": "@uplink Tur-34 (cümle bazlı tam çeviri)"
   },
   "SPN_1087": {
    "spn": 1087,
@@ -10902,6 +10808,7 @@
    ],
    "pgn_source": "j1939_71_broadcast",
    "causes": [
+    "Long-term strategies involve routine checks and maintenance of the oil level sensor and related wiring",
     "Technicians often replace sensors preemptively during scheduled service intervals to avoid unexpected failures",
     "Workshops report that regular testing of electrical connections significantly reduces the incidence of SPN 98 FMI 6, ensuring reliable engine performance",
     "This often appears after a premature oil change or when sensors fail to read accurately",
@@ -10935,13 +10842,7 @@
     "mack_volvo:Mack",
     "peterbilt"
    ],
-   "sa_method": "direct",
-   "_t53_causes_removed": [
-    {
-     "text": "Long-term strategies involve routine checks and maintenance of the oil level sensor and related wiring",
-     "reason": "seo"
-    }
-   ]
+   "sa_method": "direct"
   },
   "SPN_105": {
    "spn": 105,
@@ -12329,7 +12230,7 @@
     "Messages from the Body Controller to the HCM Parameter Signal Value Meaning Description 520354 OK to Crank 0 No OK Body Controller will allow the Hybrid HCM to automatically start the engine in ePTO if necessary. 1 OK 520365 PTO E",
     "Transmission not in neutral HCM system fault TECU system fault PTO Pump HCM Body hydraulic pressure and demand switches Boom or Outrigger switches Hybrid System Harness Hood Switch PTO Ball Switch TECU PBSC",
     "Transmission not in neutral HCM System Fault TECU System Fault PTO Pump HCM Body Hydraulic Pressure and Demand Switches Boom or Outrigger Switches Hybrid System Harness Hood Switch PTO Ball Switch TECU PBSC",
-    "Low air supply pressure to the range shift cylinder Range shift solenoid valve failed or not receiving proper signal Range fork worn or stuck Range position sensor fault providing incorrect feedback Air line to the range cylinder leaking"
+    "Low air supply pressure to the range shift cylinder Range shift solenoid valve failed or not receiving proper signal Range fork worn or stuck Range position sensor fault providing incorrect feedback Air line to the range cylinder …"
    ],
    "steps": [
     "A. Check for active or inactive fault codes. Set vehicle parking brake and chock wheels. Record the transmission fault codes, FMIs, occurrences, and timestamps from the Service Activity report created during the Diagnostic Procedure. If Fault Code 716 FMI 12 is Active or Inactive, and the transmission is equipped with a PTO, Go to Step B If Fault Code 716 FMI 12 is Active or Inactive and the transmission is not equipped with a PTO, Go to Step C",
@@ -12523,15 +12424,7 @@
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
    "procedures_license": "Eaton ServiceRanger product information - public, no login required",
    "procedures_match_key": "SPN reference in the harvested Eaton page text",
-   "steps_completion_status": "full_procedure_in_procedures_full",
-   "_t53_causes_recovered": [
-    {
-     "idx": 6,
-     "old_len": 231,
-     "new_len": 237,
-     "source": "https://truckfaultcode.com/fault-codes/eaton-ultrashift-spn-524-fmi-7/"
-    }
-   ]
+   "steps_completion_status": "full_procedure_in_procedures_full"
   },
   "SPN_628": {
    "spn": 628,
@@ -15780,7 +15673,7 @@
    ],
    "pgn_source": "j1939_71_broadcast",
    "causes": [
-    "SCR catalyst degradation - the catalyst honeycomb has lost active surface area from aging or contamination DEF dosing quantity below target - worn dosing pump, partially clogged injector, or air in the DEF supply DEF quality below specification - diluted or degraded DEF reduces ammonia availability Downstream NOx sensor failure or drift - sensor output drifting high as the sensor ages Exhaust pipe leak between the SCR outlet and the sensor, diluting the sample gas"
+    "SCR catalyst degradation - the catalyst honeycomb has lost active surface area from aging or contamination DEF dosing quantity below target - worn dosing pump, partially clogged injector, or air in the DEF supply DEF quality below…"
    ],
    "steps": [
     "DiagnosticLink'i kullanarak hem giriş hem çıkış NOx sensörü değerlerini aynı anda izleyin; aralarındaki fark SCR'nin dönüşüm yapıp yapmadığını gösterir. SPN 3226 değerini SPN 4364 verimlilik değeriyle çapraz kontrol edin…",
@@ -15810,15 +15703,7 @@
    "steps_en_archive": [
     "Use DiagnosticLink to monitor both the upstream and downstream NOx sensor readings at the same time the delta between them reveals whether SCR is converting at all Cross-reference the SPN 3226 reading with SPN 4364 eff…"
    ],
-   "steps_tr_source": "@uplink Tur-34 (cümle bazlı tam çeviri)",
-   "_t53_causes_recovered": [
-    {
-     "idx": 0,
-     "old_len": 231,
-     "new_len": 468,
-     "source": "https://truckfaultcode.com/fault-codes/detroit-spn-3226-fmi-16/"
-    }
-   ]
+   "steps_tr_source": "@uplink Tur-34 (cümle bazlı tam çeviri)"
   },
   "SPN_3556": {
    "spn": 3556,
@@ -16259,7 +16144,7 @@
    "pgn_source": "j1939_71_broadcast",
    "causes": [
     "This code is typically triggered by DEF dosing problems, NOx sensor failure, wiring issues, clogged SCR catalyst, or contamination within the aftertreatment system.",
-    "This code does not have its own root cause - it is triggered by accumulated distance with unresolved aftertreatment faults DEF quality faults (SPN 3364) left uncorrected SCR NOx conversion efficiency faults (SPN 4364) persisting over distance DEF dosing system problems preventing adequate reductant injection SCR catalyst degradation allowing NOx to exceed limits over time"
+    "This code does not have its own root cause - it is triggered by accumulated distance with unresolved aftertreatment faults DEF quality faults (SPN 3364) left uncorrected SCR NOx conversion efficiency faults (SPN 4364) persisting o…"
    ],
    "steps": [
     "DEF sistemi bileşenlerini inceleyin, sensörlerin işlevselliğini doğrulayın ve kök nedeni belirlemek için SCR ve egzoz gazı arıtma sistemi üzerinde teşhis testleri uygulayın.",
@@ -16295,15 +16180,7 @@
     "Connect Cummins Insite and document all active and inactive codes SPN 5246 FMI 31 is rarely the only code present Review the inducement history in Insite: the ECM stores information about which codes were active during…",
     "the restriction will return quickly if the source faults are still present If DEF quality (SPN 3364) is active alongside this code, start there: drain and refill the DEF tank, then address dosing or catalyst issues as ne…"
    ],
-   "steps_tr_source": "@uplink Tur-34 (cümle bazlı tam çeviri)",
-   "_t53_causes_recovered": [
-    {
-     "idx": 1,
-     "old_len": 231,
-     "new_len": 374,
-     "source": "https://truckfaultcode.com/fault-codes/cummins-spn-5246-fmi-31/"
-    }
-   ]
+   "steps_tr_source": "@uplink Tur-34 (cümle bazlı tam çeviri)"
   },
   "SPN_1714": {
    "spn": 1714,
@@ -17416,8 +17293,8 @@
     "Low transmission oil level Not properly filled Leak FPS Damaged Internal failure Internal transmission Lubrication system mechanical failure FMI 3, 4, 5, 6: FPS Damaged Internal failure Vehicle Harness - FPS Wiring shorted to powe",
     "Line Pressure Valve (LPV) Stuck closed Line Pressure Solenoid (LPS) Stuck open FMI 1, 7, 17, 18: Low oil level Sump Pan Filter Clogged O-ring damaged Neck cracked TPS O-ring leak LPV Stuck open LPS Stuck closed High Pressure Relie",
     "1. Transmission Control Module (TCM) 2. Actuation Control Manifold (ACM) 3. Sump Pan Filter 4. Pump Driven Gear (Inside Clutch Housing) Actuation Control Manifold (ACM) 1. 74-Way Transmission Harness Connector 2. Line Pressure Sol",
-    "Low transmission fluid level - check level per Allison procedure with the fluid at operating temperature Fluid leak from the pan gasket, input shaft seal, output shaft seal, or cooler fittings Transmission main pump wear after high mileage or high-cycle vocational use Stuck or worn main pressure regulator valve in the valve body Clogged or bypassed transmission filter restricting flow to the pump inlet",
-    "Low transmission fluid level - the most common cause and the first thing to check Fluid that has degraded to the point of losing viscosity, especially at high temperatures Worn hydraulic pump producing less pressure at a given speed Internal circuit leak at a gasket, seal, or solenoid valve body Cold, thickened fluid at startup in sub-zero temperatures (code typically clears as fluid warms)"
+    "Low transmission fluid level - check level per Allison procedure with the fluid at operating temperature Fluid leak from the pan gasket, input shaft seal, output shaft seal, or cooler fittings Transmission main pump wear after hig…",
+    "Low transmission fluid level - the most common cause and the first thing to check Fluid that has degraded to the point of losing viscosity, especially at high temperatures Worn hydraulic pump producing less pressure at a given spe…"
    ],
    "steps": [
     "A. Check for active or inactive fault codes. Set vehicle parking brake and chock wheels. Record the transmission fault codes, FMIs, occurrences, and timestamps from the Service Activity Report created during the Diagnostic Procedure. If Fault Code 210 FMI 1, 18 is Active or Inactive, Go to Step B If Fault Code 210 FMI 3, 4, 5, 6, 20, 21 is Active or Inactive, Go to Step D If Fault Code 210 FMI 13 is Inactive, the Fluid Pressure Sensor and wiring are installed and configured in the TCM. Test Complete, Go to Step V If Fault Code 210 FMI 13 is Active, the Fluid Pressure Sensor and wiring were installed but not configured in the TCM. Contact Eaton Cummins Automated Transmission Technologies Cummins Automated Transmission Technologies at 1-800-826-HELP (4357) for further diagnostic instructions. Go to Step V",
@@ -17545,21 +17422,7 @@
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
    "procedures_license": "Eaton ServiceRanger product information - public, no login required",
    "procedures_match_key": "SPN reference in the harvested Eaton page text",
-   "steps_completion_status": "full_procedure_in_procedures_full",
-   "_t53_causes_recovered": [
-    {
-     "idx": 5,
-     "old_len": 231,
-     "new_len": 405,
-     "source": "https://truckfaultcode.com/fault-codes/allison-spn-127-fmi-1/"
-    },
-    {
-     "idx": 6,
-     "old_len": 231,
-     "new_len": 393,
-     "source": "https://truckfaultcode.com/fault-codes/eaton-spn-127-fmi-1/"
-    }
-   ]
+   "steps_completion_status": "full_procedure_in_procedures_full"
   },
   "SPN_132": {
    "spn": 132,
@@ -18750,10 +18613,10 @@
     "Low transmission oil level Not properly filled Leak FTS not configured in the TCM Replacement TCM installed FTS Internal failure Internal transmission Lubrication system mechanical failure FMI 2, 4, 5, 6, 10: FTS Internal Failure",
     "Engine overheating Oil cooler restricted Extreme operating conditions FMI 1, 17, 18: Engine not heating Oil cooler restricted Extreme operating conditions FMI 2, 4, 5, 6, 10, 14, 20, 21, 31: Transmission Harness Shorted to power,",
     "1. Transmission Control Module (TCM) 2. Actuation Control Manifold (ACM) 3. Triple Pressure Sensor (TPS) 4. 8-Way Transmission Harness Connector 1. Transmission Control Module (TCM) 2. 74-Way Transmission Harness Connector 3. 8-Wa",
-    "Extended operation in high-demand conditions: severe grades, PTO use, high ambient temperature, or frequent stop-and-go with a heavy load Transmission-to-engine cooler partially blocked or bypassed, reducing heat rejection capacity Low engine coolant level causing the shared cooler circuit to lose effectiveness Transmission fluid level low - reduces the fluid volume available to absorb and carry away heat Transmission filter partially clogged, increasing internal churning and heat generation",
-    "Restricted transmission fluid cooler Transmission fluid past service interval Extreme duty cycle - extended grade climbing or stop-and-go with heavy loads Fluid temperature sensor fault Transmission cooler coolant supply restricted from scale or debris",
-    "Transmission fluid cooler restricted by debris or scale buildup Engine coolant temperature too high, reducing cooler effectiveness Low transmission fluid level Prolonged clutch slip from heavy towing on grades or poor driving technique Failed transmission cooler thermostat or incorrectly plumbed cooler circuit",
-    "Transmission cooler restricted by debris or scale Engine coolant temperature elevated, reducing cooling effectiveness Low transmission fluid level Demanding duty cycle generating more heat than the cooler can dissipate Failed transmission cooler thermostat or bypass valve"
+    "Extended operation in high-demand conditions: severe grades, PTO use, high ambient temperature, or frequent stop-and-go with a heavy load Transmission-to-engine cooler partially blocked or bypassed, reducing heat rejection capacit…",
+    "Restricted transmission fluid cooler Transmission fluid past service interval Extreme duty cycle - extended grade climbing or stop-and-go with heavy loads Fluid temperature sensor fault Transmission cooler coolant supply restricte…",
+    "Transmission fluid cooler restricted by debris or scale buildup Engine coolant temperature too high, reducing cooler effectiveness Low transmission fluid level Prolonged clutch slip from heavy towing on grades or poor driving tech…",
+    "Transmission cooler restricted by debris or scale Engine coolant temperature elevated, reducing cooling effectiveness Low transmission fluid level Demanding duty cycle generating more heat than the cooler can dissipate Failed tran…"
    ],
    "steps": [
     "A. Aktif veya pasif arıza kodlarını kontrol edin. El frenini çekin ve tekerleklere takoz koyun. Teşhis Prosedürü sırasında oluşturulan Servis Aktivite Raporundaki şanzıman arıza kodlarını, FMI'ları, oluşum sayılarını ve zaman damgalarını kaydedin. Arıza Kodu 212 FMI 0, 15, 16 aktif veya pasifse Adım B'ye gidin. Arıza Kodu 212 FMI 2, 4, 5, 6, 10 aktif veya pasifse Adım D'ye gidin.",
@@ -18872,33 +18735,7 @@
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
    "procedures_license": "Eaton ServiceRanger product information - public, no login required",
    "procedures_match_key": "SPN reference in the harvested Eaton page text",
-   "steps_completion_status": "full_procedure_in_procedures_full",
-   "_t53_causes_recovered": [
-    {
-     "idx": 4,
-     "old_len": 231,
-     "new_len": 496,
-     "source": "https://truckfaultcode.com/fault-codes/allison-spn-177-fmi-0/"
-    },
-    {
-     "idx": 5,
-     "old_len": 231,
-     "new_len": 252,
-     "source": "https://truckfaultcode.com/fault-codes/eaton-ultrashift-spn-177-fmi-0/"
-    },
-    {
-     "idx": 6,
-     "old_len": 231,
-     "new_len": 311,
-     "source": "https://truckfaultcode.com/fault-codes/eaton-ultrashift-spn-177-fmi-16/"
-    },
-    {
-     "idx": 7,
-     "old_len": 231,
-     "new_len": 272,
-     "source": "https://truckfaultcode.com/fault-codes/zf-astronic-traxon-spn-177-fmi-16/"
-    }
-   ]
+   "steps_completion_status": "full_procedure_in_procedures_full"
   },
   "SPN_182": {
    "spn": 182,
@@ -24650,7 +24487,10 @@
    ],
    "pgn_source": "j1939_71_broadcast",
    "causes": [
-    "Ensuring correct installation and calibration can prevent recurring issues"
+    "Long-term strategies for addressing SPN 6780 FMI 21 involve routine sensor checks and calibration",
+    "Workshops frequently encounter this fault after ECM updates or sensor replacements",
+    "Ensuring correct installation and calibration can prevent recurring issues",
+    "Technicians should incorporate regular sensor"
    ],
    "steps": [
     "[FMI 2 katalog] Kablo demetinde titreşim temassızlığı, gevşek klemens veya manyetik relüktör çark diş hasarı arayın. Sorun sürerse ağ ve düğüm tanılaması için yetkili servise başvurun.",
@@ -24664,21 +24504,7 @@
    "pgn_label": "Aftertreatment 1 Particulate Sensor Information 2",
    "causes_source": "SAE J1939 diagnostic reference (j1939hub.com)",
    "steps_class_fixed_tur30": "SPN sınıfına göre jenerik adım düzeltildi",
-   "steps_cleaned_tur30": "dedupe + encoding fix",
-   "_t53_causes_removed": [
-    {
-     "text": "Long-term strategies for addressing SPN 6780 FMI 21 involve routine sensor checks and calibration",
-     "reason": "seo"
-    },
-    {
-     "text": "Workshops frequently encounter this fault after ECM updates or sensor replacements",
-     "reason": "seo"
-    },
-    {
-     "text": "Technicians should incorporate regular sensor",
-     "reason": "seo_dangling"
-    }
-   ]
+   "steps_cleaned_tur30": "dedupe + encoding fix"
   },
   "SPN_7854": {
    "spn": 7854,
@@ -25912,8 +25738,8 @@
     "1. Transmission Control Module (TCM) Cover 2. Transmission Control Module (TCM) 3. 74-Way Transmission Harness Connector (MTM-side) 4. 74-Way Transmission Harness Connector (TCM-side) 5. Transmission Control Module (TCM) Seal 6. 3",
     "MTM - Output Speed Sensor Internal failure Damaged Internal Transmission Mechanical failure TCM Software issue Internal failure FMI 3: TCM Internal failure FMI 4, 5, 6, 8, 9, 10: Output Speed Sensor Internal failure Damaged Output",
     "1. Transmission Control Module (TCM) Cover 2. Transmission Control Module (TCM) 3. 74-Way Transmission Harness Connector (TCM-side) 4. 74-Way Transmission Harness Connector (MTM-side) 5. Transmission Control Module (TCM) Seal 6. 3",
-    "Metallic debris on the sensor face reducing signal strength - common in transmissions with high mileage or without recent fluid service Sensor-to-reluctor air gap out of specification from sensor movement or bearing wear Chafed or intermittent wiring in the sensor harness, particularly where the harness routes near the driveshaft or exhaust Reluctor ring damage - chipped, cracked, or missing teeth on the tone wheel Sensor internal failure after exposure to heat or vibration",
-    "Output shaft speed sensor physically moved or loose in its mounting location Damaged tone wheel with missing, cracked, or corroded teeth Sensor wiring harness damaged causing signal noise Metallic debris on the sensor face from a bearing or gear failure Internal sensor failure"
+    "Metallic debris on the sensor face reducing signal strength - common in transmissions with high mileage or without recent fluid service Sensor-to-reluctor air gap out of specification from sensor movement or bearing wear Chafed or…",
+    "Output shaft speed sensor physically moved or loose in its mounting location Damaged tone wheel with missing, cracked, or corroded teeth Sensor wiring harness damaged causing signal noise Metallic debris on the sensor face from a …"
    ],
    "steps": [
     "A. Measure Output Shaft Speed Sensor resistance and test for short to ground through Transmission Harness. Key off. Disconnect negative battery cable. Disconnect the Transmission Harness 38-way connector. Measure resistance between the Transmission Harness 38-way connector pins: 23 and 24 23 and ground If resistance between Pin 23 and Pin 24 is 2K to 4.5K ohm and between Pin 23 to ground is OL , Go to Step B If resistance is outside of the range, Go to Step C",
@@ -26151,21 +25977,7 @@
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
    "procedures_license": "Eaton ServiceRanger product information - public, no login required",
    "procedures_match_key": "SPN reference in the harvested Eaton page text",
-   "steps_completion_status": "full_procedure_in_procedures_full",
-   "_t53_causes_recovered": [
-    {
-     "idx": 8,
-     "old_len": 231,
-     "new_len": 478,
-     "source": "https://truckfaultcode.com/fault-codes/eaton-spn-191-fmi-8/"
-    },
-    {
-     "idx": 9,
-     "old_len": 231,
-     "new_len": 277,
-     "source": "https://truckfaultcode.com/fault-codes/eaton-ultrashift-spn-191-fmi-8/"
-    }
-   ]
+   "steps_completion_status": "full_procedure_in_procedures_full"
   },
   "SPN_974": {
    "spn": 974,
@@ -32223,7 +32035,7 @@
    "causes": [
     "SPN 1569 FMI 31 is typically triggered when a critical engine fault has occurred.",
     "This may include high coolant temperature, low oil pressure, aftertreatment system issues, or DEF system faults.",
-    "Coolant temperature above normal - low coolant level, failed thermostat, clogged radiator, or failed water pump Low oil pressure - low oil level, worn oil pump, clogged oil cooler or filter, or oil dilution Intake manifold temperature too high - common with a failing charge air cooler or restriction in the intake system High fuel temperature - clogged fuel cooler or high return fuel temperature in hot ambient conditions Turbocharger issues affecting boost pressure or causing over-boost",
+    "Coolant temperature above normal - low coolant level, failed thermostat, clogged radiator, or failed water pump Low oil pressure - low oil level, worn oil pump, clogged oil cooler or filter, or oil dilution Intake manifold tempera…",
     "common causes include faulty sensors such as the turbo boost sensor or a malfunctioning exhaust gas recirculation (EGR) valve."
    ],
    "steps": [
@@ -32255,15 +32067,7 @@
     "The information provided above is for general informational purposes only and should not replace official OEM service procedures. Always consult the manufacturer's service manual or a qualified diesel technician before p…",
     "the primary code points to the actual problem Check coolant level and temperature before dismissing a heat-related cause Verify engine oil level and look for signs of oil contamination or foam (coolant intrusion) Check t…"
    ],
-   "steps_tr_source": "@uplink Tur-34 (cümle bazlı tam çeviri)",
-   "_t53_causes_recovered": [
-    {
-     "idx": 2,
-     "old_len": 231,
-     "new_len": 490,
-     "source": "https://truckfaultcode.com/fault-codes/cummins-spn-1569-fmi-31/"
-    }
-   ]
+   "steps_tr_source": "@uplink Tur-34 (cümle bazlı tam çeviri)"
   },
   "SPN_1624": {
    "spn": 1624,
@@ -47624,9 +47428,9 @@
     "Secondary Data Link (J1939 B) not configured correctly in the TCM Vehicle Secondary Data Link (J1939 B) Wiring shorted to ground, shorted to power or open Bent, spread, or loose terminals Excessive electrical noise Missing or addi",
     "1. 20-Way TCM Vehicle Harness Connector 2. 20-Way TCM Body Harness Connector 3. Transmission Control Module (TCM) 4. 9-Way Type 2 Diagnostic Connector (In Cab) 1. Transmission Control Module (TCM) 2. 20-Way TCM Vehicle Harness Con",
     "Vehicle Components Other vehicle ECU(s) faulted Vehicle Harness - Secondary Data Link (J1939B) Wiring shorted to power, shorted to ground or open Terminals bent, spread, corroded, or loose Excessive electrical noise Missing or add",
-    "Damaged or corroded J1939 CAN bus wiring Missing or failed 120-ohm CAN terminating resistor Faulty connector at the Eaton TCM or on the CAN backbone A source ECU (engine, body controller) that has failed or lost power Power or ground fault at a network node",
-    "J1939 CAN bus harness damage from road debris or abrasion Corroded connector at the mDrive TCM or on the CAN backbone Failed 120-ohm CAN terminating resistor Power or ground fault at a module causing it to stop transmitting Failed source ECU on the J1939 bus",
-    "Damaged or corroded J1939 CAN bus wiring Missing or failed 120-ohm CAN terminating resistor Faulty connector at the I-Shift TCM or on the backbone harness A source ECU that has failed or lost power and stopped transmitting Power or ground fault at a network node",
+    "Damaged or corroded J1939 CAN bus wiring Missing or failed 120-ohm CAN terminating resistor Faulty connector at the Eaton TCM or on the CAN backbone A source ECU (engine, body controller) that has failed or lost power Power or gro…",
+    "J1939 CAN bus harness damage from road debris or abrasion Corroded connector at the mDrive TCM or on the CAN backbone Failed 120-ohm CAN terminating resistor Power or ground fault at a module causing it to stop transmitting Failed…",
+    "Damaged or corroded J1939 CAN bus wiring Missing or failed 120-ohm CAN terminating resistor Faulty connector at the I-Shift TCM or on the backbone harness A source ECU that has failed or lost power and stopped transmitting Power o…",
     "Damaged or corroded J1939 CAN High or CAN Low wiring Missing or failed 120-ohm CAN terminating resistor Faulty connector at the ZF TCU harness A source ECU that has failed or lost power Power or ground fault at a network node",
     "Common problems associated with the D13 engine include turbocharger boost pressure faults as well as failures in the sensor wiring harness."
    ],
@@ -47725,27 +47529,7 @@
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
    "procedures_license": "Eaton ServiceRanger product information - public, no login required",
    "procedures_match_key": "SPN reference in the harvested Eaton page text",
-   "steps_completion_status": "full_procedure_in_procedures_full",
-   "_t53_causes_recovered": [
-    {
-     "idx": 3,
-     "old_len": 231,
-     "new_len": 257,
-     "source": "https://truckfaultcode.com/fault-codes/eaton-ultrashift-spn-1231-fmi-9/"
-    },
-    {
-     "idx": 4,
-     "old_len": 231,
-     "new_len": 258,
-     "source": "https://truckfaultcode.com/fault-codes/mack-mdrive-spn-1231-fmi-9/"
-    },
-    {
-     "idx": 5,
-     "old_len": 231,
-     "new_len": 262,
-     "source": "https://truckfaultcode.com/fault-codes/volvo-ishift-spn-1231-fmi-9/"
-    }
-   ]
+   "steps_completion_status": "full_procedure_in_procedures_full"
   },
   "SPN_1237": {
    "spn": 1237,
@@ -57741,7 +57525,8 @@
     "Sensor Malfunction: Particulate filter pressure or temperature sensors may fail, providing inaccurate data to the ECM. Clogged Filter: Excessive soot accumulation in the diesel particulate filter can hinder exhaust flow and function",
     "Exhaust Leak: Leaks in the exhaust system can cause incorrect sensor readings and system performance issues",
     "ECM Software Bug: Software anomalies in the ECM can lead to erroneous",
-    "Technicians frequently encounter this fault after replacing the ECM without performing a full system recalibration"
+    "Technicians frequently encounter this fault after replacing the ECM without performing a full system recalibration",
+    "Routine inspections and cleaning of the DPF, along with periodic sensor calibration, can prevent the recurrence of SPN 3064 FMI 18. Real-world workshop examples show that implementing a structured maintenance schedule significantly reduces the frequency of such fault codes, enhancing vehicle reli..."
    ],
    "steps": [
     "[FMI 0 katalog] CAN hattında veri trafiğini izleyin; bu düğümden beklenen mesajların (PGN) gelip gelmediğini doğrulayın. Sorun sürerse ağ ve düğüm tanılaması için yetkili servise başvurun.",
@@ -57760,14 +57545,7 @@
    "causes_source": "SAE J1939 diagnostic reference (j1939hub.com)",
    "steps_class_fixed_tur30": "SPN sınıfına göre jenerik adım düzeltildi",
    "steps_cleaned_tur30": "dedupe + encoding fix",
-   "pgn_source": "j1939_73_diagnostic_only",
-   "_t53_causes_removed": [
-    {
-     "idx": 5,
-     "text": "Routine inspections and cleaning of the DPF, along with periodic sensor calibration, can prevent the recurrence of SPN 3064 FMI 18. Real-world workshop examples show that implementing a structured maintenance schedule significantly reduces the frequency of such fault codes, enhancing vehicle reli...",
-     "reason": "seo_generic_clipped"
-    }
-   ]
+   "pgn_source": "j1939_73_diagnostic_only"
   },
   "SPN_3236": {
    "spn": 3236,
@@ -70222,6 +70000,7 @@
    "pgn_description": "NOTE - Retarder can be disabled by commanding a torque limit of 0%. Use of the limit mode allows the use of the retarder only up to the limit specified in the request. This can be used to permit retarding of up to 50%, for example, if that limit is required by some device such as an EBS, or it can disable the use of the retarder by others, as when an ABS controller detects wheel slip. Note that the 10 ms transmission repetition rate is intended for temporary powertrain control (P32 of SPN 3350).",
    "pgn_label": "Torque/Speed Control 1",
    "causes": [
+    "Long-term strategies involve regular maintenance checks and updating ECM software to prevent recurring issues",
     "Technicians should ensure that all components are calibrated post-repair",
     "Real-world examples include workshops installing updated sensors and control modules to enhance system reliability, preventing future occurrences of this fault"
    ],
@@ -70246,13 +70025,7 @@
     "Perform Valve Sweep: Initiate factory-recommended calibration routine to re-learn closed and open positions. Verify Oil Quality: Sample oil for debris",
     "Guide Inspect wiring: Check harness from ECM to valve for chafing, corrosion, or loose pins at both connectors. Measure solenoid resistance: Use multimeter on valve pins"
    ],
-   "steps_tr_source": "@uplink Tur-34 (cümle bazlı tam çeviri)",
-   "_t53_causes_removed": [
-    {
-     "text": "Long-term strategies involve regular maintenance checks and updating ECM software to prevent recurring issues",
-     "reason": "seo"
-    }
-   ]
+   "steps_tr_source": "@uplink Tur-34 (cümle bazlı tam çeviri)"
   },
   "SPN_4815": {
    "spn": 4815,
@@ -82622,7 +82395,10 @@
    "causes": [
     "Technicians may see it when a Deutz or MAN engine logs idle fuel data that does not match actual consumption, leading to false emissions reports",
     "Always perform a resistance check on the ground circuit before replacing components",
-    "Long-term strategy involves cross-referencing SPN 230 with SPN 1010 (total idle fuel used duplicate) and SPN 94 (fuel rate). In practice, technicians at MAN dealerships have resolved this fault by performing a zero-flow sensor recalibration using the manufacturer's"
+    "Long-term strategy involves cross-referencing SPN 230 with SPN 1010 (total idle fuel used duplicate) and SPN 94 (fuel rate). In practice, technicians at MAN dealerships have resolved this fault by performing a zero-flow sensor recalibration using the manufacturer's",
+    "Long-term strategies involve regular updates and recalibration of network configurations",
+    "Workshops often employ",
+    "For long-term prevention, regular"
    ],
    "steps": [
     "[FMI 0 katalog] CAN hattında veri trafiğini izleyin; bu düğümden beklenen mesajların (PGN) gelip gelmediğini doğrulayın. Sorun sürerse ağ ve düğüm tanılaması için yetkili servise başvurun."
@@ -82635,21 +82411,7 @@
    "causes_source": "SAE J1939 diagnostic reference (j1939hub.com)",
    "steps_class_fixed_tur30": "SPN sınıfına göre jenerik adım düzeltildi",
    "steps_cleaned_tur30": "dedupe + encoding fix",
-   "pgn_source": "j1939_73_diagnostic_only",
-   "_t53_causes_removed": [
-    {
-     "text": "Long-term strategies involve regular updates and recalibration of network configurations",
-     "reason": "seo"
-    },
-    {
-     "text": "Workshops often employ",
-     "reason": "seo_dangling"
-    },
-    {
-     "text": "For long-term prevention, regular",
-     "reason": "seo_dangling"
-    }
-   ]
+   "pgn_source": "j1939_73_diagnostic_only"
   },
   "SPN_231": {
    "spn": 231,
@@ -88102,6 +87864,7 @@
    "attribution_sitrak": "(c) Megadata / megadata.pro - CC BY 4.0 - https://megadata.pro",
    "causes": [
     "ECM Replaced: New ECM requires a teach-in procedure for the axle load sensor",
+    "Long-term strategies involve routine sensor recalibrations and periodic inspections of wiring integrity",
     "A real-world example includes a fleet maintenance program that identified recurring SPN 1059 issues, leading to standardized checks post-axle service",
     "Preventive measures, like protective wire sheathing, have proven effective in reducing these occurrences over time"
    ],
@@ -88117,13 +87880,7 @@
    "steps_class_fixed_tur30": "SPN sınıfına göre jenerik adım düzeltildi",
    "steps_cleaned_tur30": "dedupe + encoding fix",
    "title_tr_source": "tam çeviri (Tur-30, name alanından okunup anlaşılarak)",
-   "pgn_source": "j1939_73_diagnostic_only",
-   "_t53_causes_removed": [
-    {
-     "text": "Long-term strategies involve routine sensor recalibrations and periodic inspections of wiring integrity",
-     "reason": "seo"
-    }
-   ]
+   "pgn_source": "j1939_73_diagnostic_only"
   },
   "SPN_1067": {
    "spn": 1067,
@@ -89111,7 +88868,9 @@
     "ECM Connector Damage: Corrosion or bent pins at the ECM harness connector cause a low voltage condition",
     "Open 5V Reference: Loss of the 5V supply to the torque request circuit forces the signal line low",
     "Advanced Technical Analysis The ECM microcontroller monitors the analog voltage on the dedicated torque request pin against an internal 5V reference",
-    "When the voltage drops below the calibrated threshold (typically 1 second), the"
+    "When the voltage drops below the calibrated threshold (typically 1 second), the",
+    "Workshops frequently encounter this fault during post-service checks, especially after ECM reprogramming sessions",
+    "Real-world examples show that consistent"
    ],
    "steps": [
     "[FMI 0 katalog] Sensör besleme hattını ve fiziksel aşırı basınç/sıcaklık durumunu mekanik test portundan doğrulayın. Sorun sürerse ağ ve düğüm tanılaması için yetkili servise başvurun."
@@ -89122,17 +88881,7 @@
    "pgn_label": "Continuous Torque & Speed Limit Request",
    "causes_source": "SAE J1939 diagnostic reference (j1939hub.com)",
    "steps_class_fixed_tur30": "SPN sınıfına göre jenerik adım düzeltildi",
-   "steps_cleaned_tur30": "dedupe + encoding fix",
-   "_t53_causes_removed": [
-    {
-     "text": "Workshops frequently encounter this fault during post-service checks, especially after ECM reprogramming sessions",
-     "reason": "seo"
-    },
-    {
-     "text": "Real-world examples show that consistent",
-     "reason": "seo_dangling"
-    }
-   ]
+   "steps_cleaned_tur30": "dedupe + encoding fix"
   },
   "SPN_1807": {
    "spn": 1807,
@@ -89289,6 +89038,7 @@
    ],
    "pgn_source": "j1939_71_broadcast",
    "causes": [
+    "Technicians often conduct continuity tests and inspect connector integrity to resolve these electrical issues, ensuring stable data flow between the sensor and ECM. ECM safety fallback mechanisms are activated when SPN 1807 FMI 7 is detected, often leading to torque derate to protect the vehicle'...",
     "Diagnosing these scenarios involves reviewing the ECM's response logs and torque management protocols to identify the precise conditions triggering the derate",
     "Technicians frequently encounter this code when the steering angle sensor is not re-zeroed after alignment work, causing intermittent stability control warnings without a clear electrical or mechanical trigger",
     "Electrically, the sensor is powered by a regulated 5 V supply from the chassis module",
@@ -89317,14 +89067,7 @@
     "mack_volvo:Volvo",
     "peterbilt"
    ],
-   "sa_method": "direct_voted",
-   "_t53_causes_removed": [
-    {
-     "idx": 0,
-     "text": "Technicians often conduct continuity tests and inspect connector integrity to resolve these electrical issues, ensuring stable data flow between the sensor and ECM. ECM safety fallback mechanisms are activated when SPN 1807 FMI 7 is detected, often leading to torque derate to protect the vehicle'...",
-     "reason": "seo_generic_clipped"
-    }
-   ]
+   "sa_method": "direct_voted"
   },
   "SPN_1808": {
    "spn": 1808,
@@ -90591,7 +90334,7 @@
     "Shorted Wiring Harness: Insulation breakdown causing a direct short to battery positive voltage",
     "Failed High Beam Bulb: Internal filament short or incorrect bulb with higher current draw",
     "ECM Output Driver Fault: Internal MOSFET shorted to battery, feeding constant overvoltage",
-    "Alternator Overvoltage: Regulator failure causing system voltage spikes above 16 V. Advanced Technical Analysis The ECM monitors the headlamp 2 high beam output pin using a voltage divider and an ADC. The nominal operating range is 10.0–14.5 V. When the sampled voltage exceeds 15.5 V for more than 200 ms, the diagnostic sets FMI 0. This threshold prevents false triggers from transient load dumps while ensuring early detection of sustained overvoltage. Electrical analysis reveals that a short to battery positive (B+) on the high beam output line causes the ECM to read near system voltage even when the driver is off. The ECM uses a debouncing timer to confirm the fault before logging. Common real-world scenarios include chafed wiring against the engine block or a crushed harness under the headlamp assembly. When SPN 4012 FMI 0 becomes active, the ECM typically disables the high beam output driver to prevent further damage. Some manufacturers, like Mercedes-Benz, also impose a 30% torque derate on the engine to encourage immediate repair. The fault remains active until the voltage returns to normal and a key cycle is performed. Long-term prevention involves inspecting the headlamp harness for chafing during every major service. Technicians frequently encounter this fault after replacing the ECM without verifying the wiring condition. Using factory-specified bulbs and checking alternator output (max 14.7 V) are essential. A real-world example: a MAN TGS with a failed voltage regulator caused repeated SPN 4012 FMI 0 until the alternator was replaced.",
+    "Alternator Overvoltage: Regulator failure causing system voltage spikes above 16 V. Advanced Technical Analysis The ECM monitors the headlamp 2 high beam output pin using a voltage divider and an ADC. The nominal operating range is 10.0-14.5 V. When the sampled voltage exceeds 15.5 V for more tha...",
     "Short to battery: Wire harness chafed against chassis or other circuit, feeding 12V/24V to the ECM driver output",
     "Failed headlamp bulb: Internal filament short to the reflector or base, creating a direct path to ground",
     "Corroded connector: Moisture in the headlamp plug causes high resistance and voltage drop misinterpretation",
@@ -90608,15 +90351,7 @@
    "causes_source": "SAE J1939 diagnostic reference (j1939hub.com)",
    "steps_class_fixed_tur30": "SPN sınıfına göre jenerik adım düzeltildi",
    "steps_cleaned_tur30": "dedupe + encoding fix",
-   "pgn_source": "j1939_73_diagnostic_only",
-   "_t53_causes_recovered": [
-    {
-     "idx": 3,
-     "old_len": 300,
-     "new_len": 1571,
-     "source": "https://j1939hub.com/general-network/spn-4012-fmi-0/"
-    }
-   ]
+   "pgn_source": "j1939_73_diagnostic_only"
   },
   "SPN_4177": {
    "spn": 4177,
