@@ -137,3 +137,7 @@ workspace/
 *.tmp
 spn_gap_hunter/
 arsiv_ajan_scriptleri/
+
+# Agent scratch: scout BrightData raw harvests (live in CAN-DTC-Collector)
+output/t32_raw/
+output/t32_*.json
