@@ -28,5 +28,215 @@
     "credits_est": 1,
     "result": "ok_found_3",
     "ts": "2026-09-15T11:44:21.887299"
+  },
+  {
+    "request": "https://www.bing.com/search?q=%22SPN+517529%22+OR+%22SPN+517653%22+OR+%22SPN+517684%22+J1939",
+    "credits_est": 1,
+    "result": "ok_found_3",
+    "ts": "2026-09-15T11:44:26.543711"
+  },
+  {
+    "request": "https://www.bing.com/search?q=%22SPN+204%22+%22Suspect+Parameter+Number%22",
+    "credits_est": 1,
+    "result": "ok_found_1",
+    "ts": "2026-09-15T11:44:31.210856"
+  },
+  {
+    "request": "https://www.bing.com/search?q=%22SPN+212%22+%22Suspect+Parameter+Number%22",
+    "credits_est": 1,
+    "result": "ok_found_0",
+    "ts": "2026-09-15T11:44:35.599499"
+  },
+  {
+    "request": "https://www.bing.com/search?q=%22SPN+253%22+%22Suspect+Parameter+Number%22",
+    "credits_est": 1,
+    "result": "ok_found_0",
+    "ts": "2026-09-15T11:44:40.081634"
+  },
+  {
+    "request": "https://www.bing.com/search?q=%22SPN+254%22+%22Suspect+Parameter+Number%22",
+    "credits_est": 1,
+    "result": "ok_found_1",
+    "ts": "2026-09-15T11:44:44.620928"
+  },
+  {
+    "request": "https://www.bing.com/search?q=%22SPN+266%22+%22Suspect+Parameter+Number%22",
+    "credits_est": 1,
+    "result": "ok_found_0",
+    "ts": "2026-09-15T11:44:49.236864"
+  },
+  {
+    "request": "https://www.bing.com/search?q=%22SPN+362%22+%22Suspect+Parameter+Number%22",
+    "credits_est": 1,
+    "result": "ok_found_0",
+    "ts": "2026-09-15T11:44:53.825333"
+  },
+  {
+    "request": "https://www.bing.com/search?q=%22SPN+385%22+%22Suspect+Parameter+Number%22",
+    "credits_est": 1,
+    "result": "ok_found_0",
+    "ts": "2026-09-15T11:44:58.521210"
+  },
+  {
+    "request": "https://www.bing.com/search?q=%22SPN+52353%22+J1939",
+    "credits_est": 1,
+    "result": "ok_found_0",
+    "ts": "2026-09-15T11:45:03.379249"
+  },
+  {
+    "request": "https://www.bing.com/search?q=%22SPN+61446%22+J1939",
+    "credits_est": 1,
+    "result": "ok_found_1",
+    "ts": "2026-09-15T11:45:08.306420"
+  },
+  {
+    "request": "https://www.bing.com/search?q=%22SPN+65535%22+J1939",
+    "credits_est": 1,
+    "result": "ok_found_1",
+    "ts": "2026-09-15T11:45:12.985561"
+  },
+  {
+    "request": "https://www.google.com/search?q=%22SPN+204%22+%22J1939%22",
+    "credits_est": 1,
+    "result": "ok_lines_3",
+    "ts": "2026-09-15T11:45:39.742952"
+  },
+  {
+    "request": "https://www.google.com/search?q=%22SPN+212%22+%22J1939%22",
+    "credits_est": 1,
+    "result": "err_Page.goto: Timeout 35000ms exc",
+    "ts": "2026-09-15T11:46:14.748237"
+  },
+  {
+    "request": "https://www.google.com/search?q=%22SPN+253%22+%22J1939%22",
+    "credits_est": 1,
+    "result": "err_Page.goto: Timeout 35000ms exc",
+    "ts": "2026-09-15T11:46:49.751875"
+  },
+  {
+    "request": "https://www.google.com/search?q=%22SPN+266%22+%22J1939%22",
+    "credits_est": 1,
+    "result": "ok_lines_2",
+    "ts": "2026-09-15T11:46:55.385768"
+  },
+  {
+    "request": "https://www.google.com/search?q=%22SPN+362%22+%22J1939%22",
+    "credits_est": 1,
+    "result": "ok_lines_12",
+    "ts": "2026-09-15T11:47:01.018161"
+  },
+  {
+    "request": "https://www.google.com/search?q=%22SPN+385%22+%22J1939%22",
+    "credits_est": 1,
+    "result": "ok_lines_4",
+    "ts": "2026-09-15T11:47:06.093079"
+  },
+  {
+    "request": "https://www.google.com/search?q=%22SPN+52353%22+%22J1939%22",
+    "credits_est": 1,
+    "result": "ok_lines_10",
+    "ts": "2026-09-15T11:47:14.264630"
+  },
+  {
+    "request": "https://www.google.com/search?q=%22SPN+61446%22+%22J1939%22",
+    "credits_est": 1,
+    "result": "err_Page.goto: net::ERR_ABORTED at",
+    "ts": "2026-09-15T11:47:15.908297"
+  },
+  {
+    "request": "https://www.google.com/search?q=%22SPN+86566%22+%22J1939%22",
+    "credits_est": 1,
+    "result": "err_Page.goto: Navigation to \"http",
+    "ts": "2026-09-15T11:47:19.186254"
+  },
+  {
+    "request": "https://www.google.com/search?q=%22SPN+459520%22+%22J1939%22",
+    "credits_est": 1,
+    "result": "err_Page.goto: Navigation to \"http",
+    "ts": "2026-09-15T11:47:21.101200"
+  },
+  {
+    "request": "https://www.google.com/search?q=%22SPN+516497%22+%22J1939%22",
+    "credits_est": 1,
+    "result": "err_Page.goto: Navigation to \"http",
+    "ts": "2026-09-15T11:47:22.430468"
+  },
+  {
+    "request": "https://www.google.com/search?q=%22SPN+517529%22+%22J1939%22",
+    "credits_est": 1,
+    "result": "err_Page.goto: Navigation to \"http",
+    "ts": "2026-09-15T11:47:24.006809"
+  },
+  {
+    "request": "https://www.google.com/search?q=%22SPN+517653%22+%22J1939%22",
+    "credits_est": 1,
+    "result": "err_Page.goto: Navigation to \"http",
+    "ts": "2026-09-15T11:47:25.450419"
+  },
+  {
+    "request": "https://www.google.com/search?q=%22SPN+517684%22+%22J1939%22",
+    "credits_est": 1,
+    "result": "err_Page.goto: Navigation to \"http",
+    "ts": "2026-09-15T11:47:26.872509"
+  },
+  {
+    "request": "https://www.google.com/search?q=%22SPN+212%22+%22J1939%22",
+    "credits_est": 1,
+    "result": "ok_1",
+    "ts": "2026-09-15T11:47:49.541400"
+  },
+  {
+    "request": "https://www.google.com/search?q=%22SPN+253%22+%22J1939%22",
+    "credits_est": 1,
+    "result": "ok_9",
+    "ts": "2026-09-15T11:47:55.774220"
+  },
+  {
+    "request": "https://www.google.com/search?q=%22SPN+254%22+%22J1939%22",
+    "credits_est": 1,
+    "result": "ok_8",
+    "ts": "2026-09-15T11:48:05.135432"
+  },
+  {
+    "request": "https://www.google.com/search?q=%22SPN+61446%22+%22J1939%22",
+    "credits_est": 1,
+    "result": "ok_8",
+    "ts": "2026-09-15T11:48:14.498806"
+  },
+  {
+    "request": "https://www.google.com/search?q=%22SPN+86566%22",
+    "credits_est": 1,
+    "result": "ok_7",
+    "ts": "2026-09-15T11:48:21.985366"
+  },
+  {
+    "request": "https://www.google.com/search?q=%22SPN+459520%22",
+    "credits_est": 1,
+    "result": "ok_16",
+    "ts": "2026-09-15T11:48:27.559861"
+  },
+  {
+    "request": "https://www.google.com/search?q=%22SPN+516497%22",
+    "credits_est": 1,
+    "result": "ok_20",
+    "ts": "2026-09-15T11:48:35.891131"
+  },
+  {
+    "request": "https://www.google.com/search?q=%22SPN+516499%22",
+    "credits_est": 1,
+    "result": "ok_19",
+    "ts": "2026-09-15T11:48:44.499359"
+  },
+  {
+    "request": "https://www.google.com/search?q=%22SPN+517503%22",
+    "credits_est": 1,
+    "result": "ok_1",
+    "ts": "2026-09-15T11:48:50.674508"
+  },
+  {
+    "request": "https://www.google.com/search?q=%22SPN+517529%22",
+    "credits_est": 1,
+    "result": "ok_2",
+    "ts": "2026-09-15T11:48:57.740961"
   }
 ]

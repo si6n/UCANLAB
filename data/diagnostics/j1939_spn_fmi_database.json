@@ -63,6 +63,13 @@
    "total_procedures": 246,
    "spns_enriched": 59,
    "note": "The truncated `steps` arrays are retained (not replaced) because a single SPN maps to several distinct Eaton fault codes; replacing them would lose information. procedures_full holds every harvested procedure complete with detection/fallback/causes sections."
+  },
+  "procedures_tr_enrichment": {
+   "source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+   "translations_applied_fields": 239,
+   "translations_applied_steps": 32,
+   "procedures_touched": 164,
+   "policy": "English originals are preserved untouched in `<field>` and `steps`; Turkish lives alongside in `<field>_tr` and `steps_tr` so nothing is re-translated or lost."
   }
  },
  "fmi_definitions": {
@@ -1320,7 +1327,11 @@
      },
      "step_count": 3,
      "char_count": 4373,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC171"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC171",
+     "overview_tr": "Şanzıman Kontrol Modülü (TCM), aracın Motor Devri mesajını bir araç Elektronik Kontrol Ünitesinden (ECU) Birincil Veri Hattı (J1939A) üzerinden alır. Bu bilgi şanzıman çalışmasını belirlemek için kullanılır. TCM, Motor Devri mesajını ayrıca İkincil Veri Hattı (J1939B) üzerinden de alır. İkincil Veri Hattı, Birincil Veri Hattı çalışmadığında kullanılır ve şanzımanın bozulmuş bir modda çalışmasına olanak tanır. Birincil Veri Hattı (J1939A), 20 Yollu TCM Araç Kablo Demeti Konnektöründe TCM'ye bağlıdır. İkincil Veri Hattı (J1939B), 20 Yollu TCM Gövde Kablo Demeti Konnektöründe TCM'ye bağlıdır.",
+     "detection_tr": "TCM, Birincil Veri Hattı (J1939A) üzerindeki Motor Devri mesajlarını izler. Mesajlar alınmazsa veya geçersizse arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 171: Engine Speed",
@@ -1338,7 +1349,11 @@
      },
      "step_count": 3,
      "char_count": 3697,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC171"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC171",
+     "detection_tr": "TCM, Motor Devri mesajını izler. Mesaj alınmazsa veya geçersizse TCM arıza kodunu aktif olarak ayarlar.",
+     "possible_causes_tr": "Tüm FMI'lar: Araç Bileşenleri - Modül(ler) - Motor devir sensörü - J1939 Veri Hattı - Not: Arızalı bir sistemin teşhisi için OEM'e veya motor üreticisine başvurun.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 49 - J1939 Engine Message",
@@ -1354,7 +1369,11 @@
      },
      "step_count": 1,
      "char_count": 2438,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS1000/lang/en-us/section/BCWRVNBN"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS1000/lang/en-us/section/BCWRVNBN",
+     "detection_tr": "Sistemin arızayı tespit etmesinden önce aşağıdaki ön koşullar sağlanmalıdır: HCM kontak gerilimi 7 volttan büyük ve 16 volttan küçüktür. J1939 veri hattı iletişim arızası pasiftir.",
+     "possible_causes_tr": "Bu arıza kodu aşağıdakilerden herhangi biri nedeniyle oluşabilir: FMI 9 - Motor ECU'sundan J1939 Veri Hattı - ECU",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 49 - J1939 Engine Message Fault",
@@ -1370,7 +1389,10 @@
      },
      "step_count": 1,
      "char_count": 1997,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS2000/lang/en-us/section/DYJPSIWA"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS2000/lang/en-us/section/DYJPSIWA",
+     "detection_tr": "Arıza şu durumda tespit edilir: HCM kontak gerilimi 7 volttan büyük ve 16 volttan küçüktür. J1939 Veri Hattı iletişim arızası aktif değildir.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -3783,7 +3805,10 @@
      },
      "step_count": 2,
      "char_count": 2883,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC169"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC169",
+     "detection_tr": "TCM, Servis Freni Devresi 1 Hava Basıncı mesajlarını izler. Mesajlar alınmazsa veya geçersizse arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 169: Service Brake Circuit 1",
@@ -3800,7 +3825,10 @@
      },
      "step_count": 2,
      "char_count": 2881,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC169"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC169",
+     "detection_tr": "TCM, Servis Freni Devresi 1 Hava Basıncı mesajlarını izler. Mesajlar alınmazsa veya geçersizse arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -3945,7 +3973,10 @@
      },
      "step_count": 2,
      "char_count": 2883,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC159"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC159",
+     "detection_tr": "TCM, Servis Freni Devresi 2 Hava Basıncı mesajlarını izler. Mesajlar alınmazsa veya geçersizse arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 159: Service Brake Circuit 2",
@@ -3962,7 +3993,12 @@
      },
      "step_count": 2,
      "char_count": 2370,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC159"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC159",
+     "detection_tr": "TCM, Servis Freni Devresi 2 mesajını izler. Bir arıza tespit edilirse arıza aktif olarak ayarlanır.",
+     "fallback_tr": "FMI 9, 13, 19: Sarı uyarı lambası yanar - Bozulmuş mod yok - Arıza Kodunu Pasife Ayarlama Koşulları - FMI 9, 13, 19: Servis Freni Devresi 2 mesajı.",
+     "possible_causes_tr": "FMI 9, 13, 19: Araç Bileşenleri - Modül(ler) - Servis Freni Devresi 2 - Birincil Veri Hattı",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -4264,7 +4300,10 @@
      },
      "step_count": 10,
      "char_count": 9521,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0980/lang/en-us/section/TS4080FC26"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0980/lang/en-us/section/TS4080FC26",
+     "detection_tr": "TECU, motor devri ile Giriş Mili Devir Sensörü değerleri arasında önemli bir sapma hesaplar.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 26: Clutch Slip",
@@ -4289,7 +4328,10 @@
      },
      "step_count": 10,
      "char_count": 9520,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0940/lang/en-us/section/TS4080FC26"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0940/lang/en-us/section/TS4080FC26",
+     "detection_tr": "TECU, motor devri ile Giriş Mili Devir Sensörü değerleri arasında önemli bir sapma hesaplar.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 27: Clutch Disengagement",
@@ -4372,7 +4414,10 @@
      },
      "step_count": 4,
      "char_count": 4004,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS1000/lang/en-us/section/IGSBKWYE"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS1000/lang/en-us/section/IGSBKWYE",
+     "possible_causes_tr": "Bu arıza kodu aşağıdakilerden herhangi biri nedeniyle oluşabilir: FMI 7 - Kavrama Grubu ECA - FMI 13 - Kavrama Grubu Çapraz Milleri",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 26 - Clutch Slip",
@@ -4392,7 +4437,10 @@
      },
      "step_count": 5,
      "char_count": 3726,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS1000/lang/en-us/section/FXAIAKML"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS1000/lang/en-us/section/FXAIAKML",
+     "possible_causes_tr": "Bu arıza kodu aşağıdakilerden herhangi biri nedeniyle oluşabilir: FMI 10 - Kavrama Grubu - FMI 23",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 26 - Clutch Slip Fault",
@@ -4411,7 +4459,13 @@
      },
      "step_count": 4,
      "char_count": 2700,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS2000/lang/en-us/section/OTGCLNHA"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS2000/lang/en-us/section/OTGCLNHA",
+     "fallback_tr": "Arıza Kodu 26 ayarlandığında aşağıdaki durumlar oluşur: Sarı “Hibriti Kontrol Et” lambası yanar. Arıza HCM belleğinde saklanır.",
+     "steps_tr": {
+      "A": "A. Aktif veya pasif arıza kodu durumunu kontrol edin.\nArıza Kodu 64 de aktif mi?\nEvet ise Arıza Kodu 64 - ECA Arızası bölümüne gidin.\nHayır ise Adım B'ye gidin"
+     },
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -4903,7 +4957,15 @@
      },
      "step_count": 7,
      "char_count": 8968,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC100"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC100",
+     "detection_tr": "TCM, Akü Gerilimi1 güç ve şasi kaynağını izler. Gerilim aralık dışındaysa arıza aktif olarak ayarlanır.",
+     "possible_causes_tr": "FMI 0: Araç takviye ile çalıştırıldı - Araç şarj/akü sistemi arızası. FMI 1, 4, 17, 18: Araç Kablo Demeti - Akü Güç Beslemesi Kablolaması beslemeye kısa devre, şasiye kısa devre veya açık devre - Klemensler eğilmiş, açılmış, korozyonlu veya gevşek - Araç şarj/akü sistemi arızası. Not: Arızalı bir sistemin teşhisi için OEM'e başvurun.",
+     "steps_tr": {
+      "C": "C. Şarj/akü sisteminin, sigortanın, TCM'ye giden güç ve şasi beslemelerinin durumunu doğrulayın.\nKontağı kapatın.\nAraç şarj/akü sistemini ve sigortaları inceleyin; konnektörlerin kirlenme ve korozyondan uzak olduğunu, klemenslerin eğilmediğini, açılmadığını veya gevşemediğini ve konnektör gövdelerinde hasar olmadığını doğrulayın.\nArıza bulunamazsa Adım D'ye gidin.\nArıza bulunursa araç şarj/akü sisteminin onarımı veya değişimi için OEM yönergelerine başvurun. Adım V'ye gidin.\nNot: Bazı şasiler akülerden ayrı bir güç dağıtım sistemi kullanır; tüm bağlantıları inceleyin.",
+      "D": "D. 20 Yollu TCM Araç Kablo Demeti Konnektörünün durumunu doğrulayın.\nKontağı kapatın.\n20 Yollu TCM Araç Kablo Demeti Konnektörünü TCM'den sökün.\n20 Yollu TCM Araç Kablo Demeti Konnektörünü inceleyin; konnektörün kirlenme ve korozyondan uzak olduğunu, klemenslerin eğilmediğini, açılmadığını veya gevşemediğini ve konnektör gövdesinde hasar olmadığını doğrulayın.\n20 Yollu TCM Araç Konnektörünü inceleyin; konnektörün kirlenme ve korozyondan uzak olduğunu, klemenslerin eğilmediğini, açılmadığını veya gevşemediğini ve konnektör gövdesinde hasar olmadığını doğrulayın.\nKirlenme veya hasar bulunursa 20 Yollu TCM Araç Kablo Demeti Konnektörünün onarımı veya değişimi için OEM yönergelerine başvurun. Adım V'ye gidin.\nKirlenme veya hasar bulunamazsa Adım E'ye gidin"
+     },
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 100: Battery Voltage1",
@@ -4925,7 +4987,14 @@
      },
      "step_count": 7,
      "char_count": 8891,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC100"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC100",
+     "detection_tr": "TCM, Akü Gerilimi1 güç ve şasi kaynağını izler. Sistem gerilimi aralık dışı algılarsa arıza aktif olarak ayarlanır.",
+     "steps_tr": {
+      "C": "C. Şarj/akü sisteminin, sigortanın, TCM'ye giden güç ve şasi beslemelerinin durumunu doğrulayın.\nKontağı kapatın.\nAraç şarj/akü sistemini ve sigortaları inceleyin; konnektörlerin kirlenme ve korozyondan uzak olduğunu, klemenslerin eğilmediğini, açılmadığını veya gevşemediğini ve konnektör gövdelerinde hasar olmadığını doğrulayın.\nArıza bulunamazsa Adım D'ye gidin.\nArıza bulunursa araç şarj/akü sisteminin onarımı veya değişimi için OEM yönergelerine başvurun. Adım V'ye gidin.\nNot: Bazı şasiler akülerden ayrı bir güç dağıtım sistemi kullanır; tüm bağlantıları inceleyin.",
+      "D": "D. 20 Yollu TCM Araç Kablo Demeti Konnektörünün durumunu doğrulayın.\nKontağı kapatın.\n20 Yollu TCM Araç Kablo Demeti Konnektörünü sökün.\n20 Yollu TCM Araç Kablo Demeti Konnektörünü inceleyin; konnektörün kirlenme ve korozyondan uzak olduğunu, klemenslerin eğilmediğini, açılmadığını veya gevşemediğini ve konnektör gövdesinde hasar olmadığını doğrulayın.\n20 Yollu TCM Araç Kablo Demeti Konnektörünün TCM tarafını inceleyin; konnektörün kirlenme ve korozyondan uzak olduğunu, klemenslerin eğilmediğini, açılmadığını veya gevşemediğini ve konnektör gövdesinde hasar olmadığını doğrulayın.\nKirlenme veya hasar bulunursa 20 Yollu TCM Araç Kablo Demeti Konnektörünün onarımı veya değişimi için OEM yönergelerine başvurun. Adım V'ye gidin.\nKirlenme veya hasar bulunamazsa Adım E'ye gidin"
+     },
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 33: Low Battery Voltage Supply",
@@ -4948,7 +5017,10 @@
      },
      "step_count": 8,
      "char_count": 6609,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0980/lang/en-us/section/TS4080FC33"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0980/lang/en-us/section/TS4080FC33",
+     "overview_tr": "TECU'ya giden akü gerilimi 1 saniyeden uzun süre 7 voltun altına düşerse Arıza Kodu 33 aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 33: Low Battery Voltage Supply",
@@ -4971,7 +5043,10 @@
      },
      "step_count": 8,
      "char_count": 6608,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0940/lang/en-us/section/TS4080FC33"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0940/lang/en-us/section/TS4080FC33",
+     "overview_tr": "TECU'ya giden akü gerilimi 1 saniyeden uzun süre 7 voltun altına düşerse Arıza Kodu 33 aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 34: Weak Battery Voltage Supply",
@@ -4994,7 +5069,10 @@
      },
      "step_count": 8,
      "char_count": 6495,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0980/lang/en-us/section/TS4080FC34"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0980/lang/en-us/section/TS4080FC34",
+     "overview_tr": "TECU'ya giden akü gerilimi 10 saniyeden uzun süre 9 voltun altına düşerse Arıza Kodu 34 aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 34: Weak Battery Voltage Supply",
@@ -5017,7 +5095,10 @@
      },
      "step_count": 8,
      "char_count": 6494,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0940/lang/en-us/section/TS4080FC34"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0940/lang/en-us/section/TS4080FC34",
+     "overview_tr": "TECU'ya giden akü gerilimi 10 saniyeden uzun süre 9 voltun altına düşerse Arıza Kodu 34 aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 34 - Weak Battery Voltage Supply",
@@ -5038,7 +5119,14 @@
      },
      "step_count": 6,
      "char_count": 3321,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/FQQNGSPV"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/FQQNGSPV",
+     "fallback_tr": "Bu arıza hareket halindeyken oluşursa 1 hızlı yedek moda geçişe neden olur. Araç durdurulduğunda kalkış vitesi ve geri vites takılabilir",
+     "steps_tr": {
+      "C": "C. 4 yollu teşhis portunda akü gerilimini ölçün.\nŞanzıman Kablo Demetindeki teşhis portunu bulun.\nKontağı açın.\nPin B ile Pin C arasındaki gerilimi ölçün.\nGerilim akü geriliminin 0,6 voltu içindeyse Adım D'ye gidin.\nGerilim aralık dışındaysa TECU'ya giden akü güç beslemesini onarın. Sigorta atmış olabilir. Testi tekrarlayın.",
+      "D": "D. 4 yollu teşhis portunda kontak gerilimini ölçün.\nKontağı açın.\nPin A ile Pin C arasındaki gerilimi ölçün.\nGerilim akü geriliminin 0,6 voltu içindeyse Adım E'ye gidin.\nGerilim aralık dışındaysa TECU'ya giden kontak güç beslemesini onarın. Sigorta atmış olabilir. Testi tekrarlayın."
+     },
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 33 - Low Battery Voltage Supply",
@@ -5059,7 +5147,15 @@
      },
      "step_count": 6,
      "char_count": 3301,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/WGGSSFFS"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/WGGSSFFS",
+     "fallback_tr": "Bu arıza hareket halindeyken oluşursa 1 hızlı yedek moda geçişe neden olur. Araç durdurulduğunda kalkış vitesi ve geri vites takılabilir",
+     "steps_tr": {
+      "B": "B. 4 yollu teşhis portunda şasi hattının doğru olduğunu doğrulayın.\nŞanzıman Kablo Demetindeki teşhis portunu bulun.\nKontağı açın.\nPin C ile akü negatif kutup başı arasındaki gerilimi ölçün.\nGerilim 0,70 volt veya daha düşükse Adım C'ye gidin.\nGerilim aralık dışındaysa TECU'ya giden akü şasi beslemesini onarın. Testi tekrarlayın.",
+      "C": "C. 4 yollu teşhis portunda akü gerilimini ölçün.\nŞanzıman Kablo Demetindeki teşhis portunu bulun.\nKontağı açın.\nPin B ile Pin C arasındaki gerilimi ölçün.\nGerilim akü geriliminin 0,6 voltu içindeyse Adım D'ye gidin.\nGerilim aralık dışındaysa TECU'ya giden akü güç beslemesini onarın. Sigorta atmış olabilir. Testi tekrarlayın.",
+      "D": "D. 4 yollu teşhis portunda kontak gerilimini ölçün.\nKontağı açın.\nPin A ile Pin C arasındaki gerilimi ölçün.\nGerilim akü geriliminin 0,6 voltu içindeyse Adım E'ye gidin.\nGerilim aralık dışındaysa TECU'ya giden kontak güç beslemesini onarın. Sigorta atmış olabilir. Testi tekrarlayın."
+     },
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -5465,7 +5561,13 @@
      },
      "step_count": 3,
      "char_count": 4529,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC165"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC165",
+     "overview_tr": "Şanzıman Kontrol Modülü (TCM), aracın Gaz Pedalı Konumu 1 mesajını bir araç Elektronik Kontrol Ünitesinden (ECU) Birincil Veri Hattı (J1939A) üzerinden alır. Gaz Pedalı Konumu 1 mesajı, TCM'ye sürücünün aracı kaldırma ve hızlandırma talebini iletir. TCM, Gaz Pedalı Konumu 1 mesajını ayrıca İkincil Veri Hattı (J1939B) üzerinden de alır. İkincil Veri Hattı, Birincil Veri Hattı çalışmadığında kullanılır ve şanzımanın bozulmuş bir modda çalışmasına olanak tanır. Birincil Veri Hattı (J1939A), 20 Yollu TCM Araç Kablo Demeti Konnektöründe TCM'ye bağlıdır. İkincil Veri Hattı (J1939B), 20 Yollu TCM Gövde Kablo Demeti Konnektöründe TCM'ye bağlıdır.",
+     "steps_tr": {
+      "V": "V. Onarımı doğrulayın.\nKontağı kapatın.\nTüm konnektörleri yeniden takın ve tüm bileşenlerin düzgün takıldığını doğrulayın.\nMotor kapalıyken kontağı açın.\nServiceRanger'ı bağlayın.\n“Fault Codes” (Arıza Kodları) bölümüne gidin.\n“Clear All Faults” (Tüm Arızaları Temizle) seçeneğini seçin.\nAracı çalıştırın ve arıza kodunu sıfırlamayı veya önceki şikayeti tekrarlamayı deneyin.\nServiceRanger kullanarak arıza kodlarını kontrol edin.\nHiç arıza kodu ayarlanmadıysa ve araç düzgün çalışıyorsa test tamamlanmıştır.\nArıza Kodu 165 aktif olarak ayarlanırsa Adım A'ya gidin.\n165 dışında bir arıza kodu aktif olarak ayarlanırsa Arıza Kodu İzolasyon Prosedürü Dizinine göre teşhis yapın"
+     },
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 165: Primary Accelerator Pedal Position",
@@ -5483,7 +5585,14 @@
      },
      "step_count": 3,
      "char_count": 4162,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC165"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC165",
+     "detection_tr": "TCM, Birincil Gaz Pedalı Konumu mesajını izler. Geçersiz bir mesaj alınırsa TCM arıza kodunu aktif olarak ayarlar.",
+     "possible_causes_tr": "Tüm FMI'lar: Araç bileşenleri - Modül(ler) - Gaz Pedalı Konum Sensörü ve/veya kablolama - J1939 Veri Hattı",
+     "steps_tr": {
+      "V": "V. Onarımı doğrulayın.\nKontağı kapatın.\nTüm konnektörleri yeniden takın ve tüm bileşenlerin düzgün takıldığını doğrulayın.\nMotor kapalıyken kontağı açın.\nServiceRanger'ı bağlayın.\n“Fault Codes” (Arıza Kodları) bölümüne gidin.\n“Clear All Faults” (Tüm Arızaları Temizle) seçeneğini seçin.\nAracı çalıştırın ve arıza kodunu sıfırlamayı veya önceki şikayeti tekrarlamayı deneyin.\nServiceRanger kullanarak arıza kodlarını kontrol edin.\nHiç arıza kodu ayarlanmadıysa ve araç düzgün çalışıyorsa test tamamlanmıştır.\nÇalışma sırasında Arıza Kodu 165 aktif olarak ayarlanırsa Adım A'ya gidin.\n165 dışında bir arıza kodu aktif olarak ayarlanırsa Arıza Kodu İzolasyon Prosedürü Dizinine göre teşhis yapın"
+     },
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 165: Accelerator Pedal Position",
@@ -5501,7 +5610,10 @@
      },
      "step_count": 3,
      "char_count": 3788,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0990/lang/en-us/section/TS0990FC165"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0990/lang/en-us/section/TS0990FC165",
+     "detection_tr": "TCM, Gaz Pedalı Konumu mesajını izler. Mesaj alınmazsa veya geçersizse arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 27: J1939 Accelerator Pedal",
@@ -5519,7 +5631,12 @@
      },
      "step_count": 3,
      "char_count": 3376,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS2150/lang/en-us/section/URCLQECC"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS2150/lang/en-us/section/URCLQECC",
+     "detection_tr": "TECU, EEC2 mesajını izler. Mesaj alınmazsa arıza aktif olarak ayarlanır.",
+     "fallback_tr": "FMI 2, 9: Sarı uyarı lambası yanar - Arıza Kodunu Pasife Ayarlama Koşulları - FMI 2, 9: EEC2 mesajı alınır.",
+     "possible_causes_tr": "FMI 2, 9: Araç Bileşenleri - Araç ECU'ları - J1939 Veri Hattı",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 96 - Accelerator Pedal Offset",
@@ -5535,7 +5652,10 @@
      },
      "step_count": 1,
      "char_count": 2073,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS1000/lang/en-us/section/BOKPIPKO"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS1000/lang/en-us/section/BOKPIPKO",
+     "overview_tr": "Hibrit Kontrol Modülü (HCM), Hibrit Elektrikli Motor/Jeneratör tork talebi için girdi olarak araç Gaz Pedalı konumunu kullanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -9928,7 +10048,12 @@
      },
      "step_count": 3,
      "char_count": 3373,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS2150/lang/en-us/section/MOFUGCLA"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS2150/lang/en-us/section/MOFUGCLA",
+     "detection_tr": "TECU, CCVS mesajını izler. Mesaj alınmazsa arıza aktif olarak ayarlanır.",
+     "fallback_tr": "FMI 2, 9: Sarı uyarı lambası yanar - Arıza Kodunu Pasife Ayarlama Koşulları - FMI 2, 9: CCVS mesajı alınır.",
+     "possible_causes_tr": "FMI 2, 9: Araç Bileşenleri - Araç ECU'ları - J1939 Veri Hattı",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 166: Instrument Cluster Message",
@@ -9945,7 +10070,13 @@
      },
      "step_count": 2,
      "char_count": 1497,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS2001/lang/en-us/section/YFMJVMMT"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS2001/lang/en-us/section/YFMJVMMT",
+     "overview_tr": "Arıza kodu 166, park freni mesajının alınmamasından üretilir.",
+     "detection_tr": "Onarımlar için OEM gösterge paneli mesajlarına bakın.",
+     "fallback_tr": "Onarımlar için OEM gösterge paneli mesajlarına bakın.",
+     "possible_causes_tr": "Onarımlar için OEM gösterge paneli mesajlarına bakın.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -11808,7 +11939,11 @@
      },
      "step_count": 3,
      "char_count": 2657,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS2000/lang/en-us/section/NLPYBSGI"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS2000/lang/en-us/section/NLPYBSGI",
+     "detection_tr": "Aşağıdaki belirtiler görülebilir: Kabul edilemez araç hızlanma performansı.",
+     "fallback_tr": "Bazı arıza kodları Motor/Jeneratörden elde edilebilen tork miktarını etkiler ve sürücü tarafından fark edilir.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "",
@@ -11826,7 +11961,11 @@
      },
      "step_count": 3,
      "char_count": 2641,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS2001/lang/en-us/section/NLPYBSGI"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS2001/lang/en-us/section/NLPYBSGI",
+     "detection_tr": "Aşağıdaki belirtiler görülebilir: Kabul edilemez araç hızlanma performansı.",
+     "fallback_tr": "Bazı arıza kodları Motor/Jeneratörden elde edilebilen tork miktarını etkiler ve sürücü tarafından fark edilir.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "",
@@ -11844,7 +11983,11 @@
      },
      "step_count": 3,
      "char_count": 2638,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS1000/lang/en-us/section/JPSHXQPC"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS1000/lang/en-us/section/JPSHXQPC",
+     "detection_tr": "Aşağıdaki belirtiler yaşanmış olabilir: Araç hızlanma performansı kabul edilebilir değil.",
+     "fallback_tr": "Bazı arıza kodları Motor/Jeneratörden elde edilebilen tork miktarını etkiler ve sürücü tarafından fark edilir.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -12156,7 +12299,10 @@
      },
      "step_count": 16,
      "char_count": 11221,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS1000/lang/en-us/section/LQYNAHUV"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS1000/lang/en-us/section/LQYNAHUV",
+     "fallback_tr": "Bu belirti için yedek (fallback) koşulu yoktur.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "",
@@ -12187,7 +12333,10 @@
      },
      "step_count": 16,
      "char_count": 11140,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS2001/lang/en-us/section/WXPYMTGU"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS2001/lang/en-us/section/WXPYMTGU",
+     "fallback_tr": "Bu belirti için yedek (fallback) koşulu yoktur.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "",
@@ -12218,7 +12367,10 @@
      },
      "step_count": 16,
      "char_count": 10971,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS2000/lang/en-us/section/WXPYMTGU"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS2000/lang/en-us/section/WXPYMTGU",
+     "fallback_tr": "Bu belirti için yedek (fallback) koşulu yoktur.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 716: Transmission Selected Gear",
@@ -12237,7 +12389,12 @@
      },
      "step_count": 4,
      "char_count": 3566,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC716"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC716",
+     "detection_tr": "TCM, Şanzıman Vites Seçme komutunu izler; komut geçersizse TCM arıza kodunu aktif olarak ayarlar.",
+     "fallback_tr": "FMI 12: Şanzıman nötre geçer - PTO Modu yasak - Arıza Kodunu Pasife Ayarlama Koşulları - FMI 12: Koşul artık mevcut değil",
+     "possible_causes_tr": "FMI 12: TCM yazılım sorunu - Dahili arıza - PTO (varsa) - PTO Onay Bilye Anahtarı Devresi ve/veya kablo demeti şasiye kısa devre",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 716: Transmission Selected Gear",
@@ -12254,7 +12411,12 @@
      },
      "step_count": 2,
      "char_count": 2565,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC716"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC716",
+     "overview_tr": "Endurant XD Serisi şanzımanlar, vites rayı konumlarını izlemek için konum sensörleri ve mil devirlerini izlemek için devir sensörleri ile donatılmıştır. Sensör bilgileri, vites değişimi kararları vermek, vites takılmasını doğrulamak ve vites rayı konumlarını izlemek amacıyla Şanzıman Kontrol Modülüne (TCM) iletilir. TCM, şanzımanın düzgün çalıştığından emin olmak için vites rayı komutlarını vites rayı konumları ve mil devirleriyle (oran hesaplaması) karşılaştırır. Sensörler ve vites rayları Mekatronik Şanzıman Modülünde (MTM) bulunur ve 74 Yollu Şanzıman Kablo Demeti Konnektöründe TCM'ye bağlıdır.",
+     "detection_tr": "TCM, şanzıman çalışmasını izler. Bir sistem arızası tespit edilirse arıza aktif olarak ayarlanır.",
+     "possible_causes_tr": "FMI 12: TCM yazılım sorunu - Dahili arıza",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -12535,7 +12697,14 @@
      },
      "step_count": 3,
      "char_count": 3981,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC206"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC206",
+     "detection_tr": "TCM, çalışma sırasında kendi kendini kontrol eder. Bir arıza tespit edilirse arıza aktif olarak ayarlanır.",
+     "possible_causes_tr": "FMI 11, 12, 13: TCM yazılım sorunu - Dahili arıza - FMI 2, 14, 31: TCM'de yanlış kalibrasyon dosyası yapılandırılmış",
+     "steps_tr": {
+      "B": "B. TCM yazılımını doğrulayın.\nKontağı kapatın.\nTCM'nin tam bir güç kesme işlemi yapmasını bekleyin.\nMotor kapalıyken kontağı açın.\nServiceRanger'ı bağlayın.\n“Programming” (Programlama) bölümüne gidin.\n\"Software Information\" (Yazılım Bilgileri) altında TCM yazılımını tabloya kaydedin.\nTeşhis Prosedürü sırasında TCM en son mevcut yazılıma güncellendiyse Adım V'ye gidin.\nBir TCM yazılım güncellemesi mevcutsa TCM yazılımını güncelleyin. Adım V'ye gidin.\nTeşhis Prosedürü sırasında TCM güncellenmediyse ve en son mevcut yazılımda ise Şanzıman Kontrol Modülünü (TCM) değiştirin. Adım V'ye gidin.\nTCM Yazılımı"
+     },
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 206: TCM Program Memory",
@@ -12553,7 +12722,14 @@
      },
      "step_count": 3,
      "char_count": 3747,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC206"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC206",
+     "detection_tr": "TCM, çalışma sırasında kendi kendini kontrol eder. Bir arıza tespit edilirse arıza aktif olarak ayarlanır.",
+     "possible_causes_tr": "FMI 11, 12, 13: TCM yazılım sorunu - Dahili arıza - FMI 2, 14, 31: TCM'de yanlış kalibrasyon dosyası yapılandırılmış veya dosya eksik",
+     "steps_tr": {
+      "B": "B. TCM yazılımını doğrulayın.\nKontağı kapatın.\nTCM'nin tam bir güç kesme işlemi yapmasını bekleyin.\nMotor kapalıyken kontağı açın.\nServiceRanger'ı bağlayın.\n“Programming” (Programlama) bölümüne gidin.\n\"Software Information\" (Yazılım Bilgileri) altında TCM yazılımını tabloya kaydedin.\nBir TCM yazılım güncellemesi mevcutsa TCM yazılımını güncelleyin. Adım V'ye gidin.\nTCM en son mevcut yazılımda ise daha ileri teşhis talimatları için Eaton Cummins Automated Transmission Technologies ile iletişime geçin. İletişim Bilgileri bölümüne gidin. Adım V'ye gidin.\nTCM Yazılımı"
+     },
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -13039,7 +13215,11 @@
      },
      "step_count": 3,
      "char_count": 4873,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC200"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC200",
+     "overview_tr": "Endurant HD şanzımanı bir Şanzıman Kontrol Modülü (TCM) ile donatılmıştır. TCM, diğer araç Elektronik Kontrol Üniteleri (ECU'lar) ile iletişim kurar, sensörlerden geri besleme alır ve şanzıman çalışmasını kontrol etmek için solenoidleri çalıştırır. TCM şanzımana monte edilmiştir ve 20 Yollu TCM Araç Kablo Demeti Konnektörü ile 20 Yollu TCM Gövde Kablo Demeti Konnektörüne bağlıdır. TCM, 74 Yollu Şanzıman Kablo Demeti Konnektöründe şanzıman sensörlerine ve solenoidlerine bağlıdır.",
+     "detection_tr": "TCM, çalışma sırasında kendi kendini kontrol eder. Bir arıza tespit edilirse arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 200: TCM Operation 1",
@@ -13057,7 +13237,15 @@
      },
      "step_count": 3,
      "char_count": 4118,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC200"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC200",
+     "detection_tr": "TCM, çalışma sırasında kendi kendini kontrol eder. Bir arıza tespit edilirse arıza aktif olarak ayarlanır.",
+     "fallback_tr": "Tüm FMI'lar: Sarı uyarı lambası yanar - Bozulmuş mod yok - Arıza Kodunu Pasife Ayarlama Koşulları - Tüm FMI'lar: Kontak döngüsü ve arıza koşulu artık mevcut değil",
+     "possible_causes_tr": "Tüm FMI'lar: TCM yazılım sorunu - Dahili arıza",
+     "steps_tr": {
+      "B": "B. TCM yazılımını doğrulayın.\nKontağı kapatın.\nTCM'nin tam bir güç kesme işlemi yapmasını bekleyin.\nMotor kapalıyken kontağı açın.\nServiceRanger'ı bağlayın.\n“Programming” (Programlama) bölümüne gidin.\n\"Software Information\" (Yazılım Bilgileri) altında TCM yazılımını tabloya kaydedin.\nTeşhis Prosedürü sırasında TCM en son mevcut yazılıma güncellendiyse Adım V'ye gidin.\nBir TCM yazılım güncellemesi mevcutsa TCM yazılımını güncelleyin. Adım V'ye gidin.\nTeşhis Prosedürü sırasında TCM güncellenmediyse ve en son mevcut yazılımda ise Şanzıman Kontrol Modülünü (TCM) değiştirin. Adım V'ye gidin.\nTCM Yazılımı"
+     },
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 17 - Start Enable Relay",
@@ -13077,7 +13265,10 @@
      },
      "step_count": 5,
      "char_count": 3425,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/GMWODMMR"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/GMWODMMR",
+     "fallback_tr": "Kalkış etkinleştirme rölesinin yedek modu yoktur; ancak arıza motor çalıştırılmadan önce oluştuysa motor çalışmayabilir.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 12: Improper TECU Configuration",
@@ -13094,7 +13285,10 @@
      },
      "step_count": 2,
      "char_count": 2366,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0940/lang/en-us/section/TS4080FC12"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0940/lang/en-us/section/TS4080FC12",
+     "possible_causes_tr": "FMI 13 - TECU Dahili arıza - Bileşen Tanımlaması: 1. Şanzıman Elektronik Kontrol Ünitesi (TECU)",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 11: No TECU Operation",
@@ -13111,7 +13305,11 @@
      },
      "step_count": 2,
      "char_count": 2223,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0940/lang/en-us/section/TS4080FC11"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0940/lang/en-us/section/TS4080FC11",
+     "detection_tr": "TECU, enerji verilirken kendi kendini kontrol eder; tespit edilen herhangi bir arıza bu kodu ayarlar.",
+     "possible_causes_tr": "FMI 12 - TECU Dahili arıza - Bileşen Tanımlaması: 1. Şanzıman Elektronik Kontrol Ünitesi (TECU)",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 25: No Faults Found",
@@ -13127,7 +13325,11 @@
      },
      "step_count": 1,
      "char_count": 1719,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0940/lang/en-us/section/TS4080FC25"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0940/lang/en-us/section/TS4080FC25",
+     "fallback_tr": "FMI 1 - Bu arıza ile ilişkili yedek mod yoktur. Arıza Kodunu Pasife Ayarlama Koşulları - FMI 1: Bu arıza kodu hiçbir zaman pasife ayarlanmaz.",
+     "possible_causes_tr": "FMI 1: Yok. Bileşen tanımlaması: Yok.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 11 - No TECU Operation",
@@ -13143,7 +13345,11 @@
      },
      "step_count": 1,
      "char_count": 1089,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/FBLVLWDU"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/FBLVLWDU",
+     "overview_tr": "Bu arıza kodu, Şanzıman Elektronik Kontrol Ünitesi'nde (TECU) dahili bir arızayı gösterir.",
+     "fallback_tr": "Bu arıza, hareket halindeyken araçta yerinde yedek moda geçişe ve enerji verilirken oluşursa kendi kendini kontrol hatasına neden olur.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 12 - Improper ECU Configuration",
@@ -13159,7 +13365,10 @@
      },
      "step_count": 1,
      "char_count": 1051,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/LJILJSPT"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/LJILJSPT",
+     "fallback_tr": "Bu arıza, enerji verildiğinde marş yapılmamasına neden olur.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -13429,7 +13638,11 @@
      },
      "step_count": 2,
      "char_count": 2689,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC148"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC148",
+     "detection_tr": "TCM, Birincil ve İkincil performans modu yapılandırmasını izler. Yapılandırma geçersizse arıza aktif olarak ayarlanır.",
+     "possible_causes_tr": "FMI 13, 14, 31: TCM yazılım sorunu - Dahili arıza",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 148: Performance Goal Calibrations",
@@ -13446,7 +13659,11 @@
      },
      "step_count": 2,
      "char_count": 2653,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC148"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC148",
+     "detection_tr": "TCM, Birincil ve İkincil performans modu yapılandırmasını izler. Yapılandırma geçersizse arıza aktif olarak ayarlanır.",
+     "possible_causes_tr": "FMI 13, 14, 31: TCM yazılım sorunu - Dahili arıza",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -13992,7 +14209,14 @@
      },
      "step_count": 15,
      "char_count": 15494,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC115"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC115",
+     "overview_tr": "Şanzıman Kontrol Modülü (TCM), diğer araç Elektronik Kontrol Üniteleri (ECU'lar) ile araç J1939 veri hattı üzerinden iletişim kurar. TCM, mesaj gönderip almak için iki araç J1939 veri hattı kullanır: Birincil Veri Hattı (J1939A) ve İkincil Veri Hattı (J1939B). Birincil Veri Hattı, TCM tarafından şanzıman vites değişimi işlemlerini tamamlamak için Motor ECU'su, Kilitlenme Önleyici Fren ECU'su ve diğer araç ECU'ları ile mesaj gönderip almak üzere kullanılır. İkincil Veri Hattı, Birincil Veri Hattı çalışmadığında kullanılır. Birincil Veri Hattı (J1939A), 20 Yollu TCM Araç Kablo Demeti Konnektöründe TCM'ye bağlıdır. İkincil Veri Hattı (J1939B), 20 Yollu TCM Gövde Kablo Demeti Konnektöründe TCM'ye bağlıdır.",
+     "detection_tr": "TCM, araç ve Motor ECU'su yayın mesajlarını izler. Mesajlar alınmazsa veya geçersizse arıza aktif olarak ayarlanır.",
+     "steps_tr": {
+      "F": "F. 20 Yollu TCM Araç Kablo Demeti Konnektörünün durumunu doğrulayın.\nKontağı kapatın.\n20 Yollu TCM Araç Kablo Demeti Konnektörünü TCM'den sökün.\n20 Yollu TCM Araç Kablo Demeti Konnektörünü inceleyin; konnektörün kirlenme ve korozyondan uzak olduğunu, klemenslerin eğilmediğini, açılmadığını veya gevşemediğini ve konnektör gövdesinde hasar olmadığını doğrulayın.\n20 Yollu TCM Araç Konnektörünü inceleyin; konnektörün kirlenme ve korozyondan uzak olduğunu, klemenslerin eğilmediğini, açılmadığını veya gevşemediğini ve konnektör gövdesinde hasar olmadığını doğrulayın.\nKirlenme veya hasar bulunursa 20 Yollu TCM Araç Kablo Demeti Konnektörünün onarımı veya değişimi için OEM yönergelerine başvurun. Adım V'ye gidin.\nKirlenme veya hasar bulunamazsa Adım G'ye gidin"
+     },
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 115: Primary Data Link",
@@ -14141,7 +14365,10 @@
      },
      "step_count": 5,
      "char_count": 4388,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/VPVUKUQW"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/VPVUKUQW",
+     "detection_tr": "Motordan gelen J1939 iletişimi 5 saniye boyunca kaybolursa ve J1939 üzerinde başka cihazlar mevcutsa arıza tespit edilir.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 35 - J1939 Communication Link",
@@ -16152,7 +16379,13 @@
      },
      "step_count": 3,
      "char_count": 5149,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC166"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC166",
+     "overview_tr": "Şanzıman Kontrol Modülü (TCM), aracın Gaz Pedalı Konumu 1 mesajını bir araç Elektronik Kontrol Ünitesinden (ECU) Birincil Veri Hattı (J1939A) üzerinden alır. Gaz Pedalı Konumu 1 mesajı, TCM'ye sürücünün aracı kaldırma ve hızlandırma talebini iletir. TCM, Gaz Pedalı Konumu 1 mesajını ayrıca İkincil Veri Hattı (J1939B) üzerinden de alır. İkincil Veri Hattı, Birincil Veri Hattı çalışmadığında kullanılır ve şanzımanın bozulmuş bir modda çalışmasına olanak tanır. Birincil Veri Hattı (J1939A), 20 Yollu TCM Araç Kablo Demeti Konnektöründe TCM'ye bağlıdır. İkincil Veri Hattı (J1939B), 20 Yollu TCM Gövde Kablo Demeti Konnektöründe TCM'ye bağlıdır.",
+     "steps_tr": {
+      "V": "V. Onarımı doğrulayın.\nKontağı kapatın.\nTüm konnektörleri yeniden takın ve tüm bileşenlerin düzgün takıldığını doğrulayın.\nMotor kapalıyken kontağı açın.\nServiceRanger'ı bağlayın.\n“Fault Codes” (Arıza Kodları) bölümüne gidin.\n“Clear All Faults” (Tüm Arızaları Temizle) seçeneğini seçin.\nAracı çalıştırın ve arıza kodunu sıfırlamayı veya önceki şikayeti tekrarlamayı deneyin.\nServiceRanger kullanarak arıza kodlarını kontrol edin.\nHiç arıza kodu ayarlanmadıysa ve araç düzgün çalışıyorsa test tamamlanmıştır.\nArıza Kodu 165 aktif olarak ayarlanırsa Adım A'ya gidin.\n165 dışında bir arıza kodu aktif olarak ayarlanırsa Arıza Kodu İzolasyon Prosedürü Dizinine göre teşhis yapın"
+     },
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 166: Secondary Accelerator Pedal Position",
@@ -16170,7 +16403,14 @@
      },
      "step_count": 3,
      "char_count": 4542,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC166"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC166",
+     "detection_tr": "TCM, İkincil Gaz Pedalı Konumu mesajını izler. Geçersiz bir mesaj alınırsa TCM arıza kodunu aktif olarak ayarlar.",
+     "possible_causes_tr": "Tüm FMI'lar: Araç bileşenleri - Modül(ler) - Gaz Pedalı Konum Sensörü ve/veya kablolama - J1939 Veri Hattı",
+     "steps_tr": {
+      "V": "V. Onarımı doğrulayın.\nKontağı kapatın.\nTüm konnektörleri yeniden takın ve tüm bileşenlerin düzgün takıldığını doğrulayın.\nMotor kapalıyken kontağı açın.\nServiceRanger'ı bağlayın.\n“Fault Codes” (Arıza Kodları) bölümüne gidin.\n“Clear All Faults” (Tüm Arızaları Temizle) seçeneğini seçin.\nAracı çalıştırın ve arıza kodunu sıfırlamayı veya önceki şikayeti tekrarlamayı deneyin.\nServiceRanger kullanarak arıza kodlarını kontrol edin.\nHiç arıza kodu ayarlanmadıysa ve araç düzgün çalışıyorsa test tamamlanmıştır.\nÇalışma sırasında Arıza Kodu 165 aktif olarak ayarlanırsa Adım A'ya gidin.\n165 dışında bir arıza kodu aktif olarak ayarlanırsa Arıza Kodu İzolasyon Prosedürü Dizinine göre teşhis yapın"
+     },
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -17124,7 +17364,10 @@
      },
      "step_count": 18,
      "char_count": 14548,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0990/lang/en-us/section/TS0990FC210"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0990/lang/en-us/section/TS0990FC210",
+     "detection_tr": "TCM, Hat Basıncı sinyalini izler. Bir basınç arızası tespit edilirse arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 210: Transmission Oil Pressure",
@@ -17146,7 +17389,10 @@
      },
      "step_count": 7,
      "char_count": 9176,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC210"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC210",
+     "detection_tr": "TCM, FPS'yi izler. Bir sistem arızası tespit edilirse arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 210: Transmission Oil Pressure",
@@ -18478,7 +18724,10 @@
      },
      "step_count": 6,
      "char_count": 7200,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC212"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC212",
+     "detection_tr": "TCM, FTS'yi izler; bir sistem arızası tespit edilirse arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -19545,7 +19794,10 @@
      },
      "step_count": 2,
      "char_count": 3056,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC185"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC185",
+     "detection_tr": "TCM, Sürücü Talep Torku mesajlarını izler. Mesajlar mevcut değilse veya geçersizse arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 185: Driver Demanded Torque",
@@ -19562,7 +19814,11 @@
      },
      "step_count": 2,
      "char_count": 2867,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0990/lang/en-us/section/TS0990FC185"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0990/lang/en-us/section/TS0990FC185",
+     "detection_tr": "TCM, Sürücü Talep Torku mesajını izler. Mesaj alınmazsa veya geçersizse arıza aktif olarak ayarlanır.",
+     "possible_causes_tr": "Tüm FMI'lar: Diğer Araç Elektronik Kontrol Üniteleri (ECU'lar) - Dahili arıza - Not: Arızalı bir sistemin teşhisi için OEM'e başvurun.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 185: Driver Demanded Torque",
@@ -19579,7 +19835,11 @@
      },
      "step_count": 2,
      "char_count": 2821,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC185"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC185",
+     "detection_tr": "TCM, Sürücü Talep Torku mesajını izler. Mesaj mevcut değilse veya hatalıysa arıza aktif olarak ayarlanır.",
+     "possible_causes_tr": "Tüm FMI'lar: Araç Bileşenleri - Modül(ler) - Not: Arızalı bir sistemin teşhisi için OEM'e başvurun.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -20059,7 +20319,11 @@
      },
      "step_count": 3,
      "char_count": 3780,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS1000/lang/en-us/section/STNECOTU"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS1000/lang/en-us/section/STNECOTU",
+     "detection_tr": "Sistemin arızayı tespit etmesinden önce aşağıdaki ön koşullar sağlanmalıdır: HCM kontak gerilimi 7 volttan büyük ve 16 volttan küçüktür. J1939 veri hattı iletişim arızası pasiftir.",
+     "possible_causes_tr": "Bu arıza kodu aşağıdakilerden herhangi biri nedeniyle oluşabilir: FMI 9 - J1939 Veri Hattı - TECU",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 48 - J1939 Transmission Message Fault",
@@ -20076,7 +20340,10 @@
      },
      "step_count": 2,
      "char_count": 3016,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS2000/lang/en-us/section/ENMVKPEA"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS2000/lang/en-us/section/ENMVKPEA",
+     "detection_tr": "Arıza şu durumda tespit edilir: HCM kontak gerilimi 7 volttan büyük ve 16 volttan küçüktür. J1939 Veri Hattı iletişim arızası aktif değildir.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 715: Transmission Current Gear",
@@ -20093,7 +20360,12 @@
      },
      "step_count": 2,
      "char_count": 1992,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC715"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC715",
+     "detection_tr": "TCM, Şanzıman Mevcut Vites mesajını izler. Mesaj geçersizse TCM arıza kodunu aktif olarak ayarlar.",
+     "fallback_tr": "FMI 9: Sarı uyarı lambası yanar - Bozulmuş mod yok - Arıza Kodunu Pasife Ayarlama Koşulları - FMI 9: Kontak döngüsü",
+     "possible_causes_tr": "FMI 9: TCM yazılım sorunu - Dahili arıza",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -20290,7 +20562,10 @@
      },
      "step_count": 2,
      "char_count": 3133,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC184"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC184",
+     "detection_tr": "TCM, Motor Talep Yüzde Tork mesajlarını izler. Mesajlar mevcut değilse veya geçersizse arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 184: Engine Demand Percent Torque",
@@ -20307,7 +20582,11 @@
      },
      "step_count": 2,
      "char_count": 2868,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC184"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC184",
+     "detection_tr": "TCM, Motor Talep Yüzde Tork mesajını izler. Mesaj mevcut değilse veya hatalıysa arıza aktif olarak ayarlanır.",
+     "possible_causes_tr": "Tüm FMI'lar: Araç Bileşenleri - Modül(ler) - Not: Arızalı bir sistemin teşhisi için OEM'e başvurun.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -25571,7 +25850,10 @@
      },
      "step_count": 6,
      "char_count": 9054,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC375"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC375",
+     "detection_tr": "TCM, Çıkış Devri Sensörü sinyalini izler. Bir sistem arızası tespit edilirse arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 375: Output Speed",
@@ -25592,7 +25874,10 @@
      },
      "step_count": 6,
      "char_count": 8550,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC375"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC375",
+     "detection_tr": "TCM, Çıkış Devri sinyalini izler. Bir sistem arızası tespit edilirse arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 58 - Output Shaft Speed Sensor",
@@ -25631,7 +25916,10 @@
      },
      "step_count": 3,
      "char_count": 4895,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0990/lang/en-us/section/TS0990FC375"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0990/lang/en-us/section/TS0990FC375",
+     "detection_tr": "TCM, Çıkış Devri sinyalini izler. Bir sistem arızası tespit edilirse arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 58 - Output Shaft Speed Sensor Fault",
@@ -25674,7 +25962,10 @@
      },
      "step_count": 7,
      "char_count": 4665,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/MOYUCENQ"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/MOYUCENQ",
+     "fallback_tr": "Bu arıza yerinde yedek moda geçişe neden olur.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -28631,7 +28922,10 @@
      },
      "step_count": 3,
      "char_count": 4267,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC180"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC180",
+     "detection_tr": "TCM, Motor Yapılandırması mesajlarını izler. Mesajlar alınmazsa veya geçersizse arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 180: Engine Configuration Message",
@@ -28649,7 +28943,10 @@
      },
      "step_count": 3,
      "char_count": 4095,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC180"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC180",
+     "detection_tr": "TCM, Motor Yapılandırması mesajını izler. Geçersiz bir mesaj alınırsa TCM arıza kodunu aktif olarak ayarlar.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 180: Engine Configuration",
@@ -28667,7 +28964,11 @@
      },
      "step_count": 3,
      "char_count": 3624,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0990/lang/en-us/section/TS0990FC180"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0990/lang/en-us/section/TS0990FC180",
+     "detection_tr": "TCM, Motor Yapılandırması mesajını izler. Mesaj alınmazsa veya geçersizse arıza aktif olarak ayarlanır.",
+     "possible_causes_tr": "Tüm FMI'lar: Diğer Araç Elektronik Kontrol Üniteleri (ECU'lar) - Ayarlar - Dahili arıza - Not: Arızalı bir sistemin teşhisi için OEM'e başvurun.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 70 - Engine Failed to Respond Fault",
@@ -32415,7 +32716,10 @@
      },
      "step_count": 3,
      "char_count": 3845,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC110"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC110",
+     "detection_tr": "TCM, aracın Kontak Gerilimi beslemesini izler. Sürüş sırasında Kontak Gerilimi kaybı olursa arıza kodu aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 110: Ignition Voltage",
@@ -32433,7 +32737,10 @@
      },
      "step_count": 3,
      "char_count": 3659,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0990/lang/en-us/section/TS0990FC110"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0990/lang/en-us/section/TS0990FC110",
+     "detection_tr": "TCM, aracın Kontak Gerilimi beslemesini izler. Sürüş sırasında Kontak Gerilimi kaybı olursa arıza kodu aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 110: Ignition Voltage",
@@ -32451,7 +32758,10 @@
      },
      "step_count": 3,
      "char_count": 3445,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC110"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC110",
+     "detection_tr": "TCM, aracın Kontak Gerilimi beslemesini izler. Sistem sürüş sırasında Kontak Gerilimi kaybı algılarsa arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 32: Loss of Switched Ignition Voltage",
@@ -32469,7 +32779,10 @@
      },
      "step_count": 3,
      "char_count": 3350,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS2150/lang/en-us/section/VYMCKHJR"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS2150/lang/en-us/section/VYMCKHJR",
+     "detection_tr": "TECU, normal çalışma sırasında Kontak Gücünü izler. Çalışma sırasında TECU'ya giden kontak gücü kaybolursa bir arıza kaydedilir.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 8 - Loss of Switched Ignition Power",
@@ -32486,7 +32799,11 @@
      },
      "step_count": 2,
      "char_count": 3156,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS1000/lang/en-us/section/FBLVLWDU"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS1000/lang/en-us/section/FBLVLWDU",
+     "detection_tr": "Sistemin arızayı tespit etmesinden önce aşağıdaki ön koşullar sağlanmalıdır: Çıkış Mili devri 0 devirden büyük olmalıdır.",
+     "possible_causes_tr": "Bu arıza kodu aşağıdakilerden herhangi biri nedeniyle oluşabilir: FMI 4 - HCM'ye Kontak Güç Beslemesi - HCM",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 32 - Loss of Switch Ignition Power Test",
@@ -32506,7 +32823,14 @@
      },
      "step_count": 5,
      "char_count": 2696,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/VNPKSFGR"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/VNPKSFGR",
+     "detection_tr": "TECU, normal çalışma sırasında Kontak Gücünü izler. Çalışma sırasında TECU'ya giden kontak gücü kaybolursa bir arıza kaydedilir.",
+     "fallback_tr": "Bu arıza, hareket halindeyken yerinde yedek moda geçişe neden olur.",
+     "steps_tr": {
+      "C": "C. 4 yollu teşhis portunda akü gerilimini ölçün.\nŞanzıman Kablo Demetindeki teşhis portunu bulun.\nKontağı açın.\nPin B ile Pin C arasındaki gerilimi ölçün.\nGerilim akü geriliminin 0,6 voltu içindeyse Adım D'ye gidin.\nGerilim aralık dışındaysa TECU'ya giden akü güç beslemesini onarın. Sigorta atmış olabilir. Testi tekrarlayın."
+     },
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 8 - Loss of Switched Ignition Power Fault",
@@ -32523,7 +32847,10 @@
      },
      "step_count": 2,
      "char_count": 2696,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS2000/lang/en-us/section/OXJHWWNA"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS2000/lang/en-us/section/OXJHWWNA",
+     "detection_tr": "Çıkış mili devri 0 devirden büyük olmalıdır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -32852,7 +33179,12 @@
      },
      "step_count": 3,
      "char_count": 3405,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS2150/lang/en-us/section/RHVQSUWA"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS2150/lang/en-us/section/RHVQSUWA",
+     "detection_tr": "TECU, Yardımcı G/Ç mesajını izler. Mesaj alınmazsa arıza aktif olarak ayarlanır.",
+     "fallback_tr": "FMI 2, 9: Sarı uyarı lambası yanar - Arıza Kodunu Pasife Ayarlama Koşulları - FMI 2, 9: Yardımcı G/Ç mesajı alınır.",
+     "possible_causes_tr": "FMI 2, 9: Araç Bileşenleri - Araç ECU'ları - J1939 Veri Hattı",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -33646,7 +33978,10 @@
      },
      "step_count": 2,
      "char_count": 2726,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC156"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC156",
+     "detection_tr": "TCM, Fren Pedalı Konumu mesajlarını izler. Mesajlar mevcut değilse veya geçersizse arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 23: Brake Pedal Position",
@@ -33663,7 +33998,11 @@
      },
      "step_count": 2,
      "char_count": 2643,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS2150/lang/en-us/section/RIRNAIEN"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS2150/lang/en-us/section/RIRNAIEN",
+     "detection_tr": "TECU, Fren Pedalı Konumu mesajını ve Fren Anahtarı mesajını izler. Mesajlar birbiriyle uyuşmazsa arıza aktif olarak ayarlanır.",
+     "possible_causes_tr": "FMI 2: Araç Bileşenleri - Araç ECU'ları - Fren Pedalı Konumu - Fren Anahtarı - J1939 Veri Hattı",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 156: Brake Pedal Position",
@@ -33680,7 +34019,11 @@
      },
      "step_count": 2,
      "char_count": 2382,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC156"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC156",
+     "detection_tr": "TCM, Fren Pedalı Konumu mesajını izler. Bir arıza tespit edilirse arıza aktif olarak ayarlanır.",
+     "possible_causes_tr": "FMI 9, 13, 19: Araç Bileşenleri - Modül(ler) - Fren Pedalı Konumu - Birincil Veri Hattı",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -33918,7 +34261,11 @@
      },
      "step_count": 3,
      "char_count": 4485,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC172"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC172",
+     "overview_tr": "Şanzıman Kontrol Modülü (TCM), aracın Motor Devri mesajını bir araç Elektronik Kontrol Ünitesinden (ECU) Birincil Veri Hattı (J1939A) üzerinden alır. Bu bilgi şanzıman çalışmasını belirlemek için kullanılır. TCM, Motor Devri mesajını ayrıca İkincil Veri Hattı (J1939B) üzerinden de alır. İkincil Veri Hattı, Birincil Veri Hattı çalışmadığında kullanılır ve şanzımanın bozulmuş bir modda çalışmasına olanak tanır. Birincil Veri Hattı (J1939A), 20 Yollu TCM Araç Kablo Demeti Konnektöründe TCM'ye bağlıdır. İkincil Veri Hattı (J1939B), 20 Yollu TCM Gövde Kablo Demeti Konnektöründe TCM'ye bağlıdır.",
+     "detection_tr": "TCM, İkincil Veri Hattı (J1939B) üzerindeki Motor Devri mesajlarını izler. Mesajlar alınmazsa veya geçersizse arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 172: Secondary Engine Speed",
@@ -33936,7 +34283,11 @@
      },
      "step_count": 3,
      "char_count": 3922,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC172"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC172",
+     "detection_tr": "TCM, İkincil Motor Devri mesajını izler. Mesaj alınmazsa veya geçersizse TCM arıza kodunu aktif olarak ayarlar.",
+     "possible_causes_tr": "Tüm FMI'lar: Araç Bileşenleri - Modül(ler) - Motor devir sensörü - J1939 Veri Hattı - Not: Arızalı bir sistemin teşhisi için OEM'e veya motor üreticisine başvurun.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -37555,7 +37906,10 @@
      },
      "step_count": 10,
      "char_count": 8516,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0990/lang/en-us/section/TS0990FC130"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0990/lang/en-us/section/TS0990FC130",
+     "detection_tr": "TCM, PBSC'den gelen birincil vites modu talep mesajlarını izler. Mesaj alınmazsa veya geçersizse arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 16 - High Integrity Link",
@@ -37578,7 +37932,10 @@
      },
      "step_count": 8,
      "char_count": 6623,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS1000/lang/en-us/section/SIAFLODB"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS1000/lang/en-us/section/SIAFLODB",
+     "possible_causes_tr": "Bu arıza kodu aşağıdakilerden herhangi biri nedeniyle oluşabilir: FMI 2 - HIL Veri Hattı - PBSC - TECU'dan PBSC'ye Güç Besleme Kablo Demeti",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 16 - High Integrity Link",
@@ -37603,7 +37960,10 @@
      },
      "step_count": 10,
      "char_count": 5999,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/MRLWSWDB"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/MRLWSWDB",
+     "overview_tr": "Bu arıza kodu, Şanzıman Elektronik Kontrol Ünitesinin (TECU) Basmalı Düğmeli Vites Kontrolü ile iletişim kuramadığını gösterir.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 60 - CAN Communication Link",
@@ -37621,7 +37981,10 @@
      },
      "step_count": 3,
      "char_count": 4325,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS1000/lang/en-us/section/XMMXFMRR"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS1000/lang/en-us/section/XMMXFMRR",
+     "possible_causes_tr": "Bu arıza kodu aşağıdakilerden herhangi biri nedeniyle oluşabilir: FMI 9 - CAN Veri Hattı - HCM",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -38479,7 +38842,10 @@
      },
      "step_count": 9,
      "char_count": 5945,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/ILRKWDJQ"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/ILRKWDJQ",
+     "fallback_tr": "Uzaktan gaz devre dışıdır ve otomatik nötr çalışmayabilir.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 21: Auto-Neutral Park Brake Switch",
@@ -38557,7 +38923,10 @@
      },
      "step_count": 3,
      "char_count": 3998,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC155"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC155",
+     "detection_tr": "TCM, El Freni Anahtarı mesajlarını izler. Mesajlar alınmazsa veya geçersizse arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 155: Park Brake Switch",
@@ -38575,7 +38944,10 @@
      },
      "step_count": 3,
      "char_count": 3996,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC155"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC155",
+     "detection_tr": "TCM, El Freni Anahtarı mesajlarını izler. Mesajlar alınmazsa veya geçersizse arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 155: Park Brake Switch",
@@ -38593,7 +38965,10 @@
      },
      "step_count": 3,
      "char_count": 3762,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0990/lang/en-us/section/TS0990FC155"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0990/lang/en-us/section/TS0990FC155",
+     "detection_tr": "TCM, Park Freni Anahtarı mesajını izler. Mesaj alınmazsa veya geçersizse arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 21: Park Brake Switch",
@@ -38611,7 +38986,10 @@
      },
      "step_count": 3,
      "char_count": 3429,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS2150/lang/en-us/section/TSXWREXO"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS2150/lang/en-us/section/TSXWREXO",
+     "detection_tr": "TECU, Park Freni Anahtarı mesajını izler. Mesaj geçersizse arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -38942,7 +39320,12 @@
      },
      "step_count": 3,
      "char_count": 3433,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS2150/lang/en-us/section/WUVQMEUB"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS2150/lang/en-us/section/WUVQMEUB",
+     "detection_tr": "TECU, ABS mesajını izler. Mesaj alınmazsa arıza aktif olarak ayarlanır.",
+     "fallback_tr": "FMI 9, 13, 19: Sarı uyarı lambası yanar - Yokuş Kalkış Desteği özelliği yasak - Arıza Kodunu Pasife Ayarlama Koşulları - FMI 2, 9: ABS mesajı alınır.",
+     "possible_causes_tr": "FMI 2, 9: Araç Bileşenleri - Araç ECU'ları - J1939 Veri Hattı",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 47 - J1939 ABS Message",
@@ -38958,7 +39341,10 @@
      },
      "step_count": 1,
      "char_count": 3093,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS1000/lang/en-us/section/IFPBISPV"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS1000/lang/en-us/section/IFPBISPV",
+     "detection_tr": "Sistemin arızayı tespit etmesinden önce aşağıdaki ön koşullar sağlanmalıdır: HCM kontak gerilimi 7 volttan büyük ve 16 volttan küçüktür. J1939 veri hattı iletişim arızası pasiftir.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 152: ABS Active",
@@ -38975,7 +39361,10 @@
      },
      "step_count": 2,
      "char_count": 2661,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC152"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC152",
+     "detection_tr": "TCM, ABS Aktif mesajlarını izler. Mesajlar alınmazsa veya geçersizse arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 22 - J1939 ABS Message Fault",
@@ -38991,7 +39380,10 @@
      },
      "step_count": 1,
      "char_count": 2489,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS2000/lang/en-us/section/JPORANRA"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS2000/lang/en-us/section/JPORANRA",
+     "detection_tr": "Arıza şu durumda tespit edilir: HCM kontak gerilimi 7 volttan büyük ve 16 volttan küçüktür. J1939 Veri Hattı iletişim arızası aktif değildir.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 152: ABS Active",
@@ -39008,7 +39400,11 @@
      },
      "step_count": 2,
      "char_count": 2275,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC152"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC152",
+     "detection_tr": "TCM, ABS Aktif mesajını izler. Bir arıza tespit edilirse arıza aktif olarak ayarlanır.",
+     "possible_causes_tr": "FMI 9, 13, 19: Araç Bileşenleri - Modül(ler) - ABS Aktif - Birincil Veri Hattı",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 22 - ABS CAN Message Fault",
@@ -39024,7 +39420,11 @@
      },
      "step_count": 1,
      "char_count": 1515,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/CLKJPWKE"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/CLKJPWKE",
+     "detection_tr": "ABS'den gelen J1939 iletişimi 5 saniye boyunca kaybolursa ve J1939 üzerinde başka cihazlar mevcutsa Arıza Kodu 22 tespit edilir.",
+     "fallback_tr": "Yedek mod yoktur; ancak Yokuş Kalkış Desteği (HSA) çalışmaz ve sistem tekerlek kayması olayları sırasında vites değiştirmeyi deneyebilir.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -41753,7 +42153,10 @@
      },
      "step_count": 3,
      "char_count": 4234,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0990/lang/en-us/section/TS0990FC160"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0990/lang/en-us/section/TS0990FC160",
+     "detection_tr": "TCM, Servis Freni Anahtarı mesajını izler. Mesaj alınmazsa veya geçersizse arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 160: Service Brake Switch",
@@ -41771,7 +42174,10 @@
      },
      "step_count": 3,
      "char_count": 4149,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC160"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC160",
+     "detection_tr": "TCM, Servis Freni Pedalı Anahtarı mesajlarını izler. Mesajlar alınmazsa veya geçersizse arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "",
@@ -41791,7 +42197,10 @@
      },
      "step_count": 5,
      "char_count": 4009,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS2001/lang/en-us/section/AFFXANOK"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS2001/lang/en-us/section/AFFXANOK",
+     "fallback_tr": "Bu belirti için yedek (fallback) koşulu yoktur.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "",
@@ -41811,7 +42220,11 @@
      },
      "step_count": 5,
      "char_count": 3782,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS1000/lang/en-us/section/TAOVGVSN"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS1000/lang/en-us/section/TAOVGVSN",
+     "fallback_tr": "Bu belirti için yedek (fallback) koşulu yoktur.",
+     "possible_causes_tr": "Bu arıza kodu aşağıdakilerden herhangi biri nedeniyle oluşabilir: Şanzıman Servis Freni Anahtarı - Bom/Destek Ayağı Anahtarı",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 160: Service Brake Switch",
@@ -41829,7 +42242,10 @@
      },
      "step_count": 3,
      "char_count": 3747,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC160"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC160",
+     "possible_causes_tr": "Tüm FMI'lar: Araç Bileşenleri - Modül(ler) - Servis Freni Anahtarı - J1939 Veri Hattı - Not: Arızalı bir sistemin teşhisi için OEM'e başvurun.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "",
@@ -41849,7 +42265,10 @@
      },
      "step_count": 5,
      "char_count": 3585,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS2000/lang/en-us/section/AFFXANOK"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS2000/lang/en-us/section/AFFXANOK",
+     "fallback_tr": "Bu belirti için yedek (fallback) koşulu yoktur.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -42179,7 +42598,10 @@
      },
      "step_count": 3,
      "char_count": 3744,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC140"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC140",
+     "detection_tr": "TCM, EBS Fren Anahtarı mesajlarını izler. Mesajlar alınmazsa veya geçersizse arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -45379,7 +45801,10 @@
      },
      "step_count": 2,
      "char_count": 2744,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC129"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC129",
+     "detection_tr": "TCM, Hız Sabitleyici Duraklatma Komutu mesajlarını izler. Mesajlar alınmazsa veya geçersizse arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -45842,7 +46267,11 @@
      },
      "step_count": 3,
      "char_count": 3031,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0990/lang/en-us/section/TS0990FC205"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0990/lang/en-us/section/TS0990FC205",
+     "detection_tr": "TCM, çalışma sırasında kendi kendini kontrol eder. Bir arıza tespit edilirse arıza aktif olarak ayarlanır.",
+     "possible_causes_tr": "Tüm FMI'lar: TCM yazılım sorunu - Dahili arıza",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 205: TCM Operation 2",
@@ -45860,7 +46289,14 @@
      },
      "step_count": 3,
      "char_count": 3013,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC205"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC205",
+     "detection_tr": "TCM, çalışma sırasında kendi kendini kontrol eder. Bir arıza tespit edilirse arıza aktif olarak ayarlanır.",
+     "possible_causes_tr": "Tüm FMI'lar: TCM yazılım sorunu - Dahili arıza",
+     "steps_tr": {
+      "B": "B. TCM yazılımını doğrulayın.\nKontağı kapatın.\nTCM'nin tam bir güç kesme işlemi yapmasını bekleyin.\nMotor kapalıyken kontağı açın.\nServiceRanger'ı bağlayın.\n“Programming” (Programlama) bölümüne gidin.\n\"Software Information\" (Yazılım Bilgileri) altında TCM yazılımını tabloya kaydedin.\nTeşhis Prosedürü sırasında TCM en son mevcut yazılıma güncellendiyse Adım V'ye gidin.\nBir TCM yazılım güncellemesi mevcutsa TCM yazılımını güncelleyin. Adım V'ye gidin.\nTeşhis Prosedürü sırasında TCM güncellenmediyse ve en son mevcut yazılımda ise Şanzıman Kontrol Modülünü (TCM) değiştirin. Adım V'ye gidin.\nTCM Yazılımı"
+     },
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 205: TCM Operation 2",
@@ -45878,7 +46314,15 @@
      },
      "step_count": 3,
      "char_count": 2877,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC205"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC205",
+     "overview_tr": "Endurant HD şanzımanı bir Şanzıman Kontrol Modülü (TCM) ile donatılmıştır. TCM, diğer araç Elektronik Kontrol Üniteleri (ECU'lar) ile iletişim kurar, sensörlerden geri besleme alır ve şanzıman çalışmasını kontrol etmek için solenoidleri çalıştırır. TCM şanzımana monte edilmiştir ve 20 Yollu TCM Araç Kablo Demeti Konnektörü ile 20 Yollu TCM Gövde Kablo Demeti Konnektörüne bağlıdır. TCM, 74 Yollu Şanzıman Kablo Demeti Konnektöründe şanzıman sensörlerine ve solenoidlerine bağlıdır.",
+     "detection_tr": "TCM, çalışma sırasında kendi kendini kontrol eder. Bir arıza tespit edilirse arıza aktif olarak ayarlanır.",
+     "possible_causes_tr": "Tüm FMI'lar: TCM yazılım sorunu - Dahili arıza",
+     "steps_tr": {
+      "B": "B. TCM yazılımını doğrulayın.\nKontağı kapatın.\nTCM'nin tam bir güç kesme işlemi yapmasını bekleyin.\nMotor kapalıyken kontağı açın.\nServiceRanger'ı bağlayın.\n“Programming” (Programlama) bölümüne gidin.\n\"Software Information\" (Yazılım Bilgileri) altında TCM yazılımını tabloya kaydedin.\nBir TCM yazılım güncellemesi mevcutsa TCM yazılımını güncelleyin. Adım V'ye gidin.\nTCM en son mevcut yazılımda ise daha ileri teşhis talimatları için Eaton Cummins Automated Transmission Technologies ile iletişime geçin. İletişim Bilgileri bölümüne gidin. Adım V'ye gidin.\nTCM Yazılımı"
+     },
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -46643,7 +47087,10 @@
      },
      "step_count": 3,
      "char_count": 3623,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0990/lang/en-us/section/TS0990FC166"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0990/lang/en-us/section/TS0990FC166",
+     "detection_tr": "TCM, Gaz Kilitleme Anahtarı mesajını izler. Mesaj alınmazsa veya geçersizse arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -47034,7 +47481,11 @@
      },
      "step_count": 15,
      "char_count": 13754,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC116"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC116",
+     "overview_tr": "Şanzıman Kontrol Modülü (TCM), diğer araç Elektronik Kontrol Üniteleri (ECU'lar) ile araç J1939 veri hattı üzerinden iletişim kurar. TCM, mesaj gönderip almak için iki araç J1939 veri hattı kullanır: Birincil Veri Hattı (J1939A) ve İkincil Veri Hattı (J1939B). Birincil Veri Hattı, TCM tarafından şanzıman vites değişimi işlemlerini tamamlamak için Motor ECU'su, Kilitlenme Önleyici Fren ECU'su ve diğer araç ECU'ları ile mesaj gönderip almak üzere kullanılır. İkincil Veri Hattı, Birincil Veri Hattı çalışmadığında kullanılır. Birincil Veri Hattı (J1939A), 20 Yollu TCM Araç Kablo Demeti Konnektöründe TCM'ye bağlıdır. İkincil Veri Hattı (J1939B), 20 Yollu TCM Gövde Kablo Demeti Konnektöründe TCM'ye bağlıdır.",
+     "detection_tr": "TCM, araç ve Motor ECU'su yayın mesajlarını izler. Mesajlar alınmazsa veya geçersizse arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 116: Secondary Data Link",
@@ -52862,7 +53313,10 @@
      },
      "step_count": 3,
      "char_count": 3486,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC170"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC170",
+     "detection_tr": "TCM, Ön Aks Devri mesajlarını izler. Mesajlar alınmazsa veya geçersizse arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 170: Front Axle Speed",
@@ -52880,7 +53334,10 @@
      },
      "step_count": 3,
      "char_count": 3263,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0990/lang/en-us/section/TS0990FC170"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0990/lang/en-us/section/TS0990FC170",
+     "detection_tr": "TCM, Ön Aks Devri mesajını izler. Mesaj alınmazsa veya geçersizse arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 170: Front Axle Speed",
@@ -52898,7 +53355,11 @@
      },
      "step_count": 3,
      "char_count": 3262,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC170"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC170",
+     "detection_tr": "Şanzıman Kontrol Modülü (TCM), Ön Aks Devri mesajını izler. Mesaj alınmazsa veya geçersizse arıza aktif olarak ayarlanır.",
+     "possible_causes_tr": "Tüm FMI'lar: Ön Aks Devri Sensörü - Dahili veya devre arızası - Yapılandırılmamış veya takılmamış - Araç ECU'su Dahili arıza",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -56543,7 +57004,12 @@
      },
      "step_count": 6,
      "char_count": 5049,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS1000/lang/en-us/section/KKJYFPBQ"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS1000/lang/en-us/section/KKJYFPBQ",
+     "steps_tr": {
+      "B": "B. Ayarlanan FMI'yı doğrulayın.\nAdım A'da hangi FMI'lar listelendi?\nFMI 3 listelendiyse Adım C'ye gidin.\nFMI 4 listelendiyse Adım E'ye gidin"
+     },
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 17 - Start Enable Relay",
@@ -56564,7 +57030,13 @@
      },
      "step_count": 6,
      "char_count": 4585,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS2000/lang/en-us/section/BJFIAXEA"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS2000/lang/en-us/section/BJFIAXEA",
+     "detection_tr": "TECU kontak gerilimi 7 volttan büyük ve 16 volttan küçüktür.",
+     "steps_tr": {
+      "B": "B. Ayarlanan FMI'yı doğrulayın.\nAdım A'da hangi FMI'lar listelendi?\nFMI 3 listelendiyse Adım C'ye gidin.\nFMI 4 listelendiyse Adım E'ye gidin"
+     },
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -58137,7 +58609,10 @@
      },
      "step_count": 3,
      "char_count": 3499,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS1000/lang/en-us/section/WICHXFRA"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS1000/lang/en-us/section/WICHXFRA",
+     "possible_causes_tr": "Bu arıza kodu aşağıdakilerden herhangi biri nedeniyle oluşabilir: FMI 9 - J1939 Veri Hattı - HCM",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 24 - J1939 HCM Message Fault",
@@ -58172,7 +58647,12 @@
      },
      "step_count": 2,
      "char_count": 2562,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC717"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC717",
+     "overview_tr": "Endurant XD Serisi şanzımanlar, vites rayı konumlarını izlemek için konum sensörleri ve mil devirlerini izlemek için devir sensörleri ile donatılmıştır. Sensör bilgileri, vites değişimi kararları vermek, vites takılmasını doğrulamak ve vites rayı konumlarını izlemek amacıyla Şanzıman Kontrol Modülüne (TCM) iletilir. TCM, şanzımanın düzgün çalıştığından emin olmak için vites rayı komutlarını vites rayı konumları ve mil devirleriyle (oran hesaplaması) karşılaştırır. Sensörler ve vites rayları Mekatronik Şanzıman Modülünde (MTM) bulunur ve 74 Yollu Şanzıman Kablo Demeti Konnektöründe TCM'ye bağlıdır.",
+     "detection_tr": "TCM, şanzıman çalışmasını izler. Bir sistem arızası tespit edilirse arıza aktif olarak ayarlanır.",
+     "possible_causes_tr": "FMI 12: TCM yazılım sorunu - Dahili arıza",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 717: Transmission Requested Gear",
@@ -58189,7 +58669,11 @@
      },
      "step_count": 2,
      "char_count": 2006,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC717"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC717",
+     "detection_tr": "TCM, Şanzıman Talep Edilen Vitesi izler. Talep edilen vites geçersizse arıza aktif olarak ayarlanır.",
+     "possible_causes_tr": "FMI 12: TCM yazılım sorunu - Dahili arıza",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -58957,7 +59441,15 @@
      },
      "step_count": 6,
      "char_count": 3152,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/SFJLGGJA"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/SFJLGGJA",
+     "detection_tr": "TECU güç besleme devresindeki direnç her vites değişiminde ölçülür. Direnç 0,4 ohm'dan büyükse bu arıza ayarlanır.",
+     "fallback_tr": "Yedek (fallback) modu yok.",
+     "steps_tr": {
+      "B": "B. 4 yollu teşhis portunda şasi hattının doğru olduğunu doğrulayın.\nŞanzıman Kablo Demetindeki teşhis portunu bulun.\nKontağı açın.\nPin C ile akü negatif kutup başı arasındaki gerilimi ölçün.\nGerilim 0,70 volt veya daha düşükse Adım C'ye gidin.\nGerilim aralık dışındaysa TECU'ya giden akü şasi beslemesini onarın. Testi tekrarlayın.",
+      "D": "D. 4 yollu teşhis portunda kontak gerilimini ölçün.\nKontağı açın.\nPin A ile Pin C arasındaki gerilimi ölçün.\nGerilim akü geriliminin 0,6 voltu içindeyse Adım E'ye gidin.\nGerilim aralık dışındaysa TECU'ya giden kontak güç beslemesini onarın. Sigorta atmış olabilir. Testi tekrarlayın."
+     },
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -59450,7 +59942,10 @@
      },
      "step_count": 2,
      "char_count": 3211,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC188"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC188",
+     "possible_causes_tr": "Tüm FMI'lar • Araç Bileşenleri - Modül(ler) - Yazılım yapılandırması uyumsuz - Not: Arızalı bir sistemin teşhisi için OEM'e başvurun.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -62164,7 +62659,11 @@
      },
      "step_count": 2,
      "char_count": 2238,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC117"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC117",
+     "detection_tr": "TCM, Motor Kaynak Adresi mesajlarını izler. Mesajlar alınmazsa arıza aktif olarak ayarlanır.",
+     "fallback_tr": "FMI 9: Sarı uyarı lambası yanar - Bozulmuş mod yok - Arıza Kodunu Pasife Ayarlama Koşulları - FMI 9: Kontak döngüsü ve arıza koşulu artık mevcut değil.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 117: Engine Source Address",
@@ -62181,7 +62680,11 @@
      },
      "step_count": 2,
      "char_count": 2193,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC117"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC117",
+     "detection_tr": "TCM, Motor Kaynak Adresi mesajlarını izler. Mesajlar alınmazsa veya geçersizse arıza aktif olarak ayarlanır.",
+     "fallback_tr": "FMI 9: Sarı uyarı lambası yanar - Bozulmuş mod yok - Arıza Kodunu Pasife Ayarlama Koşulları - FMI 9: Kontak döngüsü.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -63033,7 +63536,10 @@
      },
      "step_count": 2,
      "char_count": 3702,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC985"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC985",
+     "detection_tr": "TCM, İki Hızlı Aks mesajlarını izler. Mesajlar alınmazsa veya geçersizse arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -66383,7 +66889,10 @@
      },
      "step_count": 5,
      "char_count": 3476,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/GMYKSPWE"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/GMYKSPWE",
+     "fallback_tr": "Bu arıza ile ilişkili yedek mod yoktur; ancak bu arıza aktifken uzaktan gaz ya çalışmaz ya da her zaman çalışır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -71228,7 +71737,10 @@
      },
      "step_count": 2,
      "char_count": 2892,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC991"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC991",
+     "detection_tr": "TCM, SCR Termal Yönetim Aktif mesajlarını izler. Mesajlar alınmazsa veya geçersizse arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 991: SCR Thermal Management Active",
@@ -71245,7 +71757,10 @@
      },
      "step_count": 2,
      "char_count": 2890,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC991"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC991",
+     "detection_tr": "TCM, SCR Termal Yönetim Aktif mesajlarını izler. Mesajlar alınmazsa veya geçersizse arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -71933,7 +72448,12 @@
      },
      "step_count": 12,
      "char_count": 11567,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0940/lang/en-us/section/TS4080FC71"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0940/lang/en-us/section/TS4080FC71",
+     "steps_tr": {
+      "I": "I. Arıza Kodu 71 FMI 11'i temizleyin.\nRRMT0019'a başvurun.\nRRMT0019 uyarınca Arıza Kodu 71 FMI 11'i temizleyin. Adım J'ye gidin"
+     },
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 71: Unable to Disengage Gear",
@@ -71960,7 +72480,12 @@
      },
      "step_count": 12,
      "char_count": 11219,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0980/lang/en-us/section/TS4080FC71"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0980/lang/en-us/section/TS4080FC71",
+     "steps_tr": {
+      "I": "I. Arıza Kodu 71 FMI 11'i temizleyin.\nRRMT0019'a başvurun.\nRRMT0019 uyarınca Arıza Kodu 71 FMI 11'i temizleyin. Adım J'ye gidin"
+     },
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 702: Driveline Engagement",
@@ -71979,7 +72504,10 @@
      },
      "step_count": 4,
      "char_count": 6627,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC702"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC702",
+     "detection_tr": "TCM, kavrama ve vites rayı çalışmasını izler. Bir sistem arızası tespit edilirse arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 702: Driveline Engagement",
@@ -72021,7 +72549,10 @@
      },
      "step_count": 7,
      "char_count": 5679,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/RQHXLQLF"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/RQHXLQLF",
+     "detection_tr": "Sistem, 3 ardışık denemeden sonra nötr konumunu seçemiyor.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 75: Power Down in Gear",
@@ -72037,7 +72568,10 @@
      },
      "step_count": 1,
      "char_count": 1584,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0980/lang/en-us/section/TS4080FC75"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0980/lang/en-us/section/TS4080FC75",
+     "detection_tr": "X-Y Vites Kolunun Vites Parmağı nötr dışı bir konumdayken kontak kapatılır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 75: Power Down in Gear",
@@ -72053,7 +72587,10 @@
      },
      "step_count": 1,
      "char_count": 1583,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0940/lang/en-us/section/TS4080FC75"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0940/lang/en-us/section/TS4080FC75",
+     "detection_tr": "X-Y Vites Kolunun Vites Parmağı nötr dışı bir konumdayken kontak kapatılır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 75 - Power Down In Gear",
@@ -72069,7 +72606,10 @@
      },
      "step_count": 1,
      "char_count": 1398,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/UAHBSYHT"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/UAHBSYHT",
+     "overview_tr": "Bu arıza, araca nötr dışındaki herhangi bir vites konumunda enerji kesildiğinde tespit edilir. Not: Bu kod yalnızca pasife ayarlanır",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -72173,7 +72713,10 @@
      },
      "step_count": 2,
      "char_count": 2418,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0990/lang/en-us/section/TS0990FC195"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0990/lang/en-us/section/TS0990FC195",
+     "detection_tr": "TCM, motor koruma mesajını izler. Mesaj alınmazsa veya geçersizse arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -72973,7 +73516,10 @@
      },
      "step_count": 8,
      "char_count": 8820,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0990/lang/en-us/section/TS0990FC105"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0990/lang/en-us/section/TS0990FC105",
+     "detection_tr": "TCM, Akü Gerilimi2 güç ve şasi kaynağını izler. Gerilim aralık dışındaysa arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 105: Battery Voltage2",
@@ -72995,7 +73541,15 @@
      },
      "step_count": 7,
      "char_count": 8295,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC105"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC105",
+     "detection_tr": "TCM, Akü Gerilimi2 güç ve şasi kaynağını izler. Gerilim aralık dışındaysa arıza aktif olarak ayarlanır.",
+     "possible_causes_tr": "FMI 0: Araç takviye ile çalıştırıldı - Araç şarj/akü sistemi arızası. FMI 1, 4, 17, 18: Araç Kablo Demeti - Akü Güç Beslemesi Kablolaması beslemeye kısa devre, şasiye kısa devre veya açık devre - Klemensler eğilmiş, açılmış, korozyonlu veya gevşek - Araç şarj/akü sistemi arızası. Not: Arızalı bir sistemin teşhisi için OEM'e başvurun.",
+     "steps_tr": {
+      "C": "C. Şarj/akü sisteminin, sigortanın, TCM'ye giden güç ve şasi beslemelerinin durumunu doğrulayın.\nKontağı kapatın.\nAraç şarj/akü sistemini ve sigortaları inceleyin; konnektörlerin kirlenme ve korozyondan uzak olduğunu, klemenslerin eğilmediğini, açılmadığını veya gevşemediğini ve konnektör gövdelerinde hasar olmadığını doğrulayın.\nArıza bulunamazsa Adım D'ye gidin.\nArıza bulunursa araç şarj/akü sisteminin onarımı veya değişimi için OEM yönergelerine başvurun. Adım V'ye gidin.\nNot: Bazı şasiler akülerden ayrı bir güç dağıtım sistemi kullanır; tüm bağlantıları inceleyin.",
+      "D": "D. 20 Yollu TCM Araç Kablo Demeti Konnektörünün durumunu doğrulayın.\nKontağı kapatın.\n20 Yollu TCM Araç Kablo Demeti Konnektörünü TCM'den sökün.\n20 Yollu TCM Araç Kablo Demeti Konnektörünü inceleyin; konnektörün kirlenme ve korozyondan uzak olduğunu, klemenslerin eğilmediğini, açılmadığını veya gevşemediğini ve konnektör gövdesinde hasar olmadığını doğrulayın.\n20 Yollu TCM Araç Konnektörünü inceleyin; konnektörün kirlenme ve korozyondan uzak olduğunu, klemenslerin eğilmediğini, açılmadığını veya gevşemediğini ve konnektör gövdesinde hasar olmadığını doğrulayın.\nKirlenme veya hasar bulunursa 20 Yollu TCM Araç Kablo Demeti Konnektörünün onarımı veya değişimi için OEM yönergelerine başvurun. Adım V'ye gidin.\nKirlenme veya hasar bulunamazsa Adım E'ye gidin"
+     },
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 105: Battery Voltage2",
@@ -73017,7 +73571,14 @@
      },
      "step_count": 7,
      "char_count": 8248,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC105"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC105",
+     "detection_tr": "TCM, Akü Gerilimi2 güç ve şasi kaynağını izler. Sistem gerilimi aralık dışı algılarsa arıza aktif olarak ayarlanır.",
+     "steps_tr": {
+      "C": "C. Şarj/akü sisteminin, sigortanın, TCM'ye giden güç ve şasi beslemelerinin durumunu doğrulayın.\nKontağı kapatın.\nAraç şarj/akü sistemini ve sigortaları inceleyin; konnektörlerin kirlenme ve korozyondan uzak olduğunu, klemenslerin eğilmediğini, açılmadığını veya gevşemediğini ve konnektör gövdelerinde hasar olmadığını doğrulayın.\nArıza bulunamazsa Adım D'ye gidin.\nArıza bulunursa araç şarj/akü sisteminin onarımı veya değişimi için OEM yönergelerine başvurun. Adım V'ye gidin.\nNot: Bazı şasiler akülerden ayrı bir güç dağıtım sistemi kullanır; tüm bağlantıları inceleyin.",
+      "D": "D. 20 Yollu TCM Araç Kablo Demeti Konnektörünün durumunu doğrulayın.\nKontağı kapatın.\n20 Yollu TCM Araç Kablo Demeti Konnektörünü sökün.\n20 Yollu TCM Araç Kablo Demeti Konnektörünü inceleyin; konnektörün kirlenme ve korozyondan uzak olduğunu, klemenslerin eğilmediğini, açılmadığını veya gevşemediğini ve konnektör gövdesinde hasar olmadığını doğrulayın.\n20 Yollu TCM Araç Kablo Demeti Konnektörünün TCM tarafını inceleyin; konnektörün kirlenme ve korozyondan uzak olduğunu, klemenslerin eğilmediğini, açılmadığını veya gevşemediğini ve konnektör gövdesinde hasar olmadığını doğrulayın.\nKirlenme veya hasar bulunursa 20 Yollu TCM Araç Kablo Demeti Konnektörünün onarımı veya değişimi için OEM yönergelerine başvurun. Adım V'ye gidin.\nKirlenme veya hasar bulunamazsa Adım E'ye gidin"
+     },
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -75110,7 +75671,10 @@
      },
      "step_count": 14,
      "char_count": 11937,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC120"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC120",
+     "detection_tr": "TCM, SER kontrol devrelerini izler. Bir sistem arızası tespit edilirse arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 120: Start Enable Relay",
@@ -75139,7 +75703,12 @@
      },
      "step_count": 14,
      "char_count": 11884,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC120"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC120",
+     "steps_tr": {
+      "F": "F. 20 Yollu TCM Araç Kablo Demeti Konnektörünün durumunu doğrulayın.\nKontağı kapatın.\n20 Yollu TCM Araç Kablo Demeti Konnektörünü TCM'den sökün.\n20 Yollu TCM Araç Kablo Demeti Konnektörünü inceleyin; konnektörün kirlenme ve korozyondan uzak olduğunu, klemenslerin eğilmediğini, açılmadığını veya gevşemediğini ve konnektör gövdesinde hasar olmadığını doğrulayın.\n20 Yollu TCM Araç Konnektörünü inceleyin; konnektörün kirlenme ve korozyondan uzak olduğunu, klemenslerin eğilmediğini, açılmadığını veya gevşemediğini ve konnektör gövdesinde hasar olmadığını doğrulayın.\nKirlenme veya hasar bulunursa 20 Yollu TCM Araç Kablo Demeti Konnektörünün onarımı veya değişimi için OEM yönergelerine başvurun. Adım V'ye gidin.\nKirlenme veya hasar bulunamazsa Adım G'ye gidin"
+     },
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -79545,7 +80114,11 @@
      },
      "step_count": 3,
      "char_count": 2792,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0990/lang/en-us/section/TS0990FC175"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0990/lang/en-us/section/TS0990FC175",
+     "detection_tr": "TCM, Motor Talep Edilen Tork mesajını izler. Mesaj alınmazsa veya geçersizse arıza aktif olarak ayarlanır.",
+     "possible_causes_tr": "Tüm FMI'lar: TCM yazılım sorunu - Dahili arıza",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 175: Engine Requested Torque",
@@ -79562,7 +80135,11 @@
      },
      "step_count": 2,
      "char_count": 2641,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC175"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC175",
+     "detection_tr": "TCM, Motor Talep Edilen Tork mesajlarını izler. Mesajlar alınmazsa veya geçersizse arıza aktif olarak ayarlanır.",
+     "possible_causes_tr": "FMI 11, 12, 14: TCM yazılım sorunu - Dahili arıza",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 175: Engine Requested Torque",
@@ -79579,7 +80156,11 @@
      },
      "step_count": 2,
      "char_count": 2575,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC175"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC175",
+     "detection_tr": "Şanzıman Kontrol Modülü (TCM), tork talebi mesajını izler. Mesaj geçersizse arıza aktif olarak ayarlanır.",
+     "possible_causes_tr": "Tüm FMI'lar: TCM yazılım sorunu - Dahili arıza",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 74 - Engine Speed Response Fault",
@@ -79595,7 +80176,11 @@
      },
      "step_count": 1,
      "char_count": 1165,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/FVUCAGPJ"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/FVUCAGPJ",
+     "overview_tr": "Bu arıza kodu, şanzımanın vites değişimi sırasında senkronizasyon için sistem kontrollerini kullanamadığını gösterir.",
+     "detection_tr": "J1939 Hattı üzerinde motor iletişimi varsa ve motor şanzıman devri ve tork komutlarına yanıt vermezse kod ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -79699,7 +80284,11 @@
      },
      "step_count": 2,
      "char_count": 2220,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0990/lang/en-us/section/TS0990FC176"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0990/lang/en-us/section/TS0990FC176",
+     "detection_tr": "TCM motoru izler; motor aşırı rölanti süresi nedeniyle durursa arıza aktif olarak ayarlanır.",
+     "possible_causes_tr": "FMI 31: Motor rölanti kapatma koşulları",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -83140,7 +83729,10 @@
      },
      "step_count": 2,
      "char_count": 3020,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC167"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC167",
+     "detection_tr": "TCM, Gaz Pedalı Kickdown Anahtarı mesajlarını izler. Mesajlar mevcut değilse veya geçersizse arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 167: Accelerator Pedal Kickdown Switch",
@@ -83157,7 +83749,11 @@
      },
      "step_count": 2,
      "char_count": 2627,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC167"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC167",
+     "detection_tr": "TCM, Gaz Pedalı Kickdown Anahtarı mesajını izler. Geçersiz bir mesaj alınırsa TCM arıza kodunu aktif olarak ayarlar.",
+     "possible_causes_tr": "FMI 13, 19, 20: Araç Bileşenleri - Modül(ler) - Gaz Pedalı Kickdown Anahtarı - J1939 Veri Hattı",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -84155,7 +84751,10 @@
      },
      "step_count": 15,
      "char_count": 14038,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0940/lang/en-us/section/TS4080FC13"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0940/lang/en-us/section/TS4080FC13",
+     "detection_tr": "Kontak açıktır ve TECU herhangi bir düşük akü sistemi arızası tespit etmemiştir.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 14: Invalid Shift Lever Voltage",
@@ -84255,7 +84854,11 @@
      },
      "step_count": 1,
      "char_count": 1236,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/IKXGHGKW"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/IKXGHGKW",
+     "overview_tr": "Bu arıza, yeni bir Şanzıman Elektronik Kontrol Ünitesinin (TECU) bir Vites Kontrol cihazı algılamadığını gösterir.",
+     "fallback_tr": "Enerji verildiğinde marş yok.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 83 - Shift Lever Missing",
@@ -84271,7 +84874,11 @@
      },
      "step_count": 1,
      "char_count": 1092,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/LSPGCKDG"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/LSPGCKDG",
+     "overview_tr": "Bu arıza kodu, Eaton Cobra Kolunun veya OEM Vites Kolunun hiçbir kol konumu algılamadığını gösterir.",
+     "fallback_tr": "Bu arıza yalnızca vites düşürmeye neden olur ve araç durduğunda nötre geçer.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 85 - Shift Control Device Incompatible",
@@ -84287,7 +84894,11 @@
      },
      "step_count": 1,
      "char_count": 1056,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/EJMSFLJI"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/EJMSFLJI",
+     "overview_tr": "Bu arıza, Şanzıman Elektronik Kontrol Ünitesinin (TECU) uyumsuz bir Vites Kontrol cihazı algıladığını gösterir.",
+     "fallback_tr": "Bu arıza yerinde yedek moda geçişe neden olur.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -84583,7 +85194,10 @@
      },
      "step_count": 7,
      "char_count": 5630,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/FNVKODJL"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/FNVKODJL",
+     "detection_tr": "Sistem, akü gerilimi arızası olmaksızın 5 kez başarısız şekilde vites takmaya çalışır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 99: Direction Mismatch",
@@ -85005,7 +85619,11 @@
      },
      "step_count": 4,
      "char_count": 4001,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC705"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC705",
+     "detection_tr": "TCM, Şanzıman Kavrama Aktüatörünü izler. Bir sistem arızası tespit edilirse arıza aktif olarak ayarlanır.",
+     "possible_causes_tr": "FMI 12, 14: TCM yazılım sorunu - Dahili arıza",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 28 - Clutch System",
@@ -85026,7 +85644,11 @@
      },
      "step_count": 6,
      "char_count": 3620,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/BWIVBJOW"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/BWIVBJOW",
+     "overview_tr": "Bu arıza kodu, Islak Kavrama (WetClutch) sisteminde elektriksel veya mekanik bir arızayı gösterir.",
+     "fallback_tr": "Yedek (fallback) modu yoktur; ancak arıza modu açık devre ise motor giriş milinden ayrılır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 27 - Clutch Disengagement",
@@ -85043,7 +85665,10 @@
      },
      "step_count": 2,
      "char_count": 3091,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/VUVQDDEI"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0930/lang/en-us/section/VUVQDDEI",
+     "overview_tr": "Arıza kodu, kavramanın beklendiği gibi ayrılmadığını gösterir.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 705: Transmission Clutch Actuator",
@@ -85060,7 +85685,10 @@
      },
      "step_count": 2,
      "char_count": 2884,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC705"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC705",
+     "detection_tr": "TCM, kavrama çalışmasını izler. Bir sistem arızası tespit edilirse arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -86844,7 +87472,10 @@
      },
      "step_count": 2,
      "char_count": 2808,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC191"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC191",
+     "detection_tr": "TCM, Ön Aks Sağ Tekerlek Devri mesajlarını izler. Mesajlar mevcut değilse veya geçersizse arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 191: Front Axle Right Wheel Speed",
@@ -86861,7 +87492,10 @@
      },
      "step_count": 2,
      "char_count": 2590,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC191"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC191",
+     "possible_causes_tr": "Tüm FMI'lar: Araç ECU'su - Ön Aks Sağ Tekerlek Devri Mesajı - Mevcut değil - Geçerli değil",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -87009,7 +87643,10 @@
      },
      "step_count": 2,
      "char_count": 2826,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC193"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC193",
+     "detection_tr": "TCM, Arka Aks 1 Sağ Tekerlek Devri mesajlarını izler. Mesajlar mevcut değilse veya geçersizse arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 193: Rear Axle 1 Right Wheel Speed",
@@ -87026,7 +87663,10 @@
      },
      "step_count": 2,
      "char_count": 2602,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC193"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC193",
+     "possible_causes_tr": "Tüm FMI'lar: Araç ECU'su - Arka Aks 1 Sağ Tekerlek Devri Mesajı - Mevcut değil - Geçerli değil",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -90469,7 +91109,10 @@
      },
      "step_count": 8,
      "char_count": 8030,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0990/lang/en-us/section/TS0990FC345"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0990/lang/en-us/section/TS0990FC345",
+     "detection_tr": "TCM, Motor Devri Sensörü sinyalini izler. Bir sistem arızası tespit edilirse arıza aktif olarak ayarlanır.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 345 Engine",
@@ -90486,7 +91129,11 @@
      },
      "step_count": 2,
      "char_count": 2175,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC345"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0960/lang/en-us/section/TS0960FC345",
+     "detection_tr": "TCM, Motor Devri mesajlarını izler. Mesajlar alınmazsa veya geçersizse TCM arıza kodunu aktif olarak ayarlar.",
+     "possible_causes_tr": "FMI 0: Aşırı dik eğim inişi - Aşırı araç ağırlığı",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     },
     {
      "eaton_fault_code": "Fault Code 345 Engine",
@@ -90503,7 +91150,11 @@
      },
      "step_count": 2,
      "char_count": 2145,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC345"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS0950/lang/en-us/section/TS0950FC345",
+     "detection_tr": "TCM, Motor Devri mesajını izler. Motor aşırı devir bildirilirse arıza aktif olarak ayarlanır.",
+     "possible_causes_tr": "FMI 0: Aşırı dik eğim inişi - Aşırı araç ağırlığı",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
@@ -92879,7 +93530,10 @@
      },
      "step_count": 5,
      "char_count": 4630,
-     "source_url": "https://productinfo.serviceranger4.com/books/TRTS2000/lang/en-us/section/WHOUPGIA"
+     "source_url": "https://productinfo.serviceranger4.com/books/TRTS2000/lang/en-us/section/WHOUPGIA",
+     "detection_tr": "Arıza şu durumda tespit edilir: Hibrit Kontrol Modülü (HCM) kontak gerilimi 7 volttan büyük ve 16 volttan küçüktür.",
+     "translation_source": "Eaton ServiceRanger full procedures, Turkish translation (Tur-35)",
+     "original_language": "en"
     }
    ],
    "procedures_source": "Eaton ServiceRanger public PIM (productinfo.serviceranger4.com)",
