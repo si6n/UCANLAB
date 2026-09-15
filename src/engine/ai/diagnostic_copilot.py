@@ -2544,6 +2544,35 @@ class CausalBayesianInferenceEngine:
         title_tr = spn_entry.get("title_tr", name)
         subsystem = spn_entry.get("subsystem", "Ağır Vasıta J1939")
         pgn = spn_entry.get("associated_pgn", 0)
+        # @scout Tur-33: `associated_pgn` bir SPN'in periyodik J1939-71 telemetri
+        # PGN'idir. J1939-73 teşhis SPN'leri (DM1/DM2) ve OEM tescilli SPN'ler
+        # boyle bir PGN tasimaz; onlara PGN uydurmak standart disidir. Raporu
+        # PGN'i 0 gostermek yerine iletim kaynagini acikca belirt.
+        pgn_source = str(spn_entry.get("pgn_source", "") or "")
+        has_pgn = isinstance(pgn, int) and pgn > 0
+        if has_pgn:
+            pgn_line = f"**PGN:** {pgn}"
+            step1_pgn = (
+                f"CAN hattında PGN {pgn} periyodunu ve DM1 aktif arıza lambasını kontrol edin."
+            )
+        elif pgn_source == "j1939_73_diagnostic_only":
+            pgn_line = "**İletim:** J1939-73 Teşhis Çerçevesi (DM1/PGN 65226)"
+            step1_pgn = (
+                "CAN hattında DM1 (PGN 65226) yayınını ve aktif arıza lambasını kontrol edin; "
+                "bu SPN periyodik bir telemetri PGN'i taşımaz, yalnızca teşhis "
+                "çerçevesiyle bildirilir."
+            )
+        elif pgn_source == "proprietary_oem":
+            pgn_line = "**İletim:** OEM tescilli (standart PGN yok)"
+            step1_pgn = (
+                "CAN hattında DM1 (PGN 65226) ve OEM'e özgü teşhis çerçevelerini izleyin; "
+                "bu SPN OEM tescilli aralıktadır, standart bir yayın PGN'i yoktur."
+            )
+        else:
+            pgn_line = "**PGN:** bilinmiyor"
+            step1_pgn = (
+                "CAN hattında DM1 (PGN 65226) aktif arıza lambasını kontrol edin."
+            )
         unit = spn_entry.get("unit", "-")
         desc = spn_entry.get("description", "")
         range_info = spn_entry.get("range", [spn_entry.get("range_min", 0), spn_entry.get("range_max", 0)])
@@ -2630,11 +2659,11 @@ class CausalBayesianInferenceEngine:
 
         report_text = (
             f"🚛 **[SPN {spn}] — {title_tr} ({name})**\n"
-            f"🏷️ **Alt Sistem:** {subsystem} | **PGN:** {pgn} | **Aralık:** {range_str}\n"
+            f"🏷️ **Alt Sistem:** {subsystem} | {pgn_line} | **Aralık:** {range_str}\n"
             f"📝 **Açıklama:** {desc[:140] + ('...' if len(desc) > 140 else '')}\n\n"
             f"{fmi_info_str}"
             f"📋 **SAE J1939-73 Saha Teşhis Adımları:**\n"
-            f"1. CAN hattında PGN {pgn} periyodunu ve DM1 aktif arıza lambasını kontrol edin.\n"
+            f"1. {step1_pgn}\n"
             f"2. Sensör besleme voltajını (5V/12V) ve şasi hattını multimetre ile test edin."
             f"{oem_block}"
         )
