@@ -136,7 +136,10 @@ workspace/
 *.tmp
 spn_gap_hunter/
 arsiv_ajan_scriptleri/
+repro/
 
-# Agent scratch: scout BrightData raw harvests (live in CAN-DTC-Collector)
-output/t32_raw/
-output/t32_*.json
+# --- Ad-hoc scratch / agent working files (Tur-27) ---
+# Tum gecici/uretim ciktilari repoya girmez (T40 chassis raporu).
+output/
+!output/.gitkeep
+!output/README.md
