@@ -560,11 +560,13 @@ def test_default_lane_metered_exactly_once() -> None:
 
 
 def test_protocol_burst_budget_exhaustion_at_capacity_plus_one() -> None:
-    """F-18: protocol_burst capacity is 255 â€” the 256th burst frame is rejected."""
+    """F-18: protocol_burst capacity is 255 — the 256th burst frame is rejected."""
     bus, gateway = _budget_gateway("safety_vbus_bam2")
-    frame = CanFrame.create(channel_id="c0", arbitration_id=0x7E0, data=b"")
+    frame = CanFrame.create(channel_id="c0", arbitration_id=0x7E0, data=b"\x01")
 
-    gateway._budgets["protocol_burst"]._tokens = 0.0
+    budget = gateway._budgets["protocol_burst"]
+    budget.refill_per_sec = 0.0
+    budget._tokens = 0.0
 
     with pytest.raises(RateLimitExceededError, match="protocol_burst"):
         gateway.validate_and_transmit(frame, budget_category="protocol_burst")
@@ -574,8 +576,9 @@ def test_protocol_burst_budget_exhaustion_at_capacity_plus_one() -> None:
 def test_diagnostic_budget_capacity_is_ten() -> None:
     """F-18: diagnostic budget (10 tokens, 10/s refill) rejects the 11th frame."""
     bus, gateway = _budget_gateway("safety_vbus_diag")
-    frame = CanFrame.create(channel_id="c0", arbitration_id=0x7E0, data=b"")
+    frame = CanFrame.create(channel_id="c0", arbitration_id=0x7E0, data=b"\x01")
 
+    gateway._budgets["diagnostic"].refill_per_sec = 0.0
     for _ in range(10):
         assert gateway.validate_and_transmit(frame, budget_category="diagnostic") is True
 
@@ -587,8 +590,9 @@ def test_diagnostic_budget_capacity_is_ten() -> None:
 def test_calibration_budget_capacity_is_five() -> None:
     """F-18: calibration budget (5 tokens, 5/s refill) rejects the 6th frame."""
     bus, gateway = _budget_gateway("safety_vbus_cal")
-    frame = CanFrame.create(channel_id="c0", arbitration_id=0x7E0, data=b"")
+    frame = CanFrame.create(channel_id="c0", arbitration_id=0x7E0, data=b"\x01")
 
+    gateway._budgets["calibration"].refill_per_sec = 0.0
     for _ in range(5):
         assert gateway.validate_and_transmit(frame, budget_category="calibration") is True
 
