@@ -80578,8 +80578,8 @@
   },
   "SPN_9": {
    "spn": 9,
-   "name": "SPN 9",
-   "title_tr": "SPN 9",
+   "name": "Engine Speed",
+   "title_tr": "Motor Devri",
    "subsystem": "Şebeke & İletişim Katmanı (J1939)",
    "associated_pgn": 0,
    "pgn_acronym": "TBD",
@@ -80621,7 +80621,7 @@
     }
    },
    "source": "tur23_j1939hub",
-   "name_source": "j1939hub/spnfmi",
+   "name_source": "recovered from description (Tur-35)",
    "evidence_url": "https://j1939hub.com/general-network/spn-9-fmi-0/",
    "sitrak_systems": [
     "ECAS",
@@ -81193,8 +81193,8 @@
   },
   "SPN_151": {
    "spn": 151,
-   "name": "SPN 151",
-   "title_tr": "SPN 151",
+   "name": "Engine Oil Pressure",
+   "title_tr": "Motor Yağ Basıncı",
    "subsystem": "Şebeke & İletişim Katmanı (J1939)",
    "associated_pgn": 0,
    "pgn_acronym": "TBD",
@@ -81215,7 +81215,7 @@
     }
    },
    "source": "tur23_j1939hub",
-   "name_source": "j1939hub/spnfmi",
+   "name_source": "recovered from description (Tur-35)",
    "evidence_url": "https://j1939hub.com/general-network/spn-151-fmi-0/",
    "causes": [
     "Technicians often see this fault when the sensor is physically intact but the ECM fails to validate its internal",
@@ -81237,8 +81237,8 @@
   },
   "SPN_155": {
    "spn": 155,
-   "name": "SPN 155",
-   "title_tr": "SPN 155",
+   "name": "Engine Oil Pressure",
+   "title_tr": "Motor Yağ Basıncı",
    "subsystem": "Şebeke & İletişim Katmanı (J1939)",
    "associated_pgn": 0,
    "pgn_acronym": "TBD",
@@ -81259,7 +81259,7 @@
     }
    },
    "source": "tur23_j1939hub",
-   "name_source": "j1939hub/spnfmi",
+   "name_source": "recovered from description (Tur-35)",
    "evidence_url": "https://j1939hub.com/general-network/spn-155-fmi-0/",
    "causes": [
     "ECM Software Glitch: A software glitch in the ECM can lead to unpredictable signal processing, resulting in undefined fault codes",
@@ -81389,8 +81389,8 @@
   },
   "SPN_201": {
    "spn": 201,
-   "name": "SPN 201",
-   "title_tr": "SPN 201",
+   "name": "Engine Speed",
+   "title_tr": "Motor Devri",
    "subsystem": "Şebeke & İletişim Katmanı (J1939)",
    "associated_pgn": 0,
    "pgn_acronym": "TBD",
@@ -81411,7 +81411,7 @@
     }
    },
    "source": "tur23_j1939hub",
-   "name_source": "j1939hub/spnfmi",
+   "name_source": "recovered from description (Tur-35)",
    "evidence_url": "https://j1939hub.com/general-network/spn-201-fmi-0/",
    "causes": [
     "Short to Ground: Worn insulation on harness chafing against engine bracket causes direct ground contact",
@@ -81493,8 +81493,8 @@
   },
   "SPN_205": {
    "spn": 205,
-   "name": "SPN 205",
-   "title_tr": "SPN 205",
+   "name": "Engine Speed",
+   "title_tr": "Motor Devri",
    "subsystem": "Şebeke & İletişim Katmanı (J1939)",
    "associated_pgn": 0,
    "pgn_acronym": "TBD",
@@ -81515,7 +81515,7 @@
     }
    },
    "source": "tur23_j1939hub",
-   "name_source": "j1939hub/spnfmi",
+   "name_source": "recovered from description (Tur-35)",
    "evidence_url": "https://j1939hub.com/general-network/spn-205-fmi-0/",
    "causes": [
     "Replacing the connector and cleaning with contact cleaner resolved the fault permanently",
@@ -81541,8 +81541,8 @@
   },
   "SPN_211": {
    "spn": 211,
-   "name": "SPN 211",
-   "title_tr": "SPN 211",
+   "name": "Engine Coolant Temperature",
+   "title_tr": "Motor Soğutma Suyu Sıcaklığı",
    "subsystem": "Şebeke & İletişim Katmanı (J1939)",
    "associated_pgn": 0,
    "pgn_acronym": "TBD",
@@ -81563,7 +81563,7 @@
     }
    },
    "source": "tur23_j1939hub",
-   "name_source": "j1939hub/spnfmi",
+   "name_source": "recovered from description (Tur-35)",
    "evidence_url": "https://j1939hub.com/general-network/spn-211-fmi-0/",
    "causes": [
     "Replacing the flywheel and resetting the gap to 1.0 mm resolved the issue permanently",
@@ -81628,8 +81628,8 @@
   },
   "SPN_214": {
    "spn": 214,
-   "name": "SPN 214",
-   "title_tr": "SPN 214",
+   "name": "Engine Load",
+   "title_tr": "Motor Yükü",
    "subsystem": "Şebeke & İletişim Katmanı (J1939)",
    "associated_pgn": 0,
    "pgn_acronym": "TBD",
@@ -81650,7 +81650,7 @@
     }
    },
    "source": "tur23_j1939hub",
-   "name_source": "j1939hub/spnfmi",
+   "name_source": "recovered from description (Tur-35)",
    "evidence_url": "https://j1939hub.com/general-network/spn-214-fmi-0/",
    "causes": [
     "Workshop experience indicates this fault frequently occurs in vocational trucks after body upfitting when load calculations weren't properly validated",
@@ -81675,8 +81675,8 @@
   },
   "SPN_216": {
    "spn": 216,
-   "name": "SPN 216",
-   "title_tr": "SPN 216",
+   "name": "Engine Speed",
+   "title_tr": "Motor Devri",
    "subsystem": "Şebeke & İletişim Katmanı (J1939)",
    "associated_pgn": 0,
    "pgn_acronym": "TBD",
@@ -81697,7 +81697,7 @@
     }
    },
    "source": "tur23_j1939hub",
-   "name_source": "j1939hub/spnfmi",
+   "name_source": "recovered from description (Tur-35)",
    "evidence_url": "https://j1939hub.com/general-network/spn-216-fmi-0/",
    "causes": [
     "The ECM's safety fallback mechanisms engage to prevent further damage when erratic data is detected",
@@ -81724,8 +81724,8 @@
   },
   "SPN_221": {
    "spn": 221,
-   "name": "SPN 221",
-   "title_tr": "SPN 221",
+   "name": "Engine Coolant Temperature",
+   "title_tr": "Motor Soğutma Suyu Sıcaklığı",
    "subsystem": "Şebeke & İletişim Katmanı (J1939)",
    "associated_pgn": 0,
    "pgn_acronym": "TBD",
@@ -81746,7 +81746,7 @@
     }
    },
    "source": "tur23_j1939hub",
-   "name_source": "j1939hub/spnfmi",
+   "name_source": "recovered from description (Tur-35)",
    "evidence_url": "https://j1939hub.com/general-network/spn-221-fmi-0/",
    "causes": [
     "Sensor Malfunction: A faulty sensor may send incorrect data, affecting system reliability",
@@ -81978,8 +81978,8 @@
   },
   "SPN_239": {
    "spn": 239,
-   "name": "SPN 239",
-   "title_tr": "SPN 239",
+   "name": "Engine Speed",
+   "title_tr": "Motor Devri",
    "subsystem": "Şebeke & İletişim Katmanı (J1939)",
    "associated_pgn": 0,
    "pgn_acronym": "TBD",
@@ -82000,7 +82000,7 @@
     }
    },
    "source": "tur23_j1939hub",
-   "name_source": "j1939hub/spnfmi",
+   "name_source": "recovered from description (Tur-35)",
    "evidence_url": "https://j1939hub.com/general-network/spn-239-fmi-0/",
    "sitrak_systems": [
     "ZF_GearBox"
@@ -82450,8 +82450,8 @@
   },
   "SPN_270": {
    "spn": 270,
-   "name": "SPN 270",
-   "title_tr": "SPN 270",
+   "name": "Engine Speed",
+   "title_tr": "Motor Devri",
    "subsystem": "Şebeke & İletişim Katmanı (J1939)",
    "associated_pgn": 0,
    "pgn_acronym": "TBD",
@@ -82472,7 +82472,7 @@
     }
    },
    "source": "tur23_j1939hub",
-   "name_source": "j1939hub/spnfmi",
+   "name_source": "recovered from description (Tur-35)",
    "evidence_url": "https://j1939hub.com/general-network/spn-270-fmi-0/",
    "causes": [
     "Technicians frequently encounter this code when standard",
@@ -82497,8 +82497,8 @@
   },
   "SPN_278": {
    "spn": 278,
-   "name": "SPN 278",
-   "title_tr": "SPN 278",
+   "name": "Throttle Position",
+   "title_tr": "Gaz Kelebeği Konumu",
    "subsystem": "Şebeke & İletişim Katmanı (J1939)",
    "associated_pgn": 0,
    "pgn_acronym": "TBD",
@@ -82519,7 +82519,7 @@
     }
    },
    "source": "tur23_j1939hub",
-   "name_source": "j1939hub/spnfmi",
+   "name_source": "recovered from description (Tur-35)",
    "evidence_url": "https://j1939hub.com/general-network/spn-278-fmi-0/",
    "causes": [
     "Damaged speed sensor: Wheel speed sensor has broken wiring, corrosion, or internal short circuit",
@@ -82545,8 +82545,8 @@
   },
   "SPN_324": {
    "spn": 324,
-   "name": "SPN 324",
-   "title_tr": "SPN 324",
+   "name": "Secondary Engine Speed",
+   "title_tr": "İkincil Motor Devri",
    "subsystem": "Şebeke & İletişim Katmanı (J1939)",
    "associated_pgn": 0,
    "pgn_acronym": "TBD",
@@ -82567,7 +82567,7 @@
     }
    },
    "source": "tur23_j1939hub",
-   "name_source": "j1939hub/spnfmi",
+   "name_source": "recovered from description (Tur-35)",
    "evidence_url": "https://j1939hub.com/general-network/spn-324-fmi-0/",
    "causes": [
     "ECM Replacement: New ECM lacks stored calibration values for the specific sensor",
@@ -86706,8 +86706,8 @@
   },
   "SPN_906": {
    "spn": 906,
-   "name": "SPN 906",
-   "title_tr": "SPN 906",
+   "name": "Front Axle Right Wheel Speed",
+   "title_tr": "Ön Aks Sağ Tekerlek Devri",
    "subsystem": "Şasi, Süspansiyon & Direksiyon (J1939)",
    "associated_pgn": 65215,
    "pgn_acronym": "EBC2",
@@ -86756,7 +86756,7 @@
     }
    },
    "source": "tur23_j1939hub",
-   "name_source": "j1939hub/spnfmi",
+   "name_source": "recovered from description (Tur-35)",
    "evidence_url": "https://j1939hub.com/chassis-suspension/spn-906-fmi-0/",
    "pgn_cross_oem_confirmed": true,
    "pgn_oem_count": 2,
@@ -86871,8 +86871,8 @@
   },
   "SPN_908": {
    "spn": 908,
-   "name": "SPN 908",
-   "title_tr": "SPN 908",
+   "name": "Rear Axle #1 Right Wheel Speed",
+   "title_tr": "Arka Aks #1 Sağ Tekerlek Devri",
    "subsystem": "Şasi, Süspansiyon & Direksiyon (J1939)",
    "associated_pgn": 65215,
    "pgn_acronym": "EBC2",
@@ -86921,7 +86921,7 @@
     }
    },
    "source": "tur23_j1939hub",
-   "name_source": "j1939hub/spnfmi",
+   "name_source": "recovered from description (Tur-35)",
    "evidence_url": "https://j1939hub.com/chassis-suspension/spn-908-fmi-0/",
    "pgn_cross_oem_confirmed": true,
    "pgn_oem_count": 2,
@@ -91586,8 +91586,8 @@
   },
   "SPN_61683": {
    "spn": 61683,
-   "name": "SPN 61683",
-   "title_tr": "SPN 61683",
+   "name": "Exhaust Gas Pressure",
+   "title_tr": "Egzoz Gazı Basıncı",
    "subsystem": "Şebeke & İletişim Katmanı (J1939)",
    "associated_pgn": 0,
    "pgn_acronym": "TBD",
@@ -91608,7 +91608,7 @@
     }
    },
    "source": "tur23_j1939hub",
-   "name_source": "j1939hub/spnfmi",
+   "name_source": "recovered from description (Tur-35)",
    "evidence_url": "https://j1939hub.com/general-network/spn-61683-fmi-0/",
    "causes": [
     "Short to battery power: Wire insulation chafed against chassis or bracket, contacting 24V supply",
