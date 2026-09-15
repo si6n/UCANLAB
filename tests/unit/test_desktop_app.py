@@ -221,8 +221,22 @@ def test_desktop_app_export_logs(tmp_path) -> None:
     assert bridge.export_logs("json") is True
     assert bridge.export_logs("csv") is True
     assert bridge.export_logs("mat") is True
-    assert bridge.export_logs("mdf4") is True
-    assert bridge.export_logs("mf4") is True
+
+    has_mdf = False
+    try:
+        from asammdf import MDF
+        _ = MDF()
+        has_mdf = True
+    except Exception:
+        pass
+
+    if has_mdf:
+        assert bridge.export_logs("mdf4") is True
+        assert bridge.export_logs("mf4") is True
+    else:
+        assert bridge.export_logs("mdf4") is False
+        assert bridge.export_logs("mf4") is False
+
     assert bridge.export_logs("unsupported_xyz") is False
 
 

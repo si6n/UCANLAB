@@ -19,8 +19,16 @@ from src.protocols.j1939.diagnostics import (
 )
 
 
+def _require_asammdf() -> None:
+    try:
+        from asammdf import MDF, Signal  # noqa: F401
+        _ = MDF()
+    except Exception as exc:
+        pytest.skip(f"asammdf not functional in this environment: {exc}")
+
+
 def test_mdf4_exporter() -> None:
-    pytest.importorskip("asammdf")
+    _require_asammdf()
     with tempfile.TemporaryDirectory() as tmpdir:
         out_file = Path(tmpdir) / "test_session.mf4"
         signals = {

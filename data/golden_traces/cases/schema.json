@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "UCanLab Golden-Traces Diagnostic Case v1",
+  "description": "Repair-verified golden diagnostic case for AI calibration (P1). Stdlib-validated: field set is EXACT — extra fields are rejected fail-closed by src/engine/ai/golden_cases.py.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "case_id",
+    "domain",
+    "make",
+    "model",
+    "year",
+    "symptom",
+    "dtcs",
+    "signals_of_interest",
+    "actual_fault",
+    "repair",
+    "verification",
+    "trace_ref",
+    "verified",
+    "verified_date"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "case_id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+    "domain": { "enum": ["HEAVY_DUTY", "PASSENGER", "MARINE", "INDUSTRIAL"] },
+    "make": { "type": ["string", "null"] },
+    "model": { "type": ["string", "null"] },
+    "year": { "type": ["integer", "null"], "minimum": 1900, "maximum": 2100 },
+    "symptom": { "type": "string", "minLength": 1 },
+    "dtcs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "status"],
+        "properties": {
+          "code": { "type": "string", "minLength": 1 },
+          "status": { "enum": ["ACTIVE", "HISTORY", "PENDING"] }
+        },
+        "additionalProperties": false
+      }
+    },
+    "signals_of_interest": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "expected_behavior", "observed_behavior"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "expected_behavior": { "type": ["string", "null"] },
+          "observed_behavior": { "type": ["string", "null"] }
+        },
+        "additionalProperties": false
+      }
+    },
+    "actual_fault": { "type": ["string", "null"] },
+    "repair": { "type": ["string", "null"] },
+    "verification": { "type": ["string", "null"] },
+    "trace_ref": { "type": ["string", "null"] },
+    "verified": { "type": "boolean" },
+    "verified_date": { "type": ["string", "null"], "pattern": "^\\d{4}-\\d{2}-\\d{2}$" }
+  },
+  "additionalProperties": false
+}

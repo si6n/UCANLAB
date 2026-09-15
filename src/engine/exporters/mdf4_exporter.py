@@ -10,7 +10,7 @@ import numpy as np
 
 try:
     from asammdf import MDF, Signal
-except ImportError:  # pragma: no cover
+except Exception:  # pragma: no cover
     MDF = None  # type: ignore[assignment,misc]
     Signal = None  # type: ignore[assignment,misc]
 

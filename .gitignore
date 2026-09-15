@@ -72,6 +72,8 @@ data/*
 !data/traces/
 !data/diagnostics/
 !data/diagnostics/**
+!data/golden_traces/
+!data/golden_traces/**
 *.bin.zst
 traces/
 !data/traces/

@@ -10,7 +10,7 @@ can-isotp>=2.0.2,<3  # pinned upper bound (supply-chain)
 cantools>=39.0.0,<41  # pinned upper bound (supply-chain)
 
 # Telemetry & Math Processing
-numpy>=1.26.0,<3  # pinned upper bound (supply-chain)
+numpy>=1.26.0,<2  # pinned upper bound (supply-chain, ABI compatible with asammdf 7.x)
 scipy>=1.11.0,<2  # pinned upper bound (supply-chain)
 asammdf>=7.3.0,<8  # pinned upper bound (supply-chain)
 simplekml>=1.3.6,<2  # pinned upper bound (supply-chain)

@@ -374,8 +374,16 @@ def test_poller_concurrent_conversations_do_not_invalidate_each_other() -> None:
 # ============================================================================
 
 
+def _require_asammdf() -> None:
+    try:
+        from asammdf import MDF, Signal  # noqa: F401
+        _ = MDF()
+    except Exception as exc:
+        pytest.skip(f"asammdf not functional in this environment: {exc}")
+
+
 def test_mdf4_length_mismatch_rejected() -> None:
-    pytest.importorskip("asammdf")
+    _require_asammdf()
     with tempfile.TemporaryDirectory() as td:
         out = Path(td) / "s.mf4"
         signals = {"Bad": ([0.0, 0.1, 0.2], [1.0, 2.0], "unit")}
@@ -385,7 +393,7 @@ def test_mdf4_length_mismatch_rejected() -> None:
 
 
 def test_mdf4_nan_value_rejected() -> None:
-    pytest.importorskip("asammdf")
+    _require_asammdf()
     with tempfile.TemporaryDirectory() as td:
         out = Path(td) / "s.mf4"
         signals = {"Bad": ([0.0, 0.1], [1.0, float("nan")], "unit")}
@@ -394,7 +402,7 @@ def test_mdf4_nan_value_rejected() -> None:
 
 
 def test_mdf4_non_monotonic_timestamps_rejected() -> None:
-    pytest.importorskip("asammdf")
+    _require_asammdf()
     with tempfile.TemporaryDirectory() as td:
         out = Path(td) / "s.mf4"
         signals = {"Bad": ([0.0, 0.1, 0.1], [1.0, 2.0, 3.0], "unit")}
@@ -403,7 +411,7 @@ def test_mdf4_non_monotonic_timestamps_rejected() -> None:
 
 
 def test_mdf4_valid_export_is_atomic_no_tmp_left() -> None:
-    pytest.importorskip("asammdf")
+    _require_asammdf()
     with tempfile.TemporaryDirectory() as td:
         out = Path(td) / "s.mf4"
         signals = {"RPM": ([0.0, 0.1, 0.2], [800.0, 900.0, 1000.0], "rpm")}
@@ -415,7 +423,7 @@ def test_mdf4_valid_export_is_atomic_no_tmp_left() -> None:
 
 
 def test_mdf4_empty_series_skipped_valid_others_exported() -> None:
-    pytest.importorskip("asammdf")
+    _require_asammdf()
     with tempfile.TemporaryDirectory() as td:
         out = Path(td) / "s.mf4"
         signals = {

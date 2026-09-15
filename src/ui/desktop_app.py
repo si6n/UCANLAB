@@ -12,6 +12,7 @@ import sys
 import threading
 import time
 import urllib.parse
+import uuid
 from collections import deque
 from concurrent.futures import TimeoutError as FuturesTimeoutError
 from dataclasses import dataclass
@@ -919,7 +920,7 @@ class UniversalCanDesktopApp:
         """(Re)open a VehicleSession for evidence collection (fail-never)."""
         try:
             self._diag_session = VehicleSession(
-                session_id=f"sess-{time.time_ns()}",
+                session_id=f"sess-{time.time_ns()}-{uuid.uuid4().hex[:8]}",
                 started_at_ns=time.monotonic_ns(),
                 domain=self._domain_for_current_bus(),
             )

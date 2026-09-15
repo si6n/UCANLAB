@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "case_id": "volvo-penta-d4-300-nonstart",
+  "domain": "MARINE",
+  "make": "Volvo Penta",
+  "model": "D4-300",
+  "year": null,
+  "symptom": "Marin motor marş alıyor ama çalışmıyor (crank-no-start). Gösterge panelinde motor uyarı lambası yanıyor.",
+  "dtcs": [],
+  "signals_of_interest": [],
+  "actual_fault": null,
+  "repair": null,
+  "verification": null,
+  "trace_ref": null,
+  "verified": false,
+  "verified_date": null
+}
