@@ -84,8 +84,24 @@ _TCN_TITLE_SUFFIX = " – TroubleCodes.net"
 _OBDHUT_TITLE_SUFFIX = " | OBDHut"
 
 # obdhut prepends this phrase to ``causes``; it is site boilerplate, not content.
+#
+# Shapes seen in the wild (all anchored at the start of the string):
+#   "The most common cause of U0003 (High Speed CAN ... Open) is: <payload>"
+#   "The most common cause of B0001 (Driver Frontal ... (Subfault)) is: <payload>"
+#   "The most common cause of the P0874 code is <payload>"
+#
+# The middle group is a balanced-parenthesis matcher: ``[^()]*`` for the flat
+# text plus ``\([^()]*\)`` for one nesting level, repeated. The old single-level
+# ``\([^)]*\)`` could not consume the nested "(Subfault)" parenthesis, which is
+# why 625 records kept the prefix (T48-A, item 1).
 _OBDHUT_CAUSE_PREFIX_RE = re.compile(
-    r"^The most common cause of\s+[A-Z0-9]+\s*\([^)]*\)\s+is:\s*", re.IGNORECASE
+    r"^The\s+most\s+common\s+cause\s+of\s+"
+    r"(?:the\s+)?(?:[A-Z0-9]+\s*)?(?:code\s*)?"
+    r"(?:\("
+    r"(?:[^()]|\([^()]*\))*"
+    r"\))?"
+    r"\s+is:?\s*",
+    re.IGNORECASE,
 )
 
 
@@ -112,10 +128,28 @@ def _clean_title(code: str, title: Any) -> str:
     return text
 
 
-def _clean_causes(value: Any) -> str:
-    """Strip the obdhut boilerplate prefix from a harvested ``causes`` string."""
+def strip_cause_boilerplate(value: Any) -> str:
+    """Remove the anchored obdhut boilerplate prefix from a ``causes`` string.
+
+    Keeps the real payload intact and is idempotent: a string that no longer
+    starts with the boilerplate is returned unchanged (whitespace-collapsed).
+    Only the ANCHORED prefix is removed — a mid-sentence mention of the phrase
+    is untouched.
+    """
     text = _clean_text(value)
     return _OBDHUT_CAUSE_PREFIX_RE.sub("", text).strip()
+
+
+def _clean_causes(value: Any) -> str:
+    """Strip the obdhut boilerplate prefix from a harvested ``causes`` string."""
+    return strip_cause_boilerplate(value)
+
+
+def has_boilerplate_prefix(value: Any) -> bool:
+    """True when ``value`` is a string starting with the obdhut boilerplate."""
+    if not isinstance(value, str):
+        return False
+    return value.lstrip().lower().startswith("the most common cause of")
 
 
 def _is_usable_source(value: Any) -> bool:
@@ -225,6 +259,29 @@ def _collect_candidates(
     return candidates
 
 
+def repair_cause_boilerplate(db: dict[str, Any]) -> int:
+    """Strip the obdhut boilerplate prefix from every ``causes_en`` in ``db``.
+
+    Returns the number of values actually changed. Touches ONLY the ``causes_en``
+    field (and any other ``*_en`` string that starts with the same boilerplate),
+    never a Turkish field. Fully idempotent: a second pass returns 0.
+    """
+    changed = 0
+    for rec in db.values():
+        if not isinstance(rec, dict):
+            continue
+        for field, value in list(rec.items()):
+            if not field.endswith("_en") or not isinstance(value, str):
+                continue
+            if not has_boilerplate_prefix(value):
+                continue
+            cleaned = strip_cause_boilerplate(value)
+            if cleaned and cleaned != value:
+                rec[field] = cleaned
+                changed += 1
+    return changed
+
+
 def merge(db_path: Path = DB_PATH, *, dry_run: bool = False) -> dict[str, int]:
     """Merge the T45 harvest into ``db_path``; return a stats dict.
 
@@ -266,6 +323,11 @@ def merge(db_path: Path = DB_PATH, *, dry_run: bool = False) -> dict[str, int]:
             stats["fields_written"] += 1
         rec[MERGE_MARKER] = "t46a"
         stats["records_enriched"] += 1
+
+    # T48-A: records merged by the older single-level-paren regex still carry
+    # the obdhut boilerplate in ``causes_en``. Repair them in place; the strip
+    # only ever touches ``*_en`` fields and is a no-op once clean.
+    stats["boilerplate_repaired"] = repair_cause_boilerplate(db)
 
     stats["db_records_after"] = len(db)
     if stats["db_records_after"] != stats["db_records_before"]:
