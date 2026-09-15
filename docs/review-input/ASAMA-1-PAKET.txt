@@ -1,0 +1,2315 @@
+=== FILE: src/safety/gateway.py (956 satır) ===
+    1| """Dual-Confirmation TX Safety Gateway enforcing CORE_SAFETY_FLOOR and Speed Interlocks.
+    2| 
+    3| Matches MASTER_PLAN.md Section 7, ISO 26262 ASIL-B/D, and Saha Risk Kataloğu v1.2 Sections 4, 19, 20.
+    4| Enforces strict 6-stage policy evaluation order:
+    5| 1. Frame Sanity & Range Validation
+    6| 2. Safety State & E-Stop Status (supervisor, watchdog lease, E-Stop)
+    7| 3. Whitelist Authorization (Fail-Closed)
+    8| 4. Speed Interlock (Stationary & Freshness)
+    9| 5. Dual Confirmation Check
+   10| 6. Rate Budget (Sliding Window in monotonic nanoseconds)
+   11| followed by the optional E2E stamping stage (docs/ai_context/02 §1 stage 6:
+   12| rolling counter + CRC sealing via E2ESafetyPackager when a profile is
+   13| configured for the frame's arbitration id) before fenced dispatch.
+   14| """
+   15| 
+   16| from __future__ import annotations
+   17| 
+   18| import collections
+   19| import concurrent.futures
+   20| import hashlib
+   21| import hmac
+   22| import math
+   23| import os
+   24| import threading
+   25| import time
+   26| from collections.abc import Mapping, Sequence
+   27| from typing import TYPE_CHECKING, ClassVar
+   28| 
+   29| from src.core.errors import SafetyError
+   30| from src.core.logging import get_logger
+   31| from src.core.models.can_frame import CanFrame
+   32| from src.safety.e2e.packager import E2ESafetyPackager
+   33| from src.safety.e2e.profiles import E2EProfileConfig
+   34| from src.safety.estop import EmergencyStopSystem, EStopTriggerSource
+   35| from src.safety.exceptions import (
+   36|     DualConfirmationRequiredError,
+   37|     FrameSanityError,
+   38|     RateLimitExceededError,
+   39|     SpeedDataStaleError,
+   40|     SpeedInterlockError,
+   41|     WhitelistFailClosedError,
+   42|     WhitelistViolationError,
+   43| )
+   44| 
+   45| if TYPE_CHECKING:
+   46|     from src.hal.base import AbstractBus
+   47|     from src.safety.state_machine import SafetySupervisor
+   48|     from src.safety.watchdog import TxWatchdogSupervisor
+   49| 
+   50| logger = get_logger("safety.gateway")
+   51| 
+   52| 
+   53| class TxBudget:
+   54|     """Monotonic token bucket: `capacity` burst tokens refilled at `refill_per_sec`."""
+   55| 
+   56|     __slots__ = ("capacity", "refill_per_sec", "_tokens", "_last_refill_ns", "_lock")
+   57| 
+   58|     def __init__(self, capacity: int, refill_per_sec: float) -> None:
+   59|         self.capacity = capacity
+   60|         self.refill_per_sec = refill_per_sec
+   61|         self._tokens = float(capacity)
+   62|         self._last_refill_ns = time.monotonic_ns()
+   63|         self._lock = threading.Lock()
+   64| 
+   65|     def try_consume(self, n: int = 1) -> bool:
+   66|         """Consume `n` tokens if available; returns False when the bucket is dry."""
+   67|         with self._lock:
+   68|             now_ns = time.monotonic_ns()
+   69|             elapsed_s = (now_ns - self._last_refill_ns) / 1e9
+   70|             if elapsed_s > 0:
+   71|                 self._tokens = min(float(self.capacity), self._tokens + elapsed_s * self.refill_per_sec)
+   72|                 self._last_refill_ns = now_ns
+   73|             if self._tokens >= n:
+   74|                 self._tokens -= n
+   75|                 return True
+   76|             return False
+   77| 
+   78|     def refund(self, n: int = 1) -> None:
+   79|         """Refund `n` previously consumed tokens back to the bucket (capped at capacity)."""
+   80|         with self._lock:
+   81|             self._tokens = min(float(self.capacity), self._tokens + n)
+   82| 
+   83| 
+   84| class TxSafetyGateway:
+   85|     """Security and Functional Safety Gateway filtering all outgoing CAN transmissions."""
+   86| 
+   87|     MAX_TX_RATE_PER_SEC: ClassVar[int] = 100  # Max 100 msg/s to prevent bus starvation
+   88|     SPEED_NOISE_THRESHOLD_KMH: ClassVar[float] = 0.5  # Permitted sensor jitter / noise threshold
+   89|     SPEED_VALIDITY_TIMEOUT_NS: ClassVar[int] = 1_000_000_000  # 1.0 second speed freshness timeout
+   90|     RATE_LIMIT_WINDOW_NS: ClassVar[int] = 1_000_000_000  # 1.0 second sliding window (nanoseconds)
+   91|     # P1-9: consecutive default-lane rejections tolerated before escalating
+   92|     # to an E-Stop. A single burst = backpressure; a sustained pattern =
+   93|     # runaway sender and must fail hard.
+   94|     RATE_ESTOP_AFTER: ClassVar[int] = 5
+   95|     # Whitelist single-miss policy: first miss = reject+alarm, persistent
+   96|     # pattern at/above this streak latches the E-Stop (fail-closed on abuse).
+   97|     # Threshold mirrors RATE_ESTOP_AFTER-style escalation: isolated misses
+   98|     # (fuzz/misconfig) stay reject+alarm, sustained abuse latches.
+   99|     WHITELIST_ESTOP_AFTER: ClassVar[int] = 5
+  100|     # P0 (perf): backpressure WARN output is rate-limited to one summary per
+  101|     # second — a throttled sender hammering the window used to emit one
+  102|     # log record per rejected frame, flooding stdout I/O and slowing the
+  103|     # very loop that should back off (positive feedback).
+  104|     _RATE_LOG_INTERVAL_NS: ClassVar[int] = 1_000_000_000
+  105| 
+  106|     # Per-category token buckets (F-18): protocol bursts such as a J1939 BAM
+  107|     # transfer (<=255 packets) must fit inside a single burst budget.
+  108|     # P0 (perf): the 'simulation' lane carries synthetic multi-ECU traffic
+  109|     # (4x50 Hz + 2x10 Hz + 2x1 Hz ~= 220 msg/s aggregate) which the 100 msg/s
+  110|     # default sliding window rejected at ~80% rate — with per-frame WARN
+  111|     # output and eventual RATE_ESTOP_AFTER escalation, the simulator was
+  112|     # throttling itself into an E-Stop. Capacity 500/refill 250 sustains the
+  113|     # generator's real cadence while still bounding a runaway loop.
+  114|     BUDGETS: ClassVar[dict[str, tuple[int, float]]] = {
+  115|         "diagnostic": (10, 10.0),
+  116|         "calibration": (5, 5.0),
+  117|         "protocol_burst": (255, 100.0),
+  118|         "simulation": (500, 250.0),
+  119|         "default": (100, 100.0),
+  120|     }
+  121| 
+  122|     # MEDIUM-6: bounded, gateway-owned executor for the async TxPort entry.
+  123|     # Never offload onto the event loop's shared default executor (unbounded
+  124|     # and shared with every other offload in the process).
+  125|     TX_EXECUTOR_MAX_WORKERS: ClassVar[int] = 4
+  126|     TX_EXECUTOR_THREAD_PREFIX: ClassVar[str] = "tx-gateway-"
+  127| 
+  128|     def __init__(
+  129|         self,
+  130|         bus: AbstractBus,
+  131|         estop: EmergencyStopSystem | None = None,
+  132|         supervisor: SafetySupervisor | None = None,
+  133|         watchdog: TxWatchdogSupervisor | None = None,
+  134|         whitelist_ids: set[int] | None = None,
+  135|         whitelist_masks: Sequence[tuple[int, int]] | None = None,
+  136|         e2e_packager: E2ESafetyPackager | None = None,
+  137|         e2e_profiles: Mapping[int, E2EProfileConfig] | None = None,
+  138|         confirmation_secret: bytes | None = None,
+  139|         allow_legacy_boolean_confirm: bool = False,
+  140|     ) -> None:
+  141|         self._bus = bus
+  142|         if estop is not None:
+  143|             self.estop = estop
+  144|         elif watchdog is not None and watchdog.estop is not None:
+  145|             self.estop = watchdog.estop
+  146|         else:
+  147|             self.estop = EmergencyStopSystem()
+  148|         self.supervisor = supervisor
+  149|         self.watchdog = watchdog
+  150|         self.whitelist_ids: set[int] = set(whitelist_ids) if whitelist_ids is not None else set()
+  151|         # (value, mask) pairs: an ID passes when (id & mask) == value. Used to
+  152|         # authorize whole protocol-response families (e.g. TP.CM frames sourced
+  153|         # from our J1939 address) without enumerating every peer address.
+  154|         self.whitelist_masks: tuple[tuple[int, int], ...] = (
+  155|             tuple(whitelist_masks) if whitelist_masks is not None else ()
+  156|         )
+  157|         # E2E stamping stage (docs/ai_context/02 §1 stage 6 / transport_e2e
+  158|         # spec): when configured, frames whose arbitration_id maps to an
+  159|         # E2E profile are sealed (rolling counter + CRC) right before rate
+  160|         # accounting, so the on-wire payload is protected end-to-end.
+  161|         # Unconfigured IDs pass through unstamped — E2E protection is opt-in
+  162|         # per protected stream, matching the profiles' per-stream counters.
+  163|         self.e2e_packager = e2e_packager
+  164|         self.e2e_profiles: Mapping[int, E2EProfileConfig] = dict(e2e_profiles) if e2e_profiles else {}
+  165|         # Fail-closed whitelist stage can only be bypassed through the
+  166|         # explicit for_testing() factory — never via a constructor flag
+  167|         # that production wiring could set by accident.
+  168|         self._whitelist_bypass_for_testing: bool = False
+  169|         # Optional HMAC key for ConfirmationToken verification (dual-confirm
+  170|         # hardening). When None, legacy boolean path stays intact.
+  171|         self._confirmation_secret: bytes | None = (
+  172|             bytes(confirmation_secret) if confirmation_secret is not None else None
+  173|         )
+  174|         # T41 / G-1 (Y-1): when a confirmation secret IS configured, the HMAC
+  175|         # ConfirmationToken is the ONLY accepted proof — a bare `user_confirmed`
+  176|         # boolean must NOT bypass it. The explicit, default-OFF escape hatch
+  177|         # below exists solely for staged migrations; enabling it restores the
+  178|         # legacy behavior with a WARNING instead of the fail-closed rejection.
+  179|         self._allow_legacy_boolean_confirm: bool = bool(allow_legacy_boolean_confirm)
+  180|         self._consumed_confirmations: set[bytes] = set()
+  181|         # Whitelist single-miss streak: first miss = reject+alarm, persistent
+  182|         # pattern (>= WHITELIST_ESTOP_AFTER) = latch E-Stop.
+  183|         self._whitelist_miss_streak: int = 0
+  184| 
+  185|         self._tx_timestamps: "collections.deque[tuple[int, int, int]]" = collections.deque()
+  186|         # P1-9: consecutive-rejection counter for sustained-overload detection
+  187|         self._rate_overload_streak: int = 0
+  188|         # P0 (perf): rate-limited backpressure logging state
+  189|         self._last_rate_log_ns: int = 0
+  190|         self._rate_log_suppressed: int = 0
+  191|         # HIGH-1: monotonically increasing per-call sequence number. Combined
+  192|         # with the thread id it makes every stamp uniquely identifiable, so a
+  193|         # rollback removes EXACTLY the caller's own reservation — never the
+  194|         # newest stamp of an unrelated concurrent sender (old blind pop()).
+  195|         self._stamp_seq: int = 0
+  196|         self._budgets: dict[str, TxBudget] = {
+  197|             name: TxBudget(capacity, refill) for name, (capacity, refill) in self.BUDGETS.items()
+  198|         }
+  199|         self._current_vehicle_speed_kmh: float = 0.0
+  200|         self._last_speed_update_ns: int = 0
+  201|         self._lock = threading.RLock()
+  202| 
+  203|         # MEDIUM-6: gateway-owned bounded executor for async sends (F-26/E-12).
+  204|         # Eagerly constructed, single instance, reused across sends — never
+  205|         # the event loop's shared default executor (unbounded and shared with
+  206|         # every other offload in the process). Threads spawn lazily inside the
+  207|         # pool, so an idle gateway costs nothing.
+  208|         self._tx_executor = concurrent.futures.ThreadPoolExecutor(
+  209|             max_workers=self.TX_EXECUTOR_MAX_WORKERS,
+  210|             thread_name_prefix=self.TX_EXECUTOR_THREAD_PREFIX,
+  211|         )
+  212|         self._tx_executor_shutdown = False
+  213| 
+  214|         # Wire E-stop callback to halt bus TX and trigger fault state
+  215|         self.estop.register_callback(self._on_estop_triggered)
+  216| 
+  217|         if self.supervisor:
+  218|             self.supervisor.register_callback(self._on_safety_state_changed)
+  219| 
+  220|     @property
+  221|     def bus(self) -> AbstractBus:
+  222|         """Read-only HAL bus handle (mutable security dependency guard)."""
+  223|         return self._bus
+  224| 
+  225|     @bus.setter
+  226|     def bus(self, _value: AbstractBus) -> None:
+  227|         raise AttributeError("TxSafetyGateway.bus is read-only (use rebind_bus for controlled swaps)")
+  228| 
+  229|     def rebind_bus(self, new_bus: AbstractBus) -> None:
+  230|         """Controlled HAL bus swap (reconnect path).
+  231| 
+  232|         The only sanctioned way to change the bus after construction. The swap
+  233|         itself is explicit and auditable; arbitrary attribute assignment stays
+  234|         blocked. Clears rate-limit state so the new channel starts clean.
+  235| 
+  236|         REVIEW (validate-then-dispatch TOCTOU, B-25): the swap runs under
+  237|         the E-Stop TX send lock and bumps the fence generation. A frame
+  238|         validated against the OLD bus (channel/whitelist/rate state) can no
+  239|         longer dispatch onto the NEW bus mid-reconnect — the PHASE 3 fence
+  240|         re-check rejects it fail-closed instead of writing to the wrong
+  241|         physical network.
+  242|         """
+  243|         # Serialize against in-flight dispatches (fence re-check + send run
+  244|         # under this lock) so the swap is atomic with respect to senders.
+  245|         with self.estop.tx_send_lock:
+  246|             with self._lock:
+  247|                 old = self._bus
+  248|                 self._bus = new_bus
+  249|                 self._tx_timestamps.clear()
+  250|                 self._rate_overload_streak = 0
+  251|                 self._whitelist_miss_streak = 0
+  252|             # Invalidate every in-flight validated frame: dispatch compares
+  253|             # its fence snapshot under tx_send_lock and rejects on mismatch.
+  254|             # estop.tx_fence getter takes the estop lock; bump via trigger-
+  255|             # free generation advance (read-modify-write under estop lock).
+  256|             self.estop.advance_tx_fence("gateway bus rebind")
+  257|         logger.warning(
+  258|             "TX Gateway bus rebound",
+  259|             extra={
+  260|                 "old_channel": getattr(old, "channel_id", None),
+  261|                 "new_channel": getattr(new_bus, "channel_id", None),
+  262|             },
+  263|         )
+  264| 
+  265|     def issue_confirmation_token(self, arbitration_id: int, ttl_s: float = 30.0) -> bytes:
+  266|         """Mint a single-use HMAC confirmation token for a critical arbitration ID.
+  267| 
+  268|         Operator/UI authorization path: the token binds (arbitration_id, expiry,
+  269|         nonce) under the gateway confirmation secret. Requires a configured secret.
+  270|         """
+  271|         if self._confirmation_secret is None:
+  272|             raise SafetyError(
+  273|                 "Confirmation tokens require a gateway confirmation_secret",
+  274|                 code="CONFIRMATION_NOT_CONFIGURED",
+  275|             )
+  276|         import secrets as _secrets
+  277| 
+  278|         expiry_ns = time.monotonic_ns() + int(max(1.0, ttl_s) * 1_000_000_000)
+  279|         nonce = _secrets.token_bytes(16)
+  280|         payload = (
+  281|             int(arbitration_id).to_bytes(4, "big") + expiry_ns.to_bytes(8, "big", signed=False) + nonce
+  282|         )
+  283|         mac = hmac.new(self._confirmation_secret, payload, hashlib.sha256).digest()
+  284|         return payload + mac
+  285| 
+  286|     def _verify_confirmation_token(self, token: bytes | str, frame: CanFrame) -> None:
+  287|         """Verify a presented ConfirmationToken (fail-closed, single-use, TTL-bound)."""
+  288|         assert self._confirmation_secret is not None
+  289|         raw: bytes
+  290|         if isinstance(token, str):
+  291|             try:
+  292|                 raw = bytes.fromhex(token.strip())
+  293|             except ValueError as exc:
+  294|                 raise DualConfirmationRequiredError(
+  295|                     "Critical command rejected: malformed confirmation token",
+  296|                 ) from exc
+  297|         elif isinstance(token, (bytes, bytearray)):
+  298|             raw = bytes(token)
+  299|         else:
+  300|             raise DualConfirmationRequiredError(
+  301|                 "Critical command rejected: malformed confirmation token",
+  302|             )
+  303|         if len(raw) != 4 + 8 + 16 + 32:
+  304|             raise DualConfirmationRequiredError(
+  305|                 "Critical command rejected: malformed confirmation token",
+  306|             )
+  307|         payload, mac = raw[:-32], raw[-32:]
+  308|         expected = hmac.new(self._confirmation_secret, payload, hashlib.sha256).digest()
+  309|         if not hmac.compare_digest(mac, expected):
+  310|             raise DualConfirmationRequiredError(
+  311|                 "Critical command rejected: invalid confirmation token",
+  312|             )
+  313|         arb = int.from_bytes(payload[0:4], "big")
+  314|         expiry_ns = int.from_bytes(payload[4:12], "big", signed=False)
+  315|         if arb != frame.arbitration_id:
+  316|             raise DualConfirmationRequiredError(
+  317|                 "Critical command rejected: confirmation token arbitration mismatch",
+  318|             )
+  319|         if time.monotonic_ns() > expiry_ns:
+  320|             raise DualConfirmationRequiredError(
+  321|                 "Critical command rejected: confirmation token expired",
+  322|             )
+  323|         if payload in self._consumed_confirmations:
+  324|             raise DualConfirmationRequiredError(
+  325|                 "Critical command rejected: confirmation token already consumed",
+  326|             )
+  327|         self._consumed_confirmations.add(payload)
+  328|         if len(self._consumed_confirmations) > 1024:
+  329|             # Bounded replay set: TTL expiry bounds live tokens; evict oldest.
+  330|             self._consumed_confirmations.pop()
+  331| 
+  332|     @classmethod
+  333|     def for_testing(
+  334|         cls,
+  335|         bus: AbstractBus,
+  336|         estop: EmergencyStopSystem | None = None,
+  337|         whitelist_ids: set[int] | None = None,
+  338|     ) -> TxSafetyGateway:
+  339|         """Test/demo-only factory that bypasses the fail-closed whitelist stage.
+  340| 
+  341|         Guarded: requires UCANLAB_TEST_MODE==1 in the environment, otherwise
+  342|         raises RuntimeError so production wiring cannot reach the bypass.
+  343|         Kept out of the production constructor signature on purpose: the
+  344|         bypass is only reachable through this explicitly named factory.
+  345|         All other policy stages (E-Stop, speed interlock, dual confirmation,
+  346|         rate budget) remain fully enforced.
+  347|         """
+  348|         if os.environ.get("UCANLAB_TEST_MODE") != "1":
+  349|             raise RuntimeError(
+  350|                 "TxSafetyGateway.for_testing requires UCANLAB_TEST_MODE==1 "
+  351|                 "(refusing fail-closed whitelist bypass in production)"
+  352|             )
+  353|         instance = cls(bus=bus, estop=estop, whitelist_ids=whitelist_ids)
+  354|         object.__setattr__(instance, "_whitelist_bypass_for_testing", True)
+  355|         return instance
+  356| 
+  357|     def _on_estop_triggered(self, event: object) -> None:
+  358|         logger.warning("TX Gateway notified of E-Stop engagement. All TX halted.")
+  359|         if self.supervisor and not self.supervisor.is_fault:
+  360|             self.supervisor.trigger_fault("E-Stop engagement triggered from hardware/software event")
+  361|         with self._lock:
+  362|             self._tx_timestamps.clear()
+  363|             # M-11 (P2-1): reset the overload streak that caused this E-Stop.
+  364|             # The streak survived the latch — after the operator completed the
+  365|             # authenticated reset, the very first burst re-latched the E-Stop
+  366|             # immediately, making the rate-limit condition effectively
+  367|             # un-clearable without a process restart.
+  368|             self._rate_overload_streak = 0
+  369|             self._whitelist_miss_streak = 0
+  370| 
+  371|     def _on_safety_state_changed(self, old_state: object, new_state: object, reason: str) -> None:
+  372|         if getattr(new_state, "value", str(new_state)) == "FAULT":
+  373|             with self._lock:
+  374|                 self._tx_timestamps.clear()
+  375| 
+  376|     def update_vehicle_speed(self, speed_kmh: float, *, source: str = "physical") -> None:
+  377|         """Update live vehicle speed for dynamic interlock enforcement.
+  378| 
+  379|         Always timestamps with time.monotonic_ns() on reception to prevent
+  380|         clock domain skew. NaN, negative or non-finite values are treated as
+  381|         corrupted telemetry and invalidate freshness to 0 (fail-closed).
+  382| 
+  383|         P0-2 (REVIEW C-2): `source` binds provenance to the interlock. Only
+  384|         `"physical"` (hardware-derived telemetry) may satisfy the speed
+  385|         interlock; any other value is recorded for telemetry purposes but
+  386|         NEVER refreshes interlock freshness — a simulated stationary vehicle
+  387|         must not authorize critical commands while a real vehicle is
+  388|         connected and moving.
+  389| 
+  390|         Backward compat: signature kept, but non-"physical" sources are
+  391|         strictly non-authoritative. Prefer update_physical_speed() /
+  392|         record_synthetic_speed() going forward.
+  393|         """
+  394|         with self._lock:
+  395|             if not math.isfinite(speed_kmh) or speed_kmh < 0.0:
+  396|                 self._current_vehicle_speed_kmh = float("nan")
+  397|                 self._last_speed_update_ns = 0
+  398|                 return
+  399|             if source != "physical":
+  400|                 # Tightened: any non-"physical" source (incl. "synthetic")
+  401|                 # updates the DISPLAY value but never touches freshness. The
+  402|                 # interlock then keeps evaluating against the last physical
+  403|                 # sample (fail-closed when none ever arrived). This preserves
+  404|                 # the existing P0-2 test contract: synthetic 25 km/h reads as
+  405|                 # not-fresh-and-safe while physical timestamps stay pinned.
+  406|                 self._current_vehicle_speed_kmh = float(speed_kmh)
+  407|                 return
+  408|             self._current_vehicle_speed_kmh = float(speed_kmh)
+  409|             self._last_speed_update_ns = time.monotonic_ns()
+  410| 
+  411|     def update_physical_speed(self, speed_kmh: float) -> None:
+  412|         """Authoritative HAL speed feed — the ONLY writer of interlock freshness.
+  413| 
+  414|         Must be called exclusively by the trusted hardware telemetry path.
+  415|         """
+  416|         self.update_vehicle_speed(speed_kmh, source="physical")
+  417| 
+  418|     def record_synthetic_speed(self, speed_kmh: float) -> None:
+  419|         """Non-authoritative simulator/scenario speed (display only).
+  420| 
+  421|         Recorded for telemetry but never satisfies the TX speed interlock.
+  422|         """
+  423|         self.update_vehicle_speed(speed_kmh, source="synthetic")
+  424| 
+  425|     def is_speed_fresh_and_safe(self, max_age_ns: int | None = None) -> bool:
+  426|         """Public inquiry API for preflight checks: True when speed is fresh and below threshold."""
+  427|         timeout = max_age_ns if max_age_ns is not None else self.SPEED_VALIDITY_TIMEOUT_NS
+  428|         with self._lock:
+  429|             if self._last_speed_update_ns == 0:
+  430|                 return False
+  431|             now_ns = time.monotonic_ns()
+  432|             if (now_ns - self._last_speed_update_ns) > timeout:
+  433|                 return False
+  434|             if math.isnan(self._current_vehicle_speed_kmh):
+  435|                 return False
+  436|             return self._current_vehicle_speed_kmh <= self.SPEED_NOISE_THRESHOLD_KMH
+  437| 
+  438|     def speed_interlock_state(self, max_age_ns: int | None = None) -> tuple[str, float]:
+  439|         """REVIEW 3: tri-state interlock verdict with the live speed value.
+  440| 
+  441|         Single authoritative speed source for UI/supervisor preflight gates
+  442|         (kills the desktop's parallel `_current_speed_kmh` truth):
+  443|           ("stale", speed)  — no physical feed yet, timed out, or NaN
+  444|           ("moving", speed) — fresh physical speed above the noise threshold
+  445|           ("ok", speed)     — fresh, finite, at/below threshold
+  446|         """
+  447|         timeout = max_age_ns if max_age_ns is not None else self.SPEED_VALIDITY_TIMEOUT_NS
+  448|         with self._lock:
+  449|             speed = self._current_vehicle_speed_kmh
+  450|             if self._last_speed_update_ns == 0:
+  451|                 return "stale", speed
+  452|             if (time.monotonic_ns() - self._last_speed_update_ns) > timeout:
+  453|                 return "stale", speed
+  454|             if math.isnan(speed):
+  455|                 return "stale", speed
+  456|             if speed > self.SPEED_NOISE_THRESHOLD_KMH:
+  457|                 return "moving", speed
+  458|             return "ok", speed
+  459| 
+  460|     def validate_and_transmit(
+  461|         self,
+  462|         frame: CanFrame,
+  463|         is_critical_command: bool = False,
+  464|         user_confirmed: bool = False,
+  465|         budget_category: str = "default",
+  466|         confirmation_token: bytes | str | None = None,
+  467|         inbound_triggered: bool = False,
+  468|     ) -> bool:
+  469|         """Enforce strict 6-stage policy evaluation order before transmitting onto HAL.
+  470| 
+  471|         Lock structure: validation + token consumption under lock → snapshot estop
+  472|         state → release lock → final estop guard with rollback → transmit outside lock.
+  473|         This ensures watchdog/estop callbacks never block on driver I/O.
+  474| 
+  475|         confirmation_token: optional HMAC-bound dual-confirmation token. When a
+  476|         confirmation secret is configured on the gateway, a critical command
+  477|         must present a valid single-use token; the legacy `user_confirmed`
+  478|         boolean remains for backward compatibility and is documented as
+  479|         operator-assertion only (not cryptographic proof).
+  480| 
+  481|         inbound_triggered: marks the frame as a PROTOCOL RESPONSE to inbound
+  482|         bus traffic (J1939 TP CTS/ACK, ISO-TP FC) rather than an
+  483|         application-originated command. The RATE_ESTOP escalation is
+  484|         disabled for these: a hostile/busy remote node RTS-flooding the tool
+  485|         must not be able to lock the entire TX plane by baiting CTS
+  486|         responses above the default-lane budget (remote self-DoS). Such
+  487|         responses are still rate-limited (reject + drop + log) but never
+  488|         escalate to an E-Stop.
+  489|         """
+  490|         # -----------------------------------------------------------------
+  491|         # PHASE 1: VALIDATION + STATE MUTATION (under gateway lock)
+  492|         # -----------------------------------------------------------------
+  493|         timestamp_consumed = False
+  494|         budget_consumed = False
+  495|         stamp: tuple[int, int, int] | None = None
+  496|         budget: TxBudget | None = None
+  497| 
+  498|         with self._lock:
+  499|             now_ns = time.monotonic_ns()
+  500| 
+  501|             # -----------------------------------------------------------------
+  502|             # Stage 1: Frame Sanity & Range Validation
+  503|             # -----------------------------------------------------------------
+  504|             if not isinstance(frame, CanFrame):
+  505|                 raise FrameSanityError("Transmission rejected: Invalid frame object")
+  506| 
+  507|             max_id = 0x1FFFFFFF if frame.is_extended else 0x7FF
+  508|             if not (0 <= frame.arbitration_id <= max_id):
+  509|                 raise FrameSanityError(
+  510|                     f"Frame sanity violation: ID 0x{frame.arbitration_id:X} out of range (max 0x{max_id:X})",
+  511|                     details={"arbitration_id": frame.arbitration_id, "max_id": max_id},
+  512|                 )
+  513| 
+  514|             if not frame.is_fd and len(frame.data) > 8:
+  515|                 raise FrameSanityError(
+  516|                     f"Frame sanity violation: Classic CAN payload > 8 bytes (len={len(frame.data)})",
+  517|                     details={"length": len(frame.data)},
+  518|                 )
+  519| 
+  520|             if frame.is_fd and len(frame.data) > 64:
+  521|                 raise FrameSanityError(
+  522|                     f"Frame sanity violation: CAN-FD payload > 64 bytes (len={len(frame.data)})",
+  523|                     details={"length": len(frame.data)},
+  524|                 )
+  525| 
+  526|             # -----------------------------------------------------------------
+  527|             # Stage 2: Safety State & E-Stop Status
+  528|             # -----------------------------------------------------------------
+  529|             if self.supervisor is not None and not self.supervisor.is_tx_permitted:
+  530|                 raise SafetyError(
+  531|                     f"Transmission blocked: Safety State is '{self.supervisor.current_state.value}' (TX not permitted)",
+  532|                     code="SAFETY_STATE_BLOCKED",
+  533|                 )
+  534| 
+  535|             if self.watchdog is not None and not self.watchdog.is_lease_valid:
+  536|                 raise SafetyError(
+  537|                     "Transmission blocked: Watchdog lease has expired",
+  538|                     code="WATCHDOG_LEASE_EXPIRED",
+  539|                 )
+  540| 
+  541|             if self.estop.is_engaged:
+  542|                 raise SafetyError(
+  543|                     "Transmission blocked: Emergency Stop is currently ENGAGED",
+  544|                     code="ESTOP_ACTIVE",
+  545|                 )
+  546| 
+  547|             # -----------------------------------------------------------------
+  548|             # Stage 3: Whitelist Authorization (Fail-Closed)
+  549|             # -----------------------------------------------------------------
+  550|             if not self._whitelist_bypass_for_testing:
+  551|                 if not self.whitelist_ids and not self.whitelist_masks:
+  552|                     raise WhitelistFailClosedError(
+  553|                         "Transmission blocked: Dynamic whitelist is empty or unconfigured (Fail-Closed)",
+  554|                     )
+  555|                 id_allowed = frame.arbitration_id in self.whitelist_ids or any(
+  556|                     (frame.arbitration_id & mask) == value for value, mask in self.whitelist_masks
+  557|                 )
+  558|                 if id_allowed:
+  559|                     # Allowed frame resets the single-miss streak.
+  560|                     self._whitelist_miss_streak = 0
+  561|                 if not id_allowed:
+  562|                     # Reject + alarm on every miss; latch E-Stop when the
+  563|                     # persistent-violation streak reaches WHITELIST_ESTOP_AFTER
+  564|                     # (RATE_ESTOP_AFTER-style escalation; threshold currently 1
+  565|                     # to preserve the fail-closed single-miss latch contract).
+  566|                     # RLock is re-entrant: trigger() -> gateway callback
+  567|                     # re-acquires the same lock on this thread without deadlock.
+  568|                     self._whitelist_miss_streak += 1
+  569|                     logger.warning(
+  570|                         "TX Frame rejected by Whitelist filter",
+  571|                         extra={
+  572|                             "arbitration_id": hex(frame.arbitration_id),
+  573|                             "streak": self._whitelist_miss_streak,
+  574|                         },
+  575|                     )
+  576|                     if self._whitelist_miss_streak >= self.WHITELIST_ESTOP_AFTER:
+  577|                         logger.critical(
+  578|                             "Whitelist violation pattern — triggering E-Stop",
+  579|                             extra={"streak": self._whitelist_miss_streak},
+  580|                         )
+  581|                         self.estop.trigger(
+  582|                             EStopTriggerSource.UNAUTHORIZED_PAYLOAD,
+  583|                             f"TX to non-whitelisted ID: 0x{frame.arbitration_id:08X} "
+  584|                             f"(streak {self._whitelist_miss_streak})",
+  585|                         )
+  586|                     raise WhitelistViolationError(
+  587|                         f"Transmission blocked: ID 0x{frame.arbitration_id:08X} not in whitelist",
+  588|                         details={"arbitration_id": frame.arbitration_id},
+  589|                     )
+  590| 
+  591|             # -----------------------------------------------------------------
+  592|             # Stage 4: Speed Interlock (Evaluated STRICTLY BEFORE Dual Confirmation)
+  593|             # -----------------------------------------------------------------
+  594|             if is_critical_command:
+  595|                 # Speed telemetry freshness check
+  596|                 if self._last_speed_update_ns == 0 or (now_ns - self._last_speed_update_ns) > self.SPEED_VALIDITY_TIMEOUT_NS:
+  597|                     self.estop.trigger(
+  598|                         EStopTriggerSource.SPEED_INTERLOCK_BREACH,
+  599|                         "Critical command attempted with stale or missing vehicle speed telemetry",
+  600|                         vehicle_speed_kmh=self._current_vehicle_speed_kmh,
+  601|                     )
+  602|                     raise SpeedDataStaleError(
+  603|                         "Safety Interlock: Critical command blocked due to stale vehicle speed telemetry",
+  604|                     )
+  605| 
+  606|                 # Speed threshold check
+  607|                 if self._current_vehicle_speed_kmh > self.SPEED_NOISE_THRESHOLD_KMH:
+  608|                     logger.critical(
+  609|                         "Speed interlock triggered on critical command",
+  610|                         extra={"speed": self._current_vehicle_speed_kmh},
+  611|                     )
+  612|                     self.estop.trigger(
+  613|                         EStopTriggerSource.SPEED_INTERLOCK_BREACH,
+  614|                         f"Critical command attempted while moving ({self._current_vehicle_speed_kmh} km/h)",
+  615|                         vehicle_speed_kmh=self._current_vehicle_speed_kmh,
+  616|                     )
+  617|                     raise SpeedInterlockError(
+  618|                         f"Safety Interlock: Critical command blocked while vehicle is moving ({self._current_vehicle_speed_kmh} km/h)",
+  619|                     )
+  620| 
+  621|             # -----------------------------------------------------------------
+  622|             # Stage 5: Dual Confirmation Check
+  623|             #
+  624|             # Backward compat: the `user_confirmed` boolean is KEPT (API break
+  625|             # is out of scope). It is documented as operator-assertion only.
+  626|             # When a confirmation secret is configured, the HMAC token is the
+  627|             # ONLY accepted proof: a missing token fails CLOSED even when the
+  628|             # boolean is True (T41 / G-1 fix). The legacy boolean path is
+  629|             # reachable only via an explicit, default-OFF constructor opt-in
+  630|             # (`allow_legacy_boolean_confirm=True`), which logs a WARNING.
+  631|             # -----------------------------------------------------------------
+  632|             if is_critical_command:
+  633|                 if self._confirmation_secret is not None and confirmation_token is not None:
+  634|                     self._verify_confirmation_token(confirmation_token, frame)
+  635|                 if not user_confirmed:
+  636|                     raise DualConfirmationRequiredError(
+  637|                         "Critical command rejected: Operator dual-confirmation missing",
+  638|                     )
+  639|                 if self._confirmation_secret is not None and confirmation_token is None:
+  640|                     if not self._allow_legacy_boolean_confirm:
+  641|                         # Fail-closed: a configured secret means cryptographic
+  642|                         # proof is mandatory — the boolean is NOT sufficient.
+  643|                         raise DualConfirmationRequiredError(
+  644|                             "Critical command rejected: confirmation token required "
+  645|                             "(a confirmation secret is configured on this gateway)",
+  646|                         )
+  647|                     # Explicit legacy opt-in: allow (compat) but audit loudly.
+  648|                     logger.warning(
+  649|                         "Critical command used legacy boolean confirmation "
+  650|                         "(no ConfirmationToken presented)",
+  651|                         extra={"arbitration_id": hex(frame.arbitration_id)},
+  652|                     )
+  653| 
+  654|             # -----------------------------------------------------------------
+  655|             # Stage 6: Rate Budget Enforcement
+  656|             # The sliding window (Stage 6a) throttles the general traffic lane.
+  657|             # Categorised bursts are governed by their own token bucket (Stage
+  658|             # 6b) — e.g. a J1939 BAM transfer legitimately sends up to 255
+  659|             # packets well above MAX_TX_RATE_PER_SEC, so it is exempt from the
+  660|             # default-lane window and bounded by its bucket instead.
+  661|             # S-C-007 fix: the default lane is metered EXACTLY ONCE — by the
+  662|             # sliding window — and never also through the default token
+  663|             # bucket. The 'default' bucket exists only as the fallback for
+  664|             # lanes that do not use the window.
+  665|             # -----------------------------------------------------------------
+  666|             budget = self._budgets.get(budget_category)
+  667|             if budget is None:
+  668|                 raise FrameSanityError(
+  669|                     f"Unknown TX budget category '{budget_category}'",
+  670|                     details={"category": budget_category},
+  671|                 )
+  672| 
+  673|             # M-23 (P2-4): the simulation lane's generous budget (500/250)
+  674|             # exists for the DEMO generator's synthetic multi-ECU traffic. A
+  675|             # frame only qualifies when BOTH the bus is virtual AND the frame
+  676|             # itself is synthetic — the old check trusted the caller's
+  677|             # category string alone, so a mis-wired producer could pump 250
+  678|             # msg/s of live-bus traffic through the simulator lane.
+  679|             if budget_category == "simulation":
+  680|                 # Lazy import: gateway → HAL import at module scope would
+  681|                 # create a cycle for VirtualBus (a HAL leaf).
+  682|                 from src.hal.virtual import VirtualBus as _VirtualBus
+  683| 
+  684|                 bus_is_virtual = getattr(self._bus, "interface", None) == "virtual" or isinstance(
+  685|                     self._bus, _VirtualBus
+  686|                 )
+  687|                 frame_is_synthetic = getattr(frame, "source", None) in ("virtual", "synthetic")
+  688|                 if not (bus_is_virtual and frame_is_synthetic):
+  689|                     raise FrameSanityError(
+  690|                         "TX budget 'simulation' is reserved for synthetic frames on a virtual bus",
+  691|                         details={
+  692|                             "frame_source": getattr(frame, "source", None),
+  693|                             "bus_interface": getattr(self._bus, "interface", None),
+  694|                         },
+  695|                     )
+  696| 
+  697|             if budget_category == "default":
+  698|                 # Default lane: sliding window only (single meter)
+  699|                 while self._tx_timestamps:
+  700|                     first_ts_ns = self._tx_timestamps[0][0]
+  701|                     if (now_ns - first_ts_ns) >= self.RATE_LIMIT_WINDOW_NS:
+  702|                         self._tx_timestamps.popleft()
+  703|                     else:
+  704|                         break
+  705| 
+  706|                 if len(self._tx_timestamps) >= self.MAX_TX_RATE_PER_SEC:
+  707|                     # P1-9: a legitimate protocol burst (e.g. ISO-TP CF train
+  708|                     # on the uncategorised TxPort lane) used to slam the
+  709|                     # system into a PERMANENT E-Stop — self-DoS. Now the
+  710|                     # first overloads are plain rejects (backpressure), and
+  711|                     # only a SUSTAINED violation pattern (RATE_ESTOP_AFTER
+  712|                     # consecutive rejections within one window) escalates
+  713|                     # to an E-Stop as evidence of a runaway/blocked loop.
+  714|                     self._rate_overload_streak += 1
+  715|                     # REVIEW HIGH (remote self-DoS): inbound-triggered protocol
+  716|                     # responses (CTS/ACK/FC answers to bus traffic) never
+  717|                     # escalate — a hostile or malfunctioning remote node
+  718|                     # RTS-flooding the tool must not be able to bait the
+  719|                     # responder into latching a crypto-reset E-Stop that
+  720|                     # kills the entire TX plane. Reject + count + log only.
+  721|                     if (
+  722|                         self._rate_overload_streak >= self.RATE_ESTOP_AFTER
+  723|                         and not inbound_triggered
+  724|                     ):
+  725|                         logger.critical(
+  726|                             "TX rate limit sustained violation pattern — triggering E-Stop",
+  727|                             extra={"streak": self._rate_overload_streak},
+  728|                         )
+  729|                         self.estop.trigger(
+  730|                             EStopTriggerSource.RATE_LIMIT_OVERFLOW,
+  731|                             f"Sustained TX rate overload ({self._rate_overload_streak} consecutive rejections)",
+  732|                         )
+  733|                     elif inbound_triggered and self._rate_overload_streak >= self.RATE_ESTOP_AFTER:
+  734|                         # Rate-limited visibility for the inbound-response flood.
+  735|                         if (now_ns - self._last_rate_log_ns) >= self._RATE_LOG_INTERVAL_NS:
+  736|                             logger.warning(
+  737|                                 "Inbound-triggered protocol responses rate-limited (no E-Stop escalation)",
+  738|                                 extra={
+  739|                                     "streak": self._rate_overload_streak,
+  740|                                     "suppressed_since_last": self._rate_log_suppressed,
+  741|                                 },
+  742|                             )
+  743|                             self._last_rate_log_ns = now_ns
+  744|                             self._rate_log_suppressed = 0
+  745|                         else:
+  746|                             self._rate_log_suppressed += 1
+  747|                     else:
+  748|                         # P0 (perf): one backpressure summary per second —
+  749|                         # per-frame WARNINGs at burst rate flooded the log
+  750|                         # I/O and slowed the sender further (positive
+  751|                         # feedback, mirroring the FrameRouter E-2 fix).
+  752|                         if (now_ns - self._last_rate_log_ns) >= self._RATE_LOG_INTERVAL_NS:
+  753|                             logger.warning(
+  754|                                 "TX rate limit exceeded — frames rejected (backpressure)",
+  755|                                 extra={
+  756|                                     "streak": self._rate_overload_streak,
+  757|                                     "suppressed_since_last": self._rate_log_suppressed,
+  758|                                 },
+  759|                             )
+  760|                             self._last_rate_log_ns = now_ns
+  761|                             self._rate_log_suppressed = 0
+  762|                         else:
+  763|                             self._rate_log_suppressed += 1
+  764|                     raise RateLimitExceededError("Transmission rate limit exceeded (100 msg/s)")
+  765|                 self._rate_overload_streak = 0
+  766| 
+  767|                 # HIGH-1: identity-carrying stamp — (now_ns, thread_id, seq).
+  768|                 # The seq counter guarantees uniqueness even when one thread
+  769|                 # parks between append and rollback while another sender
+  770|                 # with the same thread id (impossible) or a colliding now_ns
+  771|                 # (possible under coarse clocks) interleaves. Rollback now
+  772|                 # removes EXACTLY this tuple, never a blind pop().
+  773|                 self._stamp_seq += 1
+  774|                 stamp = (now_ns, threading.get_ident(), self._stamp_seq)
+  775|                 self._tx_timestamps.append(stamp)
+  776|                 timestamp_consumed = True
+  777|             else:
+  778|                 # Categorised lane: token bucket only (single meter)
+  779|                 if not budget.try_consume():
+  780|                     logger.error(
+  781|                         "TX budget exhausted",
+  782|                         extra={"category": budget_category},
+  783|                     )
+  784|                     raise RateLimitExceededError(
+  785|                         f"TX budget '{budget_category}' exhausted (capacity {budget.capacity})",
+  786|                     )
+  787|                 budget_consumed = True
+  788| 
+  789|             # Snapshot estop state at the moment of lock release
+  790|             estop_snapshot = self.estop.is_engaged
+  791|             # CRITICAL-1: capture the TX fence generation the frame is being
+  792|             # validated against. PHASE 3 re-verifies it under the E-Stop send
+  793|             # lock — any trigger/reset transition since this snapshot kills
+  794|             # the frame before it can reach the wire.
+  795|             fence_snapshot = self.estop.tx_fence
+  796| 
+  797|             # -----------------------------------------------------------------
+  798|             # E2E STAMPING STAGE (docs/ai_context/02 §1 stage 6)
+  799|             # Applied only when a profile is configured for this arbitration
+  800|             # id: the frame is sealed (rolling counter + CRC-8) and the sealed
+  801|             # frame replaces the raw one for dispatch. Runs under the gateway
+  802|             # lock because the packager's per-stream counters are stateful —
+  803|             # sealing outside the lock could interleave senders on one stream.
+  804|             # -----------------------------------------------------------------
+  805|             if self.e2e_packager is not None and frame.arbitration_id in self.e2e_profiles:
+  806|                 frame = self.e2e_packager.package(frame, self.e2e_profiles[frame.arbitration_id])
+  807| 
+  808|         # -----------------------------------------------------------------
+  809|         # PHASE 2: FINAL E-STOP GUARD (lock-free)
+  810|         # estop.is_engaged acquires estop's own RLock (leaf lock), which does
+  811|         # not enter the gateway lock ordering — no deadlock risk.
+  812|         # -----------------------------------------------------------------
+  813|         if estop_snapshot or self.estop.is_engaged:
+  814|             # E-Stop was engaged either during Stage 2 validation or in the
+  815|             # window between lock release and this check. Roll back consumed tokens.
+  816|             self._rollback_tx_reservation(timestamp_consumed, budget_consumed, stamp, budget)
+  817|             raise SafetyError(
+  818|                 "Transmission blocked: Emergency Stop is currently ENGAGED",
+  819|                 code="ESTOP_ACTIVE",
+  820|             )
+  821| 
+  822|         # -----------------------------------------------------------------
+  823|         # PHASE 3: TRANSMIT (outside lock, no rollback after this point)
+  824|         # D8: privileged dispatch through the explicit gateway port — no
+  825|         # more duck-typed reach into the driver's private _send_raw
+  826|         #
+  827|         # CRITICAL-1 (E-Stop fence): the dispatch is FENCED. The send lock
+  828|         # serializes SENDERS against each other and the fence check closes
+  829|         # the validate-then-send window against any COMPLETED trigger/reset
+  830|         # transition (each bumps the generation under the estop lock).
+  831|         # trigger() deliberately does NOT take this lock: a dispatch blocked
+  832|         # in driver I/O holds it, and the engagement must still complete
+  833|         # promptly (test_estop_callback_does_not_block_on_slow_driver_io).
+  834|         # Registered abort/flush hooks (estop.register_abort_hook) request
+  835|         # HAL queue cancellation for the residual window where an engagement
+  836|         # lands between the fence check and the bus write.
+  837|         # -----------------------------------------------------------------
+  838|         with self.estop.tx_send_lock:
+  839|             if fence_snapshot != self.estop.tx_fence or self.estop.is_engaged:
+  840|                 # State transitioned between validation and dispatch: the
+  841|                 # reservation is already rolled back below; nothing reaches the wire.
+  842|                 self._rollback_tx_reservation(timestamp_consumed, budget_consumed, stamp, budget)
+  843|                 raise SafetyError(
+  844|                     "Transmission blocked: E-Stop TX fence invalidated "
+  845|                     "(state transition during dispatch)",
+  846|                     code="ESTOP_TX_FENCE_INVALIDATED",
+  847|                 )
+  848|             self._bus.privileged_send(frame)
+  849|         return True
+  850| 
+  851|     def _rollback_tx_reservation(
+  852|         self,
+  853|         timestamp_consumed: bool,
+  854|         budget_consumed: bool,
+  855|         stamp: tuple[int, int, int] | None,
+  856|         budget: TxBudget | None,
+  857|     ) -> None:
+  858|         """Roll back exactly the caller's own consumed rate-limit reservation.
+  859| 
+  860|         HIGH-1: the sliding-window stamp is identity-carrying
+  861|         (now_ns, thread_id, seq). A rollback removes EXACTLY that tuple via
+  862|         remove(stamp) — never a blind pop() that could delete the newest
+  863|         stamp of an unrelated concurrent sender.
+  864|         """
+  865|         with self._lock:
+  866|             if timestamp_consumed and stamp is not None:
+  867|                 try:
+  868|                     self._tx_timestamps.remove(stamp)
+  869|                 except ValueError:
+  870|                     # The stamp was already removed (e.g. the window was
+  871|                     # cleared by an E-Stop callback). Nothing to roll back.
+  872|                     pass
+  873|             if budget_consumed and budget is not None:
+  874|                 budget.refund()
+  875| 
+  876|     def send_sync(
+  877|         self,
+  878|         frame: CanFrame,
+  879|         budget_category: str = "default",
+  880|         *,
+  881|         is_critical_command: bool = False,
+  882|         user_confirmed: bool = False,
+  883|         confirmation_token: bytes | str | None = None,
+  884|         inbound_triggered: bool = False,
+  885|     ) -> None:
+  886|         """Synchronously transmit frame conforming to TxPort protocol.
+  887| 
+  888|         P1-9: the optional budget_category lets protocol engines use their
+  889|         dedicated lanes (e.g. 'protocol_burst' for ISO-TP CF trains) instead
+  890|         of colliding with the 100 msg/s default-lane wall. Defaults to the
+  891|         uncategorised 'default' lane for plain TxPort callers.
+  892| 
+  893|         inbound_triggered: protocol responses to inbound traffic — never
+  894|         E-Stop-escalated on rate overload (see validate_and_transmit).
+  895|         """
+  896|         self.validate_and_transmit(
+  897|             frame,
+  898|             is_critical_command=is_critical_command,
+  899|             user_confirmed=user_confirmed,
+  900|             budget_category=budget_category,
+  901|             confirmation_token=confirmation_token,
+  902|             inbound_triggered=inbound_triggered,
+  903|         )
+  904| 
+  905|     async def send(
+  906|         self,
+  907|         frame: CanFrame,
+  908|         *,
+  909|         is_critical_command: bool = False,
+  910|         user_confirmed: bool = False,
+  911|         budget_category: str = "default",
+  912|         confirmation_token: bytes | str | None = None,
+  913|     ) -> None:
+  914|         """Asynchronously transmit without blocking the running event loop (F-26/E-12).
+  915| 
+  916|         The synchronous validation pipeline may perform blocking work (driver TX,
+  917|         E-Stop state checks) — offloading it keeps ISO-TP CF bursts responsive.
+  918| 
+  919|         MEDIUM-6: the offload runs on the gateway's OWN bounded, managed
+  920|         ThreadPoolExecutor (thread_name_prefix 'tx-gateway-'), never on the
+  921|         event loop's shared default executor (which is unbounded and shared
+  922|         with every other offload in the process).
+  923|         """
+  924|         import asyncio
+  925|         import functools
+  926| 
+  927|         if self._tx_executor is None or self._tx_executor_shutdown:
+  928|             # Fail-closed: no managed pool -> no offload -> no transmission.
+  929|             raise SafetyError(
+  930|                 "Transmission blocked: gateway TX executor is shut down",
+  931|                 code="TX_EXECUTOR_SHUT_DOWN",
+  932|             )
+  933| 
+  934|         loop = asyncio.get_running_loop()
+  935|         fn = functools.partial(
+  936|             self.send_sync,
+  937|             frame,
+  938|             budget_category,
+  939|             is_critical_command=is_critical_command,
+  940|             user_confirmed=user_confirmed,
+  941|             confirmation_token=confirmation_token,
+  942|         )
+  943|         await loop.run_in_executor(self._tx_executor, fn)
+  944| 
+  945|     def shutdown(self) -> None:
+  946|         """Release the managed TX executor (MEDIUM-6). Idempotent.
+  947| 
+  948|         Sends attempted after shutdown fail closed with SafetyError. The
+  949|         synchronous path (send_sync / validate_and_transmit) remains fully
+  950|         functional — only the async offload lane is retired.
+  951|         """
+  952|         executor = self._tx_executor
+  953|         if executor is not None and not self._tx_executor_shutdown:
+  954|             self._tx_executor_shutdown = True
+  955|             executor.shutdown(wait=False)
+  956|             logger.info("TX gateway executor shut down")
+
+=== FILE: src/safety/estop.py (795 satır) ===
+    1| """10-Trigger Hardware/Software Emergency Stop (E-Stop) Interlock System.
+    2| 
+    3| Enforces immediate hardware and software transmission cutoffs upon fault detection,
+    4| with anti-replay, epoch-tracked, and timing-safe challenge-response cryptographic reset.
+    5| """
+    6| 
+    7| from __future__ import annotations
+    8| 
+    9| import collections
+   10| import hashlib
+   11| import hmac
+   12| import os
+   13| import threading
+   14| import time
+   15| from collections.abc import Callable
+   16| from dataclasses import dataclass
+   17| from enum import Enum
+   18| from typing import TYPE_CHECKING, ClassVar
+   19| 
+   20| from src.core.errors import SafetyError
+   21| from src.core.logging import get_logger
+   22| from src.safety.secret_provider import (
+   23|     EphemeralSecretBackend,
+   24|     SecretProvider,
+   25|     get_default_secret_provider,
+   26| )
+   27| 
+   28| if TYPE_CHECKING:
+   29|     pass
+   30| 
+   31| logger = get_logger("safety.estop")
+   32| 
+   33| DEFAULT_ESTOP_KEY_NAME: str = "ESTOP_HMAC_SECRET"
+   34| DEFAULT_TOKEN_MAX_AGE_NS: int = 30_000_000_000  # 30 seconds
+   35| 
+   36| # Token input bounds (fail-closed, memory/CPU DoS hardening).
+   37| MAX_TOKEN_STRING_LEN: int = 512
+   38| NONCE_HEX_LEN: int = 32  # 16 bytes -> 32 hex chars
+   39| SIG_HEX_LEN: int = 64  # SHA-256 -> 64 hex chars
+   40| ALLOWED_TOKEN_ACTIONS: frozenset[str] = frozenset({"ESTOP_RESET"})
+   41| MAX_TOKEN_EPOCH: int = 2**63 - 1
+   42| MAX_TOKEN_TIMESTAMP_NS: int = 2**63 - 1
+   43| # Failed-reset backoff: exponential, capped.
+   44| RESET_BACKOFF_BASE_SEC: float = 0.2
+   45| RESET_BACKOFF_CAP_SEC: float = 5.0
+   46| 
+   47| 
+   48| def _is_hex(value: str) -> bool:
+   49|     try:
+   50|         int(value, 16)
+   51|         return True
+   52|     except ValueError:
+   53|         return False
+   54| 
+   55| 
+   56| class EStopTriggerSource(Enum):
+   57|     """10 Distinct E-Stop Triggers."""
+   58| 
+   59|     USER_UI_BUTTON = "USER_UI_BUTTON"
+   60|     BUS_OFF_DETECTED = "BUS_OFF_DETECTED"
+   61|     KEEPALIVE_TIMEOUT = "KEEPALIVE_TIMEOUT"
+   62|     SPEED_INTERLOCK_BREACH = "SPEED_INTERLOCK_BREACH"
+   63|     HARDWARE_DISCONNECT = "HARDWARE_DISCONNECT"
+   64|     RATE_LIMIT_OVERFLOW = "RATE_LIMIT_OVERFLOW"
+   65|     UNAUTHORIZED_PAYLOAD = "UNAUTHORIZED_PAYLOAD"
+   66|     TEMPERATURE_OVERHEAT = "TEMPERATURE_OVERHEAT"
+   67|     PROCESS_TERMINATION = "PROCESS_TERMINATION"
+   68|     COMMUNICATION_TIMEOUT = "COMMUNICATION_TIMEOUT"
+   69| 
+   70| 
+   71| @dataclass(slots=True)
+   72| class EStopEvent:
+   73|     """Recorded E-Stop engagement event."""
+   74| 
+   75|     trigger: EStopTriggerSource
+   76|     reason: str
+   77|     timestamp_ns: int
+   78|     system_speed_kmh: float = 0.0
+   79| 
+   80| 
+   81| @dataclass(slots=True, frozen=True)
+   82| class EStopChallenge:
+   83|     """Cryptographic challenge issued upon E-Stop engagement."""
+   84| 
+   85|     epoch: int
+   86|     nonce: bytes
+   87|     timestamp_monotonic_ns: int
+   88|     action: str = "ESTOP_RESET"
+   89|     max_age_ns: int = DEFAULT_TOKEN_MAX_AGE_NS
+   90|     # Wall-clock capture for audit correlation only — never used in TTL or
+   91|     # signature math (monotonic clock is authoritative there).
+   92|     timestamp_wall_ns: int = 0
+   93| 
+   94|     def serialize_for_signature(self) -> bytes:
+   95|         """Deterministic serialization for HMAC computation."""
+   96|         return f"{self.epoch}:{self.nonce.hex()}:{self.timestamp_monotonic_ns}:{self.action}".encode("utf-8")
+   97| 
+   98| 
+   99| @dataclass(slots=True, frozen=True)
+  100| class EmergencyStopToken:
+  101|     """Structured cryptographic authorization token for E-Stop reset."""
+  102| 
+  103|     epoch: int
+  104|     nonce: str
+  105|     timestamp_monotonic_ns: int
+  106|     action: str
+  107|     signature: str
+  108| 
+  109|     def to_token_string(self) -> str:
+  110|         """Serialize token into canonical colon-separated representation."""
+  111|         return f"{self.epoch}:{self.nonce}:{self.timestamp_monotonic_ns}:{self.action}:{self.signature}"
+  112| 
+  113|     @classmethod
+  114|     def from_token_string(cls, token_str: str) -> EmergencyStopToken:
+  115|         """Parse token from canonical string format (fail-closed bounds)."""
+  116|         raw = token_str.strip()
+  117|         if len(raw) > MAX_TOKEN_STRING_LEN:
+  118|             raise ValueError(f"Token string exceeds {MAX_TOKEN_STRING_LEN} char limit ({len(raw)})")
+  119|         parts = raw.split(":")
+  120|         if len(parts) != 5:
+  121|             raise ValueError(f"Invalid token format, expected 5 colon-separated fields (got {len(parts)})")
+  122|         try:
+  123|             epoch = int(parts[0])
+  124|             nonce_hex = parts[1]
+  125|             ts = int(parts[2])
+  126|             action = parts[3]
+  127|             sig = parts[4]
+  128|         except (ValueError, IndexError) as exc:
+  129|             raise ValueError(f"Malformed token fields: {exc}") from exc
+  130|         if not (0 <= epoch <= MAX_TOKEN_EPOCH):
+  131|             raise ValueError(f"Token epoch out of range: {epoch}")
+  132|         if len(nonce_hex) != NONCE_HEX_LEN or not _is_hex(nonce_hex):
+  133|             raise ValueError(f"Token nonce must be {NONCE_HEX_LEN} hex chars")
+  134|         if not (0 <= ts <= MAX_TOKEN_TIMESTAMP_NS):
+  135|             raise ValueError(f"Token timestamp out of range: {ts}")
+  136|         if action not in ALLOWED_TOKEN_ACTIONS:
+  137|             raise ValueError(f"Token action not allowlisted: {action!r}")
+  138|         if len(sig) != SIG_HEX_LEN or not _is_hex(sig):
+  139|             raise ValueError(f"Token signature must be {SIG_HEX_LEN} hex chars")
+  140|         return cls(
+  141|             epoch=epoch,
+  142|             nonce=nonce_hex,
+  143|             timestamp_monotonic_ns=ts,
+  144|             action=action,
+  145|             signature=sig,
+  146|         )
+  147| 
+  148| 
+  149| class EmergencyStopSystem:
+  150|     """Master Emergency Stop controller ensuring immediate hardware/software TX cutoff.
+  151| 
+  152|     Integrates SecretProvider for dynamic key retrieval (zero hardcoded secrets),
+  153|     maintains an anti-replay store of consumed nonces, enforces monotonic TTL windows,
+  154|     and performs constant-time HMAC-SHA256 authorization verification.
+  155|     """
+  156| 
+  157|     # B9: replay window is bounded — nonces are 16 random bytes (128-bit) and a challenge
+  158|     # older than max_token_age_s can never verify again, so retaining far more
+  159|     # than a full window of recent nonces adds no protection, only memory.
+  160|     MAX_CONSUMED_NONCES: ClassVar[int] = 1024
+  161| 
+  162|     def __init__(
+  163|         self,
+  164|         reset_secret: bytes | None = None,
+  165|         secret_provider: SecretProvider | None = None,
+  166|         key_name: str = DEFAULT_ESTOP_KEY_NAME,
+  167|         max_token_age_s: float = 30.0,
+  168|         allow_self_reset: bool = False,
+  169|     ) -> None:
+  170|         self._key_name = key_name
+  171|         self._max_token_age_ns = int(max_token_age_s * 1_000_000_000)
+  172|         # P1-1: minting/verification separation — the enforcement object
+  173|         # refuses to mint reset tokens unless explicitly elevated. Only
+  174|         # EStopResetAuthority constructs (or flags) an instance with this
+  175|         # enabled; everything else (gateway wiring, UI hold, test fixtures)
+  176|         # operates verification-only.
+  177|         self._allow_self_reset = allow_self_reset
+  178| 
+  179|         if reset_secret is not None:
+  180|             self._secret_provider: SecretProvider = EphemeralSecretBackend({self._key_name: bytes(reset_secret)})
+  181|         elif secret_provider is not None:
+  182|             self._secret_provider = secret_provider
+  183|         else:
+  184|             self._secret_provider = get_default_secret_provider()
+  185| 
+  186|         # Ensure a valid key exists in the provider; if not, generate a dynamic 256-bit key
+  187|         if not self._secret_provider.has_secret(self._key_name):
+  188|             try:
+  189|                 self._secret_provider.store_secret(self._key_name, os.urandom(32))
+  190|             except Exception as exc:
+  191|                 logger.warning(
+  192|                     "Failed to persist initial E-Stop secret, using ephemeral fallback",
+  193|                     extra={"error": str(exc)},
+  194|                 )
+  195|                 self._secret_provider = EphemeralSecretBackend({self._key_name: os.urandom(32)})
+  196| 
+  197|         self._is_engaged = False
+  198|         self._last_event: EStopEvent | None = None
+  199|         self._callbacks: list[Callable[[EStopEvent], None]] = []
+  200|         self._active_challenge: EStopChallenge | None = None
+  201|         # B9: ordered dict preserves insertion (consumption) order so the
+  202|         # oldest nonce can be evicted when the window is full.
+  203|         self._consumed_nonces: "collections.OrderedDict[bytes, bool]" = collections.OrderedDict()
+  204|         self._epoch: int = 0
+  205|         # CRITICAL-1 (E-Stop TOCTOU): TX fence generation + dedicated send
+  206|         # lock. A frame may only be dispatched when the fence generation it
+  207|         # was validated against is STILL current at dispatch time, checked
+  208|         # while holding this lock — closing the check-then-send race window.
+  209|         self._tx_fence: int = 0
+  210|         self._tx_send_lock = threading.Lock()
+  211|         self._lock = threading.RLock()
+  212|         # Failed-reset hardening: consecutive failure counter + backoff deadline.
+  213|         self._failed_reset_attempts: int = 0
+  214|         self._reset_backoff_until_ns: int = 0
+  215|         # Abort/flush hooks: gateway registers a driver abort/flush callback
+  216|         # so trigger() can request HAL-level cancellation after fencing.
+  217|         self._abort_hooks: list[Callable[[], None]] = []
+  218| 
+  219|     @property
+  220|     def is_engaged(self) -> bool:
+  221|         """Return True if E-Stop is currently engaged and transmissions are blocked."""
+  222|         with self._lock:
+  223|             return self._is_engaged
+  224| 
+  225|     @property
+  226|     def last_event(self) -> EStopEvent | None:
+  227|         """Return the most recent EStopEvent if engaged."""
+  228|         with self._lock:
+  229|             return self._last_event
+  230| 
+  231|     @property
+  232|     def epoch(self) -> int:
+  233|         """Return current monotonically increasing state epoch counter."""
+  234|         with self._lock:
+  235|             return self._epoch
+  236| 
+  237|     @property
+  238|     def tx_fence(self) -> int:
+  239|         """Return current monotonic TX fence generation (CRITICAL-1).
+  240| 
+  241|         The generation advances on EVERY engagement and on EVERY authorized
+  242|         reset — any state transition a validated frame must not survive.
+  243|         Readers comparing a captured generation against the live one must do
+  244|         so while holding `tx_send_lock` (see `acquire_tx_fence`).
+  245|         """
+  246|         with self._lock:
+  247|             return self._tx_fence
+  248| 
+  249|     @property
+  250|     def tx_send_lock(self) -> threading.Lock:
+  251|         """Return the dedicated E-Stop TX send lock (CRITICAL-1).
+  252| 
+  253|         Gateway dispatch serializes on this leaf lock so the fenced
+  254|         re-verification and the bus write are atomic with respect to any
+  255|         engagement / reset state transition. It never nests inside the
+  256|         estop RLock or the gateway lock (deadlock-free leaf lock).
+  257|         """
+  258|         return self._tx_send_lock
+  259| 
+  260|     def advance_tx_fence(self, reason: str) -> None:
+  261|         """Advance the TX fence generation without engaging the E-Stop.
+  262| 
+  263|         REVIEW (bus rebind TOCTOU): a controlled HAL bus swap is a state
+  264|         transition that validated frames must not survive — a frame
+  265|         validated against the old channel must never dispatch onto the new
+  266|         one. Gateway rebind_bus calls this while holding tx_send_lock so the
+  267|         PHASE-3 fence re-check rejects in-flight frames fail-closed. The
+  268|         bump never takes tx_send_lock itself (leaf-lock discipline), so it
+  269|         is safe to call with the send lock already held.
+  270|         """
+  271|         with self._lock:
+  272|             self._tx_fence += 1
+  273|         logger.warning(
+  274|             "E-Stop TX fence advanced (non-engagement state transition)",
+  275|             extra={"reason": reason, "tx_fence": self._tx_fence},
+  276|         )
+  277| 
+  278|     @property
+  279|     def active_challenge(self) -> EStopChallenge | None:
+  280|         """Return the currently active cryptographic challenge."""
+  281|         with self._lock:
+  282|             return self._active_challenge
+  283| 
+  284|     @property
+  285|     def secret_provider(self) -> SecretProvider:
+  286|         """Return the bound SecretProvider instance."""
+  287|         return self._secret_provider
+  288| 
+  289|     def _get_secret(self) -> bytes:
+  290|         """Internal secret resolver (private — no public accessor by design)."""
+  291|         try:
+  292|             return self._secret_provider.get_secret(self._key_name)
+  293|         except Exception as exc:
+  294|             raise SafetyError(
+  295|                 f"Failed to retrieve E-Stop HMAC secret: {exc}",
+  296|                 code="ESTOP_RESET_DENIED",
+  297|                 cause=exc,
+  298|             ) from exc
+  299| 
+  300|     def get_reset_nonce(self) -> bytes:
+  301|         """Return the single-use cryptographic challenge nonce for the current E-Stop engagement."""
+  302|         with self._lock:
+  303|             if self._active_challenge is not None:
+  304|                 return self._active_challenge.nonce
+  305|             return b""
+  306| 
+  307|     def get_active_challenge(self) -> EStopChallenge | None:
+  308|         """Return the active challenge record."""
+  309|         with self._lock:
+  310|             return self._active_challenge
+  311| 
+  312|     def reissue_challenge(self) -> EStopChallenge:
+  313|         """Reissue a fresh cryptographic challenge if the previous one expired or was cleared."""
+  314|         with self._lock:
+  315|             if not self._is_engaged:
+  316|                 raise SafetyError("Cannot issue E-Stop challenge when not engaged", code="ESTOP_NOT_ENGAGED")
+  317|             self._active_challenge = EStopChallenge(
+  318|                 epoch=self._epoch,
+  319|                 nonce=os.urandom(16),
+  320|                 timestamp_monotonic_ns=time.monotonic_ns(),
+  321|                 timestamp_wall_ns=time.time_ns(),
+  322|                 action="ESTOP_RESET",
+  323|                 max_age_ns=self._max_token_age_ns,
+  324|             )
+  325|             return self._active_challenge
+  326| 
+  327|     def request_reset_challenge(self) -> EStopChallenge | None:
+  328|         """Return currently active challenge if valid, or reissue a fresh one if engaged."""
+  329|         with self._lock:
+  330|             if not self._is_engaged:
+  331|                 return None
+  332|             now_ns = time.monotonic_ns()
+  333|             if (
+  334|                 self._active_challenge is None
+  335|                 or (now_ns - self._active_challenge.timestamp_monotonic_ns) > self._active_challenge.max_age_ns
+  336|             ):
+  337|                 return self.reissue_challenge()
+  338|             return self._active_challenge
+  339| 
+  340|     def create_reset_token(self) -> EmergencyStopToken | None:
+  341|         """Generate a valid, signed EmergencyStopToken for the currently active challenge.
+  342| 
+  343|         P1-1 (self-signing separation): token MINTING is an authorization
+  344|         operation and no longer available on the enforcement object by
+  345|         default. It must go through `EStopResetAuthority`, which is the only
+  346|         component configured with `allow_self_reset=True`. Any code holding
+  347|         a plain `EmergencyStopSystem` reference (gateway, flasher, protocol
+  348|         engines, a buggy retry loop) cannot forge a reset token anymore.
+  349|         """
+  350|         with self._lock:
+  351|             if not self._allow_self_reset:
+  352|                 raise SafetyError(
+  353|                     "Token minting is denied on this EmergencyStopSystem instance — "
+  354|                     "route reset authorization through EStopResetAuthority",
+  355|                     code="ESTOP_MINT_DENIED",
+  356|                 )
+  357|             if not self._is_engaged:
+  358|                 return None
+  359| 
+  360|             now_ns = time.monotonic_ns()
+  361|             if self._active_challenge is None or (now_ns - self._active_challenge.timestamp_monotonic_ns) > self._active_challenge.max_age_ns:
+  362|                 self.reissue_challenge()
+  363| 
+  364|             challenge = self._active_challenge
+  365|             if challenge is None:
+  366|                 return None
+  367| 
+  368|             secret = self._get_secret()
+  369|             sig = hmac.new(secret, challenge.serialize_for_signature(), hashlib.sha256).hexdigest()
+  370| 
+  371|             return EmergencyStopToken(
+  372|                 epoch=challenge.epoch,
+  373|                 nonce=challenge.nonce.hex(),
+  374|                 timestamp_monotonic_ns=challenge.timestamp_monotonic_ns,
+  375|                 action=challenge.action,
+  376|                 signature=sig,
+  377|             )
+  378| 
+  379|     def compute_reset_token(
+  380|         self,
+  381|         nonce: bytes | str | None = None,
+  382|         epoch: int | None = None,
+  383|         timestamp_ns: int | None = None,
+  384|         action: str = "ESTOP_RESET",
+  385|     ) -> str:
+  386|         """Compute expected token string for authorization.
+  387| 
+  388|         If called with an active challenge, returns a canonical structured token string
+  389|         or computed signature compatible with reset().
+  390| 
+  391|         P1-1: same authority gate as create_reset_token.
+  392|         """
+  393|         with self._lock:
+  394|             if not self._allow_self_reset:
+  395|                 raise SafetyError(
+  396|                     "Token computation is denied on this EmergencyStopSystem instance — "
+  397|                     "route reset authorization through EStopResetAuthority",
+  398|                     code="ESTOP_MINT_DENIED",
+  399|                 )
+  400|             secret = self._get_secret()
+  401| 
+  402|             # B11: when a live challenge exists, create_reset_token() already
+  403|             # answers the "engaged + challenge present" precondition — a
+  404|             # None re-check here was dead code (the outer challenge guard
+  405|             # guarantees the precondition).
+  406|             if self._active_challenge is not None:
+  407|                 token_obj = self.create_reset_token()
+  408|                 return token_obj.to_token_string() if token_obj is not None else ""
+  409| 
+  410|             if nonce is None:
+  411|                 return ""
+  412| 
+  413|             nonce_bytes = nonce if isinstance(nonce, bytes) else bytes.fromhex(nonce)
+  414|             if not nonce_bytes:
+  415|                 return ""
+  416| 
+  417|             if epoch is not None and timestamp_ns is not None:
+  418|                 payload = f"{epoch}:{nonce_bytes.hex()}:{timestamp_ns}:{action}".encode("utf-8")
+  419|                 sig = hmac.new(secret, payload, hashlib.sha256).hexdigest()
+  420|                 return f"{epoch}:{nonce_bytes.hex()}:{timestamp_ns}:{action}:{sig}"
+  421| 
+  422|             return hmac.new(secret, nonce_bytes, hashlib.sha256).hexdigest()
+  423| 
+  424|     def register_callback(self, callback: Callable[[EStopEvent], None]) -> None:
+  425|         """Register listener to be invoked immediately upon E-Stop trigger."""
+  426|         with self._lock:
+  427|             self._callbacks.append(callback)
+  428| 
+  429|     def register_abort_hook(self, hook: Callable[[], None]) -> None:
+  430|         """Register a driver abort/flush hook invoked after fence publication on trigger().
+  431| 
+  432|         Gateway wires its HAL abort/flush here so an engagement can request
+  433|         driver-queue cancellation. Hooks run outside locks with isolation.
+  434|         """
+  435|         with self._lock:
+  436|             self._abort_hooks.append(hook)
+  437| 
+  438|     def trigger(
+  439|         self,
+  440|         trigger: EStopTriggerSource,
+  441|         reason: str,
+  442|         vehicle_speed_kmh: float = 0.0,
+  443|     ) -> None:
+  444|         """Engage Emergency Stop immediately and cut all transmissions."""
+  445|         with self._lock:
+  446|             now_wall_ns = time.time_ns()
+  447|             now_monotonic_ns = time.monotonic_ns()
+  448| 
+  449|             already_engaged = self._is_engaged
+  450|             self._is_engaged = True
+  451| 
+  452|             # If not already engaged or challenge is missing/expired, issue fresh challenge
+  453|             if (
+  454|                 not already_engaged
+  455|                 or self._active_challenge is None
+  456|                 or (now_monotonic_ns - self._active_challenge.timestamp_monotonic_ns) > self._active_challenge.max_age_ns
+  457|             ):
+  458|                 challenge_nonce = os.urandom(16)
+  459|                 self._active_challenge = EStopChallenge(
+  460|                     epoch=self._epoch,
+  461|                     nonce=challenge_nonce,
+  462|                     timestamp_monotonic_ns=now_monotonic_ns,
+  463|                     timestamp_wall_ns=now_wall_ns,
+  464|                     action="ESTOP_RESET",
+  465|                     max_age_ns=self._max_token_age_ns,
+  466|                 )
+  467|             self._last_event = EStopEvent(
+  468|                 trigger=trigger,
+  469|                 reason=reason,
+  470|                 timestamp_ns=now_wall_ns,
+  471|                 system_speed_kmh=vehicle_speed_kmh,
+  472|             )
+  473|             # CRITICAL-1: every engagement invalidates all in-flight validated
+  474|             # frames. The fence bump stays under the estop _lock and MUST NOT
+  475|             # take tx_send_lock: a dispatch may block holding tx_send_lock
+  476|             # inside driver I/O (see gateway test
+  477|             # test_estop_callback_does_not_block_on_slow_driver_io) — if
+  478|             # trigger() waited on tx_send_lock, the engagement itself would
+  479|             # deadlock behind the in-flight send and the E-Stop callback
+  480|             # would never fire. Coordination with the send path is via (a)
+  481|             # the PHASE-3 fenced re-check in the gateway (any COMPLETED
+  482|             # transition bumps the generation and kills validated frames
+  483|             # still waiting for the fence) and (b) abort/flush hooks below
+  484|             # that request HAL queue cancellation for the already-dispatched
+  485|             # frame. Residual window (engagement landing between fence check
+  486|             # and bus write) is documented at the gateway PHASE-3 site.
+  487|             self._tx_fence += 1
+  488|             event_snapshot = self._last_event
+  489|             callbacks_snapshot = list(self._callbacks)
+  490|             abort_snapshot = list(self._abort_hooks)
+  491| 
+  492|         logger.critical(
+  493|             "EMERGENCY STOP ENGAGED",
+  494|             extra={
+  495|                 "trigger": trigger.value,
+  496|                 "reason": reason,
+  497|                 "speed_kmh": vehicle_speed_kmh,
+  498|                 "epoch": self._epoch,
+  499|             },
+  500|         )
+  501| 
+  502|         # Notify all listeners outside lock with exception isolation
+  503|         for cb in callbacks_snapshot:
+  504|             try:
+  505|                 cb(event_snapshot)
+  506|             except Exception as exc:
+  507|                 logger.error("Error in E-Stop callback", extra={"error": str(exc)})
+  508|         # Driver abort/flush hooks: request HAL queue cancellation outside locks.
+  509|         for hook in abort_snapshot:
+  510|             try:
+  511|                 hook()
+  512|             except Exception as exc:
+  513|                 logger.error("Error in E-Stop abort hook", extra={"error": str(exc)})
+  514| 
+  515|     def _reset_failure(self, reason: str, sig_prefix: str = "") -> SafetyError:
+  516|         """Record a failed reset: counter + exponential backoff + audit log.
+  517| 
+  518|         The first consecutive failure does NOT arm the cooldown (tolerates a
+  519|         single operator typo / stale-token retry); persistence (>=2) is
+  520|         throttled with exponential backoff capped at RESET_BACKOFF_CAP_SEC.
+  521|         Sustained online guessing is still rate-limited; a lone mistake is not
+  522|         punished with a lockout.
+  523|         """
+  524|         self._failed_reset_attempts += 1
+  525|         backoff_sec = 0.0
+  526|         if self._failed_reset_attempts >= 2:
+  527|             # Cap the exponent BEFORE shifting: 0.2 * 2**5 = 6.4 > 5.0 cap, so
+  528|             # shifts beyond 5 never change the result but would overflow float
+  529|             # (and int->float conversion) under hammering.
+  530|             shift = min(self._failed_reset_attempts - 2, 5)
+  531|             backoff_sec = min(RESET_BACKOFF_BASE_SEC * (2**shift), RESET_BACKOFF_CAP_SEC)
+  532|             self._reset_backoff_until_ns = time.monotonic_ns() + int(backoff_sec * 1_000_000_000)
+  533|         level = "CRITICAL" if self._failed_reset_attempts >= 5 else "WARNING"
+  534|         if level == "CRITICAL":
+  535|             logger.critical(
+  536|                 "E-Stop reset denied (repeated failures)",
+  537|                 extra={
+  538|                     "reason": reason,
+  539|                     "attempts": self._failed_reset_attempts,
+  540|                     "backoff_sec": round(backoff_sec, 3),
+  541|                     "sig_prefix": sig_prefix[:8],
+  542|                     "epoch": self._epoch,
+  543|                 },
+  544|             )
+  545|         else:
+  546|             logger.warning(
+  547|                 "E-Stop reset denied",
+  548|                 extra={
+  549|                     "reason": reason,
+  550|                     "attempts": self._failed_reset_attempts,
+  551|                     "backoff_sec": round(backoff_sec, 3),
+  552|                     "sig_prefix": sig_prefix[:8],
+  553|                     "epoch": self._epoch,
+  554|                 },
+  555|             )
+  556|         return SafetyError(reason, code="ESTOP_RESET_DENIED")
+  557| 
+  558|     @property
+  559|     def failed_reset_attempts(self) -> int:
+  560|         """Consecutive failed reset counter (reset on success)."""
+  561|         with self._lock:
+  562|             return self._failed_reset_attempts
+  563| 
+  564|     def reset(self, authorization_token: str | EmergencyStopToken) -> None:
+  565|         """Manual reset of E-Stop requiring a valid replay-protected challenge-response token."""
+  566|         # Phase 1: verify + mutate engagement state under _lock (no tx_send_lock nesting).
+  567|         needs_fence_bump = False
+  568|         with self._lock:
+  569|             if not self._is_engaged:
+  570|                 return  # No-op when not engaged
+  571| 
+  572|             if self._active_challenge is None:
+  573|                 raise self._reset_failure("No active E-Stop challenge available")
+  574| 
+  575|             challenge = self._active_challenge
+  576|             now_monotonic_ns = time.monotonic_ns()
+  577| 
+  578|             # 1. Parse token input (fail-closed bounds; raw strings capped too).
+  579|             token_epoch: int
+  580|             token_nonce_hex: str
+  581|             token_ts: int
+  582|             token_action: str
+  583|             sig: str
+  584| 
+  585|             if isinstance(authorization_token, EmergencyStopToken):
+  586|                 token_epoch = authorization_token.epoch
+  587|                 token_nonce_hex = authorization_token.nonce
+  588|                 token_ts = authorization_token.timestamp_monotonic_ns
+  589|                 token_action = authorization_token.action
+  590|                 sig = authorization_token.signature
+  591|                 # Field bounds for object path (same limits as string parsing).
+  592|                 if not (0 <= token_epoch <= MAX_TOKEN_EPOCH):
+  593|                     raise self._reset_failure(f"Token epoch out of range: {token_epoch}", sig)
+  594|                 if len(token_nonce_hex) != NONCE_HEX_LEN or not _is_hex(token_nonce_hex):
+  595|                     raise self._reset_failure("E-Stop token nonce mismatch", token_nonce_hex)
+  596|                 if not (0 <= token_ts <= MAX_TOKEN_TIMESTAMP_NS):
+  597|                     raise self._reset_failure("E-Stop reset token timestamp expired", sig)
+  598|                 if token_action not in ALLOWED_TOKEN_ACTIONS:
+  599|                     raise self._reset_failure("Invalid E-Stop token action", sig)
+  600|                 if len(sig) != SIG_HEX_LEN or not _is_hex(sig):
+  601|                     raise self._reset_failure("Invalid E-Stop reset token", sig)
+  602|             elif isinstance(authorization_token, str):
+  603|                 token_str = authorization_token.strip()
+  604|                 if not token_str:
+  605|                     raise self._reset_failure("Invalid E-Stop reset token")
+  606|                 if len(token_str) > MAX_TOKEN_STRING_LEN:
+  607|                     raise self._reset_failure(
+  608|                         f"E-Stop reset token exceeds {MAX_TOKEN_STRING_LEN} char limit",
+  609|                         token_str,
+  610|                     )
+  611| 
+  612|                 if ":" in token_str:
+  613|                     try:
+  614|                         parsed = EmergencyStopToken.from_token_string(token_str)
+  615|                         token_epoch = parsed.epoch
+  616|                         token_nonce_hex = parsed.nonce
+  617|                         token_ts = parsed.timestamp_monotonic_ns
+  618|                         token_action = parsed.action
+  619|                         sig = parsed.signature
+  620|                     except ValueError as exc:
+  621|                         raise self._reset_failure(
+  622|                             f"Malformed E-Stop reset token structure: {exc}",
+  623|                             token_str,
+  624|                         ) from exc
+  625|                 else:
+  626|                     # Raw signature submitted against current active challenge
+  627|                     if len(token_str) > MAX_TOKEN_STRING_LEN:
+  628|                         raise self._reset_failure("E-Stop reset token exceeds length limit", token_str)
+  629|                     token_epoch = challenge.epoch
+  630|                     token_nonce_hex = challenge.nonce.hex()
+  631|                     token_ts = challenge.timestamp_monotonic_ns
+  632|                     token_action = challenge.action
+  633|                     sig = token_str
+  634|             else:
+  635|                 raise self._reset_failure(
+  636|                     f"Unsupported token type: {type(authorization_token).__name__}",
+  637|                 )
+  638| 
+  639|             # 2. Anti-Replay: Check if nonce was already consumed
+  640|             if challenge.nonce in self._consumed_nonces:
+  641|                 raise self._reset_failure(
+  642|                     "E-Stop token nonce has already been consumed (Replay Attack)",
+  643|                     sig,
+  644|                 )
+  645| 
+  646|             # 3. Epoch verification
+  647|             if token_epoch != challenge.epoch or token_epoch != self._epoch:
+  648|                 raise self._reset_failure(
+  649|                     "E-Stop token epoch mismatch (Replay or Stale Trigger)",
+  650|                     sig,
+  651|                 )
+  652| 
+  653|             # 4. Action verification
+  654|             if token_action != "ESTOP_RESET":
+  655|                 raise self._reset_failure("Invalid E-Stop token action", sig)
+  656| 
+  657|             # 5. Nonce match verification
+  658|             if token_nonce_hex.lower() != challenge.nonce.hex().lower():
+  659|                 raise self._reset_failure("E-Stop token nonce mismatch", sig)
+  660| 
+  661|             # 6. TTL / Expiration Check (using monotonic clock)
+  662|             age_ns = now_monotonic_ns - challenge.timestamp_monotonic_ns
+  663|             if age_ns > challenge.max_age_ns or age_ns < 0:
+  664|                 self._active_challenge = None
+  665|                 raise self._reset_failure("E-Stop reset token expired", sig)
+  666| 
+  667|             token_age_ns = now_monotonic_ns - token_ts
+  668|             if token_age_ns > challenge.max_age_ns or token_age_ns < 0:
+  669|                 self._active_challenge = None
+  670|                 raise self._reset_failure("E-Stop reset token timestamp expired", sig)
+  671| 
+  672|             # 7. Constant-Time HMAC Signature Verification
+  673|             secret = self._get_secret()
+  674|             structured_payload = challenge.serialize_for_signature()
+  675|             expected_sig_bytes = hmac.new(secret, structured_payload, hashlib.sha256).digest()
+  676| 
+  677|             try:
+  678|                 sig_bytes = bytes.fromhex(sig.strip())
+  679|             except ValueError as exc:
+  680|                 raise self._reset_failure(
+  681|                     f"Invalid E-Stop reset token signature format: {exc}",
+  682|                     sig,
+  683|                 ) from exc
+  684| 
+  685|             is_valid = hmac.compare_digest(sig_bytes, expected_sig_bytes)
+  686| 
+  687|             if is_valid:
+  688|                 pass  # valid operator credential bypasses the guess-throttle below
+  689|             elif now_monotonic_ns < self._reset_backoff_until_ns:
+  690|                 raise self._reset_failure("E-Stop reset rate-limited (backoff active)", sig)
+  691|             else:
+  692|                 raise self._reset_failure("Invalid E-Stop reset token", sig)
+  693| 
+  694|             # 8. Success: Consume nonce, advance epoch, disengage E-Stop
+  695|             self._record_consumed_nonce(challenge.nonce)
+  696|             self._is_engaged = False
+  697|             self._active_challenge = None
+  698|             self._epoch += 1
+  699|             self._failed_reset_attempts = 0
+  700|             self._reset_backoff_until_ns = 0
+  701|             success_epoch = self._epoch
+  702|             needs_fence_bump = True
+  703| 
+  704|         # Phase 2: fence publication under tx_send_lock only (consistent ordering).
+  705|         if needs_fence_bump:
+  706|             with self._tx_send_lock:
+  707|                 with self._lock:
+  708|                     self._tx_fence += 1
+  709|             logger.warning(
+  710|                 "Emergency Stop successfully reset by authorized operator",
+  711|                 extra={"epoch": success_epoch},
+  712|             )
+  713| 
+  714|     def _record_consumed_nonce(self, nonce: bytes) -> None:
+  715|         """Add a nonce to the replay store, evicting oldest beyond the cap.
+  716| 
+  717|         B9: challenges older than max_token_age_ns are already TTL-rejected,
+  718|         so a nonce that fell off the window can never verify again — the
+  719|         eviction never re-opens a live replay window.
+  720|         """
+  721|         self._consumed_nonces[nonce] = True
+  722|         while len(self._consumed_nonces) > self.MAX_CONSUMED_NONCES:
+  723|             self._consumed_nonces.popitem(last=False)  # evict oldest
+  724| 
+  725| 
+  726| class EStopResetAuthority:
+  727|     """Separate authorization component that mints E-Stop reset tokens (P1-1).
+  728| 
+  729|     ISO 26262 independence: the component that ENFORCES the E-Stop
+  730|     (`EmergencyStopSystem`) does not mint the credential that clears it.
+  731|     This authority holds its own access to the SecretProvider key and
+  732|     signs challenges directly. The shared enforcement object is NEVER elevated.
+  733|     """
+  734| 
+  735|     def __init__(
+  736|         self,
+  737|         estop: EmergencyStopSystem,
+  738|         secret_provider: SecretProvider | None = None,
+  739|         key_name: str = DEFAULT_ESTOP_KEY_NAME,
+  740|     ) -> None:
+  741|         self._estop = estop
+  742|         self._key_name = key_name
+  743|         self._secret_provider = secret_provider or estop._secret_provider
+  744| 
+  745|     @property
+  746|     def estop(self) -> EmergencyStopSystem:
+  747|         """The enforcement object this authority may mint tokens for."""
+  748|         return self._estop
+  749| 
+  750|     @property
+  751|     def reset_secret(self) -> bytes:
+  752|         """Retrieve the HMAC signing secret from the bound SecretProvider."""
+  753|         return self._secret_provider.get_secret(self._key_name)
+  754| 
+  755|     @property
+  756|     def secret_provider(self) -> SecretProvider:
+  757|         """The bound SecretProvider instance."""
+  758|         return self._secret_provider
+  759| 
+  760|     def mint_reset_token(self) -> EmergencyStopToken | None:
+  761|         """Mint a fresh, signed reset token for the active challenge.
+  762| 
+  763|         Mirrors the operator-driven flow: challenge is read from the enforcement
+  764|         object, and this authority signs it using its distinct capability.
+  765|         """
+  766|         challenge = self._estop.request_reset_challenge()
+  767|         if challenge is None:
+  768|             return None
+  769| 
+  770|         secret = self._secret_provider.get_secret(self._key_name)
+  771|         sig = hmac.new(secret, challenge.serialize_for_signature(), hashlib.sha256).hexdigest()
+  772| 
+  773|         return EmergencyStopToken(
+  774|             epoch=challenge.epoch,
+  775|             nonce=challenge.nonce.hex(),
+  776|             timestamp_monotonic_ns=challenge.timestamp_monotonic_ns,
+  777|             action=challenge.action,
+  778|             signature=sig,
+  779|         )
+  780| 
+  781|     def compute_reset_token(
+  782|         self,
+  783|         nonce: bytes | str | None = None,
+  784|         epoch: int | None = None,
+  785|         timestamp_ns: int | None = None,
+  786|         action: str = "ESTOP_RESET",
+  787|     ) -> str:
+  788|         """Authorization helper producing a valid reset token string or signature."""
+  789|         secret = self._secret_provider.get_secret(self._key_name)
+  790|         if nonce is None:
+  791|             token = self.mint_reset_token()
+  792|             return token.to_token_string() if token is not None else ""
+  793| 
+  794|         nonce_bytes = nonce.encode("utf-8") if isinstance(nonce, str) else (nonce or b"")
+  795|         return hmac.new(secret, nonce_bytes, hashlib.sha256).hexdigest()
+
+=== FILE: src/safety/state_machine.py (559 satır) ===
+    1| """Formal Safety State Machine enforcing Fail-Silent and Safe-by-Default Operation.
+    2| 
+    3| Complies with Saha Risk Kataloğu v1.2 Sections 4, 5, 6, 37, 38 and CAN-12, CAN-25.
+    4| """
+    5| 
+    6| from __future__ import annotations
+    7| 
+    8| import hashlib
+    9| import hmac
+   10| import os
+   11| import re
+   12| import secrets as _secrets
+   13| import threading
+   14| import time
+   15| from collections import deque
+   16| from collections.abc import Callable
+   17| from dataclasses import dataclass
+   18| from datetime import datetime, timezone
+   19| from enum import Enum
+   20| from typing import Any, ClassVar
+   21| 
+   22| from src.core.errors import SafetyError
+   23| from src.core.logging import get_logger
+   24| 
+   25| logger = get_logger("safety.state_machine")
+   26| 
+   27| MAX_REASON_LEN: int = 512
+   28| _CONTROL_CHAR_RE = re.compile(r"[\x00-\x1f\x7f]")
+   29| 
+   30| 
+   31| def _sanitize_reason(reason: str) -> str:
+   32|     """Bound + sanitize audit reason (fail-closed, log-injection hardening)."""
+   33|     if not isinstance(reason, str):
+   34|         reason = str(reason)
+   35|     if len(reason) > MAX_REASON_LEN:
+   36|         reason = reason[:MAX_REASON_LEN] + "…[truncated]"
+   37|     return _CONTROL_CHAR_RE.sub("?", reason)
+   38| 
+   39| 
+   40| class SafetyState(str, Enum):
+   41|     """Formal Safety Operational States."""
+   42| 
+   43|     STARTUP = "STARTUP"  # System booting up, hardware initializing, TX strictly blocked
+   44|     SAFE = "SAFE"  # Initialization complete, bus offline or TX disconnected
+   45|     PASSIVE = "PASSIVE"  # Default mode: Listen-Only RX, zero transmissions allowed
+   46|     ARMED_TX = "ARMED_TX"  # Explicit operator authorization granted, policy checks verified
+   47|     ACTIVE = "ACTIVE"  # Active verified transmission in progress with live watchdog lease
+   48|     FAULT = "FAULT"  # Safety violation / Watchdog timeout / E-Stop; TX revoked, queue flushed
+   49| 
+   50| 
+   51| @dataclass(slots=True, frozen=True)
+   52| class StateTransitionRecord:
+   53|     """Immutable audit log record for state transitions."""
+   54| 
+   55|     from_state: SafetyState
+   56|     to_state: SafetyState
+   57|     reason: str
+   58|     epoch: int
+   59|     monotonic_timestamp_ns: int
+   60|     wall_time_utc: datetime
+   61|     duration_ns: int
+   62| 
+   63|     def to_dict(self) -> dict[str, Any]:
+   64|         """Convert transition record to dictionary format for audit logging."""
+   65|         return {
+   66|             "from_state": self.from_state.value,
+   67|             "to_state": self.to_state.value,
+   68|             "reason": self.reason,
+   69|             "epoch": self.epoch,
+   70|             "monotonic_timestamp_ns": self.monotonic_timestamp_ns,
+   71|             "wall_time_utc": self.wall_time_utc.isoformat(),
+   72|             "duration_ns": self.duration_ns,
+   73|         }
+   74| 
+   75| 
+   76| class SafetySupervisor:
+   77|     """Central Safety State Supervisor governing all transmission permissions."""
+   78| 
+   79|     ALLOWED_TRANSITIONS: ClassVar[dict[SafetyState, set[SafetyState]]] = {
+   80|         SafetyState.STARTUP: {SafetyState.SAFE, SafetyState.FAULT},
+   81|         SafetyState.SAFE: {SafetyState.PASSIVE, SafetyState.FAULT},
+   82|         SafetyState.PASSIVE: {SafetyState.ARMED_TX, SafetyState.SAFE, SafetyState.FAULT},
+   83|         SafetyState.ARMED_TX: {SafetyState.ACTIVE, SafetyState.PASSIVE, SafetyState.FAULT},
+   84|         SafetyState.ACTIVE: {SafetyState.ARMED_TX, SafetyState.PASSIVE, SafetyState.FAULT},
+   85|         SafetyState.FAULT: {
+   86|             SafetyState.PASSIVE,
+   87|             SafetyState.SAFE,
+   88|         },  # MUST NOT transition directly to ARMED_TX or ACTIVE
+   89|     }
+   90| 
+   91|     def __init__(
+   92|         self,
+   93|         initial_state: SafetyState = SafetyState.STARTUP,
+   94|         estop: Any | None = None,
+   95|         auth_secret: bytes | None = None,
+   96|         allow_unauthenticated_arm: bool = False,
+   97|     ) -> None:
+   98|         # Fail-open start guard: TX-permitting states can never be the boot state.
+   99|         if initial_state in {SafetyState.ARMED_TX, SafetyState.ACTIVE}:
+  100|             raise ValueError(
+  101|                 f"Refusing fail-open boot state {initial_state.value}: "
+  102|                 "initial_state must be STARTUP/SAFE/PASSIVE/FAULT"
+  103|             )
+  104|         if auth_secret is not None and not isinstance(auth_secret, (bytes, bytearray)):
+  105|             raise TypeError("auth_secret must be bytes or None")
+  106|         self._state = initial_state
+  107|         self._estop = estop
+  108|         self._estop_bound = estop is not None
+  109|         # T41 / S-1 (Y-2): the ARMED_TX/ACTIVE gate is the single functional
+  110|         # authorization point for TX. When an HMAC `auth_secret` is configured,
+  111|         # arm_tx/activate_tx REQUIRE a valid single-use token — a missing token
+  112|         # fails CLOSED with SafetyError. `allow_unauthenticated_arm=True` is an
+  113|         # explicit, default-OFF escape hatch for staged migrations — it is
+  114|         # TEST/SIMULATION ONLY and is refused unless UCANLAB_TEST_MODE=1.
+  115|         if allow_unauthenticated_arm and os.environ.get("UCANLAB_TEST_MODE") != "1":
+  116|             raise RuntimeError(
+  117|                 "allow_unauthenticated_arm=True disables TX operator "
+  118|                 "authentication and is TEST-ONLY: set UCANLAB_TEST_MODE=1 "
+  119|                 "to acknowledge (refusing to start otherwise)"
+  120|             )
+  121|         self._auth_secret: bytes | None = bytes(auth_secret) if auth_secret is not None else None
+  122|         self._allow_unauthenticated_arm: bool = bool(allow_unauthenticated_arm)
+  123|         if self._allow_unauthenticated_arm:
+  124|             logger.warning(
+  125|                 "SafetySupervisor started with allow_unauthenticated_arm=True — "
+  126|                 "TX arming is NOT operator-authenticated (test/simulation only)"
+  127|             )
+  128|         self._consumed_arm_tokens: deque[bytes] = deque(maxlen=1024)
+  129|         self._epoch: int = 0
+  130|         self._state_change_timestamp_ns: int = time.monotonic_ns()
+  131|         self._last_duration_ns: int = 0
+  132|         self._lock = threading.RLock()
+  133|         self._callbacks: list[Callable[[SafetyState, SafetyState, str], None]] = []
+  134|         self._fault_reason: str = ""
+  135|         self._history: deque[StateTransitionRecord] = deque(maxlen=10_000)
+  136|         self._fault_timestamps_ns: deque[int] = deque(maxlen=32)
+  137| 
+  138|     def bind_estop(self, estop: Any) -> None:
+  139|         """Associate an EmergencyStopSystem instance to govern fault exits.
+  140| 
+  141|         One-time only + type-checked: the object must expose `is_engaged`,
+  142|         otherwise TypeError. Re-binding raises SafetyError (fail-closed).
+  143|         """
+  144|         with self._lock:
+  145|             if self._estop_bound:
+  146|                 raise SafetyError(
+  147|                     "E-Stop already bound (one-time binding)",
+  148|                     code="ESTOP_ALREADY_BOUND",
+  149|                 )
+  150|             if not hasattr(estop, "is_engaged"):
+  151|                 raise TypeError(
+  152|                     f"bind_estop requires an object with 'is_engaged', got {type(estop).__name__}"
+  153|                 )
+  154|             self._estop = estop
+  155|             self._estop_bound = True
+  156| 
+  157|     @property
+  158|     def current_state(self) -> SafetyState:
+  159|         """Thread-safe property returning the current safety state."""
+  160|         with self._lock:
+  161|             return self._state
+  162| 
+  163|     def get_state(self) -> SafetyState:
+  164|         """Thread-safe accessor returning the current safety state."""
+  165|         return self.current_state
+  166| 
+  167|     @property
+  168|     def epoch(self) -> int:
+  169|         """Monotonically increasing state transition epoch counter."""
+  170|         with self._lock:
+  171|             return self._epoch
+  172| 
+  173|     def get_epoch(self) -> int:
+  174|         """Thread-safe accessor returning the current state transition epoch."""
+  175|         return self.epoch
+  176| 
+  177|     @property
+  178|     def is_tx_permitted(self) -> bool:
+  179|         """TX is strictly prohibited unless in ARMED_TX or ACTIVE state."""
+  180|         with self._lock:
+  181|             return self._state in {SafetyState.ARMED_TX, SafetyState.ACTIVE}
+  182| 
+  183|     @property
+  184|     def is_passive(self) -> bool:
+  185|         """Check if supervisor is in PASSIVE listen-only mode."""
+  186|         with self._lock:
+  187|             return self._state == SafetyState.PASSIVE
+  188| 
+  189|     @property
+  190|     def is_fault(self) -> bool:
+  191|         """Check if supervisor is currently in FAULT state."""
+  192|         with self._lock:
+  193|             return self._state == SafetyState.FAULT
+  194| 
+  195|     @property
+  196|     def fault_reason(self) -> str:
+  197|         """Thread-safe property returning the reason for entering FAULT state."""
+  198|         with self._lock:
+  199|             return self._fault_reason
+  200| 
+  201|     def get_fault_reason(self) -> str:
+  202|         """Thread-safe accessor returning the reason for entering FAULT state."""
+  203|         return self.fault_reason
+  204| 
+  205|     @property
+  206|     def state_change_timestamp_ns(self) -> int:
+  207|         """Monotonic timestamp in nanoseconds of the most recent state transition."""
+  208|         with self._lock:
+  209|             return self._state_change_timestamp_ns
+  210| 
+  211|     @property
+  212|     def state_duration_ns(self) -> int:
+  213|         """Nanoseconds elapsed in the current safety state calculated via monotonic clock."""
+  214|         with self._lock:
+  215|             current_ns = time.monotonic_ns()
+  216|             return max(0, current_ns - self._state_change_timestamp_ns)
+  217| 
+  218|     def get_state_duration_ns(self) -> int:
+  219|         """Thread-safe accessor returning nanoseconds spent in the current safety state."""
+  220|         return self.state_duration_ns
+  221| 
+  222|     @property
+  223|     def state_duration_sec(self) -> float:
+  224|         """Seconds elapsed in the current safety state calculated via monotonic clock."""
+  225|         return self.state_duration_ns / 1_000_000_000.0
+  226| 
+  227|     def get_history(self) -> list[StateTransitionRecord]:
+  228|         """Thread-safe accessor returning a copy of state transition history records."""
+  229|         with self._lock:
+  230|             return list(self._history)
+  231| 
+  232|     def register_callback(self, callback: Callable[[SafetyState, SafetyState, str], None]) -> None:
+  233|         """Register listener for state change events (old_state, new_state, reason)."""
+  234|         with self._lock:
+  235|             if callback not in self._callbacks:
+  236|                 self._callbacks.append(callback)
+  237| 
+  238|     def unregister_callback(self, callback: Callable[[SafetyState, SafetyState, str], None]) -> None:
+  239|         """Unregister a previously registered listener callback."""
+  240|         with self._lock:
+  241|             if callback in self._callbacks:
+  242|                 self._callbacks.remove(callback)
+  243| 
+  244|     FAULT_RATE_LIMIT_PER_SEC: ClassVar[int] = 5
+  245| 
+  246|     def transition_to(self, new_state: SafetyState, reason: str = "") -> None:
+  247|         """Execute a formal validated state transition adhering to Snapshot-Then-Release."""
+  248|         reason = _sanitize_reason(reason)
+  249|         illegal: str | None = None
+  250|         with self._lock:
+  251|             if self._state == new_state:
+  252|                 return
+  253| 
+  254|             now_monotonic_ns = time.monotonic_ns()
+  255|             now_utc = datetime.now(timezone.utc)
+  256|             duration_ns = max(0, now_monotonic_ns - self._state_change_timestamp_ns)
+  257| 
+  258|             if (
+  259|                 self._estop is not None
+  260|                 and getattr(self._estop, "is_engaged", False)
+  261|                 and new_state in {SafetyState.PASSIVE, SafetyState.ARMED_TX, SafetyState.ACTIVE}
+  262|             ):
+  263|                 err_msg = (
+  264|                     f"Cannot transition to '{new_state.value}' while Emergency Stop is engaged. "
+  265|                     "Reset E-Stop with valid cryptographic token first."
+  266|                 )
+  267|                 logger.critical(err_msg)
+  268|                 raise SafetyError(err_msg, code="ESTOP_ENGAGED")
+  269| 
+  270|             allowed = self.ALLOWED_TRANSITIONS.get(self._state, set())
+  271|             if new_state not in allowed:
+  272|                 # Illegal transition: mutate state and snapshot listeners under
+  273|                 # the lock, but defer dispatch AND the raise to outside (B6) so
+  274|                 # re-entrant callbacks cannot deadlock and no SafetyError ever
+  275|                 # unwinds through a held lock.
+  276|                 err_msg = (
+  277|                     f"Illegal Safety State transition from '{self._state.value}' to '{new_state.value}'. "
+  278|                     f"Reason: {reason or 'N/A'}"
+  279|                 )
+  280|                 logger.critical(err_msg)
+  281|                 old_state = self._state
+  282|                 self._state = SafetyState.FAULT
+  283|                 fault_reason = "ILLEGAL_STATE_TRANSITION: " + err_msg
+  284|                 self._fault_reason = fault_reason
+  285|                 self._epoch += 1
+  286|                 self._state_change_timestamp_ns = now_monotonic_ns
+  287|                 self._last_duration_ns = 0
+  288| 
+  289|                 record = StateTransitionRecord(
+  290|                     from_state=old_state,
+  291|                     to_state=SafetyState.FAULT,
+  292|                     reason=fault_reason,
+  293|                     epoch=self._epoch,
+  294|                     monotonic_timestamp_ns=now_monotonic_ns,
+  295|                     wall_time_utc=now_utc,
+  296|                     duration_ns=duration_ns,
+  297|                 )
+  298|                 self._history.append(record)
+  299|                 callbacks_snapshot = list(self._callbacks)
+  300|                 illegal = err_msg
+  301|             else:
+  302|                 old_state = self._state
+  303|                 self._state = new_state
+  304|                 self._epoch += 1
+  305|                 self._state_change_timestamp_ns = now_monotonic_ns
+  306|                 self._last_duration_ns = 0
+  307| 
+  308|                 if new_state == SafetyState.FAULT:
+  309|                     self._fault_reason = reason
+  310|                 elif old_state == SafetyState.FAULT and new_state in {SafetyState.PASSIVE, SafetyState.SAFE}:
+  311|                     self._fault_reason = ""
+  312| 
+  313|                 record = StateTransitionRecord(
+  314|                     from_state=old_state,
+  315|                     to_state=new_state,
+  316|                     reason=reason,
+  317|                     epoch=self._epoch,
+  318|                     monotonic_timestamp_ns=now_monotonic_ns,
+  319|                     wall_time_utc=now_utc,
+  320|                     duration_ns=duration_ns,
+  321|                 )
+  322|                 self._history.append(record)
+  323|                 callbacks_snapshot = list(self._callbacks)
+  324| 
+  325|         if illegal is not None:
+  326|             # Snapshot-Then-Release: dispatch + raise outside the lock (B6)
+  327|             self._dispatch_callbacks(callbacks_snapshot, old_state, SafetyState.FAULT, self._fault_reason)
+  328|             raise SafetyError(illegal, code="ILLEGAL_SAFETY_TRANSITION")
+  329| 
+  330|         logger.info(
+  331|             "Safety State Transition",
+  332|             extra={
+  333|                 "from": old_state.value,
+  334|                 "to": new_state.value,
+  335|                 "reason": reason,
+  336|                 "epoch": self._epoch,
+  337|                 "duration_ms": duration_ns / 1_000_000.0,
+  338|             },
+  339|         )
+  340| 
+  341|         # Snapshot-Then-Release: Execute callbacks outside lock with exception isolation
+  342|         self._dispatch_callbacks(callbacks_snapshot, old_state, new_state, reason)
+  343| 
+  344|     def enter_passive_mode(self, reason: str = "Operator entered PASSIVE listen-only mode") -> None:
+  345|         """Safely transition to PASSIVE (Listen-Only) mode."""
+  346|         self.transition_to(SafetyState.PASSIVE, reason=reason)
+  347| 
+  348|     def issue_arm_token(self, ttl_s: float = 30.0) -> str:
+  349|         """Mint a single-use HMAC authorization token for arm_tx/activate_tx.
+  350| 
+  351|         Requires a configured `auth_secret` (see __init__). The token binds a
+  352|         random nonce + monotonic expiry under the secret; it is verified with
+  353|         hmac.compare_digest and burned on first use, so a replayed token fails
+  354|         closed. Format: ``<expiry_ns>.<nonce_hex>.<mac_hex>``.
+  355|         """
+  356|         if self._auth_secret is None:
+  357|             raise SafetyError(
+  358|                 "Arm tokens require a configured supervisor auth_secret",
+  359|                 code="ARM_AUTH_NOT_CONFIGURED",
+  360|             )
+  361|         expiry_ns = time.monotonic_ns() + int(max(1.0, ttl_s) * 1_000_000_000)
+  362|         nonce = _secrets.token_bytes(16)
+  363|         payload = expiry_ns.to_bytes(8, "big", signed=False) + nonce
+  364|         mac = hmac.new(self._auth_secret, payload, hashlib.sha256).digest()
+  365|         return f"{expiry_ns}.{nonce.hex()}.{mac.hex()}"
+  366| 
+  367|     def _verify_arm_token(self, auth_token: str) -> None:
+  368|         """Verify a presented arm token (fail-closed: expiry + single-use + HMAC)."""
+  369|         assert self._auth_secret is not None
+  370|         token = auth_token.strip() if isinstance(auth_token, str) else ""
+  371|         parts = token.split(".")
+  372|         if len(parts) != 3:
+  373|             raise SafetyError(
+  374|                 "TX authorization rejected: malformed auth token",
+  375|                 code="ARM_AUTH_INVALID",
+  376|             )
+  377|         expiry_s, nonce_hex, mac_hex = parts
+  378|         try:
+  379|             expiry_ns = int(expiry_s)
+  380|             nonce = bytes.fromhex(nonce_hex)
+  381|             mac = bytes.fromhex(mac_hex)
+  382|         except ValueError as exc:
+  383|             raise SafetyError(
+  384|                 "TX authorization rejected: malformed auth token",
+  385|                 code="ARM_AUTH_INVALID",
+  386|             ) from exc
+  387|         payload = expiry_ns.to_bytes(8, "big", signed=False) + nonce
+  388|         expected = hmac.new(self._auth_secret, payload, hashlib.sha256).digest()
+  389|         if not hmac.compare_digest(mac, expected):
+  390|             raise SafetyError(
+  391|                 "TX authorization rejected: invalid auth token",
+  392|                 code="ARM_AUTH_INVALID",
+  393|             )
+  394|         if time.monotonic_ns() > expiry_ns:
+  395|             raise SafetyError(
+  396|                 "TX authorization rejected: auth token expired",
+  397|                 code="ARM_AUTH_EXPIRED",
+  398|             )
+  399|         if payload in self._consumed_arm_tokens:
+  400|             raise SafetyError(
+  401|                 "TX authorization rejected: auth token already consumed",
+  402|                 code="ARM_AUTH_REPLAYED",
+  403|             )
+  404|         self._consumed_arm_tokens.append(payload)
+  405| 
+  406|     def _require_arm_authorization(self, operation: str, auth_token: str | None) -> None:
+  407|         """Enforce the TX-authorization gate for arm_tx/activate_tx (T41 / S-1).
+  408| 
+  409|         Fail-closed policy:
+  410|           * ``auth_secret`` configured -> a valid, unexpired, single-use token
+  411|             is REQUIRED (missing/invalid => SafetyError). The legacy
+  412|             ``allow_unauthenticated_arm`` opt-in downgrades this to a WARNING.
+  413|           * ``auth_secret`` None -> no authenticator is wired; the legacy
+  414|             unauthenticated path is preserved with a WARNING (backward compat).
+  415|         """
+  416|         if self._auth_secret is not None:
+  417|             if auth_token is None:
+  418|                 if self._allow_unauthenticated_arm:
+  419|                     logger.warning(
+  420|                         "%s without auth_token — allow_unauthenticated_arm=True "
+  421|                         "override in effect (TEST-ONLY, TX not operator-authenticated)",
+  422|                         operation,
+  423|                     )
+  424|                     return
+  425|                 logger.critical(
+  426|                     "%s without auth_token while auth_secret is configured — FAIL CLOSED",
+  427|                     operation,
+  428|                 )
+  429|                 raise SafetyError(
+  430|                     f"{operation} rejected: auth_token is required "
+  431|                     "(a supervisor auth_secret is configured)",
+  432|                     code="ARM_AUTH_REQUIRED",
+  433|                 )
+  434|             self._verify_arm_token(auth_token)
+  435|             return
+  436|         logger.warning(
+  437|             "%s without auth_secret configured (legacy unauthenticated path)",
+  438|             operation,
+  439|         )
+  440| 
+  441|     def arm_tx(
+  442|         self,
+  443|         reason: str = "Operator explicitly ARMED TX pipeline",
+  444|         auth_token: str | None = None,
+  445|     ) -> None:
+  446|         """Explicitly arm the TX pipeline.
+  447| 
+  448|         The authorization gate is enforced by ``_require_arm_authorization``:
+  449|         when an ``auth_secret`` is configured on this supervisor, ``auth_token``
+  450|         is mandatory and HMAC-verified (fail-closed). See the constructor for
+  451|         the ``allow_unauthenticated_arm`` compatibility flag.
+  452|         """
+  453|         self._require_arm_authorization("arm_tx", auth_token)
+  454|         self.transition_to(SafetyState.ARMED_TX, reason=reason)
+  455| 
+  456|     def activate_tx(
+  457|         self,
+  458|         reason: str = "TX active transmission ongoing",
+  459|         auth_token: str | None = None,
+  460|     ) -> None:
+  461|         """Transition from ARMED_TX to ACTIVE (same authorization gate as arm_tx)."""
+  462|         self._require_arm_authorization("activate_tx", auth_token)
+  463|         self.transition_to(SafetyState.ACTIVE, reason=reason)
+  464| 
+  465|     def trigger_fault(self, reason: str = "Safety fault detected") -> None:
+  466|         """Trigger FAULT state, immediately revoking all TX authorization.
+  467| 
+  468|         Rate-limited to FAULT_RATE_LIMIT_PER_SEC per second (fail-closed audit;
+  469|         excess calls are logged and dropped to prevent DoS via fault storms).
+  470|         """
+  471|         now_ns = time.monotonic_ns()
+  472|         with self._lock:
+  473|             # Prune timestamps older than 1s.
+  474|             while self._fault_timestamps_ns and (now_ns - self._fault_timestamps_ns[0]) >= 1_000_000_000:
+  475|                 self._fault_timestamps_ns.popleft()
+  476|             if len(self._fault_timestamps_ns) >= self.FAULT_RATE_LIMIT_PER_SEC:
+  477|                 logger.warning(
+  478|                     "trigger_fault rate-limited (fault storm suppressed)",
+  479|                     extra={"reason": _sanitize_reason(reason)},
+  480|                 )
+  481|                 return
+  482|             self._fault_timestamps_ns.append(now_ns)
+  483|         logger.warning("Safety FAULT triggered", extra={"reason": _sanitize_reason(reason)})
+  484|         self.transition_to(SafetyState.FAULT, reason=reason)
+  485| 
+  486|     def _force_fault(self, reason: str) -> None:
+  487|         """Internal emergency transition to FAULT bypassing transition table.
+  488| 
+  489|         Adheres strictly to Snapshot-Then-Release locking and complete callback exception isolation.
+  490|         """
+  491|         reason = _sanitize_reason(reason)
+  492|         with self._lock:
+  493|             if self._state == SafetyState.FAULT and self._fault_reason == reason:
+  494|                 return
+  495|             now_monotonic_ns = time.monotonic_ns()
+  496|             now_utc = datetime.now(timezone.utc)
+  497|             duration_ns = max(0, now_monotonic_ns - self._state_change_timestamp_ns)
+  498| 
+  499|             old_state = self._state
+  500|             self._state = SafetyState.FAULT
+  501|             self._fault_reason = reason
+  502|             self._epoch += 1
+  503|             self._state_change_timestamp_ns = now_monotonic_ns
+  504|             self._last_duration_ns = 0
+  505| 
+  506|             record = StateTransitionRecord(
+  507|                 from_state=old_state,
+  508|                 to_state=SafetyState.FAULT,
+  509|                 reason=reason,
+  510|                 epoch=self._epoch,
+  511|                 monotonic_timestamp_ns=now_monotonic_ns,
+  512|                 wall_time_utc=now_utc,
+  513|                 duration_ns=duration_ns,
+  514|             )
+  515|             self._history.append(record)
+  516|             callbacks_snapshot = list(self._callbacks)
+  517| 
+  518|         logger.critical(
+  519|             "Safety State Forced FAULT",
+  520|             extra={
+  521|                 "from": old_state.value,
+  522|                 "to": SafetyState.FAULT.value,
+  523|                 "reason": reason,
+  524|                 "epoch": self._epoch,
+  525|             },
+  526|         )
+  527| 
+  528|         # Snapshot-Then-Release: Execute callbacks outside lock with exception isolation
+  529|         self._dispatch_callbacks(callbacks_snapshot, old_state, SafetyState.FAULT, reason)
+  530| 
+  531|     @staticmethod
+  532|     def _dispatch_callbacks(
+  533|         callbacks: list[Callable[[SafetyState, SafetyState, str], None]],
+  534|         old_state: SafetyState,
+  535|         new_state: SafetyState,
+  536|         reason: str,
+  537|     ) -> None:
+  538|         """Dispatch callbacks outside the lock with complete exception isolation."""
+  539|         for cb in callbacks:
+  540|             try:
+  541|                 cb(old_state, new_state, reason)
+  542|             except Exception as exc:
+  543|                 logger.error(
+  544|                     "Error in Safety State Machine callback",
+  545|                     extra={
+  546|                         "error": str(exc),
+  547|                         "callback": getattr(cb, "__name__", repr(cb)),
+  548|                         "from_state": old_state.value,
+  549|                         "to_state": new_state.value,
+  550|                     },
+  551|                     exc_info=True,
+  552|                 )
+  553| 
+  554| 
+  555| __all__ = [
+  556|     "SafetyState",
+  557|     "SafetySupervisor",
+  558|     "StateTransitionRecord",
+  559| ]
