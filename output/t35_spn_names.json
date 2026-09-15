@@ -1,0 +1,38 @@
+{
+  "SPN_2567": {
+    "name_en": "Total Message Size (TP.CM_BAM)",
+    "name_tr": "Toplam Mesaj Boyutu (TP.CM_BAM Taşıma Protokolü)",
+    "source": "SAE J1939-21 Transport Protocol Specification / decoda extract.json",
+    "confidence": "high"
+  },
+  "SPN_86566": {
+    "name_en": "SPN 459520 J1939",
+    "name_tr": "SPN 459520 J1939",
+    "source": "https://www.bing.com/search?q=%22SPN+86566%22+OR+%22SPN+459520%22+J1939",
+    "confidence": "medium"
+  },
+  "SPN_459520": {
+    "name_en": "J1939",
+    "name_tr": "J1939",
+    "source": "https://www.bing.com/search?q=%22SPN+86566%22+OR+%22SPN+459520%22+J1939",
+    "confidence": "medium"
+  },
+  "SPN_516497": {
+    "name_en": "FMI 12 1. What does SPN 516497",
+    "name_tr": "FMI 12 1. What does SPN 516497",
+    "source": "https://www.bing.com/search?q=%22SPN+516497%22+OR+%22SPN+516499%22+OR+%22SPN+517503%22+J1939",
+    "confidence": "medium"
+  },
+  "SPN_516499": {
+    "name_en": "SPN 517503 J1939",
+    "name_tr": "SPN 517503 J1939",
+    "source": "https://www.bing.com/search?q=%22SPN+516497%22+OR+%22SPN+516499%22+OR+%22SPN+517503%22+J1939",
+    "confidence": "medium"
+  },
+  "SPN_517503": {
+    "name_en": "J1939",
+    "name_tr": "J1939",
+    "source": "https://www.bing.com/search?q=%22SPN+516497%22+OR+%22SPN+516499%22+OR+%22SPN+517503%22+J1939",
+    "confidence": "medium"
+  }
+}

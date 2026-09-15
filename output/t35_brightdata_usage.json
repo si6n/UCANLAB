@@ -1,0 +1,32 @@
+[
+  {
+    "request": "https://www.bing.com/search?q=%22SPN+204%22+OR+%22SPN+212%22+OR+%22SPN+253%22+OR+%22SPN+254%22+J1939",
+    "credits_est": 1,
+    "result": "ok_found_0",
+    "ts": "2026-09-15T11:43:01.750777"
+  },
+  {
+    "request": "https://www.bing.com/search?q=%22SPN+266%22+OR+%22SPN+362%22+OR+%22SPN+385%22+J1939",
+    "credits_est": 1,
+    "result": "err_Page.goto: Timeout 35000ms exc",
+    "ts": "2026-09-15T11:43:36.767283"
+  },
+  {
+    "request": "https://www.bing.com/search?q=%22SPN+0%22+OR+%22SPN+52353%22+OR+%22SPN+61446%22+OR+%22SPN+65535%22+J1939",
+    "credits_est": 1,
+    "result": "err_Page.goto: Timeout 35000ms exc",
+    "ts": "2026-09-15T11:44:11.776307"
+  },
+  {
+    "request": "https://www.bing.com/search?q=%22SPN+86566%22+OR+%22SPN+459520%22+J1939",
+    "credits_est": 1,
+    "result": "ok_found_2",
+    "ts": "2026-09-15T11:44:16.679314"
+  },
+  {
+    "request": "https://www.bing.com/search?q=%22SPN+516497%22+OR+%22SPN+516499%22+OR+%22SPN+517503%22+J1939",
+    "credits_est": 1,
+    "result": "ok_found_3",
+    "ts": "2026-09-15T11:44:21.887299"
+  }
+]

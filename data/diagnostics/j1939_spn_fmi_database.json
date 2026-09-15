@@ -82290,8 +82290,8 @@
   },
   "SPN_254": {
    "spn": 254,
-   "name": "SPN 254",
-   "title_tr": "SPN 254",
+   "name": "Engine Torque Demand",
+   "title_tr": "Motor Tork Talebi",
    "subsystem": "Şebeke & İletişim Katmanı (J1939)",
    "associated_pgn": 0,
    "pgn_acronym": "TBD",
@@ -82368,7 +82368,7 @@
     }
    },
    "source": "tur23_j1939hub",
-   "name_source": "j1939hub/spnfmi",
+   "name_source": "recovered from own record (Tur-35): description states 'engine torque demand'",
    "evidence_url": "https://j1939hub.com/general-network/spn-254-fmi-0/",
    "sitrak_systems": [
     "AMT",
@@ -82766,8 +82766,8 @@
   },
   "SPN_385": {
    "spn": 385,
-   "name": "SPN 385",
-   "title_tr": "SPN 385",
+   "name": "Engine Oil Pressure",
+   "title_tr": "Motor Yağ Basıncı",
    "subsystem": "Şebeke & İletişim Katmanı (J1939)",
    "associated_pgn": 0,
    "pgn_acronym": "TBD",
@@ -82788,7 +82788,7 @@
     }
    },
    "source": "tur23_j1939hub",
-   "name_source": "j1939hub/spnfmi",
+   "name_source": "recovered from own record (Tur-35): causes reference the oil pressure sensor",
    "evidence_url": "https://j1939hub.com/general-network/spn-385-fmi-0/",
    "causes": [
     "Common problems associated with this system include faults in the oil pressure sensor and inconsistencies in the actuator's timing response."
