@@ -546,8 +546,10 @@ def test_reconnect_disarms_tx_and_requires_explicit_rearm() -> None:
 
     app = UniversalCanDesktopApp(channel="vcan0", bitrate=250000)
     # Boot PASSIVE -> operator arms TX explicitly.
+    # T47-B (P3/G-3): the composition root wires an ARM_AUTH_SECRET, so arming
+    # requires the single-use HMAC token that the trusted root mints here.
     assert app.supervisor.current_state == SafetyState.PASSIVE
-    app.supervisor.arm_tx(reason="operator test arm")
+    app.supervisor.arm_tx(reason="operator test arm", auth_token=app._mint_arm_token())
     assert app.supervisor.is_tx_permitted is True
 
     # Settings change triggers the reconnect transaction (the UI sends the

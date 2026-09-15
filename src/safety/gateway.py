@@ -92,11 +92,32 @@ class TxSafetyGateway:
     # to an E-Stop. A single burst = backpressure; a sustained pattern =
     # runaway sender and must fail hard.
     RATE_ESTOP_AFTER: ClassVar[int] = 5
-    # Whitelist single-miss policy: first miss = reject+alarm, persistent
-    # pattern at/above this streak latches the E-Stop (fail-closed on abuse).
+    # Whitelist miss policy: first miss = reject+alarm, persistent pattern
+    # at/above this streak latches the E-Stop (fail-closed on abuse).
     # Threshold mirrors RATE_ESTOP_AFTER-style escalation: isolated misses
     # (fuzz/misconfig) stay reject+alarm, sustained abuse latches.
+    # P9 (G-9): the streak is reset by ANY whitelisted frame
+    # (`if id_allowed: self._whitelist_miss_streak = 0`), so an
+    # N-miss-then-hit pattern NEVER latches — the value is an
+    # ESCALATION THRESHOLD, not a per-window miss ratio.
     WHITELIST_ESTOP_AFTER: ClassVar[int] = 5
+    # P7 (G-5): hard ceiling on the aggregate TX rate across EVERY lane. Must
+    # stay below `sum(BUDGETS.values())` so it is a real envelope rather than
+    # a rubber stamp; a runaway producer cannot exceed it by rotating
+    # `budget_category` strings.
+    MAX_TOTAL_TX_PER_SEC: ClassVar[int] = 400
+    # P2 (G-2): UDS service identifiers whose transmission mutates ECU state
+    # (session/reset/clear/security/routine/write/communication-control).
+    # A whitelisted diagnostic frame carrying one of these as its first
+    # service byte is critical EVEN IF the caller forgot the flag.
+    CRITICAL_UDS_SIDS: ClassVar[frozenset[int]] = frozenset(
+        {0x10, 0x11, 0x14, 0x27, 0x28, 0x2E, 0x2F, 0x31, 0x34, 0x35, 0x36, 0x37, 0x85}
+    )
+    # P2 (G-2): J1939 PGNs that CLEAR / MUTATE diagnostic state. DM11 (65235)
+    # clears active DTCs, DM3 (65228) clears previously-active DTCs. Requests
+    # (59904) and reads are deliberately excluded so a read-only DM1/DM4 poll
+    # is not forced onto the physical-speed interlock.
+    CRITICAL_J1939_PGNS: ClassVar[frozenset[int]] = frozenset({65235, 65228})
     # P0 (perf): backpressure WARN output is rate-limited to one summary per
     # second — a throttled sender hammering the window used to emit one
     # log record per rejected frame, flooding stdout I/O and slowing the
@@ -137,6 +158,7 @@ class TxSafetyGateway:
         e2e_profiles: Mapping[int, E2EProfileConfig] | None = None,
         confirmation_secret: bytes | None = None,
         allow_legacy_boolean_confirm: bool = False,
+        whitelist_superset_allowed: bool = False,
     ) -> None:
         self._bus = bus
         if estop is not None:
@@ -154,6 +176,13 @@ class TxSafetyGateway:
         self.whitelist_masks: tuple[tuple[int, int], ...] = (
             tuple(whitelist_masks) if whitelist_masks is not None else ()
         )
+        # P9 (G-11): explicit, auditable acknowledgement that the configured
+        # mask set is a deliberately BROAD family override (e.g. a J1939
+        # response mask of 0xF9 that matches many source addresses). The
+        # narrow `(id & mask) == value` test alone cannot tell a broad
+        # legitimately-configured mask from a mistake (`mask=0` matches
+        # everything), so the override must be granted knowingly.
+        self.whitelist_superset_allowed: bool = bool(whitelist_superset_allowed)
         # E2E stamping stage (docs/ai_context/02 §1 stage 6 / transport_e2e
         # spec): when configured, frames whose arbitration_id maps to an
         # E2E profile are sealed (rolling counter + CRC) right before rate
@@ -165,7 +194,11 @@ class TxSafetyGateway:
         # Fail-closed whitelist stage can only be bypassed through the
         # explicit for_testing() factory — never via a constructor flag
         # that production wiring could set by accident.
-        self._whitelist_bypass_for_testing: bool = False
+        #
+        # P16 (G-7): the flag is stored under a name-mangled private slot and
+        # exposed read-only. A plain attribute write used to be able to flip
+        # the fail-closed Stage 3 off from any code holding the gateway.
+        self.__whitelist_bypass_for_testing: bool = False
         # Optional HMAC key for ConfirmationToken verification (dual-confirm
         # hardening). When None, legacy boolean path stays intact.
         self._confirmation_secret: bytes | None = (
@@ -196,9 +229,23 @@ class TxSafetyGateway:
         self._budgets: dict[str, TxBudget] = {
             name: TxBudget(capacity, refill) for name, (capacity, refill) in self.BUDGETS.items()
         }
-        self._current_vehicle_speed_kmh: float = 0.0
+        # P1 (G-1): provenance split. The INTERLOCK only ever reads the
+        # physical field; the display field is telemetry/UI only and can be
+        # written by the simulator without ever authorising a critical
+        # command. `_current_vehicle_speed_kmh` remains the display mirror
+        # for backward compatibility with existing readers.
+        self._physical_speed_kmh: float = 0.0
+        self._display_speed_kmh: float = 0.0
         self._last_speed_update_ns: int = 0
         self._lock = threading.RLock()
+
+        # P7 (G-5): global aggregate TX envelope. Per-lane token buckets bound
+        # each LANE, but the sum of every lane's capacity used to be
+        # reachable by a mis-wired producer that simply picked a different
+        # `budget_category` string — the total TX plane had no ceiling. This
+        # non-bypassing window caps the aggregate of ALL lanes.
+        self._tx_total_timestamps: "collections.deque[int]" = collections.deque()
+        self._total_overload_streak: int = 0
 
         # MEDIUM-6: gateway-owned bounded executor for async sends (F-26/E-12).
         # Eagerly constructed, single instance, reused across sends — never
@@ -225,6 +272,36 @@ class TxSafetyGateway:
     @bus.setter
     def bus(self, _value: AbstractBus) -> None:
         raise AttributeError("TxSafetyGateway.bus is read-only (use rebind_bus for controlled swaps)")
+
+    @property
+    def _whitelist_bypass_for_testing(self) -> bool:
+        """Read-only view of the test-only whitelist bypass flag (P16 / G-7)."""
+        return self.__whitelist_bypass_for_testing
+
+    @_whitelist_bypass_for_testing.setter
+    def _whitelist_bypass_for_testing(self, _value: bool) -> None:
+        raise AttributeError(
+            "TxSafetyGateway._whitelist_bypass_for_testing is read-only "
+            "(use TxSafetyGateway.for_testing under UCANLAB_TEST_MODE=1)"
+        )
+
+    @property
+    def _current_vehicle_speed_kmh(self) -> float:
+        """Backward-compatible DISPLAY mirror of the speed telemetry (P1 / G-1).
+
+        Read-only on purpose: the interlock consumes `_physical_speed_kmh` and no
+        caller may inject an interlock value by writing an attribute. Assignment
+        is refused so a mock/test that used to poke this private field is forced
+        through `update_physical_speed()` / `record_synthetic_speed()`.
+        """
+        return self._display_speed_kmh
+
+    @_current_vehicle_speed_kmh.setter
+    def _current_vehicle_speed_kmh(self, _value: float) -> None:
+        raise AttributeError(
+            "TxSafetyGateway._current_vehicle_speed_kmh is read-only "
+            "(use update_physical_speed() / record_synthetic_speed())"
+        )
 
     def rebind_bus(self, new_bus: AbstractBus) -> None:
         """Controlled HAL bus swap (reconnect path).
@@ -351,7 +428,9 @@ class TxSafetyGateway:
                 "(refusing fail-closed whitelist bypass in production)"
             )
         instance = cls(bus=bus, estop=estop, whitelist_ids=whitelist_ids)
-        object.__setattr__(instance, "_whitelist_bypass_for_testing", True)
+        # P16 (G-7): written through the name-mangled slot — the public
+        # `_whitelist_bypass_for_testing` name is a read-only property.
+        instance._TxSafetyGateway__whitelist_bypass_for_testing = True
         return instance
 
     def _on_estop_triggered(self, event: object) -> None:
@@ -380,32 +459,37 @@ class TxSafetyGateway:
         clock domain skew. NaN, negative or non-finite values are treated as
         corrupted telemetry and invalidate freshness to 0 (fail-closed).
 
-        P0-2 (REVIEW C-2): `source` binds provenance to the interlock. Only
-        `"physical"` (hardware-derived telemetry) may satisfy the speed
-        interlock; any other value is recorded for telemetry purposes but
-        NEVER refreshes interlock freshness — a simulated stationary vehicle
-        must not authorize critical commands while a real vehicle is
-        connected and moving.
+        P0-2 (REVIEW C-2) / P1 (G-1): `source` binds provenance to the
+        interlock. Only `"physical"` (hardware-derived telemetry) may satisfy
+        the speed interlock; any other value is written to the DISPLAY channel
+        ONLY — it can never overwrite the value the interlock reads, so a
+        simulated stationary vehicle cannot authorise a critical command while
+        a real vehicle is connected and moving.
 
-        Backward compat: signature kept, but non-"physical" sources are
-        strictly non-authoritative. Prefer update_physical_speed() /
+        Backward compat: signature kept. Prefer update_physical_speed() /
         record_synthetic_speed() going forward.
         """
         with self._lock:
+            if source != "physical":
+                # P1 (G-1): display-only write. The interlock fields
+                # (`_physical_speed_kmh`, `_last_speed_update_ns`) are NOT
+                # touched, so the last physical sample keeps governing the
+                # freshness/value decision (fail-closed when none arrived).
+                # A NaN/negative synthetic value invalidates the DISPLAY
+                # channel only — it must never be able to *authorise* by
+                # clearing the physical interlock (G-8).
+                self._display_speed_kmh = (
+                    float(speed_kmh) if math.isfinite(speed_kmh) and speed_kmh >= 0.0 else float("nan")
+                )
+                return
             if not math.isfinite(speed_kmh) or speed_kmh < 0.0:
-                self._current_vehicle_speed_kmh = float("nan")
+                # G-8: corrupted PHYSICAL telemetry fails the interlock closed.
+                self._physical_speed_kmh = float("nan")
+                self._display_speed_kmh = float("nan")
                 self._last_speed_update_ns = 0
                 return
-            if source != "physical":
-                # Tightened: any non-"physical" source (incl. "synthetic")
-                # updates the DISPLAY value but never touches freshness. The
-                # interlock then keeps evaluating against the last physical
-                # sample (fail-closed when none ever arrived). This preserves
-                # the existing P0-2 test contract: synthetic 25 km/h reads as
-                # not-fresh-and-safe while physical timestamps stay pinned.
-                self._current_vehicle_speed_kmh = float(speed_kmh)
-                return
-            self._current_vehicle_speed_kmh = float(speed_kmh)
+            self._physical_speed_kmh = float(speed_kmh)
+            self._display_speed_kmh = float(speed_kmh)
             self._last_speed_update_ns = time.monotonic_ns()
 
     def update_physical_speed(self, speed_kmh: float) -> None:
@@ -431,22 +515,25 @@ class TxSafetyGateway:
             now_ns = time.monotonic_ns()
             if (now_ns - self._last_speed_update_ns) > timeout:
                 return False
-            if math.isnan(self._current_vehicle_speed_kmh):
+            if math.isnan(self._physical_speed_kmh):
                 return False
-            return self._current_vehicle_speed_kmh <= self.SPEED_NOISE_THRESHOLD_KMH
+            return self._physical_speed_kmh <= self.SPEED_NOISE_THRESHOLD_KMH
 
     def speed_interlock_state(self, max_age_ns: int | None = None) -> tuple[str, float]:
-        """REVIEW 3: tri-state interlock verdict with the live speed value.
+        """REVIEW 3: tri-state interlock verdict with the live PHYSICAL speed.
 
         Single authoritative speed source for UI/supervisor preflight gates
         (kills the desktop's parallel `_current_speed_kmh` truth):
           ("stale", speed)  — no physical feed yet, timed out, or NaN
           ("moving", speed) — fresh physical speed above the noise threshold
           ("ok", speed)     — fresh, finite, at/below threshold
+
+        P1 (G-1): the returned value is `_physical_speed_kmh` — the synthetic
+        display channel never reaches a preflight gate.
         """
         timeout = max_age_ns if max_age_ns is not None else self.SPEED_VALIDITY_TIMEOUT_NS
         with self._lock:
-            speed = self._current_vehicle_speed_kmh
+            speed = self._physical_speed_kmh
             if self._last_speed_update_ns == 0:
                 return "stale", speed
             if (time.monotonic_ns() - self._last_speed_update_ns) > timeout:
@@ -456,6 +543,48 @@ class TxSafetyGateway:
             if speed > self.SPEED_NOISE_THRESHOLD_KMH:
                 return "moving", speed
             return "ok", speed
+
+    def _frame_is_critical(self, frame: CanFrame) -> bool:
+        """P2 (G-2): derive command criticality from the FRAME ITSELF.
+
+        The `is_critical_command` caller flag is an assertion, not a control:
+        a new/mis-wired protocol engine could send UDS 0x11 ECUReset with the
+        flag left at its `False` default and skip Stage 4/5 entirely. This
+        policy classifies a frame as critical on its own evidence, so the
+        caller can only ever TIGHTEN the gate, never relax it.
+
+        Classification (deliberately narrow to avoid false positives):
+          * A whitelisted classical UDS request carrying an ISO-TP
+            SingleFrame / FirstFrame PCI nibble (0x0 / 0x1) whose service
+            byte is one of `CRITICAL_UDS_SIDS`. ConsecutiveFrames (0x2) and
+            flow-control (0x3) carry no SID and are never escalated.
+          * J1939 extended frames for PGN 65235 (DM11 Clear Active DTCs) and
+            PGN 65228 (DM3 Clear Previously Active DTCs). Read-only requests
+            such as PGN 59904 (Request) are intentionally NOT included.
+        """
+        try:
+            data = frame.data
+            if not data:
+                return False
+            is_extended = bool(getattr(frame, "is_extended", False))
+            if not is_extended:
+                if frame.arbitration_id not in self.whitelist_ids:
+                    return False
+                if len(data) < 2:
+                    return False
+                pci = data[0] >> 4
+                if pci not in (0x0, 0x1):
+                    return False
+                return data[1] in self.CRITICAL_UDS_SIDS
+            if not (self.whitelist_ids or self.whitelist_masks):
+                # Fail-closed: no whitelist configured means Stage 3 refuses
+                # everything anyway; do not invent criticality here.
+                return False
+            pgn = (frame.arbitration_id >> 8) & 0x3FFFF
+            return pgn in self.CRITICAL_J1939_PGNS
+        except Exception:  # pragma: no cover - defensive: never fail open
+            logger.error("Criticality classification failed; treating frame as critical", exc_info=True)
+            return True
 
     def validate_and_transmit(
         self,
@@ -486,7 +615,18 @@ class TxSafetyGateway:
         responses above the default-lane budget (remote self-DoS). Such
         responses are still rate-limited (reject + drop + log) but never
         escalate to an E-Stop.
+
+        P2 (G-2): criticality is DERIVED from the frame (see
+        `_frame_is_critical`) in addition to the caller flag, so a protocol
+        engine that forgets `is_critical_command=True` still hits Stage 4/5.
         """
+        # P2 (G-2): a caller may only ever TIGHTEN the criticality gate.
+        if not is_critical_command and self._frame_is_critical(frame):
+            is_critical_command = True
+            logger.warning(
+                "Frame criticality derived from frame contents (caller flag was False)",
+                extra={"arbitration_id": hex(getattr(frame, "arbitration_id", 0))},
+            )
         # -----------------------------------------------------------------
         # PHASE 1: VALIDATION + STATE MUTATION (under gateway lock)
         # -----------------------------------------------------------------
@@ -560,9 +700,11 @@ class TxSafetyGateway:
                     self._whitelist_miss_streak = 0
                 if not id_allowed:
                     # Reject + alarm on every miss; latch E-Stop when the
-                    # persistent-violation streak reaches WHITELIST_ESTOP_AFTER
-                    # (RATE_ESTOP_AFTER-style escalation; threshold currently 1
-                    # to preserve the fail-closed single-miss latch contract).
+                    # persistent-violation streak reaches WHITELIST_ESTOP_AFTER.
+                    # P9 (G-9): the earlier comment claimed "threshold currently
+                    # 1" while the constant is 5, and a single miss does NOT
+                    # latch — the streak resets on any allowed frame. The
+                    # escalation is real but only for an unbroken run of misses.
                     # RLock is re-entrant: trigger() -> gateway callback
                     # re-acquires the same lock on this thread without deadlock.
                     self._whitelist_miss_streak += 1
@@ -597,25 +739,25 @@ class TxSafetyGateway:
                     self.estop.trigger(
                         EStopTriggerSource.SPEED_INTERLOCK_BREACH,
                         "Critical command attempted with stale or missing vehicle speed telemetry",
-                        vehicle_speed_kmh=self._current_vehicle_speed_kmh,
+                        vehicle_speed_kmh=self._physical_speed_kmh,
                     )
                     raise SpeedDataStaleError(
                         "Safety Interlock: Critical command blocked due to stale vehicle speed telemetry",
                     )
 
-                # Speed threshold check
-                if self._current_vehicle_speed_kmh > self.SPEED_NOISE_THRESHOLD_KMH:
+                # Speed threshold check (P1 / G-1: PHYSICAL channel only)
+                if self._physical_speed_kmh > self.SPEED_NOISE_THRESHOLD_KMH:
                     logger.critical(
                         "Speed interlock triggered on critical command",
-                        extra={"speed": self._current_vehicle_speed_kmh},
+                        extra={"speed": self._physical_speed_kmh},
                     )
                     self.estop.trigger(
                         EStopTriggerSource.SPEED_INTERLOCK_BREACH,
-                        f"Critical command attempted while moving ({self._current_vehicle_speed_kmh} km/h)",
-                        vehicle_speed_kmh=self._current_vehicle_speed_kmh,
+                        f"Critical command attempted while moving ({self._physical_speed_kmh} km/h)",
+                        vehicle_speed_kmh=self._physical_speed_kmh,
                     )
                     raise SpeedInterlockError(
-                        f"Safety Interlock: Critical command blocked while vehicle is moving ({self._current_vehicle_speed_kmh} km/h)",
+                        f"Safety Interlock: Critical command blocked while vehicle is moving ({self._physical_speed_kmh} km/h)",
                     )
 
             # -----------------------------------------------------------------
@@ -669,6 +811,42 @@ class TxSafetyGateway:
                     f"Unknown TX budget category '{budget_category}'",
                     details={"category": budget_category},
                 )
+
+            # P7 (G-5): GLOBAL aggregate envelope. The per-lane buckets below
+            # bound each lane in isolation; this window bounds their SUM, so a
+            # mis-wired producer cannot raise the effective ceiling by simply
+            # rotating `budget_category`. Applied to EVERY lane, including
+            # protocol responses (inbound_triggered), because bus starvation
+            # is a physical limit, not a trust decision.
+            while self._tx_total_timestamps and (
+                now_ns - self._tx_total_timestamps[0]
+            ) >= self.RATE_LIMIT_WINDOW_NS:
+                self._tx_total_timestamps.popleft()
+            if len(self._tx_total_timestamps) >= self.MAX_TOTAL_TX_PER_SEC:
+                self._total_overload_streak += 1
+                logger.error(
+                    "Global TX envelope exceeded — aggregate rate limit across all lanes",
+                    extra={
+                        "aggregate_in_window": len(self._tx_total_timestamps),
+                        "limit": self.MAX_TOTAL_TX_PER_SEC,
+                        "category": budget_category,
+                    },
+                )
+                if self._total_overload_streak >= self.RATE_ESTOP_AFTER and not inbound_triggered:
+                    logger.critical(
+                        "Sustained global TX overload — triggering E-Stop",
+                        extra={"streak": self._total_overload_streak},
+                    )
+                    self.estop.trigger(
+                        EStopTriggerSource.RATE_LIMIT_OVERFLOW,
+                        f"Sustained global TX envelope overload "
+                        f"({self._total_overload_streak} consecutive rejections)",
+                    )
+                raise RateLimitExceededError(
+                    f"Global TX envelope exceeded ({self.MAX_TOTAL_TX_PER_SEC} msg/s across all lanes)"
+                )
+            self._total_overload_streak = 0
+            self._tx_total_timestamps.append(now_ns)
 
             # M-23 (P2-4): the simulation lane's generous budget (500/250)
             # exists for the DEMO generator's synthetic multi-ECU traffic. A
@@ -831,9 +1009,20 @@ class TxSafetyGateway:
         # trigger() deliberately does NOT take this lock: a dispatch blocked
         # in driver I/O holds it, and the engagement must still complete
         # promptly (test_estop_callback_does_not_block_on_slow_driver_io).
-        # Registered abort/flush hooks (estop.register_abort_hook) request
-        # HAL queue cancellation for the residual window where an engagement
-        # lands between the fence check and the bus write.
+        #
+        # P8 (G-6) — RESIDUAL WINDOW, ACCEPTED RISK (no mitigation wired):
+        # the window between the fence re-check below and `privileged_send`
+        # cannot be closed by an abort/flush hook today. `EmergencyStopSystem`
+        # supports `register_abort_hook` and runs the hooks outside its locks
+        # (estop.py trigger()), but this gateway deliberately does NOT register
+        # one because no HAL driver exposes a TX flush/abort primitive
+        # (`src/hal` has no `flush`/`abort` on AbstractBus or its drivers) — a
+        # hook would have nothing to call. The window is therefore an accepted,
+        # documented residual: bounded by the duration of a single
+        # `privileged_send` call on a driver that is not already wedged. When a
+        # HAL flush/abort API lands, register it here via
+        # `self.estop.register_abort_hook(...)` — that is the intended home for
+        # the mitigation described in the review.
         # -----------------------------------------------------------------
         with self.estop.tx_send_lock:
             if fence_snapshot != self.estop.tx_fence or self.estop.is_engaged:
@@ -910,6 +1099,7 @@ class TxSafetyGateway:
         user_confirmed: bool = False,
         budget_category: str = "default",
         confirmation_token: bytes | str | None = None,
+        inbound_triggered: bool = False,
     ) -> None:
         """Asynchronously transmit without blocking the running event loop (F-26/E-12).
 
@@ -917,9 +1107,13 @@ class TxSafetyGateway:
         E-Stop state checks) — offloading it keeps ISO-TP CF bursts responsive.
 
         MEDIUM-6: the offload runs on the gateway's OWN bounded, managed
-        ThreadPoolExecutor (thread_name_prefix 'tx-gateway-'), never on the
-        event loop's shared default executor (which is unbounded and shared
+        ThreadPoolExecutor (thread_name_prefix 'tx-gateway-'), never on
+        the event loop's shared default executor (which is unbounded and shared
         with every other offload in the process).
+
+        P11 (G-11): `inbound_triggered` used to be dropped here, so an async
+        protocol responder could self-E-Stop on a remote RTS flood while the
+        sync path was protected. It is forwarded to `send_sync` explicitly.
         """
         import asyncio
         import functools
@@ -939,6 +1133,7 @@ class TxSafetyGateway:
             is_critical_command=is_critical_command,
             user_confirmed=user_confirmed,
             confirmation_token=confirmation_token,
+            inbound_triggered=inbound_triggered,
         )
         await loop.run_in_executor(self._tx_executor, fn)
 

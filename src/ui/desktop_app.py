@@ -6,6 +6,7 @@ import base64
 import concurrent.futures
 import json
 import math
+import os
 import re
 import secrets
 import sys
@@ -22,6 +23,7 @@ from typing import Any, ClassVar
 import webview
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
+from src.core.errors import SafetyError
 from src.core.logging import get_logger
 from src.core.models.can_frame import CanFrame, length_to_dlc
 from src.core.models.diagnostics import (
@@ -77,6 +79,18 @@ class DiagnosticChallenge:
     max_age_ns: int = 30_000_000_000  # 30 seconds
 
 DEFAULT_EMBEDDED_CLOUD_PUBLIC_KEY_B64 = "eX3vJQWpo/pKrkpi5Y+f7m5ooUCRbCyY201DTnAjz/Q="
+
+# P3 (G-3): secret names + entropy for the production TX-authorization gates.
+# Derived through the platform SecretProvider (DPAPI on Windows, AES-GCM+0600
+# on POSIX) and created on first run when absent. The values never leave the
+# Python process: the token MINTING entry points are deliberately NOT exposed
+# on the bridge (see `request_diagnostic_challenge`).
+_ARM_AUTH_SECRET_BYTES = 32
+_GATEWAY_CONFIRM_SECRET_BYTES = 32
+# The confirmation token binds to a canonical arbitration id — the token is an
+# authorization proof, not a per-ID transmission permission, so one stable ID
+# is used and the real per-frame ID is enforced by the gateway whitelist.
+_DIAGNOSTIC_CONFIRM_ARB_ID = 0x7E0
 
 # B7 (REVIEW): production cloud endpoint. Override with UCANLAB_CLOUD_BASE_URL
 # (any HTTPS URL) or switch to the local dev server with UCANLAB_CLOUD_DEV=1.
@@ -694,6 +708,17 @@ class UniversalCanDesktopApp:
                 bitrate=self.bitrate_val,
                 listen_only=True,
             )
+        self._secret_provider = get_default_secret_provider()
+        # P3 (G-3): the composition root must WIRE the cryptographic gates the
+        # T41/G-1/HMAC work added — otherwise those fail-closed paths are dead
+        # code in production and Stage 5 degrades to a bare `user_confirmed`
+        # boolean while `arm_tx` falls back to its legacy WARNING path. Both
+        # secrets are derived from the SecretProvider (created on first run if
+        # absent) and handed to the supervisor/gateway below.
+        self._arm_auth_secret = self._derive_secret("ARM_AUTH_SECRET", _ARM_AUTH_SECRET_BYTES)
+        self._gateway_confirm_secret = self._derive_secret(
+            "GATEWAY_CONFIRM_SECRET", _GATEWAY_CONFIRM_SECRET_BYTES
+        )
         self.estop = EmergencyStopSystem()
         # P0-1 (REVIEW C-1): the desktop app no longer owns a minting
         # authority — an in-process EStopResetAuthority could mint a valid
@@ -702,7 +727,11 @@ class UniversalCanDesktopApp:
         # response flow (request challenge → external authorization →
         # submit token), so only the verification-only enforcement object
         # is wired onward.
-        self.supervisor = SafetySupervisor(initial_state=SafetyState.STARTUP, estop=self.estop)
+        self.supervisor = SafetySupervisor(
+            initial_state=SafetyState.STARTUP,
+            estop=self.estop,
+            auth_secret=self._arm_auth_secret,
+        )
         self.watchdog = TxWatchdogSupervisor(supervisor=self.supervisor, estop=self.estop, timeout_ms=800.0)
         # REVIEW.md 1.1: the gateway previously started with NO whitelist,
         # so the fail-closed Stage 3 rejected every single frame — the app
@@ -725,9 +754,15 @@ class UniversalCanDesktopApp:
             watchdog=self.watchdog,
             whitelist_ids=_diag_ids,
             whitelist_masks=list(j1939_protocol_response_masks(0xF9)),
+            # P3 (G-3): a configured confirmation secret makes the HMAC
+            # ConfirmationToken the ONLY accepted Stage-5 proof (fail-closed).
+            confirmation_secret=self._gateway_confirm_secret,
+            # P9 (G-11): the J1939 response mask above is deliberately broad —
+            # acknowledge that override explicitly rather than silently
+            # accepting every masked ID.
+            whitelist_superset_allowed=True,
         )
         self.copilot = AiDiagnosticCopilot()
-        self._secret_provider = get_default_secret_provider()
         # F-32: copilot LLM calls run off the UI/bridge thread
         self._copilot_executor = concurrent.futures.ThreadPoolExecutor(
             # M-28 (P2-18): two workers so a wedged LLM request (uncancellable
@@ -1208,6 +1243,19 @@ class UniversalCanDesktopApp:
         # is a constructor contract; verify it matches the request.
         return getattr(bus, "listen_only", not listen_only) == listen_only
 
+    def _derive_secret(self, key_name: str, nbytes: int = 32) -> bytes:
+        """P3 (G-3): fetch (or create-on-first-run) a TX-authorization secret.
+
+        Fail-closed: if the platform SecretProvider cannot persist a newly
+        generated key, the exception propagates — the app must NOT boot with a
+        silently weakened TX authorization gate.
+        """
+        provider = self._secret_provider
+        if not provider.has_secret(key_name):
+            provider.store_secret(key_name, os.urandom(nbytes))
+            logger.info("Generated and persisted TX authorization secret %s", key_name)
+        return provider.get_secret(key_name)
+
     def arm_tx(self, reason: str = "Operator explicitly armed TX via desktop UI") -> dict[str, Any]:
         """Explicitly transition SafetySupervisor from PASSIVE to ARMED_TX."""
         try:
@@ -1241,11 +1289,29 @@ class UniversalCanDesktopApp:
                     }
                 if not self.watchdog.is_lease_valid:
                     self.watchdog.heartbeat()
-                self.supervisor.arm_tx(reason=reason)
+                # P3 (G-3): the supervisor now enforces HMAC authorization.
+                # The desktop composition root mints the arm token here, in the
+                # TRUSTED process, immediately before the transition — the
+                # WebView bridge never receives a minting primitive.
+                arm_token = self._mint_arm_token()
+                self.supervisor.arm_tx(reason=reason, auth_token=arm_token)
             return {"success": True, "state": self.supervisor.current_state.value}
         except Exception as exc:
             logger.error("Failed to arm TX pipeline: %s", exc, exc_info=True)
             return {"success": False, "error": str(exc)}
+
+    def _mint_arm_token(self) -> str | None:
+        """Mint a single-use ARMED_TX authorization token (P3 / G-3).
+
+        Returns None when the supervisor has no auth_secret configured (the
+        legacy unauthenticated path is then still valid). The minting entry
+        point stays private to the desktop app — it is NOT bridged to JS.
+        """
+        try:
+            return self.supervisor.issue_arm_token()
+        except SafetyError:
+            # No auth_secret configured -> supervisor keeps its legacy path.
+            return None
 
     def disarm_tx(self, reason: str = "Operator returned system to PASSIVE mode") -> dict[str, Any]:
         """Transition SafetySupervisor back to PASSIVE mode."""
@@ -1418,8 +1484,38 @@ class UniversalCanDesktopApp:
     # ------------------------------------------------------------------
     # Diagnostic Challenge & Action Execution Subsystem (Dual Confirmation)
     # ------------------------------------------------------------------
+    def _mint_confirmation_token(self) -> str:
+        """Mint a single-use HMAC confirmation token via the gateway (P3 / G-3).
+
+        The token is produced from the `GATEWAY_CONFIRM_SECRET` by the SAME
+        component that verifies it in Stage 5, so it is cryptographic proof
+        bound to the canonical diagnostic arbitration ID — not an in-process
+        random string the renderer could mint for itself.
+
+        The minting entry point is deliberately NOT exposed on
+        `DesktopApiBridge`: only this trusted composition root can produce a
+        token (§2.5 — the renderer cannot manufacture its own authorization).
+        """
+        return self.gateway.issue_confirmation_token(_DIAGNOSTIC_CONFIRM_ARB_ID, ttl_s=30.0).hex()
+
+    def _confirm_token_for(self, arbitration_id: int) -> bytes | None:
+        """Fresh single-use gateway ConfirmationToken bound to `arbitration_id`.
+
+        P3 (G-3): only the trusted composition root mints these; returns None
+        when the gateway has no confirmation secret (legacy wiring), so the
+        UDS client simply omits the parameter.
+        """
+        if self.gateway._confirmation_secret is None:  # noqa: SLF001 - wiring introspection
+            return None
+        return self.gateway.issue_confirmation_token(arbitration_id, ttl_s=30.0)
+
     def request_diagnostic_challenge(self, action: dict[str, Any]) -> dict[str, Any]:
-        """Issue a short-lived (≤30s) single-use cryptographic confirmation token for a diagnostic action."""
+        """Issue a short-lived (≤30s) single-use confirmation token for a diagnostic action.
+
+        P3 (G-3): when the gateway has a confirmation secret (production
+        wiring), the returned token is an HMAC token minted by the gateway.
+        Otherwise the legacy in-process challenge is used (no secret wired).
+        """
         if not isinstance(action, dict):
             return {"success": False, "error": "Geçersiz aksiyon verisi (dictionary bekleniyor)."}
 
@@ -1428,6 +1524,18 @@ class UniversalCanDesktopApp:
             return {"success": False, "error": "Aksiyon türü (action_type) belirtilmelidir."}
 
         action_id = str(action.get("id") or "")
+
+        if self.gateway._confirmation_secret is not None:  # noqa: SLF001 - wiring introspection
+            token = self._mint_confirmation_token()
+            return {
+                "success": True,
+                "token": token,
+                "expires_in_s": 30.0,
+                "action_type": action_type,
+                "action_id": action_id,
+                "cryptographic": True,
+            }
+
         token = secrets.token_hex(16)
         now_ns = time.monotonic_ns()
 
@@ -1460,6 +1568,23 @@ class UniversalCanDesktopApp:
             return False, "Kullanıcı onayı gereklidir (Dual Confirmation challenge token eksik)."
 
         cleaned_token = token.strip()
+
+        # P3 (G-3): when the gateway has a confirmation secret, the token MUST
+        # be a valid gateway-issued HMAC token. The gateway owns single-use
+        # burning, so a replayed token fails closed here.
+        if self.gateway._confirmation_secret is not None:  # noqa: SLF001 - wiring introspection
+            frame = CanFrame.create(
+                channel_id=self.channel_name,
+                arbitration_id=_DIAGNOSTIC_CONFIRM_ARB_ID,
+                data=b"\x02\x3e\x00",
+            )
+            try:
+                self.gateway._verify_confirmation_token(cleaned_token, frame)  # noqa: SLF001
+            except Exception as exc:
+                logger.warning("Diagnostic HMAC confirmation rejected: %s", exc)
+                return False, f"Geçersiz onay token'ı ({exc})."
+            return True, "OK"
+
         now_ns = time.monotonic_ns()
 
         with self._challenges_lock:
@@ -1594,7 +1719,11 @@ class UniversalCanDesktopApp:
                     if arm_err_resp is not None:
                         return arm_err_resp
                     client = self.create_uds_client()
-                    resp = client.clear_dtc(group, user_confirmed=True)
+                    resp = client.clear_dtc(
+                        group,
+                        user_confirmed=True,
+                        confirmation_token=self._confirm_token_for(client.tx_id),
+                    )
                     if resp.is_positive:
                         self._set_ui_state(_error_count=0)
                         return {
@@ -1660,7 +1789,11 @@ class UniversalCanDesktopApp:
                     if arm_err_resp is not None:
                         return arm_err_resp
                     client = self.create_uds_client()
-                    resp = client.change_session(DiagnosticSessionType(st), user_confirmed=True)
+                    resp = client.change_session(
+                        DiagnosticSessionType(st),
+                        user_confirmed=True,
+                        confirmation_token=self._confirm_token_for(client.tx_id),
+                    )
                     if resp.is_positive:
                         return {
                             "success": True,
@@ -1720,7 +1853,11 @@ class UniversalCanDesktopApp:
                     if arm_err_resp is not None:
                         return arm_err_resp
                     client = self.create_uds_client()
-                    resp = client.ecu_reset(reset_type=rt, user_confirmed=True)
+                    resp = client.ecu_reset(
+                        reset_type=rt,
+                        user_confirmed=True,
+                        confirmation_token=self._confirm_token_for(client.tx_id),
+                    )
                     if resp.is_positive:
                         return {
                             "success": True,
@@ -1755,11 +1892,19 @@ class UniversalCanDesktopApp:
                         req_frame = J1939DiagnosticService.create_dm11_frame(
                             target_address=da, source_address=0xF9
                         )
+                        # P3 (G-3): the gateway now requires HMAC proof for a
+                        # critical frame. The operator's dual confirmation was
+                        # already verified above, so the trusted composition
+                        # root mints a fresh single-use gateway token for this
+                        # exact transmission.
                         self.gateway.validate_and_transmit(
                             req_frame,
                             budget_category="diagnostic",
                             is_critical_command=True,
                             user_confirmed=True,
+                            confirmation_token=self.gateway.issue_confirmation_token(
+                                req_frame.arbitration_id, ttl_s=30.0
+                            ),
                         )
                         self._set_ui_state(_error_count=0)
                         return {

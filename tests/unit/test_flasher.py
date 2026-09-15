@@ -114,7 +114,11 @@ class _StubGateway:
         self.watchdog = MagicMock()
         self.watchdog.is_lease_valid = lease_valid
         self.SPEED_NOISE_THRESHOLD_KMH = 0.5
-        self._current_vehicle_speed_kmh = speed_kmh
+        # T47-B (P1/G-1): the interlock value lives on the PHYSICAL channel;
+        # the display mirror is read-only on the real gateway. This double
+        # models a gateway whose physical sample is `speed_kmh`.
+        self._physical_speed_kmh = speed_kmh
+        self._display_speed_kmh = speed_kmh
         self._last_speed_update_ns = 1 if speed_fresh else 0
 
 

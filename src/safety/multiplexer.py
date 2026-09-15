@@ -137,6 +137,8 @@ class SafeMultiplexedBus(AbstractBus):
         is_critical_command: bool = False,
         user_confirmed: bool = False,
         budget_category: str = "default",
+        confirmation_token: bytes | str | None = None,
+        inbound_triggered: bool = False,
     ) -> None:
         """Enforce CORE_SAFETY_FLOOR on every transmission.
 
@@ -144,13 +146,22 @@ class SafeMultiplexedBus(AbstractBus):
         signature silently pushed every uncategorised caller onto the
         default 100 msg/s lane, so a protocol burst sent through send()
         could trip the gateway's sustained-overload E-Stop.
+
+        T47-B (P3/G-3): `confirmation_token` is forwarded so a critical frame
+        can present the cryptographic Stage-5 proof through this choke-point.
+        It is appended only when provided, keeping compatibility with gateways
+        that do not accept the parameter.
         """
-        self.gateway.validate_and_transmit(
-            frame,
-            is_critical_command=is_critical_command,
-            user_confirmed=user_confirmed,
-            budget_category=budget_category,
-        )
+        kwargs: dict[str, object] = {
+            "is_critical_command": is_critical_command,
+            "user_confirmed": user_confirmed,
+            "budget_category": budget_category,
+        }
+        if confirmation_token is not None:
+            kwargs["confirmation_token"] = confirmation_token
+        if inbound_triggered:
+            kwargs["inbound_triggered"] = inbound_triggered
+        self.gateway.validate_and_transmit(frame, **kwargs)
 
     def send_sync(
         self,
@@ -159,14 +170,20 @@ class SafeMultiplexedBus(AbstractBus):
         is_critical_command: bool = False,
         user_confirmed: bool = False,
         budget_category: str = "default",
+        confirmation_token: bytes | str | None = None,
+        inbound_triggered: bool = False,
     ) -> None:
         """Synchronously transmit frame conforming to TxPort protocol."""
-        self.gateway.validate_and_transmit(
-            frame,
-            is_critical_command=is_critical_command,
-            user_confirmed=user_confirmed,
-            budget_category=budget_category,
-        )
+        kwargs: dict[str, object] = {
+            "is_critical_command": is_critical_command,
+            "user_confirmed": user_confirmed,
+            "budget_category": budget_category,
+        }
+        if confirmation_token is not None:
+            kwargs["confirmation_token"] = confirmation_token
+        if inbound_triggered:
+            kwargs["inbound_triggered"] = inbound_triggered
+        self.gateway.validate_and_transmit(frame, **kwargs)
 
     async def send_async(
         self,
@@ -175,14 +192,20 @@ class SafeMultiplexedBus(AbstractBus):
         is_critical_command: bool = False,
         user_confirmed: bool = False,
         budget_category: str = "default",
+        confirmation_token: bytes | str | None = None,
+        inbound_triggered: bool = False,
     ) -> None:
         """Asynchronously transmit frame conforming to TxPort protocol."""
-        await self.gateway.send(
-            frame,
-            is_critical_command=is_critical_command,
-            user_confirmed=user_confirmed,
-            budget_category=budget_category,
-        )
+        kwargs: dict[str, object] = {
+            "is_critical_command": is_critical_command,
+            "user_confirmed": user_confirmed,
+            "budget_category": budget_category,
+        }
+        if confirmation_token is not None:
+            kwargs["confirmation_token"] = confirmation_token
+        if inbound_triggered:
+            kwargs["inbound_triggered"] = inbound_triggered
+        await self.gateway.send(frame, **kwargs)
 
     DEFAULT_RECV_TIMEOUT_S: ClassVar[float] = 1.0
 

@@ -232,10 +232,17 @@ def test_safety_wiring_nominal_transmission_allowed() -> None:
     SafeMultiplexedBus transmits successfully to the physical bus.
     """
     harness = SafetyWiringHarness(whitelist_ids={0x7E0})
+    # T47-B (P2/G-2): `02 10 01` is a DiagnosticSessionControl request, which the
+    # gateway now classifies as critical from the frame itself. A fresh,
+    # stationary PHYSICAL sample is therefore required (and is what a real bus
+    # provides), so this nominal-path test keeps exercising the happy path.
+    harness.gateway.update_physical_speed(0.0)
     frame = CanFrame.create(channel_id="vcan_test", arbitration_id=0x7E0, data=b"\x02\x10\x01\x00\x00\x00\x00\x00")
 
     # Send synchronously via SafeMultiplexedBus
-    harness.safe_bus.send(frame)
+    # T47-B (P2/G-2 + Stage 5): the derived-critical frame also needs the
+    # operator dual-confirmation the real diagnostic path supplies.
+    harness.safe_bus.send(frame, user_confirmed=True)
 
     # Frame should have reached physical bus
     assert len(harness.bus.sent_frames) == 1
@@ -249,10 +256,14 @@ def test_safety_wiring_estop_trigger_blocks_gateway_and_cuts_off_tx() -> None:
     blocks TxSafetyGateway, and cuts off SafeMultiplexedBus transmissions.
     """
     harness = SafetyWiringHarness(whitelist_ids={0x7E0})
+    # T47-B (P2/G-2): frame-derived criticality — feed a fresh stationary sample
+    # so the baseline frame passes and the assertion below still isolates the
+    # E-Stop cut-off rather than the speed interlock.
+    harness.gateway.update_physical_speed(0.0)
     frame = CanFrame.create(channel_id="vcan_test", arbitration_id=0x7E0, data=b"\x02\x10\x01")
 
     # Baseline: 1 frame passes
-    harness.safe_bus.send_sync(frame)
+    harness.safe_bus.send_sync(frame, user_confirmed=True)
     assert len(harness.bus.sent_frames) == 1
 
     # Trigger E-Stop
@@ -281,10 +292,13 @@ def test_safety_wiring_estop_trigger_blocks_gateway_and_cuts_off_tx() -> None:
 async def test_safety_wiring_async_send_blocked_by_estop() -> None:
     """Verify asynchronous send_async on SafeMultiplexedBus is cut off when E-Stop is triggered."""
     harness = SafetyWiringHarness(whitelist_ids={0x7E0})
+    # T47-B (P2/G-2): fresh stationary physical sample for the frame-derived
+    # critical `02 10 01` baseline.
+    harness.gateway.update_physical_speed(0.0)
     frame = CanFrame.create(channel_id="vcan_test", arbitration_id=0x7E0, data=b"\x02\x10\x01")
 
     # Baseline: async send succeeds
-    await harness.safe_bus.send_async(frame)
+    await harness.safe_bus.send_async(frame, user_confirmed=True)
     assert len(harness.bus.sent_frames) == 1
 
     # Trigger E-Stop
@@ -305,6 +319,9 @@ def test_safety_wiring_watchdog_expiration_cascade() -> None:
     """
     # Fast 80ms watchdog timeout for test responsiveness
     harness = SafetyWiringHarness(watchdog_timeout_ms=80.0, whitelist_ids={0x7E0})
+    # T47-B (P2/G-2): frame-derived criticality — fresh stationary sample so the
+    # frame passes before the watchdog is expired.
+    harness.gateway.update_physical_speed(0.0)
     frame = CanFrame.create(channel_id="vcan_test", arbitration_id=0x7E0, data=b"\x02\x10\x01")
 
     try:
@@ -315,7 +332,7 @@ def test_safety_wiring_watchdog_expiration_cascade() -> None:
 
         # Confirm TX still permitted
         assert harness.watchdog.is_lease_valid is True
-        harness.safe_bus.send(frame)
+        harness.safe_bus.send(frame, user_confirmed=True)
         assert len(harness.bus.sent_frames) == 1
 
         # Now simulate UI freeze / heartbeat stop: advance virtual time past
@@ -399,14 +416,21 @@ def test_safety_wiring_desktop_api_bridge_estop_and_recovery_flow() -> None:
     app = UniversalCanDesktopApp(channel="vcan_bridge", bitrate=500000, bus=mock_bus)
     bridge = DesktopApiBridge(app)
 
-    # Arm transmission for test
-    app.supervisor.transition_to(SafetyState.ARMED_TX, reason="Operator authorized")
+    # T47-B (P2/G-2 + P3/G-3): `02 10 01` is now critical by frame content, so a
+    # fresh stationary PHYSICAL speed sample is required, and arming the
+    # supervisor needs a single-use HMAC token (the supervisor has an
+    # auth_secret wired by the composition root).
+    app.gateway.update_physical_speed(0.0)
+    app.supervisor.arm_tx(reason="Operator authorized", auth_token=app._mint_arm_token())
     safe_bus = SafeMultiplexedBus(physical_bus=mock_bus, gateway=app.gateway, router=app.router)
 
     frame = CanFrame.create(channel_id="vcan_bridge", arbitration_id=0x7E0, data=b"\x02\x10\x01")
 
     # 1. Baseline TX succeeds
-    safe_bus.send(frame)
+    # T47-B (P3/G-3): the composition root wires GATEWAY_CONFIRM_SECRET, so a
+    # derived-critical frame needs the gateway-issued single-use HMAC
+    # confirmation token as well as the operator boolean.
+    safe_bus.send(frame, user_confirmed=True, confirmation_token=app._confirm_token_for(0x7E0))
     assert len(mock_bus.sent_frames) == 1
 
     # 2. Trigger E-Stop from UI Bridge
@@ -437,9 +461,10 @@ def test_safety_wiring_desktop_api_bridge_estop_and_recovery_flow() -> None:
     assert challenge_res.get("success") is True
     # Independently mint the authorized token from the challenge (models the
     # out-of-band authorization operator, e.g. a second station signing it).
+    # T47-B (P4/E-1): the authority REQUIRES an independent provider.
     from src.safety.estop import EStopResetAuthority
 
-    authority = EStopResetAuthority(app.estop)
+    authority = EStopResetAuthority(app.estop, secret_provider=app.estop.reset_authority_provider())
     token = authority.mint_reset_token()
     assert token is not None
     reset_res = bridge.estop_submit_reset_token(token.to_token_string())
@@ -453,11 +478,13 @@ def test_safety_wiring_desktop_api_bridge_estop_and_recovery_flow() -> None:
     assert exc_info.value.code == "SAFETY_STATE_BLOCKED"
 
     # 5. Explicitly transition to ARMED_TX after recovery
-    app.supervisor.arm_tx()
+    # T47-B (P3/G-3): the supervisor has an auth_secret, so arming requires a
+    # single-use token — the trusted composition root mints it (not the bridge).
+    app.supervisor.arm_tx(auth_token=app._mint_arm_token())
     assert app.supervisor.is_tx_permitted is True
 
     # 6. TX resumes successfully
-    safe_bus.send(frame)
+    safe_bus.send(frame, user_confirmed=True, confirmation_token=app._confirm_token_for(0x7E0))
     assert len(mock_bus.sent_frames) == 2
 
 

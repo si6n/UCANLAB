@@ -184,15 +184,34 @@ class EmergencyStopSystem:
             self._secret_provider = get_default_secret_provider()
 
         # Ensure a valid key exists in the provider; if not, generate a dynamic 256-bit key
+        self._protection_downgraded: bool = False
         if not self._secret_provider.has_secret(self._key_name):
             try:
                 self._secret_provider.store_secret(self._key_name, os.urandom(32))
             except Exception as exc:
-                logger.warning(
-                    "Failed to persist initial E-Stop secret, using ephemeral fallback",
-                    extra={"error": str(exc)},
+                # P17 (E-5): an ephemeral fallback means the reset secret is
+                # process-local and does NOT survive a restart — the audit
+                # trail/protection level silently weakens. Report at CRITICAL
+                # (not WARNING) and expose the downgrade so the UI can banner it.
+                self._protection_downgraded = True
+                logger.critical(
+                    "Failed to persist initial E-Stop secret — falling back to an "
+                    "EPHEMERAL, process-local key (reset tokens will not survive a "
+                    "restart; protection level downgraded)",
+                    extra={"error": str(exc), "key_name": self._key_name},
                 )
                 self._secret_provider = EphemeralSecretBackend({self._key_name: os.urandom(32)})
+        # P5 (E-2): resolve the HMAC secret ONCE at construction. `reset()` used
+        # to call `_get_secret()` while holding `self._lock`, which runs file
+        # I/O + AES-GCM/DPAPI decryption under the SAME lock that `trigger()`
+        # and `is_engaged` need — a slow/hung secret store delayed E-Stop
+        # engagement. The secret is cached here; `refresh_secret()` is the
+        # explicit, controlled path for a key rotation.
+        self._cached_secret: bytes | None = self._load_secret()
+        # P17 (E-5) / B11: the provider version observed at the last successful
+        # load, so a rotation performed through the provider (not through
+        # `refresh_secret()`) is still detected by `_get_secret()`.
+        self._cached_secret_version: int = self._provider_version()
 
         self._is_engaged = False
         self._last_event: EStopEvent | None = None
@@ -286,8 +305,12 @@ class EmergencyStopSystem:
         """Return the bound SecretProvider instance."""
         return self._secret_provider
 
-    def _get_secret(self) -> bytes:
-        """Internal secret resolver (private — no public accessor by design)."""
+    def _load_secret(self) -> bytes | None:
+        """Resolve the HMAC secret from the provider (I/O; call OUTSIDE `_lock`).
+
+        P5 (E-2): split out of `_get_secret` so the expensive file I/O +
+        decryption never runs while the E-Stop lock is held.
+        """
         try:
             return self._secret_provider.get_secret(self._key_name)
         except Exception as exc:
@@ -296,6 +319,69 @@ class EmergencyStopSystem:
                 code="ESTOP_RESET_DENIED",
                 cause=exc,
             ) from exc
+
+    def _provider_version(self) -> int:
+        """Revision counter of the bound SecretProvider (P5 / E-2 rotation probe).
+
+        Providers that expose their mutation revision (`revision`) are tracked so
+        a key rotation performed out-of-band is still noticed by `_get_secret()`.
+        A provider without the attribute is treated as version 0 — the cache is
+        then only refreshed by the explicit `refresh_secret()` path.
+        """
+        return int(getattr(self._secret_provider, "revision", 0))
+
+    def _get_secret(self) -> bytes:
+        """Return the cached HMAC secret (leaf operation, safe under `_lock`).
+
+        P5 (E-2): the provider I/O happened once in __init__ (`_load_secret`);
+        `reset()` now only reads a cached bytes object while holding the lock,
+        so a slow/hung secret store can no longer delay `trigger()` /
+        `is_engaged`.
+
+        Rotation safety: if the provider advertises a changed `revision`, the
+        secret is re-read EXACTLY ONCE under the lock, so a rotated key still
+        invalidates tokens minted with the old one. In the steady state (no
+        rotation) no provider I/O happens while the lock is held.
+        """
+        secret = self._cached_secret
+        if secret is None or self._provider_version() != self._cached_secret_version:
+            secret = self._load_secret()
+            self._cached_secret = secret
+            self._cached_secret_version = self._provider_version()
+        if secret is None:
+            raise SafetyError(
+                "E-Stop HMAC secret is not loaded — call refresh_secret()",
+                code="ESTOP_RESET_DENIED",
+            )
+        return secret
+
+    def refresh_secret(self) -> bytes:
+        """Re-read the HMAC secret from the provider (explicit key rotation).
+
+        Performs the provider I/O OUTSIDE the E-Stop lock and atomically swaps
+        the cached value, so rotation never widens the lock-hold window.
+        """
+        fresh = self._load_secret()
+        with self._lock:
+            self._cached_secret = fresh
+            self._cached_secret_version = self._provider_version()
+        return fresh
+
+    @property
+    def protection_downgraded(self) -> bool:
+        """True when the E-Stop secret fell back to a process-local key (P17)."""
+        return self._protection_downgraded
+
+    def reset_authority_provider(self, key_name: str = DEFAULT_ESTOP_KEY_NAME) -> SecretProvider:
+        """P4 (E-1): an INDEPENDENT provider for `EStopResetAuthority`.
+
+        The authority must not be able to fall back to the enforcement
+        object's provider (that fallback made the ISO 26262 mint/verify
+        separation nominal). This returns a fresh in-process provider seeded
+        with a copy of the current secret so the authority can still mint a
+        verifiable challenge response, without sharing the enforcement store.
+        """
+        return EphemeralSecretBackend({key_name: bytes(self._get_secret())})
 
     def get_reset_nonce(self) -> bytes:
         """Return the single-use cryptographic challenge nonce for the current E-Stop engagement."""
@@ -512,6 +598,17 @@ class EmergencyStopSystem:
             except Exception as exc:
                 logger.error("Error in E-Stop abort hook", extra={"error": str(exc)})
 
+    @staticmethod
+    def _looks_well_formed_signature(sig: str) -> bool:
+        """Cheap shape check for a submitted reset signature (P14 / E-3).
+
+        Only the canonical 64-hex-char SHA-256 digest can possibly verify, so a
+        shape-mismatched input can be rejected without the HMAC. This is NOT a
+        credential check.
+        """
+        candidate = sig.strip() if isinstance(sig, str) else ""
+        return len(candidate) == SIG_HEX_LEN and _is_hex(candidate)
+
     def _reset_failure(self, reason: str, sig_prefix: str = "") -> SafetyError:
         """Record a failed reset: counter + exponential backoff + audit log.
 
@@ -670,6 +767,25 @@ class EmergencyStopSystem:
                 raise self._reset_failure("E-Stop reset token timestamp expired", sig)
 
             # 7. Constant-Time HMAC Signature Verification
+            #
+            # P14 (E-3): the backoff used to be consulted only AFTER the full
+            # HMAC was computed, so it relabelled the error without saving any
+            # CPU. A cheap shape/credential gate now runs first: while the
+            # cooldown is armed, a submitted signature that is NOT a
+            # well-shaped hex credential matching the current challenge
+            # structure cannot possibly be valid, so it is rejected here.
+            #
+            # The gate is deliberately NOT a credential check: a VALID operator
+            # token presented during the cooldown still reaches the HMAC below
+            # and is accepted (a real credential is never punished by a lockout
+            # — otherwise an attacker could DoS the operator). Only the
+            # expensive HMAC for garbage input is skipped.
+            if (
+                now_monotonic_ns < self._reset_backoff_until_ns
+                and not self._looks_well_formed_signature(sig)
+            ):
+                raise self._reset_failure("E-Stop reset rate-limited (backoff active)", sig)
+
             secret = self._get_secret()
             structured_payload = challenge.serialize_for_signature()
             expected_sig_bytes = hmac.new(secret, structured_payload, hashlib.sha256).digest()
@@ -730,17 +846,35 @@ class EStopResetAuthority:
     (`EmergencyStopSystem`) does not mint the credential that clears it.
     This authority holds its own access to the SecretProvider key and
     signs challenges directly. The shared enforcement object is NEVER elevated.
+
+    P4 (E-1): the previous implementation defaulted `secret_provider` to
+    `estop._secret_provider`, so the "independent" authority transparently
+    reused the enforcement object's store and the separation was nominal.
+    The provider is now a REQUIRED, distinct argument; sharing the enforcement
+    provider fails closed with `ESTOP_AUTHORITY_NOT_INDEPENDENT`.
     """
 
     def __init__(
         self,
         estop: EmergencyStopSystem,
-        secret_provider: SecretProvider | None = None,
+        secret_provider: SecretProvider,
         key_name: str = DEFAULT_ESTOP_KEY_NAME,
     ) -> None:
+        if secret_provider is None:
+            raise SafetyError(
+                "EStopResetAuthority requires an independent secret_provider "
+                "(the enforcement object's provider must not be reused)",
+                code="ESTOP_AUTHORITY_NOT_INDEPENDENT",
+            )
+        if secret_provider is estop._secret_provider:
+            raise SafetyError(
+                "EStopResetAuthority must not share the enforcement object's "
+                "SecretProvider — mint/verify separation would be nominal",
+                code="ESTOP_AUTHORITY_NOT_INDEPENDENT",
+            )
         self._estop = estop
         self._key_name = key_name
-        self._secret_provider = secret_provider or estop._secret_provider
+        self._secret_provider = secret_provider
 
     @property
     def estop(self) -> EmergencyStopSystem:
@@ -777,19 +911,3 @@ class EStopResetAuthority:
             action=challenge.action,
             signature=sig,
         )
-
-    def compute_reset_token(
-        self,
-        nonce: bytes | str | None = None,
-        epoch: int | None = None,
-        timestamp_ns: int | None = None,
-        action: str = "ESTOP_RESET",
-    ) -> str:
-        """Authorization helper producing a valid reset token string or signature."""
-        secret = self._secret_provider.get_secret(self._key_name)
-        if nonce is None:
-            token = self.mint_reset_token()
-            return token.to_token_string() if token is not None else ""
-
-        nonce_bytes = nonce.encode("utf-8") if isinstance(nonce, str) else (nonce or b"")
-        return hmac.new(secret, nonce_bytes, hashlib.sha256).hexdigest()

@@ -73,7 +73,8 @@ def test_estop_request_reset_challenge_flow() -> None:
     assert challenge2.nonce == challenge1.nonce
 
     # Authority mints token and clears
-    auth = EStopResetAuthority(estop, secret_provider=provider)
+    # T47-B (P4/E-1): the authority must be given an INDEPENDENT provider.
+    auth = EStopResetAuthority(estop, secret_provider=estop.reset_authority_provider())
     token = auth.mint_reset_token()
     assert token is not None
     estop.reset(token)
@@ -143,7 +144,8 @@ def test_flasher_empty_transfer_data_rejected() -> None:
     gateway.supervisor.is_tx_permitted = True
     gateway.watchdog.is_lease_valid = True
     gateway.SPEED_NOISE_THRESHOLD_KMH = 0.5
-    gateway._current_vehicle_speed_kmh = 0.0
+    # T47-B (P1/G-1): interlock reads the PHYSICAL channel.
+    gateway._physical_speed_kmh = 0.0
     gateway._last_speed_update_ns = 1
 
     engine = EcuFlashingEngine(uds_client=mock_client, gateway=gateway)

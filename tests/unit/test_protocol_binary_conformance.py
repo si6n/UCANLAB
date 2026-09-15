@@ -98,7 +98,9 @@ def test_uds_transfer_data_block_sequence_wraparound_to_zero() -> None:
     mock_gateway.supervisor.is_tx_permitted = True
     mock_gateway.watchdog.is_lease_valid = True
     mock_gateway.SPEED_NOISE_THRESHOLD_KMH = 0.5
-    mock_gateway._current_vehicle_speed_kmh = 0.0
+    # T47-B (P1/G-1): interlock reads the PHYSICAL channel; the display
+    # attribute is read-only on the real gateway.
+    mock_gateway._physical_speed_kmh = 0.0
     mock_gateway._last_speed_update_ns = 1
 
     engine = EcuFlashingEngine(uds_client=mock_client, gateway=mock_gateway)
@@ -145,7 +147,9 @@ def test_uds_flashing_failure_triggers_best_effort_recovery() -> None:
     mock_gateway.supervisor.is_tx_permitted = True
     mock_gateway.watchdog.is_lease_valid = True
     mock_gateway.SPEED_NOISE_THRESHOLD_KMH = 0.5
-    mock_gateway._current_vehicle_speed_kmh = 0.0
+    # T47-B (P1/G-1): interlock reads the PHYSICAL channel; the display
+    # attribute is read-only on the real gateway.
+    mock_gateway._physical_speed_kmh = 0.0
     mock_gateway._last_speed_update_ns = 1
     engine = EcuFlashingEngine(uds_client=mock_client, gateway=mock_gateway)
 

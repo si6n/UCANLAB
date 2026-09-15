@@ -414,6 +414,13 @@ def test_estop_reset_secret_property_resolution() -> None:
     assert not hasattr(estop, "reset_secret")
 
     # 2. EStopResetAuthority.reset_secret must resolve the secret.
-    authority = EStopResetAuthority(estop)
+    #
+    # T47-B (P4/E-1) — BEHAVIOUR CHANGE, deliberately: the authority used to
+    # default to (and share) the enforcement object's provider, which made the
+    # ISO 26262 mint/verify separation nominal. The provider is now a REQUIRED,
+    # distinct argument. The enforcement object still exposes its own provider
+    # for wiring/introspection, but the authority must receive a *different*
+    # one (see EmergencyStopSystem.reset_authority_provider()).
+    authority = EStopResetAuthority(estop, secret_provider=estop.reset_authority_provider())
     assert authority.reset_secret == secret
-    assert authority.secret_provider is estop.secret_provider
+    assert authority.secret_provider is not estop.secret_provider

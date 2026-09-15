@@ -302,7 +302,7 @@ class EcuFlashingEngine:
             last_update_ns = getattr(self.gateway, "_last_speed_update_ns", None)
             if not isinstance(last_update_ns, int) or last_update_ns == 0:
                 raise SafetyError("Hız telemetrisi yok/taze değil — hareketli araçta flashing reddedildi.")
-            speed = getattr(self.gateway, "_current_vehicle_speed_kmh", 0.0)
+            speed = getattr(self.gateway, "_physical_speed_kmh", 0.0)
             threshold = getattr(self.gateway, "SPEED_NOISE_THRESHOLD_KMH", 0.5)
             if not isinstance(speed, (int, float)) or isinstance(speed, bool):
                 raise SafetyError("Hız telemetrisi geçersiz (non-numeric) — flashing reddedildi.")

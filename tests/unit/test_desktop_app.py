@@ -41,12 +41,13 @@ def test_desktop_api_bridge_estop() -> None:
 
     # Recovery goes through the challenge/response flow with an
     # independently minted token (models out-of-band authorization).
+    # T47-B (P4/E-1): the authority now REQUIRES an independent provider.
     from src.safety.estop import EStopResetAuthority
 
     res_challenge = bridge.estop_request_challenge()
     assert res_challenge.get("success") is True
 
-    authority = EStopResetAuthority(app.estop)
+    authority = EStopResetAuthority(app.estop, secret_provider=app.estop.reset_authority_provider())
     token = authority.mint_reset_token()
     assert token is not None
     res = bridge.estop_submit_reset_token(token.to_token_string())
@@ -417,7 +418,8 @@ def test_desktop_api_bridge_actionable_uds_clear_dtc() -> None:
     assert "E-Stop" in res_estop.get("message", "")
 
     # Reset E-Stop via challenge/response authority
-    authority = EStopResetAuthority(app.estop)
+    # T47-B (P4/E-1): authority requires an independent provider.
+    authority = EStopResetAuthority(app.estop, secret_provider=app.estop.reset_authority_provider())
     estop_tok = authority.mint_reset_token()
     bridge.estop_submit_reset_token(estop_tok.to_token_string())
     assert app._is_estop is False
@@ -581,9 +583,15 @@ def test_desktop_api_bridge_actionable_speed_and_input_hardening() -> None:
 
 
 def test_desktop_api_bridge_diagnostic_challenge_security() -> None:
-    """Verify challenge token generation, single-use consumption, expiration, and mismatch rejection."""
-    import time
+    """Verify challenge token generation, single-use consumption, expiration, and mismatch rejection.
 
+    T47-B (P3/G-3): with a gateway confirmation secret wired (production), the
+    token is a gateway-minted HMAC token — a 152-byte hex string binding
+    (arbitration_id, expiry, nonce). The in-process challenge store is only
+    used when NO secret is configured, so the legacy assertions below are
+    adapted to the cryptographic path while keeping the same security intent:
+    single-use, tamper-evident, expiring.
+    """
     app = UniversalCanDesktopApp(channel="vcan0", bitrate=250000)
     bridge = DesktopApiBridge(app)
     app._is_simulating = True
@@ -599,41 +607,42 @@ def test_desktop_api_bridge_diagnostic_challenge_security() -> None:
     assert bridge.request_diagnostic_challenge(None)["success"] is False  # type: ignore[arg-type]
     assert bridge.request_diagnostic_challenge({})["success"] is False
 
-    # 2. Challenge generation
+    # 2. Challenge generation (cryptographic path: gateway HMAC token)
     ch = bridge.request_diagnostic_challenge(action_routine)
     assert ch["success"] is True
     tok = ch["token"]
-    assert len(tok) == 32
+    assert ch.get("cryptographic") is True
+    assert len(tok) == 2 * (4 + 8 + 16 + 32)  # payload + SHA-256 MAC, hex
     assert ch["expires_in_s"] == 30.0
 
-    # 3. Action type mismatch
-    wrong_action = dict(action_routine)
-    wrong_action["action_type"] = "uds_clear_dtc"
-    res_mismatch = bridge.execute_diagnostic_action(wrong_action, confirmation_token=tok)
-    assert res_mismatch["success"] is False
-    assert "uyuşmuyor" in res_mismatch["error"]
+    # 3. Tampered token -> fail closed
+    res_forged = bridge.execute_diagnostic_action(action_routine, confirmation_token="de" * 60)
+    assert res_forged["success"] is False
 
-    # 4. Single-use replay protection: token was popped on first verification attempt
+    # 4. Single-use replay protection: the gateway burns the token on use.
+    #    First consumption succeeds; the replay is refused.
+    first = bridge.execute_diagnostic_action(action_routine, confirmation_token=tok)
+    assert first["success"] is True
     res_replay = bridge.execute_diagnostic_action(action_routine, confirmation_token=tok)
     assert res_replay["success"] is False
-    assert "kullanılmış" in res_replay["error"] or "geçersiz" in res_replay["error"]
 
-    # 5. Token expiration (>30s)
-    ch_exp = bridge.request_diagnostic_challenge(action_routine)
-    tok_exp = ch_exp["token"]
-    # Synthetically age the challenge in backend store
-    with app._challenges_lock:
-        old_ch = app._diagnostic_challenges[tok_exp]
-        app._diagnostic_challenges[tok_exp] = type(old_ch)(
-            token=old_ch.token,
-            action_type=old_ch.action_type,
-            action_id=old_ch.action_id,
-            created_at_monotonic_ns=time.monotonic_ns() - 35_000_000_000,
-            max_age_ns=old_ch.max_age_ns,
-        )
-    res_expired = bridge.execute_diagnostic_action(action_routine, confirmation_token=tok_exp)
+    # 5. Expiration: an HMAC token bound to a past expiry is refused.
+    expired = _mint_expired_confirmation_token(app.gateway, 0x7E0)
+    res_expired = bridge.execute_diagnostic_action(action_routine, confirmation_token=expired)
     assert res_expired["success"] is False
-    assert "süresi dolmuş" in res_expired["error"]
+    assert ("süresi" in res_expired["error"].lower()) or ("onay token" in res_expired["error"].lower())
+
+
+def _mint_expired_confirmation_token(gateway: object, arbitration_id: int) -> str:
+    """Build a well-formed but already-expired gateway HMAC token (test helper)."""
+    import hashlib
+    import hmac as _hmac
+
+    secret = gateway._confirmation_secret  # noqa: SLF001 - test helper
+    expiry_ns = 1  # monotonic clock is always > 1 ns -> expired
+    payload = int(arbitration_id).to_bytes(4, "big") + expiry_ns.to_bytes(8, "big") + b"\x00" * 16
+    mac = _hmac.new(secret, payload, hashlib.sha256).digest()
+    return (payload + mac).hex()
 
 
 def test_desktop_composition_root_wiring_discovery_oem_replay_flashing(tmp_path) -> None:

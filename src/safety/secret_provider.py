@@ -179,6 +179,10 @@ class EphemeralSecretBackend(SecretProvider):
     def __init__(self, secrets: dict[str, bytes] | None = None) -> None:
         self._secrets: dict[str, bytes] = dict(secrets) if secrets is not None else {}
         self._lock = threading.RLock()
+        # T47-B (P5/E-2): mutation revision. `EmergencyStopSystem` caches the
+        # HMAC secret (to keep provider I/O out of the E-Stop lock) and uses
+        # this counter to notice a key rotation that happened out-of-band.
+        self.revision: int = 0
 
     def get_secret(self, name: str) -> bytes:
         with self._lock:
@@ -194,17 +198,20 @@ class EphemeralSecretBackend(SecretProvider):
         with self._lock:
             _check_secret_bounds(name, bytes(secret), len(self._secrets) + (0 if name in self._secrets else 1))
             self._secrets[name] = bytes(secret)
+            self.revision += 1
 
     def delete_secret(self, name: str) -> None:
         with self._lock:
             if name not in self._secrets:
                 raise KeyError(f"Secret '{name}' not found in {self.__class__.__name__}")
             del self._secrets[name]
+            self.revision += 1
 
     def clear(self) -> None:
         """Clear all stored in-memory secrets."""
         with self._lock:
             self._secrets.clear()
+            self.revision += 1
 
     def list_secrets(self) -> list[str]:
         with self._lock:

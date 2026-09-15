@@ -151,6 +151,7 @@ class UdsClient:
         self,
         session_type: DiagnosticSessionType,
         user_confirmed: bool = False,
+        confirmation_token: bytes | str | None = None,
     ) -> UdsResponse:
         """Switch diagnostic session (0x10).
 
@@ -158,6 +159,9 @@ class UdsClient:
         critical — most OEMs gate IOControl (0x2F) / Routine (0x31) behind
         the extended session, so entering it onaysız must not be possible.
         Dual confirmation still defaults to not-granted.
+
+        T47-B (P3/G-3): `confirmation_token` carries the gateway-issued HMAC
+        proof for the critical session transitions.
         """
         # REVIEW hardening: EXTENDED is a privilege-escalation stepping
         # stone (0x2F/0x31 gating) — it joins the critical list.
@@ -168,7 +172,10 @@ class UdsClient:
         )
         req_payload = UdsServiceBuilder.build_diagnostic_session_control(session_type)
         return self._send_and_receive(
-            req_payload, is_critical_command=is_critical, user_confirmed=user_confirmed
+            req_payload,
+            is_critical_command=is_critical,
+            user_confirmed=user_confirmed,
+            confirmation_token=confirmation_token,
         )
 
     def security_access_request_seed(self, level: int = 1, user_confirmed: bool = False) -> UdsResponse:
@@ -195,14 +202,25 @@ class UdsClient:
         req_payload = UdsServiceBuilder.build_read_data_by_identifier(did)
         return self._send_and_receive(req_payload)
 
-    def clear_dtc(self, dtc_group: int = 0xFFFFFF, user_confirmed: bool = False) -> UdsResponse:
+    def clear_dtc(
+        self,
+        dtc_group: int = 0xFFFFFF,
+        user_confirmed: bool = False,
+        confirmation_token: bytes | str | None = None,
+    ) -> UdsResponse:
         """Clear Diagnostic Information (0x14) - Critical command.
 
         Requires explicit operator confirmation; dual confirmation is NOT
-        granted by default.
+        granted by default. T47-B (P3/G-3): `confirmation_token` carries the
+        gateway-issued HMAC proof when a confirmation secret is wired.
         """
         req_payload = UdsServiceBuilder.build_clear_diagnostic_information(dtc_group)
-        return self._send_and_receive(req_payload, is_critical_command=True, user_confirmed=user_confirmed)
+        return self._send_and_receive(
+            req_payload,
+            is_critical_command=True,
+            user_confirmed=user_confirmed,
+            confirmation_token=confirmation_token,
+        )
 
     def write_did(self, did: int, data: bytes, user_confirmed: bool = False) -> UdsResponse:
         """Write Data Identifier (0x2E) - Critical command.
@@ -337,14 +355,25 @@ class UdsClient:
             req_payload, is_critical_command=True, user_confirmed=user_confirmed
         )
 
-    def ecu_reset(self, reset_type: int = 0x01, user_confirmed: bool = False) -> UdsResponse:
+    def ecu_reset(
+        self,
+        reset_type: int = 0x01,
+        user_confirmed: bool = False,
+        confirmation_token: bytes | str | None = None,
+    ) -> UdsResponse:
         """ECU Reset (0x11) - Critical command.
 
         Requires explicit operator confirmation; dual confirmation is NOT
-        granted by default.
+        granted by default. T47-B (P3/G-3): `confirmation_token` carries the
+        gateway-issued HMAC proof when a confirmation secret is wired.
         """
         req_payload = UdsServiceBuilder.build_ecu_reset(reset_type=reset_type)
-        return self._send_and_receive(req_payload, is_critical_command=True, user_confirmed=user_confirmed)
+        return self._send_and_receive(
+            req_payload,
+            is_critical_command=True,
+            user_confirmed=user_confirmed,
+            confirmation_token=confirmation_token,
+        )
 
     def start_routine(self, routine_id: int, options: bytes = b"", user_confirmed: bool = False) -> UdsResponse:
         """Start ECU Routine (0x31) - Critical command.
@@ -379,6 +408,7 @@ class UdsClient:
         payload: bytes,
         is_critical_command: bool = False,
         user_confirmed: bool = False,
+        confirmation_token: bytes | str | None = None,
     ) -> None:
         """Transmit a UDS payload through the TxPort.
 
@@ -396,11 +426,24 @@ class UdsClient:
 
         if len(frames) <= 1:
             for frame in frames:
-                self._tx_frame(frame, is_critical_command, user_confirmed)
+                # P3/G-3: `confirmation_token` is passed positionally-compatibly
+                # only when present, so lightweight TxPort doubles that stub
+                # `_tx_frame` with the historical 3/4-arg signature keep working.
+                if confirmation_token is None:
+                    self._tx_frame(frame, is_critical_command, user_confirmed)
+                else:
+                    self._tx_frame(
+                        frame, is_critical_command, user_confirmed, confirmation_token=confirmation_token
+                    )
             return
 
         # Multi-frame: FF first, then FC-gated CF transmission.
-        self._tx_frame(frames[0], is_critical_command, user_confirmed)
+        if confirmation_token is None:
+            self._tx_frame(frames[0], is_critical_command, user_confirmed)
+        else:
+            self._tx_frame(
+                frames[0], is_critical_command, user_confirmed, confirmation_token=confirmation_token
+            )
         self._send_consecutive_frames_flow_controlled(
             frames[1:], payload, is_critical_command, user_confirmed
         )
@@ -411,6 +454,7 @@ class UdsClient:
         is_critical_command: bool,
         user_confirmed: bool,
         budget_category: str = "protocol_burst",
+        confirmation_token: bytes | str | None = None,
     ) -> None:
         """Send one frame through the gateway TxPort choke-point.
 
@@ -418,14 +462,20 @@ class UdsClient:
         lane by default — a 256-byte 0x36 block is ~37 CFs which would
         otherwise slam into the 100 msg/s default-lane wall and, pre-P1-9,
         engage a permanent E-Stop (self-DoS mid-flash).
+
+        T47-B (P3/G-3): `confirmation_token` is forwarded to a gateway that has
+        a confirmation secret configured, so critical single-frame requests can
+        present HMAC proof instead of relying on the `user_confirmed` boolean.
         """
         if hasattr(self.tx_port, "validate_and_transmit"):
-            self.tx_port.validate_and_transmit(
-                frame,
-                is_critical_command=is_critical_command,
-                user_confirmed=user_confirmed,
-                budget_category=budget_category,
-            )
+            kwargs: dict[str, object] = {
+                "is_critical_command": is_critical_command,
+                "user_confirmed": user_confirmed,
+                "budget_category": budget_category,
+            }
+            if confirmation_token is not None:
+                kwargs["confirmation_token"] = confirmation_token
+            self.tx_port.validate_and_transmit(frame, **kwargs)
         elif hasattr(self.tx_port, "send_sync") and not hasattr(self.tx_port, "validate_and_transmit"):
             # TxSafetyGateway-shaped port: honour the category-aware lane.
             try:
@@ -624,6 +674,7 @@ class UdsClient:
         timeout_s: float = 2.0,
         is_critical_command: bool = False,
         user_confirmed: bool = False,
+        confirmation_token: bytes | str | None = None,
     ) -> UdsResponse:
         """Send segmented UDS request and wait for complete ISO-TP reassembled response.
 
@@ -641,7 +692,12 @@ class UdsClient:
             )
 
         with self._operation_lock:
-            self._send_payload(payload, is_critical_command=is_critical_command, user_confirmed=user_confirmed)
+            self._send_payload(
+                payload,
+                is_critical_command=is_critical_command,
+                user_confirmed=user_confirmed,
+                confirmation_token=confirmation_token,
+            )
 
             start_time = time.monotonic()
             deadline = start_time + timeout_s

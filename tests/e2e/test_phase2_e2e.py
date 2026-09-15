@@ -142,9 +142,15 @@ def test_tier1_txport_gateway_can_frame_transmission() -> None:
     """Tier 1.1.1: Verify CanFrame transmission through TxSafetyGateway with valid whitelist."""
     bus = MockMemoryBus()
     gateway = TxSafetyGateway(bus=bus, whitelist_ids={0x7E0})
+    # T47-B (P2/G-2): the gateway now DERIVES criticality from the frame, so a
+    # whitelisted `02 10 01` (DiagnosticSessionControl) is critical even with
+    # the caller flag left at its default — and a critical command requires a
+    # fresh physical speed sample. Feed a stationary vehicle so this plumbing
+    # test still measures transmission, not the interlock.
+    gateway.update_physical_speed(0.0)
     frame = CanFrame.create(channel_id="c0", arbitration_id=0x7E0, data=b"\x02\x10\x01\x00\x00\x00\x00\x00")
 
-    result = gateway.validate_and_transmit(frame)
+    result = gateway.validate_and_transmit(frame, user_confirmed=True)
     assert result is True
     assert len(bus.sent_frames) == 1
     assert bus.sent_frames[0].arbitration_id == 0x7E0
@@ -1114,7 +1120,12 @@ def test_tier3_rate_budget_exhausted_and_moving_vehicle() -> None:
 
 
 def test_tier3_secret_provider_rotation_during_active_estop_challenge() -> None:
-    """Tier 3.8: SecretProvider key rotation invalidates tokens computed with old secret key."""
+    """Tier 3.8: SecretProvider key rotation invalidates tokens computed with old secret key.
+
+    T47-B (P5/E-2): the E-Stop caches its HMAC secret so provider I/O never runs
+    under `_lock`. Rotation is still honoured — `_get_secret()` re-reads the
+    provider whenever its `revision` counter changes.
+    """
     provider = EphemeralSecretBackend({"ESTOP_KEY": b"initial_secret_key_32_bytes_len!"})
     estop = EmergencyStopSystem(
         secret_provider=provider,
@@ -1166,6 +1177,11 @@ def test_tier3_canfd_extended_pdu_over_uds_with_whitelist_and_rate_limiter() -> 
     """Tier 3.10: Multi-frame CAN-FD UDS diagnostic session verified against whitelist and rate limits."""
     bus = MockMemoryBus()
     gateway = TxSafetyGateway(bus=bus, whitelist_ids={0x7E0})
+    # T47-B (P2/G-2): frame-derived criticality means these pseudo-random
+    # payloads can land on a critical UDS service byte (0x10/0x14/0x27/0x2E/...)
+    # and then legitimately require the physical speed interlock. Feed a fresh
+    # stationary sample so the test keeps measuring whitelist + rate limiting.
+    gateway.update_physical_speed(0.0)
 
     for i in range(10):
         frame = CanFrame.create(
@@ -1175,7 +1191,7 @@ def test_tier3_canfd_extended_pdu_over_uds_with_whitelist_and_rate_limiter() -> 
             is_fd=True,
             dlc=15,
         )
-        assert gateway.validate_and_transmit(frame) is True
+        assert gateway.validate_and_transmit(frame, user_confirmed=True) is True
 
     assert len(bus.sent_frames) == 10
 

@@ -361,11 +361,16 @@ def test_safety_gateway_synthetic_speed_does_not_overwrite_physical_freshness() 
     gateway.update_vehicle_speed(25.0, source="synthetic")
     assert gateway._last_speed_update_ns == physical_ts
 
-    # The synthetic 25 km/h value was recorded for telemetry display, but
-    # the interlock keeps evaluating against it (fail-closed: a recorded
-    # synthetic "moving" value must not read as safe-and-stationary).
-    assert gateway._current_vehicle_speed_kmh == 25.0
-    assert gateway.is_speed_fresh_and_safe() is False  # 25 km/h > noise threshold
+    # The synthetic 25 km/h value was recorded for telemetry display only.
+    # P1 (G-1): the INTERLOCK keeps evaluating against the last PHYSICAL
+    # sample (0.0 -> fresh-and-safe), while the display mirror shows the
+    # synthetic value. Before the fix the synthetic write overwrote the
+    # interlock value itself, which let a simulated stationary vehicle
+    # authorise a critical command against a real moving vehicle.
+    assert gateway._current_vehicle_speed_kmh == 25.0  # display mirror
+    assert gateway._display_speed_kmh == 25.0
+    assert gateway._physical_speed_kmh == 0.0  # interlock value untouched
+    assert gateway.is_speed_fresh_and_safe() is True
 
     bus.disconnect()
 
@@ -464,14 +469,20 @@ def test_safety_gateway_sliding_window_expiration() -> None:
 
 
 def test_safety_gateway_tx_port_protocol_conformance() -> None:
-    """Verify TxSafetyGateway implements TxPort (send and send_sync)."""
+    """Verify TxSafetyGateway implements TxPort (send and send_sync).
+
+    T47-B (P2/G-2): the frame is a read-only UDS 0x10-free payload, because the
+    gateway now DERIVES criticality from the frame contents — a whitelisted
+    `02 10 01` (DiagnosticSessionControl) would correctly require the physical
+    speed interlock and this port-conformance test only exercises plumbing.
+    """
     bus = VirtualBus(channel_id="safety_vbus_port")
     bus.connect()
     gateway = TxSafetyGateway(bus=bus, whitelist_ids={0x7E0})
 
     assert isinstance(gateway, TxPort)
 
-    frame = CanFrame.create(channel_id="c0", arbitration_id=0x7E0, data=b"\x02\x10\x01")
+    frame = CanFrame.create(channel_id="c0", arbitration_id=0x7E0, data=b"\x02\x3e\x00")
 
     # Synchronous TxPort entry
     gateway.send_sync(frame)

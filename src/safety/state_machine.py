@@ -103,6 +103,14 @@ class SafetySupervisor:
             )
         if auth_secret is not None and not isinstance(auth_secret, (bytes, bytearray)):
             raise TypeError("auth_secret must be bytes or None")
+        # P12 (S-3): symmetric with bind_estop — an object that does not expose
+        # `is_engaged` used to be accepted silently, and `transition_to`'s
+        # `getattr(..., "is_engaged", False)` then disabled the E-Stop guard
+        # without a word (fail-open). Fail loudly instead.
+        if estop is not None and not hasattr(estop, "is_engaged"):
+            raise TypeError(
+                f"estop requires an object with 'is_engaged', got {type(estop).__name__}"
+            )
         self._state = initial_state
         self._estop = estop
         self._estop_bound = estop is not None
@@ -365,7 +373,14 @@ class SafetySupervisor:
         return f"{expiry_ns}.{nonce.hex()}.{mac.hex()}"
 
     def _verify_arm_token(self, auth_token: str) -> None:
-        """Verify a presented arm token (fail-closed: expiry + single-use + HMAC)."""
+        """Verify a presented arm token (fail-closed: expiry + single-use + HMAC).
+
+        P6 (S-2): the check-then-append was NOT atomic — two threads presenting
+        the same token could both pass the `in self._consumed_arm_tokens` test
+        before either appended, breaking the single-use contract. The whole
+        verify+burn sequence now runs under the (re-entrant) state lock, so at
+        most one caller can spend a given token.
+        """
         assert self._auth_secret is not None
         token = auth_token.strip() if isinstance(auth_token, str) else ""
         parts = token.split(".")
@@ -379,11 +394,25 @@ class SafetySupervisor:
             expiry_ns = int(expiry_s)
             nonce = bytes.fromhex(nonce_hex)
             mac = bytes.fromhex(mac_hex)
-        except ValueError as exc:
+        except (ValueError, OverflowError) as exc:
             raise SafetyError(
                 "TX authorization rejected: malformed auth token",
                 code="ARM_AUTH_INVALID",
             ) from exc
+        # P13 (S-4): `int()` accepts arbitrarily large (and negative) values,
+        # but `to_bytes(8, ...)` raises OverflowError for them — which used to
+        # escape as a non-SafetyError. Bound the value BEFORE serialising so
+        # every malformed token fails closed with a typed error.
+        if not (0 <= expiry_ns < 2**64):
+            raise SafetyError(
+                "TX authorization rejected: malformed auth token",
+                code="ARM_AUTH_INVALID",
+            )
+        if len(nonce) != 16 or len(mac) != 32:
+            raise SafetyError(
+                "TX authorization rejected: malformed auth token",
+                code="ARM_AUTH_INVALID",
+            )
         payload = expiry_ns.to_bytes(8, "big", signed=False) + nonce
         expected = hmac.new(self._auth_secret, payload, hashlib.sha256).digest()
         if not hmac.compare_digest(mac, expected):
@@ -396,12 +425,15 @@ class SafetySupervisor:
                 "TX authorization rejected: auth token expired",
                 code="ARM_AUTH_EXPIRED",
             )
-        if payload in self._consumed_arm_tokens:
-            raise SafetyError(
-                "TX authorization rejected: auth token already consumed",
-                code="ARM_AUTH_REPLAYED",
-            )
-        self._consumed_arm_tokens.append(payload)
+        # P6 (S-2): atomic check + burn. The state lock is re-entrant, so the
+        # `arm_tx` caller holding it (if any) does not deadlock.
+        with self._lock:
+            if payload in self._consumed_arm_tokens:
+                raise SafetyError(
+                    "TX authorization rejected: auth token already consumed",
+                    code="ARM_AUTH_REPLAYED",
+                )
+            self._consumed_arm_tokens.append(payload)
 
     def _require_arm_authorization(self, operation: str, auth_token: str | None) -> None:
         """Enforce the TX-authorization gate for arm_tx/activate_tx (T41 / S-1).

@@ -28,6 +28,7 @@ class TxPort(Protocol):
         is_critical_command: bool = False,
         user_confirmed: bool = False,
         budget_category: str = "default",
+        inbound_triggered: bool = False,
     ) -> None:
         """Transmit a CAN frame asynchronously onto the bus.
 
@@ -36,6 +37,9 @@ class TxPort(Protocol):
             is_critical_command: Whether this frame executes a critical automotive command.
             user_confirmed: Dual operator confirmation capability flag.
             budget_category: Dedicated rate-limit lane name.
+            inbound_triggered: Frame is a protocol RESPONSE to inbound bus
+                traffic (J1939 TP CTS/ACK, ISO-TP FC) — never E-Stop
+                escalated on rate overload (P11 / G-11).
 
         Raises:
             PlatformError: If transmission fails or bus is in fault state.
@@ -49,6 +53,7 @@ class TxPort(Protocol):
         is_critical_command: bool = False,
         user_confirmed: bool = False,
         budget_category: str = "default",
+        inbound_triggered: bool = False,
     ) -> None:
         """Transmit a CAN frame synchronously (blocking) onto the bus.
 
@@ -57,6 +62,7 @@ class TxPort(Protocol):
             is_critical_command: Whether this frame executes a critical automotive command.
             user_confirmed: Dual operator confirmation capability flag.
             budget_category: Dedicated rate-limit lane name.
+            inbound_triggered: See `send` (P11 / G-11).
 
         Raises:
             PlatformError: If transmission fails or bus is in fault state.
@@ -198,8 +204,15 @@ class VirtualClock:
 class InMemorySecretProvider:
     """In-memory dictionary backed secret provider for configuration and test mocking."""
 
-    def __init__(self, secrets: dict[str, bytes] | None = None) -> None:
+    def __init__(
+        self,
+        secrets: dict[str, bytes] | None = None,
+        allow_whitelist_superset: bool = False,
+    ) -> None:
         self._secrets: dict[str, bytes] = dict(secrets) if secrets is not None else {}
+        # P11 (G-11): audit flag for the intentionally broad J1939 response
+        # masks — the concrete implementation must acknowledge the override.
+        self.allow_whitelist_superset = allow_whitelist_superset
 
     def set_secret(self, key_name: str, secret: bytes) -> None:
         """Store or update a secret in the provider."""
@@ -219,7 +232,8 @@ class InMemoryTxPort:
     bare `send(frame)` raised TypeError the moment a protocol engine passed
     the protocol-mandated safety kwargs (is_critical_command / user_confirmed
     / budget_category). The test recorder ignores the flags and records
-    everything, exactly as before.
+    everything, exactly as before. P11 (G-11) adds `inbound_triggered` to
+    both entry points so the protocol contract stays satisfied.
     """
 
     def __init__(self) -> None:
@@ -232,6 +246,7 @@ class InMemoryTxPort:
         is_critical_command: bool = False,
         user_confirmed: bool = False,
         budget_category: str = "default",
+        inbound_triggered: bool = False,
     ) -> None:
         """Record frame asynchronously."""
         self.sent_frames.append(frame)
@@ -243,6 +258,7 @@ class InMemoryTxPort:
         is_critical_command: bool = False,
         user_confirmed: bool = False,
         budget_category: str = "default",
+        inbound_triggered: bool = False,
     ) -> None:
         """Record frame synchronously."""
         self.sent_frames.append(frame)
