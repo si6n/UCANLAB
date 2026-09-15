@@ -115,6 +115,12 @@ obsidian-vault/.trash/
 _tr_*.py
 _tr_*.json
 _tr_*.txt
+_ru_*.py
+_ru_*.json
+_ru_*.txt
+_*.py
+_*.json
+_*.txt
 _watch.py
 _names.txt
 _empty_names.txt
@@ -127,3 +133,5 @@ workspace/
 *.bak
 .tmp_*
 *.tmp
+spn_gap_hunter/
+arsiv_ajan_scriptleri/

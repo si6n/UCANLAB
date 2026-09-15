@@ -8,7 +8,11 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from scipy.io import savemat  # type: ignore[import-untyped]
+
+try:
+    from scipy.io import savemat  # type: ignore[import-untyped]
+except ImportError:  # pragma: no cover
+    savemat = None  # type: ignore[assignment]
 
 from src.core.logging import get_logger
 
@@ -49,6 +53,8 @@ class MatExporter:
         """Export dictionary of signals into MATLAB .mat format."""
         path = _resolve_export_path(output_file, exports_root)
         path.parent.mkdir(parents=True, exist_ok=True)
+        if savemat is None:
+            raise RuntimeError("scipy package is required for MATLAB export but is not installed")
 
         mat_dict: dict[str, Any] = {}
 

@@ -19,7 +19,7 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, cast
 
 from src.core.logging import get_logger
 
@@ -635,8 +635,8 @@ def explain_can_packet(
             # OBD-II Mode 01
             if sid == 0x01:
                 pid = payload_bytes[sid_idx + 1] if len(payload_bytes) > sid_idx + 1 else 0
-                pids = {
-                    0x04: ("Hesaplanan Motor Yükü", lambda b: f"%{b[0]*100/255:.1f}" if len(b) > 0 else ""),
+                pids: dict[int, tuple[str, Callable[[bytes], str]]] = {
+                    0x04: ("Hesaplanan Yük Değeri", lambda b: f"%{b[0]*100/255:.1f}" if len(b) > 0 else ""),
                     0x05: ("Motor Soğutma Sıvısı Sıcaklığı (ECT)", lambda b: f"{b[0] - 40}°C" if len(b) > 0 else ""),
                     0x0B: ("Emme Manifoldu Basıncı (MAP)", lambda b: f"{b[0]} kPa" if len(b) > 0 else ""),
                     0x0C: ("Motor Devri (RPM)", lambda b: f"{(b[0]*256 + b[1])/4:.0f} RPM" if len(b) > 1 else ""),
@@ -1646,7 +1646,7 @@ def get_extended_pid_info(pid_hex: str, manufacturer: str | None = None) -> dict
         p_pid = p.get("pid", "").upper().strip()
         if pid_clean in (p_hex, p_pid):
             if not mfr_clean or mfr_clean in p.get("manufacturer", "").lower():
-                return p
+                return cast(dict[str, Any], p)
     return None
 
 
@@ -2761,7 +2761,8 @@ def _ev_body(ctx: ScenarioContext) -> int:
 
 
 def _injector_matches(d: dict[str, object]) -> bool:
-    return isinstance(d.get("spn"), int) and 651 <= d.get("spn", 0) <= 656
+    spn = d.get("spn")
+    return isinstance(spn, int) and 651 <= spn <= 656
 
 
 def _injector_body(ctx: ScenarioContext) -> int:
@@ -3033,7 +3034,9 @@ class AiDiagnosticCopilot:
             if match_key is None and d.get("spn"):
                 try:
                     _jdb = get_j1939_spn_database()
-                    j1939_entry = (_jdb.get("spns") or {}).get(f"SPN_{int(d.get('spn'))}")
+                    spn_raw = d.get("spn")
+                    spn_val = int(str(spn_raw)) if spn_raw is not None else 0
+                    j1939_entry = (_jdb.get("spns") or {}).get(f"SPN_{spn_val}")
                 except Exception:
                     j1939_entry = None
             if j1939_entry is not None:

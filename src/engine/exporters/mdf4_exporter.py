@@ -7,7 +7,12 @@ import tempfile
 from pathlib import Path
 
 import numpy as np
-from asammdf import MDF, Signal
+
+try:
+    from asammdf import MDF, Signal
+except ImportError:  # pragma: no cover
+    MDF = None  # type: ignore[assignment,misc]
+    Signal = None  # type: ignore[assignment,misc]
 
 from src.core.logging import get_logger
 
@@ -83,6 +88,8 @@ class Mdf4Exporter:
         """
         path = _resolve_export_path(output_file, exports_root)
         path.parent.mkdir(parents=True, exist_ok=True)
+        if MDF is None or Signal is None:
+            raise RuntimeError("asammdf package is required for MDF4 export but is not installed")
         if len(signals_data) > 4096:
             raise ValueError("Too many signals for export")
 

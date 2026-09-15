@@ -33,6 +33,7 @@ exclude = [
     "build",
     "dist",
     "arsiv_ajan_scriptleri",  # archived agent scratch scripts (not shipped)
+    "spn_gap_hunter",
 ]
 
 [tool.ruff.lint]

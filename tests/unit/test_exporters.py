@@ -3,6 +3,8 @@
 import tempfile
 from pathlib import Path
 
+import pytest
+
 from src.engine.exporters.kml_exporter import GpsPoint, KmlExporter
 from src.engine.exporters.mat_exporter import MatExporter
 from src.engine.exporters.mdf4_exporter import Mdf4Exporter
@@ -18,6 +20,7 @@ from src.protocols.j1939.diagnostics import (
 
 
 def test_mdf4_exporter() -> None:
+    pytest.importorskip("asammdf")
     with tempfile.TemporaryDirectory() as tmpdir:
         out_file = Path(tmpdir) / "test_session.mf4"
         signals = {
@@ -30,6 +33,7 @@ def test_mdf4_exporter() -> None:
 
 
 def test_mat_exporter() -> None:
+    pytest.importorskip("scipy")
     with tempfile.TemporaryDirectory() as tmpdir:
         out_file = Path(tmpdir) / "test_session.mat"
         signals = {
