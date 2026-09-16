@@ -1,6 +1,6 @@
 {
   "_comment": "UCANLAB tarama kayit defteri (makine-okunur). Ayni URL'yi ikinci kez taramayi onler. Insan-okunur surum: obsidian-vault/03-Kaynaklar/Tarama-Kayit-Defteri.md",
-  "updated": "2026-09-15",
+  "updated": "2026-09-16",
   "credits": {
     "hesap2": {
       "zone": "scraping_browser1",
@@ -219,8 +219,8 @@
       "method": "free",
       "tur": "T50",
       "credits": 0,
-      "result": "177 SPN/FMI teshis sayfasi (132'si DB procedures_full boslugunu kapatir); sitemap: /directory-sitemap-codes.xml",
-      "artifact": "(tarama bekliyor)"
+      "result": "177 SPN/FMI teshis sayfasi TAM tarandi (177 ok / 0 fail, quality: 156 high + 21 medium); 131 DB procedures_full boslugunu doldurur + 46 yeni cift (DB'de hic yok); canli dogrulama 5/5 (overview+causes birebir grep)",
+      "artifact": "spn_gap_hunter/output/t50_roadservice_harvest.json"
     },
     {
       "pattern": "detroitmanuals.info",
@@ -228,8 +228,8 @@
       "method": "free",
       "tur": "T50",
       "credits": 0,
-      "result": "Detroit Diesel seri kilavuzlari (Series 55/60, DD15 teshis bolumleri); sitemap 4 post-sitemap",
-      "artifact": "(tarama bekliyor)"
+      "result": "378 SPN/FMI procedures_full kaydi (135 SPN, 348 sayfa; Series 60/MBE4000/MBE900/DD15 DDEC VI); 291 DB procedures_full boslugunu doldurur + 87 yeni cift; 245 overview steps[0]'dan kurtarildi; canli dogrulama 5/5 (adim+baslik birebir)",
+      "artifact": "spn_gap_hunter/output/t50_detroitmanuals_harvest.json"
     },
     {
       "pattern": "truckfaultcode.com",
@@ -237,8 +237,8 @@
       "method": "free",
       "tur": "T50",
       "credits": 0,
-      "result": "DD15 bolum bazli (spn/spn-100) — DEGERLENDIRILECEK",
-      "artifact": "(tarama bekliyor)"
+      "result": "DEGERLENDIRILMEDI (T53'te mevcut arsivden yeniden kullanildi; T50 kapsaminda yeni cekim yok)",
+      "artifact": "-"
     },
     {
       "pattern": "aidieseltech.com/diagnostic-pages/",
@@ -275,6 +275,60 @@
       "credits": 0,
       "result": "SPN_4012[3] kirpik 300->1571 tam metne tamamlandi (arsiv: raw_j1939hub_gap_pages.json)",
       "artifact": "spn_gap_hunter/output/t53_j1939_text_cleanup.md"
+    },
+    {
+      "pattern": "bigrigfaults.com/faults/spn-{n}-fmi-{m}",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T55-B",
+      "credits": 0,
+      "result": "129/129 SPN/FMI teshis sayfasi TAM tarandi (0 fail, 0 BrightData kredisi): 119 sayfa gercek veri (symptoms+causes+fixes+steps+scan-tool checks+misdiagnosis), 10 sayfa yer tutucu; 10 yeni SPN (DB'de yok), 6 kayit DB'deki bos 'steps' alanini doldurur; canli dogrulama 8/8 birebir (avg ratio 1.000)",
+      "artifact": "spn_gap_hunter/output/t55b_free_harvest.json"
+    },
+    {
+      "pattern": "heavydutyjournal.com/truck-fault-code-lookup/",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T55-B",
+      "credits": 0,
+      "result": "DEGERLENDIRILDI - VERI YOK: yalniz SPN/FMI arama kutusu + indeks; koda ozel neden/adim metni yok (44 SPN adi, prosedur yok)",
+      "artifact": "spn_gap_hunter/output/t55b_free_harvest.md"
+    },
+    {
+      "pattern": "obd2pros.com/dtc-codes/",
+      "type": "prefix",
+      "method": "brightdata",
+      "tur": "T55-C",
+      "credits": 31,
+      "result": "31 DTC kodu (P/B/C/U) BD ile cekildi (free 403): symptoms+causes+steps; 30'u DB symptoms boslugunu doldurur; C0242 robot-challenge -> veri yok (belirsiz)",
+      "artifact": "spn_gap_hunter/output/t55c_bd_harvest.json"
+    },
+    {
+      "pattern": "manualslib.com/search",
+      "type": "prefix",
+      "method": "brightdata",
+      "tur": "T55-C",
+      "credits": 9,
+      "result": "Kesif/test (5 arama + 4 test-indeks): arama sonuclari JS-render, 0 sonuc -> BELIRSIZ (veri cikmadi, tekrar taranmasin)",
+      "artifact": "spn_gap_hunter/output/t55c_bd_harvest.json"
+    },
+    {
+      "pattern": "bigrigfaults.com/faults/spn-",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T55-C",
+      "credits": 0,
+      "result": "131 SPN/FMI sayfasi free urllib (JSON-LD FAQ/HowTo): gercek semptom+neden; 27 J1939 procedures_full boslugu + 10 yeni SPN; canli 3/3 birebir",
+      "artifact": "spn_gap_hunter/output/t55c_bd_harvest.json"
+    },
+    {
+      "pattern": "manualmachine.com",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T55-C",
+      "credits": 0,
+      "result": "Navistar MaxxForce diagnostic manual x4 (free urllib): SPN 3242/3719/3936 referansli prosedur (DB'de zaten dolu)",
+      "artifact": "spn_gap_hunter/output/t55c_bd_harvest.json"
     }
   ],
   "blacklist": [
@@ -352,6 +406,14 @@
     {
       "pattern": "raw.githubusercontent.com/STAS63-bit/sitrak-error-codes",
       "note": "SITRAK DTC (CC BY 4.0) free, 8042 kayit/3402 SPN"
+    },
+    {
+      "pattern": "roadservice.app/diagnose/",
+      "note": "Next.js sunucu-render; direct urllib calisiyor (T50, 177 sayfa)"
+    },
+    {
+      "pattern": "detroitmanuals.info",
+      "note": "WordPress; REST API + entry-content HTML direct fetch calisiyor (T50, 348 sayfa)"
     }
   ],
   "_discovery_note": "Kesif: html.duckduckgo.com/html/?q=... (ucretsiz, UA ile) calisiyor. Google JS-render -> statik HTML'de sonuc yok. roadservice.app sitemap ile kesfedildi.",
