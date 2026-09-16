@@ -10,7 +10,7 @@ import threading
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import cantools
 from cantools.database.can.database import Database
@@ -47,6 +47,44 @@ def _sentinel_quality_for_width(raw_val: int, sig_len: int) -> SignalQuality | N
     if 3 <= sig_len <= 64:
         return J1939SentinelFilter.check_raw_value(raw_val, sig_len, is_signed=False)
     return None
+
+
+def _is_j1939_identifier(arbitration_id: int) -> bool:
+    """DB-2: is this 29-bit identifier genuine SAE J1939 traffic?
+
+    ``frame.is_extended`` is NOT a protocol test: NMEA 2000 and ISO-TP
+    transport frames also ride on 29-bit identifiers but are NOT covered by
+    the J1939-71 MSB sentinel convention (all-ones = Not Available,
+    all-ones-1 = Error), so applying it to them makes legitimate signals
+    disappear as N/A.
+
+    The protocol bound used here is SAE J1939-21 (bit layout follows the
+    authoritative in-repo parser ``src/protocols/j1939/oem/registry``:
+    EDP = bit 25, DP = bit 24, PF = bits 16..23):
+
+    * **Extended Data Page (EDP, bit 25) and Data Page (DP, bit 24) must
+      both be clear.** Genuine J1939-71 parameter groups live on page 0;
+      DP = 1 (bit 24) is J1939-71's alternative page and the whole NMEA 2000
+      PGN space (every N2K PGN is page 1, e.g. 0x1F004), while EDP = 1
+      (bit 25) is the J1939-22 reserved expansion. Neither is covered by the
+      J1939-71 sentinel convention.
+    * **PF (bits 16..23) = 0xFF is not J1939.** J1939-21: PDU2 with PF = 255
+      is reserved (only PF = 0xF0..0xFE are valid PDU2 PGs).
+    * **ISO-TP extended addressing** tunnels through a PF < 240 PDU1 PGN and
+      is indistinguishable at the identifier level; callers that decode
+      ISO-TP payloads should layer their protocol on top (the reusable
+      ``IsoTpTransport`` path), not rely on this gate.
+    """
+    if not 0 <= arbitration_id <= 0x1FFFFFFF:
+        return False
+    # DP (bit 24) and EDP (bit 25) are SEPARATE bits — never `& 0x03`, which
+    # would conflate the two pages (registry.py parses them independently).
+    if (arbitration_id >> 24) & 0x01:  # DP = 1 → page 1 (N2K / alt page)
+        return False
+    if (arbitration_id >> 25) & 0x01:  # EDP = 1 → reserved expansion page
+        return False
+    pf = (arbitration_id >> 16) & 0xFF
+    return pf != 0xFF
 
 
 class SignalStatus(str, Enum):
@@ -102,6 +140,13 @@ class DbcSignalDecoder:
         # unbounded (one entry per frame id) over long J1939/ISOBUS sessions.
         self._signal_units_cache: collections.OrderedDict[int, dict[str, str]] = collections.OrderedDict()
         self._signal_defs_cache: collections.OrderedDict[int, dict[str, Any]] = collections.OrderedDict()
+        # DB-1: silently dropping short frames left no forensic trace. Count
+        # them and emit a rate-limited WARN instead.
+        self._truncated_frames: int = 0
+        self._truncated_since_log: int = 0
+
+    # DB-1: at most one truncation WARN per this many dropped frames.
+    TRUNCATED_LOG_INTERVAL: ClassVar[int] = 100
 
     @classmethod
     def _validate_cache_size(cls, value: int) -> int:
@@ -118,6 +163,39 @@ class DbcSignalDecoder:
                 f"got {value!r}"
             )
         return value
+
+    @property
+    def truncated_frames(self) -> int:
+        """DB-1: frames rejected for being shorter than their DBC message."""
+        with self._cache_lock:
+            return self._truncated_frames
+
+    def _record_truncated_frame(self, frame: CanFrame, msg_def: Any, frame_len: int) -> None:
+        """DB-1: count + rate-limited WARN for a truncated frame."""
+        with self._cache_lock:
+            self._truncated_frames += 1
+            self._truncated_since_log += 1
+            total = self._truncated_frames
+            # Per-frame WARN at bus rate would flood the log and slow the RX
+            # thread; emit one summary per TRUNCATED_LOG_INTERVAL discards.
+            should_log = self._truncated_since_log >= self.TRUNCATED_LOG_INTERVAL
+            if should_log:
+                self._truncated_since_log = 0
+        if should_log:
+            logger.warning(
+                "Truncated CAN frame shorter than its DBC message; frame discarded",
+                extra={
+                    "arbitration_id": hex(frame.arbitration_id),
+                    "frame_bytes": frame_len,
+                    "expected_bytes": msg_def.length,
+                    "total_truncated": total,
+                },
+            )
+
+    @staticmethod
+    def _is_j1939_frame(frame: CanFrame) -> bool:
+        """DB-2: protocol-bound J1939 gate for the MSB sentinel convention."""
+        return frame.is_extended and _is_j1939_identifier(frame.arbitration_id)
 
     @staticmethod
     def _reject_symlink(path: Path, label: str) -> Path:
@@ -275,6 +353,10 @@ class DbcSignalDecoder:
             # Reject truncated frames without creating phantom signals
             frame_len = len(frame.data)
             if frame_len < msg_def.length:
+                # DB-1: no silent discard — count it and emit a rate-limited
+                # WARN so a persistently short frame (wiring/BAUDRATE fault)
+                # leaves a forensic trace instead of vanishing.
+                self._record_truncated_frame(frame, msg_def, frame_len)
                 return None
 
             payload = frame.data[: msg_def.length] if frame_len > msg_def.length else frame.data
@@ -315,7 +397,14 @@ class DbcSignalDecoder:
                 # legitimately carrying 251..255 (or 16-bit 0xFE**/0xFF**)
                 # was spuriously marked NOT_AVAILABLE/ERROR — e.g. a 0xFF
                 # "255 rpm fan duty" or a 65535-tick counter.
-                frame_is_j1939 = frame.is_extended
+                #
+                # DB-2: `frame.is_extended` alone was still too broad — it
+                # also lets NMEA 2000 / ISO-TP-on-29-bit frames through, so
+                # legitimate 29-bit N2K signals carrying 0xFD**/0xFE**/0xFF**
+                # were relabelled NOT_AVAILABLE/ERROR (data loss). The gate is
+                # now protocol-bound: only genuine J1939 PGN traffic (PF < 240
+                # PDU1 / >= 240 PDU2, DP bit clear) is sentinel-evaluated.
+                frame_is_j1939 = self._is_j1939_frame(frame)
 
                 if frame_is_j1939 and sig_def is not None and isinstance(raw_val, (int, float)):
                     sig_len = sig_def.length
@@ -418,6 +507,27 @@ class DbcSignalDecoder:
             )
             if msg_is_ext != is_extended:
                 msg = None
+
+        # DB-2: for 29-bit frames, never hand a page-1 (DP set) identifier to
+        # a page-0 (DP clear) DBC message or vice versa. The PGN-mask path
+        # below already treats PG 0x1F004 and 0x0F004 as different messages,
+        # but the exact-id fast path and cantools' own index are page-agnostic
+        # — without this check a NMEA 2000 frame (DP=1) would decode against
+        # the J1939 page-0 PG of the same PGN number, and vice versa.
+        # DP and EDP are separate bits (DP = 24, EDP = 25) — compare both, not
+        # a conflated `& 0x03` (see _is_j1939_identifier).
+        if msg is not None and is_extended:
+            msg_is_ext_id = bool(getattr(msg, "is_extended_frame", False)) or bool(
+                getattr(msg, "frame_id", 0) & 0x80000000
+            )
+            if msg_is_ext_id:
+                msg_frame_id = getattr(msg, "frame_id", 0)
+                msg_dp = (msg_frame_id >> 24) & 0x01
+                frame_dp = (arbitration_id >> 24) & 0x01
+                msg_edp = (msg_frame_id >> 25) & 0x01
+                frame_edp = (arbitration_id >> 25) & 0x01
+                if msg_dp != frame_dp or msg_edp != frame_edp:
+                    msg = None
 
         with self._cache_lock:
             # J1939 PGN lookup for 29-bit extended frames

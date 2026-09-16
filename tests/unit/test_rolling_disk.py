@@ -212,8 +212,10 @@ def test_decompression_output_limit_is_enforced(tmp_path: Path) -> None:
     chunk = tmp_path / "chunk_00000000_00000000000000000000.bin.zst"
     chunk.write_bytes(zstd.ZstdCompressor().compress(oversized))
 
+    # RD-2: the default read path now isolates a bad chunk; strict
+    # tamper-detection is an explicit opt-in (quarantine_corrupt=False).
     with pytest.raises(SecurityError, match="decompression limit"):
-        disk_buf.read_all_stored_frames()
+        disk_buf.read_all_stored_frames(quarantine_corrupt=False)
 
 
 def test_malformed_frame_does_not_kill_recorder(tmp_path) -> None:

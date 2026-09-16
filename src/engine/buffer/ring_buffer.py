@@ -55,6 +55,10 @@ class BinaryRingBuffer:
         self._buffer = np.zeros(capacity, dtype=CAN_RECORD_DTYPE)
         self._channel_map: dict[str, int] = {}
         self._rev_channel_map: dict[int, str] = {}
+        # RB-1: coherent (int -> name) snapshot refreshed under the lock on
+        # every append; get_latest_frames materializes channel names from it
+        # instead of a lock-free dict read that raced with clear().
+        self._rev_channel_snapshot: dict[int, str] = {}
         self._head = 0  # Write pointer (modulo capacity)
         self._total_written = 0  # Monotonically increasing counter
         # REVIEW 3-MEDIUM: channels refused a 16-bit slot (aliased to 0xFFFF)
@@ -70,7 +74,12 @@ class BinaryRingBuffer:
             return val
 
     def _get_channel_str(self, channel_int: int) -> str:
-        """Map 16-bit integer ID back to channel string."""
+        """Map 16-bit integer ID back to channel string (RB-1: snapshot variant).
+
+        Callers that already hold a coherent ``_rev_channel_map`` snapshot
+        (taken under ``_lock``) must use the snapshot directly — this lock-free
+        helper is only for live/unsynchronised call sites.
+        """
         return self._rev_channel_map.get(channel_int, f"ch_{channel_int}")
 
     def _store_frame_unlocked(self, frame: CanFrame) -> int:
@@ -84,6 +93,12 @@ class BinaryRingBuffer:
         The data tail beyond data_len is deliberately NOT zeroed here —
         readers slice records with data_len (see get_latest_frames), so the
         stale tail bytes are never observable.
+
+        RB-1: the reverse channel map is read INSIDE the same critical section
+        as the record write, so the snapshot returned to get_latest_frames is
+        coherent — a concurrent clear() can no longer blank the map between
+        the record write and the string lookup, which used to relabel every
+        frame `ch_<n>`.
         """
         idx = self._head
         flags = (
@@ -107,6 +122,10 @@ class BinaryRingBuffer:
         ch_int = self._channel_map.get(channel_id)
         if ch_int is None:
             ch_int = self._intern_channel_unlocked(channel_id)
+
+        # RB-1: detach a coherent reverse-map snapshot while still holding
+        # the lock, and keep it for get_latest_frames' record materialization.
+        self._rev_channel_snapshot = dict(self._rev_channel_map)
 
         padded = data.ljust(64, b"\x00") if data_len < 64 else data[:64]
         self._buffer[idx] = (
@@ -248,6 +267,12 @@ class BinaryRingBuffer:
         records = list(old_part) + list(new_part)
         records = records[-n:]
 
+        # RB-1: the channel-name map is captured from the coherent append-time
+        # snapshot, not by a lock-free read of the live dict (which a
+        # concurrent clear() could blank mid-materialization, relabelling
+        # every frame `ch_<n>`).
+        rev_channel_snapshot = self._rev_channel_snapshot
+
         # Lock-free materialization, sequence labels coherent with the snapshot.
         frames: list[CanFrame] = []
         base_seq = total_written_snapshot - n
@@ -256,8 +281,9 @@ class BinaryRingBuffer:
             data_len = int(rec["data_len"])
             raw_data = rec["data"][:data_len].tobytes()
 
+            channel_int = int(rec["channel_id_int"])
             frame = CanFrame(
-                channel_id=self._get_channel_str(int(rec["channel_id_int"])),
+                channel_id=rev_channel_snapshot.get(channel_int, f"ch_{channel_int}"),
                 arbitration_id=int(rec["arbitration_id"]),
                 dlc=int(rec["dlc"]),
                 data=raw_data,
@@ -286,6 +312,9 @@ class BinaryRingBuffer:
             self._buffer.fill(0)
             self._channel_map.clear()
             self._rev_channel_map.clear()
+            # RB-1: keep the append-time snapshot coherent with the cleared
+            # map instead of leaving a stale mapping behind.
+            self._rev_channel_snapshot = {}
             self._channel_overflow_count = 0
 
     @property

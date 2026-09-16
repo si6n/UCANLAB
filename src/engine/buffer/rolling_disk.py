@@ -57,15 +57,16 @@ _CODE_TO_SOURCE = {value: key for key, value in _SOURCE_TO_CODE.items()}
 HMAC_KEY_NAME = "ROLLING_DISK_HMAC_KEY"
 
 
-def _get_hmac_key(secret_provider: SecretProvider) -> bytes:
+def _get_hmac_key(secret_provider: SecretProvider) -> tuple[bytes, bool]:
     """Resolve the chunk-authentication HMAC key (E11 key-loss contract).
 
-    Key loss semantics: if the vault key vanishes (reinstall/reset), a NEW key
-    is minted here. Chunks signed by the old key then fail HMAC verification
-    and are treated as unauthenticated — the legacy-file sweep at startup moves
-    them out of the active store instead of serving them. Recorded telemetry is
-    therefore never silently trusted across a key change: old chunks are kept
-    on disk under a quarantine name, new chunks authenticate normally.
+    Returns ``(key, was_minted)`` — ``was_minted`` is True only when the vault
+    held no key and a fresh one had to be generated (reinstall/vault reset).
+
+    RD-1: the caller must treat a minted key as a KEY-LOSS EVENT and move
+    every pre-existing chunk out of the active store, regardless of its
+    on-disk format. Chunks signed by the old key fail HMAC verification and
+    must never be served as tampered data — they are quarantined instead.
     """
     try:
         key = secret_provider.get_secret(HMAC_KEY_NAME)
@@ -76,10 +77,18 @@ def _get_hmac_key(secret_provider: SecretProvider) -> bytes:
         except Exception as store_err:
             logger.warning("Failed to store rolling disk HMAC key", extra={"error": str(store_err)})
         logger.info("Initialized rolling disk HMAC key")
+        if len(key) != 32:
+            # Explicit `from None`: the length failure is a property of the
+            # minted key, not of the KeyError/SecurityError that triggered the
+            # mint — keep the traceback from implying the lookup raised.
+            raise SecurityError(
+                "Rolling disk HMAC key has invalid length", code="SECURITY_ERROR"
+            ) from None
+        return key, True
 
     if len(key) != 32:
         raise SecurityError("Rolling disk HMAC key has invalid length", code="SECURITY_ERROR")
-    return key
+    return key, False
 
 
 def _checked_u64(value: int, field_name: str) -> int:
@@ -325,6 +334,10 @@ class RollingDiskBuffer:
         self.chunk_frame_threshold = chunk_frame_threshold
         self._secret_provider = secret_provider or get_default_secret_provider()
 
+        # RD-2: chunks that could not be authenticated/read during the last
+        # read_all_stored_frames() pass (quarantined or IO-failed).
+        self._unreadable_chunks: int = 0
+
         self._lock = threading.RLock()
         self._tls = threading.local()
         self._closed = False
@@ -336,6 +349,13 @@ class RollingDiskBuffer:
         max_read_frames = max(chunk_frame_threshold, self.CHUNK_THRESHOLD_FRAMES)
         self._max_chunk_bytes = min(HEADER_SIZE + max_read_frames * FRAME_SIZE, self.MAX_CHUNK_BYTES)
         self._migrate_legacy_chunks()
+        # RD-1: if the HMAC key had to be minted here, the vault lost the
+        # previous key — every pre-existing chunk is signed by a key we can
+        # no longer verify. Sweep them out of the active store BEFORE any
+        # read can misclassify them as tampered (key-loss contract).
+        _, key_was_minted = _get_hmac_key(self._secret_provider)
+        if key_was_minted:
+            self._quarantine_unverifiable_chunks()
         self._chunk_index = self._next_chunk_index()
         # F-34: bounded async write queue + worker thread. Serialize + HMAC stay
         # on the caller thread (single-writer ordering); only compression and
@@ -380,6 +400,41 @@ class RollingDiskBuffer:
             path.replace(destination)
             logger.warning(
                 "Moved unauthenticated legacy rolling disk chunk out of the active store",
+                extra={"source": str(path), "destination": str(destination)},
+            )
+
+    def _quarantine_unverifiable_chunks(self) -> None:
+        """RD-1: move EVERY existing chunk aside after an HMAC key loss.
+
+        The old ``_migrate_legacy_chunks`` sweep only recognised the legacy
+        pickle format (first byte 0x80), so zstd chunks signed by a previous
+        key (magic 0x28 0xB5) stayed in the active store and were later
+        reported as tampered. On a key-loss event we cannot verify ANY
+        pre-existing chunk, whatever its format — so all of them are moved to
+        ``unauthenticated_prior_key/`` (preserved, never silently trusted and
+        never deleted).
+        """
+        chunk_files = sorted(self.storage_dir.glob("chunk_*.bin.zst"))
+        if not chunk_files:
+            return
+        quarantine_dir = self.storage_dir / "unauthenticated_prior_key"
+        quarantine_dir.mkdir(parents=True, exist_ok=True)
+        for path in chunk_files:
+            destination = quarantine_dir / path.name
+            collision_index = 1
+            while destination.exists():
+                destination = quarantine_dir / f"{path.name}.{collision_index}"
+                collision_index += 1
+            try:
+                path.replace(destination)
+            except OSError as exc:
+                logger.error(
+                    "Failed to quarantine chunk signed by a previous HMAC key",
+                    extra={"source": str(path), "error": str(exc)},
+                )
+                continue
+            logger.warning(
+                "Quarantined rolling disk chunk signed by a previous HMAC key",
                 extra={"source": str(path), "destination": str(destination)},
             )
 
@@ -441,7 +496,7 @@ class RollingDiskBuffer:
             chunk_idx = self._chunk_index
             self._chunk_index += 1
 
-        key = _get_hmac_key(self._secret_provider)
+        key, _ = _get_hmac_key(self._secret_provider)
         try:
             raw_bytes = self._serialize_chunk(frames, key)
         except (ValueError, KeyError, struct.error) as exc:
@@ -639,16 +694,29 @@ class RollingDiskBuffer:
                 cause=exc,
             ) from exc
 
-    def read_all_stored_frames(self, quarantine_corrupt: bool = False) -> list[CanFrame]:
-        """Read and authenticate all stored chunks in chronological order."""
+    def read_all_stored_frames(self, quarantine_corrupt: bool = True) -> list[CanFrame]:
+        """Read and authenticate all stored chunks in chronological order.
+
+        RD-2: the default is now isolated (per-chunk) instead of fail-closed
+        for the whole recording. A single corrupt/old-key chunk must never
+        make the entire 600 s black-box recording unreadable — each unreadable
+        chunk is skipped (and moved to ``*.corrupt`` when
+        ``quarantine_corrupt`` is set), the healthy chunks are still returned,
+        and ``unreadable_chunks`` reports how many were dropped. Callers that
+        need strict tamper-detection semantics (tests, forensic tooling) can
+        still pass ``quarantine_corrupt=False`` to re-raise on the first bad
+        chunk.
+        """
         with self._lock:
             closed = self._closed
+            self._unreadable_chunks = 0
         if not closed:
             self.flush()
             # F-34: wait for async writes to land before reading the directory
             self._drain_flush_queue(timeout_s=30.0)
-        key = _get_hmac_key(self._secret_provider)
+        key, _ = _get_hmac_key(self._secret_provider)
         all_frames: list[CanFrame] = []
+        unreadable = 0
 
         for file in sorted(self.storage_dir.glob("chunk_*.bin.zst")):
             try:
@@ -660,26 +728,40 @@ class RollingDiskBuffer:
                 raw_bytes = self._decompress_bounded(file.read_bytes())
                 all_frames.extend(_deserialize_chunk(raw_bytes, key))
             except SecurityError as sec_exc:
-                if quarantine_corrupt:
-                    logger.critical(
-                        "Quarantining corrupt or untrusted rolling disk chunk",
-                        extra={"file": str(file), "error": str(sec_exc)},
-                    )
-                    quarantine_target = file.with_suffix(file.suffix + ".corrupt")
-                    try:
-                        file.replace(quarantine_target)
-                    except OSError:
-                        pass
-                    continue
-                # Re-raise to ensure tamper detection tests pass, but preserve caller context
-                raise
+                unreadable += 1
+                if not quarantine_corrupt:
+                    # Strict mode: tamper detection requested by the caller.
+                    self._unreadable_chunks = unreadable
+                    raise
+                logger.critical(
+                    "Quarantining corrupt or untrusted rolling disk chunk",
+                    extra={"file": str(file), "error": str(sec_exc)},
+                )
+                quarantine_target = file.with_suffix(file.suffix + ".corrupt")
+                try:
+                    file.replace(quarantine_target)
+                except OSError:
+                    pass
             except OSError as exc:
+                unreadable += 1
                 logger.error(
                     "Failed to read rolling disk chunk",
                     extra={"file": str(file), "error": str(exc)},
                 )
 
+        if unreadable:
+            logger.error(
+                "Rolling disk read completed with unreadable chunks",
+                extra={"unreadable": unreadable},
+            )
+        self._unreadable_chunks = unreadable
         return all_frames
+
+    @property
+    def unreadable_chunks(self) -> int:
+        """RD-2: chunks isolated during the last read_all_stored_frames() pass."""
+        with self._lock:
+            return self._unreadable_chunks
 
     def read_all_stored_frames_after_close(self) -> list[CanFrame]:
         """Convenience method to read frames after buffer has been closed."""

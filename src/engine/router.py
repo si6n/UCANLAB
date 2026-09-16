@@ -11,7 +11,7 @@ import queue
 import threading
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import ClassVar
 
 from src.core.logging import get_logger
@@ -20,14 +20,21 @@ from src.core.models.can_frame import CanFrame
 logger = get_logger("engine.router")
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, frozen=True)
 class Subscription:
-    """Active subscriber registration handle."""
+    """Active subscriber registration handle.
+
+    RT-2: FROZEN. The router publishes subscriptions through an immutable
+    copy-on-write snapshot (``_route_snapshot``); demote/restore/clear replace
+    the whole object via ``dataclasses.replace`` instead of mutating it in
+    place, so an in-flight ``route_frame`` iteration always sees a consistent
+    (never half-updated) subscription.
+    """
 
     sub_id: int
     callback: Callable[[CanFrame], None] | None = None
     frame_queue: queue.Queue[CanFrame] | None = None
-    filter_ids: set[int] | None = None  # None = accept all arbitration IDs
+    filter_ids: frozenset[int] | None = None  # None = accept all arbitration IDs
     channel_id: str | None = None  # None = accept all channels
     is_demoted: bool = False
 
@@ -55,9 +62,11 @@ class FrameRouter:
         self._subscriptions: dict[int, Subscription] = {}
         # Perf (C-8): immutable routing snapshot — route_frame() fans frames
         # out over this tuple WITHOUT taking the lock or copying the dict.
-        # Mutators (subscribe/unsubscribe/restore/clear) rebuild the snapshot
-        # under the lock (copy-on-write). Subscriptions change at setup/teardown
-        # rates, frames at bus rates — the trade favors the hot path.
+        # Mutators (subscribe/unsubscribe/restore/demote/clear) rebuild the
+        # snapshot under the lock (copy-on-write). RT-2: the objects in it are
+        # frozen, so an in-flight iteration can never observe a half-mutated
+        # subscription. Subscriptions change at setup/teardown rates, frames at
+        # bus rates — the trade favors the hot path.
         self._route_snapshot: tuple[Subscription, ...] = ()
         self._next_sub_id: int = 1
         # L-16 (P3-11): dedicated counter lock. The counters were mutated
@@ -77,6 +86,18 @@ class FrameRouter:
     def _rebuild_snapshot_locked(self) -> None:
         """Refresh the lock-free routing snapshot. Caller must hold the lock."""
         self._route_snapshot = tuple(self._subscriptions.values())
+
+    def _replace_subscription_locked(self, sub: Subscription, **changes: object) -> None:
+        """RT-2: copy-on-write subscription update. Caller must hold the lock.
+
+        ``Subscription`` objects are frozen: the routing snapshot is claimed
+        immutable, so demote/restore/callback-removal must NOT mutate the
+        instances the snapshot already published. A ``dataclasses.replace``
+        copy is installed in ``_subscriptions`` and the snapshot is rebuilt —
+        in-flight ``route_frame`` iterations keep the consistent old object.
+        """
+        self._subscriptions[sub.sub_id] = replace(sub, **changes)  # type: ignore[arg-type]
+        self._rebuild_snapshot_locked()
 
     def subscribe(
         self,
@@ -109,7 +130,7 @@ class FrameRouter:
                 sub_id=sub_id,
                 callback=callback,
                 frame_queue=fq,
-                filter_ids=set(filter_ids) if filter_ids is not None else None,
+                filter_ids=frozenset(filter_ids) if filter_ids is not None else None,
                 channel_id=channel_id,
             )
             self._subscriptions[sub_id] = sub
@@ -140,7 +161,7 @@ class FrameRouter:
         linearization the old lock+copy provided, at a fraction of the cost.
         """
         subscribers = self._route_snapshot
-        with self._stats_lock:  # L-16: metrics-scope lock, hot path safe
+        with self._stats_lock:  # RT-1: routed uses the same lock as dropped
             self._total_routed += 1
 
         matched_count = 0
@@ -181,9 +202,12 @@ class FrameRouter:
                     # Setting callback=None on a callback-only subscriber leaves it completely deaf.
                     if sub.frame_queue is not None:
                         with self._lock:
-                            if sub.sub_id in self._subscriptions:
-                                self._subscriptions[sub.sub_id].callback = None
-                                self._subscriptions[sub.sub_id].is_demoted = True
+                            current = self._subscriptions.get(sub.sub_id)
+                            if current is not None:
+                                # RT-2: copy-on-write replacement (frozen sub).
+                                self._replace_subscription_locked(
+                                    current, callback=None, is_demoted=True
+                                )
                     else:
                         # REVIEW2 #2 / REVIEW3 #13: a queue-less subscriber
                         # cannot be demoted, but it also must not keep
@@ -194,9 +218,12 @@ class FrameRouter:
                         with self._lock:
                             trips = self._callback_trip_counts.get(sub.sub_id, 0) + 1
                             self._callback_trip_counts[sub.sub_id] = trips
-                            if trips >= self.CALLBACK_TRIP_AFTER and sub.sub_id in self._subscriptions:
-                                self._subscriptions[sub.sub_id].callback = None
-                                self._subscriptions[sub.sub_id].is_demoted = True
+                            current = self._subscriptions.get(sub.sub_id)
+                            if trips >= self.CALLBACK_TRIP_AFTER and current is not None:
+                                # RT-2: copy-on-write replacement (frozen sub).
+                                self._replace_subscription_locked(
+                                    current, callback=None, is_demoted=True
+                                )
                                 logger.error(
                                     "FrameRouter callback-only subscriber tripped after repeated budget violations — "
                                     "callback removed (restore via restore_callback)",
@@ -213,7 +240,9 @@ class FrameRouter:
                 try:
                     sub.frame_queue.put_nowait(frame)
                 except queue.Full:
-                    with self._lock:
+                    # RT-1: dropped/total_routed share _stats_lock so stats()
+                    # can never observe a torn pair (dropped > routed).
+                    with self._stats_lock:
                         self._total_dropped += 1
                         self._drop_counts_since_log[sub.sub_id] = (
                             self._drop_counts_since_log.get(sub.sub_id, 0) + 1
@@ -246,8 +275,9 @@ class FrameRouter:
             sub = self._subscriptions.get(sub_id)
             if sub is None:
                 return False
-            sub.callback = callback
-            sub.is_demoted = False
+            # RT-2: copy-on-write replacement (frozen sub) — rebuild the
+            # snapshot so route_frame picks up the re-armed callback.
+            self._replace_subscription_locked(sub, callback=callback, is_demoted=False)
             # REVIEW2 #2: a fresh operator-armed callback starts with a
             # clean trip count (it may genuinely be faster now).
             self._callback_trip_counts.pop(sub_id, None)
@@ -266,9 +296,12 @@ class FrameRouter:
 
     @property
     def stats(self) -> dict[str, int]:
-        with self._lock:
+        # RT-1: both counters are mutated/read under the SAME _stats_lock, so
+        # the snapshot is internally consistent (no torn routed/dropped pair).
+        # Lock order stays _lock -> _stats_lock, matching route_frame.
+        with self._stats_lock:
             return {
-                "active_subscriptions": len(self._subscriptions),
+                "active_subscriptions": len(self._route_snapshot),
                 "total_routed": self._total_routed,
                 "total_dropped": self._total_dropped,
             }
