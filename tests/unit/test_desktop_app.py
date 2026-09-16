@@ -686,8 +686,13 @@ def test_desktop_composition_root_wiring_discovery_oem_replay_flashing(tmp_path)
     # Ensure no exception and discovery engine / router processed frame
     assert app.discovery_engine._total_frames == 1
 
-    # 3. ReplayBus
-    asc_file = tmp_path / "test_trace.asc"
+    # 3. ReplayBus — C-1: the trace must live inside the app-owned
+    # data/traces/ root; the bridge now enforces a positive root allowlist.
+    from src.ui.desktop_app import _app_data_root
+
+    traces_root = _app_data_root() / "data" / "traces"
+    traces_root.mkdir(parents=True, exist_ok=True)
+    asc_file = traces_root / "test_trace.asc"
     asc_file.write_text(
         "date Mon Jan 1 00:00:00 2024\n"
         "base hex timestamps absolute\n"
@@ -697,6 +702,7 @@ def test_desktop_composition_root_wiring_discovery_oem_replay_flashing(tmp_path)
     load_res = bridge.replay_load(str(asc_file))
     assert load_res["success"] is True
     assert load_res["frame_count"] == 2
+    asc_file.unlink(missing_ok=True)
 
     # 4. EcuFlashingEngine
     app._is_simulating = True

@@ -247,7 +247,41 @@ class DesktopApiBridge:
     # Deterministic Trace Replay Bridge APIs
     # ------------------------------------------------------------------
     def replay_load(self, file_path: str) -> dict[str, Any]:
-        """Load CAN trace file (.asc, .csv, .blf) into ReplayBus engine."""
+        """Load CAN trace file (.asc, .csv, .blf) into ReplayBus engine.
+
+        C-1 / O-5: this is a renderer-reachable IPC endpoint. The raw path
+        used to go straight into ``Path.resolve()`` + ``open()``, so a
+        hostile renderer could force an SMB/UNC connect (NTLM coercion) or
+        reach any file the process can read. Replay files must now live
+        under an app-owned root, and non-str/over-long input is refused
+        before any OS call.
+        """
+        if not isinstance(file_path, str):
+            logger.warning(
+                "replay_load rejected: non-string path",
+                extra={"type": type(file_path).__name__},
+            )
+            return {"success": False, "error": "Geçersiz trace yolu (string bekleniyor)."}
+        if len(file_path) == 0 or len(file_path) > DesktopApiBridge.REPLAY_PATH_MAX_CHARS:
+            logger.warning(
+                "replay_load rejected: path length",
+                extra={"length": len(file_path)},
+            )
+            return {
+                "success": False,
+                "error": (
+                    f"Geçersiz trace yolu uzunluğu ({len(file_path)}); en fazla "
+                    f"{DesktopApiBridge.REPLAY_PATH_MAX_CHARS} karakter olabilir."
+                ),
+            }
+        # C-1: enforce the positive root allowlist at the IPC boundary too —
+        # the renderer must never be able to reach the filesystem through
+        # this method even if the app-layer guard were bypassed.
+        try:
+            DesktopApiBridge._validate_replay_path(file_path)
+        except ValueError as exc:
+            logger.warning("replay_load rejected by path policy", extra={"error": str(exc)})
+            return {"success": False, "error": str(exc)}
         return self.app.load_replay(file_path)
 
     def replay_start(self, speed: float = 1.0, loop: bool = False) -> dict[str, Any]:
@@ -578,6 +612,104 @@ class DesktopApiBridge:
                 "dizinlerindeki dosyalar yuklenebilir."
             )
 
+        return resolved
+
+    # Replay trace loading (C-1 / O-5). Traces are read-only inputs, so the
+    # policy is *stricter* than the upload path: fixed app-owned roots plus
+    # an extension keep-list, and every reserved device / UNC / extended
+    # path shape is refused before it can reach the filesystem.
+    REPLAY_PATH_MAX_CHARS: ClassVar[int] = 4096
+    REPLAY_ROOTS: ClassVar[tuple[Path, ...]] = (
+        Path("data") / "traces",
+        Path("logs"),
+        Path("exports"),
+    )
+    # Extension keep-list mirrors UPLOAD_EXTENSION_HINTS minus formats that
+    # are never trace containers (.json/.log stay: ReplayBus parses .csv).
+    REPLAY_EXTENSION_HINTS: ClassVar[frozenset[str]] = frozenset(
+        {".mf4", ".mdf", ".bin", ".asc", ".blf", ".csv", ".json", ".log", ".zst"}
+    )
+    # Windows reserved device names (case-insensitive, with or without an
+    # extension: ``CON`` and ``CON.asc`` both address the device).
+    _RESERVED_DEVICE_NAMES: ClassVar[frozenset[str]] = frozenset(
+        {"CON", "PRN", "AUX", "NUL"}
+        | {f"COM{i}" for i in range(1, 10)}
+        | {f"LPT{i}" for i in range(1, 10)}
+    )
+    # UNC prefix (``\\host`` / ``//host``), DOS device namespace (``\\.\``,
+    # ``\\?\``, ``\??\``), and drive-relative forms (``C:``).
+    _UNC_RE: ClassVar[re.Pattern[str]] = re.compile(r"^[\\/]{2}")
+    _DEVICE_NS_RE: ClassVar[re.Pattern[str]] = re.compile(r"^[\\/]{2}[.?][\\/]")
+    _DRIVE_RELATIVE_RE: ClassVar[re.Pattern[str]] = re.compile(r"^[A-Za-z]:(?![\\/])")
+    # NUL / newline / carriage-return: never valid in a trace path and used
+    # to smuggle truncation or log injection.
+    _REPLAY_CONTROL_RE: ClassVar[re.Pattern[str]] = re.compile(r"[\x00\n\r]")
+
+    @classmethod
+    def _replay_roots_resolved(cls) -> tuple[Path, ...]:
+        root = _app_data_root().resolve()
+        return tuple((root / rel).resolve() for rel in cls.REPLAY_ROOTS)
+
+    @classmethod
+    def _has_reserved_device_name(cls, raw: str) -> bool:
+        """True if any path segment names a reserved DOS device."""
+        for segment in re.split(r"[\\/]+", raw):
+            if not segment:
+                continue
+            stem = segment.split(".", 1)[0].strip().upper()
+            if stem in cls._RESERVED_DEVICE_NAMES:
+                return True
+        return False
+
+    @classmethod
+    def _validate_replay_path(cls, file_path: str) -> Path:
+        """Validate a trace path from the IPC surface (C-1 / O-5).
+
+        Fail-closed: reserved device names, UNC/device-namespace/relative
+        drive shapes, non-files, disallowed extensions, and any path outside
+        the app-owned replay roots are refused. Raises ``ValueError``; the
+        caller converts it to ``{"success": False}`` without ever echoing a
+        resolved location back to the renderer.
+        """
+        if not isinstance(file_path, str):
+            raise ValueError("Geçersiz trace yolu (string bekleniyor).")
+
+        raw = file_path.strip()
+        if not raw:
+            raise ValueError("Geçersiz trace yolu (boş).")
+        if len(raw) > cls.REPLAY_PATH_MAX_CHARS:
+            raise ValueError(
+                f"Geçersiz trace yolu uzunluğu; en fazla {cls.REPLAY_PATH_MAX_CHARS} karakter olabilir."
+            )
+        if cls._REPLAY_CONTROL_RE.search(raw):
+            raise ValueError("Geçersiz trace yolu (control karakteri).")
+
+        # --- pre-resolve shape gates (no OS call performed) ----------------
+        if cls._UNC_RE.match(raw) or cls._DEVICE_NS_RE.match(raw):
+            raise ValueError("Güvenlik politikası: UNC/ağ yolları ve aygıt yolları reddedilir.")
+        if cls._DRIVE_RELATIVE_RE.match(raw):
+            raise ValueError("Güvenlik politikası: sürücü-göreli yollar reddedilir.")
+        if cls._has_reserved_device_name(raw):
+            raise ValueError("Güvenlik politikası: ayrılmış aygıt adları reddedilir.")
+
+        resolved = Path(raw).resolve()
+
+        # A resolved UNC/device shape can still appear after normalisation.
+        if cls._UNC_RE.match(str(resolved)) or cls._DEVICE_NS_RE.match(str(resolved)):
+            raise ValueError("Güvenlik politikası: UNC/ağ yolları ve aygıt yolları reddedilir.")
+
+        if not resolved.is_file():
+            raise ValueError(f"Dosya bulunamadı veya geçersiz: {raw}")
+
+        ext = resolved.suffix.lower()
+        if ext not in cls.REPLAY_EXTENSION_HINTS:
+            raise ValueError(f"İzin verilmeyen trace dosya formatı '{ext}'.")
+
+        if not any(resolved.is_relative_to(root) for root in cls._replay_roots_resolved()):
+            raise ValueError(
+                "Güvenlik politikası: yalnızca uygulamanın kendi veri/traces, "
+                "logs ve exports dizinlerindeki iz kayıtları yüklenebilir."
+            )
         return resolved
 
     def cloud_upload_session(self, file_path: str, vehicle_vin: str | None = None) -> dict[str, Any]:
@@ -2010,11 +2142,19 @@ class UniversalCanDesktopApp:
     # ReplayBus Trace Methods
     # ------------------------------------------------------------------
     def load_replay(self, file_path: str) -> dict[str, Any]:
-        """Load a trace file (.asc, .csv, .blf) into ReplayBus."""
+        """Load a trace file (.asc, .csv, .blf) into ReplayBus.
+
+        C-1: the path arrives from the renderer over IPC. It is validated
+        against the app-owned replay roots (plus UNC/device fail-closed
+        refusal) before ``Path.resolve()`` touches the filesystem, so a
+        hostile renderer can no longer trigger an SMB connect or read an
+        arbitrary file. On rejection ``replay_bus`` is left untouched.
+        """
         try:
-            path = Path(file_path).resolve()
-            self.replay_bus = ReplayBus.from_trace_file(path)
-            return {"success": True, "frame_count": self.replay_bus.frame_count, "path": str(path)}
+            path = DesktopApiBridge._validate_replay_path(file_path)
+            bus = ReplayBus.from_trace_file(path)
+            self.replay_bus = bus
+            return {"success": True, "frame_count": bus.frame_count, "path": str(path)}
         except Exception as exc:
             return {"success": False, "error": str(exc)}
 

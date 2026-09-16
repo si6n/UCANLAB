@@ -30,6 +30,65 @@ logger = get_logger("launcher.app")
 
 DEFAULT_EMBEDDED_CLOUD_PUBLIC_KEY_B64 = "eX3vJQWpo/pKrkpi5Y+f7m5ooUCRbCyY201DTnAjz/Q="
 
+# D-4: the launcher spawns whatever executable `resolve_target_executable`
+# happens to find on disk. If ``<root>/dist/`` is writable (e.g. via the
+# C-1 file-path surface), an attacker could drop an unsigned
+# ``ucanlab.exe``. Every frozen candidate must therefore match a hash
+# manifest that lives OUTSIDE the writable dist/ tree.
+TARGET_MANIFEST_NAME = "target.hash"
+TARGET_MANIFEST_DIR = "data"
+TARGET_MANIFEST_ENV = "UCANLAB_TARGET_MANIFEST"
+
+
+def _manifest_path() -> Path:
+    """Resolve the target-hash manifest (env override for tests/packaging)."""
+    import os
+
+    override = os.environ.get(TARGET_MANIFEST_ENV, "").strip()
+    if override:
+        return Path(override)
+    root = Path(__file__).resolve().parent.parent.parent
+    return root / TARGET_MANIFEST_DIR / TARGET_MANIFEST_NAME
+
+
+def _sha256_file(path: Path) -> str:
+    """Streaming SHA-256 of a file (never loads large binaries into RAM)."""
+    import hashlib
+
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _load_target_manifest(manifest_path: Path | None = None) -> str:
+    """Read the expected SHA-256 hex digest from the manifest.
+
+    Accepts a bare digest line or ``<digest>  <name>`` (sha256sum format).
+    Returns the lowercased hex digest, or raises ``RuntimeError`` when the
+    manifest is missing/empty (callers treat that as fail-closed).
+    """
+    path = manifest_path if manifest_path is not None else _manifest_path()
+    if not path.is_file():
+        raise RuntimeError(f"Hedef hash manifesti bulunamadi: {path}")
+    for line in path.read_text(encoding="utf-8").splitlines():
+        token = line.strip().split()[0] if line.strip() else ""
+        if token and all(c in "0123456789abcdefABCDEF" for c in token) and len(token) == 64:
+            return token.lower()
+    raise RuntimeError(f"Hedef hash manifesti gecersiz veya bos: {path}")
+
+
+def _verify_target_hash(target: Path, expected_hex: str) -> bool:
+    """Constant-time-ish comparison of a file's SHA-256 against the manifest."""
+    import hmac
+
+    try:
+        actual = _sha256_file(target)
+    except OSError:
+        return False
+    return hmac.compare_digest(actual, expected_hex.lower())
+
 
 def _dev_override_enabled() -> bool:
     """True only in an explicit non-frozen dev environment (L-C-001).
@@ -259,6 +318,35 @@ class UniversalCanLauncher:
             i += 1
         return filtered
 
+    @classmethod
+    def verify_resolved_target(cls, target: Path) -> bool:
+        """D-4: verify a frozen target against the hash manifest.
+
+        Returns ``True`` when the file matches the manifest digest. Raises
+        ``RuntimeError`` (fail-closed, blocked launch) when:
+
+        * the manifest is missing/invalid AND the target is a frozen binary
+          (an unsigned exe in ``dist/`` is exactly the takeover D-4 covers);
+        * the digest does not match.
+
+        The raw-Python entry point (``.py``) is the trusted-development
+        fallback and is allowed without a manifest.
+        """
+        if target.suffix.lower() == ".py":
+            return True
+
+        expected = _load_target_manifest()  # raises RuntimeError if absent
+        if not _verify_target_hash(target, expected):
+            logger.error(
+                "Hedef ikili hash manifestiyle eslesmiyor - baslatma reddedildi",
+                extra={"target": str(target), "expected": expected},
+            )
+            raise RuntimeError(
+                f"Hedef ikili hash dogrulamasi basarisiz (imzasiz/degistirilmis): {target}"
+            )
+        logger.info("Hedef ikili hash manifesti dogrulandi", extra={"target": str(target)})
+        return True
+
     def launch_main_app(self, extra_args: list[str] | None = None) -> int:
         """Spawn the core application executable with integrity checks."""
         target = self.resolve_target_executable().resolve()
@@ -266,6 +354,14 @@ class UniversalCanLauncher:
 
         if not target.is_file():
             logger.error("Target executable not found or not a valid file", extra={"target": str(target)})
+            return 1
+
+        # D-4: refused before spawn when the binary does not match the
+        # manifest — a writable dist/ no longer means code execution.
+        try:
+            self.verify_resolved_target(target)
+        except RuntimeError as exc:
+            logger.error("Target integrity gate blocked launch", extra={"error": str(exc)})
             return 1
 
         if target.suffix == ".py":
