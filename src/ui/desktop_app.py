@@ -68,6 +68,13 @@ from src.security.hwid.collector import generate_hardware_fingerprint
 
 logger = get_logger("app.desktop")
 
+# T56-B / A3-1: DiagnosticEvent carries SPN/FMI only inside its text code
+# ("SPN <n> FMI <m>"); the copilot's J1939 KB path needs the numeric fields,
+# so the bridge re-derives them here. Anchored on the SPN token so an FMI-less
+# code still yields its SPN, and a non-SPN code yields no match at all.
+_SPN_FMI_RE = re.compile(r"SPN\s+(\d+)(?:\s+FMI\s+(\d+))?", re.I)
+
+
 @dataclass(frozen=True)
 class DiagnosticChallenge:
     """Short-lived (≤30s) single-use challenge token for dual-confirmation actions."""
@@ -137,6 +144,22 @@ class DesktopApiBridge:
 
     def __init__(self, app: UniversalCanDesktopApp) -> None:
         self.app = app
+        # H-2: the bridge is the UI-reachable heartbeat entry point. It adopts
+        # the composition root's shared heartbeat token (or mints one if the
+        # app did not arm it) so the 800 ms liveness interlock is driven by an
+        # identified channel — not an anonymous stream. The token never
+        # crosses the JS boundary.
+        import secrets as _secrets
+
+        self._heartbeat_token = getattr(app, "_heartbeat_token", None) or _secrets.token_hex(32)
+        watchdog = getattr(app, "watchdog", None)
+        if watchdog is not None and hasattr(watchdog, "arm_heartbeat_token"):
+            watchdog.arm_heartbeat_token(self._heartbeat_token)
+        if getattr(app, "_heartbeat_token", None) is None:
+            try:
+                app._heartbeat_token = self._heartbeat_token
+            except Exception:  # noqa: BLE001 — duck-typed test doubles may be read-only
+                pass
 
     def trigger_estop(self) -> None:
         logger.warning("Emergency Stop Triggered from Desktop UI Button!")
@@ -365,8 +388,12 @@ class DesktopApiBridge:
         self.app.update_settings(settings)
 
     def heartbeat(self) -> bool:
-        """Periodic UI lease heartbeat to satisfy TX Watchdog."""
-        self.app.watchdog.heartbeat()
+        """Periodic UI lease heartbeat to satisfy TX Watchdog.
+
+        H-2: the pulse must carry the shared bridge<->watchdog token so the
+        lease is extended by an identified caller, not an anonymous stream.
+        """
+        self.app.watchdog.heartbeat(self._heartbeat_token)
         return True
 
     def get_safety_state(self) -> str:
@@ -865,6 +892,12 @@ class UniversalCanDesktopApp:
             auth_secret=self._arm_auth_secret,
         )
         self.watchdog = TxWatchdogSupervisor(supervisor=self.supervisor, estop=self.estop, timeout_ms=800.0)
+        # H-2: arm the shared heartbeat token here so an in-process caller
+        # (e.g. arm_tx's opportunistic lease refresh) can hold the lease with
+        # an identified token. DesktopApiBridge adopts this same token when
+        # the WebView bridge is created, re-arming the watchdog with it.
+        self._heartbeat_token = secrets.token_hex(32)
+        self.watchdog.arm_heartbeat_token(self._heartbeat_token)
         # REVIEW.md 1.1: the gateway previously started with NO whitelist,
         # so the fail-closed Stage 3 rejected every single frame — the app
         # could never transmit at all. Seed it with the legitimate diagnostic
@@ -1235,16 +1268,52 @@ class UniversalCanDesktopApp:
             hypotheses = rank_hypotheses(session, anomalies, similar)
 
         # Engineering report feeds the deterministic user decision card.
-        dtc_payload = [
-            {"code": e.code, "spn": None, "fmi": None}
-            for e in session.events
-            if e.status == "ACTIVE"
-        ]
+        # T56-B / A3-1: the bridge used to hardcode spn/fmi to None, so the
+        # copilot's J1939 KB path (SPN<num> lookup in _analyze_local_expert)
+        # was unreachable for live DM1 codes and the 3.9k-entry SPN database
+        # never enriched a session report. The SPN/FMI is already textually
+        # present in DiagnosticEvent.code ("SPN <n> FMI <m>") — re-derive it
+        # instead of dropping the information. Codes without the SPN form
+        # keep (None, None): never fabricate an SPN from arbitrary text.
+        dtc_payload = []
+        for e in session.events:
+            if e.status != "ACTIVE":
+                continue
+            match = _SPN_FMI_RE.search(e.code or "")
+            dtc_payload.append(
+                {
+                    "code": e.code,
+                    "spn": int(match.group(1)) if match else None,
+                    "fmi": int(match.group(2)) if match and match.group(2) is not None else None,
+                }
+            )
         report = self.copilot.analyze_session(dtc_payload, {}, [])
         card = compose_user_card(report, session, is_simulating=self._is_simulating)
         return {
             "success": True,
             "user_card": card.card_to_dict(),
+            # T56-B / A3-1: expose the engineering report (KB/J1939-enriched
+            # causes + subsystems) alongside the decision card. It was
+            # previously computed and discarded here, so the SPN/FMI
+            # enrichment was unobservable to callers.
+            "report": {
+                "summary": report.summary,
+                "severity": report.severity.value,
+                "likely_causes": list(report.likely_causes),
+                "affected_subsystems": list(report.affected_subsystems),
+                "troubleshooting_steps": [
+                    {
+                        "step": s.step_number,
+                        "action": s.action,
+                        "component": s.target_component,
+                        "difficulty": s.difficulty,
+                    }
+                    for s in report.troubleshooting_steps
+                ],
+                "telemetry_correlations": list(report.telemetry_correlations),
+                "raw_dtc_count": report.raw_dtc_count,
+                "ai_model_used": report.ai_model_used,
+            },
             **report_summary_dict(sufficiency, anomalies, hypotheses, similar),
         }
 
@@ -1413,14 +1482,19 @@ class UniversalCanDesktopApp:
             # REVIEW (driver mode atomicity): the supervisor flips to ARMED_TX
             # only AFTER the physical driver actually left listen-only. An
             # unverified/silent backend keeps the protocol dead-but-armed.
+            # O-1: refresh the liveness lease BEFORE the driver-mode
+            # transition. The old code refreshed inside the arm critical
+            # section, masking the start race (the lease was extended at the
+            # same instant as the ARMED_TX flip). An identified, token-
+            # authenticated pulse here keeps the interlock honest.
+            if not self.watchdog.is_lease_valid:
+                self.watchdog.heartbeat(self._heartbeat_token)
             with self._bus_lock:
                 if not self._set_driver_listen_only(False):
                     return {
                         "success": False,
                         "error": "Cannot arm TX: hardware driver did not confirm active (TX-capable) mode",
                     }
-                if not self.watchdog.is_lease_valid:
-                    self.watchdog.heartbeat()
                 # P3 (G-3): the supervisor now enforces HMAC authorization.
                 # The desktop composition root mints the arm token here, in the
                 # TRUSTED process, immediately before the transition — the
@@ -1511,7 +1585,10 @@ class UniversalCanDesktopApp:
         # E-Stop — the previous silent minted-token reset made this JS-reachable
         # button an E-Stop bypass. Refuse the toggle while engaged; the
         # operator must run the challenge/response reset flow instead.
-        if self._is_estop:
+        # O-2: the authoritative latch is `estop.is_engaged` (the safety
+        # object). `_is_estop` is only the UI mirror and can lag a hardware
+        # E-Stop. Check BOTH so a drifted mirror cannot open the toggle.
+        if self._is_estop or self.estop.is_engaged:
             logger.error(
                 "Simulator toggle refused while E-Stop is latched — clear the E-Stop "
                 "via the challenge/response reset flow first"
@@ -1808,11 +1885,13 @@ class UniversalCanDesktopApp:
 
         # 3. Dual Confirmation Check (Challenge Token Verification)
         if requires_conf:
-            token_candidate = confirmation_token
-            if not token_candidate or not isinstance(token_candidate, str):
-                token_candidate = action.get("confirmation_token") or action.get("token")
-            if not token_candidate and isinstance(user_confirmed, str):
-                token_candidate = user_confirmed
+            # H-1: the token must come ONLY from the explicit
+            # `confirmation_token` parameter — an out-of-band channel the
+            # caller cannot populate via its own `action` payload. The old
+            # `action["confirmation_token"]` / `action["token"]` / string
+            # `user_confirmed` fallbacks let the caller satisfy its own
+            # "second, independent channel" invariant.
+            token_candidate = confirmation_token if isinstance(confirmation_token, str) else None
 
             valid, reason = self._verify_and_consume_diagnostic_token(token_candidate, action_type, action_id)
             if not valid:
@@ -2215,7 +2294,11 @@ class UniversalCanDesktopApp:
                 return {"success": False, "error": err, "message": err}
 
         # 2. Dual confirmation token check
-        token_candidate = confirmation_token or config.get("confirmation_token") or config.get("token")
+        # H-1b: accept the token ONLY from the explicit `confirmation_token`
+        # parameter — never from the caller-supplied `config` dict (which
+        # would let the caller satisfy its own independent-confirmation
+        # invariant via config["confirmation_token"] / config["token"]).
+        token_candidate = confirmation_token if isinstance(confirmation_token, str) else None
         valid, reason = self._verify_and_consume_diagnostic_token(
             token_candidate,
             action_type=str(config.get("action_type") or "ecu_flash"),

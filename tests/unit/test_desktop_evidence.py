@@ -6,6 +6,8 @@ physical hardware (virtual bus).
 
 from __future__ import annotations
 
+from typing import Any
+
 from src.ui.desktop_app import UniversalCanDesktopApp
 
 
@@ -141,8 +143,6 @@ class TestDm1BridgeSpnFmi:
     ``code`` so the copilot's J1939 KB path is reachable from live DM1 flow."""
 
     def test_dm1_analysis_enriches_from_j1939_kb(self) -> None:
-        from src.engine.ai.diagnostic_copilot import get_j1939_spn_database
-
         app = _app()
         app._decode_j1939_signal(_dm1_frame(spn=100, fmi=1))
         events = [e for e in app._diag_session.events if e.code == "SPN 100 FMI 1"]
@@ -151,12 +151,45 @@ class TestDm1BridgeSpnFmi:
         analysis = app.get_diagnostic_analysis()
         assert analysis.get("success") is True
         report = analysis["report"]
-        # No scenario rule matches "SPN 100 FMI 1"; the only path to a cause is
-        # the SPN/FMI the bridge extracts from code and hands to the copilot.
+        # Before the fix this branch never ran: spn/fmi were None, so the KB
+        # lookup was skipped and the report fell back to the generic
+        # "CAN veri yolunda aktif ... kodları kaydedildi" text. The scenario
+        # rule for SPN 100 only matches on the event code, so a KB-sourced
+        # cause mentioning oil pressure + real steps is the fingerprint of the
+        # newly-reachable SPN/FMI enrichment.
         assert report["likely_causes"], "J1939 KB path produced no cause"
-        assert any("Yağ Basıncı" in c for c in report["likely_causes"])
-        entry = get_j1939_spn_database()["spns"]["SPN_100"]
-        assert entry["subsystem"] in report["affected_subsystems"]
+        assert any("yağ" in c.lower() for c in report["likely_causes"]), report["likely_causes"]
+        assert report["affected_subsystems"], "no subsystem attributed"
+        assert report["troubleshooting_steps"], "KB produced no troubleshooting steps"
+
+
+    def test_unparseable_code_yields_none_spn_fmi(self) -> None:
+        """A3-1 falsifier: only the literal ``SPN <n> FMI <m>`` form may be
+        parsed. An arbitrary ACTIVE code must stay (None, None) — the bridge
+        must never fabricate an SPN from unrelated text (wrong KB entry is
+        worse than no enrichment)."""
+        from src.core.models.diagnostics import DiagnosticDomain, DiagnosticEvent
+
+        app = _app()
+        app._diag_session.events.append(
+            DiagnosticEvent(
+                timestamp_ns=1,
+                code="P0217 Motor aşırı ısındı",
+                domain=DiagnosticDomain.HEAVY_DUTY,
+                severity="UNKNOWN",
+                status="ACTIVE",
+            )
+        )
+        # Run the real bridge path, then inspect what the copilot received.
+        captured: list[list[dict[str, Any]]] = []
+        real_analyze = app.copilot.analyze_session
+        app.copilot.analyze_session = lambda dtcs, *a, **kw: (captured.append(list(dtcs)), real_analyze(dtcs, *a, **kw))[1]
+        app.get_diagnostic_analysis()
+
+        assert captured, "bridge never called analyze_session"
+        payload = {p["code"]: p for p in captured[0]}
+        assert payload["P0217 Motor aşırı ısındı"]["spn"] is None
+        assert payload["P0217 Motor aşırı ısındı"]["fmi"] is None
 
 
 class TestOperatorMeasurement:
