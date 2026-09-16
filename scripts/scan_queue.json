@@ -1,0 +1,403 @@
+{
+ "_comment": "UCANLAB surekli tarama kuyrugu. Kesif ajani EKLER, tarama ajanlari TUKETIR. Ayni kaynagi ikinci kez taramayin!",
+ "_protocol": {
+  "producer": "kesif ajani — yeni kaynak bulur, status=pending ekler",
+  "consumer": "tarama ajani — status=pending alir, scanning->done yapar, ham cikti yazar",
+  "merge": "T62 gorevi — ham ciktiyi DB'ye uygular (tarama ajanlari DB'ye YAZMAZ)",
+  "dedup": "domain zaten sources'ta varsa EKLEME",
+  "blacklist": "blacklist listesindekilere DOKUNMA"
+ },
+ "updated": "2026-09-16",
+ "credits": {
+  "hesap2": {
+   "zone": "scraping_browser1",
+   "remaining": 1553,
+   "env_prefix": "BRIGHTDATA_"
+  },
+  "hesap3": {
+   "zone": "scraping_browser4",
+   "remaining": 4107,
+   "env_prefix": "BRIGHTDATA3_"
+  },
+  "note": "Kredi panelden ogrenilir; API kredi sorgusu yetkisiz. Bu degerler manuel guncellenir."
+ },
+ "sources": [
+  {
+   "id": "obd_codes_com",
+   "url": "obd-codes.com",
+   "domain": "obd-codes.com",
+   "type": "dtc",
+   "method": "brightdata",
+   "status": "pending",
+   "credits_used": 0,
+   "tur": "<=35",
+   "notes": "9300 DTC"
+  },
+  {
+   "id": "repair_diesellaptops_com",
+   "url": "repair.diesellaptops.com",
+   "domain": "repair.diesellaptops.com",
+   "type": "dtc",
+   "method": "free",
+   "status": "pending",
+   "credits_used": 0,
+   "tur": "<=35",
+   "notes": "26434 satir / 618 SPN"
+  },
+  {
+   "id": "4roadservice_com",
+   "url": "4roadservice.com/resources/detroit",
+   "domain": "4roadservice.com",
+   "type": "dtc",
+   "method": "brightdata",
+   "status": "pending",
+   "credits_used": 0,
+   "tur": "<=35",
+   "notes": "Detroit DD13/15/16"
+  },
+  {
+   "id": "b2bendix_com",
+   "url": "b2bendix.com",
+   "domain": "b2bendix.com",
+   "type": "dtc",
+   "method": "free",
+   "status": "pending",
+   "credits_used": 0,
+   "tur": "<=35",
+   "notes": "357 satir / 27 SPN"
+  },
+  {
+   "id": "api_b2bendix_com",
+   "url": "api.b2bendix.com",
+   "domain": "api.b2bendix.com",
+   "type": "dtc",
+   "method": "free",
+   "status": "pending",
+   "credits_used": 0,
+   "tur": "<=35",
+   "notes": "OCC API acik"
+  },
+  {
+   "id": "google_com",
+   "url": "google.com/search",
+   "domain": "google.com",
+   "type": "dtc",
+   "method": "brightdata",
+   "status": "pending",
+   "credits_used": 0,
+   "tur": "<=35",
+   "notes": "URL kesfi — YALNIZ zone -country-us sonekiyle"
+  },
+  {
+   "id": "j1939hub",
+   "url": "j1939hub",
+   "domain": "j1939hub",
+   "type": "j1939",
+   "method": "brightdata",
+   "status": "pending",
+   "credits_used": 0,
+   "tur": "<=35",
+   "notes": "1.6MB detay (kalite belirsiz)"
+  },
+  {
+   "id": "raw_githubusercontent_com",
+   "url": "raw.githubusercontent.com/STAS63-bit/sitrak-error-codes",
+   "domain": "raw.githubusercontent.com",
+   "type": "dtc",
+   "method": "free",
+   "status": "pending",
+   "credits_used": 0,
+   "tur": "T45-A",
+   "notes": "8042 kayit / 3402 SPN (CC BY 4.0, megadata.pro)"
+  },
+  {
+   "id": "repair_diesellaptops_com__276_sayfa_yeni",
+   "url": "repair.diesellaptops.com (276 sayfa yeniden cekim)",
+   "domain": "repair.diesellaptops.com (276 sayfa yeniden cekim)",
+   "type": "dtc",
+   "method": "free",
+   "status": "pending",
+   "credits_used": 0,
+   "tur": "T45-A",
+   "notes": "36200 satir / 1149 SPN (66 sayfa tablo)"
+  },
+  {
+   "id": "j1939hub_com",
+   "url": "j1939hub.com/{cat}/spn-{n}-fmi-{m}/ (canli per-DTC sayfalar)",
+   "domain": "j1939hub.com",
+   "type": "j1939",
+   "method": "free",
+   "status": "pending",
+   "credits_used": 0,
+   "tur": "T45-A",
+   "notes": "CANLI ama katalog sabit ~452 genel SPN; 120 canli prob -> T45-A bosluk SPN'leri (32 causes/194 steps) icin 0 hit -> BELIRSIZ (kaynak yok)"
+  },
+  {
+   "id": "duaparts_com",
+   "url": "duaparts.com/blog/spn-",
+   "domain": "duaparts.com",
+   "type": "j1939",
+   "method": "free",
+   "status": "pending",
+   "credits_used": 0,
+   "tur": "T45-B",
+   "notes": "50 SPN/FMI makalesi (SPN 3058/3061/3187/3223/3226/3227/3236/3238/3242/3246/3250/3251/3353/3361/3363) - gercek semptom/neden/tani adimlari"
+  },
+  {
+   "id": "truckfaultcode_com",
+   "url": "truckfaultcode.com",
+   "domain": "truckfaultcode.com",
+   "type": "dtc",
+   "method": "free",
+   "status": "pending",
+   "credits_used": 0,
+   "tur": "T45-B",
+   "notes": "KAYNAK DEGERI YOK: 48 SPN sayfasi yalniz egitim amacli genel metin; gercek semptom/neden/adim yok - tekrar tarama"
+  },
+  {
+   "id": "quickserve_cummins_com",
+   "url": "quickserve.cummins.com",
+   "domain": "quickserve.cummins.com",
+   "type": "dtc",
+   "method": "free",
+   "status": "pending",
+   "credits_used": 0,
+   "tur": "T45-B",
+   "notes": "ERISILEMEZ: mylogin.cummins.com login duvari -> BELIRSIZ (uydurma yok)"
+  },
+  {
+   "id": "productinfo_serviceranger4_com",
+   "url": "productinfo.serviceranger4.com",
+   "domain": "productinfo.serviceranger4.com",
+   "type": "dtc",
+   "method": "free",
+   "status": "pending",
+   "credits_used": 0,
+   "tur": "T45-B",
+   "notes": "ERISILEMEZ: /login duvari (Eaton PIL) -> BELIRSIZ (uydurma yok)"
+  },
+  {
+   "id": "obdhut_com",
+   "url": "obdhut.com",
+   "domain": "obdhut.com",
+   "type": "dtc",
+   "method": "free",
+   "status": "pending",
+   "credits_used": 0,
+   "tur": "T45-C",
+   "notes": "4515 DTC (meaning+causes) — DIKKAT: kaynakta symptoms==causes kopyasi, symptoms gecersiz"
+  },
+  {
+   "id": "troublecodes_net",
+   "url": "troublecodes.net",
+   "domain": "troublecodes.net",
+   "type": "dtc",
+   "method": "free",
+   "status": "pending",
+   "credits_used": 0,
+   "tur": "T45-C",
+   "notes": "4080 sayfa (755 anlam, 680 semptom)"
+  },
+  {
+   "id": "engine_codes_com",
+   "url": "engine-codes.com",
+   "domain": "engine-codes.com",
+   "type": "dtc",
+   "method": "brightdata",
+   "status": "pending",
+   "credits_used": 1,
+   "tur": "T45-C",
+   "notes": "627KB ham"
+  },
+  {
+   "id": "ecmtrucks_com",
+   "url": "ecmtrucks.com",
+   "domain": "ecmtrucks.com",
+   "type": "dtc",
+   "method": "brightdata",
+   "status": "pending",
+   "credits_used": 2,
+   "tur": "T45-C",
+   "notes": "Detroit DD15 fault tablolari"
+  },
+  {
+   "id": "class8truckparts_com",
+   "url": "class8truckparts.com",
+   "domain": "class8truckparts.com",
+   "type": "dtc",
+   "method": "brightdata",
+   "status": "pending",
+   "credits_used": 2,
+   "tur": "T45-C",
+   "notes": "Volvo/Mack kod blogu"
+  },
+  {
+   "id": "obdguides_com",
+   "url": "obdguides.com",
+   "domain": "obdguides.com",
+   "type": "dtc",
+   "method": "brightdata",
+   "status": "pending",
+   "credits_used": 4,
+   "tur": "T45-C",
+   "notes": "B/C/U kod listeleri"
+  },
+  {
+   "id": "autocodes_com",
+   "url": "autocodes.com",
+   "domain": "autocodes.com",
+   "type": "dtc",
+   "method": "brightdata",
+   "status": "pending",
+   "credits_used": 2,
+   "tur": "T45-C",
+   "notes": "P0300/B0001"
+  },
+  {
+   "id": "roadservice_app",
+   "url": "roadservice.app/diagnose/",
+   "domain": "roadservice.app",
+   "type": "dtc",
+   "method": "free",
+   "status": "done",
+   "credits_used": 0,
+   "tur": "T50",
+   "notes": "177 SPN/FMI teshis sayfasi TAM tarandi (177 ok / 0 fail, quality: 156 high + 21 medium); 131 DB procedures_full boslugunu doldurur + 46 yeni cift (DB'"
+  },
+  {
+   "id": "detroitmanuals_info",
+   "url": "detroitmanuals.info",
+   "domain": "detroitmanuals.info",
+   "type": "dtc",
+   "method": "free",
+   "status": "pending",
+   "credits_used": 0,
+   "tur": "T50",
+   "notes": "378 SPN/FMI procedures_full kaydi (135 SPN, 348 sayfa; Series 60/MBE4000/MBE900/DD15 DDEC VI); 291 DB procedures_full boslugunu doldurur + 87 yeni cif"
+  },
+  {
+   "id": "aidieseltech_com",
+   "url": "aidieseltech.com/diagnostic-pages/",
+   "domain": "aidieseltech.com",
+   "type": "dtc",
+   "method": "free",
+   "status": "done",
+   "credits_used": 0,
+   "tur": "T51",
+   "notes": "174 SPN/FMI teshis sayfasi TAM tarandi (174/174, hepsi 'high' kalite); 109 EMPTY_PF + 30 yeni-FMI + 6 yeni SPN = 139 bosluk doldurulabilir; sitemap 19"
+  },
+  {
+   "id": "professionaldieselrepair_com",
+   "url": "professionaldieselrepair.com/fault-codes",
+   "domain": "professionaldieselrepair.com",
+   "type": "dtc",
+   "method": "free",
+   "status": "done",
+   "credits_used": 0,
+   "tur": "T51",
+   "notes": "792 fault-code sayfasi TAM tarandi (786 ok / 0 fail; 763 high, 27 medium, 2 low); 430 kod sayfasi (240 distinct SPN/FMI) + 362 marka/blog hub; sitemap"
+  },
+  {
+   "id": "bigrigfaults_com",
+   "url": "bigrigfaults.com/faults/spn-{n}-fmi-{m}",
+   "domain": "bigrigfaults.com",
+   "type": "j1939",
+   "method": "free",
+   "status": "done",
+   "credits_used": 0,
+   "tur": "T55-B",
+   "notes": "129/129 SPN/FMI teshis sayfasi TAM tarandi (0 fail, 0 BrightData kredisi): 119 sayfa gercek veri (symptoms+causes+fixes+steps+scan-tool checks+misdiag"
+  },
+  {
+   "id": "heavydutyjournal_com",
+   "url": "heavydutyjournal.com/truck-fault-code-lookup/",
+   "domain": "heavydutyjournal.com",
+   "type": "dtc",
+   "method": "free",
+   "status": "pending",
+   "credits_used": 0,
+   "tur": "T55-B",
+   "notes": "DEGERLENDIRILDI - VERI YOK: yalniz SPN/FMI arama kutusu + indeks; koda ozel neden/adim metni yok (44 SPN adi, prosedur yok)"
+  },
+  {
+   "id": "obd2pros_com",
+   "url": "obd2pros.com/dtc-codes/",
+   "domain": "obd2pros.com",
+   "type": "dtc",
+   "method": "brightdata",
+   "status": "pending",
+   "credits_used": 31,
+   "tur": "T55-C",
+   "notes": "31 DTC kodu (P/B/C/U) BD ile cekildi (free 403): symptoms+causes+steps; 30'u DB symptoms boslugunu doldurur; C0242 robot-challenge -> veri yok (belirs"
+  },
+  {
+   "id": "manualslib_com",
+   "url": "manualslib.com/search",
+   "domain": "manualslib.com",
+   "type": "dtc",
+   "method": "brightdata",
+   "status": "pending",
+   "credits_used": 9,
+   "tur": "T55-C",
+   "notes": "Kesif/test (5 arama + 4 test-indeks): arama sonuclari JS-render, 0 sonuc -> BELIRSIZ (veri cikmadi, tekrar taranmasin)"
+  },
+  {
+   "id": "manualmachine_com",
+   "url": "manualmachine.com",
+   "domain": "manualmachine.com",
+   "type": "dtc",
+   "method": "free",
+   "status": "pending",
+   "credits_used": 0,
+   "tur": "T55-C",
+   "notes": "Navistar MaxxForce diagnostic manual x4 (free urllib): SPN 3242/3719/3936 referansli prosedur (DB'de zaten dolu)"
+  }
+ ],
+ "blacklist": [
+  {
+   "domain": "bing.com",
+   "reason": "19/40 bos sonuc, timeout",
+   "source": "T35"
+  },
+  {
+   "domain": "duckduckgo.com",
+   "reason": "guvenilmez, cerez duvari",
+   "source": "brightdata-kaynaklari.md"
+  },
+  {
+   "domain": "mojeek.com",
+   "reason": "guvenilmez",
+   "source": "brightdata-kaynaklari.md"
+  },
+  {
+   "domain": "spnfmi.com",
+   "reason": "daha once 0 PGN verdi",
+   "source": "Kaynak-Envanteri.md"
+  },
+  {
+   "domain": "justanswer.com",
+   "reason": "19/20 SPN ismi uydurma, reddedildi",
+   "source": "T35 REJECTED"
+  },
+  {
+   "domain": "google.com",
+   "reason": "cerez duvari; zone -country-us soneki gerekli",
+   "source": "brightdata-kaynaklari.md"
+  },
+  {
+   "domain": "truckfaultcode.com",
+   "reason": "48 SPN sayfasi yalniz egitim amacli genel metin; gercek prosedur/adim yok (T45-B)",
+   "source": "T45-B"
+  },
+  {
+   "domain": "yourmechanic.com",
+   "reason": "BD timeout (45s)",
+   "source": "T45-C"
+  },
+  {
+   "domain": "repairsadvisor.com",
+   "reason": "BD timeout",
+   "source": "T45-C"
+  }
+ ]
+}
