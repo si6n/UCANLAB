@@ -34,6 +34,45 @@ _INVALID_UUIDS = frozenset(
     }
 )
 
+# B-1: sentinel returned when no *real* physical MAC can be read. A random
+# uuid.getnode() value must NOT be returned as if it were a hardware id —
+# it changes between processes and silently breaks the fingerprint contract.
+UNKNOWN_MAC = "UNKNOWN_MAC"
+
+# B-2: sentinel fingerprint emitted when every collected component is a fixed
+# sentinel. Two cloned VMs (same hostname, no WMI data) would otherwise
+# converge on the same ``FALLBACK-<node>-<mac>`` string and share one license.
+INDETERMINATE_FINGERPRINT = "INDETERMINATE_HARDWARE"
+
+# B-3: strict allow-list of WMI classes/fields the collector may query. The
+# character-class regex below still permits ``.``/``|`` (legitimate property
+# access + pipeline syntax), so the *names* must be validated against this
+# module constant instead of trusting free-form command text.
+ALLOWED_WMI_CLASSES = frozenset(
+    {
+        "Win32_ComputerSystemProduct",
+        "Win32_Processor",
+        "Win32_BIOS",
+        "Win32_DiskDrive",
+        "Win32_NetworkAdapterConfiguration",
+    }
+)
+ALLOWED_WMI_FIELDS = frozenset(
+    {
+        "UUID",
+        "ProcessorId",
+        "SerialNumber",
+        "MACAddress",
+    }
+)
+
+# Physical components that prove a machine identity. A fingerprint is only
+# considered determinate when at least two of these indices are real.
+_PHYSICAL_COMPONENT_COUNT = 4
+_MIN_INDEPENDENT_COMPONENTS = 2
+
+_SENTINEL_COMPONENTS = frozenset({"UNKNOWN_CPU", "UNKNOWN_DISK", "UNKNOWN_BIOS", UNKNOWN_MAC})
+
 
 def _run_powershell(command: str) -> str:
     """Execute a single PowerShell command and return the trimmed output.
@@ -110,7 +149,19 @@ def _run_powershell(command: str) -> str:
 
 
 def _wmi_query(wmi_class: str, field: str) -> str:
-    """Execute a single WMI query via PowerShell and return the trimmed value."""
+    """Execute a single WMI query via PowerShell and return the trimmed value.
+
+    B-3: the PowerShell allow-list regex still permits ``.`` and ``|`` so a
+    class/field name interpolated from an untrusted caller could smuggle
+    pipeline/metadata syntax. Validate both names against module-level
+    allow-lists and fail closed (empty string) on anything unknown.
+    """
+    if wmi_class not in ALLOWED_WMI_CLASSES or field not in ALLOWED_WMI_FIELDS:
+        logger.warning(
+            "Rejected WMI query outside the class/field allow-list",
+            extra={"wmi_class": str(wmi_class)[:64], "field": str(field)[:64]},
+        )
+        return ""
     return _run_powershell(f"(Get-CimInstance -ClassName {wmi_class}).{field}")
 
 
@@ -156,26 +207,86 @@ def collect_bios_serial() -> str:
 
 
 def collect_primary_mac() -> str:
-    """Collect primary network adapter MAC address."""
+    """Collect primary network adapter MAC address.
+
+    B-1: when WMI yields no MAC, ``uuid.getnode()`` is consulted — but if it
+    cannot read a real interface it returns a *random* 48-bit node with the
+    multicast/random bit (``0x02`` of the first octet) set. That value
+    changes every process, so it must never be used as a hardware identity:
+    detect the random bit and fail closed with ``UNKNOWN_MAC`` instead.
+    """
     mac = _run_powershell(
         "(Get-CimInstance -ClassName Win32_NetworkAdapterConfiguration -Filter 'IPEnabled=True' | Select-Object -First 1).MACAddress"
     )
     if mac:
         return mac.strip()
     node = uuid.getnode()
+    # Bit 0x02 of the highest octet (bits 40-47 of the 48-bit node) is the
+    # IEEE "locally administered / random" flag uuid.getnode() sets when it
+    # has no real MAC to report.
+    if (node >> 40) & 0x02:
+        logger.warning(
+            "uuid.getnode() returned a random node (no physical MAC); using UNKNOWN_MAC sentinel"
+        )
+        return UNKNOWN_MAC
     return ":".join(f"{(node >> i) & 0xFF:02X}" for i in range(40, -8, -8))
+
+
+def _count_independent_components(
+    mb_uuid: str, cpu_id: str, disk_serial: str, bios_serial: str, mac: str | None = None
+) -> int:
+    """B-2: count physical components that carry a real, machine-bound id.
+
+    A ``FALLBACK-*`` motherboard UUID and the ``UNKNOWN_*`` sentinels are
+    not machine identities — two cloned hosts that both fail the same WMI
+    read produce byte-identical values. At least two independent real
+    components are required before the fingerprint may be treated as
+    determinate.
+    """
+    candidates = (mb_uuid, cpu_id, disk_serial, bios_serial)
+    count = 0
+    for value in candidates:
+        if not value or value.startswith("FALLBACK-") or value in _SENTINEL_COMPONENTS:
+            continue
+        count += 1
+    # A real (non-sentinel) MAC is an additional independent component.
+    if mac and mac not in _SENTINEL_COMPONENTS and not mac.startswith("FALLBACK-"):
+        count += 1
+    return count
 
 
 def _compute_hardware_fingerprint() -> str:
     """Generate a deterministic SHA-256 hardware fingerprint from 4 components.
 
     Returns:
-        64-character hex string representing the hardware identity hash.
+        64-character hex string representing the hardware identity hash, or
+        ``INDETERMINATE_FINGERPRINT`` when fewer than two independent
+        physical components could be read (B-2 fail-closed).
     """
     mb_uuid = collect_motherboard_uuid()
     cpu_id = collect_cpu_processor_id()
     disk_serial = collect_disk_serial()
     bios_serial = collect_bios_serial()
+
+    # B-2: on Windows the fingerprint is built from WMI hardware reads. When
+    # fewer than two independent real components come back, two cloned VMs
+    # (same hostname, empty WMI) converge on an identical
+    # ``FALLBACK-<node>-<mac>`` hash and would share one license. Fail closed
+    # with an explicit sentinel instead of emitting a guessable identity.
+    # The non-Windows platform-descriptor fallback below is a deliberate,
+    # documented behavior and is left unchanged.
+    if sys.platform == "win32" and (
+        _count_independent_components(mb_uuid, cpu_id, disk_serial, bios_serial) < _MIN_INDEPENDENT_COMPONENTS
+    ):
+        # MAC may be the second real component when only one WMI read worked.
+        mac = collect_primary_mac()
+        if _count_independent_components(mb_uuid, cpu_id, disk_serial, bios_serial, mac) < _MIN_INDEPENDENT_COMPONENTS:
+            logger.warning(
+                "Fewer than 2 independent hardware components collected — "
+                "reporting indeterminate fingerprint (fail-closed)",
+                extra={"mb_uuid_prefix": mb_uuid[:8]},
+            )
+            return INDETERMINATE_FINGERPRINT
 
     if (
         sys.platform != "win32"

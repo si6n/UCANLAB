@@ -19,6 +19,7 @@ _PROJECT_ROOT = str(Path(__file__).resolve().parent.parent)
 if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
 
+from src.core.errors import SecurityError
 from src.core.logging import get_logger, setup_logging
 from src.hal.base import AbstractBus
 from src.hal.drivers.pcan_kvaser import PythonCanBus
@@ -81,7 +82,31 @@ class UniversalCanMainWindow:
         self._desktop_app.run()
 
 
-def main() -> int:
+def _anti_tamper_gate() -> bool:
+    """G-1t: run the AntiTamperGuard probes as a hard launch gate.
+
+    ``AntiTamperGuard.enforce()`` had no production caller — the debugger /
+    timing probes were dead code in shipped builds. The entry point now
+    consults it before wiring any hardware or starting the UI: a violation
+    (or a fail-closed probe error, e.g. an unreadable Win32 API) aborts the
+    launch with a non-zero exit. ``on_violation`` captures the reason so the
+    function returns a tri-state instead of raising.
+    """
+    from src.security.anti_tamper.guard import AntiTamperGuard
+
+    violation: list[str] = []
+    try:
+        AntiTamperGuard.enforce(on_violation=violation.append)
+    except SecurityError as exc:
+        logger.critical("Anti-tamper gate failed closed; aborting launch", extra={"error": str(exc)})
+        return False
+    if violation:
+        logger.critical("Anti-tamper violation detected; aborting launch", extra={"reason": violation[0]})
+        return False
+    return True
+
+
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Universal CAN-Bus Diagnostic & Telemetry Tool")
     parser.add_argument("--cli", action="store_true", help="Run in CLI mode instead of GUI")
     parser.add_argument("--channel", type=str, default="vcan0", help="CAN Channel (e.g. PCAN_USBBUS1, 0, vcan0)")
@@ -94,7 +119,7 @@ def main() -> int:
     parser.add_argument("--bitrate", type=int, default=250000, help="CAN Bitrate (e.g. 250000, 500000)")
     parser.add_argument("--log-level", type=str, default="INFO", help="Logging level (DEBUG, INFO, WARNING, ERROR)")
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv if argv is not None else sys.argv[1:])
     log_level_val = getattr(logging, args.log_level.upper(), logging.INFO)
     setup_logging(level=log_level_val)
 
@@ -102,6 +127,10 @@ def main() -> int:
         "Starting Universal CAN Platform v13.0",
         extra={"interface": args.interface, "channel": args.channel, "bitrate": args.bitrate},
     )
+
+    if not _anti_tamper_gate():
+        print("Anti-tamper check failed: launch aborted.")
+        return 1
 
     if args.cli:
         # H-3 (P1-2): the --tx flag was removed. It opened the physical bus
