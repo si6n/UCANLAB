@@ -129,6 +129,14 @@ def main() -> int:
         for mins, t in stuck:
             out.append(f"- {mins}dk @{t.get('assignee')}: {str(t.get('title'))[:70]}")
 
+    # --- Raporu vault'a da yaz (kullanici Obsidian'dan gorebilsin) ---
+    try:
+        vdir = MAIN / "obsidian-vault" / "04-Ajan-Notlari"
+        vdir.mkdir(parents=True, exist_ok=True)
+        (vdir / "Ajan-Durum-Son.md").write_text("\n".join(out) + "\n", encoding="utf-8")
+    except Exception:
+        pass
+
     print("\n".join(out))
     return 0
 
