@@ -1,816 +1,906 @@
 {
- "_comment": "UCANLAB tarama kayit defteri (makine-okunur). Ayni URL'yi ikinci kez taramayi onler. Insan-okunur surum: obsidian-vault/03-Kaynaklar/Tarama-Kayit-Defteri.md",
- "updated": "2026-09-16",
- "credits": {
-  "hesap2": {
-   "zone": "scraping_browser1",
-   "remaining": 1553,
-   "env_prefix": "BRIGHTDATA_"
-  },
-  "hesap3": {
-   "zone": "scraping_browser4",
-   "remaining": 4057,
-   "env_prefix": "BRIGHTDATA3_"
-  },
-  "note": "Kredi panelden ogrenilir; API kredi sorgusu yetkisiz. Bu degerler manuel guncellenir. TARAMA (t_7ce79f38): 40 kredi harcandi (hesap3 -> 4067). TARAMA (t_2d5e35d4): 10 kredi harcandi (hesap3 -> 4057, google.com URL kesfi)."
- },
- "scraped": [
-  {
-   "pattern": "obd-codes.com",
-   "type": "prefix",
-   "method": "brightdata",
-   "tur": "<=35",
-   "credits": "~1834 sayfa",
-   "result": "9300 DTC",
-   "artifact": "data/diagnostics/dtc_database.json"
-  },
-  {
-   "pattern": "repair.diesellaptops.com",
-   "type": "prefix",
-   "method": "free",
-   "tur": "<=35",
-   "credits": 0,
-   "result": "26434 satir / 618 SPN",
-   "artifact": "output-final/dl_all_pages.json"
-  },
-  {
-   "pattern": "4roadservice.com/resources/detroit",
-   "type": "prefix",
-   "method": "brightdata",
-   "tur": "<=35",
-   "credits": "medium",
-   "result": "Detroit DD13/15/16",
-   "artifact": "output-final/"
-  },
-  {
-   "pattern": "b2bendix.com",
-   "type": "prefix",
-   "method": "free",
-   "tur": "<=35",
-   "credits": 0,
-   "result": "357 satir / 27 SPN",
-   "artifact": "output-final/bendix_remaining_components.json"
-  },
-  {
-   "pattern": "api.b2bendix.com",
-   "type": "prefix",
-   "method": "free",
-   "tur": "<=35",
-   "credits": 0,
-   "result": "OCC API acik",
-   "artifact": "output-final/bendix_remaining_components.json"
-  },
-  {
-   "pattern": "google.com/search",
-   "type": "prefix",
-   "method": "brightdata",
-   "tur": "<=35",
-   "credits": "low",
-   "result": "URL kesfi — YALNIZ zone -country-us sonekiyle",
-   "artifact": "-"
-  },
-  {
-   "pattern": "j1939hub",
-   "type": "prefix",
-   "method": "brightdata",
-   "tur": "<=35",
-   "credits": "medium",
-   "result": "1.6MB detay (kalite belirsiz)",
-   "artifact": "output-final/j1939hub_dtc_details.json"
-  },
-  {
-   "pattern": "raw.githubusercontent.com/STAS63-bit/sitrak-error-codes",
-   "type": "prefix",
-   "method": "free",
-   "tur": "T45-A",
-   "credits": 0,
-   "result": "8042 kayit / 3402 SPN (CC BY 4.0, megadata.pro)",
-   "artifact": "spn_gap_hunter/cache/sitrak_error_codes_fresh.json"
-  },
-  {
-   "pattern": "repair.diesellaptops.com (276 sayfa yeniden cekim)",
-   "type": "prefix",
-   "method": "free",
-   "tur": "T45-A",
-   "credits": 0,
-   "result": "36200 satir / 1149 SPN (66 sayfa tablo)",
-   "artifact": "spn_gap_hunter/output/t45a_dl_table_rows.json"
-  },
-  {
-   "pattern": "j1939hub.com/{cat}/spn-{n}-fmi-{m}/ (canli per-DTC sayfalar)",
-   "type": "prefix",
-   "method": "free",
-   "tur": "T45-A",
-   "credits": 0,
-   "result": "CANLI ama katalog sabit ~452 genel SPN; 120 canli prob -> T45-A bosluk SPN'leri (32 causes/194 steps) icin 0 hit -> BELIRSIZ (kaynak yok)",
-   "artifact": "-"
-  },
-  {
-   "pattern": "duaparts.com/blog/spn-",
-   "type": "prefix",
-   "method": "free(browser)",
-   "tur": "T45-B",
-   "credits": 0,
-   "result": "50 SPN/FMI makalesi (SPN 3058/3061/3187/3223/3226/3227/3236/3238/3242/3246/3250/3251/3353/3361/3363) - gercek semptom/neden/tani adimlari",
-   "artifact": "spn_gap_hunter/output/t45b_procedure_harvest.json"
-  },
-  {
-   "pattern": "4roadservice.com/resources/detroit-diesel-spn-",
-   "type": "prefix",
-   "method": "free(browser)",
-   "tur": "T45-B",
-   "credits": 0,
-   "result": "8 yeni DD13/15/16 sayfasi (SPN 3230/3697/3698/3700/3826/520372) - SPN 3700 DB'de hic yoktu",
-   "artifact": "spn_gap_hunter/output/t45b_procedure_harvest.json"
-  },
-  {
-   "pattern": "truckfaultcode.com",
-   "type": "prefix",
-   "method": "free(browser)",
-   "tur": "T45-B",
-   "credits": 0,
-   "result": "KAYNAK DEGERI YOK: 48 SPN sayfasi yalniz egitim amacli genel metin; gercek semptom/neden/adim yok - tekrar tarama",
-   "artifact": "spn_gap_hunter/cache/t45b/t45b_tfc_urls.json"
-  },
-  {
-   "pattern": "quickserve.cummins.com",
-   "type": "prefix",
-   "method": "brightdata",
-   "tur": "T45-B",
-   "credits": 0,
-   "result": "ERISILEMEZ: mylogin.cummins.com login duvari -> BELIRSIZ (uydurma yok)",
-   "artifact": "-"
-  },
-  {
-   "pattern": "productinfo.serviceranger4.com",
-   "type": "prefix",
-   "method": "brightdata",
-   "tur": "T45-B",
-   "credits": 0,
-   "result": "ERISILEMEZ: /login duvari (Eaton PIL) -> BELIRSIZ (uydurma yok)",
-   "artifact": "-"
-  },
-  {
-   "pattern": "obdhut.com",
-   "type": "prefix",
-   "method": "free",
-   "tur": "T45-C",
-   "credits": 0,
-   "result": "4515 DTC (meaning+causes) — DIKKAT: kaynakta symptoms==causes kopyasi, symptoms gecersiz",
-   "artifact": "spn_gap_hunter/output/t45c_dtc_symptoms.json"
-  },
-  {
-   "pattern": "troublecodes.net",
-   "type": "prefix",
-   "method": "free",
-   "tur": "T45-C",
-   "credits": 0,
-   "result": "4080 sayfa (755 anlam, 680 semptom)",
-   "artifact": "spn_gap_hunter/output/t45c_snapshot/_t45c_tcn_pages.jsonl"
-  },
-  {
-   "pattern": "engine-codes.com",
-   "type": "prefix",
-   "method": "brightdata",
-   "tur": "T45-C",
-   "credits": 1,
-   "result": "627KB ham",
-   "artifact": "spn_gap_hunter/cache/"
-  },
-  {
-   "pattern": "ecmtrucks.com",
-   "type": "prefix",
-   "method": "brightdata",
-   "tur": "T45-C",
-   "credits": 2,
-   "result": "Detroit DD15 fault tablolari",
-   "artifact": "spn_gap_hunter/cache/"
-  },
-  {
-   "pattern": "class8truckparts.com",
-   "type": "prefix",
-   "method": "brightdata",
-   "tur": "T45-C",
-   "credits": 2,
-   "result": "Volvo/Mack kod blogu",
-   "artifact": "spn_gap_hunter/cache/"
-  },
-  {
-   "pattern": "obdguides.com",
-   "type": "prefix",
-   "method": "brightdata",
-   "tur": "T45-C",
-   "credits": 4,
-   "result": "B/C/U kod listeleri",
-   "artifact": "spn_gap_hunter/cache/"
-  },
-  {
-   "pattern": "autocodes.com",
-   "type": "prefix",
-   "method": "brightdata",
-   "tur": "T45-C",
-   "credits": 2,
-   "result": "P0300/B0001",
-   "artifact": "spn_gap_hunter/cache/"
-  },
-  {
-   "pattern": "roadservice.app/diagnose/",
-   "type": "prefix",
-   "method": "free",
-   "tur": "T50",
-   "credits": 0,
-   "result": "177 SPN/FMI teshis sayfasi TAM tarandi (177 ok / 0 fail, quality: 156 high + 21 medium); 131 DB procedures_full boslugunu doldurur + 46 yeni cift (DB'de hic yok); canli dogrulama 5/5 (overview+causes birebir grep)",
-   "artifact": "spn_gap_hunter/output/t50_roadservice_harvest.json"
-  },
-  {
-   "pattern": "detroitmanuals.info",
-   "type": "prefix",
-   "method": "free",
-   "tur": "T50",
-   "credits": 0,
-   "result": "378 SPN/FMI procedures_full kaydi (135 SPN, 348 sayfa; Series 60/MBE4000/MBE900/DD15 DDEC VI); 291 DB procedures_full boslugunu doldurur + 87 yeni cift; 245 overview steps[0]'dan kurtarildi; canli dogrulama 5/5 (adim+baslik birebir)",
-   "artifact": "spn_gap_hunter/output/t50_detroitmanuals_harvest.json"
-  },
-  {
-   "pattern": "truckfaultcode.com",
-   "type": "prefix",
-   "method": "free",
-   "tur": "T50",
-   "credits": 0,
-   "result": "DEGERLENDIRILMEDI (T53'te mevcut arsivden yeniden kullanildi; T50 kapsaminda yeni cekim yok)",
-   "artifact": "-"
-  },
-  {
-   "pattern": "aidieseltech.com/diagnostic-pages/",
-   "type": "prefix",
-   "method": "free",
-   "tur": "T51",
-   "credits": 0,
-   "result": "174 SPN/FMI teshis sayfasi TAM tarandi (174/174, hepsi 'high' kalite); 109 EMPTY_PF + 30 yeni-FMI + 6 yeni SPN = 139 bosluk doldurulabilir; sitemap 1932 URL; SPA sayfalar headless-chrome ile render edildi",
-   "artifact": "spn_gap_hunter/output/t51_aidieseltech_harvest.json"
-  },
-  {
-   "pattern": "professionaldieselrepair.com/fault-codes",
-   "type": "prefix",
-   "method": "free",
-   "tur": "T51",
-   "credits": 0,
-   "result": "792 fault-code sayfasi TAM tarandi (786 ok / 0 fail; 763 high, 27 medium, 2 low); 430 kod sayfasi (240 distinct SPN/FMI) + 362 marka/blog hub; sitemap 927 URL",
-   "artifact": "spn_gap_hunter/output/t51_pdrepair_harvest.json"
-  },
-  {
-   "pattern": "truckfaultcode.com/fault-codes/{oem}-spn-{n}-fmi-{m}/ (mevcut arsiv yeniden kullanildi)",
-   "type": "prefix",
-   "method": "none (mevcut arsiv artifact)",
-   "tur": "T53",
-   "credits": 0,
-   "result": "27 kirpik cause tam metne tamamlandi (arsiv: raw_truckfaultcode_pages.json 31 sayfa). NOT: T45-B 'kaynak degeri yok' demisti; T53'te 'Possible Causes' bolumlerinin gercek neden listesi tasidigi kanitlandi (8-word shingle cov=1.00)",
-   "artifact": "spn_gap_hunter/output/t53_j1939_text_cleanup.md"
-  },
-  {
-   "pattern": "j1939hub.com/general-network/spn-4012-fmi-0/ (mevcut arsiv yeniden kullanildi)",
-   "type": "prefix",
-   "method": "none (mevcut arsiv artifact)",
-   "tur": "T53",
-   "credits": 0,
-   "result": "SPN_4012[3] kirpik 300->1571 tam metne tamamlandi (arsiv: raw_j1939hub_gap_pages.json)",
-   "artifact": "spn_gap_hunter/output/t53_j1939_text_cleanup.md"
-  },
-  {
-   "pattern": "bigrigfaults.com/faults/spn-{n}-fmi-{m}",
-   "type": "prefix",
-   "method": "free",
-   "tur": "T55-B",
-   "credits": 0,
-   "result": "129/129 SPN/FMI teshis sayfasi TAM tarandi (0 fail, 0 BrightData kredisi): 119 sayfa gercek veri (symptoms+causes+fixes+steps+scan-tool checks+misdiagnosis), 10 sayfa yer tutucu; 10 yeni SPN (DB'de yok), 6 kayit DB'deki bos 'steps' alanini doldurur; canli dogrulama 8/8 birebir (avg ratio 1.000)",
-   "artifact": "spn_gap_hunter/output/t55b_free_harvest.json"
-  },
-  {
-   "pattern": "heavydutyjournal.com/truck-fault-code-lookup/",
-   "type": "prefix",
-   "method": "free",
-   "tur": "T55-B",
-   "credits": 0,
-   "result": "DEGERLENDIRILDI - VERI YOK: yalniz SPN/FMI arama kutusu + indeks; koda ozel neden/adim metni yok (44 SPN adi, prosedur yok)",
-   "artifact": "spn_gap_hunter/output/t55b_free_harvest.md"
-  },
-  {
-   "pattern": "obd2pros.com/dtc-codes/",
-   "type": "prefix",
-   "method": "brightdata",
-   "tur": "T55-C",
-   "credits": 31,
-   "result": "31 DTC kodu (P/B/C/U) BD ile cekildi (free 403): symptoms+causes+steps; 30'u DB symptoms boslugunu doldurur; C0242 robot-challenge -> veri yok (belirsiz)",
-   "artifact": "spn_gap_hunter/output/t55c_bd_harvest.json"
-  },
-  {
-   "pattern": "manualslib.com/search",
-   "type": "prefix",
-   "method": "brightdata",
-   "tur": "T55-C",
-   "credits": 9,
-   "result": "Kesif/test (5 arama + 4 test-indeks): arama sonuclari JS-render, 0 sonuc -> BELIRSIZ (veri cikmadi, tekrar taranmasin)",
-   "artifact": "spn_gap_hunter/output/t55c_bd_harvest.json"
-  },
-  {
-   "pattern": "bigrigfaults.com/faults/spn-",
-   "type": "prefix",
-   "method": "free",
-   "tur": "T55-C",
-   "credits": 0,
-   "result": "131 SPN/FMI sayfasi free urllib (JSON-LD FAQ/HowTo): gercek semptom+neden; 27 J1939 procedures_full boslugu + 10 yeni SPN; canli 3/3 birebir",
-   "artifact": "spn_gap_hunter/output/t55c_bd_harvest.json"
-  },
-  {
-   "pattern": "manualmachine.com",
-   "type": "prefix",
-   "method": "free",
-   "tur": "T55-C",
-   "credits": 0,
-   "result": "Navistar MaxxForce diagnostic manual x4 (free urllib): SPN 3242/3719/3936 referansli prosedur (DB'de zaten dolu)",
-   "artifact": "spn_gap_hunter/output/t55c_bd_harvest.json"
-  },
-  {
-   "pattern": "obd-codes.com (TARAMA symptoms turu, 26 sayfa)",
-   "type": "prefix",
-   "method": "brightdata",
-   "tur": "TARAMA",
-   "credits": 26,
-   "result": "26 sayfa BD (25 gercek + 1 Cloudflare challenge); 0 yeni kod (hepsi DB'de), 25'i DB 'symptoms' boslugunu doldurur",
-   "artifact": "spn_gap_hunter/output/scan_obd-codes.com_2026-09-16.json"
-  },
-  {
-   "pattern": "repair.diesellaptops.com (TARAMA: 276 sitemap sayfasi)",
-   "type": "prefix",
-   "method": "free",
-   "tur": "TARAMA",
-   "credits": 0,
-   "result": "276/276 sayfa (free urllib), 62 sayfa SPN/FMI tablosu, 34137 satir, 3341 distinct (SPN,FMI)/1052 SPN; DB'ye gore 1413 yeni + 788 procedures_full boslugu + 1140 zaten var",
-   "artifact": "spn_gap_hunter/output/scan_repair.diesellaptops.com_2026-09-16.json"
-  },
-  {
-   "pattern": "4roadservice.com/resources/detroit (TARAMA: 6 bosluk sayfasi)",
-   "type": "prefix",
-   "method": "brightdata",
-   "tur": "TARAMA",
-   "credits": 6,
-   "result": "6/6 Detroit DD13/15/16 SPN sayfasi gercek; 5 yeni (spn,fmi) + 1 procedures_full boslugu (SPN 3230 FMI 2)",
-   "artifact": "spn_gap_hunter/output/scan_4roadservice.com_2026-09-16.json"
-  },
-  {
-   "pattern": "productinfo.serviceranger4.com/books/",
-   "type": "prefix",
-   "method": "free",
-   "tur": "T61-B",
-   "credits": 0,
-   "result": "DUVAR ASILDI: /login login duvari, ANCAK /books/<kitap>/lang/en-us/section/<bolum> login GEREKTIRMEDEN HTTP 200. 5 kitap (TRTS0950/TRTS0960/TRSM0960/TRIB0900/RRMT0055), 268 fault-code bolumu, 149 SPN, 266 tam teshis proseduru (J1939 SA/SPN/FMI + semptom/neden/adim). 81 SPN DB'de YOK, 19 SPN procedures_full boslugunu doldurur. Canli dogrulama 8/8 birebir.",
-   "artifact": "spn_gap_hunter/output/t61b_eaton_records.json"
-  },
-  {
-   "pattern": "auroramack.com",
-   "type": "prefix",
-   "method": "free",
-   "tur": "T61-B",
-   "credits": 0,
-   "result": "Mack Trucks Fault Codes 2011-2013 dealer PDF (public): 112 SPN (MID/PID/SID + FMI), 78 sayfa. 5 SPN DB'de yok, 38 SPN procedures_full bos.",
-   "artifact": "spn_gap_hunter/output/_t61b_pdf/mack_2011-2013.txt"
-  },
-  {
-   "pattern": "dtnacontent-dtna.prd.freightliner.com/content/dam/public/TechLit/DDCSN/",
-   "type": "prefix",
-   "method": "free",
-   "tur": "T61-B",
-   "credits": 0,
-   "result": "DTNA/DDCSN historical fault-code PDF'leri public/dam altinda acik (0101-18.pdf, 0507-18.pdf): SPN 3361/4334/4364/4374/4375. Klasor index 403; DTNA portal kayit gerektirir.",
-   "artifact": "spn_gap_hunter/output/_t61b_pdf/"
-  },
-  {
-   "pattern": "bodybuilder.navistar.com",
-   "type": "prefix",
-   "method": "free",
-   "tur": "T61-B",
-   "credits": 0,
-   "result": "Navistar Body Controller DTC Manual S08327 (public PDF): SA/SPN/DTC/FMI tablosu (~130 satir, body controller). msi.navistar.com/public/ned NED kilavuzu SPN icermiyor.",
-   "artifact": "spn_gap_hunter/output/t61b_navistar_records.json"
-  },
-  {
-   "pattern": "mylogin.cummins.com",
-   "type": "prefix",
-   "method": "free",
-   "tur": "T61-B",
-   "credits": 0,
-   "result": "ERISILEMEZ (login): Salesforce Communities login duvari. robots.txt Allow:/ ama icerik login arkasinda.",
-   "artifact": "-"
-  },
-  {
-   "pattern": "productinfo.serviceranger4.com/login",
-   "type": "prefix",
-   "method": "brightdata",
-   "tur": "T61-B",
-   "credits": 1,
-   "result": "ERISILEMEZ (login): EMAIL/PASSWORD formu (dogrulandi). ANCAK /books/ alt yollari ACIK (bkz. productinfo.serviceranger4.com/books/).",
-   "artifact": "-"
-  },
-  {
-   "pattern": "dtnacontent-dtna.prd.freightliner.com/content/public/dtnaportalpublic.html",
-   "type": "prefix",
-   "method": "brightdata",
-   "tur": "T61-B",
-   "credits": 1,
-   "result": "ERISILEMEZ (kayit): DTNA Portal kayit sayfasi. public/dam/ TechLit PDF'leri ise acik.",
-   "artifact": "-"
-  },
-  {
-   "pattern": "demanddetroit.com",
-   "type": "prefix",
-   "method": "brightdata+free",
-   "tur": "T61-B",
-   "credits": 1,
-   "result": "VERI YOK: pazarlama sitesi (urun tanitimi). Detroit teknik yayinlari DTNA/DDCSN login arkasinda.",
-   "artifact": "-"
-  },
-  {
-   "pattern": "paccar.com/products-services",
-   "type": "prefix",
-   "method": "brightdata",
-   "tur": "T61-B",
-   "credits": 1,
-   "result": "VERI YOK: kurumsal site; fault-code/SPN yok. PACCAR servis dokumanlari yetkili dealer login arkasinda (paccarpg DNS yok).",
-   "artifact": "-"
-  },
-  {
-   "pattern": "ddcsn.com",
-   "type": "prefix",
-   "method": "free",
-   "tur": "T61-B",
-   "credits": 0,
-   "result": "ERISILEMEZ: DNS ok (12.47.84.146) ama TLS hostname mismatch + HTTP reset. Icerik DTNA portal (login) uzerinden.",
-   "artifact": "-"
-  },
-  {
-   "pattern": "techlitna.com",
-   "type": "prefix",
-   "method": "free",
-   "tur": "T61-B",
-   "credits": 0,
-   "result": "ERISILEMEZ: DNS cozulemiyor (getaddrinfo failed). Volvo/Mack icin auroramack PDF kullanildi.",
-   "artifact": "-"
-  },
-  {
-   "pattern": "navistarservice.com",
-   "type": "prefix",
-   "method": "free",
-   "tur": "T61-B",
-   "credits": 0,
-   "result": "ERISILEMEZ: DNS cozulemiyor. Navistar icin bodybuilder.navistar.com + msi.navistar.com public PDF kullanildi.",
-   "artifact": "-"
-  },
-  {
-   "pattern": "oncommand.navistar.com",
-   "type": "prefix",
-   "method": "free",
-   "tur": "T61-B",
-   "credits": 0,
-   "result": "ERISILEMEZ: DNS cozulemiyor.",
-   "artifact": "-"
-  },
-  {
-   "pattern": "cummins.com",
-   "type": "prefix",
-   "method": "free",
-   "tur": "T61-B",
-   "credits": 0,
-   "result": "ERISILEMEZ (403): bot korumasi.",
-   "artifact": "-"
-  },
-  {
-   "pattern": "volvotrucks.us",
-   "type": "prefix",
-   "method": "free",
-   "tur": "T61-B",
-   "credits": 0,
-   "result": "VERI YOK: pazarlama sitesi (sitemap 482 URL); fault-code listesi yok. Premium Tech Tool abonelik (ucretli).",
-   "artifact": "-"
-  },
-  {
-   "pattern": "msi.navistar.com/public/ned/",
-   "type": "prefix",
-   "method": "free",
-   "tur": "T61-B",
-   "credits": 0,
-   "result": "VERI YOK: Navistar Engine Diagnostics (NED) kullanim kilavuzu; SPN/FMI teshis tablosu icermiyor.",
-   "artifact": "-"
-  },
-  {
-   "pattern": "bosch/delphi/continental (aftermarket portallari)",
-   "type": "prefix",
-   "method": "free",
-   "tur": "T61-B",
-   "credits": 0,
-   "result": "VERI YOK: Bosch (boschaftermarket/bosch-mobility), Delphi (delphiautoparts; delphi.com TLS fail), Continental (continental-aftermarket/continental.com) portallari pazarlama sitesi (SPN=0 FMI=0). Bosch denoxtronic public brochure PDF x3 indirildi, SPN/FMI teshis tablosu yok. Fault-code prosedurleri yetkili servis abonelik login arkasinda.",
-   "artifact": "spn_gap_hunter/output/_t61b_bosch_delphi.json"
-  },
-  {
-   "pattern": "b2bendix.com (TARAMA: DTCSearch login form)",
-   "type": "prefix",
-   "method": "free",
-   "tur": "TARAMA",
-   "credits": 0,
-   "result": "VERI YOK: Angular SPA, /USD/DTCSearch login form (Product Type + DTC Type dropdowns + Search; SIGN IN/REGISTER). robots.txt Disallow:/. 0 SPN/FMI in static HTML. 9 sayfa tarandi (0 gercek + 9 yer tutucu). Onceki T<=35 '357 satir / 27 SPN' kaydi portal CMS icerigidir, DTC prosedur verisi degil.",
-   "artifact": "spn_gap_hunter/output/scan_b2bendix.com_2026-09-16.json"
-  },
-  {
-   "pattern": "api.b2bendix.com (TARAMA: OCC API parts catalog)",
-   "type": "prefix",
-   "method": "free",
-   "tur": "TARAMA",
-   "credits": 0,
-   "result": "VERI YOK: OCC (SAP Hybris) API acik (200) ama parts catalog. Product search 'SPN'/'DTC'/'fault code' = 0 hit. CMS pages = homepage slots. 6 endpoint tarandi (0 gercek + 6 yer tutucu). 0 SPN/FMI diagnostic data.",
-   "artifact": "spn_gap_hunter/output/scan_api.b2bendix.com_2026-09-16.json"
-  },
-  {
-   "pattern": "google.com/search (TARAMA: 10 URL kesfi, zone -country-us)",
-   "type": "prefix",
-   "method": "brightdata",
-   "tur": "TARAMA",
-   "credits": 10,
-   "result": "URL kesfi: 10 arama / 10 BD kredisi (cap 40 altinda). 7 sonuc + 3 captcha. Kesfedilen URL'ler: static.nhtsa.gov (zaten free), b2bendix DTCSearch (login), justanswer (KARA LISTE), forum/scribd/bendixvrc/bendix.com (T61-B'de VERI YOK). YENI DTC prosedur kaynagi YOK.",
-   "artifact": "spn_gap_hunter/output/scan_google.com_2026-09-16.json"
-  }
- ],
- "blacklist": [
-  {
-   "pattern": "bing.com/search",
-   "reason": "19/40 bos sonuc, timeout",
-   "source": "T35"
-  },
-  {
-   "pattern": "duckduckgo.com",
-   "reason": "guvenilmez, cerez duvari",
-   "source": "brightdata-kaynaklari.md"
-  },
-  {
-   "pattern": "mojeek.com",
-   "reason": "guvenilmez",
-   "source": "brightdata-kaynaklari.md"
-  },
-  {
-   "pattern": "spnfmi.com",
-   "reason": "daha once 0 PGN verdi",
-   "source": "Kaynak-Envanteri.md"
-  },
-  {
-   "pattern": "justanswer.com",
-   "reason": "19/20 SPN ismi uydurma, reddedildi",
-   "source": "T35 REJECTED"
-  },
-  {
-   "pattern": "google.com/search (country-us OLMAYAN cikis)",
-   "reason": "cerez duvari; zone -country-us soneki gerekli",
-   "source": "brightdata-kaynaklari.md"
-  },
-  {
-   "pattern": "truckfaultcode.com",
-   "reason": "48 SPN sayfasi yalniz egitim amacli genel metin; gercek prosedur/adim yok (T45-B)",
-   "source": "T45-B"
-  },
-  {
-   "pattern": "yourmechanic.com",
-   "reason": "BD timeout (45s)",
-   "source": "T45-C"
-  },
-  {
-   "pattern": "repairsadvisor.com",
-   "reason": "BD timeout",
-   "source": "T45-C"
-  }
- ],
- "free_sources": [
-  {
-   "pattern": "api.nhtsa.gov",
-   "note": "recallsByVehicle, direct requests"
-  },
-  {
-   "pattern": "static.nhtsa.gov",
-   "note": "TSB PDF, direct"
-  },
-  {
-   "pattern": "api.github.com",
-   "note": "opendbc/canedge/SavvyCAN/PID repolari"
-  },
-  {
-   "pattern": "raw.githubusercontent.com",
-   "note": "GitHub raw"
-  },
-  {
-   "pattern": "repair.diesellaptops.com",
-   "note": "free fetch calisiyor"
-  },
-  {
-   "pattern": "api.b2bendix.com",
-   "note": "OCC API free"
-  },
-  {
-   "pattern": "raw.githubusercontent.com/STAS63-bit/sitrak-error-codes",
-   "note": "SITRAK DTC (CC BY 4.0) free, 8042 kayit/3402 SPN"
-  },
-  {
-   "pattern": "roadservice.app/diagnose/",
-   "note": "Next.js sunucu-render; direct urllib calisiyor (T50, 177 sayfa)"
-  },
-  {
-   "pattern": "detroitmanuals.info",
-   "note": "WordPress; REST API + entry-content HTML direct fetch calisiyor (T50, 348 sayfa)"
-  }
- ],
- "_discovery_note": "Kesif: html.duckduckgo.com/html/?q=... (ucretsiz, UA ile) calisiyor. Google JS-render -> statik HTML'de sonuc yok. roadservice.app sitemap ile kesfedildi.",
- "discovered": [
-  {
-   "pattern": "github.com/foerbsnavi/OBDex",
-   "type": "prefix",
-   "method": "free",
-   "tur": "T61-A",
-   "credits": 0,
-   "license": "CC0-1.0 (data) / MIT (tooling)",
-   "result": "9533 DTC kodu (parse: data/generic/*.yaml '- code:'); %100 common_causes+repair, %66.6 symptoms, affected_components/cost/difficulty; EN+DE. codeload tarball.",
-   "artifact": "spn_gap_hunter/output/_t61a_dataset_counts.json",
-   "verdict": "ACCEPT (en degerli yeni DTC kaynagi)"
-  },
-  {
-   "pattern": "github.com/Wal33D/dtc-database",
-   "type": "prefix",
-   "method": "free",
-   "tur": "T61-A",
-   "credits": 0,
-   "license": "MIT",
-   "result": "18805 dtc_definitions satiri / 12128 distinct kod / 34 uretici (SQLite data/dtc_codes.db); sadece description (semptom/neden yok). placeholder=0.",
-   "artifact": "spn_gap_hunter/output/_t61a_dataset_counts.json",
-   "verdict": "ACCEPT (genis kod omurgasi)"
-  },
-  {
-   "pattern": "github.com/MechanicDB/MechanicDB-public",
-   "type": "prefix",
-   "method": "free",
-   "tur": "T61-A",
-   "credits": 0,
-   "license": "ODbL-1.0 (dataset) / upstream MIT",
-   "result": "89 distinct kod (dtc_codes.csv) + 320 fix satiri (step_by_step_instructions, maliyet, iscilik); sitemap.xml 1397 URL / 296 kod sayfasi. Sadece 90-kod ornek surum; tam DB ucretli.",
-   "artifact": "spn_gap_hunter/output/_t61a_obdex_mech.json",
-   "verdict": "PARTIAL (yuksek kalite ama ornek sinirli)"
-  },
-  {
-   "pattern": "idoc.pub",
-   "type": "prefix",
-   "method": "free",
-   "tur": "T61-A",
-   "credits": 0,
-   "license": "BELIRSIZ (kullanici yuklemesi PDF; /tos)",
-   "result": "YENI ucretsiz PDF hub (login yok, sunucu-render). /search/<q> 14 sorgu -> 800 dokuman; 375/800 strict J1939-ilgili (%46.9). SITEMAP YOK. Canli 6/6 sayfa SPN/FMI ciftleri gercek (ornek: 'spn 625 fmi 9 epa07' SPN=36 FMI=31). False-positive var -> slug filtresi sart.",
-   "artifact": "spn_gap_hunter/output/_t61a_idoc_quality.json",
-   "verdict": "ACCEPT-CANDIDATE (T62'de slug-filtreli cekim)"
-  },
-  {
-   "pattern": "fixcarcodes.com",
-   "type": "prefix",
-   "method": "free",
-   "tur": "KESIF-r4",
-   "credits": 0,
-   "license": "belirsiz",
-   "result": "VERI YOK (410 GONE) — sathya1495 reposunun guide_url hedefi; site kapanmis. TEKRAR TARAMA."
-  },
-  {
-   "pattern": "github.com/sathya1495/obd2-dtc-database",
-   "type": "prefix",
-   "method": "free",
-   "tur": "KESIF-r4",
-   "credits": 0,
-   "license": "NOASSERTION (lisans dosyasi yok)",
-   "result": "60 kod / 3 JSON; 60/60 common_causes DOLU + system/subsystem/severity/common_makes. fixcarcodes.com 410 oldugu icin TEK KALAN KOPYA.",
-   "artifact": "spn_gap_hunter/output/_kesif4_counts.json"
-  },
-  {
-   "pattern": "github.com/hoffman1938/bimmercode",
-   "type": "prefix",
-   "method": "free",
-   "tur": "KESIF-r4",
-   "credits": 0,
-   "license": "BILDIRILMEMIS (LICENSE yok)",
-   "result": "74 kod; 74/74 EN description dolu; cok dilli (en/ru/ka). data/codes.json 169KB.",
-   "artifact": "spn_gap_hunter/output/_kesif4_counts.json"
-  },
-  {
-   "pattern": "github.com/aalih34554-ai/obd2-database",
-   "type": "prefix",
-   "method": "free",
-   "tur": "KESIF-r4",
-   "credits": 0,
-   "license": "BILDIRILMEMIS",
-   "result": "29 kod; causes[]+symptoms[]+solutions[] uclu dolu (gercek). dtc-codes.json 19921B.",
-   "artifact": "spn_gap_hunter/output/_kesif4_gh4.json"
-  },
-  {
-   "pattern": "github.com/misspellted/DTC-Database",
-   "type": "prefix",
-   "method": "free",
-   "tur": "KESIF-r4",
-   "credits": 0,
-   "license": "BILDIRILMEMIS",
-   "result": "6665 kod (codes.json 450KB + codes.xml 481KB). DB'de 6664/6665 ZATEN VAR -> 1 yeni (C2767). xinings/DTC-Database ile AYNI dosya (dedup). Semptom YOK.",
-   "artifact": "spn_gap_hunter/output/_kesif4_counts.json"
-  },
-  {
-   "pattern": "github.com/dsoprea/DtcLookup",
-   "type": "prefix",
-   "method": "free",
-   "tur": "KESIF-r4",
-   "credits": 0,
-   "license": "GPL-2.0 (DIKKAT: veri aktariminda lisans uyumu gerekir)",
-   "result": "874 generic kod satiri + marka dosyalari (Jaguar/Audi/BMW/Chrysler/VW/Mazda/Ford/Landrover/Subaru/Dodge/Honda/Lexus). generic: 831 DB'de var, 42 yeni. Semptom YOK.",
-   "artifact": "spn_gap_hunter/output/_kesif4_counts.json"
-  },
-  {
-   "pattern": "faultcodes.co",
-   "type": "prefix",
-   "method": "free",
-   "tur": "KESIF-r4",
-   "credits": 0,
-   "license": "belirsiz (about/terms/privacy'de lisans izi yok)",
-   "result": "sitemap.xml 10 alt-sitemap / 5226 URL -> 4588 distinct kod (B1511/P1892/C617/U574). DB: 4322 var, 266 YENI. ICERIK SIG: 14 ornek sayfa -> how/symptoms/causes 0/14 (sablon+reklam). Kalite=low (yalniz kod envanteri).",
-   "artifact": "spn_gap_hunter/output/_kesif4_faultco_check.json"
-  }
- ],
- "_discovery_notes": [
-  {
-   "date": "2026-09-15",
-   "site": "dieselhub.com",
-   "note": "444 URL, motor/sanziman teknik referans (SPN/FMI degil) — dusuk oncelik"
-  },
-  {
-   "date": "2026-09-16",
-   "site": "primodetech.com",
-   "note": "ACIK JSON DTC API (/api/dtc/search?q=<spn>, /detail/<uuid>, /popular) — robots.txt'te ALLOW; J1939 SPN/FMI + name + description + possible_causes + recommended_actions + severity + manufacturer. 638 benzersiz EN detay (sitemap). HTML JS-render -> API kullan."
-  },
-  {
-   "date": "2026-09-16",
-   "site": "foerbsnavi/OBDex (GitHub, CC0)",
-   "note": "9533 zenginlestirilmis DTC (7 YAML ailesi: P0 3705/P2 3495/U0 1055/C0 626/B0 323/U3 174/P3 155). title+description(en/de)+causes{likelihood}+repair. raw.githubusercontent.com uzerinden free. NOT: STAS63 sitrak ile AYNI domain ama FARKLI repo/icerik."
-  },
-  {
-   "date": "2026-09-16",
-   "site": "Wal33D/dtc-database (GitHub, MIT)",
-   "note": "12128 benzersiz DTC SQLite (18805 satir, 33 marka). Yalniz kod+description. OBDex ile ortusur -> merge'te dedup sart."
-  },
-  {
-   "date": "2026-09-16",
-   "site": "dieselscanners.com",
-   "note": "104 SPN/FMI 'full fix guide' blogu (sitemap_blogs_1.xml 144 URL). Gercek semptom+neden+adim (ornek SPN 5246/3055/3719 dogrulandi). Telif: belirsiz."
-  },
-  {
-   "date": "2026-09-16",
-   "site": "carcarehacks.com",
-   "note": "421 P/B/C/U kod yazisi + 55 SPN/FMI yazisi (post-sitemap{,2,3} 2126 post). Ornek P0401 18KB metin semptom+neden+fix. Telif: belirsiz."
-  },
-  {
-   "date": "2026-09-16",
-   "site": "huggingface.co",
-   "note": "VERI YOK — 'j1939' 0 dataset; 'dtc'/'obd' ilgisiz (satranc/LLVM/uzaktan algilama). Agir arac DTC veri seti YOK."
-  },
-  {
-   "date": "2026-09-16",
-   "task": "T61-A",
-   "site": "search-infrastructure",
-   "note": "ARAMA ALTYAPISI DEGISTI: DuckDuckGo html/lite artik HTTP 202 'anomaly' (sert blok) - registry _discovery_note BAYAT. mojeek 403, searx.xyz JS challenge, 30 searx ornegi bos/429. CALISAN ucretsiz kesif: api.github.com + codeload.github.com tarball, old-search.marginalia.nu (tek kelime), dogrudan robots.txt/sitemap.xml probe, site /search/ sayfalari. 0 BrightData kredisi."
-  },
-  {
-   "date": "2026-09-16",
-   "task": "T61-A",
-   "site": "oem-archives",
-   "note": "Navistar/PACCAR/Cummins/Detroit/Volvo-Mack: sitemap'leri sayildi (1524/482/896/217/21 loc), 0 SPN/FMI/DTC-bearing URL -> ucretsiz prosedur YOK, hepsi abonelik/login (quickserve login duvari). manualslib/manualzz/dokumen.pub/vdocuments.mx 403; pdfcoffee/pdf4pro/cardsmanual DNS-dead."
-  },
-  {
-   "date": "2026-09-16",
-   "site": "KESIF-r4 (t_f1407ec8)",
-   "note": "6 yeni kaynak. ONEMLI: DB'de 14352 DTC + 4253 SPN var; yeni KOD katkisi tukendi (misspellted 6664/6665 zaten DB'de, dsoprea 831/873 DB'de). Gercek bosluk: DTC symptoms 13521/14352 BOS, procedures_full 14352/14352 BOS, title_tr 14352/14352 BOS; J1939 symptoms 4226/4253 BOS, diagnostic_steps 4250/4253 BOS. Yeni kaynak secimi SEMPTOM/PROSEDUR zenginligine gore yapilmali."
-  },
-  {
-   "date": "2026-09-16",
-   "site": "fixcarcodes.com",
-   "note": "410 GONE. sathya1495/obd2-dtc-database reposunun guide_url hedefi. Site kapanmis -> repo tek kopya. TEKRAR TARAMA."
-  },
-  {
-   "date": "2026-09-16",
-   "site": "obdautodoctor.com / obd2codes.org / dtcdecode.com / obdadvisor.com / truckecm.com",
-   "note": "VERI YOK. obdautodoctor 103 URL 0 kod-URL; truckecm 243 URL kod sayfasi yok (blog/urun); obd2codes DNS fail; dtcdecode 404; obdadvisor 403 (bot korumasi)."
-  },
-  {
-   "date": "2026-09-16",
-   "site": "npm/crates/PyPI paketleri (@embedded32/j1939, voltage_j1939, automotive_diag, ecu_diagnostics, obd, cantools)",
-   "note": "VERI YOK / DUSUK: hepsi protokol kutuphanesi. En zengini @embedded32/j1939 (~50 starter SPN adi+scaling, FAULT matrisi YOK) ve voltage_j1939 (71 SPN adi+scaling). obd-ii-decoder npm troubleCodes.json = mytrile ile AYNI bozuk ikili-map format."
-  },
-  {
-   "date": "2026-09-16",
-   "site": "kaggle / data.gov / zenodo / figshare / wikipedia",
-   "note": "VERI YOK / BELIRSIZ: portal API'leri 404/403/timeout. Wikipedia OBD-II_PIDs 71819B ama yalniz 1 DTC + 0 SPN; SAE_J1939 6117B 0 kod."
-  }
- ]
+  "_comment": "UCANLAB tarama kayit defteri (makine-okunur). Ayni URL'yi ikinci kez taramayi onler. Insan-okunur surum: obsidian-vault/03-Kaynaklar/Tarama-Kayit-Defteri.md",
+  "updated": "2026-09-16",
+  "credits": {
+    "hesap2": {
+      "zone": "scraping_browser1",
+      "remaining": 1553,
+      "env_prefix": "BRIGHTDATA_"
+    },
+    "hesap3": {
+      "zone": "scraping_browser4",
+      "remaining": 4057,
+      "env_prefix": "BRIGHTDATA3_"
+    },
+    "note": "Kredi panelden ogrenilir; API kredi sorgusu yetkisiz. Bu degerler manuel guncellenir. TARAMA (t_7ce79f38): 40 kredi harcandi (hesap3 -> 4067). TARAMA (t_2d5e35d4): 10 kredi harcandi (hesap3 -> 4057, google.com URL kesfi)."
+  },
+  "scraped": [
+    {
+      "pattern": "obd-codes.com",
+      "type": "prefix",
+      "method": "brightdata",
+      "tur": "<=35",
+      "credits": "~1834 sayfa",
+      "result": "9300 DTC",
+      "artifact": "data/diagnostics/dtc_database.json"
+    },
+    {
+      "pattern": "repair.diesellaptops.com",
+      "type": "prefix",
+      "method": "free",
+      "tur": "<=35",
+      "credits": 0,
+      "result": "26434 satir / 618 SPN",
+      "artifact": "output-final/dl_all_pages.json"
+    },
+    {
+      "pattern": "4roadservice.com/resources/detroit",
+      "type": "prefix",
+      "method": "brightdata",
+      "tur": "<=35",
+      "credits": "medium",
+      "result": "Detroit DD13/15/16",
+      "artifact": "output-final/"
+    },
+    {
+      "pattern": "b2bendix.com",
+      "type": "prefix",
+      "method": "free",
+      "tur": "<=35",
+      "credits": 0,
+      "result": "357 satir / 27 SPN",
+      "artifact": "output-final/bendix_remaining_components.json"
+    },
+    {
+      "pattern": "api.b2bendix.com",
+      "type": "prefix",
+      "method": "free",
+      "tur": "<=35",
+      "credits": 0,
+      "result": "OCC API acik",
+      "artifact": "output-final/bendix_remaining_components.json"
+    },
+    {
+      "pattern": "google.com/search",
+      "type": "prefix",
+      "method": "brightdata",
+      "tur": "<=35",
+      "credits": "low",
+      "result": "URL kesfi — YALNIZ zone -country-us sonekiyle",
+      "artifact": "-"
+    },
+    {
+      "pattern": "j1939hub",
+      "type": "prefix",
+      "method": "brightdata",
+      "tur": "<=35",
+      "credits": "medium",
+      "result": "1.6MB detay (kalite belirsiz)",
+      "artifact": "output-final/j1939hub_dtc_details.json"
+    },
+    {
+      "pattern": "raw.githubusercontent.com/STAS63-bit/sitrak-error-codes",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T45-A",
+      "credits": 0,
+      "result": "8042 kayit / 3402 SPN (CC BY 4.0, megadata.pro)",
+      "artifact": "spn_gap_hunter/cache/sitrak_error_codes_fresh.json"
+    },
+    {
+      "pattern": "repair.diesellaptops.com (276 sayfa yeniden cekim)",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T45-A",
+      "credits": 0,
+      "result": "36200 satir / 1149 SPN (66 sayfa tablo)",
+      "artifact": "spn_gap_hunter/output/t45a_dl_table_rows.json"
+    },
+    {
+      "pattern": "j1939hub.com/{cat}/spn-{n}-fmi-{m}/ (canli per-DTC sayfalar)",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T45-A",
+      "credits": 0,
+      "result": "CANLI ama katalog sabit ~452 genel SPN; 120 canli prob -> T45-A bosluk SPN'leri (32 causes/194 steps) icin 0 hit -> BELIRSIZ (kaynak yok)",
+      "artifact": "-"
+    },
+    {
+      "pattern": "duaparts.com/blog/spn-",
+      "type": "prefix",
+      "method": "free(browser)",
+      "tur": "T45-B",
+      "credits": 0,
+      "result": "50 SPN/FMI makalesi (SPN 3058/3061/3187/3223/3226/3227/3236/3238/3242/3246/3250/3251/3353/3361/3363) - gercek semptom/neden/tani adimlari",
+      "artifact": "spn_gap_hunter/output/t45b_procedure_harvest.json"
+    },
+    {
+      "pattern": "4roadservice.com/resources/detroit-diesel-spn-",
+      "type": "prefix",
+      "method": "free(browser)",
+      "tur": "T45-B",
+      "credits": 0,
+      "result": "8 yeni DD13/15/16 sayfasi (SPN 3230/3697/3698/3700/3826/520372) - SPN 3700 DB'de hic yoktu",
+      "artifact": "spn_gap_hunter/output/t45b_procedure_harvest.json"
+    },
+    {
+      "pattern": "truckfaultcode.com",
+      "type": "prefix",
+      "method": "free(browser)",
+      "tur": "T45-B",
+      "credits": 0,
+      "result": "KAYNAK DEGERI YOK: 48 SPN sayfasi yalniz egitim amacli genel metin; gercek semptom/neden/adim yok - tekrar tarama",
+      "artifact": "spn_gap_hunter/cache/t45b/t45b_tfc_urls.json"
+    },
+    {
+      "pattern": "quickserve.cummins.com",
+      "type": "prefix",
+      "method": "brightdata",
+      "tur": "T45-B",
+      "credits": 0,
+      "result": "ERISILEMEZ: mylogin.cummins.com login duvari -> BELIRSIZ (uydurma yok)",
+      "artifact": "-"
+    },
+    {
+      "pattern": "productinfo.serviceranger4.com",
+      "type": "prefix",
+      "method": "brightdata",
+      "tur": "T45-B",
+      "credits": 0,
+      "result": "ERISILEMEZ: /login duvari (Eaton PIL) -> BELIRSIZ (uydurma yok)",
+      "artifact": "-"
+    },
+    {
+      "pattern": "obdhut.com",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T45-C",
+      "credits": 0,
+      "result": "4515 DTC (meaning+causes) — DIKKAT: kaynakta symptoms==causes kopyasi, symptoms gecersiz",
+      "artifact": "spn_gap_hunter/output/t45c_dtc_symptoms.json"
+    },
+    {
+      "pattern": "troublecodes.net",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T45-C",
+      "credits": 0,
+      "result": "4080 sayfa (755 anlam, 680 semptom)",
+      "artifact": "spn_gap_hunter/output/t45c_snapshot/_t45c_tcn_pages.jsonl"
+    },
+    {
+      "pattern": "engine-codes.com",
+      "type": "prefix",
+      "method": "brightdata",
+      "tur": "T45-C",
+      "credits": 1,
+      "result": "627KB ham",
+      "artifact": "spn_gap_hunter/cache/"
+    },
+    {
+      "pattern": "ecmtrucks.com",
+      "type": "prefix",
+      "method": "brightdata",
+      "tur": "T45-C",
+      "credits": 2,
+      "result": "Detroit DD15 fault tablolari",
+      "artifact": "spn_gap_hunter/cache/"
+    },
+    {
+      "pattern": "class8truckparts.com",
+      "type": "prefix",
+      "method": "brightdata",
+      "tur": "T45-C",
+      "credits": 2,
+      "result": "Volvo/Mack kod blogu",
+      "artifact": "spn_gap_hunter/cache/"
+    },
+    {
+      "pattern": "obdguides.com",
+      "type": "prefix",
+      "method": "brightdata",
+      "tur": "T45-C",
+      "credits": 4,
+      "result": "B/C/U kod listeleri",
+      "artifact": "spn_gap_hunter/cache/"
+    },
+    {
+      "pattern": "autocodes.com",
+      "type": "prefix",
+      "method": "brightdata",
+      "tur": "T45-C",
+      "credits": 2,
+      "result": "P0300/B0001",
+      "artifact": "spn_gap_hunter/cache/"
+    },
+    {
+      "pattern": "roadservice.app/diagnose/",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T50",
+      "credits": 0,
+      "result": "177 SPN/FMI teshis sayfasi TAM tarandi (177 ok / 0 fail, quality: 156 high + 21 medium); 131 DB procedures_full boslugunu doldurur + 46 yeni cift (DB'de hic yok); canli dogrulama 5/5 (overview+causes birebir grep)",
+      "artifact": "spn_gap_hunter/output/t50_roadservice_harvest.json"
+    },
+    {
+      "pattern": "detroitmanuals.info",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T50",
+      "credits": 0,
+      "result": "378 SPN/FMI procedures_full kaydi (135 SPN, 348 sayfa; Series 60/MBE4000/MBE900/DD15 DDEC VI); 291 DB procedures_full boslugunu doldurur + 87 yeni cift; 245 overview steps[0]'dan kurtarildi; canli dogrulama 5/5 (adim+baslik birebir)",
+      "artifact": "spn_gap_hunter/output/t50_detroitmanuals_harvest.json"
+    },
+    {
+      "pattern": "truckfaultcode.com",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T50",
+      "credits": 0,
+      "result": "DEGERLENDIRILMEDI (T53'te mevcut arsivden yeniden kullanildi; T50 kapsaminda yeni cekim yok)",
+      "artifact": "-"
+    },
+    {
+      "pattern": "aidieseltech.com/diagnostic-pages/",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T51",
+      "credits": 0,
+      "result": "174 SPN/FMI teshis sayfasi TAM tarandi (174/174, hepsi 'high' kalite); 109 EMPTY_PF + 30 yeni-FMI + 6 yeni SPN = 139 bosluk doldurulabilir; sitemap 1932 URL; SPA sayfalar headless-chrome ile render edildi",
+      "artifact": "spn_gap_hunter/output/t51_aidieseltech_harvest.json"
+    },
+    {
+      "pattern": "professionaldieselrepair.com/fault-codes",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T51",
+      "credits": 0,
+      "result": "792 fault-code sayfasi TAM tarandi (786 ok / 0 fail; 763 high, 27 medium, 2 low); 430 kod sayfasi (240 distinct SPN/FMI) + 362 marka/blog hub; sitemap 927 URL",
+      "artifact": "spn_gap_hunter/output/t51_pdrepair_harvest.json"
+    },
+    {
+      "pattern": "truckfaultcode.com/fault-codes/{oem}-spn-{n}-fmi-{m}/ (mevcut arsiv yeniden kullanildi)",
+      "type": "prefix",
+      "method": "none (mevcut arsiv artifact)",
+      "tur": "T53",
+      "credits": 0,
+      "result": "27 kirpik cause tam metne tamamlandi (arsiv: raw_truckfaultcode_pages.json 31 sayfa). NOT: T45-B 'kaynak degeri yok' demisti; T53'te 'Possible Causes' bolumlerinin gercek neden listesi tasidigi kanitlandi (8-word shingle cov=1.00)",
+      "artifact": "spn_gap_hunter/output/t53_j1939_text_cleanup.md"
+    },
+    {
+      "pattern": "j1939hub.com/general-network/spn-4012-fmi-0/ (mevcut arsiv yeniden kullanildi)",
+      "type": "prefix",
+      "method": "none (mevcut arsiv artifact)",
+      "tur": "T53",
+      "credits": 0,
+      "result": "SPN_4012[3] kirpik 300->1571 tam metne tamamlandi (arsiv: raw_j1939hub_gap_pages.json)",
+      "artifact": "spn_gap_hunter/output/t53_j1939_text_cleanup.md"
+    },
+    {
+      "pattern": "bigrigfaults.com/faults/spn-{n}-fmi-{m}",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T55-B",
+      "credits": 0,
+      "result": "129/129 SPN/FMI teshis sayfasi TAM tarandi (0 fail, 0 BrightData kredisi): 119 sayfa gercek veri (symptoms+causes+fixes+steps+scan-tool checks+misdiagnosis), 10 sayfa yer tutucu; 10 yeni SPN (DB'de yok), 6 kayit DB'deki bos 'steps' alanini doldurur; canli dogrulama 8/8 birebir (avg ratio 1.000)",
+      "artifact": "spn_gap_hunter/output/t55b_free_harvest.json"
+    },
+    {
+      "pattern": "heavydutyjournal.com/truck-fault-code-lookup/",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T55-B",
+      "credits": 0,
+      "result": "DEGERLENDIRILDI - VERI YOK: yalniz SPN/FMI arama kutusu + indeks; koda ozel neden/adim metni yok (44 SPN adi, prosedur yok)",
+      "artifact": "spn_gap_hunter/output/t55b_free_harvest.md"
+    },
+    {
+      "pattern": "obd2pros.com/dtc-codes/",
+      "type": "prefix",
+      "method": "brightdata",
+      "tur": "T55-C",
+      "credits": 31,
+      "result": "31 DTC kodu (P/B/C/U) BD ile cekildi (free 403): symptoms+causes+steps; 30'u DB symptoms boslugunu doldurur; C0242 robot-challenge -> veri yok (belirsiz)",
+      "artifact": "spn_gap_hunter/output/t55c_bd_harvest.json"
+    },
+    {
+      "pattern": "manualslib.com/search",
+      "type": "prefix",
+      "method": "brightdata",
+      "tur": "T55-C",
+      "credits": 9,
+      "result": "Kesif/test (5 arama + 4 test-indeks): arama sonuclari JS-render, 0 sonuc -> BELIRSIZ (veri cikmadi, tekrar taranmasin)",
+      "artifact": "spn_gap_hunter/output/t55c_bd_harvest.json"
+    },
+    {
+      "pattern": "bigrigfaults.com/faults/spn-",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T55-C",
+      "credits": 0,
+      "result": "131 SPN/FMI sayfasi free urllib (JSON-LD FAQ/HowTo): gercek semptom+neden; 27 J1939 procedures_full boslugu + 10 yeni SPN; canli 3/3 birebir",
+      "artifact": "spn_gap_hunter/output/t55c_bd_harvest.json"
+    },
+    {
+      "pattern": "manualmachine.com",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T55-C",
+      "credits": 0,
+      "result": "Navistar MaxxForce diagnostic manual x4 (free urllib): SPN 3242/3719/3936 referansli prosedur (DB'de zaten dolu)",
+      "artifact": "spn_gap_hunter/output/t55c_bd_harvest.json"
+    },
+    {
+      "pattern": "obd-codes.com (TARAMA symptoms turu, 26 sayfa)",
+      "type": "prefix",
+      "method": "brightdata",
+      "tur": "TARAMA",
+      "credits": 26,
+      "result": "26 sayfa BD (25 gercek + 1 Cloudflare challenge); 0 yeni kod (hepsi DB'de), 25'i DB 'symptoms' boslugunu doldurur",
+      "artifact": "spn_gap_hunter/output/scan_obd-codes.com_2026-09-16.json"
+    },
+    {
+      "pattern": "repair.diesellaptops.com (TARAMA: 276 sitemap sayfasi)",
+      "type": "prefix",
+      "method": "free",
+      "tur": "TARAMA",
+      "credits": 0,
+      "result": "276/276 sayfa (free urllib), 62 sayfa SPN/FMI tablosu, 34137 satir, 3341 distinct (SPN,FMI)/1052 SPN; DB'ye gore 1413 yeni + 788 procedures_full boslugu + 1140 zaten var",
+      "artifact": "spn_gap_hunter/output/scan_repair.diesellaptops.com_2026-09-16.json"
+    },
+    {
+      "pattern": "4roadservice.com/resources/detroit (TARAMA: 6 bosluk sayfasi)",
+      "type": "prefix",
+      "method": "brightdata",
+      "tur": "TARAMA",
+      "credits": 6,
+      "result": "6/6 Detroit DD13/15/16 SPN sayfasi gercek; 5 yeni (spn,fmi) + 1 procedures_full boslugu (SPN 3230 FMI 2)",
+      "artifact": "spn_gap_hunter/output/scan_4roadservice.com_2026-09-16.json"
+    },
+    {
+      "pattern": "productinfo.serviceranger4.com/books/",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T61-B",
+      "credits": 0,
+      "result": "DUVAR ASILDI: /login login duvari, ANCAK /books/<kitap>/lang/en-us/section/<bolum> login GEREKTIRMEDEN HTTP 200. 5 kitap (TRTS0950/TRTS0960/TRSM0960/TRIB0900/RRMT0055), 268 fault-code bolumu, 149 SPN, 266 tam teshis proseduru (J1939 SA/SPN/FMI + semptom/neden/adim). 81 SPN DB'de YOK, 19 SPN procedures_full boslugunu doldurur. Canli dogrulama 8/8 birebir.",
+      "artifact": "spn_gap_hunter/output/t61b_eaton_records.json"
+    },
+    {
+      "pattern": "auroramack.com",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T61-B",
+      "credits": 0,
+      "result": "Mack Trucks Fault Codes 2011-2013 dealer PDF (public): 112 SPN (MID/PID/SID + FMI), 78 sayfa. 5 SPN DB'de yok, 38 SPN procedures_full bos.",
+      "artifact": "spn_gap_hunter/output/_t61b_pdf/mack_2011-2013.txt"
+    },
+    {
+      "pattern": "dtnacontent-dtna.prd.freightliner.com/content/dam/public/TechLit/DDCSN/",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T61-B",
+      "credits": 0,
+      "result": "DTNA/DDCSN historical fault-code PDF'leri public/dam altinda acik (0101-18.pdf, 0507-18.pdf): SPN 3361/4334/4364/4374/4375. Klasor index 403; DTNA portal kayit gerektirir.",
+      "artifact": "spn_gap_hunter/output/_t61b_pdf/"
+    },
+    {
+      "pattern": "bodybuilder.navistar.com",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T61-B",
+      "credits": 0,
+      "result": "Navistar Body Controller DTC Manual S08327 (public PDF): SA/SPN/DTC/FMI tablosu (~130 satir, body controller). msi.navistar.com/public/ned NED kilavuzu SPN icermiyor.",
+      "artifact": "spn_gap_hunter/output/t61b_navistar_records.json"
+    },
+    {
+      "pattern": "mylogin.cummins.com",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T61-B",
+      "credits": 0,
+      "result": "ERISILEMEZ (login): Salesforce Communities login duvari. robots.txt Allow:/ ama icerik login arkasinda.",
+      "artifact": "-"
+    },
+    {
+      "pattern": "productinfo.serviceranger4.com/login",
+      "type": "prefix",
+      "method": "brightdata",
+      "tur": "T61-B",
+      "credits": 1,
+      "result": "ERISILEMEZ (login): EMAIL/PASSWORD formu (dogrulandi). ANCAK /books/ alt yollari ACIK (bkz. productinfo.serviceranger4.com/books/).",
+      "artifact": "-"
+    },
+    {
+      "pattern": "dtnacontent-dtna.prd.freightliner.com/content/public/dtnaportalpublic.html",
+      "type": "prefix",
+      "method": "brightdata",
+      "tur": "T61-B",
+      "credits": 1,
+      "result": "ERISILEMEZ (kayit): DTNA Portal kayit sayfasi. public/dam/ TechLit PDF'leri ise acik.",
+      "artifact": "-"
+    },
+    {
+      "pattern": "demanddetroit.com",
+      "type": "prefix",
+      "method": "brightdata+free",
+      "tur": "T61-B",
+      "credits": 1,
+      "result": "VERI YOK: pazarlama sitesi (urun tanitimi). Detroit teknik yayinlari DTNA/DDCSN login arkasinda.",
+      "artifact": "-"
+    },
+    {
+      "pattern": "paccar.com/products-services",
+      "type": "prefix",
+      "method": "brightdata",
+      "tur": "T61-B",
+      "credits": 1,
+      "result": "VERI YOK: kurumsal site; fault-code/SPN yok. PACCAR servis dokumanlari yetkili dealer login arkasinda (paccarpg DNS yok).",
+      "artifact": "-"
+    },
+    {
+      "pattern": "ddcsn.com",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T61-B",
+      "credits": 0,
+      "result": "ERISILEMEZ: DNS ok (12.47.84.146) ama TLS hostname mismatch + HTTP reset. Icerik DTNA portal (login) uzerinden.",
+      "artifact": "-"
+    },
+    {
+      "pattern": "techlitna.com",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T61-B",
+      "credits": 0,
+      "result": "ERISILEMEZ: DNS cozulemiyor (getaddrinfo failed). Volvo/Mack icin auroramack PDF kullanildi.",
+      "artifact": "-"
+    },
+    {
+      "pattern": "navistarservice.com",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T61-B",
+      "credits": 0,
+      "result": "ERISILEMEZ: DNS cozulemiyor. Navistar icin bodybuilder.navistar.com + msi.navistar.com public PDF kullanildi.",
+      "artifact": "-"
+    },
+    {
+      "pattern": "oncommand.navistar.com",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T61-B",
+      "credits": 0,
+      "result": "ERISILEMEZ: DNS cozulemiyor.",
+      "artifact": "-"
+    },
+    {
+      "pattern": "cummins.com",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T61-B",
+      "credits": 0,
+      "result": "ERISILEMEZ (403): bot korumasi.",
+      "artifact": "-"
+    },
+    {
+      "pattern": "volvotrucks.us",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T61-B",
+      "credits": 0,
+      "result": "VERI YOK: pazarlama sitesi (sitemap 482 URL); fault-code listesi yok. Premium Tech Tool abonelik (ucretli).",
+      "artifact": "-"
+    },
+    {
+      "pattern": "msi.navistar.com/public/ned/",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T61-B",
+      "credits": 0,
+      "result": "VERI YOK: Navistar Engine Diagnostics (NED) kullanim kilavuzu; SPN/FMI teshis tablosu icermiyor.",
+      "artifact": "-"
+    },
+    {
+      "pattern": "bosch/delphi/continental (aftermarket portallari)",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T61-B",
+      "credits": 0,
+      "result": "VERI YOK: Bosch (boschaftermarket/bosch-mobility), Delphi (delphiautoparts; delphi.com TLS fail), Continental (continental-aftermarket/continental.com) portallari pazarlama sitesi (SPN=0 FMI=0). Bosch denoxtronic public brochure PDF x3 indirildi, SPN/FMI teshis tablosu yok. Fault-code prosedurleri yetkili servis abonelik login arkasinda.",
+      "artifact": "spn_gap_hunter/output/_t61b_bosch_delphi.json"
+    },
+    {
+      "pattern": "b2bendix.com (TARAMA: DTCSearch login form)",
+      "type": "prefix",
+      "method": "free",
+      "tur": "TARAMA",
+      "credits": 0,
+      "result": "VERI YOK: Angular SPA, /USD/DTCSearch login form (Product Type + DTC Type dropdowns + Search; SIGN IN/REGISTER). robots.txt Disallow:/. 0 SPN/FMI in static HTML. 9 sayfa tarandi (0 gercek + 9 yer tutucu). Onceki T<=35 '357 satir / 27 SPN' kaydi portal CMS icerigidir, DTC prosedur verisi degil.",
+      "artifact": "spn_gap_hunter/output/scan_b2bendix.com_2026-09-16.json"
+    },
+    {
+      "pattern": "api.b2bendix.com (TARAMA: OCC API parts catalog)",
+      "type": "prefix",
+      "method": "free",
+      "tur": "TARAMA",
+      "credits": 0,
+      "result": "VERI YOK: OCC (SAP Hybris) API acik (200) ama parts catalog. Product search 'SPN'/'DTC'/'fault code' = 0 hit. CMS pages = homepage slots. 6 endpoint tarandi (0 gercek + 6 yer tutucu). 0 SPN/FMI diagnostic data.",
+      "artifact": "spn_gap_hunter/output/scan_api.b2bendix.com_2026-09-16.json"
+    },
+    {
+      "pattern": "google.com/search (TARAMA: 10 URL kesfi, zone -country-us)",
+      "type": "prefix",
+      "method": "brightdata",
+      "tur": "TARAMA",
+      "credits": 10,
+      "result": "URL kesfi: 10 arama / 10 BD kredisi (cap 40 altinda). 7 sonuc + 3 captcha. Kesfedilen URL'ler: static.nhtsa.gov (zaten free), b2bendix DTCSearch (login), justanswer (KARA LISTE), forum/scribd/bendixvrc/bendix.com (T61-B'de VERI YOK). YENI DTC prosedur kaynagi YOK.",
+      "artifact": "spn_gap_hunter/output/scan_google.com_2026-09-16.json"
+    }
+  ],
+  "blacklist": [
+    {
+      "pattern": "bing.com/search",
+      "reason": "19/40 bos sonuc, timeout",
+      "source": "T35"
+    },
+    {
+      "pattern": "duckduckgo.com",
+      "reason": "guvenilmez, cerez duvari",
+      "source": "brightdata-kaynaklari.md"
+    },
+    {
+      "pattern": "mojeek.com",
+      "reason": "guvenilmez",
+      "source": "brightdata-kaynaklari.md"
+    },
+    {
+      "pattern": "spnfmi.com",
+      "reason": "daha once 0 PGN verdi",
+      "source": "Kaynak-Envanteri.md"
+    },
+    {
+      "pattern": "justanswer.com",
+      "reason": "19/20 SPN ismi uydurma, reddedildi",
+      "source": "T35 REJECTED"
+    },
+    {
+      "pattern": "google.com/search (country-us OLMAYAN cikis)",
+      "reason": "cerez duvari; zone -country-us soneki gerekli",
+      "source": "brightdata-kaynaklari.md"
+    },
+    {
+      "pattern": "truckfaultcode.com",
+      "reason": "48 SPN sayfasi yalniz egitim amacli genel metin; gercek prosedur/adim yok (T45-B)",
+      "source": "T45-B"
+    },
+    {
+      "pattern": "yourmechanic.com",
+      "reason": "BD timeout (45s)",
+      "source": "T45-C"
+    },
+    {
+      "pattern": "repairsadvisor.com",
+      "reason": "BD timeout",
+      "source": "T45-C"
+    }
+  ],
+  "free_sources": [
+    {
+      "pattern": "api.nhtsa.gov",
+      "note": "recallsByVehicle, direct requests"
+    },
+    {
+      "pattern": "static.nhtsa.gov",
+      "note": "TSB PDF, direct"
+    },
+    {
+      "pattern": "api.github.com",
+      "note": "opendbc/canedge/SavvyCAN/PID repolari"
+    },
+    {
+      "pattern": "raw.githubusercontent.com",
+      "note": "GitHub raw"
+    },
+    {
+      "pattern": "repair.diesellaptops.com",
+      "note": "free fetch calisiyor"
+    },
+    {
+      "pattern": "api.b2bendix.com",
+      "note": "OCC API free"
+    },
+    {
+      "pattern": "raw.githubusercontent.com/STAS63-bit/sitrak-error-codes",
+      "note": "SITRAK DTC (CC BY 4.0) free, 8042 kayit/3402 SPN"
+    },
+    {
+      "pattern": "roadservice.app/diagnose/",
+      "note": "Next.js sunucu-render; direct urllib calisiyor (T50, 177 sayfa)"
+    },
+    {
+      "pattern": "detroitmanuals.info",
+      "note": "WordPress; REST API + entry-content HTML direct fetch calisiyor (T50, 348 sayfa)"
+    }
+  ],
+  "_discovery_note": "Kesif: html.duckduckgo.com/html/?q=... (ucretsiz, UA ile) calisiyor. Google JS-render -> statik HTML'de sonuc yok. roadservice.app sitemap ile kesfedildi.",
+  "discovered": [
+    {
+      "pattern": "github.com/foerbsnavi/OBDex",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T61-A",
+      "credits": 0,
+      "license": "CC0-1.0 (data) / MIT (tooling)",
+      "result": "9533 DTC kodu (parse: data/generic/*.yaml '- code:'); %100 common_causes+repair, %66.6 symptoms, affected_components/cost/difficulty; EN+DE. codeload tarball.",
+      "artifact": "spn_gap_hunter/output/_t61a_dataset_counts.json",
+      "verdict": "ACCEPT (en degerli yeni DTC kaynagi)"
+    },
+    {
+      "pattern": "github.com/Wal33D/dtc-database",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T61-A",
+      "credits": 0,
+      "license": "MIT",
+      "result": "18805 dtc_definitions satiri / 12128 distinct kod / 34 uretici (SQLite data/dtc_codes.db); sadece description (semptom/neden yok). placeholder=0.",
+      "artifact": "spn_gap_hunter/output/_t61a_dataset_counts.json",
+      "verdict": "ACCEPT (genis kod omurgasi)"
+    },
+    {
+      "pattern": "github.com/MechanicDB/MechanicDB-public",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T61-A",
+      "credits": 0,
+      "license": "ODbL-1.0 (dataset) / upstream MIT",
+      "result": "89 distinct kod (dtc_codes.csv) + 320 fix satiri (step_by_step_instructions, maliyet, iscilik); sitemap.xml 1397 URL / 296 kod sayfasi. Sadece 90-kod ornek surum; tam DB ucretli.",
+      "artifact": "spn_gap_hunter/output/_t61a_obdex_mech.json",
+      "verdict": "PARTIAL (yuksek kalite ama ornek sinirli)"
+    },
+    {
+      "pattern": "idoc.pub",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T61-A",
+      "credits": 0,
+      "license": "BELIRSIZ (kullanici yuklemesi PDF; /tos)",
+      "result": "YENI ucretsiz PDF hub (login yok, sunucu-render). /search/<q> 14 sorgu -> 800 dokuman; 375/800 strict J1939-ilgili (%46.9). SITEMAP YOK. Canli 6/6 sayfa SPN/FMI ciftleri gercek (ornek: 'spn 625 fmi 9 epa07' SPN=36 FMI=31). False-positive var -> slug filtresi sart.",
+      "artifact": "spn_gap_hunter/output/_t61a_idoc_quality.json",
+      "verdict": "ACCEPT-CANDIDATE (T62'de slug-filtreli cekim)"
+    },
+    {
+      "pattern": "fixcarcodes.com",
+      "type": "prefix",
+      "method": "free",
+      "tur": "KESIF-r4",
+      "credits": 0,
+      "license": "belirsiz",
+      "result": "VERI YOK (410 GONE) — sathya1495 reposunun guide_url hedefi; site kapanmis. TEKRAR TARAMA."
+    },
+    {
+      "pattern": "github.com/sathya1495/obd2-dtc-database",
+      "type": "prefix",
+      "method": "free",
+      "tur": "KESIF-r4",
+      "credits": 0,
+      "license": "NOASSERTION (lisans dosyasi yok)",
+      "result": "60 kod / 3 JSON; 60/60 common_causes DOLU + system/subsystem/severity/common_makes. fixcarcodes.com 410 oldugu icin TEK KALAN KOPYA.",
+      "artifact": "spn_gap_hunter/output/_kesif4_counts.json"
+    },
+    {
+      "pattern": "github.com/hoffman1938/bimmercode",
+      "type": "prefix",
+      "method": "free",
+      "tur": "KESIF-r4",
+      "credits": 0,
+      "license": "BILDIRILMEMIS (LICENSE yok)",
+      "result": "74 kod; 74/74 EN description dolu; cok dilli (en/ru/ka). data/codes.json 169KB.",
+      "artifact": "spn_gap_hunter/output/_kesif4_counts.json"
+    },
+    {
+      "pattern": "github.com/aalih34554-ai/obd2-database",
+      "type": "prefix",
+      "method": "free",
+      "tur": "KESIF-r4",
+      "credits": 0,
+      "license": "BILDIRILMEMIS",
+      "result": "29 kod; causes[]+symptoms[]+solutions[] uclu dolu (gercek). dtc-codes.json 19921B.",
+      "artifact": "spn_gap_hunter/output/_kesif4_gh4.json"
+    },
+    {
+      "pattern": "github.com/misspellted/DTC-Database",
+      "type": "prefix",
+      "method": "free",
+      "tur": "KESIF-r4",
+      "credits": 0,
+      "license": "BILDIRILMEMIS",
+      "result": "6665 kod (codes.json 450KB + codes.xml 481KB). DB'de 6664/6665 ZATEN VAR -> 1 yeni (C2767). xinings/DTC-Database ile AYNI dosya (dedup). Semptom YOK.",
+      "artifact": "spn_gap_hunter/output/_kesif4_counts.json"
+    },
+    {
+      "pattern": "github.com/dsoprea/DtcLookup",
+      "type": "prefix",
+      "method": "free",
+      "tur": "KESIF-r4",
+      "credits": 0,
+      "license": "GPL-2.0 (DIKKAT: veri aktariminda lisans uyumu gerekir)",
+      "result": "874 generic kod satiri + marka dosyalari (Jaguar/Audi/BMW/Chrysler/VW/Mazda/Ford/Landrover/Subaru/Dodge/Honda/Lexus). generic: 831 DB'de var, 42 yeni. Semptom YOK.",
+      "artifact": "spn_gap_hunter/output/_kesif4_counts.json"
+    },
+    {
+      "pattern": "faultcodes.co",
+      "type": "prefix",
+      "method": "free",
+      "tur": "KESIF-r4",
+      "credits": 0,
+      "license": "belirsiz (about/terms/privacy'de lisans izi yok)",
+      "result": "sitemap.xml 10 alt-sitemap / 5226 URL -> 4588 distinct kod (B1511/P1892/C617/U574). DB: 4322 var, 266 YENI. ICERIK SIG: 14 ornek sayfa -> how/symptoms/causes 0/14 (sablon+reklam). Kalite=low (yalniz kod envanteri).",
+      "artifact": "spn_gap_hunter/output/_kesif4_faultco_check.json"
+    },
+    {
+      "pattern": "autofaultcodes.com",
+      "type": "prefix",
+      "method": "free",
+      "tur": "KESIF-r5",
+      "credits": 0,
+      "license": "belirsiz (robots.txt Allow: /)",
+      "result": "996 OBD-II DTC kod sayfasi. Sitemap 1009 URL. 2 ornek cekildi (P0300, P0171): Possible symptoms + Causes to test + Step-by-step diagnostic workflow + Scan data worth checking + Severity. Kalite=high.",
+      "artifact": "-",
+      "verdict": "ACCEPT (high quality DTC with symptoms+causes+diagnostic workflow)"
+    },
+    {
+      "pattern": "faultcode.org",
+      "type": "prefix",
+      "method": "free",
+      "tur": "KESIF-r5",
+      "credits": 0,
+      "license": "belirsiz (robots.txt Allow: /, Disallow: /api/)",
+      "result": "1651 OBD-II DTC kod sayfasi. Sitemap 2238 URL. 2 ornek cekildi (P0300, P0171): What does that mean? + Symptoms + Causes + Possible Solutions + Related Fault Codes. Kalite=high.",
+      "artifact": "-",
+      "verdict": "ACCEPT (high quality DTC with symptoms+causes+solutions)"
+    },
+    {
+      "pattern": "huggingface.co/datasets/fabiovilao/obd2-ptbr",
+      "type": "prefix",
+      "method": "free",
+      "tur": "KESIF-r5",
+      "credits": 0,
+      "license": "CC-BY-4.0",
+      "result": "2973 OBD-II DTC (PT-BR). codigos.json 1.9MB. Her kayit: Code + Description(PT) + cdescr (detayli PT aciklama; nedenler+cozumler+ tani onerileri). Kalite=medium (serbest metin, PT dili).",
+      "artifact": "-",
+      "verdict": "ACCEPT (CC-BY-4.0; TR ceviri icin temel; lucasveneno/dtc ile ortusme)"
+    },
+    {
+      "pattern": "github.com/gediz/bmw-unified-db",
+      "type": "prefix",
+      "method": "free",
+      "tur": "KESIF-r5",
+      "credits": 0,
+      "license": "MIT (compilation); BMW data provenance CREDITS.md'de",
+      "result": "BMW fault dictionary: 326,161 fault locations, 42,415 types, 192,941 English DTC texts, 3,071 generic OBD codes. SQLite ~654MB, 46 tables. BMW-specific UDS format (NOT J1939/SPN/FMI).",
+      "artifact": "-",
+      "verdict": "ACCEPT (massive BMW-specific fault dictionary)"
+    },
+    {
+      "pattern": "github.com/DanielMartensson/Open-SAE-J1939",
+      "type": "prefix",
+      "method": "free",
+      "tur": "KESIF-r5",
+      "credits": 0,
+      "license": "MIT",
+      "result": "3866 SPN entry (C enum: SPN_NAME = hex) + 31 FMI entry. J1939 SPN parameter name lookup. Semptom/neden/adim YOK. Kalite=medium (SPN name envanteri).",
+      "artifact": "-",
+      "verdict": "ACCEPT (SPN name lookup; DB SPN name gap doldurur)"
+    },
+    {
+      "pattern": "fault-code.com",
+      "type": "prefix",
+      "method": "free",
+      "tur": "KESIF-r5",
+      "credits": 0,
+      "license": "belirsiz (WordPress blog; robots.txt Allow)",
+      "result": "27 unique DTC x 4 dil (DE/EN/ES/FR) = 216 kod sayfasi. Ursachen+Symptome+Losungen+Diagnose+Reparaturkosten. Kalite=medium (az kod, cok dilli).",
+      "artifact": "-",
+      "verdict": "PARTIAL (cok dilli ama az kod)"
+    }
+  ],
+  "_discovery_notes": [
+    {
+      "date": "2026-09-15",
+      "site": "dieselhub.com",
+      "note": "444 URL, motor/sanziman teknik referans (SPN/FMI degil) — dusuk oncelik"
+    },
+    {
+      "date": "2026-09-16",
+      "site": "primodetech.com",
+      "note": "ACIK JSON DTC API (/api/dtc/search?q=<spn>, /detail/<uuid>, /popular) — robots.txt'te ALLOW; J1939 SPN/FMI + name + description + possible_causes + recommended_actions + severity + manufacturer. 638 benzersiz EN detay (sitemap). HTML JS-render -> API kullan."
+    },
+    {
+      "date": "2026-09-16",
+      "site": "foerbsnavi/OBDex (GitHub, CC0)",
+      "note": "9533 zenginlestirilmis DTC (7 YAML ailesi: P0 3705/P2 3495/U0 1055/C0 626/B0 323/U3 174/P3 155). title+description(en/de)+causes{likelihood}+repair. raw.githubusercontent.com uzerinden free. NOT: STAS63 sitrak ile AYNI domain ama FARKLI repo/icerik."
+    },
+    {
+      "date": "2026-09-16",
+      "site": "Wal33D/dtc-database (GitHub, MIT)",
+      "note": "12128 benzersiz DTC SQLite (18805 satir, 33 marka). Yalniz kod+description. OBDex ile ortusur -> merge'te dedup sart."
+    },
+    {
+      "date": "2026-09-16",
+      "site": "dieselscanners.com",
+      "note": "104 SPN/FMI 'full fix guide' blogu (sitemap_blogs_1.xml 144 URL). Gercek semptom+neden+adim (ornek SPN 5246/3055/3719 dogrulandi). Telif: belirsiz."
+    },
+    {
+      "date": "2026-09-16",
+      "site": "carcarehacks.com",
+      "note": "421 P/B/C/U kod yazisi + 55 SPN/FMI yazisi (post-sitemap{,2,3} 2126 post). Ornek P0401 18KB metin semptom+neden+fix. Telif: belirsiz."
+    },
+    {
+      "date": "2026-09-16",
+      "site": "huggingface.co",
+      "note": "VERI YOK — 'j1939' 0 dataset; 'dtc'/'obd' ilgisiz (satranc/LLVM/uzaktan algilama). Agir arac DTC veri seti YOK."
+    },
+    {
+      "date": "2026-09-16",
+      "task": "T61-A",
+      "site": "search-infrastructure",
+      "note": "ARAMA ALTYAPISI DEGISTI: DuckDuckGo html/lite artik HTTP 202 'anomaly' (sert blok) - registry _discovery_note BAYAT. mojeek 403, searx.xyz JS challenge, 30 searx ornegi bos/429. CALISAN ucretsiz kesif: api.github.com + codeload.github.com tarball, old-search.marginalia.nu (tek kelime), dogrudan robots.txt/sitemap.xml probe, site /search/ sayfalari. 0 BrightData kredisi."
+    },
+    {
+      "date": "2026-09-16",
+      "task": "T61-A",
+      "site": "oem-archives",
+      "note": "Navistar/PACCAR/Cummins/Detroit/Volvo-Mack: sitemap'leri sayildi (1524/482/896/217/21 loc), 0 SPN/FMI/DTC-bearing URL -> ucretsiz prosedur YOK, hepsi abonelik/login (quickserve login duvari). manualslib/manualzz/dokumen.pub/vdocuments.mx 403; pdfcoffee/pdf4pro/cardsmanual DNS-dead."
+    },
+    {
+      "date": "2026-09-16",
+      "site": "KESIF-r4 (t_f1407ec8)",
+      "note": "6 yeni kaynak. ONEMLI: DB'de 14352 DTC + 4253 SPN var; yeni KOD katkisi tukendi (misspellted 6664/6665 zaten DB'de, dsoprea 831/873 DB'de). Gercek bosluk: DTC symptoms 13521/14352 BOS, procedures_full 14352/14352 BOS, title_tr 14352/14352 BOS; J1939 symptoms 4226/4253 BOS, diagnostic_steps 4250/4253 BOS. Yeni kaynak secimi SEMPTOM/PROSEDUR zenginligine gore yapilmali."
+    },
+    {
+      "date": "2026-09-16",
+      "site": "fixcarcodes.com",
+      "note": "410 GONE. sathya1495/obd2-dtc-database reposunun guide_url hedefi. Site kapanmis -> repo tek kopya. TEKRAR TARAMA."
+    },
+    {
+      "date": "2026-09-16",
+      "site": "obdautodoctor.com / obd2codes.org / dtcdecode.com / obdadvisor.com / truckecm.com",
+      "note": "VERI YOK. obdautodoctor 103 URL 0 kod-URL; truckecm 243 URL kod sayfasi yok (blog/urun); obd2codes DNS fail; dtcdecode 404; obdadvisor 403 (bot korumasi)."
+    },
+    {
+      "date": "2026-09-16",
+      "site": "npm/crates/PyPI paketleri (@embedded32/j1939, voltage_j1939, automotive_diag, ecu_diagnostics, obd, cantools)",
+      "note": "VERI YOK / DUSUK: hepsi protokol kutuphanesi. En zengini @embedded32/j1939 (~50 starter SPN adi+scaling, FAULT matrisi YOK) ve voltage_j1939 (71 SPN adi+scaling). obd-ii-decoder npm troubleCodes.json = mytrile ile AYNI bozuk ikili-map format."
+    },
+    {
+      "date": "2026-09-16",
+      "site": "kaggle / data.gov / zenodo / figshare / wikipedia",
+      "note": "VERI YOK / BELIRSIZ: portal API'leri 404/403/timeout. Wikipedia OBD-II_PIDs 71819B ama yalniz 1 DTC + 0 SPN; SAE_J1939 6117B 0 kod."
+    },
+    {
+      "date": "2026-09-16",
+      "task": "KESIF-r5 (t_f9d9c31d)",
+      "site": "search-infrastructure",
+      "note": "web_search/web_extract (Nous gateway) ERISILEMEZ. DuckDuckGo HTML CAPTCHA, Google CAPTCHA, Bing yanlis sonuc, Brave CAPTCHA, Marginalia bot blok. CALISAN: api.github.com repository search (code search 0 sonuc veriyor - auth gerekiyor olabilir), dogrudan sitemap.xml/robots.txt probe (urllib), HuggingFace API."
+    },
+    {
+      "date": "2026-09-16",
+      "task": "KESIF-r5 (t_f9d9c31d)",
+      "site": "github-repo-sweep",
+      "note": "GitHub repository search (j1939/obd2/dtc/fault) ile 50+ repo degerlendirildi. YENI veri tasiyanlar: gediz/bmw-unified-db (326K BMW fault locations, MIT), DanielMartensson/Open-SAE-J1939 (3866 SPN name, MIT). Digerleri: kod kutuphanesi (jackm/j1939decode, andrewdodd/decoda), DBC dosya (arthithadee/J1939-DBC-Database), AI app (JRP06/diesel-fault-advisor), binary tool (copperhilltech93/jcom1939), icerik bos (lucasveneno/dtc 41K kod ama symptoms/causes bos)."
+    },
+    {
+      "date": "2026-09-16",
+      "task": "KESIF-r5 (t_f9d9c31d)",
+      "site": "web-dtc-sites",
+      "note": "100+ site sitemap.xml ile probelandi. YENI degerli: autofaultcodes.com (996 DTC, high kalite: symptoms+causes+diagnostic workflow), faultcode.org (1651 DTC, high kalite: symptoms+causes+solutions). Dusuk/veri yok: fault-code.com (27 kod, cok dilli), checkengine.com (blog), auto-repair-manuals.com (e-ticaret), 50+ site DNS fail/403/404/bos sitemap."
+    },
+    {
+      "date": "2026-09-16",
+      "task": "KESIF-r5 (t_f9d9c31d)",
+      "site": "huggingface-datasets",
+      "note": "HuggingFace API ile arama: 'j1939' -> 0, 'diagnostic trouble' -> 0, 'automotive fault' -> 1 (zhengr, Cinca otomotif NLP). YENI: fabiovilao/obd2-ptbr (2973 DTC, PT-BR, CC-BY-4.0, cdescr'de neden+cozum). Dusuk: Epitech/obd-codes-fine-tune (3071 kod, yalniz aciklama), arunpanda22/dtc (yanlislikla Amazon QA verisi)."
+    }
+  ]
 }
