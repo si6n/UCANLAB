@@ -72,7 +72,7 @@
       "tur": "<=35",
       "notes": "VERI YOK: Angular SPA, /USD/DTCSearch login form (Product Type + DTC Type dropdowns + Search; SIGN IN/REGISTER). robots.txt Disallow:/. 0 SPN/FMI in static HTML. OCC API acik ama parts catalog (0 SPN/FMI). Tarama t_2d5e35d4.",
       "artifact": "spn_gap_hunter/output/scan_b2bendix.com_2026-09-16.json",
-      "applied": false
+      "applied": true
     },
     {
       "id": "api_b2bendix_com",
@@ -85,7 +85,7 @@
       "tur": "<=35",
       "notes": "VERI YOK: OCC (SAP Hybris) API acik (200) ama parts catalog. Product search 'SPN'/'DTC'/'fault code' = 0 hit. CMS pages = homepage slots. 0 SPN/FMI diagnostic data. Tarama t_2d5e35d4.",
       "artifact": "spn_gap_hunter/output/scan_api.b2bendix.com_2026-09-16.json",
-      "applied": false
+      "applied": true
     },
     {
       "id": "google_com",
@@ -98,7 +98,7 @@
       "tur": "<=35",
       "notes": "URL kesfi (zone -country-us, &gl=us&hl=en). 10 arama / 10 BD kredisi (cap 40 altinda). 7 sonuc + 3 captcha. Kesfedilen URL'ler: static.nhtsa.gov (zaten free), b2bendix DTCSearch (login), justanswer (KARA LISTE), forum/scribd/bendixvrc/bendix.com (T61-B'de VERI YOK). YENI DTC prosedur kaynagi YOK. Tarama t_2d5e35d4.",
       "artifact": "spn_gap_hunter/output/scan_google.com_2026-09-16.json",
-      "applied": false
+      "applied": true
     },
     {
       "id": "j1939hub",
@@ -106,10 +106,10 @@
       "domain": "j1939hub",
       "type": "j1939",
       "method": "brightdata",
-      "status": "pending",
+      "status": "scanning",
       "credits_used": 0,
       "tur": "<=35",
-      "notes": "1.6MB detay (kalite belirsiz)"
+      "notes": "1.6MB detay (kalite belirsiz) — TARAMA t_3bedf10b"
     },
     {
       "id": "raw_githubusercontent_com",
@@ -117,10 +117,10 @@
       "domain": "raw.githubusercontent.com",
       "type": "dtc",
       "method": "free",
-      "status": "pending",
+      "status": "scanning",
       "credits_used": 0,
       "tur": "T45-A",
-      "notes": "8042 kayit / 3402 SPN (CC BY 4.0, megadata.pro)"
+      "notes": "8042 kayit / 3402 SPN (CC BY 4.0, megadata.pro) — TARAMA t_3bedf10b"
     },
     {
       "id": "repair_diesellaptops_com__276_sayfa_yeni",
@@ -128,10 +128,10 @@
       "domain": "repair.diesellaptops.com (276 sayfa yeniden cekim)",
       "type": "dtc",
       "method": "free",
-      "status": "pending",
+      "status": "scanning",
       "credits_used": 0,
       "tur": "T45-A",
-      "notes": "36200 satir / 1149 SPN (66 sayfa tablo)"
+      "notes": "36200 satir / 1149 SPN (66 sayfa tablo) — TARAMA t_3bedf10b"
     },
     {
       "id": "j1939hub_com",
@@ -139,10 +139,10 @@
       "domain": "j1939hub.com",
       "type": "j1939",
       "method": "free",
-      "status": "pending",
+      "status": "scanning",
       "credits_used": 0,
       "tur": "T45-A",
-      "notes": "CANLI ama katalog sabit ~452 genel SPN; 120 canli prob -> T45-A bosluk SPN'leri (32 causes/194 steps) icin 0 hit -> BELIRSIZ (kaynak yok)"
+      "notes": "CANLI ama katalog sabit ~452 genel SPN; 120 canli prob -> T45-A bosluk SPN'leri (32 causes/194 steps) icin 0 hit -> BELIRSIZ (kaynak yok) — TARAMA t_3bedf10b"
     },
     {
       "id": "duaparts_com",
@@ -150,10 +150,10 @@
       "domain": "duaparts.com",
       "type": "j1939",
       "method": "free",
-      "status": "pending",
+      "status": "scanning",
       "credits_used": 0,
       "tur": "T45-B",
-      "notes": "50 SPN/FMI makalesi (SPN 3058/3061/3187/3223/3226/3227/3236/3238/3242/3246/3250/3251/3353/3361/3363) - gercek semptom/neden/tani adimlari"
+      "notes": "50 SPN/FMI makalesi (SPN 3058/3061/3187/3223/3226/3227/3236/3238/3242/3246/3250/3251/3353/3361/3363) - gercek semptom/neden/tani adimlari — TARAMA t_3bedf10b"
     },
     {
       "id": "truckfaultcode_com",
