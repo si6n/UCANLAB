@@ -34,6 +34,7 @@ exclude = [
     "dist",
     "arsiv_ajan_scriptleri",  # archived agent scratch scripts (not shipped)
     "spn_gap_hunter",
+    "scripts/t5*",  # one-shot harvest scripts (T50-T53); shipped code lives in src/
 ]
 
 [tool.ruff.lint]
