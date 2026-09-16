@@ -143,6 +143,22 @@ class LauncherAuthManager:
                 offline_until=claims.offline_until,
             )
         except Exception as exc:
+            # A-1 (ASAMA-2): this branch swallowed every verification failure
+            # and returned has_valid_license=False with no log record, so an
+            # operator could not tell WHY the machine lost its license
+            # (expired ticket, device mismatch, corrupt vault, clock skew...).
+            # Emit a structured record carrying the exception type/message and
+            # the device id this build resolved; the fail-closed result is
+            # unchanged.
+            logger.warning(
+                "Cloud license ticket verification failed; treating as unlicensed",
+                extra={
+                    "error": str(exc),
+                    "error_type": type(exc).__name__,
+                    "device_id": self.client.get_device_id(),
+                    "has_session_token": has_session,
+                },
+            )
             return AuthStatus(
                 is_authenticated=has_session,
                 has_valid_license=False,
