@@ -2,6 +2,7 @@
 from typing import Any
 
 import pytest
+from cryptography.hazmat.primitives.asymmetric import ed25519
 
 from src.core.errors import SafetyError
 from src.core.models.can_frame import CanFrame
@@ -24,13 +25,17 @@ from src.safety.exceptions import (
 )
 from src.safety.gateway import TxSafetyGateway
 
+# T57-D / F-1: the flasher verifies an Ed25519 firmware signature by default.
+_FW_KEY = ed25519.Ed25519PrivateKey.generate()
+_FW_PUB = _FW_KEY.public_key()
+
 
 def test_audit_database_integrity_and_scale():
     load_external_dtc_database()
     from src.engine.ai.diagnostic_copilot import EXPERT_KNOWLEDGE_BASE
     assert len(EXPERT_KNOWLEDGE_BASE) >= 14188
     spn_db = get_j1939_spn_database()
-    assert len(spn_db.get("spns", spn_db)) == 3910
+    assert len(spn_db.get("spns", spn_db)) == 3937
     did_db = get_uds_did_database()
     assert len(did_db.get("dids", did_db)) == 68
     m06_db = get_mode06_database()
@@ -134,33 +139,33 @@ def test_audit_flasher_fail_closed_contract():
     class DummyClient:
         def __init__(self):
             self.calls = []
-        def change_session(self, session_type: Any, user_confirmed: bool = False):
+        def change_session(self, session_type: Any, user_confirmed: bool = False, confirmation_token: Any = None, **kw: Any):
             self.calls.append(("change_session", session_type, user_confirmed))
             return type("Resp", (), {"is_positive": True, "nrc": None, "nrc_description_tr": "", "data": b""})()
-        def security_access_request_seed(self, level: int, user_confirmed: bool = False):
+        def security_access_request_seed(self, level: int, user_confirmed: bool = False, **kw: Any):
             self.calls.append(("security_access_request_seed", level, user_confirmed))
             return type("Resp", (), {"is_positive": True, "nrc": None, "nrc_description_tr": "", "data": bytes([level, 0x11, 0x22, 0x33, 0x44])})()
-        def security_access_send_key(self, level: int, key: bytes, user_confirmed: bool = False):
+        def security_access_send_key(self, level: int, key: bytes, user_confirmed: bool = False, **kw: Any):
             self.calls.append(("security_access_send_key", level, user_confirmed))
             return type("Resp", (), {"is_positive": True, "nrc": None, "nrc_description_tr": "", "data": bytes([level])})()
-        def request_download(self, memory_address: int, memory_size: int, user_confirmed: bool = False):
+        def request_download(self, memory_address: int, memory_size: int, user_confirmed: bool = False, confirmation_token: Any = None, **kw: Any):
             self.calls.append(("request_download", memory_address, memory_size, user_confirmed))
             return type("Resp", (), {"is_positive": True, "nrc": None, "nrc_description_tr": "", "data": b"\x20\x01\x00"})()
-        def transfer_data(self, block_sequence: int, data: bytes, is_critical_command: bool = True, user_confirmed: bool = False):
+        def transfer_data(self, block_sequence: int, data: bytes, is_critical_command: bool = True, user_confirmed: bool = False, confirmation_token: Any = None, **kw: Any):
             if not is_critical_command or not user_confirmed:
                 raise SafetyError("Critical command contract violated")
             self.calls.append(("transfer_data", block_sequence, is_critical_command, user_confirmed))
             return type("Resp", (), {"is_positive": True, "nrc": None, "nrc_description_tr": "", "data": bytes([block_sequence & 0xFF])})()
-        def request_transfer_exit(self, is_critical_command: bool = True, user_confirmed: bool = False):
+        def request_transfer_exit(self, is_critical_command: bool = True, user_confirmed: bool = False, confirmation_token: Any = None, **kw: Any):
             self.calls.append(("request_transfer_exit", is_critical_command, user_confirmed))
             return type("Resp", (), {"is_positive": True, "nrc": None, "nrc_description_tr": "", "data": b""})()
-        def start_routine(self, routine_id: int, options: bytes = b"", user_confirmed: bool = False):
+        def start_routine(self, routine_id: int, options: bytes = b"", user_confirmed: bool = False, confirmation_token: Any = None, **kw: Any):
             self.calls.append(("start_routine", routine_id, user_confirmed))
             return type("Resp", (), {"is_positive": True, "nrc": None, "nrc_description_tr": "", "data": b""})()
-        def request_routine_results(self, routine_id: int, user_confirmed: bool = False):
+        def request_routine_results(self, routine_id: int, user_confirmed: bool = False, **kw: Any):
             self.calls.append(("request_routine_results", routine_id, user_confirmed))
             return type("Resp", (), {"is_positive": True, "nrc": None, "nrc_description_tr": "", "data": b"\x03\x02\x02\x00"})()
-        def ecu_reset(self, reset_type: int, user_confirmed: bool = False):
+        def ecu_reset(self, reset_type: int, user_confirmed: bool = False, confirmation_token: Any = None, **kw: Any):
             self.calls.append(("ecu_reset", reset_type, user_confirmed))
             return type("Resp", (), {"is_positive": True, "nrc": None, "nrc_description_tr": "", "data": b""})()
 
@@ -177,6 +182,10 @@ def test_audit_flasher_fail_closed_contract():
         block_size=64,
         security_key=b"\x00" * 4,
         user_confirmed=True,
+        # T57-D / F-1 + F-4: satisfy the mandatory signature/identity gates.
+        require_target_identity=False,
+        trusted_pubkey=_FW_PUB,
+        firmware_signature=_FW_KEY.sign(b"\x90" * 256),
     )
     # Preflight with stationary physical speed
     gateway.update_physical_speed(0.0)
