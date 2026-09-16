@@ -212,8 +212,15 @@ def parse_action_triggers_from_text(text: str) -> tuple[str, list[dict[str, Any]
             actions = json.loads(match.group(1).strip())
             if isinstance(actions, list):
                 return clean_text, actions
-        except Exception:
-            pass
+        except json.JSONDecodeError as exc:
+            # A3-6: a malformed/manually-edited <!--ACTIONS:--> payload used to
+            # vanish silently and drop every structured action button. Narrow
+            # to JSONDecodeError so real bugs still propagate, and log so the
+            # corruption is observable (fail-open -> fail-loud).
+            logger.warning(
+                "bozuk <!--ACTIONS:--> JSON yok sayıldı, serbest-metin taramasına düşülüyor",
+                extra={"error": str(exc)},
+            )
     return text, extract_action_triggers(text)
 
 
@@ -2880,7 +2887,9 @@ class CausalBayesianInferenceEngine:
                 return cls._format_4stage_technician_report("P0AA6", telemetry, vehicle_make, vehicle_year)
             if "hvil" in norm_query or "interlock" in norm_query or "salter" in norm_query:
                 return cls._format_4stage_technician_report("P0A0B", telemetry, vehicle_make, vehicle_year)
-            if "precharge" in norm_query or "kontaktor" in norm_query:
+            # A3-5: guard the hard-coded KB key — a missing entry must not
+            # KeyError the whole report; fall through to the general path.
+            if ("precharge" in norm_query or "kontaktor" in norm_query) and "P0AA1" in EXPERT_KNOWLEDGE_BASE:
                 return cls._format_4stage_technician_report("P0AA1", telemetry, vehicle_make, vehicle_year)
             return cls._format_4stage_technician_report("P0A80", telemetry, vehicle_make, vehicle_year)
 
@@ -3060,6 +3069,29 @@ class CausalBayesianInferenceEngine:
         and the complaint corpus is queried with make/year filters. When both are
         ``None`` the previous unfiltered behaviour is preserved (fail-safe).
         """
+        # A3-5: symptom branches hard-code KB keys. If a key is missing from the
+        # shipped KB (e.g. a stripped build / future DB edit) an unconditional
+        # lookup raised KeyError and the whole report failed to render. Fall
+        # back to an honest "not in the local library" notice instead.
+        if code not in EXPERT_KNOWLEDGE_BASE:
+            logger.warning(
+                "4-aşama raporu için KB kaydı bulunamadı — fail-safe uyarı basılıyor",
+                extra={"code": code},
+            )
+            cat_char = code[0].upper() if code else "?"
+            cat_desc = {
+                "P": "Güç Aktarımı (Powertrain)",
+                "C": "Şasi / ABS / ESP (Chassis)",
+                "B": "Gövde / Konfor (Body)",
+                "U": "Ağ / CAN İletişimi (Network)",
+            }.get(cat_char, "Bilinmeyen")
+            return (
+                f"⚠️ **[{code}] Arıza Kodu Bulunamadı:**\n"
+                f"Bu kod yerel teşhis kütüphanesinde kayıtlı değil.\n"
+                f"• **Kategori:** {cat_desc}\n"
+                f"• **Tavsiye:** Aracın yetkili servis kılavuzunu inceleyin veya UDS `0x19 0x02` servisi "
+                f"ile çevre koşullarını (Freeze Frame) okuyun."
+            )
         info = EXPERT_KNOWLEDGE_BASE[code]
         rpm = telemetry.get("EngineSpeed", 0.0)
         boost = telemetry.get("BoostPressure", 0.0)
@@ -3876,8 +3908,16 @@ class AiDiagnosticCopilot:
                 )
                 if line not in ctx.correlations:
                     ctx.correlations.append(line)
-        except Exception:
-            pass
+        except (OSError, KeyError, TypeError, ValueError) as exc:
+            # A3-4: this block produces the shared-subsystem/PGN correlations
+            # and the reserved-code warning. A broad `except Exception: pass`
+            # swallowed any failure and the report then claimed "no related
+            # cluster / no reserved code" (false negative, fail-open). Narrow
+            # the catch set and log so the degradation is observable.
+            logger.warning(
+                "DTC küme/ilişki zenginleştirmesi atlandı — korelasyon ve rezerve-kod uyarısı eksik olabilir",
+                extra={"error": str(exc)},
+            )
 
         # Dynamic EXPERT_KNOWLEDGE_BASE lookup for active DTCs not matched by scenarios 1..7
         for idx, d in enumerate(active_dtcs):

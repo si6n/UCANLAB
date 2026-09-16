@@ -206,11 +206,15 @@ def rank_hypotheses(
             contradict.append(f"çelişen sinyal normal: {', '.join(contradicting)}")
 
         # Similar verified case with the same fault title keyword overlap is
-        # weak complementary evidence; capped by WEIGHT_CASE_MATCH.
-        for case_id, match in sorted(case_faults.items()):
-            score += WEIGHT_CASE_MATCH * min(1.0, match.similarity)
-            support.append(f"benzer doğrulanmış vaka: {case_id} (%{match.similarity * 100:.0f})")
-            break  # one case is enough complementary signal
+        # weak COMPLEMENTARY evidence; it is only added when the node already
+        # carries independent evidence (a DTC or anomaly-signal hit). Without
+        # this threshold every node matched the golden corpus and unrelated
+        # hypotheses leaked into the table (A3-3). Capped by WEIGHT_CASE_MATCH.
+        if dtc_hits or signal_hits:
+            for case_id, match in sorted(case_faults.items()):
+                score += WEIGHT_CASE_MATCH * min(1.0, match.similarity)
+                support.append(f"benzer doğrulanmış vaka: {case_id} (%{match.similarity * 100:.0f})")
+                break  # one case is enough complementary signal
 
         if score <= 0.0:
             continue

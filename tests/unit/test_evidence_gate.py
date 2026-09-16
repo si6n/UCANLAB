@@ -116,6 +116,75 @@ class TestSufficiencyTiers:
         assert any("DISCOVERED" in g for g in report.gaps)
         assert any("güveni" in g for g in report.gaps)
 
+    def test_exact_half_discovered_is_fail_closed(self) -> None:
+        # A3-9: the DISCOVERED share must be strictly UNDER 0.5. A session at
+        # exactly 50% (6/12) previously slipped through the `> 0.5` comparison
+        # and was reported sufficient — low-confidence data accepted.
+        def _burst(name: str, source: SignalSource, confidence: float) -> list[SignalSample]:
+            return [
+                SignalSample(
+                    timestamp_ns=1_000_000_000 + int(i * 6e9),
+                    name=name,
+                    raw_value=1,
+                    physical_value=1.0,
+                    unit="x",
+                    source=source,
+                    confidence=confidence,
+                )
+                for i in range(12)
+            ]
+
+        samples: list[SignalSample] = []
+        for i in range(6):
+            samples += _burst(f"disc_{i}", SignalSource.DISCOVERED, 0.9)
+        for i in range(6):
+            samples += _burst(f"hard_{i}", SignalSource.J1939, 1.0)
+        session = _mk_session(samples=samples)
+        report = evaluate_sufficiency(session)
+        assert report.anomaly_sufficient is False
+        assert any("DISCOVERED" in g for g in report.gaps)
+
+    def test_just_under_half_discovered_passes(self) -> None:
+        # Guard against over-tightening: 5/12 DISCOVERED signals (with full
+        # confidence) is genuinely below the threshold and must stay
+        # sufficient. Each signal carries MIN_SAMPLES_PER_SIGNAL samples.
+        def _burst(name: str, source: SignalSource, confidence: float) -> list[SignalSample]:
+            return [
+                SignalSample(
+                    timestamp_ns=1_000_000_000 + int(i * 6e9),
+                    name=name,
+                    raw_value=1,
+                    physical_value=1.0,
+                    unit="x",
+                    source=source,
+                    confidence=confidence,
+                )
+                for i in range(12)
+            ]
+
+        samples: list[SignalSample] = []
+        for i in range(5):
+            samples += _burst(f"disc_{i}", SignalSource.DISCOVERED, 0.9)
+        for i in range(7):
+            samples += _burst(f"hard_{i}", SignalSource.J1939, 1.0)
+        session = _mk_session(samples=samples)
+        report = evaluate_sufficiency(session)
+        assert report.anomaly_sufficient is True
+
+    def test_exact_min_mean_confidence_is_fail_closed(self) -> None:
+        # A3-9: mean confidence exactly at the minimum (0.5) must be treated as
+        # insufficient — the boundary favours fail-closed (`<= MIN`). One signal
+        # with enough samples isolates the confidence boundary from the
+        # min-samples rule.
+        samples = [
+            _mk_sample(name="EngineSpeed", ts_ns=1_000_000_000 + int(i * 6e9), confidence=0.5)
+            for i in range(12)
+        ]
+        session = _mk_session(samples=samples)
+        report = evaluate_sufficiency(session)
+        assert report.anomaly_sufficient is False
+        assert any("güveni" in g for g in report.gaps)
+
 
 class TestDeterminism:
     def test_same_session_same_report(self) -> None:

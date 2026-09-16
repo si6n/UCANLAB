@@ -175,6 +175,50 @@ class TestRanking:
         # With only one hypothesis in both runs, support must have grown.
         assert len(with_case[0].supporting_evidence) > len(base[0].supporting_evidence)
 
+    def test_case_similarity_needs_independent_evidence(self) -> None:
+        # A3-3: a similar verified case is only COMPLEMENTARY evidence. A node
+        # with zero DTC hits and zero anomaly-signal hits must NOT be scored
+        # into the table just because the golden corpus is non-empty.
+        graph = load_root_cause_graph()
+        # SPN 100 activates the oil-pressure nodes; the case match must not
+        # drag in any node that neither DTC- nor signal-matched.
+        session = _session(["SPN 100 FMI 1"])
+        matched = rank_hypotheses(session, [], [CaseMatch("case-x", 0.9, ["DTC"])], graph=graph)
+        matched_ids = {h.id for h in matched}
+        assert matched_ids, "sanity: the SPN 100 node must still rank"
+        # Every ranked node must carry at least one independent-evidence line.
+        for h in matched:
+            assert any(
+                s.startswith("beklenen DTC eşleşmesi") or s.startswith("anomali kanıtı")
+                for s in h.supporting_evidence
+            ), f"{h.id} ranked with case similarity only: {h.supporting_evidence}"
+        # Nodes that match neither the DTC nor any anomaly must be absent,
+        # even though the case corpus is non-empty. `norm_dtcs` is the
+        # normalized form, so compare against it directly.
+        assert "oil-pump-wear" in matched_ids
+        unrelated = [n.id for n in graph if "SPN 100" not in set(n.norm_dtcs)]
+        for nid in unrelated:
+            assert nid not in matched_ids, f"unrelated node {nid} leaked into the table via case similarity"
+
+    def test_case_similarity_ignored_without_evidence(self) -> None:
+        # A3-3 edge: no active DTC and no anomaly -> the early return already
+        # yields [], but assert the invariant explicitly so a future change to
+        # the early-return path cannot reintroduce case-only scoring.
+        graph = load_root_cause_graph()
+        session = _session([])
+        hyps = rank_hypotheses(session, [], [CaseMatch("case-y", 1.0, ["DTC"])], graph=graph)
+        assert hyps == []
+
+    def test_case_similarity_still_complements_dtc_match(self) -> None:
+        # The fix must not remove the complementary contribution: a node that
+        # DID match the DTC keeps its case-support line.
+        graph = load_root_cause_graph()
+        session = _session(["SPN 100 FMI 1"])
+        hyps = rank_hypotheses(session, [], [CaseMatch("case-x", 0.8, ["DTC"])], graph=graph)
+        assert any(
+            "benzer doğrulanmış vaka" in s for h in hyps for s in h.supporting_evidence
+        )
+
     def test_scores_normalized_and_sorted(self) -> None:
         graph = load_root_cause_graph()
         session = _session(["SPN 100 FMI 1", "SPN 110 FMI 0", "P0300"])

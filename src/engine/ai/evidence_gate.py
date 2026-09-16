@@ -103,13 +103,17 @@ def evaluate_sufficiency(session: VehicleSession) -> SufficiencyReport:
             gaps.append(f"sinyal '{name}': son örnek güncel değil (> {MAX_SAMPLE_AGE_S:.0f} sn)")
 
     # DISCOVERED share & mean sample confidence (auto-discovery trust).
+    # Fail-closed boundaries (A3-9): DISCOVERED must stay strictly UNDER 0.5
+    # (`>=` flags the exact-50% case) and the mean confidence must be strictly
+    # ABOVE the minimum (`<=` flags the exact-boundary case). Both directions
+    # reject the boundary rather than admitting low-confidence data.
     discovered = [s for s in session.samples if s.source is SignalSource.DISCOVERED]
     total = len(session.samples)
-    if total and len(discovered) / total > 0.5:
+    if total and len(discovered) / total >= 0.5:
         gaps.append(f"örneklerin çoğunluğu DISCOVERED ({len(discovered)}/{total}) — güven düşük")
     if session.samples:
         mean_conf = _mean_confidence(session.samples)
-        if mean_conf < MIN_MEAN_SAMPLE_CONFIDENCE:
+        if mean_conf <= MIN_MEAN_SAMPLE_CONFIDENCE:
             gaps.append(f"ortalama örnek güveni {mean_conf:.2f} (min {MIN_MEAN_SAMPLE_CONFIDENCE:.2f})")
 
     anomaly_sufficient = not gaps
