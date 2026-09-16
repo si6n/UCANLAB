@@ -9,10 +9,10 @@
     },
     "hesap3": {
       "zone": "scraping_browser4",
-      "remaining": 4107,
+      "remaining": 4065,
       "env_prefix": "BRIGHTDATA3_"
     },
-    "note": "Kredi panelden ogrenilir; API kredi sorgusu yetkisiz. Bu degerler manuel guncellenir."
+    "note": "Kredi panelden ogrenilir; API kredi sorgusu yetkisiz. Bu degerler manuel guncellenir. TARAMA (t_7ce79f38): 40 kredi harcandi (hesap3 -> 4067)."
   },
   "scraped": [
     {
@@ -329,6 +329,177 @@
       "credits": 0,
       "result": "Navistar MaxxForce diagnostic manual x4 (free urllib): SPN 3242/3719/3936 referansli prosedur (DB'de zaten dolu)",
       "artifact": "spn_gap_hunter/output/t55c_bd_harvest.json"
+    },
+    {
+      "pattern": "obd-codes.com (TARAMA symptoms turu, 26 sayfa)",
+      "type": "prefix",
+      "method": "brightdata",
+      "tur": "TARAMA",
+      "credits": 26,
+      "result": "26 sayfa BD (25 gercek + 1 Cloudflare challenge); 0 yeni kod (hepsi DB'de), 25'i DB 'symptoms' boslugunu doldurur",
+      "artifact": "spn_gap_hunter/output/scan_obd-codes.com_2026-09-16.json"
+    },
+    {
+      "pattern": "repair.diesellaptops.com (TARAMA: 276 sitemap sayfasi)",
+      "type": "prefix",
+      "method": "free",
+      "tur": "TARAMA",
+      "credits": 0,
+      "result": "276/276 sayfa (free urllib), 62 sayfa SPN/FMI tablosu, 34137 satir, 3341 distinct (SPN,FMI)/1052 SPN; DB'ye gore 1413 yeni + 788 procedures_full boslugu + 1140 zaten var",
+      "artifact": "spn_gap_hunter/output/scan_repair.diesellaptops.com_2026-09-16.json"
+    },
+    {
+      "pattern": "4roadservice.com/resources/detroit (TARAMA: 6 bosluk sayfasi)",
+      "type": "prefix",
+      "method": "brightdata",
+      "tur": "TARAMA",
+      "credits": 6,
+      "result": "6/6 Detroit DD13/15/16 SPN sayfasi gercek; 5 yeni (spn,fmi) + 1 procedures_full boslugu (SPN 3230 FMI 2)",
+      "artifact": "spn_gap_hunter/output/scan_4roadservice.com_2026-09-16.json"
+    },
+    {
+      "pattern": "productinfo.serviceranger4.com/books/",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T61-B",
+      "credits": 0,
+      "result": "DUVAR ASILDI: /login login duvari, ANCAK /books/<kitap>/lang/en-us/section/<bolum> login GEREKTIRMEDEN HTTP 200. 5 kitap (TRTS0950/TRTS0960/TRSM0960/TRIB0900/RRMT0055), 268 fault-code bolumu, 149 SPN, 266 tam teshis proseduru (J1939 SA/SPN/FMI + semptom/neden/adim). 81 SPN DB'de YOK, 19 SPN procedures_full boslugunu doldurur. Canli dogrulama 8/8 birebir.",
+      "artifact": "spn_gap_hunter/output/t61b_eaton_records.json"
+    },
+    {
+      "pattern": "auroramack.com",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T61-B",
+      "credits": 0,
+      "result": "Mack Trucks Fault Codes 2011-2013 dealer PDF (public): 112 SPN (MID/PID/SID + FMI), 78 sayfa. 5 SPN DB'de yok, 38 SPN procedures_full bos.",
+      "artifact": "spn_gap_hunter/output/_t61b_pdf/mack_2011-2013.txt"
+    },
+    {
+      "pattern": "dtnacontent-dtna.prd.freightliner.com/content/dam/public/TechLit/DDCSN/",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T61-B",
+      "credits": 0,
+      "result": "DTNA/DDCSN historical fault-code PDF'leri public/dam altinda acik (0101-18.pdf, 0507-18.pdf): SPN 3361/4334/4364/4374/4375. Klasor index 403; DTNA portal kayit gerektirir.",
+      "artifact": "spn_gap_hunter/output/_t61b_pdf/"
+    },
+    {
+      "pattern": "bodybuilder.navistar.com",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T61-B",
+      "credits": 0,
+      "result": "Navistar Body Controller DTC Manual S08327 (public PDF): SA/SPN/DTC/FMI tablosu (~130 satir, body controller). msi.navistar.com/public/ned NED kilavuzu SPN icermiyor.",
+      "artifact": "spn_gap_hunter/output/t61b_navistar_records.json"
+    },
+    {
+      "pattern": "mylogin.cummins.com",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T61-B",
+      "credits": 0,
+      "result": "ERISILEMEZ (login): Salesforce Communities login duvari. robots.txt Allow:/ ama icerik login arkasinda.",
+      "artifact": "-"
+    },
+    {
+      "pattern": "productinfo.serviceranger4.com/login",
+      "type": "prefix",
+      "method": "brightdata",
+      "tur": "T61-B",
+      "credits": 1,
+      "result": "ERISILEMEZ (login): EMAIL/PASSWORD formu (dogrulandi). ANCAK /books/ alt yollari ACIK (bkz. productinfo.serviceranger4.com/books/).",
+      "artifact": "-"
+    },
+    {
+      "pattern": "dtnacontent-dtna.prd.freightliner.com/content/public/dtnaportalpublic.html",
+      "type": "prefix",
+      "method": "brightdata",
+      "tur": "T61-B",
+      "credits": 1,
+      "result": "ERISILEMEZ (kayit): DTNA Portal kayit sayfasi. public/dam/ TechLit PDF'leri ise acik.",
+      "artifact": "-"
+    },
+    {
+      "pattern": "demanddetroit.com",
+      "type": "prefix",
+      "method": "brightdata+free",
+      "tur": "T61-B",
+      "credits": 1,
+      "result": "VERI YOK: pazarlama sitesi (urun tanitimi). Detroit teknik yayinlari DTNA/DDCSN login arkasinda.",
+      "artifact": "-"
+    },
+    {
+      "pattern": "paccar.com/products-services",
+      "type": "prefix",
+      "method": "brightdata",
+      "tur": "T61-B",
+      "credits": 1,
+      "result": "VERI YOK: kurumsal site; fault-code/SPN yok. PACCAR servis dokumanlari yetkili dealer login arkasinda (paccarpg DNS yok).",
+      "artifact": "-"
+    },
+    {
+      "pattern": "ddcsn.com",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T61-B",
+      "credits": 0,
+      "result": "ERISILEMEZ: DNS ok (12.47.84.146) ama TLS hostname mismatch + HTTP reset. Icerik DTNA portal (login) uzerinden.",
+      "artifact": "-"
+    },
+    {
+      "pattern": "techlitna.com",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T61-B",
+      "credits": 0,
+      "result": "ERISILEMEZ: DNS cozulemiyor (getaddrinfo failed). Volvo/Mack icin auroramack PDF kullanildi.",
+      "artifact": "-"
+    },
+    {
+      "pattern": "navistarservice.com",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T61-B",
+      "credits": 0,
+      "result": "ERISILEMEZ: DNS cozulemiyor. Navistar icin bodybuilder.navistar.com + msi.navistar.com public PDF kullanildi.",
+      "artifact": "-"
+    },
+    {
+      "pattern": "oncommand.navistar.com",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T61-B",
+      "credits": 0,
+      "result": "ERISILEMEZ: DNS cozulemiyor.",
+      "artifact": "-"
+    },
+    {
+      "pattern": "cummins.com",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T61-B",
+      "credits": 0,
+      "result": "ERISILEMEZ (403): bot korumasi.",
+      "artifact": "-"
+    },
+    {
+      "pattern": "volvotrucks.us",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T61-B",
+      "credits": 0,
+      "result": "VERI YOK: pazarlama sitesi (sitemap 482 URL); fault-code listesi yok. Premium Tech Tool abonelik (ucretli).",
+      "artifact": "-"
+    },
+    {
+      "pattern": "msi.navistar.com/public/ned/",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T61-B",
+      "credits": 0,
+      "result": "VERI YOK: Navistar Engine Diagnostics (NED) kullanim kilavuzu; SPN/FMI teshis tablosu icermiyor.",
+      "artifact": "-"
     }
   ],
   "blacklist": [
