@@ -598,7 +598,7 @@ def test_g3_arm_tx_without_operator_token_fails_closed() -> None:
     from src.ui.desktop_app import UniversalCanDesktopApp
 
     app = UniversalCanDesktopApp(channel="vcan0", bitrate=250000)
-    app.watchdog.heartbeat()
+    app.watchdog.heartbeat(app._heartbeat_token)
     assert app.supervisor.current_state == SafetyState.PASSIVE
 
     with pytest.raises(SafetyError) as exc:

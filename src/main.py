@@ -14,10 +14,14 @@ import time
 from pathlib import Path
 from typing import Any
 
-# Ensure project root is in sys.path when invoked directly as python src/main.py
-_PROJECT_ROOT = str(Path(__file__).resolve().parent.parent)
-if _PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, _PROJECT_ROOT)
+# D-5: prepend the project root to sys.path ONLY when running from source.
+# A frozen build must never put the on-disk repo root at the front of the
+# import search path (it would outrank every bundled module). Frozen builds
+# resolve imports from their own bundle (sys.frozen / sys._MEIPASS).
+if not getattr(sys, "frozen", False) and not getattr(sys, "_MEIPASS", None):
+    _PROJECT_ROOT = str(Path(__file__).resolve().parent.parent)
+    if _PROJECT_ROOT not in sys.path:
+        sys.path.insert(0, _PROJECT_ROOT)
 
 from src.core.errors import SecurityError
 from src.core.logging import get_logger, setup_logging

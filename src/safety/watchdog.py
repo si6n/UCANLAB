@@ -51,6 +51,10 @@ class TxWatchdogSupervisor:
         self._started_once = False
         self._thread: threading.Thread | None = None
         self._lock = threading.Lock()
+        # H-2: shared bridge<->watchdog heartbeat token. Empty until
+        # `arm_heartbeat_token()` registers it; heartbeats are refused until
+        # then (fail-closed) so no anonymous stream can hold the lease open.
+        self._heartbeat_token: str = ""
         # P0-4 (REVIEW H-4): wakeable stop signal. The old monitor loop
         # parked in time.sleep(0.050) with a literal `while True:` condition
         # that never consulted _is_running — stop() could only wait 1 s for
@@ -74,16 +78,36 @@ class TxWatchdogSupervisor:
             with self._lock:
                 self._last_heartbeat_time = self._clock.now_monotonic()
 
-    def heartbeat(self, caller_token: str | None = None) -> None:
-        """Refresh transmission authorization lease.
+    def arm_heartbeat_token(self, token: str) -> None:
+        """Register the shared bridge<->watchdog heartbeat token (H-2).
 
-        caller_token is optional for backward compatibility (None keeps current
-        behavior with a warning; privileged callers should pass a token so
-        unauthorized refresh loops are auditable).
+        The 800 ms liveness interlock must not be driven by an anonymous
+        stream: every :meth:`heartbeat` must present the token registered
+        here, compared with :func:`hmac.compare_digest` (constant time).
+        Re-arming with a different value rotates the token; re-arming with
+        the same value is a no-op.
         """
-        if caller_token is None:
-            logger.warning("watchdog heartbeat without caller_token (legacy path)")
+        cleaned = str(token)
+        if not cleaned:
+            raise ValueError("heartbeat caller token must be non-empty")
         with self._lock:
+            self._heartbeat_token = cleaned
+
+    def heartbeat(self, caller_token: str | None = None) -> None:
+        """Refresh transmission authorization lease (H-2).
+
+        ``caller_token`` is REQUIRED: an anonymous or mismatched pulse is a
+        hard :class:`PermissionError` and does NOT extend the lease. The
+        watchdog no longer fails open on an identity-less stream.
+        """
+        import hmac as _hmac
+
+        with self._lock:
+            expected = self._heartbeat_token
+            presented = caller_token if isinstance(caller_token, str) else ""
+            if not expected or not _hmac.compare_digest(presented, expected):
+                logger.error("watchdog heartbeat refused: missing/forged caller token")
+                raise PermissionError("watchdog heartbeat requires the shared caller token")
             self._last_heartbeat_time = self._clock.now_monotonic()
 
     @property

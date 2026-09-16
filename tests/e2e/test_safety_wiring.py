@@ -130,6 +130,10 @@ class SafetyWiringHarness:
             timeout_ms=watchdog_timeout_ms,
             clock=self.clock,
         )
+        # H-2 (T57-F): heartbeats are token-authenticated. The harness plays
+        # the privileged bridge role and registers a shared caller token.
+        self.heartbeat_token = "harness-heartbeat-token"
+        self.watchdog.arm_heartbeat_token(self.heartbeat_token)
 
         effective_whitelist = whitelist_ids if whitelist_ids is not None else {0x7DF, 0x7E0, 0x18DA00F9}
         self.gateway = TxSafetyGateway(
@@ -328,7 +332,7 @@ def test_safety_wiring_watchdog_expiration_cascade() -> None:
         # Keep alive with heartbeats across virtual time
         for _ in range(2):
             harness.clock.advance(0.04)
-            harness.watchdog.heartbeat()
+            harness.watchdog.heartbeat(harness.heartbeat_token)
 
         # Confirm TX still permitted
         assert harness.watchdog.is_lease_valid is True

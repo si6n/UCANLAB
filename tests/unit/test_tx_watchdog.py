@@ -8,19 +8,28 @@ from src.safety.estop import EmergencyStopSystem, EStopTriggerSource
 from src.safety.state_machine import SafetyState, SafetySupervisor
 from src.safety.watchdog import TxWatchdogSupervisor
 
+# H-2 (T57-F): heartbeats are token-authenticated. These tests play the
+# privileged caller role and register a shared token before pulsing.
+_HEARTBEAT_TOKEN = "unit-watchdog-heartbeat-token"
+
+
+def _armed_watchdog(watchdog: TxWatchdogSupervisor) -> TxWatchdogSupervisor:
+    watchdog.arm_heartbeat_token(_HEARTBEAT_TOKEN)
+    return watchdog
+
 
 def test_tx_watchdog_lease_and_heartbeat() -> None:
     supervisor = SafetySupervisor(initial_state=SafetyState.SAFE)
     supervisor.transition_to(SafetyState.PASSIVE)
     supervisor.arm_tx()
 
-    watchdog = TxWatchdogSupervisor(supervisor=supervisor, timeout_ms=200.0)
+    watchdog = _armed_watchdog(TxWatchdogSupervisor(supervisor=supervisor, timeout_ms=200.0))
     assert watchdog.is_lease_valid is True
     assert watchdog.remaining_lease_sec > 0.1
 
     # Keep lease alive with heartbeat
     time.sleep(0.05)
-    watchdog.heartbeat()
+    watchdog.heartbeat(_HEARTBEAT_TOKEN)
     assert watchdog.is_lease_valid is True
 
 
@@ -70,13 +79,14 @@ def test_ui_freeze_expires_watchdog_and_triggers_estop() -> None:
 
     estop = EmergencyStopSystem()
     watchdog = TxWatchdogSupervisor(supervisor=supervisor, estop=estop, timeout_ms=800.0)
+    watchdog.arm_heartbeat_token(_HEARTBEAT_TOKEN)
     watchdog.start()
 
     try:
         # Simulate a live UI: pulse at 250ms intervals for ~500ms...
         for _ in range(2):
             time.sleep(0.25)
-            watchdog.heartbeat()
+            watchdog.heartbeat(_HEARTBEAT_TOKEN)
         assert watchdog.is_lease_valid is True
         assert supervisor.current_state != SafetyState.FAULT
 
@@ -101,13 +111,14 @@ def test_live_ui_pulse_never_expires_watchdog() -> None:
     supervisor.arm_tx()
 
     watchdog = TxWatchdogSupervisor(supervisor=supervisor, timeout_ms=800.0)
+    watchdog.arm_heartbeat_token(_HEARTBEAT_TOKEN)
     watchdog.start()
 
     try:
         # 6 pulses at 250ms = 1.5s of continuous "render activity"
         for _ in range(6):
             time.sleep(0.25)
-            watchdog.heartbeat()
+            watchdog.heartbeat(_HEARTBEAT_TOKEN)
             assert watchdog.is_lease_valid is True, "250ms pulse must always be within the 800ms lease"
         assert supervisor.current_state != SafetyState.FAULT
     finally:
