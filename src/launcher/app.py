@@ -14,10 +14,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-# Ensure project root is in sys.path when invoked directly as python src/launcher/app.py
-_PROJECT_ROOT = str(Path(__file__).resolve().parent.parent.parent)
-if _PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, _PROJECT_ROOT)
+# D-5: prepend the project root to sys.path ONLY when running from source.
+# A frozen build (Nuitka/PyInstaller) must never place the on-disk repo root
+# at the front of the import search path — that directory would then outrank
+# every bundled module and let loose files hijack `import src...`. Frozen
+# builds resolve imports from their own bundle (sys.frozen / sys._MEIPASS).
+if not getattr(sys, "frozen", False) and not getattr(sys, "_MEIPASS", None):
+    _PROJECT_ROOT = str(Path(__file__).resolve().parent.parent.parent)
+    if _PROJECT_ROOT not in sys.path:
+        sys.path.insert(0, _PROJECT_ROOT)
 
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
@@ -105,6 +110,24 @@ def _dev_override_enabled() -> bool:
     return os.environ.get("UCAN_LAUNCHER_DEV_OVERRIDE") == "1"
 
 
+def _unsigned_manifest_allowed() -> bool:
+    """True only under an actual test run (D-3).
+
+    ``run_preflight(custom_update_manifest=...)`` feeds an UNSIGNED manifest
+    straight into the update router. That is a test affordance, never a
+    production one: a frozen/shipped binary must not be steerable by an
+    unsigned dict. The gate keys off ``PYTEST_CURRENT_TEST`` (set by pytest
+    for the duration of each test) so the existing suite keeps working while
+    every other process — including a frozen build — fails closed.
+    """
+    import os
+    import sys
+
+    if getattr(sys, "frozen", False):
+        return False
+    return bool(os.environ.get("PYTEST_CURRENT_TEST"))
+
+
 @dataclass(slots=True, frozen=True)
 class LauncherPreflightReport:
     """Consolidated preflight readiness report."""
@@ -165,8 +188,19 @@ class UniversalCanLauncher:
 
         auth_status = self.auth_manager.get_current_status()
         if custom_update_manifest is not None:
-            # Test-only path: unsigned manifest, never clears a sealed
-            # obligation in production (main() always passes None).
+            # D-3: the unsigned manifest parser is TEST-ONLY. In production
+            # (a frozen build, or any non-pytest process) this parameter must
+            # be unreachable — an unsigned dict can never drive update
+            # routing. The comment was the only thing protecting this path;
+            # it is now a hard runtime gate.
+            if not _unsigned_manifest_allowed():
+                logger.critical(
+                    "Unsigned update manifest refused outside a test build — launch blocked",
+                    extra={"reason": "custom_update_manifest is test-only"},
+                )
+                raise PermissionError(
+                    "custom_update_manifest is a test-only path and is not reachable in production"
+                )
             update_info = self.update_manager._check_for_updates_unverified(custom_manifest=custom_update_manifest)
         else:
             update_info = self.update_manager.check_for_updates()
@@ -189,7 +223,24 @@ class UniversalCanLauncher:
                     "Update check failed while a mandatory update obligation is on record — launch blocked",
                     extra={"recorded_min_version": recorded},
                 )
-        can_launch = not has_critical_failures and target_exe.exists() and not has_blocking_mandatory_update
+        can_launch = (
+            not has_critical_failures
+            and target_exe.exists()
+            and not has_blocking_mandatory_update
+            and bool(auth_status.has_valid_license)
+        )
+        # L-1: a machine with no license / an expired ticket / a device
+        # mismatch must never reach the core binary. Fail-closed and logged
+        # at CRITICAL with the tier so the operator can act on it.
+        if not auth_status.has_valid_license:
+            logger.critical(
+                "License gate CLOSED - launch blocked: valid license required",
+                extra={
+                    "tier": getattr(auth_status, "tier", "UNKNOWN"),
+                    "reason": getattr(auth_status, "error", "") or "no valid license",
+                    "widening_allowed": False,
+                },
+            )
 
         if update_info.check_succeeded and update_info.has_update and update_info.mandatory:
             self._record_mandatory_obligation(update_info.latest_version)
@@ -440,6 +491,11 @@ def main() -> int:
 
     if args.launch and _dev_override_enabled():
         print("WARNING: --launch dev override ignored — preflight FAILED, launch blocked.")
+    if not report.auth_status.has_valid_license:
+        # L-1: point the operator at activation when the license gate closed.
+        print(f"License gate CLOSED (tier={report.auth_status.tier}): no valid license for this device.")
+        print("Activate this device with a license key to enable launch:")
+        print("    ucanlab_launcher --activate <LICENSE-KEY> [--device-name <NAME>]")
     print("Preflight FAILED: launch aborted. Use --check-only for diagnostics.")
     return 1
 
