@@ -7,7 +7,7 @@
   "dedup": "domain zaten sources'ta varsa EKLEME",
   "blacklist": "blacklist listesindekilere DOKUNMA"
  },
- "updated": "2026-09-16",
+ "updated": "2026-09-16T20:00",
  "credits": {
   "hesap2": {
    "zone": "scraping_browser1",
@@ -33,7 +33,7 @@
    "tur": "<=35",
    "notes": "9300 DTC; RE-TARAMA: 26 sayfa BD (25 gercek + 1 Cloudflare-challenge). 0 YENI kod (hepsi DB'de), 25 DB 'symptoms' boslugunu doldurur. T55-C'den beri obd-codes kapsami genisletildi (symptoms).",
    "artifact": "spn_gap_hunter/output/scan_obd-codes.com_2026-09-16.json",
-   "applied": false
+   "applied": true
   },
   {
    "id": "repair_diesellaptops_com",
@@ -46,7 +46,7 @@
    "tur": "<=35",
    "notes": "free urllib: 276/276 sitemap sayfasi, 62 sayfa SPN/FMI tablosu, 34137 tablo satiri, 3341 distinct (SPN,FMI) / 1052 SPN. DB'ye gore: 1413 yeni (spn,fmi) + 788 procedures_full boslugu + 1140 zaten var. NOT: kaynak daha once T<=35/T45-A'da tarandi.",
    "artifact": "spn_gap_hunter/output/scan_repair.diesellaptops.com_2026-09-16.json",
-   "applied": false
+   "applied": true
   },
   {
    "id": "4roadservice_com",
@@ -59,7 +59,7 @@
    "tur": "<=35",
    "notes": "Detroit DD13/15/16: 6 SPN sayfasi BD (hub 51 link; 6'si procedures_full boslugu). 6/6 gercek. 5 yeni (spn,fmi) + 1 bosluk (SPN 3230 FMI 2) doldurur.",
    "artifact": "spn_gap_hunter/output/scan_4roadservice.com_2026-09-16.json",
-   "applied": false
+   "applied": true
   },
   {
    "id": "b2bendix_com",
