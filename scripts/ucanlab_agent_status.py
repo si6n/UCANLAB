@@ -46,7 +46,7 @@ def main() -> int:
 
     from collections import Counter
     st = Counter(t.get("status") for t in tasks)
-    out.append(f"\n## GOREV SAYILARI\n" +
+    out.append("\n## GOREV SAYILARI\n" +
                " | ".join(f"{k}={v}" for k, v in sorted(st.items())))
 
     by_agent = Counter()

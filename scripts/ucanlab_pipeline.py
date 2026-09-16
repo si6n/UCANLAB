@@ -206,7 +206,7 @@ def main() -> int:
     if pending and not active_with("TARAMA"):
         names = ", ".join(s["domain"] for s in pending[:SCAN_BATCH])
         tid = create(f"TARAMA: {names[:60]}",
-                     TARAMA_BODY + f"\n\nSECILEN KAYNAKLAR:\n" +
+                     TARAMA_BODY + "\n\nSECILEN KAYNAKLAR:\n" +
                      "\n".join(f"- {s['domain']} ({s.get('url')}) [{s.get('method')}]"
                                for s in pending[:SCAN_BATCH]),
                      "chassis")
