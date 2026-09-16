@@ -3,7 +3,7 @@
   "title": "SAE J1939 Heavy Duty & Commercial Vehicle Diagnostic Database",
   "version": "1.10.0",
   "standard": "SAE J1939-71 / J1939-73",
-  "total_spns": 3937,
+  "total_spns": 3947,
   "total_fmis": 32,
   "last_updated": "2026-09-16",
   "sources": [
@@ -21,7 +21,8 @@
    "Eaton ServiceRanger public PIM (GraphQL)",
    "SITRAK error codes (CC BY 4.0, (c) Megadata/megadata.pro) - https://github.com/STAS63-bit/sitrak-error-codes",
    "Tur-27 SPN causes/steps katmani (4rs/SR/TFC/JA/fm/FMI-katalog)",
-   "T54 merge: T50+T51 SPN/FMI procedure harvest into procedures_full (roadservice.app, detroitmanuals.info, aidieseltech.com, professionaldieselrepair.com - free EN harvest)"
+   "T54 merge: T50+T51 SPN/FMI procedure harvest into procedures_full (roadservice.app, detroitmanuals.info, aidieseltech.com, professionaldieselrepair.com - free EN harvest)",
+   "T60 merge: T55-B (bigrigfaults.com free) + T55-C (bigrigfaults BD) harvest into procedures_full / new SPNs (free/web, 10 new SPN + 27 gaps)"
   ],
   "attribution": {
    "sitrak": "(c) Megadata / megadata.pro - CC BY 4.0 - https://megadata.pro"
@@ -46437,7 +46438,62 @@
    "pgn_label": "Aftertreatment 1 SCR Dosing System Requests 2",
    "causes_source": "SAE J1939 diagnostic reference (j1939hub.com)",
    "steps_class_fixed_tur30": "SPN sınıfına göre jenerik adım düzeltildi",
-   "steps_cleaned_tur30": "dedupe + encoding fix"
+   "steps_cleaned_tur30": "dedupe + encoding fix",
+   "procedures_full": [
+    {
+     "overview": "Warning. Usually yes for a short distance, but fix it soon. Warning faults like SPN 5491 FMI 3 often escalate into torque derate/inducement if the condition repeats over multiple drive cycles. The scan-tool checks below help determine how urgent it is.",
+     "severity": "Warning",
+     "can_i_drive": "Usually yes for a short distance, but fix it soon. Warning faults like SPN 5491 FMI 3 often escalate into torque derate/inducement if the condition repeats over multiple drive cycles. The scan-tool checks below help determine how urgent it is.",
+     "symptoms": [
+      "DEF heater relay fault",
+      "Heater control issues",
+      "SCR warnings may stack"
+     ],
+     "causes": [
+      "Short to power",
+      "Relay/control wiring fault",
+      "Connector contamination"
+     ],
+     "fixes": [
+      "Inspect relay socket and wiring",
+      "Check for corrosion/water",
+      "Repair wiring before replacing relay"
+     ],
+     "steps": [
+      "Visual inspection (fast wins). Harness routing, connector pins, DEF lines, leaks, and crystallization.",
+      "Check fluid sanity. Confirm DEF level and condition. If contamination is suspected, plan service soon.",
+      "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+      "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+      "Verify after repair. Clear codes, road test, confirm it stays inactive."
+     ],
+     "scan_tool_checks": [
+      "Confirm whether SPN 5491 FMI 3 is ACTIVE. If it’s active, don’t guess. Diagnose it.",
+      "Look for companion codes: torque derate, inducement, NOx sensor, SCR efficiency, DPF soot, or DEF quality-related faults.",
+      "If supported by your tool (OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) / J1939 scanner), run aftertreatment tests: doser/actuator test, verify commanded vs actual behavior.",
+      "Review regen history (if available). Frequent regens and aftertreatment faults together often indicate underlying emissions performance problems.",
+      "If your tool can’t run actuator tests, you can still diagnose a lot with careful inspection + repeatability testing."
+     ],
+     "common_misdiagnoses": [
+      "Replacing the doser immediately without checking the connector and harness routing (rub-through is common near heat shields).",
+      "Ignoring companion codes. NOx sensor faults, SCR efficiency faults, or inducement codes can make dosing faults show up as “symptoms” instead of the root cause.",
+      "Assuming DEF is fine because the tank is full. Contamination and crystallization can still happen."
+     ],
+     "fmi": "3",
+     "source_title": "SPN 5491 FMI 3: DEF line heater relay voltage high / short to power",
+     "source_url": "https://bigrigfaults.com/faults/spn-5491-fmi-3",
+     "source_site": "bigrigfaults.com",
+     "quality": "high",
+     "method": "free-urllib (0 BrightData kredisi)"
+    }
+   ],
+   "procedures_source": "T55-B/T55-C bigrigfaults.com harvest (SPN/FMI procedures_full)",
+   "procedures_license": "Free/web harvest - see procedures_full[].source_url",
+   "procedures_match_key": "T55 SPN/FMI harvest",
+   "symptoms": [
+    "DEF heater relay fault",
+    "Heater control issues",
+    "SCR warnings may stack"
+   ]
   },
   "SPN_4334": {
    "spn": 4334,
@@ -48203,7 +48259,62 @@
    "causes_source": "SAE J1939 diagnostic reference (j1939hub.com)",
    "steps_class_fixed_tur30": "SPN sınıfına göre jenerik adım düzeltildi",
    "title_tr_source": "name alanından tam çeviri (Tur-30)",
-   "steps_cleaned_tur30": "dedupe + encoding fix"
+   "steps_cleaned_tur30": "dedupe + encoding fix",
+   "procedures_full": [
+    {
+     "overview": "Warning. Usually yes for a short distance, but fix it soon. Warning faults like SPN 4342 FMI 4 often escalate into torque derate/inducement if the condition repeats over multiple drive cycles. The scan-tool checks below help determine how urgent it is.",
+     "severity": "Warning",
+     "can_i_drive": "Usually yes for a short distance, but fix it soon. Warning faults like SPN 4342 FMI 4 often escalate into torque derate/inducement if the condition repeats over multiple drive cycles. The scan-tool checks below help determine how urgent it is.",
+     "symptoms": [
+      "DEF heater fault",
+      "Cold-weather SCR issues",
+      "May stack into inducement"
+     ],
+     "causes": [
+      "Short to ground",
+      "Harness insulation damage",
+      "Water intrusion"
+     ],
+     "fixes": [
+      "Inspect rub points and clamps",
+      "Clean/dry connectors",
+      "Repair wiring and secure routing"
+     ],
+     "steps": [
+      "Visual inspection (fast wins). Harness routing, connector pins, DEF lines, leaks, and crystallization.",
+      "Check fluid sanity. Confirm DEF level and condition. If contamination is suspected, plan service soon.",
+      "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+      "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+      "Verify after repair. Clear codes, road test, confirm it stays inactive."
+     ],
+     "scan_tool_checks": [
+      "Confirm whether SPN 4342 FMI 4 is ACTIVE. If it’s active, don’t guess. Diagnose it.",
+      "Look for companion codes: torque derate, inducement, NOx sensor, SCR efficiency, DPF soot, or DEF quality-related faults.",
+      "If supported by your tool (OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) / J1939 scanner), run aftertreatment tests: doser/actuator test, verify commanded vs actual behavior.",
+      "Review regen history (if available). Frequent regens and aftertreatment faults together often indicate underlying emissions performance problems.",
+      "If your tool can’t run actuator tests, you can still diagnose a lot with careful inspection + repeatability testing."
+     ],
+     "common_misdiagnoses": [
+      "Replacing the doser immediately without checking the connector and harness routing (rub-through is common near heat shields).",
+      "Ignoring companion codes. NOx sensor faults, SCR efficiency faults, or inducement codes can make dosing faults show up as “symptoms” instead of the root cause.",
+      "Assuming DEF is fine because the tank is full. Contamination and crystallization can still happen."
+     ],
+     "fmi": "4",
+     "source_title": "SPN 4342 FMI 4: DEF line heater 2 voltage low / short to ground",
+     "source_url": "https://bigrigfaults.com/faults/spn-4342-fmi-4",
+     "source_site": "bigrigfaults.com",
+     "quality": "high",
+     "method": "free-urllib (0 BrightData kredisi)"
+    }
+   ],
+   "procedures_source": "T55-B/T55-C bigrigfaults.com harvest (SPN/FMI procedures_full)",
+   "procedures_license": "Free/web harvest - see procedures_full[].source_url",
+   "procedures_match_key": "T55 SPN/FMI harvest",
+   "symptoms": [
+    "DEF heater fault",
+    "Cold-weather SCR issues",
+    "May stack into inducement"
+   ]
   },
   "SPN_4344": {
    "spn": 4344,
@@ -48322,7 +48433,62 @@
    "causes_source": "SAE J1939 diagnostic reference (j1939hub.com)",
    "steps_class_fixed_tur30": "SPN sınıfına göre jenerik adım düzeltildi",
    "title_tr_source": "name alanından tam çeviri (Tur-30)",
-   "steps_cleaned_tur30": "dedupe + encoding fix"
+   "steps_cleaned_tur30": "dedupe + encoding fix",
+   "procedures_full": [
+    {
+     "overview": "Warning. Usually yes for a short distance, but fix it soon. Warning faults like SPN 4344 FMI 4 often escalate into torque derate/inducement if the condition repeats over multiple drive cycles. The scan-tool checks below help determine how urgent it is.",
+     "severity": "Warning",
+     "can_i_drive": "Usually yes for a short distance, but fix it soon. Warning faults like SPN 4344 FMI 4 often escalate into torque derate/inducement if the condition repeats over multiple drive cycles. The scan-tool checks below help determine how urgent it is.",
+     "symptoms": [
+      "DEF heater fault",
+      "Heater circuit reports low voltage",
+      "SCR warnings during freezes"
+     ],
+     "causes": [
+      "Short to ground",
+      "Connector contamination",
+      "Harness damage"
+     ],
+     "fixes": [
+      "Inspect harness near mounts/heat shields",
+      "Repair insulation damage",
+      "Replace heater only after circuit checks"
+     ],
+     "steps": [
+      "Visual inspection (fast wins). Harness routing, connector pins, DEF lines, leaks, and crystallization.",
+      "Check fluid sanity. Confirm DEF level and condition. If contamination is suspected, plan service soon.",
+      "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+      "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+      "Verify after repair. Clear codes, road test, confirm it stays inactive."
+     ],
+     "scan_tool_checks": [
+      "Confirm whether SPN 4344 FMI 4 is ACTIVE. If it’s active, don’t guess. Diagnose it.",
+      "Look for companion codes: torque derate, inducement, NOx sensor, SCR efficiency, DPF soot, or DEF quality-related faults.",
+      "If supported by your tool (OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) / J1939 scanner), run aftertreatment tests: doser/actuator test, verify commanded vs actual behavior.",
+      "Review regen history (if available). Frequent regens and aftertreatment faults together often indicate underlying emissions performance problems.",
+      "If your tool can’t run actuator tests, you can still diagnose a lot with careful inspection + repeatability testing."
+     ],
+     "common_misdiagnoses": [
+      "Replacing the doser immediately without checking the connector and harness routing (rub-through is common near heat shields).",
+      "Ignoring companion codes. NOx sensor faults, SCR efficiency faults, or inducement codes can make dosing faults show up as “symptoms” instead of the root cause.",
+      "Assuming DEF is fine because the tank is full. Contamination and crystallization can still happen."
+     ],
+     "fmi": "4",
+     "source_title": "SPN 4344 FMI 4: DEF line heater 3 voltage low / short to ground",
+     "source_url": "https://bigrigfaults.com/faults/spn-4344-fmi-4",
+     "source_site": "bigrigfaults.com",
+     "quality": "high",
+     "method": "free-urllib (0 BrightData kredisi)"
+    }
+   ],
+   "procedures_source": "T55-B/T55-C bigrigfaults.com harvest (SPN/FMI procedures_full)",
+   "procedures_license": "Free/web harvest - see procedures_full[].source_url",
+   "procedures_match_key": "T55 SPN/FMI harvest",
+   "symptoms": [
+    "DEF heater fault",
+    "Heater circuit reports low voltage",
+    "SCR warnings during freezes"
+   ]
   },
   "SPN_5835": {
    "spn": 5835,
@@ -53256,7 +53422,62 @@
    "pgn_label": "Electronic Engine Controller 8",
    "causes_source": "SAE J1939 diagnostic reference (j1939hub.com)",
    "steps_class_fixed_tur30": "SPN sınıfına göre jenerik adım düzeltildi",
-   "steps_cleaned_tur30": "dedupe + encoding fix"
+   "steps_cleaned_tur30": "dedupe + encoding fix",
+   "procedures_full": [
+    {
+     "overview": "Warning. Usually yes for a short distance, but fix it soon. Warning faults like SPN 4752 FMI 18 commonly escalate into torque derate if ignored. The scan-tool checks below help determine urgency.",
+     "severity": "Warning",
+     "can_i_drive": "Usually yes for a short distance, but fix it soon. Warning faults like SPN 4752 FMI 18 commonly escalate into torque derate if ignored. The scan-tool checks below help determine urgency.",
+     "symptoms": [
+      "More soot and frequent regens",
+      "Possible power loss",
+      "EGR-related faults may stack"
+     ],
+     "causes": [
+      "EGR cooler restricted",
+      "Cooler leaking internally",
+      "Cooling flow issues"
+     ],
+     "fixes": [
+      "Inspect for coolant loss or contamination signs",
+      "Check EGR temps if available",
+      "Service/replace cooler if efficiency is truly low"
+     ],
+     "steps": [
+      "Visual inspection (fast wins). Sensor connector/wiring, DP sensor tubes/hoses, soot blockage, water intrusion, exhaust leaks.",
+      "Check fluid sanity. Not applicable unless your fault is fluid-related. Focus on inspections + repeatability.",
+      "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+      "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+      "Verify after repair. Clear codes, road test, confirm it stays inactive."
+     ],
+     "scan_tool_checks": [
+      "Check status: ACTIVE vs INACTIVE / stored. If it’s not active, review last occurrence conditions (freeze-frame if available).",
+      "Record companion codes (regen inhibited, soot load, exhaust leak, sensor supply voltage). Fix upstream causes first.",
+      "Inspect DP sensor tubes/hoses for soot blockage, cracks, melted sections, and water intrusion.",
+      "Compare DP readings at idle vs under load. Erratic signals often point to wiring, sensor, or blocked tubes.",
+      "If your tool can’t run actuator tests, you can still diagnose a lot with careful inspection + repeatability testing."
+     ],
+     "common_misdiagnoses": [
+      "Replacing sensors without checking wiring, grounds, and connector pin fitment.",
+      "Clearing codes repeatedly without confirming whether the fault is ACTIVE and repeatable.",
+      "Missing companion codes that point to the real upstream problem."
+     ],
+     "fmi": "18",
+     "source_title": "SPN 4752 FMI 18: EGR cooler efficiency below normal (soot/regens increase)",
+     "source_url": "https://bigrigfaults.com/faults/spn-4752-fmi-18",
+     "source_site": "bigrigfaults.com",
+     "quality": "high",
+     "method": "free-urllib (0 BrightData kredisi)"
+    }
+   ],
+   "procedures_source": "T55-B/T55-C bigrigfaults.com harvest (SPN/FMI procedures_full)",
+   "procedures_license": "Free/web harvest - see procedures_full[].source_url",
+   "procedures_match_key": "T55 SPN/FMI harvest",
+   "symptoms": [
+    "More soot and frequent regens",
+    "Possible power loss",
+    "EGR-related faults may stack"
+   ]
   },
   "SPN_7820": {
    "spn": 7820,
@@ -67969,7 +68190,62 @@
     "If the parked regen fails or cannot initiate, the vehicle needs professional service.",
     "In severe cases the DPF may need to be removed for professional cleaning or replacement."
    ],
-   "steps_tr_source": "@uplink Tur-34 (cümle bazlı tam çeviri)"
+   "steps_tr_source": "@uplink Tur-34 (cümle bazlı tam çeviri)",
+   "procedures_full": [
+    {
+     "overview": "Warning. Usually yes for a short distance, but fix it soon. Warning faults like SPN 3713 FMI 31 commonly escalate into torque derate if ignored. The scan-tool checks below help determine urgency.",
+     "severity": "Warning",
+     "can_i_drive": "Usually yes for a short distance, but fix it soon. Warning faults like SPN 3713 FMI 31 commonly escalate into torque derate if ignored. The scan-tool checks below help determine urgency.",
+     "symptoms": [
+      "Regen starts then fails",
+      "Soot load rises steadily",
+      "Exhaust temps don’t reach target"
+     ],
+     "causes": [
+      "Too cold/too much idle",
+      "Exhaust leak losing heat",
+      "Bad temp/pressure sensor data"
+     ],
+     "fixes": [
+      "Check for exhaust leaks upstream of DPF",
+      "Verify EGT sensors read plausibly",
+      "Correct operating conditions and complete regen"
+     ],
+     "steps": [
+      "Visual inspection (fast wins). Sensor connector/wiring, DP sensor tubes/hoses, soot blockage, water intrusion, exhaust leaks.",
+      "Check fluid sanity. Not applicable unless your fault is fluid-related. Focus on inspections + repeatability.",
+      "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+      "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+      "Verify after repair. Clear codes, road test, confirm it stays inactive."
+     ],
+     "scan_tool_checks": [
+      "Check status: ACTIVE vs INACTIVE / stored. If it’s not active, review last occurrence conditions (freeze-frame if available).",
+      "Record companion codes (regen inhibited, soot load, exhaust leak, sensor supply voltage). Fix upstream causes first.",
+      "Inspect DP sensor tubes/hoses for soot blockage, cracks, melted sections, and water intrusion.",
+      "Compare DP readings at idle vs under load. Erratic signals often point to wiring, sensor, or blocked tubes.",
+      "If your tool can’t run actuator tests, you can still diagnose a lot with careful inspection + repeatability testing."
+     ],
+     "common_misdiagnoses": [
+      "Replacing sensors without checking wiring, grounds, and connector pin fitment.",
+      "Clearing codes repeatedly without confirming whether the fault is ACTIVE and repeatable.",
+      "Missing companion codes that point to the real upstream problem."
+     ],
+     "fmi": "31",
+     "source_title": "SPN 3713 FMI 31: Regen inhibited due to timeout – regen attempts not completing",
+     "source_url": "https://bigrigfaults.com/faults/spn-3713-fmi-31",
+     "source_site": "bigrigfaults.com",
+     "quality": "high",
+     "method": "free-urllib (0 BrightData kredisi)"
+    }
+   ],
+   "procedures_source": "T55-B/T55-C bigrigfaults.com harvest (SPN/FMI procedures_full)",
+   "procedures_license": "Free/web harvest - see procedures_full[].source_url",
+   "procedures_match_key": "T55 SPN/FMI harvest",
+   "symptoms": [
+    "Regen starts then fails",
+    "Soot load rises steadily",
+    "Exhaust temps don’t reach target"
+   ]
   },
   "SPN_4193": {
    "spn": 4193,
@@ -69376,7 +69652,61 @@
    "steps_class_fixed_tur30": "SPN sınıfına göre jenerik adım düzeltildi",
    "title_tr_source": "name alanından tam çeviri (Tur-30)",
    "steps_cleaned_tur30": "dedupe + encoding fix",
-   "pgn_source": "j1939_73_diagnostic_only"
+   "pgn_source": "j1939_73_diagnostic_only",
+   "procedures_full": [
+    {
+     "overview": "Critical. Not recommended. SPN 5016 FMI 4 is marked critical and may escalate into derate or shutdown. Diagnose immediately and confirm whether the fault is ACTIVE vs stored (steps below).",
+     "severity": "Critical",
+     "can_i_drive": "Not recommended. SPN 5016 FMI 4 is marked critical and may escalate into derate or shutdown. Diagnose immediately and confirm whether the fault is ACTIVE vs stored (steps below).",
+     "symptoms": [
+      "Random faults across multiple systems",
+      "Sensors dropping out",
+      "Electrical weirdness that comes and goes"
+     ],
+     "causes": [
+      "Voltage drop on supply circuit",
+      "Bad ground",
+      "Corroded connector or failing relay/fuse"
+     ],
+     "fixes": [
+      "Load-test power and ground circuits",
+      "Inspect fuses/relays and connectors for heat damage",
+      "Repair voltage drop before replacing sensors"
+     ],
+     "steps": [
+      "Visual inspection (fast wins). Harness routing, connector pins, hoses/lines (if applicable), and obvious damage.",
+      "Check fluid sanity. Not applicable unless your fault is fluid-related. Focus on inspections + repeatability.",
+      "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+      "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+      "Verify after repair. Clear codes, road test, confirm it stays inactive."
+     ],
+     "scan_tool_checks": [
+      "Check status: ACTIVE vs INACTIVE / stored. If it’s not active, look at last occurrence conditions (freeze-frame if available).",
+      "Record companion codes. Fixing the “first” code often makes others disappear.",
+      "Clear and re-test under similar conditions. If it returns quickly, you have a repeatable fault (good for diagnosis).",
+      "If your tool can’t run actuator tests, you can still diagnose a lot with careful inspection + repeatability testing."
+     ],
+     "common_misdiagnoses": [
+      "Replacing sensors without checking wiring, grounds, and connector pin fitment.",
+      "Clearing codes repeatedly without confirming whether the fault is ACTIVE and repeatable.",
+      "Missing companion codes that point to the real upstream problem."
+     ],
+     "fmi": "4",
+     "source_title": "SPN 5016 FMI 4: ECU supply voltage low (power/ground problem causing random faults)",
+     "source_url": "https://bigrigfaults.com/faults/spn-5016-fmi-4",
+     "source_site": "bigrigfaults.com",
+     "quality": "high",
+     "method": "free-urllib (0 BrightData kredisi)"
+    }
+   ],
+   "procedures_source": "T55-B/T55-C bigrigfaults.com harvest (SPN/FMI procedures_full)",
+   "procedures_license": "Free/web harvest - see procedures_full[].source_url",
+   "procedures_match_key": "T55 SPN/FMI harvest",
+   "symptoms": [
+    "Random faults across multiple systems",
+    "Sensors dropping out",
+    "Electrical weirdness that comes and goes"
+   ]
   },
   "SPN_5017": {
    "spn": 5017,
@@ -69530,7 +69860,62 @@
    "pgn_label": "Torque/Speed Control 1",
    "causes_source": "SAE J1939 diagnostic reference (j1939hub.com)",
    "steps_class_fixed_tur30": "SPN sınıfına göre jenerik adım düzeltildi",
-   "pgn_source": "j1939_73_diagnostic_only"
+   "pgn_source": "j1939_73_diagnostic_only",
+   "procedures_full": [
+    {
+     "overview": "Warning. Usually yes for a short distance, but fix it soon. Warning faults like SPN 5319 FMI 31 commonly escalate into torque derate if ignored. The scan-tool checks below help determine urgency.",
+     "severity": "Warning",
+     "can_i_drive": "Usually yes for a short distance, but fix it soon. Warning faults like SPN 5319 FMI 31 commonly escalate into torque derate if ignored. The scan-tool checks below help determine urgency.",
+     "symptoms": [
+      "Regen ends early",
+      "Restriction increases over time",
+      "Fuel economy drops"
+     ],
+     "causes": [
+      "Shutdown during regen",
+      "Low exhaust temp conditions",
+      "Underlying faults preventing proper regen"
+     ],
+     "fixes": [
+      "Allow full regen cycle",
+      "Fix temp/pressure faults first",
+      "Inspect for leaks and restrictions"
+     ],
+     "steps": [
+      "Visual inspection (fast wins). Sensor connector/wiring, DP sensor tubes/hoses, soot blockage, water intrusion, exhaust leaks.",
+      "Check fluid sanity. Not applicable unless your fault is fluid-related. Focus on inspections + repeatability.",
+      "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+      "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+      "Verify after repair. Clear codes, road test, confirm it stays inactive."
+     ],
+     "scan_tool_checks": [
+      "Check status: ACTIVE vs INACTIVE / stored. If it’s not active, review last occurrence conditions (freeze-frame if available).",
+      "Record companion codes (regen inhibited, soot load, exhaust leak, sensor supply voltage). Fix upstream causes first.",
+      "Inspect DP sensor tubes/hoses for soot blockage, cracks, melted sections, and water intrusion.",
+      "Compare DP readings at idle vs under load. Erratic signals often point to wiring, sensor, or blocked tubes.",
+      "If your tool can’t run actuator tests, you can still diagnose a lot with careful inspection + repeatability testing."
+     ],
+     "common_misdiagnoses": [
+      "Replacing sensors without checking wiring, grounds, and connector pin fitment.",
+      "Clearing codes repeatedly without confirming whether the fault is ACTIVE and repeatable.",
+      "Missing companion codes that point to the real upstream problem."
+     ],
+     "fmi": "31",
+     "source_title": "SPN 5319 FMI 31: DPF incomplete regeneration – regen did not finish",
+     "source_url": "https://bigrigfaults.com/faults/spn-5319-fmi-31",
+     "source_site": "bigrigfaults.com",
+     "quality": "high",
+     "method": "free-urllib (0 BrightData kredisi)"
+    }
+   ],
+   "procedures_source": "T55-B/T55-C bigrigfaults.com harvest (SPN/FMI procedures_full)",
+   "procedures_license": "Free/web harvest - see procedures_full[].source_url",
+   "procedures_match_key": "T55 SPN/FMI harvest",
+   "symptoms": [
+    "Regen ends early",
+    "Restriction increases over time",
+    "Fuel economy drops"
+   ]
   },
   "SPN_5571": {
    "spn": 5571,
@@ -83420,7 +83805,62 @@
    "pgn_label": "Torque/Speed Control 1",
    "causes_source": "SAE J1939 diagnostic reference (j1939hub.com)",
    "title_tr_source": "tam çeviri (Tur-30, name alanından okunup anlaşılarak)",
-   "pgn_source": "j1939_73_diagnostic_only"
+   "pgn_source": "j1939_73_diagnostic_only",
+   "procedures_full": [
+    {
+     "overview": "Critical. Not recommended. SPN 4794 FMI 31 is marked critical and may escalate into derate or shutdown. Diagnose immediately and confirm whether the fault is ACTIVE vs stored (steps below).",
+     "severity": "Critical",
+     "can_i_drive": "Not recommended. SPN 4794 FMI 31 is marked critical and may escalate into derate or shutdown. Diagnose immediately and confirm whether the fault is ACTIVE vs stored (steps below).",
+     "symptoms": [
+      "Aftertreatment off-line",
+      "Possible derate",
+      "Compliance fault"
+     ],
+     "causes": [
+      "Hardware removed or bypassed",
+      "Wiring fault",
+      "Module error"
+     ],
+     "fixes": [
+      "Verify SCR hardware present",
+      "Inspect CAN/ECM comms",
+      "Repair or restore missing components"
+     ],
+     "steps": [
+      "Visual inspection (fast wins). Harness routing, connector pins, DEF lines, leaks, and crystallization.",
+      "Check fluid sanity. Confirm DEF level and condition. If contamination is suspected, plan service soon.",
+      "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+      "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+      "Verify after repair. Clear codes, road test, confirm it stays inactive."
+     ],
+     "scan_tool_checks": [
+      "Confirm whether SPN 4794 FMI 31 is ACTIVE. If it’s active, don’t guess. Diagnose it.",
+      "Look for companion codes: torque derate, inducement, NOx sensor, SCR efficiency, DPF soot, or DEF quality-related faults.",
+      "If supported by your tool (OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) / J1939 scanner), run aftertreatment tests: doser/actuator test, verify commanded vs actual behavior.",
+      "Review regen history (if available). Frequent regens and aftertreatment faults together often indicate underlying emissions performance problems.",
+      "If your tool can’t run actuator tests, you can still diagnose a lot with careful inspection + repeatability testing."
+     ],
+     "common_misdiagnoses": [
+      "Replacing the doser immediately without checking the connector and harness routing (rub-through is common near heat shields).",
+      "Ignoring companion codes. NOx sensor faults, SCR efficiency faults, or inducement codes can make dosing faults show up as “symptoms” instead of the root cause.",
+      "Assuming DEF is fine because the tank is full. Contamination and crystallization can still happen."
+     ],
+     "fmi": "31",
+     "source_title": "SPN 4794 FMI 31: SCR catalyst system missing – condition exists",
+     "source_url": "https://bigrigfaults.com/faults/spn-4794-fmi-31",
+     "source_site": "bigrigfaults.com",
+     "quality": "high",
+     "method": "free-urllib (0 BrightData kredisi)"
+    }
+   ],
+   "procedures_source": "T55-B/T55-C bigrigfaults.com harvest (SPN/FMI procedures_full)",
+   "procedures_license": "Free/web harvest - see procedures_full[].source_url",
+   "procedures_match_key": "T55 SPN/FMI harvest",
+   "symptoms": [
+    "Aftertreatment off-line",
+    "Possible derate",
+    "Compliance fault"
+   ]
   },
   "SPN_4795": {
    "spn": 4795,
@@ -83480,7 +83920,62 @@
    "pgn_description": "NOTE - Retarder can be disabled by commanding a torque limit of 0%. Use of the limit mode allows the use of the retarder only up to the limit specified in the request. This can be used to permit retarding of up to 50%, for example, if that limit is required by some device such as an EBS, or it can disable the use of the retarder by others, as when an ABS controller detects wheel slip. Note that the 10 ms transmission repetition rate is intended for temporary powertrain control (P32 of SPN 3350).",
    "pgn_label": "Torque/Speed Control 1",
    "title_tr_source": "tam çeviri (Tur-30, name alanından okunup anlaşılarak)",
-   "pgn_source": "j1939_73_diagnostic_only"
+   "pgn_source": "j1939_73_diagnostic_only",
+   "procedures_full": [
+    {
+     "overview": "Critical. Not recommended. SPN 4795 FMI 31 is marked critical and may escalate into derate or shutdown. Diagnose immediately and confirm whether the fault is ACTIVE vs stored (steps below).",
+     "severity": "Critical",
+     "can_i_drive": "Not recommended. SPN 4795 FMI 31 is marked critical and may escalate into derate or shutdown. Diagnose immediately and confirm whether the fault is ACTIVE vs stored (steps below).",
+     "symptoms": [
+      "Immediate aftertreatment fault",
+      "May derate quickly",
+      "Often appears after exhaust work"
+     ],
+     "causes": [
+      "Hardware does not match calibration",
+      "Sensors routed incorrectly",
+      "Aftermarket component mismatch"
+     ],
+     "fixes": [
+      "Verify aftertreatment hardware matches calibration",
+      "Check sensor hookups and orientation",
+      "Correct mismatch before clearing codes"
+     ],
+     "steps": [
+      "Visual inspection (fast wins). Sensor connector/wiring, DP sensor tubes/hoses, soot blockage, water intrusion, exhaust leaks.",
+      "Check fluid sanity. Not applicable unless your fault is fluid-related. Focus on inspections + repeatability.",
+      "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+      "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+      "Verify after repair. Clear codes, road test, confirm it stays inactive."
+     ],
+     "scan_tool_checks": [
+      "Check status: ACTIVE vs INACTIVE / stored. If it’s not active, review last occurrence conditions (freeze-frame if available).",
+      "Record companion codes (regen inhibited, soot load, exhaust leak, sensor supply voltage). Fix upstream causes first.",
+      "Inspect DP sensor tubes/hoses for soot blockage, cracks, melted sections, and water intrusion.",
+      "Compare DP readings at idle vs under load. Erratic signals often point to wiring, sensor, or blocked tubes.",
+      "If your tool can’t run actuator tests, you can still diagnose a lot with careful inspection + repeatability testing."
+     ],
+     "common_misdiagnoses": [
+      "Replacing sensors without checking wiring, grounds, and connector pin fitment.",
+      "Clearing codes repeatedly without confirming whether the fault is ACTIVE and repeatable.",
+      "Missing companion codes that point to the real upstream problem."
+     ],
+     "fmi": "31",
+     "source_title": "SPN 4795 FMI 31: DPF missing condition exists (hardware/config mismatch)",
+     "source_url": "https://bigrigfaults.com/faults/spn-4795-fmi-31",
+     "source_site": "bigrigfaults.com",
+     "quality": "high",
+     "method": "free-urllib (0 BrightData kredisi)"
+    }
+   ],
+   "procedures_source": "T55-B/T55-C bigrigfaults.com harvest (SPN/FMI procedures_full)",
+   "procedures_license": "Free/web harvest - see procedures_full[].source_url",
+   "procedures_match_key": "T55 SPN/FMI harvest",
+   "symptoms": [
+    "Immediate aftertreatment fault",
+    "May derate quickly",
+    "Often appears after exhaust work"
+   ]
   },
   "SPN_5358": {
    "spn": 5358,
@@ -106125,7 +106620,61 @@
     "Guide Visual Inspection: Check harness for melting, chafing, or broken wires between ECM and VGT actuator. Measure Supply Voltage: At actuator connector, verify 5V ±0.2V between reference and ground pins. Check Continuity: Disconnect ECM and actuator",
     "Guide Read Fault Codes: Use a J1939 diagnostic tool to confirm SPN 2633 FMI 14 and check for associated actuator supply faults. Inspect Wiring: Measure continuity and resistance between ECM pin and actuator connector"
    ],
-   "steps_tr_source": "@uplink Tur-34 (cümle bazlı tam çeviri)"
+   "steps_tr_source": "@uplink Tur-34 (cümle bazlı tam çeviri)",
+   "procedures_full": [
+    {
+     "overview": "Warning. Usually yes for a short distance, but fix it soon. Warning faults like SPN 2633 FMI 7 commonly escalate into torque derate if ignored. The scan-tool checks below help determine urgency.",
+     "severity": "Warning",
+     "can_i_drive": "Usually yes for a short distance, but fix it soon. Warning faults like SPN 2633 FMI 7 commonly escalate into torque derate if ignored. The scan-tool checks below help determine urgency.",
+     "symptoms": [
+      "Hesitation under load",
+      "Delay in turbo response",
+      "Hissing noise"
+     ],
+     "causes": [
+      "Vaned turbo sticking",
+      "Linkage friction",
+      "Control solenoid fault"
+     ],
+     "fixes": [
+      "Inspect and free vanes",
+      "Lubricate linkage",
+      "Test/replace boost solenoid"
+     ],
+     "steps": [
+      "Visual inspection (fast wins). Harness routing, connector pins, hoses/lines (if applicable), and obvious damage.",
+      "Check fluid sanity. Not applicable unless your fault is fluid-related. Focus on inspections + repeatability.",
+      "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+      "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+      "Verify after repair. Clear codes, road test, confirm it stays inactive."
+     ],
+     "scan_tool_checks": [
+      "Check status: ACTIVE vs INACTIVE / stored. If it’s not active, look at last occurrence conditions (freeze-frame if available).",
+      "Record companion codes. Fixing the “first” code often makes others disappear.",
+      "Clear and re-test under similar conditions. If it returns quickly, you have a repeatable fault (good for diagnosis).",
+      "If your tool can’t run actuator tests, you can still diagnose a lot with careful inspection + repeatability testing."
+     ],
+     "common_misdiagnoses": [
+      "Replacing sensors without checking wiring, grounds, and connector pin fitment.",
+      "Clearing codes repeatedly without confirming whether the fault is ACTIVE and repeatable.",
+      "Missing companion codes that point to the real upstream problem."
+     ],
+     "fmi": "7",
+     "source_title": "SPN 2633 FMI 7: Turbocharger VGT nozzle stuck – weak boost and lag",
+     "source_url": "https://bigrigfaults.com/faults/spn-2633-fmi-7",
+     "source_site": "bigrigfaults.com",
+     "quality": "high",
+     "method": "free-urllib (0 BrightData kredisi)"
+    }
+   ],
+   "procedures_source": "T55-B/T55-C bigrigfaults.com harvest (SPN/FMI procedures_full)",
+   "procedures_license": "Free/web harvest - see procedures_full[].source_url",
+   "procedures_match_key": "T55 SPN/FMI harvest",
+   "symptoms": [
+    "Hesitation under load",
+    "Delay in turbo response",
+    "Hissing noise"
+   ]
   },
   "SPN_2634": {
    "spn": 2634,
@@ -106393,7 +106942,62 @@
    "pgn_description": "NOTE - Retarder can be disabled by commanding a torque limit of 0%. Use of the limit mode allows the use of the retarder only up to the limit specified in the request. This can be used to permit retarding of up to 50%, for example, if that limit is required by some device such as an EBS, or it can disable the use of the retarder by others, as when an ABS controller detects wheel slip. Note that the 10 ms transmission repetition rate is intended for temporary powertrain control (P32 of SPN 3350).",
    "pgn_label": "Torque/Speed Control 1",
    "causes_source": "SAE J1939 diagnostic reference (j1939hub.com)",
-   "pgn_source": "j1939_73_diagnostic_only"
+   "pgn_source": "j1939_73_diagnostic_only",
+   "procedures_full": [
+    {
+     "overview": "Warning. Usually yes for a short distance, but fix it soon. Warning faults like SPN 3050 FMI 0 commonly escalate into torque derate if ignored. The scan-tool checks below help determine urgency.",
+     "severity": "Warning",
+     "can_i_drive": "Usually yes for a short distance, but fix it soon. Warning faults like SPN 3050 FMI 0 commonly escalate into torque derate if ignored. The scan-tool checks below help determine urgency.",
+     "symptoms": [
+      "Regens become more frequent",
+      "DPF restriction symptoms",
+      "Eventually forced service/derate"
+     ],
+     "causes": [
+      "Normal ash accumulation over mileage",
+      "Excessive oil consumption accelerating ash",
+      "DPF never serviced"
+     ],
+     "fixes": [
+      "DPF remove/clean per OEM spec",
+      "Fix oil consumption if present",
+      "Reset ash counter after service (if applicable)"
+     ],
+     "steps": [
+      "Visual inspection (fast wins). Sensor connector/wiring, DP sensor tubes/hoses, soot blockage, water intrusion, exhaust leaks.",
+      "Check fluid sanity. Not applicable unless your fault is fluid-related. Focus on inspections + repeatability.",
+      "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+      "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+      "Verify after repair. Clear codes, road test, confirm it stays inactive."
+     ],
+     "scan_tool_checks": [
+      "Check status: ACTIVE vs INACTIVE / stored. If it’s not active, review last occurrence conditions (freeze-frame if available).",
+      "Record companion codes (regen inhibited, soot load, exhaust leak, sensor supply voltage). Fix upstream causes first.",
+      "Inspect DP sensor tubes/hoses for soot blockage, cracks, melted sections, and water intrusion.",
+      "Compare DP readings at idle vs under load. Erratic signals often point to wiring, sensor, or blocked tubes.",
+      "If your tool can’t run actuator tests, you can still diagnose a lot with careful inspection + repeatability testing."
+     ],
+     "common_misdiagnoses": [
+      "Replacing sensors without checking wiring, grounds, and connector pin fitment.",
+      "Clearing codes repeatedly without confirming whether the fault is ACTIVE and repeatable.",
+      "Missing companion codes that point to the real upstream problem."
+     ],
+     "fmi": "0",
+     "source_title": "SPN 3050 FMI 0: DPF ash load high – DPF service required",
+     "source_url": "https://bigrigfaults.com/faults/spn-3050-fmi-0",
+     "source_site": "bigrigfaults.com",
+     "quality": "high",
+     "method": "free-urllib (0 BrightData kredisi)"
+    }
+   ],
+   "procedures_source": "T55-B/T55-C bigrigfaults.com harvest (SPN/FMI procedures_full)",
+   "procedures_license": "Free/web harvest - see procedures_full[].source_url",
+   "procedures_match_key": "T55 SPN/FMI harvest",
+   "symptoms": [
+    "Regens become more frequent",
+    "DPF restriction symptoms",
+    "Eventually forced service/derate"
+   ]
   },
   "SPN_3052": {
    "spn": 3052,
@@ -106457,7 +107061,68 @@
     "FMI 12: Arızalı akıllı cihaz, mikrodenetleyici veya dahili bileşen. → Modülün besleme voltajını teyit edin; düzelmiyorsa dahili ECU/Sensör arızasıdır."
    ],
    "causes_source": "SAE J1939-73 FMI fault matrix (DB fault_matrix, Tur-30 türetme)",
-   "pgn_source": "j1939_73_diagnostic_only"
+   "pgn_source": "j1939_73_diagnostic_only",
+   "procedures_full": [
+    {
+     "overview": "Warning. Usually yes for a short distance, but fix it soon. Warning faults like SPN 3052 FMI 31 commonly escalate into torque derate if ignored. The scan-tool checks below help determine urgency.",
+     "severity": "Warning",
+     "can_i_drive": "Usually yes for a short distance, but fix it soon. Warning faults like SPN 3052 FMI 31 commonly escalate into torque derate if ignored. The scan-tool checks below help determine urgency.",
+     "symptoms": [
+      "Rough idle",
+      "Shaking under load",
+      "Uneven power"
+     ],
+     "causes": [
+      "Injector imbalance",
+      "Air/fuel issues",
+      "Bad data affecting fueling"
+     ],
+     "fixes": [
+      "Check for related injector/cylinder faults",
+      "Review contribution tests if available",
+      "Fix air/fuel issues before swapping injectors"
+     ],
+     "steps": [
+      "Visual inspection (fast wins). Harness routing, connector pins, hoses/lines (if applicable), and obvious damage.",
+      "Check fluid sanity. Not applicable unless your fault is fluid-related. Focus on inspections + repeatability.",
+      "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+      "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+      "Verify after repair. Clear codes, road test, confirm it stays inactive."
+     ],
+     "scan_tool_checks": [
+      "Check status: ACTIVE vs INACTIVE / stored. If it’s not active, look at last occurrence conditions (freeze-frame if available).",
+      "Record companion codes. Fixing the “first” code often makes others disappear.",
+      "Clear and re-test under similar conditions. If it returns quickly, you have a repeatable fault (good for diagnosis).",
+      "If your tool can’t run actuator tests, you can still diagnose a lot with careful inspection + repeatability testing."
+     ],
+     "common_misdiagnoses": [
+      "Replacing sensors without checking wiring, grounds, and connector pin fitment.",
+      "Clearing codes repeatedly without confirming whether the fault is ACTIVE and repeatable.",
+      "Missing companion codes that point to the real upstream problem."
+     ],
+     "fmi": "31",
+     "source_title": "SPN 3052 FMI 31: Misfire monitor condition exists (rough running complaint)",
+     "source_url": "https://bigrigfaults.com/faults/spn-3052-fmi-31",
+     "source_site": "bigrigfaults.com",
+     "quality": "high",
+     "method": "free-urllib (0 BrightData kredisi)"
+    }
+   ],
+   "procedures_source": "T55-B/T55-C bigrigfaults.com harvest (SPN/FMI procedures_full)",
+   "procedures_license": "Free/web harvest - see procedures_full[].source_url",
+   "procedures_match_key": "T55 SPN/FMI harvest",
+   "steps": [
+    "Visual inspection (fast wins). Harness routing, connector pins, hoses/lines (if applicable), and obvious damage.",
+    "Check fluid sanity. Not applicable unless your fault is fluid-related. Focus on inspections + repeatability.",
+    "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+    "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+    "Verify after repair. Clear codes, road test, confirm it stays inactive."
+   ],
+   "symptoms": [
+    "Rough idle",
+    "Shaking under load",
+    "Uneven power"
+   ]
   },
   "SPN_3062": {
    "spn": 3062,
@@ -107174,7 +107839,68 @@
     "FMI 3: Voltaj normalin üzerinde veya yüksek kaynağa (+5V / +24V) kısa devre. → Sensör soketini ayırın; voltaj şasiye göre düşmüyorsa kablo demeti akü besleme hattına ezilmiştir.",
     "FMI 4: Voltaj normalin altında veya şasiye (GND) kısa devre. → Sinyal pini ile şasi arasındaki direnci ölçün (<1.0 Ω ise tesisatta şasi teması vardır)."
    ],
-   "causes_source": "SAE J1939-73 FMI fault matrix (DB fault_matrix, Tur-30 türetme)"
+   "causes_source": "SAE J1939-73 FMI fault matrix (DB fault_matrix, Tur-30 türetme)",
+   "procedures_full": [
+    {
+     "overview": "Warning. Usually yes for a short distance, but fix it soon. Warning faults like SPN 5445 FMI 13 commonly escalate into torque derate if ignored. The scan-tool checks below help determine urgency.",
+     "severity": "Warning",
+     "can_i_drive": "Usually yes for a short distance, but fix it soon. Warning faults like SPN 5445 FMI 13 commonly escalate into torque derate if ignored. The scan-tool checks below help determine urgency.",
+     "symptoms": [
+      "MIL",
+      "Possible rough idle",
+      "May affect regen/EGR behavior"
+     ],
+     "causes": [
+      "Calibration lost",
+      "Valve binding from carbon",
+      "Component aging"
+     ],
+     "fixes": [
+      "Perform calibration if supported",
+      "Inspect for binding/carbon",
+      "Replace if calibration cannot complete"
+     ],
+     "steps": [
+      "Visual inspection (fast wins). Harness routing, connector pins, hoses/lines (if applicable), and obvious damage.",
+      "Check fluid sanity. Not applicable unless your fault is fluid-related. Focus on inspections + repeatability.",
+      "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+      "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+      "Verify after repair. Clear codes, road test, confirm it stays inactive."
+     ],
+     "scan_tool_checks": [
+      "Check status: ACTIVE vs INACTIVE / stored. If it’s not active, look at last occurrence conditions (freeze-frame if available).",
+      "Record companion codes. Fixing the “first” code often makes others disappear.",
+      "Clear and re-test under similar conditions. If it returns quickly, you have a repeatable fault (good for diagnosis).",
+      "If your tool can’t run actuator tests, you can still diagnose a lot with careful inspection + repeatability testing."
+     ],
+     "common_misdiagnoses": [
+      "Replacing sensors without checking wiring, grounds, and connector pin fitment.",
+      "Clearing codes repeatedly without confirming whether the fault is ACTIVE and repeatable.",
+      "Missing companion codes that point to the real upstream problem."
+     ],
+     "fmi": "13",
+     "source_title": "SPN 5445 FMI 13: Engine throttle valve operation out of calibration",
+     "source_url": "https://bigrigfaults.com/faults/spn-5445-fmi-13",
+     "source_site": "bigrigfaults.com",
+     "quality": "high",
+     "method": "free-urllib (0 BrightData kredisi)"
+    }
+   ],
+   "procedures_source": "T55-B/T55-C bigrigfaults.com harvest (SPN/FMI procedures_full)",
+   "procedures_license": "Free/web harvest - see procedures_full[].source_url",
+   "procedures_match_key": "T55 SPN/FMI harvest",
+   "steps": [
+    "Visual inspection (fast wins). Harness routing, connector pins, hoses/lines (if applicable), and obvious damage.",
+    "Check fluid sanity. Not applicable unless your fault is fluid-related. Focus on inspections + repeatability.",
+    "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+    "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+    "Verify after repair. Clear codes, road test, confirm it stays inactive."
+   ],
+   "symptoms": [
+    "MIL",
+    "Possible rough idle",
+    "May affect regen/EGR behavior"
+   ]
   },
   "SPN_5480": {
    "spn": 5480,
@@ -107737,7 +108463,115 @@
     "FMI 1: Veri geçerli fakat normal çalışma aralığının altında (Kritik Düşük). → Sıvı seviyelerini, emiş filtrelerini ve mekanik aşınma belirtilerini kontrol edin."
    ],
    "causes_source": "SAE J1939-73 FMI fault matrix (DB fault_matrix, Tur-30 türetme)",
-   "title_tr_source": "tam çeviri (Tur-30, name alanından okunup anlaşılarak)"
+   "title_tr_source": "tam çeviri (Tur-30, name alanından okunup anlaşılarak)",
+   "procedures_full": [
+    {
+     "overview": "Warning. Usually yes for a short distance, but fix it soon. Warning faults like SPN 5376 FMI 3 commonly escalate into torque derate if ignored. The scan-tool checks below help determine urgency.",
+     "severity": "Warning",
+     "can_i_drive": "Usually yes for a short distance, but fix it soon. Warning faults like SPN 5376 FMI 3 commonly escalate into torque derate if ignored. The scan-tool checks below help determine urgency.",
+     "symptoms": [
+      "Throttle valve faults",
+      "Possible drivability issues",
+      "May affect regen/EGR control"
+     ],
+     "causes": [
+      "Short to power",
+      "Sensor circuit fault",
+      "Connector contamination"
+     ],
+     "fixes": [
+      "Inspect wiring and connector",
+      "Verify readings vs ambient",
+      "Replace component if circuit is confirmed good"
+     ],
+     "steps": [
+      "Visual inspection (fast wins). Harness routing, connector pins, hoses/lines (if applicable), and obvious damage.",
+      "Check fluid sanity. Not applicable unless your fault is fluid-related. Focus on inspections + repeatability.",
+      "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+      "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+      "Verify after repair. Clear codes, road test, confirm it stays inactive."
+     ],
+     "scan_tool_checks": [
+      "Check status: ACTIVE vs INACTIVE / stored. If it’s not active, look at last occurrence conditions (freeze-frame if available).",
+      "Record companion codes. Fixing the “first” code often makes others disappear.",
+      "Clear and re-test under similar conditions. If it returns quickly, you have a repeatable fault (good for diagnosis).",
+      "If your tool can’t run actuator tests, you can still diagnose a lot with careful inspection + repeatability testing."
+     ],
+     "common_misdiagnoses": [
+      "Replacing sensors without checking wiring, grounds, and connector pin fitment.",
+      "Clearing codes repeatedly without confirming whether the fault is ACTIVE and repeatable.",
+      "Missing companion codes that point to the real upstream problem."
+     ],
+     "fmi": "3",
+     "source_title": "SPN 5376 FMI 3: Engine throttle valve temperature status voltage high",
+     "source_url": "https://bigrigfaults.com/faults/spn-5376-fmi-3",
+     "source_site": "bigrigfaults.com",
+     "quality": "high",
+     "method": "free-urllib (0 BrightData kredisi)"
+    },
+    {
+     "overview": "Warning. Usually yes for a short distance, but fix it soon. Warning faults like SPN 5376 FMI 4 commonly escalate into torque derate if ignored. The scan-tool checks below help determine urgency.",
+     "severity": "Warning",
+     "can_i_drive": "Usually yes for a short distance, but fix it soon. Warning faults like SPN 5376 FMI 4 commonly escalate into torque derate if ignored. The scan-tool checks below help determine urgency.",
+     "symptoms": [
+      "Throttle valve warnings",
+      "Possible regen/EGR strategy issues",
+      "Intermittent MIL"
+     ],
+     "causes": [
+      "Open circuit/short to ground",
+      "Loose pin fit",
+      "Sensor failure"
+     ],
+     "fixes": [
+      "Check continuity and pin fit",
+      "Repair wiring",
+      "Replace component if failed"
+     ],
+     "steps": [
+      "Visual inspection (fast wins). Harness routing, connector pins, hoses/lines (if applicable), and obvious damage.",
+      "Check fluid sanity. Not applicable unless your fault is fluid-related. Focus on inspections + repeatability.",
+      "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+      "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+      "Verify after repair. Clear codes, road test, confirm it stays inactive."
+     ],
+     "scan_tool_checks": [
+      "Check status: ACTIVE vs INACTIVE / stored. If it’s not active, look at last occurrence conditions (freeze-frame if available).",
+      "Record companion codes. Fixing the “first” code often makes others disappear.",
+      "Clear and re-test under similar conditions. If it returns quickly, you have a repeatable fault (good for diagnosis).",
+      "If your tool can’t run actuator tests, you can still diagnose a lot with careful inspection + repeatability testing."
+     ],
+     "common_misdiagnoses": [
+      "Replacing sensors without checking wiring, grounds, and connector pin fitment.",
+      "Clearing codes repeatedly without confirming whether the fault is ACTIVE and repeatable.",
+      "Missing companion codes that point to the real upstream problem."
+     ],
+     "fmi": "4",
+     "source_title": "SPN 5376 FMI 4: Engine throttle valve temperature status voltage low",
+     "source_url": "https://bigrigfaults.com/faults/spn-5376-fmi-4",
+     "source_site": "bigrigfaults.com",
+     "quality": "high",
+     "method": "free-urllib (0 BrightData kredisi)"
+    }
+   ],
+   "procedures_source": "T55-B/T55-C bigrigfaults.com harvest (SPN/FMI procedures_full)",
+   "procedures_license": "Free/web harvest - see procedures_full[].source_url",
+   "procedures_match_key": "T55 SPN/FMI harvest",
+   "steps": [
+    "Visual inspection (fast wins). Harness routing, connector pins, hoses/lines (if applicable), and obvious damage.",
+    "Check fluid sanity. Not applicable unless your fault is fluid-related. Focus on inspections + repeatability.",
+    "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+    "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+    "Verify after repair. Clear codes, road test, confirm it stays inactive."
+   ],
+   "symptoms": [
+    "Throttle valve faults",
+    "Possible drivability issues",
+    "May affect regen/EGR control",
+    "Throttle valve warnings",
+    "Possible regen/EGR strategy issues",
+    "Intermittent MIL"
+   ]
   },
   "SPN_6589": {
    "spn": 6589,
@@ -130944,7 +131778,68 @@
     "FMI 12: Arızalı akıllı cihaz, mikrodenetleyici veya dahili bileşen. → Modülün besleme voltajını teyit edin; düzelmiyorsa dahili ECU/Sensör arızasıdır."
    ],
    "causes_source": "SAE J1939-73 FMI fault matrix (DB fault_matrix, Tur-30 türetme)",
-   "pgn_source": "j1939_73_diagnostic_only"
+   "pgn_source": "j1939_73_diagnostic_only",
+   "procedures_full": [
+    {
+     "overview": "Warning. Usually yes for a short distance, but fix it soon. Warning faults like SPN 179 FMI 4 commonly escalate into torque derate if ignored. The scan-tool checks below help determine urgency.",
+     "severity": "Warning",
+     "can_i_drive": "Usually yes for a short distance, but fix it soon. Warning faults like SPN 179 FMI 4 commonly escalate into torque derate if ignored. The scan-tool checks below help determine urgency.",
+     "symptoms": [
+      "Oil consumption",
+      "Blow-by increase",
+      "Idle roughness"
+     ],
+     "causes": [
+      "Crankcase ventilation fault",
+      "PCV valve stuck",
+      "Filter restriction"
+     ],
+     "fixes": [
+      "Check crankcase breather",
+      "Clean/replace PCV",
+      "Test system for restriction"
+     ],
+     "steps": [
+      "Visual inspection (fast wins). Harness routing, connector pins, hoses/lines (if applicable), and obvious damage.",
+      "Check fluid sanity. Not applicable unless your fault is fluid-related. Focus on inspections + repeatability.",
+      "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+      "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+      "Verify after repair. Clear codes, road test, confirm it stays inactive."
+     ],
+     "scan_tool_checks": [
+      "Check status: ACTIVE vs INACTIVE / stored. If it’s not active, look at last occurrence conditions (freeze-frame if available).",
+      "Record companion codes. Fixing the “first” code often makes others disappear.",
+      "Clear and re-test under similar conditions. If it returns quickly, you have a repeatable fault (good for diagnosis).",
+      "If your tool can’t run actuator tests, you can still diagnose a lot with careful inspection + repeatability testing."
+     ],
+     "common_misdiagnoses": [
+      "Replacing sensors without checking wiring, grounds, and connector pin fitment.",
+      "Clearing codes repeatedly without confirming whether the fault is ACTIVE and repeatable.",
+      "Missing companion codes that point to the real upstream problem."
+     ],
+     "fmi": "4",
+     "source_title": "SPN 179 FMI 4: Crankcase pressure low – ventilation concern",
+     "source_url": "https://bigrigfaults.com/faults/spn-179-fmi-4",
+     "source_site": "bigrigfaults.com",
+     "quality": "high",
+     "method": "free-urllib (0 BrightData kredisi)"
+    }
+   ],
+   "procedures_source": "T55-B/T55-C bigrigfaults.com harvest (SPN/FMI procedures_full)",
+   "procedures_license": "Free/web harvest - see procedures_full[].source_url",
+   "procedures_match_key": "T55 SPN/FMI harvest",
+   "steps": [
+    "Visual inspection (fast wins). Harness routing, connector pins, hoses/lines (if applicable), and obvious damage.",
+    "Check fluid sanity. Not applicable unless your fault is fluid-related. Focus on inspections + repeatability.",
+    "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+    "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+    "Verify after repair. Clear codes, road test, confirm it stays inactive."
+   ],
+   "symptoms": [
+    "Oil consumption",
+    "Blow-by increase",
+    "Idle roughness"
+   ]
   },
   "SPN_193": {
    "spn": 193,
@@ -150267,7 +151162,157 @@
     "pgn64979:3oem:Peterbilt",
     "pgn64979:peterbilt"
    ],
-   "sa_method": "indirect_pgn"
+   "sa_method": "indirect_pgn",
+   "procedures_full": [
+    {
+     "overview": "Warning. Usually yes for a short distance, but fix it soon. Warning faults like SPN 2799 FMI 5 often escalate into torque derate/inducement if the condition repeats over multiple drive cycles. The scan-tool checks below help determine how urgent it is.",
+     "severity": "Warning",
+     "can_i_drive": "Usually yes for a short distance, but fix it soon. Warning faults like SPN 2799 FMI 5 often escalate into torque derate/inducement if the condition repeats over multiple drive cycles. The scan-tool checks below help determine how urgent it is.",
+     "symptoms": [
+      "DEF pump fault",
+      "SCR warnings",
+      "May escalate to inducement"
+     ],
+     "causes": [
+      "Open circuit wiring",
+      "Bad relay/fuse",
+      "Pump motor failure"
+     ],
+     "fixes": [
+      "Check fuse/relay and power feed",
+      "Load-test ground",
+      "Replace pump only after wiring checks"
+     ],
+     "steps": [
+      "Visual inspection (fast wins). Harness routing, connector pins, DEF lines, leaks, and crystallization.",
+      "Check fluid sanity. Confirm DEF level and condition. If contamination is suspected, plan service soon.",
+      "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+      "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+      "Verify after repair. Clear codes, road test, confirm it stays inactive."
+     ],
+     "scan_tool_checks": [
+      "Confirm whether SPN 2799 FMI 5 is ACTIVE. If it’s active, don’t guess. Diagnose it.",
+      "Look for companion codes: torque derate, inducement, NOx sensor, SCR efficiency, DPF soot, or DEF quality-related faults.",
+      "If supported by your tool (OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) / J1939 scanner), run aftertreatment tests: doser/actuator test, verify commanded vs actual behavior.",
+      "Review regen history (if available). Frequent regens and aftertreatment faults together often indicate underlying emissions performance problems.",
+      "If your tool can’t run actuator tests, you can still diagnose a lot with careful inspection + repeatability testing."
+     ],
+     "common_misdiagnoses": [
+      "Replacing the doser immediately without checking the connector and harness routing (rub-through is common near heat shields).",
+      "Ignoring companion codes. NOx sensor faults, SCR efficiency faults, or inducement codes can make dosing faults show up as “symptoms” instead of the root cause.",
+      "Assuming DEF is fine because the tank is full. Contamination and crystallization can still happen."
+     ],
+     "fmi": "5",
+     "source_title": "SPN 2799 FMI 5: DEF pump motor current low / open circuit",
+     "source_url": "https://bigrigfaults.com/faults/spn-2799-fmi-5",
+     "source_site": "bigrigfaults.com",
+     "quality": "high",
+     "method": "free-urllib (0 BrightData kredisi)"
+    },
+    {
+     "overview": "Critical. Not recommended. SPN 2799 FMI 7 is marked critical and may escalate into derate or shutdown. Diagnose immediately and confirm whether the fault is ACTIVE vs stored (steps below).",
+     "severity": "Critical",
+     "can_i_drive": "Not recommended. SPN 2799 FMI 7 is marked critical and may escalate into derate or shutdown. Diagnose immediately and confirm whether the fault is ACTIVE vs stored (steps below).",
+     "symptoms": [
+      "Inducement risk",
+      "DEF pressure flat",
+      "SCR efficiency drops"
+     ],
+     "causes": [
+      "Pump seized or damaged",
+      "Frozen DEF damage",
+      "Electrical command issue"
+     ],
+     "fixes": [
+      "Confirm heaters and line temps (winter)",
+      "Check pump command and feedback",
+      "Replace pump if it cannot respond"
+     ],
+     "steps": [
+      "Visual inspection (fast wins). Harness routing, connector pins, DEF lines, leaks, and crystallization.",
+      "Check fluid sanity. Confirm DEF level and condition. If contamination is suspected, plan service soon.",
+      "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+      "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+      "Verify after repair. Clear codes, road test, confirm it stays inactive."
+     ],
+     "scan_tool_checks": [
+      "Confirm whether SPN 2799 FMI 7 is ACTIVE. If it’s active, don’t guess. Diagnose it.",
+      "Look for companion codes: torque derate, inducement, NOx sensor, SCR efficiency, DPF soot, or DEF quality-related faults.",
+      "If supported by your tool (OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) / J1939 scanner), run aftertreatment tests: doser/actuator test, verify commanded vs actual behavior.",
+      "Review regen history (if available). Frequent regens and aftertreatment faults together often indicate underlying emissions performance problems.",
+      "If your tool can’t run actuator tests, you can still diagnose a lot with careful inspection + repeatability testing."
+     ],
+     "common_misdiagnoses": [
+      "Replacing the doser immediately without checking the connector and harness routing (rub-through is common near heat shields).",
+      "Ignoring companion codes. NOx sensor faults, SCR efficiency faults, or inducement codes can make dosing faults show up as “symptoms” instead of the root cause.",
+      "Assuming DEF is fine because the tank is full. Contamination and crystallization can still happen."
+     ],
+     "fmi": "7",
+     "source_title": "SPN 2799 FMI 7: DEF pump not responding – pump does not follow command",
+     "source_url": "https://bigrigfaults.com/faults/spn-2799-fmi-7",
+     "source_site": "bigrigfaults.com",
+     "quality": "high",
+     "method": "free-urllib (0 BrightData kredisi)"
+    },
+    {
+     "overview": "Critical. Not recommended. SPN 2799 FMI 31 is marked critical and may escalate into derate or shutdown. Diagnose immediately and confirm whether the fault is ACTIVE vs stored (steps below).",
+     "severity": "Critical",
+     "can_i_drive": "Not recommended. SPN 2799 FMI 31 is marked critical and may escalate into derate or shutdown. Diagnose immediately and confirm whether the fault is ACTIVE vs stored (steps below).",
+     "symptoms": [
+      "DEF/SCR warnings",
+      "Inducement risk",
+      "DEF pressure not building"
+     ],
+     "causes": [
+      "Pump weak or failing",
+      "Restriction/crystals in line",
+      "Air leak or fitting leak"
+     ],
+     "fixes": [
+      "Inspect for white crystals at fittings",
+      "Verify pump power/ground under load",
+      "Repair leaks/restrictions then retest"
+     ],
+     "steps": [
+      "Visual inspection (fast wins). Harness routing, connector pins, DEF lines, leaks, and crystallization.",
+      "Check fluid sanity. Confirm DEF level and condition. If contamination is suspected, plan service soon.",
+      "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+      "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+      "Verify after repair. Clear codes, road test, confirm it stays inactive."
+     ],
+     "scan_tool_checks": [
+      "Confirm whether SPN 2799 FMI 31 is ACTIVE. If it’s active, don’t guess. Diagnose it.",
+      "Look for companion codes: torque derate, inducement, NOx sensor, SCR efficiency, DPF soot, or DEF quality-related faults.",
+      "If supported by your tool (OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) / J1939 scanner), run aftertreatment tests: doser/actuator test, verify commanded vs actual behavior.",
+      "Review regen history (if available). Frequent regens and aftertreatment faults together often indicate underlying emissions performance problems.",
+      "If your tool can’t run actuator tests, you can still diagnose a lot with careful inspection + repeatability testing."
+     ],
+     "common_misdiagnoses": [
+      "Replacing the doser immediately without checking the connector and harness routing (rub-through is common near heat shields).",
+      "Ignoring companion codes. NOx sensor faults, SCR efficiency faults, or inducement codes can make dosing faults show up as “symptoms” instead of the root cause.",
+      "Assuming DEF is fine because the tank is full. Contamination and crystallization can still happen."
+     ],
+     "fmi": "31",
+     "source_title": "SPN 2799 FMI 31: DEF pump prime/pressure build fault – pressure not achieved",
+     "source_url": "https://bigrigfaults.com/faults/spn-2799-fmi-31",
+     "source_site": "bigrigfaults.com",
+     "quality": "high",
+     "method": "free-urllib (0 BrightData kredisi)"
+    }
+   ],
+   "procedures_source": "T55-B/T55-C bigrigfaults.com harvest (SPN/FMI procedures_full)",
+   "procedures_license": "Free/web harvest - see procedures_full[].source_url",
+   "procedures_match_key": "T55 SPN/FMI harvest",
+   "symptoms": [
+    "DEF pump fault",
+    "SCR warnings",
+    "May escalate to inducement",
+    "Inducement risk",
+    "DEF pressure flat",
+    "SCR efficiency drops",
+    "DEF/SCR warnings",
+    "DEF pressure not building"
+   ]
   },
   "SPN_2800": {
    "spn": 2800,
@@ -227954,7 +228999,62 @@
    ],
    "causes_source": "SITRAK/OEM fault description (CC BY 4.0, (c) Megadata/megadata.pro)",
    "steps_class_fixed_tur30": "SPN sınıfına göre jenerik adım düzeltildi",
-   "pgn_source": "proprietary_oem"
+   "pgn_source": "proprietary_oem",
+   "procedures_full": [
+    {
+     "overview": "Warning. Usually yes for a short distance, but fix it soon. Warning faults like SPN 520371 FMI 31 commonly escalate into torque derate if ignored. The scan-tool checks below help determine urgency.",
+     "severity": "Warning",
+     "can_i_drive": "Usually yes for a short distance, but fix it soon. Warning faults like SPN 520371 FMI 31 commonly escalate into torque derate if ignored. The scan-tool checks below help determine urgency.",
+     "symptoms": [
+      "Regen requested but will not start",
+      "Soot % increases over time",
+      "Eventually leads to derate if ignored"
+     ],
+     "causes": [
+      "Low exhaust temp (short trips, lots of idle)",
+      "Vehicle not meeting regen conditions",
+      "Other active faults blocking regen"
+     ],
+     "fixes": [
+      "Meet regen conditions and allow full regen",
+      "Fix any active aftertreatment sensor faults",
+      "Reduce excessive idle and short-trip cycles"
+     ],
+     "steps": [
+      "Visual inspection (fast wins). Sensor connector/wiring, DP sensor tubes/hoses, soot blockage, water intrusion, exhaust leaks.",
+      "Check fluid sanity. Not applicable unless your fault is fluid-related. Focus on inspections + repeatability.",
+      "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+      "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+      "Verify after repair. Clear codes, road test, confirm it stays inactive."
+     ],
+     "scan_tool_checks": [
+      "Check status: ACTIVE vs INACTIVE / stored. If it’s not active, review last occurrence conditions (freeze-frame if available).",
+      "Record companion codes (regen inhibited, soot load, exhaust leak, sensor supply voltage). Fix upstream causes first.",
+      "Inspect DP sensor tubes/hoses for soot blockage, cracks, melted sections, and water intrusion.",
+      "Compare DP readings at idle vs under load. Erratic signals often point to wiring, sensor, or blocked tubes.",
+      "If your tool can’t run actuator tests, you can still diagnose a lot with careful inspection + repeatability testing."
+     ],
+     "common_misdiagnoses": [
+      "Replacing sensors without checking wiring, grounds, and connector pin fitment.",
+      "Clearing codes repeatedly without confirming whether the fault is ACTIVE and repeatable.",
+      "Missing companion codes that point to the real upstream problem."
+     ],
+     "fmi": "31",
+     "source_title": "SPN 520371 FMI 31: DPF regeneration inhibited due to conditions – regen will not initiate",
+     "source_url": "https://bigrigfaults.com/faults/spn-520371-fmi-31",
+     "source_site": "bigrigfaults.com",
+     "quality": "high",
+     "method": "free-urllib (0 BrightData kredisi)"
+    }
+   ],
+   "procedures_source": "T55-B/T55-C bigrigfaults.com harvest (SPN/FMI procedures_full)",
+   "procedures_license": "Free/web harvest - see procedures_full[].source_url",
+   "procedures_match_key": "T55 SPN/FMI harvest",
+   "symptoms": [
+    "Regen requested but will not start",
+    "Soot % increases over time",
+    "Eventually leads to derate if ignored"
+   ]
   },
   "SPN_520373": {
    "spn": 520373,
@@ -269132,6 +270232,856 @@
    "procedures_license": "Free/web harvest - see procedures_full[].source_url",
    "procedures_match_key": "T54 SPN/FMI harvest",
    "title_tr": "Krank Mili Konum Sinyali Etkin Değil (International)"
+  },
+  "SPN_3011": {
+   "spn": 3011,
+   "name": "Aftertreatment 1 Diesel Particulate Filter Differential Pressure Sensor",
+   "title_tr": "DPF Basınç Sensörü (Egzoz Gazı Diferansiyel Basıncı)",
+   "description_en": "SPN 3011 FMI 3: DPF pressure sensor voltage high – possible power short | SPN 3011 FMI 4: DPF pressure sensor voltage low – open circuit",
+   "description_en_source": "T60/T55-C bigrigfaults BD harvest (procedures_full enrichment)",
+   "fault_matrix": {},
+   "procedures_full": [
+    {
+     "overview": "Warning. Usually yes for a short distance, but fix it soon. Warning faults like SPN 3011 FMI 3 commonly escalate into torque derate if ignored. The scan-tool checks below help determine urgency.",
+     "severity": "Warning",
+     "can_i_drive": "Usually yes for a short distance, but fix it soon. Warning faults like SPN 3011 FMI 3 commonly escalate into torque derate if ignored. The scan-tool checks below help determine urgency.",
+     "symptoms": [
+      "DPF restriction looks false high",
+      "Regen cycle odd",
+      "Check engine light"
+     ],
+     "causes": [
+      "Short to power",
+      "Connector corrosion",
+      "Sensor internal short"
+     ],
+     "fixes": [
+      "Dry and clean connector",
+      "Repair any wiring shorts",
+      "Replace sensor as last resort"
+     ],
+     "steps": [
+      "Visual inspection (fast wins). Sensor connector/wiring, DP sensor tubes/hoses, soot blockage, water intrusion, exhaust leaks.",
+      "Check fluid sanity. Not applicable unless your fault is fluid-related. Focus on inspections + repeatability.",
+      "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+      "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+      "Verify after repair. Clear codes, road test, confirm it stays inactive."
+     ],
+     "scan_tool_checks": [
+      "Check status: ACTIVE vs INACTIVE / stored. If it’s not active, review last occurrence conditions (freeze-frame if available).",
+      "Record companion codes (regen inhibited, soot load, exhaust leak, sensor supply voltage). Fix upstream causes first.",
+      "Inspect DP sensor tubes/hoses for soot blockage, cracks, melted sections, and water intrusion.",
+      "Compare DP readings at idle vs under load. Erratic signals often point to wiring, sensor, or blocked tubes.",
+      "If your tool can’t run actuator tests, you can still diagnose a lot with careful inspection + repeatability testing."
+     ],
+     "common_misdiagnoses": [
+      "Replacing sensors without checking wiring, grounds, and connector pin fitment.",
+      "Clearing codes repeatedly without confirming whether the fault is ACTIVE and repeatable.",
+      "Missing companion codes that point to the real upstream problem."
+     ],
+     "fmi": "3",
+     "source_title": "SPN 3011 FMI 3: DPF pressure sensor voltage high – possible power short",
+     "source_url": "https://bigrigfaults.com/faults/spn-3011-fmi-3",
+     "source_site": "bigrigfaults.com",
+     "quality": "high",
+     "method": "free-urllib (0 BrightData kredisi)"
+    },
+    {
+     "overview": "Warning. Usually yes for a short distance, but fix it soon. Warning faults like SPN 3011 FMI 4 commonly escalate into torque derate if ignored. The scan-tool checks below help determine urgency.",
+     "severity": "Warning",
+     "can_i_drive": "Usually yes for a short distance, but fix it soon. Warning faults like SPN 3011 FMI 4 commonly escalate into torque derate if ignored. The scan-tool checks below help determine urgency.",
+     "symptoms": [
+      "Pressure reads too low",
+      "Inconsistent regen behavior",
+      "Possible idle issues"
+     ],
+     "causes": [
+      "Open harness circuit",
+      "Bad sensor ground",
+      "Connector pin out"
+     ],
+     "fixes": [
+      "Wiggle test wiring",
+      "Reconnect & secure pins",
+      "Replace sensor if open persists"
+     ],
+     "steps": [
+      "Visual inspection (fast wins). Sensor connector/wiring, DP sensor tubes/hoses, soot blockage, water intrusion, exhaust leaks.",
+      "Check fluid sanity. Not applicable unless your fault is fluid-related. Focus on inspections + repeatability.",
+      "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+      "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+      "Verify after repair. Clear codes, road test, confirm it stays inactive."
+     ],
+     "scan_tool_checks": [
+      "Check status: ACTIVE vs INACTIVE / stored. If it’s not active, review last occurrence conditions (freeze-frame if available).",
+      "Record companion codes (regen inhibited, soot load, exhaust leak, sensor supply voltage). Fix upstream causes first.",
+      "Inspect DP sensor tubes/hoses for soot blockage, cracks, melted sections, and water intrusion.",
+      "Compare DP readings at idle vs under load. Erratic signals often point to wiring, sensor, or blocked tubes.",
+      "If your tool can’t run actuator tests, you can still diagnose a lot with careful inspection + repeatability testing."
+     ],
+     "common_misdiagnoses": [
+      "Replacing sensors without checking wiring, grounds, and connector pin fitment.",
+      "Clearing codes repeatedly without confirming whether the fault is ACTIVE and repeatable.",
+      "Missing companion codes that point to the real upstream problem."
+     ],
+     "fmi": "4",
+     "source_title": "SPN 3011 FMI 4: DPF pressure sensor voltage low – open circuit",
+     "source_url": "https://bigrigfaults.com/faults/spn-3011-fmi-4",
+     "source_site": "bigrigfaults.com",
+     "quality": "high",
+     "method": "free-urllib (0 BrightData kredisi)"
+    }
+   ],
+   "procedures_source": "T55-B/T55-C bigrigfaults.com harvest (SPN/FMI procedures_full)",
+   "procedures_license": "Free/web harvest - see procedures_full[].source_url",
+   "procedures_match_key": "T55 SPN/FMI harvest",
+   "steps": [
+    "Visual inspection (fast wins). Sensor connector/wiring, DP sensor tubes/hoses, soot blockage, water intrusion, exhaust leaks.",
+    "Check fluid sanity. Not applicable unless your fault is fluid-related. Focus on inspections + repeatability.",
+    "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+    "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+    "Verify after repair. Clear codes, road test, confirm it stays inactive."
+   ],
+   "causes": [
+    "Short to power",
+    "Connector corrosion",
+    "Sensor internal short",
+    "Open harness circuit",
+    "Bad sensor ground",
+    "Connector pin out"
+   ],
+   "symptoms": [
+    "DPF restriction looks false high",
+    "Regen cycle odd",
+    "Check engine light",
+    "Pressure reads too low",
+    "Inconsistent regen behavior",
+    "Possible idle issues"
+   ]
+  },
+  "SPN_3146": {
+   "spn": 3146,
+   "name": "Aftertreatment 1 SCR Outlet Temperature Sensor",
+   "title_tr": "SCR Çıkış Sıcaklık Sensörü (Katalizör Sonrası Sıcaklık)",
+   "description_en": "SPN 3146 FMI 3: SCR outlet temperature sensor voltage high – heater circuit issue | SPN 3146 FMI 4: SCR outlet temperature sensor voltage low – open circuit",
+   "description_en_source": "T60/T55-C bigrigfaults BD harvest (procedures_full enrichment)",
+   "fault_matrix": {},
+   "procedures_full": [
+    {
+     "overview": "Warning. Usually yes for a short distance, but fix it soon. Warning faults like SPN 3146 FMI 3 often escalate into torque derate/inducement if the condition repeats over multiple drive cycles. The scan-tool checks below help determine how urgent it is.",
+     "severity": "Warning",
+     "can_i_drive": "Usually yes for a short distance, but fix it soon. Warning faults like SPN 3146 FMI 3 often escalate into torque derate/inducement if the condition repeats over multiple drive cycles. The scan-tool checks below help determine how urgent it is.",
+     "symptoms": [
+      "SCR temps too warm",
+      "Aftertreatment light",
+      "Possible derate later"
+     ],
+     "causes": [
+      "Short to power",
+      "Connector corrosion",
+      "Sensor heat soak"
+     ],
+     "fixes": [
+      "Dry connectors",
+      "Repair wiring",
+      "Replace sensor"
+     ],
+     "steps": [
+      "Visual inspection (fast wins). Harness routing, connector pins, DEF lines, leaks, and crystallization.",
+      "Check fluid sanity. Confirm DEF level and condition. If contamination is suspected, plan service soon.",
+      "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+      "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+      "Verify after repair. Clear codes, road test, confirm it stays inactive."
+     ],
+     "scan_tool_checks": [
+      "Confirm whether SPN 3146 FMI 3 is ACTIVE. If it’s active, don’t guess. Diagnose it.",
+      "Look for companion codes: torque derate, inducement, NOx sensor, SCR efficiency, DPF soot, or DEF quality-related faults.",
+      "If supported by your tool (OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) / J1939 scanner), run aftertreatment tests: doser/actuator test, verify commanded vs actual behavior.",
+      "Review regen history (if available). Frequent regens and aftertreatment faults together often indicate underlying emissions performance problems.",
+      "If your tool can’t run actuator tests, you can still diagnose a lot with careful inspection + repeatability testing."
+     ],
+     "common_misdiagnoses": [
+      "Replacing the doser immediately without checking the connector and harness routing (rub-through is common near heat shields).",
+      "Ignoring companion codes. NOx sensor faults, SCR efficiency faults, or inducement codes can make dosing faults show up as “symptoms” instead of the root cause.",
+      "Assuming DEF is fine because the tank is full. Contamination and crystallization can still happen."
+     ],
+     "fmi": "3",
+     "source_title": "SPN 3146 FMI 3: SCR outlet temperature sensor voltage high – heater circuit issue",
+     "source_url": "https://bigrigfaults.com/faults/spn-3146-fmi-3",
+     "source_site": "bigrigfaults.com",
+     "quality": "high",
+     "method": "free-urllib (0 BrightData kredisi)"
+    },
+    {
+     "overview": "Warning. Usually yes for a short distance, but fix it soon. Warning faults like SPN 3146 FMI 4 often escalate into torque derate/inducement if the condition repeats over multiple drive cycles. The scan-tool checks below help determine how urgent it is.",
+     "severity": "Warning",
+     "can_i_drive": "Usually yes for a short distance, but fix it soon. Warning faults like SPN 3146 FMI 4 often escalate into torque derate/inducement if the condition repeats over multiple drive cycles. The scan-tool checks below help determine how urgent it is.",
+     "symptoms": [
+      "SCR outlet temp reads flat",
+      "Aftertreatment logic confused",
+      "Idle feels odd"
+     ],
+     "causes": [
+      "Open circuit",
+      "Poor sensor ground",
+      "Connector pin issue"
+     ],
+     "fixes": [
+      "Fix wiring open",
+      "Secure grounds",
+      "Replace sensor only if harness is good"
+     ],
+     "steps": [
+      "Visual inspection (fast wins). Harness routing, connector pins, DEF lines, leaks, and crystallization.",
+      "Check fluid sanity. Confirm DEF level and condition. If contamination is suspected, plan service soon.",
+      "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+      "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+      "Verify after repair. Clear codes, road test, confirm it stays inactive."
+     ],
+     "scan_tool_checks": [
+      "Confirm whether SPN 3146 FMI 4 is ACTIVE. If it’s active, don’t guess. Diagnose it.",
+      "Look for companion codes: torque derate, inducement, NOx sensor, SCR efficiency, DPF soot, or DEF quality-related faults.",
+      "If supported by your tool (OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) / J1939 scanner), run aftertreatment tests: doser/actuator test, verify commanded vs actual behavior.",
+      "Review regen history (if available). Frequent regens and aftertreatment faults together often indicate underlying emissions performance problems.",
+      "If your tool can’t run actuator tests, you can still diagnose a lot with careful inspection + repeatability testing."
+     ],
+     "common_misdiagnoses": [
+      "Replacing the doser immediately without checking the connector and harness routing (rub-through is common near heat shields).",
+      "Ignoring companion codes. NOx sensor faults, SCR efficiency faults, or inducement codes can make dosing faults show up as “symptoms” instead of the root cause.",
+      "Assuming DEF is fine because the tank is full. Contamination and crystallization can still happen."
+     ],
+     "fmi": "4",
+     "source_title": "SPN 3146 FMI 4: SCR outlet temperature sensor voltage low – open circuit",
+     "source_url": "https://bigrigfaults.com/faults/spn-3146-fmi-4",
+     "source_site": "bigrigfaults.com",
+     "quality": "high",
+     "method": "free-urllib (0 BrightData kredisi)"
+    }
+   ],
+   "procedures_source": "T55-B/T55-C bigrigfaults.com harvest (SPN/FMI procedures_full)",
+   "procedures_license": "Free/web harvest - see procedures_full[].source_url",
+   "procedures_match_key": "T55 SPN/FMI harvest",
+   "steps": [
+    "Visual inspection (fast wins). Harness routing, connector pins, DEF lines, leaks, and crystallization.",
+    "Check fluid sanity. Confirm DEF level and condition. If contamination is suspected, plan service soon.",
+    "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+    "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+    "Verify after repair. Clear codes, road test, confirm it stays inactive."
+   ],
+   "causes": [
+    "Short to power",
+    "Connector corrosion",
+    "Sensor heat soak",
+    "Open circuit",
+    "Poor sensor ground",
+    "Connector pin issue"
+   ],
+   "symptoms": [
+    "SCR temps too warm",
+    "Aftertreatment light",
+    "Possible derate later",
+    "SCR outlet temp reads flat",
+    "Aftertreatment logic confused",
+    "Idle feels odd"
+   ]
+  },
+  "SPN_3265": {
+   "spn": 3265,
+   "name": "Aftertreatment 1 Diesel Particulate Filter Intake Pressure Sensor",
+   "title_tr": "DPF Giriş Basıncı Sensörü (Partikül Filtresi Giriş Basıncı)",
+   "description_en": "SPN 3265 FMI 9: DPF intake pressure too high – soot accumulation",
+   "description_en_source": "T60/T55-C bigrigfaults BD harvest (procedures_full enrichment)",
+   "fault_matrix": {},
+   "procedures_full": [
+    {
+     "overview": "Warning. Usually yes for a short distance, but fix it soon. Warning faults like SPN 3265 FMI 9 commonly escalate into torque derate if ignored. The scan-tool checks below help determine urgency.",
+     "severity": "Warning",
+     "can_i_drive": "Usually yes for a short distance, but fix it soon. Warning faults like SPN 3265 FMI 9 commonly escalate into torque derate if ignored. The scan-tool checks below help determine urgency.",
+     "symptoms": [
+      "Frequent regens requested",
+      "Smoke at idle",
+      "Restriction signs"
+     ],
+     "causes": [
+      "Soot build-up",
+      "Interrupted regen history",
+      "Short trips/idle"
+     ],
+     "fixes": [
+      "Run stationary or forced regen",
+      "Fix interrupted regen causes",
+      "Check for exhaust leaks"
+     ],
+     "steps": [
+      "Visual inspection (fast wins). Sensor connector/wiring, DP sensor tubes/hoses, soot blockage, water intrusion, exhaust leaks.",
+      "Check fluid sanity. Not applicable unless your fault is fluid-related. Focus on inspections + repeatability.",
+      "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+      "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+      "Verify after repair. Clear codes, road test, confirm it stays inactive."
+     ],
+     "scan_tool_checks": [
+      "Check status: ACTIVE vs INACTIVE / stored. If it’s not active, review last occurrence conditions (freeze-frame if available).",
+      "Record companion codes (regen inhibited, soot load, exhaust leak, sensor supply voltage). Fix upstream causes first.",
+      "Inspect DP sensor tubes/hoses for soot blockage, cracks, melted sections, and water intrusion.",
+      "Compare DP readings at idle vs under load. Erratic signals often point to wiring, sensor, or blocked tubes.",
+      "If your tool can’t run actuator tests, you can still diagnose a lot with careful inspection + repeatability testing."
+     ],
+     "common_misdiagnoses": [
+      "Replacing sensors without checking wiring, grounds, and connector pin fitment.",
+      "Clearing codes repeatedly without confirming whether the fault is ACTIVE and repeatable.",
+      "Missing companion codes that point to the real upstream problem."
+     ],
+     "fmi": "9",
+     "source_title": "SPN 3265 FMI 9: DPF intake pressure too high – soot accumulation",
+     "source_url": "https://bigrigfaults.com/faults/spn-3265-fmi-9",
+     "source_site": "bigrigfaults.com",
+     "quality": "high",
+     "method": "free-urllib (0 BrightData kredisi)"
+    }
+   ],
+   "procedures_source": "T55-B/T55-C bigrigfaults.com harvest (SPN/FMI procedures_full)",
+   "procedures_license": "Free/web harvest - see procedures_full[].source_url",
+   "procedures_match_key": "T55 SPN/FMI harvest",
+   "steps": [
+    "Visual inspection (fast wins). Sensor connector/wiring, DP sensor tubes/hoses, soot blockage, water intrusion, exhaust leaks.",
+    "Check fluid sanity. Not applicable unless your fault is fluid-related. Focus on inspections + repeatability.",
+    "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+    "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+    "Verify after repair. Clear codes, road test, confirm it stays inactive."
+   ],
+   "causes": [
+    "Soot build-up",
+    "Interrupted regen history",
+    "Short trips/idle"
+   ],
+   "symptoms": [
+    "Frequent regens requested",
+    "Smoke at idle",
+    "Restriction signs"
+   ]
+  },
+  "SPN_3318": {
+   "spn": 3318,
+   "name": "Aftertreatment 1 Diesel Particulate Filter Intake Gas Temperature Sensor",
+   "title_tr": "DPF Giriş Gaz Sıcaklık Sensörü",
+   "description_en": "SPN 3318 FMI 2: DPF intake gas temp erratic – sensor data noise",
+   "description_en_source": "T60/T55-C bigrigfaults BD harvest (procedures_full enrichment)",
+   "fault_matrix": {},
+   "procedures_full": [
+    {
+     "overview": "Warning. Usually yes for a short distance, but fix it soon. Warning faults like SPN 3318 FMI 2 commonly escalate into torque derate if ignored. The scan-tool checks below help determine urgency.",
+     "severity": "Warning",
+     "can_i_drive": "Usually yes for a short distance, but fix it soon. Warning faults like SPN 3318 FMI 2 commonly escalate into torque derate if ignored. The scan-tool checks below help determine urgency.",
+     "symptoms": [
+      "DPF temps fluctuate oddly",
+      "Regens look unpredictable",
+      "Idle feel weird"
+     ],
+     "causes": [
+      "Sensor harness noise",
+      "Connector contamination",
+      "Sensor drift"
+     ],
+     "fixes": [
+      "Check and secure sensor wiring",
+      "Clean connectors",
+      "Replace temp sensor if readings unstable"
+     ],
+     "steps": [
+      "Visual inspection (fast wins). Sensor connector/wiring, DP sensor tubes/hoses, soot blockage, water intrusion, exhaust leaks.",
+      "Check fluid sanity. Not applicable unless your fault is fluid-related. Focus on inspections + repeatability.",
+      "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+      "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+      "Verify after repair. Clear codes, road test, confirm it stays inactive."
+     ],
+     "scan_tool_checks": [
+      "Check status: ACTIVE vs INACTIVE / stored. If it’s not active, review last occurrence conditions (freeze-frame if available).",
+      "Record companion codes (regen inhibited, soot load, exhaust leak, sensor supply voltage). Fix upstream causes first.",
+      "Inspect DP sensor tubes/hoses for soot blockage, cracks, melted sections, and water intrusion.",
+      "Compare DP readings at idle vs under load. Erratic signals often point to wiring, sensor, or blocked tubes.",
+      "If your tool can’t run actuator tests, you can still diagnose a lot with careful inspection + repeatability testing."
+     ],
+     "common_misdiagnoses": [
+      "Replacing sensors without checking wiring, grounds, and connector pin fitment.",
+      "Clearing codes repeatedly without confirming whether the fault is ACTIVE and repeatable.",
+      "Missing companion codes that point to the real upstream problem."
+     ],
+     "fmi": "2",
+     "source_title": "SPN 3318 FMI 2: DPF intake gas temp erratic – sensor data noise",
+     "source_url": "https://bigrigfaults.com/faults/spn-3318-fmi-2",
+     "source_site": "bigrigfaults.com",
+     "quality": "high",
+     "method": "free-urllib (0 BrightData kredisi)"
+    }
+   ],
+   "procedures_source": "T55-B/T55-C bigrigfaults.com harvest (SPN/FMI procedures_full)",
+   "procedures_license": "Free/web harvest - see procedures_full[].source_url",
+   "procedures_match_key": "T55 SPN/FMI harvest",
+   "steps": [
+    "Visual inspection (fast wins). Sensor connector/wiring, DP sensor tubes/hoses, soot blockage, water intrusion, exhaust leaks.",
+    "Check fluid sanity. Not applicable unless your fault is fluid-related. Focus on inspections + repeatability.",
+    "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+    "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+    "Verify after repair. Clear codes, road test, confirm it stays inactive."
+   ],
+   "causes": [
+    "Sensor harness noise",
+    "Connector contamination",
+    "Sensor drift"
+   ],
+   "symptoms": [
+    "DPF temps fluctuate oddly",
+    "Regens look unpredictable",
+    "Idle feel weird"
+   ]
+  },
+  "SPN_3568": {
+   "spn": 3568,
+   "name": "Aftertreatment 1 Diesel Particulate Filter Dosing Temperature Sensor",
+   "title_tr": "DPF Dozajlama Sıcaklık Sensörü",
+   "description_en": "SPN 3568 FMI 9: DPF dosing temp sensor voltage high – soot burn temp anomaly",
+   "description_en_source": "T60/T55-C bigrigfaults BD harvest (procedures_full enrichment)",
+   "fault_matrix": {},
+   "procedures_full": [
+    {
+     "overview": "Warning. Usually yes for a short distance, but fix it soon. Warning faults like SPN 3568 FMI 9 often escalate into torque derate/inducement if the condition repeats over multiple drive cycles. The scan-tool checks below help determine how urgent it is.",
+     "severity": "Warning",
+     "can_i_drive": "Usually yes for a short distance, but fix it soon. Warning faults like SPN 3568 FMI 9 often escalate into torque derate/inducement if the condition repeats over multiple drive cycles. The scan-tool checks below help determine how urgent it is.",
+     "symptoms": [
+      "DPF regen temps strange",
+      "Frequent regen cycles",
+      "Smoke patterns vary"
+     ],
+     "causes": [
+      "Short to power",
+      "High temp path near sensor",
+      "Connector wet/damaged"
+     ],
+     "fixes": [
+      "Check harness",
+      "Verify sensor function",
+      "Replace temp sensor"
+     ],
+     "steps": [
+      "Visual inspection (fast wins). Harness routing, connector pins, DEF lines, leaks, and crystallization.",
+      "Check fluid sanity. Confirm DEF level and condition. If contamination is suspected, plan service soon.",
+      "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+      "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+      "Verify after repair. Clear codes, road test, confirm it stays inactive."
+     ],
+     "scan_tool_checks": [
+      "Check status: ACTIVE vs INACTIVE / stored. If it’s not active, review last occurrence conditions (freeze-frame if available).",
+      "Record companion codes (regen inhibited, soot load, exhaust leak, sensor supply voltage). Fix upstream causes first.",
+      "Inspect DP sensor tubes/hoses for soot blockage, cracks, melted sections, and water intrusion.",
+      "Compare DP readings at idle vs under load. Erratic signals often point to wiring, sensor, or blocked tubes.",
+      "If your tool can’t run actuator tests, you can still diagnose a lot with careful inspection + repeatability testing."
+     ],
+     "common_misdiagnoses": [
+      "Replacing the doser immediately without checking the connector and harness routing (rub-through is common near heat shields).",
+      "Ignoring companion codes. NOx sensor faults, SCR efficiency faults, or inducement codes can make dosing faults show up as “symptoms” instead of the root cause.",
+      "Assuming DEF is fine because the tank is full. Contamination and crystallization can still happen."
+     ],
+     "fmi": "9",
+     "source_title": "SPN 3568 FMI 9: DPF dosing temp sensor voltage high – soot burn temp anomaly",
+     "source_url": "https://bigrigfaults.com/faults/spn-3568-fmi-9",
+     "source_site": "bigrigfaults.com",
+     "quality": "high",
+     "method": "free-urllib (0 BrightData kredisi)"
+    }
+   ],
+   "procedures_source": "T55-B/T55-C bigrigfaults.com harvest (SPN/FMI procedures_full)",
+   "procedures_license": "Free/web harvest - see procedures_full[].source_url",
+   "procedures_match_key": "T55 SPN/FMI harvest",
+   "steps": [
+    "Visual inspection (fast wins). Harness routing, connector pins, DEF lines, leaks, and crystallization.",
+    "Check fluid sanity. Confirm DEF level and condition. If contamination is suspected, plan service soon.",
+    "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+    "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+    "Verify after repair. Clear codes, road test, confirm it stays inactive."
+   ],
+   "causes": [
+    "Short to power",
+    "High temp path near sensor",
+    "Connector wet/damaged"
+   ],
+   "symptoms": [
+    "DPF regen temps strange",
+    "Frequent regen cycles",
+    "Smoke patterns vary"
+   ]
+  },
+  "SPN_4321": {
+   "spn": 4321,
+   "name": "Aftertreatment 1 NOx Catalyst Intake Temperature Sensor",
+   "title_tr": "Katalizör NOx Giriş Sıcaklık Sensörü",
+   "description_en": "SPN 4321 FMI 3: Aftertreatment NOx catalyst inlet temp too high – catalyst stress",
+   "description_en_source": "T60/T55-C bigrigfaults BD harvest (procedures_full enrichment)",
+   "fault_matrix": {},
+   "procedures_full": [
+    {
+     "overview": "Warning. Usually yes for a short distance, but fix it soon. Warning faults like SPN 4321 FMI 3 often escalate into torque derate/inducement if the condition repeats over multiple drive cycles. The scan-tool checks below help determine how urgent it is.",
+     "severity": "Warning",
+     "can_i_drive": "Usually yes for a short distance, but fix it soon. Warning faults like SPN 4321 FMI 3 often escalate into torque derate/inducement if the condition repeats over multiple drive cycles. The scan-tool checks below help determine how urgent it is.",
+     "symptoms": [
+      "Aftertreatment light",
+      "Occasional derate",
+      "Temperature spike noticed"
+     ],
+     "causes": [
+      "Exhaust leaks",
+      "Clogged DPF increasing temps",
+      "Catalyst overload"
+     ],
+     "fixes": [
+      "Inspect exhaust path",
+      "Check DPF and DOC temperatures",
+      "Repair leaks early"
+     ],
+     "steps": [
+      "Visual inspection (fast wins). Harness routing, connector pins, DEF lines, leaks, and crystallization.",
+      "Check fluid sanity. Confirm DEF level and condition. If contamination is suspected, plan service soon.",
+      "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+      "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+      "Verify after repair. Clear codes, road test, confirm it stays inactive."
+     ],
+     "scan_tool_checks": [
+      "Confirm whether SPN 4321 FMI 3 is ACTIVE. If it’s active, don’t guess. Diagnose it.",
+      "Look for companion codes: torque derate, inducement, NOx sensor, SCR efficiency, DPF soot, or DEF quality-related faults.",
+      "If supported by your tool (OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) / J1939 scanner), run aftertreatment tests: doser/actuator test, verify commanded vs actual behavior.",
+      "Review regen history (if available). Frequent regens and aftertreatment faults together often indicate underlying emissions performance problems.",
+      "If your tool can’t run actuator tests, you can still diagnose a lot with careful inspection + repeatability testing."
+     ],
+     "common_misdiagnoses": [
+      "Replacing the doser immediately without checking the connector and harness routing (rub-through is common near heat shields).",
+      "Ignoring companion codes. NOx sensor faults, SCR efficiency faults, or inducement codes can make dosing faults show up as “symptoms” instead of the root cause.",
+      "Assuming DEF is fine because the tank is full. Contamination and crystallization can still happen."
+     ],
+     "fmi": "3",
+     "source_title": "SPN 4321 FMI 3: Aftertreatment NOx catalyst inlet temp too high – catalyst stress",
+     "source_url": "https://bigrigfaults.com/faults/spn-4321-fmi-3",
+     "source_site": "bigrigfaults.com",
+     "quality": "high",
+     "method": "free-urllib (0 BrightData kredisi)"
+    }
+   ],
+   "procedures_source": "T55-B/T55-C bigrigfaults.com harvest (SPN/FMI procedures_full)",
+   "procedures_license": "Free/web harvest - see procedures_full[].source_url",
+   "procedures_match_key": "T55 SPN/FMI harvest",
+   "steps": [
+    "Visual inspection (fast wins). Harness routing, connector pins, DEF lines, leaks, and crystallization.",
+    "Check fluid sanity. Confirm DEF level and condition. If contamination is suspected, plan service soon.",
+    "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+    "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+    "Verify after repair. Clear codes, road test, confirm it stays inactive."
+   ],
+   "causes": [
+    "Exhaust leaks",
+    "Clogged DPF increasing temps",
+    "Catalyst overload"
+   ],
+   "symptoms": [
+    "Aftertreatment light",
+    "Occasional derate",
+    "Temperature spike noticed"
+   ]
+  },
+  "SPN_4485": {
+   "spn": 4485,
+   "name": "Engine Exhaust Gas Recirculation (EGR) Valve",
+   "title_tr": "Egzoz Gazı Geri Dönüşüm (EGR) Valfi",
+   "description_en": "SPN 4485 FMI 31: EGR valve malfunction – mechanical fault exists",
+   "description_en_source": "T60/T55-C bigrigfaults BD harvest (procedures_full enrichment)",
+   "fault_matrix": {},
+   "procedures_full": [
+    {
+     "overview": "Critical. Not recommended. SPN 4485 FMI 31 is marked critical and may escalate into derate or shutdown. Diagnose immediately and confirm whether the fault is ACTIVE vs stored (steps below).",
+     "severity": "Critical",
+     "can_i_drive": "Not recommended. SPN 4485 FMI 31 is marked critical and may escalate into derate or shutdown. Diagnose immediately and confirm whether the fault is ACTIVE vs stored (steps below).",
+     "symptoms": [
+      "No power",
+      "Rough idle",
+      "Emissions fault"
+     ],
+     "causes": [
+      "Stuck EGR valve",
+      "Carbon blockage",
+      "Actuator failure"
+     ],
+     "fixes": [
+      "Remove & clean EGR idle path",
+      "Test actuator",
+      "Replace part if binding"
+     ],
+     "steps": [
+      "Visual inspection (fast wins). Harness routing, connector pins, hoses/lines (if applicable), and obvious damage.",
+      "Check fluid sanity. Not applicable unless your fault is fluid-related. Focus on inspections + repeatability.",
+      "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+      "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+      "Verify after repair. Clear codes, road test, confirm it stays inactive."
+     ],
+     "scan_tool_checks": [
+      "Check status: ACTIVE vs INACTIVE / stored. If it’s not active, look at last occurrence conditions (freeze-frame if available).",
+      "Record companion codes. Fixing the “first” code often makes others disappear.",
+      "Clear and re-test under similar conditions. If it returns quickly, you have a repeatable fault (good for diagnosis).",
+      "If your tool can’t run actuator tests, you can still diagnose a lot with careful inspection + repeatability testing."
+     ],
+     "common_misdiagnoses": [
+      "Replacing sensors without checking wiring, grounds, and connector pin fitment.",
+      "Clearing codes repeatedly without confirming whether the fault is ACTIVE and repeatable.",
+      "Missing companion codes that point to the real upstream problem."
+     ],
+     "fmi": "31",
+     "source_title": "SPN 4485 FMI 31: EGR valve malfunction – mechanical fault exists",
+     "source_url": "https://bigrigfaults.com/faults/spn-4485-fmi-31",
+     "source_site": "bigrigfaults.com",
+     "quality": "high",
+     "method": "free-urllib (0 BrightData kredisi)"
+    }
+   ],
+   "procedures_source": "T55-B/T55-C bigrigfaults.com harvest (SPN/FMI procedures_full)",
+   "procedures_license": "Free/web harvest - see procedures_full[].source_url",
+   "procedures_match_key": "T55 SPN/FMI harvest",
+   "steps": [
+    "Visual inspection (fast wins). Harness routing, connector pins, hoses/lines (if applicable), and obvious damage.",
+    "Check fluid sanity. Not applicable unless your fault is fluid-related. Focus on inspections + repeatability.",
+    "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+    "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+    "Verify after repair. Clear codes, road test, confirm it stays inactive."
+   ],
+   "causes": [
+    "Stuck EGR valve",
+    "Carbon blockage",
+    "Actuator failure"
+   ],
+   "symptoms": [
+    "No power",
+    "Rough idle",
+    "Emissions fault"
+   ]
+  },
+  "SPN_5309": {
+   "spn": 5309,
+   "name": "Aftertreatment 1 Diesel Particulate Filter Outlet Temperature Sensor",
+   "title_tr": "DPF Çıkış Sıcaklık Sensörü",
+   "description_en": "SPN 5309 FMI 20: DPF outlet temp sensor data drift – readings not rational",
+   "description_en_source": "T60/T55-C bigrigfaults BD harvest (procedures_full enrichment)",
+   "fault_matrix": {},
+   "procedures_full": [
+    {
+     "overview": "Warning. Usually yes for a short distance, but fix it soon. Warning faults like SPN 5309 FMI 20 commonly escalate into torque derate if ignored. The scan-tool checks below help determine urgency.",
+     "severity": "Warning",
+     "can_i_drive": "Usually yes for a short distance, but fix it soon. Warning faults like SPN 5309 FMI 20 commonly escalate into torque derate if ignored. The scan-tool checks below help determine urgency.",
+     "symptoms": [
+      "DPF temperature spikes",
+      "Unclear regen progress",
+      "Climate/ambient variations"
+     ],
+     "causes": [
+      "Sensor aging/drift",
+      "Exhaust buildup coating sensor",
+      "Wiring noise"
+     ],
+     "fixes": [
+      "Check sensor wiring and sleeve",
+      "Replace temp sensor if drift confirmed",
+      "Verify real temp with scan tool"
+     ],
+     "steps": [
+      "Visual inspection (fast wins). Sensor connector/wiring, DP sensor tubes/hoses, soot blockage, water intrusion, exhaust leaks.",
+      "Check fluid sanity. Not applicable unless your fault is fluid-related. Focus on inspections + repeatability.",
+      "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+      "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+      "Verify after repair. Clear codes, road test, confirm it stays inactive."
+     ],
+     "scan_tool_checks": [
+      "Check status: ACTIVE vs INACTIVE / stored. If it’s not active, review last occurrence conditions (freeze-frame if available).",
+      "Record companion codes (regen inhibited, soot load, exhaust leak, sensor supply voltage). Fix upstream causes first.",
+      "Inspect DP sensor tubes/hoses for soot blockage, cracks, melted sections, and water intrusion.",
+      "Compare DP readings at idle vs under load. Erratic signals often point to wiring, sensor, or blocked tubes.",
+      "If your tool can’t run actuator tests, you can still diagnose a lot with careful inspection + repeatability testing."
+     ],
+     "common_misdiagnoses": [
+      "Replacing sensors without checking wiring, grounds, and connector pin fitment.",
+      "Clearing codes repeatedly without confirming whether the fault is ACTIVE and repeatable.",
+      "Missing companion codes that point to the real upstream problem."
+     ],
+     "fmi": "20",
+     "source_title": "SPN 5309 FMI 20: DPF outlet temp sensor data drift – readings not rational",
+     "source_url": "https://bigrigfaults.com/faults/spn-5309-fmi-20",
+     "source_site": "bigrigfaults.com",
+     "quality": "high",
+     "method": "free-urllib (0 BrightData kredisi)"
+    }
+   ],
+   "procedures_source": "T55-B/T55-C bigrigfaults.com harvest (SPN/FMI procedures_full)",
+   "procedures_license": "Free/web harvest - see procedures_full[].source_url",
+   "procedures_match_key": "T55 SPN/FMI harvest",
+   "steps": [
+    "Visual inspection (fast wins). Sensor connector/wiring, DP sensor tubes/hoses, soot blockage, water intrusion, exhaust leaks.",
+    "Check fluid sanity. Not applicable unless your fault is fluid-related. Focus on inspections + repeatability.",
+    "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+    "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+    "Verify after repair. Clear codes, road test, confirm it stays inactive."
+   ],
+   "causes": [
+    "Sensor aging/drift",
+    "Exhaust buildup coating sensor",
+    "Wiring noise"
+   ],
+   "symptoms": [
+    "DPF temperature spikes",
+    "Unclear regen progress",
+    "Climate/ambient variations"
+   ]
+  },
+  "SPN_5398": {
+   "spn": 5398,
+   "name": "Aftertreatment 1 Diesel Particulate Filter Regeneration Frequency",
+   "title_tr": "DPF Rejenerasyon Sıklığı (Soot Kaynağı İzleme)",
+   "description_en": "SPN 5398 FMI 31: DPF regeneration too frequent due to soot source – condition exists",
+   "description_en_source": "T60/T55-C bigrigfaults BD harvest (procedures_full enrichment)",
+   "fault_matrix": {},
+   "procedures_full": [
+    {
+     "overview": "Warning. Usually yes for a short distance, but fix it soon. Warning faults like SPN 5398 FMI 31 commonly escalate into torque derate if ignored. The scan-tool checks below help determine urgency.",
+     "severity": "Warning",
+     "can_i_drive": "Usually yes for a short distance, but fix it soon. Warning faults like SPN 5398 FMI 31 commonly escalate into torque derate if ignored. The scan-tool checks below help determine urgency.",
+     "symptoms": [
+      "Regens happening too often",
+      "Fuel economy drops",
+      "DPF soot load rises quickly"
+     ],
+     "causes": [
+      "Boost leak",
+      "EGR issues",
+      "Injector/fueling issues causing soot"
+     ],
+     "fixes": [
+      "Pressure test charge air system",
+      "Check EGR operation and sensors",
+      "Address fueling issues if soot remains high"
+     ],
+     "steps": [
+      "Visual inspection (fast wins). Sensor connector/wiring, DP sensor tubes/hoses, soot blockage, water intrusion, exhaust leaks.",
+      "Check fluid sanity. Not applicable unless your fault is fluid-related. Focus on inspections + repeatability.",
+      "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+      "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+      "Verify after repair. Clear codes, road test, confirm it stays inactive."
+     ],
+     "scan_tool_checks": [
+      "Check status: ACTIVE vs INACTIVE / stored. If it’s not active, review last occurrence conditions (freeze-frame if available).",
+      "Record companion codes (regen inhibited, soot load, exhaust leak, sensor supply voltage). Fix upstream causes first.",
+      "Inspect DP sensor tubes/hoses for soot blockage, cracks, melted sections, and water intrusion.",
+      "Compare DP readings at idle vs under load. Erratic signals often point to wiring, sensor, or blocked tubes.",
+      "If your tool can’t run actuator tests, you can still diagnose a lot with careful inspection + repeatability testing."
+     ],
+     "common_misdiagnoses": [
+      "Replacing sensors without checking wiring, grounds, and connector pin fitment.",
+      "Clearing codes repeatedly without confirming whether the fault is ACTIVE and repeatable.",
+      "Missing companion codes that point to the real upstream problem."
+     ],
+     "fmi": "31",
+     "source_title": "SPN 5398 FMI 31: DPF regeneration too frequent due to soot source – condition exists",
+     "source_url": "https://bigrigfaults.com/faults/spn-5398-fmi-31",
+     "source_site": "bigrigfaults.com",
+     "quality": "high",
+     "method": "free-urllib (0 BrightData kredisi)"
+    }
+   ],
+   "procedures_source": "T55-B/T55-C bigrigfaults.com harvest (SPN/FMI procedures_full)",
+   "procedures_license": "Free/web harvest - see procedures_full[].source_url",
+   "procedures_match_key": "T55 SPN/FMI harvest",
+   "steps": [
+    "Visual inspection (fast wins). Sensor connector/wiring, DP sensor tubes/hoses, soot blockage, water intrusion, exhaust leaks.",
+    "Check fluid sanity. Not applicable unless your fault is fluid-related. Focus on inspections + repeatability.",
+    "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+    "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+    "Verify after repair. Clear codes, road test, confirm it stays inactive."
+   ],
+   "causes": [
+    "Boost leak",
+    "EGR issues",
+    "Injector/fueling issues causing soot"
+   ],
+   "symptoms": [
+    "Regens happening too often",
+    "Fuel economy drops",
+    "DPF soot load rises quickly"
+   ]
+  },
+  "SPN_523497": {
+   "spn": 523497,
+   "name": "Aftertreatment 1 Diesel Oxidation Catalyst (DOC) Performance",
+   "title_tr": "Egzoz Son İşlem Dizel Oksidasyon Katalizörü (DOC) Performansı",
+   "description_en": "SPN 523497 FMI 31: Aftertreatment diesel oxidation catalyst (DOC) performance condition exists",
+   "description_en_source": "T60/T55-C bigrigfaults BD harvest (procedures_full enrichment)",
+   "fault_matrix": {},
+   "procedures_full": [
+    {
+     "overview": "Warning. Usually yes for a short distance, but fix it soon. Warning faults like SPN 523497 FMI 31 often escalate into torque derate/inducement if the condition repeats over multiple drive cycles. The scan-tool checks below help determine how urgent it is.",
+     "severity": "Warning",
+     "can_i_drive": "Usually yes for a short distance, but fix it soon. Warning faults like SPN 523497 FMI 31 often escalate into torque derate/inducement if the condition repeats over multiple drive cycles. The scan-tool checks below help determine how urgent it is.",
+     "symptoms": [
+      "Regens not working efficiently",
+      "Soot load rising faster than normal",
+      "May cause repeated aftertreatment faults"
+     ],
+     "causes": [
+      "DOC aging/contamination",
+      "Exhaust leaks affecting temps",
+      "Frequent low-temp operation"
+     ],
+     "fixes": [
+      "Check for leaks and sensor accuracy",
+      "Review regen history and exhaust temps",
+      "Service aftertreatment if confirmed"
+     ],
+     "steps": [
+      "Visual inspection (fast wins). Harness routing, connector pins, DEF lines, leaks, and crystallization.",
+      "Check fluid sanity. Confirm DEF level and condition. If contamination is suspected, plan service soon.",
+      "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+      "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+      "Verify after repair. Clear codes, road test, confirm it stays inactive."
+     ],
+     "scan_tool_checks": [
+      "Check status: ACTIVE vs INACTIVE / stored. If it’s not active, look at last occurrence conditions (freeze-frame if available).",
+      "Record companion codes. Fixing the “first” code often makes others disappear.",
+      "Clear and re-test under similar conditions. If it returns quickly, you have a repeatable fault (good for diagnosis).",
+      "If your tool can’t run actuator tests, you can still diagnose a lot with careful inspection + repeatability testing."
+     ],
+     "common_misdiagnoses": [
+      "Replacing the doser immediately without checking the connector and harness routing (rub-through is common near heat shields).",
+      "Ignoring companion codes. NOx sensor faults, SCR efficiency faults, or inducement codes can make dosing faults show up as “symptoms” instead of the root cause.",
+      "Assuming DEF is fine because the tank is full. Contamination and crystallization can still happen."
+     ],
+     "fmi": "31",
+     "source_title": "SPN 523497 FMI 31: Aftertreatment diesel oxidation catalyst (DOC) performance condition exists",
+     "source_url": "https://bigrigfaults.com/faults/spn-523497-fmi-31",
+     "source_site": "bigrigfaults.com",
+     "quality": "high",
+     "method": "free-urllib (0 BrightData kredisi)"
+    }
+   ],
+   "procedures_source": "T55-B/T55-C bigrigfaults.com harvest (SPN/FMI procedures_full)",
+   "procedures_license": "Free/web harvest - see procedures_full[].source_url",
+   "procedures_match_key": "T55 SPN/FMI harvest",
+   "steps": [
+    "Visual inspection (fast wins). Harness routing, connector pins, DEF lines, leaks, and crystallization.",
+    "Check fluid sanity. Confirm DEF level and condition. If contamination is suspected, plan service soon.",
+    "Confirm the fault is ACTIVE. Stored-only faults can be old events.",
+    "Run actuator tests (if supported). Use OEM diagnostic software (examples: Cummins INSITE, Detroit DDDL, PACCAR DAVIE4) (or a capable J1939 tool) to command tests when available.",
+    "Verify after repair. Clear codes, road test, confirm it stays inactive."
+   ],
+   "causes": [
+    "DOC aging/contamination",
+    "Exhaust leaks affecting temps",
+    "Frequent low-temp operation"
+   ],
+   "symptoms": [
+    "Regens not working efficiently",
+    "Soot load rising faster than normal",
+    "May cause repeated aftertreatment faults"
+   ]
   }
  }
 }

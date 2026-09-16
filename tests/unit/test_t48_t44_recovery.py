@@ -49,7 +49,7 @@ SOURCE_PATH = Path(
 )
 
 EXPECTED_RECOVERED = 6
-EXPECTED_SPNS = 3937
+EXPECTED_SPNS = 3947
 
 
 def _load_recover_module() -> Any:
