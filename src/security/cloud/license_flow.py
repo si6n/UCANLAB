@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import math
 import os
@@ -43,6 +44,27 @@ TRUSTED_CLOUD_PUBLIC_KEYS_B64: dict[str, str] = {
 }
 # Tickets issued before the `kid` scheme carry no recognizable key id.
 LEGACY_KEY_ID: str = "v1"
+
+
+def default_license_hwm_path() -> Path:
+    """Return the canonical persistent anti-rollback HWM path (T57-B / L-2).
+
+    Both the desktop app and the launcher must seal/read the SAME file — a
+    per-process HWM resets on every restart and defeats rollback detection on
+    the launcher's offline license path. `desktop_app._app_data_root()` is the
+    single source of truth; it is imported lazily to avoid a circular import
+    (desktop_app imports this module at import time). The fallback mirrors the
+    same anchor so the two never diverge.
+    """
+    try:
+        from src.ui.desktop_app import _app_data_root
+
+        root = _app_data_root()
+    except Exception:  # noqa: BLE001 — desktop_app unavailable (headless/test): mirror its anchor
+        # src/security/cloud/license_flow.py -> parents[3] is the repo root,
+        # parents[4] mirrors desktop_app's `src/ui/desktop_app.py -> parents[3]`.
+        root = Path(__file__).resolve().parents[4]
+    return root / "logs" / "license_hwm.txt"
 
 
 @dataclass(slots=True, frozen=True)
@@ -125,23 +147,64 @@ class LicenseFlow:
         A random per-machine key stored in the OS-backed vault (DPAPI /
         machine-seed AES-GCM) — tampering with the HWM file requires
         compromising the vault itself.
+
+        T57-B / L-3 (fail-closed): the old code swallowed a `store_secret`
+        failure and returned a fresh random key on EVERY process. A HWM sealed
+        under process A could then never be verified by process B, so the
+        persistent HWM silently collapsed to boot time on each restart —
+        exactly the rollback-reset the HWM exists to prevent, and one an
+        attacker could trigger on purpose by making the vault unwritable.
+        When the key cannot be *persisted* we refuse to treat the HWM as
+        trustworthy instead of minting an unstable key.
         """
         secrets = getattr(self.client, "_secrets", None)
-        try:
-            if secrets is not None and secrets.has_secret("LICENSE_HWM_KEY"):
-                return secrets.get_secret("LICENSE_HWM_KEY")
-        except KeyError:
-            pass
-        import hashlib
-        import os
-
-        derived = hashlib.sha256(b"ucanlab-license-hwm" + os.urandom(32)).digest()
         if secrets is not None:
             try:
-                secrets.store_secret("LICENSE_HWM_KEY", derived)
-            except Exception:  # noqa: BLE001 — vault unavailable: in-memory HWM only
+                if secrets.has_secret("LICENSE_HWM_KEY"):
+                    return secrets.get_secret("LICENSE_HWM_KEY")
+            except KeyError:
                 pass
-        return derived
+
+        derived = hashlib.sha256(b"ucanlab-license-hwm" + os.urandom(32)).digest()
+        if secrets is None:
+            logger.critical(
+                "License HWM integrity key store is unavailable — refusing to "
+                "seal the HWM with an unstable key (fail-closed)",
+            )
+            raise LicenseError(
+                "License HWM integrity key unavailable; refusing to treat HWM as trustworthy.",
+                code="HWM_KEY_UNAVAILABLE",
+            )
+        try:
+            secrets.store_secret("LICENSE_HWM_KEY", derived)
+        except Exception as exc:  # noqa: BLE001 — any vault failure means the key is not durable
+            logger.critical(
+                "License HWM integrity key could not be persisted — a new key "
+                "each restart would reset rollback detection (fail-closed)",
+                extra={"error": str(exc)},
+            )
+            raise LicenseError(
+                "License HWM integrity key unavailable; refusing to treat HWM as trustworthy.",
+                code="HWM_KEY_UNAVAILABLE",
+                cause=exc,
+            ) from exc
+
+        # Confirm the key actually round-trips; some backends accept a write
+        # but drop it (or transform it), which would break the next seal.
+        try:
+            stored = secrets.get_secret("LICENSE_HWM_KEY")
+        except Exception as exc:  # noqa: BLE001 — key vanished right after storing
+            raise LicenseError(
+                "License HWM integrity key unavailable; refusing to treat HWM as trustworthy.",
+                code="HWM_KEY_UNAVAILABLE",
+                cause=exc,
+            ) from exc
+        if stored != derived:
+            raise LicenseError(
+                "License HWM integrity key is not stably persisted; refusing to treat HWM as trustworthy.",
+                code="HWM_KEY_UNAVAILABLE",
+            )
+        return stored
 
     def _load_persistent_hwm(self, fallback: float) -> float:
         """Load the last persisted wall-clock HWM (fail-open to boot time
@@ -284,11 +347,13 @@ class LicenseFlow:
     ) -> CloudLicenseClaims:
         """Verify signature + canonical schema; raise LicenseError on any flaw.
 
-        P1-6 (REVIEW H-5): `is_offline` is enforced by the CALLER stating
-        its verification mode. Offline re-verification (stored ticket, no
-        network round-trip) MUST pass is_offline=True so the backend-granted
-        grace window (`offline_until`) is actually applied; an online
-        activation response keeps the default False.
+        P1-6 (REVIEW H-5) / T57-B (L-6): `is_offline` states whether the
+        CALLER is re-verifying a stored ticket without a network round-trip,
+        but it NO LONGER controls whether the backend-granted grace window is
+        enforced. Validity is bounded by `min(exp, offline_until)` for both
+        modes, so forgetting to declare the offline mode can never extend a
+        ticket past its grace deadline; `is_offline` only selects the error
+        message/telemetry for the grace branch.
         """
         parts = token.strip().split(".")
         if len(parts) != 2:
@@ -403,8 +468,24 @@ class LicenseFlow:
         if now > data["exp"]:
             raise LicenseError("Cloud license ticket has expired.", code="LICENSE_EXPIRED")
 
-        if is_offline and now > data["offline_until"]:
-            raise LicenseError("Cloud offline grace period has expired.", code="OFFLINE_GRACE_EXPIRED")
+        # T57-B / L-6: the backend-granted offline window (`offline_until`) is
+        # an absolute deadline that bounds the ticket EVEN when the caller
+        # reports online. The old code evaluated `exp` and `offline_until`
+        # independently and only applied the grace check when is_offline was
+        # True, so a ticket with a long `exp` and a short grace stayed valid
+        # forever whenever any caller forgot to declare its offline mode —
+        # the grace policy was dead code. Join the two deadlines instead
+        # (min semantics): a ticket is valid only until the EARLIER of the
+        # licence expiry and the grace deadline. `is_offline` is kept only to
+        # emit the more specific error/telemetry, never to widen validity.
+        grace_deadline = min(data["exp"], data["offline_until"])
+        if now > grace_deadline:
+            if is_offline:
+                raise LicenseError("Cloud offline grace period has expired.", code="OFFLINE_GRACE_EXPIRED")
+            raise LicenseError(
+                "Cloud license grace deadline has passed (offline_until exceeded).",
+                code="OFFLINE_GRACE_EXPIRED",
+            )
 
         return CloudLicenseClaims(
             license_id=data["license_id"],

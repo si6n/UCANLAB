@@ -19,6 +19,7 @@ from src.security.cloud.license_flow import (
     DEFAULT_EMBEDDED_CLOUD_PUBLIC_KEY_B64,
     CloudLicenseClaims,
     LicenseFlow,
+    default_license_hwm_path,
 )
 from src.security.hwid.collector import generate_hardware_fingerprint
 
@@ -91,7 +92,13 @@ class LauncherAuthManager:
                 "License public key unavailable after initialization.",
                 code="EMBEDDED_KEY_INVALID",
             )
-        self.flow = LicenseFlow(self.client, self.public_key)
+        # T57-B / L-2: the launcher previously built its LicenseFlow WITHOUT a
+        # hwm_path, so `_persist_hwm` was a no-op and its offline re-verification
+        # ran with a process-local anti-rollback anchor — every launcher restart
+        # reset `last_known_clock_ts` to boot time and a clock rollback while the
+        # launcher was closed went undetected. Share the desktop app's persistent
+        # HWM file so both call paths seal/read the SAME anchor.
+        self.flow = LicenseFlow(self.client, self.public_key, hwm_path=default_license_hwm_path())
 
     @property
     def hwid(self) -> str:
@@ -118,7 +125,14 @@ class LauncherAuthManager:
             # window (offline_until) is actually enforced. The old default
             # (False) made the grace check dead code: an expired-grace
             # ticket was accepted forever as long as `exp` had not passed.
-            claims = self.flow.verify_cloud_ticket(ticket_str, is_offline=True)
+            # T57-B / L-6: always pass the registered device id explicitly —
+            # never rely on the client fallback — so device binding cannot be
+            # silently skipped when the vault is in an unexpected state.
+            claims = self.flow.verify_cloud_ticket(
+                ticket_str,
+                expected_device_id=self.client.get_device_id(),
+                is_offline=True,
+            )
             return AuthStatus(
                 is_authenticated=has_session,
                 has_valid_license=True,

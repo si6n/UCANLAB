@@ -10,6 +10,7 @@ import hashlib
 import hmac
 import json
 import os
+import sys
 import threading
 import time
 from dataclasses import dataclass, field
@@ -80,6 +81,17 @@ class LicenseValidator:
         # Wildcard ("*") hardware licenses only via explicit constructor
         # opt-in (test fixtures). The former environment-variable fallback
         # let process environment loosen license binding and is removed (G4).
+        # T57-B / L-4: the opt-in is a TEST-ONLY affordance — a frozen
+        # (production) build must never accept a wildcard that unlocks every
+        # machine, so refuse the constructor rather than rely on a comment.
+        if allow_wildcard_license is True and getattr(sys, "frozen", False):
+            logger.critical(
+                "Wildcard license opt-in rejected in a frozen build (fail-closed)"
+            )
+            raise LicenseError(
+                "Wildcard licenses are disabled in frozen builds.",
+                code="WILDCARD_FORBIDDEN",
+            )
         self._allow_wildcard = allow_wildcard_license is True
 
         # SEC-T40-1: sentinels the collector substitutes when a hardware read
@@ -91,11 +103,15 @@ class LicenseValidator:
             "UNKNOWN_BIOS",
             "UNKNOWN_MAC",
             "FALLBACK-",
+            "NON_WIN32-",
         )
 
         # HWM HMAC key comes from the SecretProvider vault, never hardcoded (F-04)
         self._secret_provider = secret_provider or get_default_secret_provider()
         self._hwm_key = self._load_hwm_key()
+        # T57-B / V-1: track whether the missing-persistence warning has been
+        # emitted so the CRITICAL is logged once per instance, not per verify.
+        self._hwm_persistence_warned = False
         # M-03: serializes the rollback check + HWM anchor update so
         # concurrent verify_token() calls cannot interleave (TOCTOU).
         self._clock_lock = threading.Lock()
@@ -295,6 +311,18 @@ class LicenseValidator:
                     self.last_known_clock_ts = max(self.last_known_clock_ts, now)
             else:
                 # No persistence configured: in-memory anchor advances directly.
+                # T57-B / V-1: this silently degrades anti-rollback protection to
+                # session-only — a restart re-anchors to the machine clock and a
+                # rollback performed while the app was closed goes undetected.
+                # That must never ship unnoticed, so make it loud (once).
+                if not self._hwm_persistence_warned:
+                    self._hwm_persistence_warned = True
+                    logger.critical(
+                        "License anti-rollback high-water mark has NO persistence "
+                        "path configured — clock-rollback detection is session-only "
+                        "and resets on every restart. Pass high_water_mark_path in "
+                        "production wiring.",
+                    )
                 self.last_known_clock_ts = now
 
         # Parse token: <payload_b64>.<sig_b64>
@@ -363,6 +391,24 @@ class LicenseValidator:
             raise LicenseError(
                 "Hardware identity could not be determined on this machine; "
                 "license cannot be verified.",
+                code="HARDWARE_INDETERMINATE",
+            )
+
+        # T57-B / L-5: apply the SAME fail-closed gate to the fingerprint the
+        # TOKEN carries. Previously only the local side was inspected, so a
+        # token bearing a collector sentinel (UNKNOWN_*/FALLBACK-*/NON_WIN32-*)
+        # reached the `==` comparison — and two hosts that both failed the same
+        # hardware read produce byte-identical sentinels, letting one cloned
+        # machine's token unlock every machine in that state. `*` is an explicit
+        # wildcard, not a sentinel, so `_is_indeterminate_fingerprint` returns
+        # False for it and the wildcard branch below still works.
+        if self._is_indeterminate_fingerprint(payload.hardware_fingerprint):
+            logger.warning(
+                "License token carries an indeterminate hardware fingerprint",
+                extra={"token_prefix": (payload.hardware_fingerprint or "")[:8]},
+            )
+            raise LicenseError(
+                "License token carries an indeterminate hardware id; cannot verify.",
                 code="HARDWARE_INDETERMINATE",
             )
 

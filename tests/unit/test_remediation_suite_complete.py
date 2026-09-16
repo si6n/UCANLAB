@@ -313,9 +313,15 @@ def test_cloud_license_offline_until_enforced() -> None:
     sig = priv_key.sign(raw_payload)
     token = f"{base64.urlsafe_b64encode(raw_payload).decode('utf-8').rstrip('=')}.{base64.urlsafe_b64encode(sig).decode('utf-8').rstrip('=')}"
 
-    # Online check succeeds (now < exp)
-    claims = flow.verify_cloud_ticket(token, is_offline=False)
-    assert claims.license_id == "lic_99"
+    # T57-B / L-6: the grace window (offline_until) is an absolute deadline
+    # that bounds the ticket EVEN when the caller reports online. The old
+    # contract asserted the online check "succeeds (now < exp)" while
+    # offline_until had already elapsed — that is exactly the hole L-6 closes
+    # (a long `exp` masking a short grace). The online check must now also
+    # fail closed once the grace deadline has passed.
+    with pytest.raises(LicenseError) as exc_info:
+        flow.verify_cloud_ticket(token, is_offline=False)
+    assert exc_info.value.code == "OFFLINE_GRACE_EXPIRED"
 
     # Offline check fails (now > offline_until)
     with pytest.raises(LicenseError) as exc_info:
