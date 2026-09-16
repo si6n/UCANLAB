@@ -23,7 +23,7 @@ import math
 import os
 import threading
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import TYPE_CHECKING, ClassVar
 
 from src.core.errors import SafetyError
@@ -169,7 +169,9 @@ class TxSafetyGateway:
             self.estop = EmergencyStopSystem()
         self.supervisor = supervisor
         self.watchdog = watchdog
-        self.whitelist_ids: set[int] = set(whitelist_ids) if whitelist_ids is not None else set()
+        self.whitelist_ids: frozenset[int] = (
+            frozenset(whitelist_ids) if whitelist_ids is not None else frozenset()
+        )
         # (value, mask) pairs: an ID passes when (id & mask) == value. Used to
         # authorize whole protocol-response families (e.g. TP.CM frames sourced
         # from our J1939 address) without enumerating every peer address.
@@ -210,7 +212,12 @@ class TxSafetyGateway:
         # below exists solely for staged migrations; enabling it restores the
         # legacy behavior with a WARNING instead of the fail-closed rejection.
         self._allow_legacy_boolean_confirm: bool = bool(allow_legacy_boolean_confirm)
-        self._consumed_confirmations: set[bytes] = set()
+        # G-4: replay store for consumed confirmation tokens. It MUST be
+        # insertion-ordered so capacity eviction is deterministic FIFO and can
+        # target EXPIRED entries first — a plain `set` + blind `.pop()` deleted
+        # a RANDOM entry, so a still-live TTL token could be evicted and
+        # replayed. Keyed by token payload -> expiry_ns (monotonic).
+        self._consumed_confirmations: "collections.OrderedDict[bytes, int]" = collections.OrderedDict()
         # Whitelist single-miss streak: first miss = reject+alarm, persistent
         # pattern (>= WHITELIST_ESTOP_AFTER) = latch E-Stop.
         self._whitelist_miss_streak: int = 0
@@ -260,9 +267,82 @@ class TxSafetyGateway:
 
         # Wire E-stop callback to halt bus TX and trigger fault state
         self.estop.register_callback(self._on_estop_triggered)
+        # G-6: wire the driver abort/flush hook when the HAL exposes one, so an
+        # E-Stop landing between the PHASE-3 fence re-check and `privileged_send`
+        # can cancel the already-queued frame instead of it reaching the wire.
+        self._register_driver_abort_hook()
 
         if self.supervisor:
             self.supervisor.register_callback(self._on_safety_state_changed)
+
+    def _request_estop(
+        self,
+        source: EStopTriggerSource,
+        reason: str,
+        *,
+        vehicle_speed_kmh: float | None = None,
+        defer: bool = False,
+        deferred: list[tuple[EStopTriggerSource, str, float]] | None = None,
+    ) -> None:
+        """Trigger the E-Stop, snapshot-then-release (G-10).
+
+        The gateway RLock is held throughout the policy stages. Calling
+        ``estop.trigger()`` under it meant every OTHER sender — and
+        ``update_physical_speed`` — blocked behind the whole E-Stop callback
+        chain (supervisor → UI/watchdog → abort hooks) during a fault storm,
+        artificially stale-ing the interlock feed. The trigger decision is
+        taken under the lock; the engagement itself runs OUTSIDE it.
+
+        ``defer=True`` (used on the Stage 3/4/6a paths whose exceptions unwind
+        THROUGH the surrounding `with self._lock`) appends the engagement to
+        ``deferred`` for the caller to fire after the lock is released.
+        """
+        if defer:
+            if deferred is None:  # pragma: no cover - defensive
+                raise RuntimeError("defer=True requires a deferred sink")
+            deferred.append((source, reason, vehicle_speed_kmh or 0.0))
+            return
+        if vehicle_speed_kmh is None:
+            self.estop.trigger(source, reason)
+        else:
+            self.estop.trigger(source, reason, vehicle_speed_kmh=vehicle_speed_kmh)
+
+    def _register_driver_abort_hook(self) -> None:
+        """G-6: bind the HAL TX-flush primitive to the E-Stop abort chain.
+
+        The review's abort-hook mitigation was previously documented at the
+        PHASE-3 dispatch site but never wired. Where the driver exposes a
+        TX-flush/abort primitive the hook is registered here (and re-registered
+        on `rebind_bus`); where it does not, the residual window stays an
+        accepted, documented risk and no no-op hook is installed.
+        """
+        flush = self._resolve_driver_flush()
+        if flush is None:
+            return
+        try:
+            self.estop.register_abort_hook(flush)
+        except Exception:  # pragma: no cover - defensive: never fail construction
+            logger.exception("Failed to register the E-Stop driver abort/flush hook")
+
+    def _resolve_driver_flush(self) -> "Callable[[], None] | None":
+        """Return the bus driver's TX-flush/abort callable, or None.
+
+        Prefers an explicit `flush_tx_buffer`/`abort_tx`, falling back to any
+        `flush`/`abort` the driver exposes. Returns None when nothing callable
+        is available (VirtualBus and the replay drivers have no TX queue).
+        """
+        for name in ("flush_tx_buffer", "abort_tx", "flush", "abort"):
+            candidate = getattr(self._bus, name, None)
+            if callable(candidate):
+                return candidate  # type: ignore[no-any-return]
+        # Some drivers expose the primitive only through their raw transport.
+        raw = getattr(self._bus, "bus", None)
+        if raw is not None:
+            for name in ("flush_tx_buffer", "abort_tx"):
+                candidate = getattr(raw, name, None)
+                if callable(candidate):
+                    return candidate  # type: ignore[no-any-return]
+        return None
 
     @property
     def bus(self) -> AbstractBus:
@@ -331,11 +411,51 @@ class TxSafetyGateway:
             # estop.tx_fence getter takes the estop lock; bump via trigger-
             # free generation advance (read-modify-write under estop lock).
             self.estop.advance_tx_fence("gateway bus rebind")
+        # G-6: rebind the abort hook to the NEW driver's flush primitive (or
+        # leave the accepted residual in place when it has none).
+        self._register_driver_abort_hook()
         logger.warning(
             "TX Gateway bus rebound",
             extra={
                 "old_channel": getattr(old, "channel_id", None),
                 "new_channel": getattr(new_bus, "channel_id", None),
+            },
+        )
+
+    def rebind_whitelist(
+        self,
+        whitelist_ids: "set[int] | frozenset[int] | Sequence[int] | None" = None,
+        whitelist_masks: Sequence[tuple[int, int]] | None = None,
+    ) -> None:
+        """G-11: the ONLY sanctioned way to widen/narrow the ID whitelist.
+
+        `whitelist_ids` used to be a public mutable `set`, so any holder of the
+        gateway could call `gw.whitelist_ids.add(...)` and silently authorize a
+        new ID at runtime — an unauditable fail-open. It is now a `frozenset`
+        and this explicit method is the auditable replacement. The widening is
+        logged at WARNING and re-bumps the E-Stop fence so in-flight validated
+        frames are re-checked against the new set.
+
+        A `None` argument leaves that component unchanged.
+        """
+        with self.estop.tx_send_lock:
+            with self._lock:
+                if whitelist_ids is not None:
+                    self.whitelist_ids = frozenset(whitelist_ids)
+                if whitelist_masks is not None:
+                    self.whitelist_masks = tuple(whitelist_masks)
+                # A whitelist change is a policy change: reset the miss streak
+                # so the new policy starts from a clean slate.
+                self._whitelist_miss_streak = 0
+                snapshot_ids = self.whitelist_ids
+                snapshot_masks = self.whitelist_masks
+            # Re-check in-flight validated frames against the new policy.
+            self.estop.advance_tx_fence("gateway whitelist rebind")
+        logger.warning(
+            "TX Gateway whitelist rebound",
+            extra={
+                "id_count": len(snapshot_ids),
+                "mask_count": len(snapshot_masks),
             },
         )
 
@@ -401,10 +521,37 @@ class TxSafetyGateway:
             raise DualConfirmationRequiredError(
                 "Critical command rejected: confirmation token already consumed",
             )
-        self._consumed_confirmations.add(payload)
-        if len(self._consumed_confirmations) > 1024:
-            # Bounded replay set: TTL expiry bounds live tokens; evict oldest.
-            self._consumed_confirmations.pop()
+        self._consume_confirmation(payload, expiry_ns=expiry_ns)
+
+    # G-4: hard ceiling on the replay store. Beyond this we evict the OLDEST
+    # entries first — but ONLY after pruning everything already expired, so a
+    # live token is never dropped while an expired one remains.
+    _CONSUMED_CONFIRMATIONS_MAX: ClassVar[int] = 1024
+
+    def _consume_confirmation(self, payload: bytes, *, expiry_ns: int) -> None:
+        """Record a confirmation token as consumed, with TTL-bounded pruning.
+
+        G-4: the old `set` + blind `.pop()` evicted a RANDOM payload, which
+        could delete a token whose TTL had NOT yet elapsed (replay window).
+        This prune is expiry-aware and insertion-ordered:
+
+          1. drop every entry whose monotonic expiry has passed;
+          2. if still over capacity, evict oldest-first (FIFO) — those are the
+             tokens closest to expiry, never a freshly-minted one.
+        """
+        now_ns = time.monotonic_ns()
+        store = self._consumed_confirmations
+        # 1) Expiry prune.
+        while store:
+            oldest_payload, oldest_expiry = next(iter(store.items()))
+            if oldest_expiry <= now_ns:
+                store.pop(oldest_payload, None)
+            else:
+                break
+        store[payload] = expiry_ns
+        # 2) Capacity prune (FIFO) — only reached when nothing was expired.
+        while len(store) > self._CONSUMED_CONFIRMATIONS_MAX:
+            store.popitem(last=False)
 
     @classmethod
     def for_testing(
@@ -595,6 +742,42 @@ class TxSafetyGateway:
         confirmation_token: bytes | str | None = None,
         inbound_triggered: bool = False,
     ) -> bool:
+        """G-10 wrapper: run the policy pipeline and fire any E-Stop decided
+        under the gateway lock AFTER that lock has been released.
+
+        The acceptance criterion (S-1 / G-10) is that ``estop.trigger()`` never
+        runs while the gateway lock is held — a fault storm then cannot block
+        other senders or ``update_physical_speed``. Engagements decided inside
+        ``_validate_and_transmit_locked`` are parked in ``deferred`` and fired
+        here, on BOTH the success path and any exception that unwinds the
+        policy stages (the rejection paths collect the engagement then raise).
+        """
+        deferred: list[tuple[EStopTriggerSource, str, float]] = []
+        try:
+            return self._validate_and_transmit_locked(
+                frame,
+                is_critical_command=is_critical_command,
+                user_confirmed=user_confirmed,
+                budget_category=budget_category,
+                confirmation_token=confirmation_token,
+                inbound_triggered=inbound_triggered,
+                deferred=deferred,
+            )
+        finally:
+            # Lock is released here (the callee's `with self._lock` exited).
+            for source, reason, speed in deferred:
+                self._request_estop(source, reason, vehicle_speed_kmh=speed)
+
+    def _validate_and_transmit_locked(
+        self,
+        frame: CanFrame,
+        is_critical_command: bool = False,
+        user_confirmed: bool = False,
+        budget_category: str = "default",
+        confirmation_token: bytes | str | None = None,
+        inbound_triggered: bool = False,
+        deferred: list[tuple[EStopTriggerSource, str, float]] | None = None,
+    ) -> bool:
         """Enforce strict 6-stage policy evaluation order before transmitting onto HAL.
 
         Lock structure: validation + token consumption under lock → snapshot estop
@@ -634,6 +817,14 @@ class TxSafetyGateway:
         budget_consumed = False
         stamp: tuple[int, int, int] | None = None
         budget: TxBudget | None = None
+        # G-10: E-Stop engagements decided under the gateway lock are parked
+        # here and fired by the `validate_and_transmit` wrapper AFTER the lock
+        # is released (snapshot-then-release), so the trigger decision stays
+        # under the lock while the callback chain (supervisor/UI/watchdog/abort
+        # hooks) never blocks other senders.
+        deferred_estops: list[tuple[EStopTriggerSource, str, float]] = (
+            deferred if deferred is not None else []
+        )
 
         with self._lock:
             now_ns = time.monotonic_ns()
@@ -693,7 +884,12 @@ class TxSafetyGateway:
                         "Transmission blocked: Dynamic whitelist is empty or unconfigured (Fail-Closed)",
                     )
                 id_allowed = frame.arbitration_id in self.whitelist_ids or any(
-                    (frame.arbitration_id & mask) == value for value, mask in self.whitelist_masks
+                    # G-11: `mask != 0` is mandatory. `(id & 0) == 0` is true for
+                    # EVERY id, so a zero mask (e.g. a mis-parsed config tuple)
+                    # silently authorized the whole bus. A mask of 0 carries no
+                    # ID information and must never match.
+                    mask != 0 and (frame.arbitration_id & mask) == value
+                    for value, mask in self.whitelist_masks
                 )
                 if id_allowed:
                     # Allowed frame resets the single-miss streak.
@@ -720,10 +916,12 @@ class TxSafetyGateway:
                             "Whitelist violation pattern — triggering E-Stop",
                             extra={"streak": self._whitelist_miss_streak},
                         )
-                        self.estop.trigger(
+                        self._request_estop(
                             EStopTriggerSource.UNAUTHORIZED_PAYLOAD,
                             f"TX to non-whitelisted ID: 0x{frame.arbitration_id:08X} "
                             f"(streak {self._whitelist_miss_streak})",
+                            defer=True,
+                            deferred=deferred_estops,
                         )
                     raise WhitelistViolationError(
                         f"Transmission blocked: ID 0x{frame.arbitration_id:08X} not in whitelist",
@@ -736,10 +934,12 @@ class TxSafetyGateway:
             if is_critical_command:
                 # Speed telemetry freshness check
                 if self._last_speed_update_ns == 0 or (now_ns - self._last_speed_update_ns) > self.SPEED_VALIDITY_TIMEOUT_NS:
-                    self.estop.trigger(
+                    self._request_estop(
                         EStopTriggerSource.SPEED_INTERLOCK_BREACH,
                         "Critical command attempted with stale or missing vehicle speed telemetry",
                         vehicle_speed_kmh=self._physical_speed_kmh,
+                        defer=True,
+                        deferred=deferred_estops,
                     )
                     raise SpeedDataStaleError(
                         "Safety Interlock: Critical command blocked due to stale vehicle speed telemetry",
@@ -751,10 +951,12 @@ class TxSafetyGateway:
                         "Speed interlock triggered on critical command",
                         extra={"speed": self._physical_speed_kmh},
                     )
-                    self.estop.trigger(
+                    self._request_estop(
                         EStopTriggerSource.SPEED_INTERLOCK_BREACH,
                         f"Critical command attempted while moving ({self._physical_speed_kmh} km/h)",
                         vehicle_speed_kmh=self._physical_speed_kmh,
+                        defer=True,
+                        deferred=deferred_estops,
                     )
                     raise SpeedInterlockError(
                         f"Safety Interlock: Critical command blocked while vehicle is moving ({self._physical_speed_kmh} km/h)",
@@ -837,10 +1039,12 @@ class TxSafetyGateway:
                         "Sustained global TX overload — triggering E-Stop",
                         extra={"streak": self._total_overload_streak},
                     )
-                    self.estop.trigger(
+                    self._request_estop(
                         EStopTriggerSource.RATE_LIMIT_OVERFLOW,
                         f"Sustained global TX envelope overload "
                         f"({self._total_overload_streak} consecutive rejections)",
+                        defer=True,
+                        deferred=deferred_estops,
                     )
                 raise RateLimitExceededError(
                     f"Global TX envelope exceeded ({self.MAX_TOTAL_TX_PER_SEC} msg/s across all lanes)"
@@ -904,9 +1108,11 @@ class TxSafetyGateway:
                             "TX rate limit sustained violation pattern — triggering E-Stop",
                             extra={"streak": self._rate_overload_streak},
                         )
-                        self.estop.trigger(
+                        self._request_estop(
                             EStopTriggerSource.RATE_LIMIT_OVERFLOW,
                             f"Sustained TX rate overload ({self._rate_overload_streak} consecutive rejections)",
+                            defer=True,
+                            deferred=deferred_estops,
                         )
                     elif inbound_triggered and self._rate_overload_streak >= self.RATE_ESTOP_AFTER:
                         # Rate-limited visibility for the inbound-response flood.
@@ -1010,19 +1216,18 @@ class TxSafetyGateway:
         # in driver I/O holds it, and the engagement must still complete
         # promptly (test_estop_callback_does_not_block_on_slow_driver_io).
         #
-        # P8 (G-6) — RESIDUAL WINDOW, ACCEPTED RISK (no mitigation wired):
-        # the window between the fence re-check below and `privileged_send`
-        # cannot be closed by an abort/flush hook today. `EmergencyStopSystem`
-        # supports `register_abort_hook` and runs the hooks outside its locks
-        # (estop.py trigger()), but this gateway deliberately does NOT register
-        # one because no HAL driver exposes a TX flush/abort primitive
-        # (`src/hal` has no `flush`/`abort` on AbstractBus or its drivers) — a
-        # hook would have nothing to call. The window is therefore an accepted,
-        # documented residual: bounded by the duration of a single
-        # `privileged_send` call on a driver that is not already wedged. When a
-        # HAL flush/abort API lands, register it here via
-        # `self.estop.register_abort_hook(...)` — that is the intended home for
-        # the mitigation described in the review.
+        # P8 (G-6) — RESIDUAL WINDOW, MITIGATION WIRED WHERE AVAILABLE:
+        # the window between the fence re-check below and `privileged_send` is
+        # covered by the driver abort/flush hook registered in
+        # `_register_driver_abort_hook()`: when the HAL exposes a TX
+        # flush/abort primitive, `EmergencyStopSystem.trigger()` runs that hook
+        # (outside its locks, estop.py) and the queued frame is cancelled.
+        # The residual is therefore bounded to drivers that expose NO such
+        # primitive (VirtualBus and the replay buses have no TX queue): for
+        # those, the window is an accepted, documented risk, limited to the
+        # duration of a single `privileged_send` on a driver that is not
+        # already wedged. When a driver's flush/abort API lands, the hook
+        # wiring in `_resolve_driver_flush()` picks it up with no change here.
         # -----------------------------------------------------------------
         with self.estop.tx_send_lock:
             if fence_snapshot != self.estop.tx_fence or self.estop.is_engaged:

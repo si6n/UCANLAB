@@ -142,6 +142,11 @@ class SafetySupervisor:
         self._fault_reason: str = ""
         self._history: deque[StateTransitionRecord] = deque(maxlen=10_000)
         self._fault_timestamps_ns: deque[int] = deque(maxlen=32)
+        # S-1: fault-EVENT ledger. Incremented on every trigger_fault call,
+        # even when the state is already FAULT (idempotent transition), so a
+        # dropped/suppressed fault is observable rather than silent.
+        self._fault_event_count: int = 0
+        self._last_fault_event_ns: int = 0
 
     def bind_estop(self, estop: Any) -> None:
         """Associate an EmergencyStopSystem instance to govern fault exits.
@@ -286,6 +291,10 @@ class SafetySupervisor:
                     f"Reason: {reason or 'N/A'}"
                 )
                 logger.critical(err_msg)
+                # S-1 companion fix: announce the forced FAULT BEFORE mutating
+                # state/history, so a callback re-entering trigger_fault cannot
+                # make the transition a no-op and lose the fault record.
+                self._record_fault_event(reason or "ILLEGAL_STATE_TRANSITION")
                 old_state = self._state
                 self._state = SafetyState.FAULT
                 fault_reason = "ILLEGAL_STATE_TRANSITION: " + err_msg
@@ -494,25 +503,51 @@ class SafetySupervisor:
         self._require_arm_authorization("activate_tx", auth_token)
         self.transition_to(SafetyState.ACTIVE, reason=reason)
 
+    def _record_fault_event(self, reason: str) -> None:
+        """S-1: monotonic record of every fault event, independent of state.
+
+        ``trigger_fault`` is idempotent at the state level (a fault while
+        already in FAULT does not re-enter). This counter/timestamp proves the
+        fault was RECEIVED and never silently swallowed by the log limiter.
+        """
+        with self._lock:
+            self._fault_event_count += 1
+            self._last_fault_event_ns = time.monotonic_ns()
+        logger.warning(
+            "Safety fault event recorded",
+            extra={"reason": _sanitize_reason(reason), "fault_events": self._fault_event_count},
+        )
+
     def trigger_fault(self, reason: str = "Safety fault detected") -> None:
         """Trigger FAULT state, immediately revoking all TX authorization.
 
-        Rate-limited to FAULT_RATE_LIMIT_PER_SEC per second (fail-closed audit;
-        excess calls are logged and dropped to prevent DoS via fault storms).
+        S-1 (fail-closed): the FAULT transition is UNCONDITIONAL. The rate
+        limiter below only thins the audit-LOG chatter of a fault storm — it
+        must NEVER drop the safety transition itself. Dropping it left the
+        supervisor in its previous state (e.g. ARMED_TX) while the fault was
+        still real: a textbook fail-open. ``transition_to`` is idempotent, so
+        suppressing the transition bought nothing anyway — the fault EVENT is
+        still recorded (``_fault_event_count``) even when the state is already
+        FAULT.
         """
         now_ns = time.monotonic_ns()
         with self._lock:
             # Prune timestamps older than 1s.
             while self._fault_timestamps_ns and (now_ns - self._fault_timestamps_ns[0]) >= 1_000_000_000:
                 self._fault_timestamps_ns.popleft()
-            if len(self._fault_timestamps_ns) >= self.FAULT_RATE_LIMIT_PER_SEC:
-                logger.warning(
-                    "trigger_fault rate-limited (fault storm suppressed)",
-                    extra={"reason": _sanitize_reason(reason)},
-                )
-                return
-            self._fault_timestamps_ns.append(now_ns)
-        logger.warning("Safety FAULT triggered", extra={"reason": _sanitize_reason(reason)})
+            storm = len(self._fault_timestamps_ns) >= self.FAULT_RATE_LIMIT_PER_SEC
+            if not storm:
+                self._fault_timestamps_ns.append(now_ns)
+        if storm:
+            # Log thinning only — the transition below still runs.
+            logger.warning(
+                "trigger_fault log rate-limited (fault storm; transition still enforced)",
+                extra={"reason": _sanitize_reason(reason)},
+            )
+        else:
+            logger.warning("Safety FAULT triggered", extra={"reason": _sanitize_reason(reason)})
+        # S-1: ALWAYS enforced, regardless of the limiter.
+        self._record_fault_event(reason)
         self.transition_to(SafetyState.FAULT, reason=reason)
 
     def _force_fault(self, reason: str) -> None:

@@ -421,8 +421,11 @@ def test_tier1_whitelist_dynamic_runtime_id_addition() -> None:
         gateway.validate_and_transmit(frame_new)
     assert estop.is_engaged is False
 
-    # Dynamically add ID (isolated miss recovers without a reset flow)
-    gateway.whitelist_ids.add(0x7E8)
+    # Dynamically add ID (isolated miss recovers without a reset flow).
+    # T57-A / G-11: `whitelist_ids` is now an immutable frozenset; the
+    # auditable widening path is `rebind_whitelist()` — the old
+    # `gateway.whitelist_ids.add()` is (by design) impossible.
+    gateway.rebind_whitelist({0x7E0, 0x7E8})
 
     # Second attempt succeeds
     assert gateway.validate_and_transmit(frame_new) is True
