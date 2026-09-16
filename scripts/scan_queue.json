@@ -1,5 +1,5 @@
 {
- "_comment": "UCANLAB surekli tarama kuyrugu. Kesif ajani EKLER, tarama ajanlari TUKETIR. Ayni kaynagi ikinci kez taramayin!",
+ "_comment": "UCANLAB surekli tarama kuyrugu. Kesif ajani EKLER, tarama ajanlari TUKETIR. Ayni kaynagi ikinci kez taramayin! | KESIF-r4 2026-09-16: +6 kaynak",
  "_protocol": {
   "producer": "kesif ajani — yeni kaynak bulur, status=pending ekler",
   "consumer": "tarama ajani — status=pending alir, scanning->done yapar, ham cikti yazar",
@@ -67,10 +67,11 @@
    "domain": "b2bendix.com",
    "type": "dtc",
    "method": "free",
-   "status": "pending",
+   "status": "scanning",
    "credits_used": 0,
    "tur": "<=35",
-   "notes": "357 satir / 27 SPN"
+   "notes": "357 satir / 27 SPN",
+   "locked_by": "chassis:t_2d5e35d4"
   },
   {
    "id": "api_b2bendix_com",
@@ -78,10 +79,11 @@
    "domain": "api.b2bendix.com",
    "type": "dtc",
    "method": "free",
-   "status": "pending",
+   "status": "scanning",
    "credits_used": 0,
    "tur": "<=35",
-   "notes": "OCC API acik"
+   "notes": "OCC API acik",
+   "locked_by": "chassis:t_2d5e35d4"
   },
   {
    "id": "google_com",
@@ -89,10 +91,11 @@
    "domain": "google.com",
    "type": "dtc",
    "method": "brightdata",
-   "status": "pending",
+   "status": "scanning",
    "credits_used": 0,
    "tur": "<=35",
-   "notes": "URL kesfi — YALNIZ zone -country-us sonekiyle"
+   "notes": "URL kesfi — YALNIZ zone -country-us sonekiyle",
+   "locked_by": "chassis:t_2d5e35d4"
   },
   {
    "id": "j1939hub",
@@ -432,6 +435,96 @@
    "license": "belirsiz (WordPress blog, telif hakkı saklı)",
    "sitemap": "https://www.carcarehacks.com/sitemap.xml -> post-sitemap{,2,3}.xml",
    "notes": "2126 post; SAYILDI: 421 P/B/C/U kod yazisi + 55 SPN/FMI yazisi = 476 hedef. Ornek P0401 sayfasi 18KB metin; Symptoms+Causes+How to Fix+Diagnostic bolumleri mevcut. Kalite high. Lisans belirsiz."
+  },
+  {
+   "id": "faultcodes_co",
+   "url": "faultcodes.co/code/{pbcu}{nnnn}/",
+   "domain": "faultcodes.co",
+   "type": "dtc",
+   "method": "free",
+   "status": "pending",
+   "credits_used": 0,
+   "tur": "KESIF-2026-09-16-r4",
+   "quality": "low",
+   "est_items": 4588,
+   "license": "belirsiz (ticari OBD sitesi; about/terms/privacy'de lisans izi YOK)",
+   "sitemap": "https://faultcodes.co/sitemap.xml (10 alt-sitemap; kod URL'leri page/glossary degil, kod sayfalari car-sitemap haricinde indexlenmis)",
+   "notes": "SAYILDI: 5226 URL, 4588 benzersiz kod (B=1511/P=1892/C=617/U=574 -> distinct). DB karsilastirma: 4322 ZATEN VAR, 266 YENI (orn. B0408/B0409/B0414/U0xxx serisi). ICERIK SIG/DUSUK: 14 ornek sayfa -> how-to/symptoms/causes = 0/14. Sayfalar sablon + 1 satirlik 'Short Description' + reklam/partner link. Sadece 266 yeni KOD + kisa aciklama katkisi. Kalite=low (kod envanteri), prosedur degeri YOK."
+  },
+  {
+   "id": "github_sathya1495_obd2_dtc_database",
+   "url": "raw.githubusercontent.com/sathya1495/obd2-dtc-database/main/codes/*.json",
+   "domain": "raw.githubusercontent.com",
+   "type": "dtc",
+   "method": "free",
+   "status": "pending",
+   "credits_used": 0,
+   "tur": "KESIF-2026-09-16-r4",
+   "quality": "high",
+   "est_items": 60,
+   "license": "NOASSERTION (GitHub: lisans dosyasi BILDIRILMEMIS -> kullanmadan once teyit)",
+   "sitemap": "https://github.com/sathya1495/obd2-dtc-database/tree/main/codes",
+   "notes": "60 kod / 3 dosya; HER kayit: code+system+subsystem+description+severity+common_makes[]+common_causes[]+guide_url. 60/60 common_causes DOLU (gercek tani adimlari: 'Inspect EGR valve and passages'). DIKKAT: guide_url fixcarcodes.com -> o site 410 GONE; bu repo TEK KALAN KOPYA. Az kayit ama kod-ozel semptom/neden/adim -> kalite=high. DB karsilastirma: 28/29 DB'de var; katki = symptoms/prosedur zenginlestirme (kod sayisi degil)."
+  },
+  {
+   "id": "github_hoffman1938_bimmercode",
+   "url": "raw.githubusercontent.com/hoffman1938/bimmercode/master/data/codes.json",
+   "domain": "raw.githubusercontent.com",
+   "type": "dtc",
+   "method": "free",
+   "status": "pending",
+   "credits_used": 0,
+   "tur": "KESIF-2026-09-16-r4",
+   "quality": "medium",
+   "est_items": 74,
+   "license": "BILDIRILMEMIS (GitHub'da LICENSE yok -> belirsiz)",
+   "sitemap": "https://github.com/hoffman1938/bimmercode (data/codes.json 169KB)",
+   "notes": "74 kod; her kayit code + title{en,ru,ka} + description{en,ru,ka}. 74/74 EN description DOLU (gercek aciklama metni, yer tutucu degil). Cok dilli (EN/RU/KA) — TR'ye ceviri icin temel. Kod sayisi az, prosedur adimi YOK -> medium. Lisans belirsiz."
+  },
+  {
+   "id": "github_aalih34554_ai_obd2_database",
+   "url": "raw.githubusercontent.com/aalih34554-ai/obd2-database/main/dtc-codes.json",
+   "domain": "raw.githubusercontent.com",
+   "type": "dtc",
+   "method": "free",
+   "status": "pending",
+   "credits_used": 0,
+   "tur": "KESIF-2026-09-16-r4",
+   "quality": "medium",
+   "est_items": 29,
+   "license": "BILDIRILMEMIS (GitHub'da LICENSE yok -> belirsiz)",
+   "sitemap": "https://github.com/aalih34554-ai/obd2-database",
+   "notes": "29 kod; her kayit code+description+category+severity+system+causes[]+symptoms[]+solutions[]. Semptom+neden+cozum UCLU ve gercek (orn. P0001 causes 4 / symptoms 3 / solutions 4). Yalniz 29 kayit -> hacim dusuk; 28/29 DB'de zaten var; katki = symptoms[] (DB'de symptoms 13521/14352 BOS). Lisans yok."
+  },
+  {
+   "id": "github_misspellted_dtc_database",
+   "url": "raw.githubusercontent.com/misspellted/DTC-Database/master/codes.json",
+   "domain": "raw.githubusercontent.com",
+   "type": "dtc",
+   "method": "free",
+   "status": "pending",
+   "credits_used": 0,
+   "tur": "KESIF-2026-09-16-r4",
+   "quality": "low",
+   "est_items": 6665,
+   "license": "BILDIRILMEMIS (LibreTune'dan devralinmis 'reupload'; LICENSE dosyasi YOK)",
+   "sitemap": "https://github.com/misspellted/DTC-Database (codes.json 450KB + codes.xml 481KB)",
+   "notes": "6665 kod (B=1147/C=487/P=4188/U=843). DB karsilastirma: 6664/6665 ZATEN VAR -> yalniz 1 yeni (C2767). Icerik yalniz 'kod -> tek satir aciklama'; semptom/neden/adim YOK. Kaynak degeri DUSUK (kod envanteri zaten tam). xinings/DTC-Database ile AYNI dosya (481768B codes.xml birebir) — dedup."
+  },
+  {
+   "id": "github_dsoprea_dtclookup",
+   "url": "raw.githubusercontent.com/dsoprea/DtcLookup/master/dtc/resource/lists/codes-*.txt",
+   "domain": "raw.githubusercontent.com",
+   "type": "dtc",
+   "method": "free",
+   "status": "pending",
+   "credits_used": 0,
+   "tur": "KESIF-2026-09-16-r4",
+   "quality": "low",
+   "est_items": 874,
+   "license": "GPL-2.0 (depo LICENSE 18KB) — DIKKAT: GPL veri aktariminda lisans uyumu gerekir",
+   "sitemap": "https://github.com/dsoprea/DtcLookup (dtc/resource/lists/)",
+   "notes": "874 generic kod satiri (code<TAB>description) + MARKA dosyalari (Jaguar 32KB/Audi 26KB/BMW 13KB/Chrysler/Volkswagen/Mazda/Ford/Landrover/Subaru/Dodge/Honda/Lexus...). DB karsilastirma: generic 873 -> 831 VAR, 42 YENI (C0357/C0359/C0362...). Semptom/neden/adim YOK -> low. GPL-2.0 lisansi merge'te dikkat gerektirir."
   }
  ],
  "blacklist": [
