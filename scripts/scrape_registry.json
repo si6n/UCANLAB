@@ -417,7 +417,52 @@
     }
   ],
   "_discovery_note": "Kesif: html.duckduckgo.com/html/?q=... (ucretsiz, UA ile) calisiyor. Google JS-render -> statik HTML'de sonuc yok. roadservice.app sitemap ile kesfedildi.",
-  "discovered": [],
+  "discovered": [
+    {
+      "pattern": "github.com/foerbsnavi/OBDex",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T61-A",
+      "credits": 0,
+      "license": "CC0-1.0 (data) / MIT (tooling)",
+      "result": "9533 DTC kodu (parse: data/generic/*.yaml '- code:'); %100 common_causes+repair, %66.6 symptoms, affected_components/cost/difficulty; EN+DE. codeload tarball.",
+      "artifact": "spn_gap_hunter/output/_t61a_dataset_counts.json",
+      "verdict": "ACCEPT (en degerli yeni DTC kaynagi)"
+    },
+    {
+      "pattern": "github.com/Wal33D/dtc-database",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T61-A",
+      "credits": 0,
+      "license": "MIT",
+      "result": "18805 dtc_definitions satiri / 12128 distinct kod / 34 uretici (SQLite data/dtc_codes.db); sadece description (semptom/neden yok). placeholder=0.",
+      "artifact": "spn_gap_hunter/output/_t61a_dataset_counts.json",
+      "verdict": "ACCEPT (genis kod omurgasi)"
+    },
+    {
+      "pattern": "github.com/MechanicDB/MechanicDB-public",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T61-A",
+      "credits": 0,
+      "license": "ODbL-1.0 (dataset) / upstream MIT",
+      "result": "89 distinct kod (dtc_codes.csv) + 320 fix satiri (step_by_step_instructions, maliyet, iscilik); sitemap.xml 1397 URL / 296 kod sayfasi. Sadece 90-kod ornek surum; tam DB ucretli.",
+      "artifact": "spn_gap_hunter/output/_t61a_obdex_mech.json",
+      "verdict": "PARTIAL (yuksek kalite ama ornek sinirli)"
+    },
+    {
+      "pattern": "idoc.pub",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T61-A",
+      "credits": 0,
+      "license": "BELIRSIZ (kullanici yuklemesi PDF; /tos)",
+      "result": "YENI ucretsiz PDF hub (login yok, sunucu-render). /search/<q> 14 sorgu -> 800 dokuman; 375/800 strict J1939-ilgili (%46.9). SITEMAP YOK. Canli 6/6 sayfa SPN/FMI ciftleri gercek (ornek: 'spn 625 fmi 9 epa07' SPN=36 FMI=31). False-positive var -> slug filtresi sart.",
+      "artifact": "spn_gap_hunter/output/_t61a_idoc_quality.json",
+      "verdict": "ACCEPT-CANDIDATE (T62'de slug-filtreli cekim)"
+    }
+  ],
   "_discovery_notes": [
     {
       "date": "2026-09-15",
@@ -453,6 +498,18 @@
       "date": "2026-09-16",
       "site": "huggingface.co",
       "note": "VERI YOK — 'j1939' 0 dataset; 'dtc'/'obd' ilgisiz (satranc/LLVM/uzaktan algilama). Agir arac DTC veri seti YOK."
+    },
+    {
+      "date": "2026-09-16",
+      "task": "T61-A",
+      "site": "search-infrastructure",
+      "note": "ARAMA ALTYAPISI DEGISTI: DuckDuckGo html/lite artik HTTP 202 'anomaly' (sert blok) - registry _discovery_note BAYAT. mojeek 403, searx.xyz JS challenge, 30 searx ornegi bos/429. CALISAN ucretsiz kesif: api.github.com + codeload.github.com tarball, old-search.marginalia.nu (tek kelime), dogrudan robots.txt/sitemap.xml probe, site /search/ sayfalari. 0 BrightData kredisi."
+    },
+    {
+      "date": "2026-09-16",
+      "task": "T61-A",
+      "site": "oem-archives",
+      "note": "Navistar/PACCAR/Cummins/Detroit/Volvo-Mack: sitemap'leri sayildi (1524/482/896/217/21 loc), 0 SPN/FMI/DTC-bearing URL -> ucretsiz prosedur YOK, hepsi abonelik/login (quickserve login duvari). manualslib/manualzz/dokumen.pub/vdocuments.mx 403; pdfcoffee/pdf4pro/cardsmanual DNS-dead."
     }
   ]
 }
