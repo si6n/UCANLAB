@@ -32,6 +32,7 @@ T45-B'de "ERİŞİLEMEZ (login duvarı)" denen kaynaklar yeniden denendi. **Eato
 | techlitna.com | — | ERİŞİLEMEZ (DNS yok) | — | 0 | 0 |
 | navistarservice.com / oncommand.navistar.com | — | ERİŞİLEMEZ (DNS yok) | — | 0 | 0 |
 | cummins.com | — | ERİŞİLEMEZ (403) | — | 0 | 0 |
+| Bosch/Delphi/Continental portalları (#7) | — | VERİ YOK (pazarlama) | free | 0 | 0 |
 
 ---
 
@@ -72,6 +73,28 @@ Her kayıt canlı URL'den yeniden çekildi; SPN + FMI + Overview birebir grep:
 
 **8/8 geçti** (`spn_gap_hunter/output/_t61b_liveverify.json`).
 
+**İkinci tur bağımsız doğrulama (bu run):** 5 kayıt daha canlı çekildi → 5/5 SPN birebir (168/444/158/639/37). Toplam 13/13.
+
+---
+
+## 4b. KAYNAK GRUBU #7 — Bosch / Delphi / Continental
+
+Görev listesindeki 7. kaynak grubu (Bosch/Delphi/Continental teknik doküman portalları) **free** yöntemle (0 kredi) tarandı:
+
+| Portal | HTTP | SPN | FMI | Sonuç |
+|---|---|---|---|---|
+| boschaftermarket.com | 200 | 0 | 0 | pazarlama |
+| bosch-mobility.com | 200 | 0 | 0 | pazarlama |
+| delphiautoparts.com | 200 | 0 | 0 | pazarlama |
+| delphi.com | — | — | — | TLS handshake fail |
+| continental-aftermarket.com | 200 | 0 | 0 | pazarlama |
+| continental.com | 200 | 0 | 0 | pazarlama |
+
+- Bosch sitemap (global-sitemap.xml, 50 loc) → **0 fault-code/DTC/SPN URL**.
+- Bosch Denoxtronic public brochure PDF'leri (3 adet) indirildi → **SPN/FMI teşhis tablosu YOK** (spn_tokens ≤ 2).
+- **Verdict: VERİ YOK** — fault-code prosedürleri yetkili servis abonelik login arkasında.
+- Kanıt: `_t61b_bosch_delphi.json`, `_t61b_bosch_probe.json`.
+
 ---
 
 ## 5. KREDİ DURUMU (CAP AŞILDI → BD DURDURULDU)
@@ -102,7 +125,7 @@ Her kayıt canlı URL'den yeniden çekildi; SPN + FMI + Overview birebir grep:
 - `spn_gap_hunter/output/_t61b_liveverify.json` — 8/8 canlı doğrulama
 - `spn_gap_hunter/output/t61b_bd_credits.json` — kredi sayacı
 - `spn_gap_hunter/output/_t61b_gapxref.json` — DB boşluk eşleştirmesi
-- `scripts/scrape_registry.json` — 16 yeni kayıt eklendi
+- `scripts/scrape_registry.json` — 17 yeni kayıt eklendi (kaynak grubu #7 dahil)
 
 ## 8. LİSANS
 

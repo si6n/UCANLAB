@@ -500,6 +500,15 @@
       "credits": 0,
       "result": "VERI YOK: Navistar Engine Diagnostics (NED) kullanim kilavuzu; SPN/FMI teshis tablosu icermiyor.",
       "artifact": "-"
+    },
+    {
+      "pattern": "bosch/delphi/continental (aftermarket portallari)",
+      "type": "prefix",
+      "method": "free",
+      "tur": "T61-B",
+      "credits": 0,
+      "result": "VERI YOK: Bosch (boschaftermarket/bosch-mobility), Delphi (delphiautoparts; delphi.com TLS fail), Continental (continental-aftermarket/continental.com) portallari pazarlama sitesi (SPN=0 FMI=0). Bosch denoxtronic public brochure PDF x3 indirildi, SPN/FMI teshis tablosu yok. Fault-code prosedurleri yetkili servis abonelik login arkasinda.",
+      "artifact": "spn_gap_hunter/output/_t61b_bosch_delphi.json"
     }
   ],
   "blacklist": [
