@@ -1,0 +1,91 @@
+{
+ "_source": "api.b2bendix.com",
+ "_method": "free",
+ "_credits": 0,
+ "_date": "2026-09-16",
+ "_task": "t_2d5e35d4",
+ "_pages_scanned": 6,
+ "_pages_real": 0,
+ "_pages_placeholder": 6,
+ "_summary": "api.b2bendix.com = Bendix OCC (SAP Hybris Commerce Cloud) backend API. Open (HTTP 200) but returns product catalog data (parts, categories, CMS content slots) — NOT diagnostic trouble codes. Product search for 'SPN', 'DTC', 'fault code', 'diagnostic' returns 0 SPN/FMI hits. CMS pages return homepage/landing content slots. No DTC/SPN/FMI diagnostic data in API. VERI YOK.",
+ "records": [
+  {
+   "url": "https://api.b2bendix.com/occ/v2/NA/cms/pages?pageType=ContentPage&pageSize=500&fields=DEFAULT",
+   "status": "cms_content",
+   "method": "free",
+   "credits": 0,
+   "spn": 0,
+   "fmi": 0,
+   "code": null,
+   "field": "overview",
+   "text": "OCC CMS pages API (142KB). Returns homepage uid/title/template/contentSlots (ProductCategoriesComponent, AnnouncementParagraph). Title: 'Bendix Customer Portal'. Description: 'b2bendix.com, your online home for business with Bendix. Submit orders on-line. Search by product, part number or name.' — e-commerce portal, not diagnostic database. 0 SPN/FMI refs.",
+   "placeholder": true,
+   "evidence_url": "https://api.b2bendix.com/occ/v2/NA/cms/pages?pageType=ContentPage&pageSize=500&fields=DEFAULT"
+  },
+  {
+   "url": "https://api.b2bendix.com/occ/v2/NA/products/search?query=*&pageSize=1",
+   "status": "product_catalog",
+   "method": "free",
+   "credits": 0,
+   "spn": 0,
+   "fmi": 0,
+   "code": null,
+   "field": "overview",
+   "text": "OCC product search (2.69MB). Returns productCategorySearchPageWsDTO with facets (Type Number: 22XLT, AC CAB, AD-9, AD-IP, AD-IS). Product catalog — parts inventory, not DTC data. 0 SPN/FMI refs.",
+   "placeholder": true,
+   "evidence_url": "https://api.b2bendix.com/occ/v2/NA/products/search?query=*&pageSize=1"
+  },
+  {
+   "url": "https://api.b2bendix.com/occ/v2/NA/products/search?query=SPN&pageSize=10&fields=DEFAULT",
+   "status": "no_results",
+   "method": "free",
+   "credits": 0,
+   "spn": 0,
+   "fmi": 0,
+   "code": null,
+   "field": "overview",
+   "text": "Product search for 'SPN' — 0 SPN/FMI hits in 1.4KB response. API is a parts catalog, not a diagnostic code database.",
+   "placeholder": true,
+   "evidence_url": "https://api.b2bendix.com/occ/v2/NA/products/search?query=SPN&pageSize=10&fields=DEFAULT"
+  },
+  {
+   "url": "https://api.b2bendix.com/occ/v2/NA/products/search?query=DTC&pageSize=10&fields=DEFAULT",
+   "status": "no_results",
+   "method": "free",
+   "credits": 0,
+   "spn": 0,
+   "fmi": 0,
+   "code": null,
+   "field": "overview",
+   "text": "Product search for 'DTC' — 0 SPN/FMI hits (5 generic 'DTC' string matches in 1.4KB, likely product descriptions). No diagnostic code data.",
+   "placeholder": true,
+   "evidence_url": "https://api.b2bendix.com/occ/v2/NA/products/search?query=DTC&pageSize=10&fields=DEFAULT"
+  },
+  {
+   "url": "https://api.b2bendix.com/occ/v2/NA/products/search?query=fault+code&pageSize=10&fields=DEFAULT",
+   "status": "no_results",
+   "method": "free",
+   "credits": 0,
+   "spn": 0,
+   "fmi": 0,
+   "code": null,
+   "field": "overview",
+   "text": "Product search for 'fault code' — 0 SPN/FMI hits (4 generic matches in 1.6KB). No diagnostic code data.",
+   "placeholder": true,
+   "evidence_url": "https://api.b2bendix.com/occ/v2/NA/products/search?query=fault+code&pageSize=10&fields=DEFAULT"
+  },
+  {
+   "url": "https://api.b2bendix.com/occ/v2/NA/products/012103",
+   "status": "product_detail",
+   "method": "free",
+   "credits": 0,
+   "spn": 0,
+   "fmi": 0,
+   "code": "012103",
+   "field": "overview",
+   "text": "Sample product detail (3KB): code=012103, name='Diagnostic Cable', marketType='Aftermarket (New)'. Product/part detail — not a DTC. No SPN/FMI.",
+   "placeholder": true,
+   "evidence_url": "https://api.b2bendix.com/occ/v2/NA/products/012103"
+  }
+ ]
+}

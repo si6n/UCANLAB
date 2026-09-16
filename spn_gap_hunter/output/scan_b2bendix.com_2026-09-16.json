@@ -1,0 +1,52 @@
+{
+ "_source": "b2bendix.com",
+ "_method": "free",
+ "_credits": 0,
+ "_date": "2026-09-16",
+ "_task": "t_2d5e35d4",
+ "_pages_scanned": 9,
+ "_pages_real": 0,
+ "_pages_placeholder": 9,
+ "_summary": "B2Bendix (Bendix Knorr-Bremse aftermarket storefront) = Angular SPA. /USD/DTCSearch is a search form (Product Type + DTC Type dropdowns + Search button) with prominent SIGN IN/REGISTER links. robots.txt Disallow: /. No SPN/FMI/DTC data in static HTML — all content client-side rendered, results likely login-gated. OCC API (api.b2bendix.com) open but returns product catalog (parts/CMS), 0 SPN/FMI diagnostic data. VERI YOK (login form + SPA, no extractable DTC data).",
+ "records": [
+  {
+   "url": "https://b2bendix.com/USD/DTCSearch",
+   "status": "login_form_spa",
+   "method": "free",
+   "credits": 0,
+   "spn": null,
+   "fmi": null,
+   "code": null,
+   "field": "overview",
+   "text": "Angular SPA. /USD/DTCSearch (redirects to /US/en/USD/DTCSearch) = search form: Product Type* dropdown (AutoVue, Blindspotter, DIU, EAC, EC-60, EC-80, EC-80 Integrated, eAPU2, ESM1/2, EVM1, FLC-20/25, FLR-20/21/25, GSAT, GSBC, iAPU, Intellipark EPB, iSense Pro, iTABS X, iTEBS X, PLC Relay, SDP3/5, SmarTire TPMS, TABS-6, TABS-8) + DTC Type* dropdown + Reset/Search buttons. SIGN IN + REGISTER links present. No SPN/FMI data in static HTML (0 SPN, 0 FMI refs in 87KB shell). Title: 'DTC Search | B2Bendix'. Content client-side rendered; results likely require login. robots.txt: 'User-agent: * Disallow: /'.",
+   "placeholder": true,
+   "evidence_url": "https://b2bendix.com/US/en/USD/DTCSearch"
+  },
+  {
+   "url": "https://b2bendix.com/sitemap.xml",
+   "status": "commerce_sitemap",
+   "method": "free",
+   "credits": 0,
+   "spn": null,
+   "fmi": null,
+   "code": null,
+   "field": "sitemap",
+   "text": "Sitemap index (4KB) points to SAP Hybris commerce media URLs (HOMEPAGE-en-USD, PRODUCT-en-USD-0/1/2/3) on api.catnw8-knorrbrem1-p1-public.model-t.cc.commerce.ondemand.com — product catalog sitemaps, NOT DTC/diagnostic content.",
+   "placeholder": true,
+   "evidence_url": "https://b2bendix.com/sitemap.xml"
+  },
+  {
+   "url": "https://b2bendix.com/robots.txt",
+   "status": "disallow_all",
+   "method": "free",
+   "credits": 0,
+   "spn": null,
+   "fmi": null,
+   "code": null,
+   "field": "robots",
+   "text": "robots.txt: 'User-agent: * Disallow: /' — explicitly forbids all crawling. Also blocks CazoodleBot, MJ12bot, dotbot, Gigabot.",
+   "placeholder": true,
+   "evidence_url": "https://b2bendix.com/robots.txt"
+  }
+ ]
+}

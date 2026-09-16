@@ -9,10 +9,10 @@
   },
   "hesap3": {
    "zone": "scraping_browser4",
-   "remaining": 4065,
+   "remaining": 4057,
    "env_prefix": "BRIGHTDATA3_"
   },
-  "note": "Kredi panelden ogrenilir; API kredi sorgusu yetkisiz. Bu degerler manuel guncellenir. TARAMA (t_7ce79f38): 40 kredi harcandi (hesap3 -> 4067)."
+  "note": "Kredi panelden ogrenilir; API kredi sorgusu yetkisiz. Bu degerler manuel guncellenir. TARAMA (t_7ce79f38): 40 kredi harcandi (hesap3 -> 4067). TARAMA (t_2d5e35d4): 10 kredi harcandi (hesap3 -> 4057, google.com URL kesfi)."
  },
  "scraped": [
   {
@@ -509,6 +509,33 @@
    "credits": 0,
    "result": "VERI YOK: Bosch (boschaftermarket/bosch-mobility), Delphi (delphiautoparts; delphi.com TLS fail), Continental (continental-aftermarket/continental.com) portallari pazarlama sitesi (SPN=0 FMI=0). Bosch denoxtronic public brochure PDF x3 indirildi, SPN/FMI teshis tablosu yok. Fault-code prosedurleri yetkili servis abonelik login arkasinda.",
    "artifact": "spn_gap_hunter/output/_t61b_bosch_delphi.json"
+  },
+  {
+   "pattern": "b2bendix.com (TARAMA: DTCSearch login form)",
+   "type": "prefix",
+   "method": "free",
+   "tur": "TARAMA",
+   "credits": 0,
+   "result": "VERI YOK: Angular SPA, /USD/DTCSearch login form (Product Type + DTC Type dropdowns + Search; SIGN IN/REGISTER). robots.txt Disallow:/. 0 SPN/FMI in static HTML. 9 sayfa tarandi (0 gercek + 9 yer tutucu). Onceki T<=35 '357 satir / 27 SPN' kaydi portal CMS icerigidir, DTC prosedur verisi degil.",
+   "artifact": "spn_gap_hunter/output/scan_b2bendix.com_2026-09-16.json"
+  },
+  {
+   "pattern": "api.b2bendix.com (TARAMA: OCC API parts catalog)",
+   "type": "prefix",
+   "method": "free",
+   "tur": "TARAMA",
+   "credits": 0,
+   "result": "VERI YOK: OCC (SAP Hybris) API acik (200) ama parts catalog. Product search 'SPN'/'DTC'/'fault code' = 0 hit. CMS pages = homepage slots. 6 endpoint tarandi (0 gercek + 6 yer tutucu). 0 SPN/FMI diagnostic data.",
+   "artifact": "spn_gap_hunter/output/scan_api.b2bendix.com_2026-09-16.json"
+  },
+  {
+   "pattern": "google.com/search (TARAMA: 10 URL kesfi, zone -country-us)",
+   "type": "prefix",
+   "method": "brightdata",
+   "tur": "TARAMA",
+   "credits": 10,
+   "result": "URL kesfi: 10 arama / 10 BD kredisi (cap 40 altinda). 7 sonuc + 3 captcha. Kesfedilen URL'ler: static.nhtsa.gov (zaten free), b2bendix DTCSearch (login), justanswer (KARA LISTE), forum/scribd/bendixvrc/bendix.com (T61-B'de VERI YOK). YENI DTC prosedur kaynagi YOK.",
+   "artifact": "spn_gap_hunter/output/scan_google.com_2026-09-16.json"
   }
  ],
  "blacklist": [

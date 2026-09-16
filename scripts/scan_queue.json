@@ -16,10 +16,10 @@
   },
   "hesap3": {
    "zone": "scraping_browser4",
-   "remaining": 4107,
+   "remaining": 4097,
    "env_prefix": "BRIGHTDATA3_"
   },
-  "note": "Kredi panelden ogrenilir; API kredi sorgusu yetkisiz. Bu degerler manuel guncellenir."
+  "note": "Kredi panelden ogrenilir; API kredi sorgusu yetkisiz. Bu degerler manuel guncellenir. TARAMA t_2d5e35d4: 10 kredi harcandi (hesap3 google.com URL kesfi)."
  },
  "sources": [
   {
@@ -67,11 +67,12 @@
    "domain": "b2bendix.com",
    "type": "dtc",
    "method": "free",
-   "status": "scanning",
+   "status": "done",
    "credits_used": 0,
    "tur": "<=35",
-   "notes": "357 satir / 27 SPN",
-   "locked_by": "chassis:t_2d5e35d4"
+   "notes": "VERI YOK: Angular SPA, /USD/DTCSearch login form (Product Type + DTC Type dropdowns + Search; SIGN IN/REGISTER). robots.txt Disallow:/. 0 SPN/FMI in static HTML. OCC API acik ama parts catalog (0 SPN/FMI). Tarama t_2d5e35d4.",
+   "artifact": "spn_gap_hunter/output/scan_b2bendix.com_2026-09-16.json",
+   "applied": false
   },
   {
    "id": "api_b2bendix_com",
@@ -79,11 +80,12 @@
    "domain": "api.b2bendix.com",
    "type": "dtc",
    "method": "free",
-   "status": "scanning",
+   "status": "done",
    "credits_used": 0,
    "tur": "<=35",
-   "notes": "OCC API acik",
-   "locked_by": "chassis:t_2d5e35d4"
+   "notes": "VERI YOK: OCC (SAP Hybris) API acik (200) ama parts catalog. Product search 'SPN'/'DTC'/'fault code' = 0 hit. CMS pages = homepage slots. 0 SPN/FMI diagnostic data. Tarama t_2d5e35d4.",
+   "artifact": "spn_gap_hunter/output/scan_api.b2bendix.com_2026-09-16.json",
+   "applied": false
   },
   {
    "id": "google_com",
@@ -91,11 +93,12 @@
    "domain": "google.com",
    "type": "dtc",
    "method": "brightdata",
-   "status": "scanning",
-   "credits_used": 0,
+   "status": "done",
+   "credits_used": 10,
    "tur": "<=35",
-   "notes": "URL kesfi — YALNIZ zone -country-us sonekiyle",
-   "locked_by": "chassis:t_2d5e35d4"
+   "notes": "URL kesfi (zone -country-us, &gl=us&hl=en). 10 arama / 10 BD kredisi (cap 40 altinda). 7 sonuc + 3 captcha. Kesfedilen URL'ler: static.nhtsa.gov (zaten free), b2bendix DTCSearch (login), justanswer (KARA LISTE), forum/scribd/bendixvrc/bendix.com (T61-B'de VERI YOK). YENI DTC prosedur kaynagi YOK. Tarama t_2d5e35d4.",
+   "artifact": "spn_gap_hunter/output/scan_google.com_2026-09-16.json",
+   "applied": false
   },
   {
    "id": "j1939hub",
