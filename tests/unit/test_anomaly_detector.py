@@ -9,6 +9,7 @@ import pytest
 
 from src.core.models.diagnostics import (
     DiagnosticDomain,
+    DiagnosticEvent,
     SignalSample,
     SignalSource,
     VehicleSession,
@@ -36,6 +37,21 @@ def _sample(name: str, value: float, ts_ns: int = 1_000_000_000, source=SignalSo
         source=source,
         confidence=confidence,
     )
+
+
+def _session_with_dtc(codes):
+    s = _session([])
+    for code in codes:
+        s.events.append(
+            DiagnosticEvent(
+                timestamp_ns=1,
+                code=code,
+                domain=DiagnosticDomain.HEAVY_DUTY,
+                severity="UNKNOWN",
+                status="ACTIVE",
+            )
+        )
+    return s
 
 
 class TestThresholdDbValidation:
@@ -109,12 +125,57 @@ class TestAnomalyDetection:
         thresholds = load_thresholds()
         samples = [_sample("OP:EngineOilPressure", 0.2) for _ in range(5)]
         findings = detect_anomalies(_session(samples), thresholds)
-        # "OP:EngineOilPressure" has no direct threshold key -> camelize map
-        # misses -> silent pass (operator prefix is handled at scoring
-        # level via AnomalyFinding.synthetic only for mapped names).
-        # With the shipped DB, OP-prefixed oil pressure is not mapped; the
-        # honest behavior is NO finding rather than a fabricated one.
-        assert findings == []
+        # T56-B / A3-2: the "OP:" prefix is resolved to the base signal name
+        # before the threshold lookup, so an operator-declared measurement
+        # produces a finding AND carries the synthetic flag (half weight in
+        # hypothesis_engine).
+        assert len(findings) == 1
+        assert findings[0].signal == "OP:EngineOilPressure"
+        assert findings[0].synthetic is True
+        assert "operatör beyanı" in findings[0].finding
+
+    def test_operator_prefix_resolves_to_threshold_key(self) -> None:
+        """An unknown signal is still an honest silent pass, even with OP:."""
+        thresholds = load_thresholds()
+        samples = [_sample("OP:SomeUnmappedSignal", 99999.0) for _ in range(5)]
+        assert detect_anomalies(_session(samples), thresholds) == []
+
+    def test_operator_declared_oil_pressure_scores_lower(self) -> None:
+        """FAZ 3.2 half-weight: a declared anomaly cannot outrank a real one.
+
+        Both recordings contain the same SPN 110 DTC and the same 112 C
+        coolant reading. ``EngineCoolantTemp`` (direct) feeds the
+        thermostat node a full-weight (+0.40) signal hit, so only
+        ``thermostat-stuck`` reaches 1.0 and the sensor node stays at 0.5.
+        ``OP:EngineCoolantTemp`` (operator-declared) is marked synthetic and
+        weighs half (+0.20), which is no longer enough to separate the two
+        nodes — both normalize to 1.0. Before the fix the prefixed sample
+        produced NO finding at all, so the declared run degenerated to the
+        bare-DTC case.
+        """
+        from src.engine.ai.hypothesis_engine import load_root_cause_graph, rank_hypotheses
+
+        thresholds = load_thresholds()
+        graph = load_root_cause_graph()
+        scores = {}
+        for name in ("EngineCoolantTemp", "OP:EngineCoolantTemp"):
+            session = _session_with_dtc(["SPN 110 FMI 0"])
+            session.samples.extend(_sample(name, 112.0) for _ in range(5))
+            findings = detect_anomalies(session, thresholds)
+            assert len(findings) == 1, "operator declaration produced no finding"
+            assert findings[0].signal == name
+            assert findings[0].synthetic is (name.startswith("OP:"))
+            hyps = rank_hypotheses(session, findings, [], graph=graph)
+            assert hyps, "no hypothesis produced"
+            scores[name] = {h.id: h.score for h in hyps}
+        # Direct declaration: the signal hit lifts (and separates) the top node.
+        assert scores["EngineCoolantTemp"]["thermostat-stuck"] > scores["EngineCoolantTemp"][
+            "coolant-sensor-open"
+        ]
+        # Operator declaration: half weight removes that lift entirely.
+        declared = scores["OP:EngineCoolantTemp"]
+        assert declared["thermostat-stuck"] == declared["coolant-sensor-open"]
+        assert declared["thermostat-stuck"] <= scores["EngineCoolantTemp"]["thermostat-stuck"]
 
     def test_determinism(self) -> None:
         thresholds = load_thresholds()

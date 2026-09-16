@@ -136,6 +136,29 @@ class TestSimIsolation:
         assert app._signal_rings == {}
 
 
+class TestDm1BridgeSpnFmi:
+    """T56-B / A3-1: bridge must forward the SPN/FMI it already encoded in
+    ``code`` so the copilot's J1939 KB path is reachable from live DM1 flow."""
+
+    def test_dm1_analysis_enriches_from_j1939_kb(self) -> None:
+        from src.engine.ai.diagnostic_copilot import get_j1939_spn_database
+
+        app = _app()
+        app._decode_j1939_signal(_dm1_frame(spn=100, fmi=1))
+        events = [e for e in app._diag_session.events if e.code == "SPN 100 FMI 1"]
+        assert len(events) == 1
+
+        analysis = app.get_diagnostic_analysis()
+        assert analysis.get("success") is True
+        report = analysis["report"]
+        # No scenario rule matches "SPN 100 FMI 1"; the only path to a cause is
+        # the SPN/FMI the bridge extracts from code and hands to the copilot.
+        assert report["likely_causes"], "J1939 KB path produced no cause"
+        assert any("Yağ Basıncı" in c for c in report["likely_causes"])
+        entry = get_j1939_spn_database()["spns"]["SPN_100"]
+        assert entry["subsystem"] in report["affected_subsystems"]
+
+
 class TestOperatorMeasurement:
     def test_record_operator_measurement_prefixed(self) -> None:
         app = _app()

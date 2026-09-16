@@ -146,7 +146,15 @@ def detect_anomalies(
     findings: list[AnomalyFinding] = []
     for name in sorted(per_signal):
         samples = per_signal[name]
-        entry = thresholds.get(name) or thresholds.get(_camelize(name))
+        # T56-B / A3-2: resolve the operator-declared ("OP:") prefix to the
+        # base signal name before the threshold lookup. The bridge records
+        # operator measurements under the prefixed name
+        # (desktop_app.record_operator_measurement), so matching only on the
+        # raw name made the whole declaration path dead: no finding, and the
+        # FAZ 3.2 half-weight in hypothesis_engine never triggered.
+        is_synthetic = name.startswith("OP:")
+        base = name[3:] if is_synthetic else name
+        entry = thresholds.get(base) or thresholds.get(_camelize(base))
         if entry is None:
             continue
         band = _band_for(entry.get("ranges", []), rpm_ref)
@@ -166,7 +174,7 @@ def detect_anomalies(
         ratio = out_count / len(samples)
         if ratio < DEFAULT_OUT_OF_RANGE_RATIO:
             continue
-        synthetic = name.startswith("OP:")
+        synthetic = is_synthetic
         unit = entry.get("unit", "")
         bounds_txt = []
         if lo is not None:
