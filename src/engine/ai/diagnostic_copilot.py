@@ -659,6 +659,29 @@ def explain_can_packet(
                 line3 = f"• **Anlam:** Standart OBD-II canlı parametre talebi{val_s}."
                 return (f"{line1}\n{line2}\n{line3}", [])
 
+            # OBD-II Mode $06 — On-Board Monitoring Test Results (A3-13)
+            # The 88 KB obd_mode06_database.json had NO consumption path before
+            # this branch: it maps the request SID 0x06 payload (<MID> <TID>) to
+            # the monitor/test description. Honest fallback when unknown.
+            if sid == 0x06:
+                if len(payload_bytes) > sid_idx + 1:
+                    mid = payload_bytes[sid_idx + 1]
+                    tid = payload_bytes[sid_idx + 2] if len(payload_bytes) > sid_idx + 2 else None
+                    db = get_mode06_database()
+                    monitors = db.get("monitors") if isinstance(db, dict) else None
+                    known = bool(monitors) and f"0x{mid:02X}" in monitors
+                    if known:
+                        text = format_mode06_monitor(mid, tid)
+                        return (f"📡 **OBD-II Mode $06 (ID: 0x{can_id:03X}):**\n{text}", [])
+                    return (
+                        f"📡 **OBD-II Mode $06 (ID: 0x{can_id:03X}):** İzleme testi MID 0x{mid:02X} katalogda yok (uydurma yok).",
+                        [],
+                    )
+                return (
+                    f"📡 **OBD-II Mode $06 (ID: 0x{can_id:03X}):** MID/TID eksik — izleme testi çözülemedi.",
+                    [],
+                )
+
     # 2. J1939 Extended 29-bit Frames
     if can_id > 0x7FF:
         pgn = (can_id >> 8) & 0x3FFFF
@@ -1561,6 +1584,88 @@ def get_mode06_database(data_path: Path | str | None = None) -> dict[str, Any]:
     return {}
 
 
+def _mode06_mid_from_can_id(can_id: int) -> int | None:
+    """Extract an OBD-II Mode $06 MID from a CAN arbitration ID.
+
+    SAE J1979 defines the 29-bit OBD response ID as
+    ``0x18DA <target> <tool>`` where ``target`` is the ECU. The legacy
+    diagnostic tool-response ID ``0x7E8`` carries no MID. The Mode $06
+    ``0x46`` (On-Board Monitoring Test Results) request ID embeds the MID
+    in the low byte: ``0x18DA_46_MID`` — the shape the reviewer's scenario
+    describes. Also accepts a plain ``0x46xx``-style response where the MID
+    is the low byte.
+    """
+    if can_id is None:
+        return None
+    # 29-bit OBD request: 0x18DA 46 <mid>
+    if (can_id >> 16) & 0xFFFF == 0x18DA and ((can_id >> 8) & 0xFF) == 0x46:
+        mid = can_id & 0xFF
+        return mid if mid else None
+    # Explicit Mode $06 request frame 0x46 <mid> in the low byte.
+    if (can_id & 0xFF00) == 0x4600 and (can_id & 0xFF):
+        return can_id & 0xFF
+    return None
+
+
+def format_mode06_monitor(mid: int, tid: int | None = None, data_path: Path | str | None = None) -> str:
+    """Consume ``obd_mode06_database.json``: describe a Mode $06 MID/TID.
+
+    This is the production consumption path for the Mode $06 accessor
+    (A3-13) — previously ``get_mode06_database`` had no caller anywhere, so
+    the 88 KB monitor catalog was never read. Returns a deterministic,
+    KB-grounded description (no fabricated values); unknown MIDs degrade to
+    an honest "not in catalog" note. Deterministic and offline.
+    """
+    db = get_mode06_database(data_path)
+    monitors = db.get("monitors") if isinstance(db, dict) else None
+    if not isinstance(monitors, dict) or not monitors:
+        return f"Mode $06 MID 0x{mid:02X}: izleme kataloğu yüklenemedi."
+
+    # MID keys are canonical hex ("0x01"); tolerate int or "0xNN"/"NN" forms.
+    key_hex = f"0x{mid:02X}"
+    monitor = monitors.get(key_hex)
+    if monitor is None:
+        for v in monitors.values():
+            if isinstance(v, dict) and v.get("mid_int") == mid:
+                monitor = v
+                break
+    if not isinstance(monitor, dict):
+        return f"Mode $06 MID 0x{mid:02X}: katalogda kayıtlı değil (uydurma yapılmadı)."
+
+    name_tr = str(monitor.get("name_tr") or monitor.get("name") or f"MID 0x{mid:02X}")
+    subsystem = str(monitor.get("subsystem") or "—")
+    lines = [
+        f"📊 **Mode $06 İzleme Testi (MID 0x{mid:02X}):**",
+        f"• **İzleme:** {name_tr}",
+        f"• **Alt sistem:** {subsystem}",
+    ]
+    if tid is None:
+        return "\n".join(lines)
+
+    tests = monitor.get("tests") or []
+    test = None
+    tid_hex = f"0x{tid:02X}"
+    for t in tests:
+        if not isinstance(t, dict):
+            continue
+        if t.get("tid_hex") == tid_hex or t.get("tid") == tid:
+            test = t
+            break
+    if not isinstance(test, dict):
+        lines.append(f"• **TID 0x{tid:02X}:** bu MID altında kayıtlı değil.")
+        return "\n".join(lines)
+
+    t_name = str(test.get("name_tr") or test.get("name") or f"TID 0x{tid:02X}")
+    lines.append(f"• **Test (TID 0x{tid:02X}):** {t_name}")
+    unit = test.get("default_unit") or test.get("unit")
+    if unit:
+        lines.append(f"• **Birim:** {unit}")
+    ideal = test.get("ideal_range")
+    if ideal:
+        lines.append(f"• **İdeal aralık:** {ideal}")
+    return "\n".join(lines)
+
+
 _CACHED_NHTSA_RECALLS_DB: dict[str, Any] | None = None
 
 
@@ -2451,13 +2556,40 @@ class AutomotiveTokenizer:
                         match_count += 1.0
                     else:
                         for t in tokens:
-                            if len(t) >= 5 and cls._levenshtein_distance(t, lem_kw) <= 1:
+                            # A3-10: the typo path accepts a single edit (<=1).
+                            # `_levenshtein_distance` is Damerau (transposition
+                            # costs 1), so "misfire"↔"misfrie" used to score 0.8
+                            # on the wrong token. Typo tolerance now uses the
+                            # CLASSIC Levenshtein distance, where a transposition
+                            # costs 2 — it is only reachable at distance 0 (exact
+                            # match), never as a near-match.
+                            if len(t) >= 5 and cls._classic_levenshtein(t, lem_kw) <= 1:
                                 match_count += 0.8
                                 break
             if match_count > 0:
                 scores[domain] = min(1.0, match_count / 3.0)
 
         return scores
+
+    @staticmethod
+    def _classic_levenshtein(s1: str, s2: str) -> int:
+        """Plain Levenshtein edit distance (no Damerau transposition).
+
+        A transposition (adjacent swap) costs 2 here, so it can never satisfy a
+        ``<= 1`` typo threshold (A3-10). Early-exits at 2 when the lengths differ
+        by more than one edit.
+        """
+        if abs(len(s1) - len(s2)) > 1:
+            return 2
+        if s1 == s2:
+            return 0
+        prev = list(range(len(s2) + 1))
+        for i, c1 in enumerate(s1, start=1):
+            cur = [i]
+            for j, c2 in enumerate(s2, start=1):
+                cur.append(min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (c1 != c2)))
+            prev = cur
+        return prev[-1]
 
     @staticmethod
     def _levenshtein_distance(s1: str, s2: str) -> int:
@@ -2505,6 +2637,60 @@ class CausalBayesianInferenceEngine:
         user_query: str = "",
     ) -> str:
         return explain_traffic_metrics(bus_metrics, user_query)
+
+    @staticmethod
+    def explain_can_frame_mode06(
+        can_id_hex_or_int: str | int,
+        payload: bytes | list[int] | str = b"",
+    ) -> tuple[str, bool]:
+        """Consume the Mode $06 monitor catalog for a CAN frame (A3-13).
+
+        Parses the arbitration ID (or the payload's first bytes) for an
+        OBD-II Mode $06 MID, then describes the matching on-board monitor and
+        test from ``obd_mode06_database.json`` via :func:`format_mode06_monitor`.
+        Returns ``(text, matched)`` where ``matched`` is ``True`` only when the
+        MID was present in the catalog — callers can fall back honestly.
+        """
+        if isinstance(can_id_hex_or_int, str):
+            cleaned = can_id_hex_or_int.strip().lower()
+            try:
+                if cleaned.startswith("0x"):
+                    can_id = int(cleaned, 16)
+                elif cleaned and all(c in "0123456789abcdef" for c in cleaned):
+                    can_id = int(cleaned, 16)
+                else:
+                    can_id = 0
+            except ValueError:
+                can_id = 0
+        else:
+            can_id = int(can_id_hex_or_int)
+
+        if isinstance(payload, str):
+            payload_bytes = [int(t, 16) for t in re.findall(r"\b[0-9A-Fa-f]{2}\b", payload)]
+        elif isinstance(payload, bytes):
+            payload_bytes = list(payload)
+        else:
+            payload_bytes = list(payload)
+
+        mid = _mode06_mid_from_can_id(can_id)
+        tid: int | None = None
+        if mid is None and len(payload_bytes) >= 2 and payload_bytes[0] == 0x46:
+            # Mode $06 response: 0x46 <MID> <TID> <data...>
+            mid = payload_bytes[1]
+            tid = payload_bytes[2] if len(payload_bytes) >= 3 else None
+        elif mid is not None and len(payload_bytes) >= 1:
+            tid = payload_bytes[0]
+
+        if mid is None:
+            return ("Mode $06 MID çözülemedi — bu çerçeve bir izleme testi taşımıyor.", False)
+
+        db = get_mode06_database()
+        monitors = db.get("monitors") if isinstance(db, dict) else None
+        matched = bool(monitors) and (
+            f"0x{mid:02X}" in monitors
+            or any(isinstance(v, dict) and v.get("mid_int") == mid for v in (monitors or {}).values())
+        )
+        return (format_mode06_monitor(mid, tid), matched)
 
     @classmethod
     def evaluate_diagnostic_query(

@@ -109,18 +109,64 @@ def load_thresholds(data_path: Path | None = None) -> dict[str, dict[str, Any]]:
 
 
 def _band_for(ranges: list[dict[str, Any]], rpm: float | None) -> dict[str, Any] | None:
-    """Select the range band active at the given RPM (first match, deterministic)."""
+    """Select the range band active at the given RPM.
+
+    Deterministic selection:
+    - ``rpm`` recorded: the band whose ``[min_rpm, max_rpm]`` contains it. When
+      the RPM falls in a *gap* between bands (e.g. 900 RPM with bands 0-800 and
+      1800-2200) the **nearest** band is selected rather than silently dropping
+      the whole signal — "not evaluated" must never masquerade as "no anomaly"
+      (A3-7). Nearest is measured in RPM distance to the closest band edge;
+      ties break toward the lower band (stable sort by the band's min_rpm).
+    - ``rpm`` is ``None``: no band can be proven active from RPM. Instead of
+      blindly using the first band (A3-8 — a wrong-band comparison), the
+      band-independent **widest** envelope is used: the lowest ``min`` and the
+      highest ``max`` across all bands. ``None`` on a bound means unbounded
+      (excluded from the min/max computation, i.e. effectively ±inf).
+      Returns ``None`` only when the widest envelope cannot be formed.
+    """
+    if not ranges:
+        return None
     if rpm is None:
-        # No RPM reference recorded: fall back to the first band (documented
-        # simplification — bands are only meaningful with engine-speed
-        # context; ponytail: rpm-join per sample is the upgrade path).
-        return ranges[0]
+        lo_candidates = [b["min"] for b in ranges if isinstance(b.get("min"), (int, float))]
+        hi_candidates = [b["max"] for b in ranges if isinstance(b.get("max"), (int, float))]
+        # Unbounded on a side only if EVERY band is unbounded there; otherwise
+        # the widest envelope is the min of the lowers / max of the uppers.
+        all_no_min = all(b.get("min") is None for b in ranges)
+        all_no_max = all(b.get("max") is None for b in ranges)
+        wide_min = None if all_no_min else (min(lo_candidates) if lo_candidates else None)
+        wide_max = None if all_no_max else (max(hi_candidates) if hi_candidates else None)
+        if wide_min is None and wide_max is None:
+            # No finite bound anywhere — nothing provable.
+            return None
+        return {"min": wide_min, "max": wide_max}
+
+    matched: dict[str, Any] | None = None
+    nearest: dict[str, Any] | None = None
+    nearest_dist: float | None = None
     for band in ranges:
         lo = band.get("min_rpm")
         hi = band.get("max_rpm")
         if (lo is None or rpm >= lo) and (hi is None or rpm <= hi):
-            return band
-    return None
+            matched = band
+            break
+        # Distance to the closest edge of this band (0 if inside, but handled
+        # above); unbounded edges contribute no distance on that side.
+        dists: list[float] = []
+        if lo is not None and rpm < lo:
+            dists.append(lo - rpm)
+        if hi is not None and rpm > hi:
+            dists.append(rpm - hi)
+        if not dists:
+            continue
+        d = min(dists)
+        # Stable tie-break: keep the first (lowest min_rpm) band on equal distance.
+        if nearest_dist is None or d < nearest_dist:
+            nearest_dist = d
+            nearest = band
+    if matched is not None:
+        return matched
+    return nearest
 
 
 def detect_anomalies(
