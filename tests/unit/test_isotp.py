@@ -137,8 +137,10 @@ def test_isotp_multi_frame_segmentation_and_reassembly() -> None:
         (0xF9, 0.9),
         # REVIEW hardening: reserved 0x80-0xF0 clamped to 10ms (spoof/stall cap).
         (0x80, 10.0),
-        (0xFA, 127.0),
-        (0xFF, 127.0),
+        # T56-C I-1: reserved 0xFA-0xFF shares the same 10ms cap (was 127ms,
+        # which the async sender honoured as a per-CF stall).
+        (0xFA, 10.0),
+        (0xFF, 10.0),
     ],
 )
 def test_isotp_decode_st_min_parametric(raw_byte: int, expected_ms: float) -> None:

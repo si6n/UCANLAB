@@ -243,7 +243,11 @@ class TestIsoTpAsyncStateMachineStress:
     """Async state machine stress testing for IsoTpSender and IsoTpReceiver."""
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("payload_size", [1, 7, 8, 62, 63, 1024, 4095, 4096, 16384])
+    # T56-C I-2: classic ISO-TP is capped at MAX_UDS_PAYLOAD_CLASSIC (4096);
+    # the async sender now enforces the same bound as segment_message, so the
+    # 16384 case (a CAN-FD-sized payload) no longer belongs on the classic
+    # path — it is exercised by test_async_roundtrip_boundaries_can_fd.
+    @pytest.mark.parametrize("payload_size", [1, 7, 8, 62, 63, 1024, 4095, 4096])
     async def test_async_roundtrip_boundaries_classic(self, payload_size: int) -> None:
         """Verify full async roundtrip transmission and reassembly for Classic CAN across sizes."""
         rx_sub_sender = QueueRxSubscription()

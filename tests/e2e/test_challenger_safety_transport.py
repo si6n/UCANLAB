@@ -376,9 +376,11 @@ class TestIsoTpAdversarialTransport:
         for b in (0x80, 0x90, 0xA5, 0xC0, 0xEF, 0xF0):
             assert decode_st_min(b) == 10.0
 
-        # 4. Reserved 0xFA - 0xFF -> clamped to 127.0 ms (legacy clamp kept)
+        # 4. Reserved 0xFA - 0xFF -> clamped to the same 10.0 ms spoof/stall
+        # cap (T56-C I-1: the legacy 127 ms clamp let a spoofed FC stall the
+        # async sender 127 ms per consecutive frame).
         for b in (0xFA, 0xFB, 0xFC, 0xFD, 0xFE, 0xFF):
-            assert decode_st_min(b) == 127.0
+            assert decode_st_min(b) == 10.0
 
     @pytest.mark.asyncio
     async def test_isotp_sender_flow_control_wait_saturation_wftmax(self) -> None:

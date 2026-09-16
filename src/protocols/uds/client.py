@@ -37,6 +37,18 @@ class UdsClient:
     Routes all CAN frame transmissions through the TxPort / TxSafetyGateway choke-point.
     """
 
+    # REVIEW T56-C U-1 (CRITICAL): absolute upper bound on the total NRC 0x78
+    # (responsePending) dwell, applied even when the caller passes no
+    # ``max_pending_timeout_s``. Without a default wall an ECU that emits
+    # 0x78 faster than P2* (5 s) re-armed ``deadline`` forever — the
+    # exchange never returned and ``_operation_lock`` stayed held, blocking
+    # TesterPresent keep-alive and every other UDS op.
+    MAX_PENDING_ABS_S: ClassVar[float] = 30.0
+    # Secondary bound: a hard ceiling on how many pending responses one
+    # exchange may absorb, independent of wall-clock (a busy ECU emitting
+    # 0x78 back-to-back would otherwise burn through the time wall only).
+    MAX_NRC_78_COUNT: ClassVar[int] = 200
+
     def __init__(
         self,
         bus: AbstractBus | None = None,
@@ -90,12 +102,14 @@ class UdsClient:
         # replay layers carry brs end-to-end, but the ISO-TP engine always
         # emitted brs=False, disabling FD's main performance gain.
         self.brs = bool(brs) and is_fd
-        # REVIEW 1-M3 (MEDIUM): NRC 0x78 pending budget. ISO 14229-1 sets no
-        # count limit; the server may keep extending within its announced
-        # P2* window. A hard 30 s absolute cap killed healthy long routines
-        # (flash erase/checksum) mid-flight. Default: no absolute cap — each
-        # pending response re-arms the P2* window; an outer wall remains
-        # bounded by the per-request timeout_s.
+        # REVIEW 1-M3 (MEDIUM) / REVIEW T56-C U-1 (CRITICAL): NRC 0x78 pending
+        # budget. ISO 14229-1 sets no count limit; the server may keep
+        # extending within its announced P2* window. A hard 30 s absolute cap
+        # killed healthy long routines (flash erase/checksum) mid-flight, so
+        # a *default* wall of MAX_PENDING_ABS_S (30 s) is kept while the
+        # caller can raise/lower it explicitly. When max_pending_timeout_s is
+        # None the class default applies — never "no wall at all" (that path
+        # allowed an ECU emitting 0x78 faster than P2* to loop forever).
         self.max_pending_timeout_s = max_pending_timeout_s
         self.transport = IsoTpTransport(tx_id=tx_id, rx_id=rx_id, channel_id=channel_id)
         self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="uds_client")
@@ -701,24 +715,24 @@ class UdsClient:
 
             start_time = time.monotonic()
             deadline = start_time + timeout_s
-            # REVIEW 1-M3 (MEDIUM): ISO 14229-1 sets no NRC 0x78 count
-            # limit — the server may keep extending within its announced
-            # P2* window. The old hard 30 s absolute cap killed healthy
-            # long routines (flash erase, checksum verification) mid-
-            # flight. Each pending response re-arms P2*; the optional
-            # max_pending_timeout_s (constructor) bounds the total dwell
-            # for callers that need a wall.
-            max_absolute_deadline = (
-                start_time + self.max_pending_timeout_s
+            # REVIEW T56-C U-1 (CRITICAL): a finite absolute wall always
+            # applies. The caller's optional max_pending_timeout_s overrides
+            # the class default — it can *never* disable the wall. (ISO 14229
+            # caps each P2* extension at 5 s in the ECU, but nothing bounds
+            # how many extensions may arrive, so the client must impose its
+            # own total dwell ceiling.)
+            pending_wall_s = (
+                self.max_pending_timeout_s
                 if self.max_pending_timeout_s is not None
-                else None
+                else self.MAX_PENDING_ABS_S
             )
+            max_absolute_deadline = start_time + pending_wall_s
             nrc_78_count = 0
 
             while True:
                 now = time.monotonic()
                 remaining = deadline - now
-                if remaining <= 0 or (max_absolute_deadline is not None and now >= max_absolute_deadline):
+                if remaining <= 0 or now >= max_absolute_deadline:
                     raise ProtocolError(
                         f"UDS Request timed out waiting for response from ECU (0x{self.rx_id:03X})",
                         code="UDS_TIMEOUT",
@@ -775,18 +789,35 @@ class UdsClient:
                         if (
                             not resp.is_positive
                             and resp.nrc == UdsNrc.REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING
-                            and (max_absolute_deadline is None or time.monotonic() < max_absolute_deadline)
+                            and nrc_78_count < self.MAX_NRC_78_COUNT
+                            and time.monotonic() < max_absolute_deadline
                         ):
-                            # P2* extension: ECU signalled pending; each 0x78
-                            # re-arms the P2* window (REVIEW 1-M3 — no count
-                            # cap; ISO 14229-1 allows unlimited pendings
-                            # within the server's announced window).
+                            # P2* extension: ECU signalled pending. Each 0x78
+                            # re-arms the P2* window BUT is clamped to the
+                            # absolute wall, and the count cap bounds how many
+                            # extensions a single exchange may absorb
+                            # (REVIEW T56-C U-1 — an ECU spamming 0x78 faster
+                            # than P2* must not loop forever).
                             nrc_78_count += 1
-                            new_deadline = time.monotonic() + P2_STAR_TIMEOUT_S
-                            if max_absolute_deadline is not None:
-                                new_deadline = min(new_deadline, max_absolute_deadline)
-                            deadline = new_deadline
+                            deadline = min(time.monotonic() + P2_STAR_TIMEOUT_S, max_absolute_deadline)
                             continue
+                        # Pending budget exhausted (time wall or count cap):
+                        # surface a deterministic timeout instead of returning
+                        # the last 0x78 as if it were the final response.
+                        if (
+                            not resp.is_positive
+                            and resp.nrc == UdsNrc.REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING
+                        ):
+                            raise ProtocolError(
+                                f"UDS Request exceeded pending budget waiting for ECU (0x{self.rx_id:03X})",
+                                code="UDS_TIMEOUT",
+                                details={
+                                    "tx_id": hex(self.tx_id),
+                                    "rx_id": hex(self.rx_id),
+                                    "nrc_78_count": nrc_78_count,
+                                    "max_nrc_78_count": self.MAX_NRC_78_COUNT,
+                                },
+                            )
                         return resp
 
     # ISO 15765-4 functional (broadcast) request ID for 11-bit OBD-II

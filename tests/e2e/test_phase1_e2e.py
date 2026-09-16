@@ -658,10 +658,10 @@ def test_tier1_isotp_fc_overflow_abort() -> None:
         (0xF9, 0.9),
         # REVIEW hardening: reserved 0x80..0xF0 clamps to the 10 ms spoof/
         # stall cap (the legacy 127 ms let a single spoofed FC crawl a
-        # transfer); 0xFA..0xFF keeps the legacy 127 ms clamp.
+        # transfer). T56-C I-1: 0xFA..0xFF now shares that same 10 ms cap.
         (0x80, 10.0),
-        (0xFA, 127.0),
-        (0xFF, 127.0),
+        (0xFA, 10.0),
+        (0xFF, 10.0),
     ],
 )
 def test_tier1_isotp_fc_stmin_decoding_matrix(raw_byte: int, expected_ms: float) -> None:
@@ -1437,13 +1437,14 @@ def test_tier2_isotp_stmin_spin_wait_timing_precision() -> None:
         assert decode_st_min(raw_byte) == expected_ms
 
 
-def test_tier2_isotp_stmin_reserved_clamped_to_127ms() -> None:
-    """Tier 2.2.8: reserved STmin ranges clamp per the REVIEW hardening —
-    0x80..0xF0 to the 10 ms spoof/stall cap, 0xFA..0xFF to the legacy 127 ms."""
+def test_tier2_isotp_stmin_reserved_clamped_to_spoof_cap() -> None:
+    """Tier 2.2.8: reserved STmin ranges clamp to the 10 ms spoof/stall cap —
+    both 0x80..0xF0 and 0xFA..0xFF (T56-C I-1: the old legacy 127 ms clamp on
+    0xFA..0xFF let a spoofed FC stall the async sender 127 ms/CF)."""
     for b in [0x80, 0x90, 0xA0, 0xF0]:
         assert decode_st_min(b) == 10.0
     for b in [0xFA, 0xFB, 0xFF]:
-        assert decode_st_min(b) == 127.0
+        assert decode_st_min(b) == 10.0
 
 
 # ---------------------------------------------------------------------------

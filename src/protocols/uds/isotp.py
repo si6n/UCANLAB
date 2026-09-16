@@ -116,18 +116,20 @@ def decode_st_min(st_min_byte: int) -> float:
     - 0x80 - 0xF0: Reserved -> clamped to 10.0 ms (spoof/stall cap)
     - 0xFA - 0xFF: Reserved -> clamped to 10.0 ms (spoof/stall cap)
 
-    REVIEW hardening: the reserved 0x80-0xF0 range previously clamped to
-    127 ms, letting a single spoofed FC serialize a transfer to a crawl.
-    That range is now capped at 10 ms. (0xFA-0xFF keeps the legacy 127 ms
-    clamp — out of scope for this hardening pass.)
+    REVIEW T56-C I-1: the reserved 0x80-0xF0 range was capped at 10 ms in an
+    earlier pass, but 0xFA-0xFF still fell through to the legacy 127 ms clamp
+    while the async ``IsoTpSender._apply_st_min`` *waited* that long per
+    consecutive frame — a single spoofed FC (STmin=0xFA) serialized a whole
+    transfer into a crawl (the synchronous path already clamps at 10 ms).
+    Both reserved ranges now share the 10 ms cap.
     """
     if 0x00 <= st_min_byte <= 0x7F:
         return float(st_min_byte)
     elif 0xF1 <= st_min_byte <= 0xF9:
         return round((st_min_byte - 0xF0) * 0.1, 2)
-    elif 0x80 <= st_min_byte <= 0xF0:
-        return 10.0
-    return 127.0
+    # Reserved ranges (0x80-0xF0 and 0xFA-0xFF) are non-conformant on the
+    # wire; never honour them as a pacing instruction — cap at 10 ms.
+    return 10.0
 
 
 def normalize_can_payload(data: bytes, is_fd: bool, pad_byte: int | None = 0xCC) -> bytes:
@@ -941,8 +943,9 @@ class IsoTpSender:
                 if target_ns - now_ns > yield_every_ns:
                     await asyncio.sleep(0)
         else:
-            # Reserved range clamped to 127 ms
-            await asyncio.sleep(0.127)
+            # Reserved range (0x80-0xF0, 0xFA-0xFF) — never honour a spoofed
+            # stall; clamp to the same 10 ms cap as decode_st_min (T56-C I-1).
+            await asyncio.sleep(min(decode_st_min(st_min_byte), 10.0) / 1000.0)
 
     async def _await_flow_control(self) -> CanFrame:
         """Await incoming Flow Control frame enforcing N_Bs timeout."""
@@ -989,6 +992,19 @@ class IsoTpSender:
         data_len = len(payload)
         if data_len == 0:
             return
+
+        # REVIEW T56-C I-2: ``segment_message`` bounds its payload, but the
+        # async sender did not — an oversized payload would emit a near
+        # unbounded run of Consecutive Frames (bus flood + RAM churn). Fail
+        # closed with the same cap the segmentation path uses.
+        payload_cap = MAX_UDS_PAYLOAD_FD if self.is_fd else MAX_UDS_PAYLOAD_CLASSIC
+        if data_len > payload_cap:
+            raise IsoTpPayloadTooLargeError(
+                f"ISO-TP payload {data_len} bytes exceeds "
+                f"{'FD' if self.is_fd else 'classic'} cap {payload_cap} (fail-closed)",
+                requested_length=data_len,
+                max_buffer_size=payload_cap,
+            )
 
         # 1. Single Frame Check
         # P2-5: ISO 15765-2:2016 SF encoding rules — CAN_DL <= 8 uses the
