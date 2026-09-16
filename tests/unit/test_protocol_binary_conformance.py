@@ -13,6 +13,7 @@ Verifies:
 from unittest.mock import MagicMock
 
 import pytest
+from cryptography.hazmat.primitives.asymmetric import ed25519
 
 from src.core.errors import ProtocolError
 from src.core.models.can_frame import CanFrame
@@ -23,6 +24,11 @@ from src.protocols.nmea2000.pgn_library import Nmea2000PgnDecoder
 from src.protocols.uds.flasher import EcuFlashingEngine, FlashingConfig, FlashingStep
 from src.protocols.uds.isotp import IsoTpTransport
 from src.protocols.volvo.volvo_decoder import VolvoPentaDecoder
+
+# T57-D / F-1: the flasher verifies an Ed25519 firmware signature by default;
+# this conformance suite exercises OTHER behaviour, so it signs its test images.
+_FW_KEY = ed25519.Ed25519PrivateKey.generate()
+_FW_PUB = _FW_KEY.public_key()
 
 
 def test_isotp_can_fd_extended_single_frame_rx() -> None:
@@ -77,7 +83,7 @@ def test_uds_transfer_data_block_sequence_wraparound_to_zero() -> None:
     # REVIEW 2 CRITICAL-1: _call_transfer_data now sends the FIXED contract
     # (is_critical_command=True, user_confirmed) — the mock must accept it.
     mock_client.transfer_data.side_effect = (
-        lambda block_sequence, data, is_critical_command=False, user_confirmed=False: MagicMock(
+        lambda block_sequence, data, is_critical_command=False, user_confirmed=False, confirmation_token=None: MagicMock(
             is_positive=True, nrc=0, data=bytes([block_sequence & 0xFF])
         )
     )
@@ -113,6 +119,10 @@ def test_uds_transfer_data_block_sequence_wraparound_to_zero() -> None:
         user_confirmed=True,
         verify_checksum=True,
         reset_after_flash=False,
+        # T57-D / F-1 + F-4: satisfy the mandatory signature/identity gates.
+        require_target_identity=False,
+        trusted_pubkey=_FW_PUB,
+        firmware_signature=_FW_KEY.sign(b"X" * 300),
     )
 
     success = engine.execute_flash(config)
@@ -160,6 +170,10 @@ def test_uds_flashing_failure_triggers_best_effort_recovery() -> None:
         user_confirmed=True,
         verify_checksum=True,
         reset_after_flash=False,  # success path would NOT reset — recovery must
+        # T57-D / F-1 + F-4: satisfy the mandatory signature/identity gates.
+        require_target_identity=False,
+        trusted_pubkey=_FW_PUB,
+        firmware_signature=_FW_KEY.sign(b"X" * 4),
     )
 
     with pytest.raises(ProtocolError):
@@ -183,6 +197,11 @@ def test_uds_flashing_pre_session_failure_skips_recovery() -> None:
         memory_address=0x08000000,
         data=b"X" * 4,
         user_confirmed=False,  # fails step 1, before any session
+        # T57-D / F-1 + F-4: satisfy the signature/identity gates so the
+        # failure under test is the step-1 dual-confirmation check.
+        require_target_identity=False,
+        trusted_pubkey=_FW_PUB,
+        firmware_signature=_FW_KEY.sign(b"X" * 4),
     )
 
     from src.core.errors import SafetyError

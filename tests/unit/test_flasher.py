@@ -13,9 +13,18 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
+from cryptography.hazmat.primitives.asymmetric import ed25519
 
 from src.core.errors import ProtocolError, SafetyError
 from src.protocols.uds.flasher import EcuFlashingEngine, FlashingConfig, FlashingStep
+
+# T57-D / F-1: the flasher now verifies an Ed25519 firmware signature over the
+# image and enforces target-identity verification by default. These tests
+# exercise OTHER flasher behaviours (sequencing, recovery, contracts), so they
+# supply a valid signature and opt out of the identity DID check; the mandatory
+# paths are covered in tests/unit/test_t57d_flasher_firmware_trust.py.
+_FW_KEY = ed25519.Ed25519PrivateKey.generate()
+_FW_PUB = _FW_KEY.public_key()
 
 
 @dataclass
@@ -131,8 +140,16 @@ def _config(**overrides: Any) -> FlashingConfig:
         # REVIEW hardening: verify_checksum=False is fail-closed rejected.
         "verify_checksum": True,
         "reset_after_flash": True,
+        # T57-D / F-1 + F-4: satisfy the (now mandatory) signature + identity
+        # gates so these tests isolate their own behaviour.
+        "require_target_identity": False,
+        "trusted_pubkey": _FW_PUB,
+        "firmware_signature": _FW_KEY.sign(b"\x55" * 512),
     }
     defaults.update(overrides)
+    # Re-sign whenever the payload was overridden without an explicit sig.
+    if "firmware_signature" not in overrides:
+        defaults["firmware_signature"] = _FW_KEY.sign(bytes(defaults["data"]))
     return FlashingConfig(**defaults)
 
 
@@ -412,6 +429,10 @@ def test_flash_with_firmware_container() -> None:
         container=container,
         block_size=256,
         user_confirmed=True,
+        # T57-D / F-1 + F-4: satisfy the mandatory signature/identity gates.
+        require_target_identity=False,
+        trusted_pubkey=_FW_PUB,
+        firmware_signature=_FW_KEY.sign(b"\xAA" * 512),
     )
     assert config.memory_address == 0x08010000
     assert config.data == b"\xAA" * 512

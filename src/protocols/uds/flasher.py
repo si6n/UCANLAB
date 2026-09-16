@@ -17,6 +17,9 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any, ClassVar
 
+from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives.asymmetric import ed25519
+
 from src.core.errors import ProtocolError, SafetyError
 from src.core.logging import get_logger
 from src.protocols.uds.firmware import FirmwareContainer
@@ -91,12 +94,34 @@ class FlashingConfig:
     reset_after_flash: bool = True
     reset_type: int = 0x01  # Hard Reset
     user_confirmed: bool = False
-    # REVIEW hardening (fail-log, not fail-mandatory yet): optional tool-side
-    # firmware signature + anti-rollback floor. When present the engine
-    # validates length/basic sanity up front; when absent only a warning is
-    # emitted (full mandatory verification is a future step).
+    # T57-D / F-1 (YÜKSEK): tool-side firmware AUTHENTICITY + anti-rollback.
+    # The old review-era block only checked `len(firmware_signature)` and
+    # logged `min_version` — a tampered/unsigned image was flashed and the
+    # anti-rollback floor was never enforced (fail-open). The signature is
+    # now verified cryptographically (Ed25519) over `bytes(data)` against a
+    # trusted public key; both the signature and the trust anchor are
+    # MANDATORY by default (`require_signature=True`).
     firmware_signature: bytes | None = None
     min_version: int = 0
+    trusted_pubkey: ed25519.Ed25519PublicKey | None = None
+    require_signature: bool = True
+    # DID that exposes the ECU's current application software version, read
+    # for the anti-rollback comparison (ISO 14229 F189 = VM ECU software
+    # version). Overridable for OEMs that expose the version elsewhere.
+    version_did: int = 0xF189
+    # T57-D / F-4 (ORTA): target-identity verification (VIN/serial) was
+    # optional and OFF by default, so a multi-ECU bus could be flashed on the
+    # WRONG ECU. Mandatory by default: at least one of expected_vin /
+    # expected_serial must be supplied unless the operator explicitly opts
+    # out with require_target_identity=False.
+    require_target_identity: bool = True
+    # T57-D / F-2: gateway-issued single-use HMAC confirmation token factory.
+    # The flasher mints a fresh token for EVERY critical step (bound to the
+    # client's arbitration id) so a production gateway with a
+    # `confirmation_secret` accepts the flash instead of failing closed at
+    # step 2. When the gateway has no secret (legacy wiring) the factory
+    # returns None and the parameter is omitted.
+    confirmation_token_factory: Callable[[int], bytes | str | None] | None = None
 
     def __post_init__(self) -> None:
         if self.container is not None:
@@ -184,6 +209,62 @@ class EcuFlashingEngine:
 
         self.current_step: FlashingStep = FlashingStep.IDLE
         self._is_cancelled = False
+        # T57-D / F-2: active config stashed so per-step critical calls can
+        # mint their gateway confirmation token without threading the config
+        # through every helper.
+        self._active_config: FlashingConfig | None = None
+
+    def _confirmation_token(self) -> bytes | str | None:
+        """Mint a fresh single-use gateway confirmation token for a critical step.
+
+        T57-D / F-2 (YÜKSEK): the flasher used to present NO token on any
+        critical step, so a production gateway with a configured
+        `confirmation_secret` rejected the flash at step 2
+        (DualConfirmationRequiredError) — flash was unusable, and the only
+        "fix" would have been to enable the legacy boolean bypass, re-opening
+        the T41/G-3 confirmation gap. The token is bound to the client's
+        arbitration id (the frame that will carry it) and is minted ONCE per
+        critical step (single-use, short TTL).
+
+        Resolution order:
+          1. `config.confirmation_token_factory` (composition-root supplied).
+          2. The gateway's own `issue_confirmation_token` when it has a
+             confirmation secret (legacy composition roots).
+        Returns None when no secret is wired (legacy boolean path), so the
+        parameter is simply omitted.
+        """
+        config = self._active_config
+        arb_id = int(getattr(self.uds_client, "tx_id", 0x7E0))
+        if config is not None and config.confirmation_token_factory is not None:
+            return config.confirmation_token_factory(arb_id)
+        gateway = self.gateway
+        if getattr(gateway, "_confirmation_secret", None) is None:
+            return None
+        issuer = getattr(gateway, "issue_confirmation_token", None)
+        if issuer is None:
+            return None
+        return issuer(arb_id, ttl_s=30.0)
+
+    @staticmethod
+    def _parse_ecu_version(response: Any) -> int | None:
+        """Parse the ECU application software version from a 0x22 read.
+
+        Accepts an ASCII decimal version (e.g. `b'\\xf1\\x89' + b'7'` -> 7).
+        Anything else is unverifiable (returns None) — the caller fails
+        closed rather than treating an unparsable value as "new enough".
+        """
+        data = getattr(response, "data", None)
+        if not data:
+            return None
+        raw = bytes(data)
+        # Strip the 2-byte DID echo (`62 F1 89 <value>` -> `data` is
+        # `F1 89 <value>`) when present.
+        if len(raw) >= 2 and raw[:2] == bytes([0xF1, 0x89]):
+            raw = raw[2:]
+        text = raw.decode("ascii", errors="replace").strip()
+        if text.isdigit():
+            return int(text)
+        return None
 
     def _call_transfer_data(self, block_sequence: int, data: bytes, user_confirmed: bool = False) -> Any:
         """Invoke transfer_data under the fixed critical-command contract.
@@ -207,6 +288,7 @@ class EcuFlashingEngine:
                 data=data,
                 is_critical_command=True,
                 user_confirmed=user_confirmed,
+                confirmation_token=self._confirmation_token(),
             )
         except TypeError as exc:
             raise SafetyError(
@@ -380,6 +462,7 @@ class EcuFlashingEngine:
     def execute_flash(self, config: FlashingConfig) -> bool:
         """Execute full end-to-end ECU flashing cycle synchronously."""
         self._is_cancelled = False
+        self._active_config = config
         start_time = time.monotonic()
         total_bytes = len(config.data)
         if total_bytes == 0:
@@ -396,24 +479,64 @@ class EcuFlashingEngine:
             "info",
         )
 
-        # REVIEW hardening (fail-log, not fail-mandatory yet): optional
-        # tool-side firmware signature + anti-rollback floor.
-        if config.firmware_signature is None:
-            self._log(
-                "UYARI: firmware_signature yok — imza doğrulaması atlandı "
-                "(fail-log; tam zorunluluk ileride).",
-                "warning",
-            )
-        else:
-            sig_len = len(config.firmware_signature)
-            if sig_len == 0:
+        # T57-D / F-1 (YÜKSEK): cryptographic firmware authenticity — fail-closed.
+        # The old block only checked that `firmware_signature` was non-empty and
+        # logged `min_version`; a tampered/unsigned image passed and the
+        # anti-rollback floor was never compared. The Ed25519 signature is now
+        # verified over the exact image bytes against the embedded trust anchor
+        # BEFORE any frame leaves the tool.
+        if config.require_signature:
+            if config.firmware_signature is None or len(config.firmware_signature) == 0:
                 raise SafetyError(
-                    "Boş firmware_signature ile flash reddedildi (fail-closed).",
-                    code="FLASH_SIGNATURE_INVALID",
+                    "firmware_signature zorunlu — imzasız imaj flash edilemez (fail-closed).",
+                    code="FLASH_SIGNATURE_MISSING",
                 )
+            if config.trusted_pubkey is None:
+                raise SafetyError(
+                    "Doğrulama açık anahtarı (trusted_pubkey) yapılandırılmamış — "
+                    "imza doğrulanamaz (fail-closed).",
+                    code="FLASH_TRUST_ANCHOR_MISSING",
+                )
+            try:
+                config.trusted_pubkey.verify(config.firmware_signature, bytes(config.data))
+            except InvalidSignature as exc:
+                raise SafetyError(
+                    "Firmware imzası geçersiz — kurcalanmış/yetkisiz imaj reddedildi (fail-closed).",
+                    code="FLASH_SIGNATURE_INVALID",
+                ) from exc
+            except Exception as exc:  # noqa: BLE001 — malformed key/sig also fails closed
+                raise SafetyError(
+                    "Firmware imzası doğrulanamadı (bozuk imza/anahtar) — flash reddedildi (fail-closed).",
+                    code="FLASH_SIGNATURE_INVALID",
+                ) from exc
             self._log(
-                f"İmza alanı mevcut (uzunluk={sig_len}, min_version={config.min_version}).",
+                f"✅ Firmware imzası doğrulandı (Ed25519, boyut={len(config.firmware_signature)} B).",
                 "info",
+            )
+        elif config.firmware_signature is not None and len(config.firmware_signature) == 0:
+            # A present-but-empty signature is always malformed, even when
+            # verification is explicitly opted out.
+            raise SafetyError(
+                "Boş firmware_signature ile flash reddedildi (fail-closed).",
+                code="FLASH_SIGNATURE_INVALID",
+            )
+
+        # T57-D / F-4 (ORTA): target-identity verification is mandatory by
+        # default. Flashing a multi-ECU bus without pinning the target risks
+        # writing the image to the wrong ECU. Require at least one identity
+        # anchor up front (before any TX); the actual DID comparison happens
+        # once the extended session is open.
+        if config.require_target_identity and config.expected_vin is None and config.expected_serial is None:
+            raise SafetyError(
+                "Hedef kimlik doğrulaması zorunlu (expected_vin veya expected_serial) — "
+                "yanlış ECU'ya flash riski nedeniyle reddedildi (fail-closed).",
+                code="FLASH_TARGET_IDENTITY_REQUIRED",
+            )
+        if not config.require_signature:
+            self._log(
+                "UYARI: require_signature=False — firmware imza doğrulaması atlandı "
+                "(operatör açıkça devre dışı bıraktı).",
+                "warning",
             )
 
         # REVIEW.md 3.3: start the S3 keep-alive before the first session
@@ -472,7 +595,9 @@ class EcuFlashingEngine:
             # hard, never silently re-issue the request with the dual
             # confirmation flag dropped (gateway Stage-5 bypass).
             resp = self.uds_client.change_session(
-                DiagnosticSessionType.EXTENDED_DIAGNOSTIC_SESSION, user_confirmed=True
+                DiagnosticSessionType.EXTENDED_DIAGNOSTIC_SESSION,
+                user_confirmed=True,
+                confirmation_token=self._confirmation_token(),
             )
             if not resp.is_positive:
                 raise ProtocolError(f"Genişletilmiş oturum açılamadı: {resp.nrc_description_tr} (NRC 0x{resp.nrc:02X})")
@@ -507,6 +632,42 @@ class EcuFlashingEngine:
                     )
                 self._log(f"✅ ECU Seri Numarası başarıyla doğrulandı: {actual_serial}", "info")
 
+            # Step 2c: T57-D / F-1 anti-rollback. `min_version` used to be
+            # logged only — never compared. Read the ECU's current application
+            # software version and refuse the flash if it is below the floor.
+            # An unreadable/unparsable version fails closed (cannot prove the
+            # image is not a downgrade).
+            if config.min_version and config.min_version > 0:
+                self._log(
+                    f"Anti-rollback kontrolü: ECU sürümü okunuyor (DID 0x{config.version_did:04X}, "
+                    f"taban={config.min_version})...",
+                    "info",
+                )
+                ver_resp = self.uds_client.read_did(config.version_did)
+                if not ver_resp.is_positive:
+                    raise SafetyError(
+                        f"Anti-rollback: ECU sürümü (0x{config.version_did:04X}) okunamadı "
+                        f"({ver_resp.nrc_description_tr}) — downgrade doğrulanamaz (fail-closed).",
+                        code="FLASH_ROLLBACK_UNVERIFIABLE",
+                    )
+                current_version = self._parse_ecu_version(ver_resp)
+                if current_version is None:
+                    raise SafetyError(
+                        f"Anti-rollback: ECU sürümü ayrıştırılamadı "
+                        f"(0x{config.version_did:04X}) — downgrade doğrulanamaz (fail-closed).",
+                        code="FLASH_ROLLBACK_UNVERIFIABLE",
+                    )
+                if current_version < config.min_version:
+                    raise SafetyError(
+                        f"Anti-rollback: ECU sürümü ({current_version}) tabanın "
+                        f"({config.min_version}) altında — downgrade reddedildi (fail-closed).",
+                        code="FLASH_ROLLBACK_DENIED",
+                    )
+                self._log(
+                    f"✅ Anti-rollback OK: ECU sürümü {current_version} >= {config.min_version}.",
+                    "info",
+                )
+
             # 3. Programming Session (P1-5: 0x10 0x02 BEFORE 0x27 — the ECU
             # re-locks security access on session transition; the normative
             # reprogramming order is 0x10 0x02 -> 0x27 -> 0x34, with the
@@ -516,7 +677,9 @@ class EcuFlashingEngine:
             self._check_cancelled()
             # REVIEW 3-CRITICAL: hard-fail contract (same as step 2).
             resp = self.uds_client.change_session(
-                DiagnosticSessionType.PROGRAMMING_SESSION, user_confirmed=True
+                DiagnosticSessionType.PROGRAMMING_SESSION,
+                user_confirmed=True,
+                confirmation_token=self._confirmation_token(),
             )
             if not resp.is_positive:
                 raise ProtocolError(f"Programlama oturumuna geçilemedi: {resp.nrc_description_tr}")
@@ -588,6 +751,7 @@ class EcuFlashingEngine:
                     routine_id=config.erase_routine_id,
                     options=config.erase_routine_options,
                     user_confirmed=config.user_confirmed,
+                    confirmation_token=self._confirmation_token(),
                 )
                 if not erase_resp.is_positive:
                     raise ProtocolError(f"Bellek silme rutini reddedildi: {erase_resp.nrc_description_tr}")
@@ -604,6 +768,7 @@ class EcuFlashingEngine:
                 memory_address=config.memory_address,
                 memory_size=total_bytes,
                 user_confirmed=config.user_confirmed,
+                confirmation_token=self._confirmation_token(),
             )
             if not resp.is_positive:
                 raise ProtocolError(f"RequestDownload ECU tarafından reddedildi: {resp.nrc_description_tr}")
@@ -674,7 +839,9 @@ class EcuFlashingEngine:
             # REVIEW 3-CRITICAL: no TypeError fallback — dropping
             # user_confirmed here would bypass the gateway Stage-5 gate.
             resp = self.uds_client.request_transfer_exit(
-                is_critical_command=True, user_confirmed=config.user_confirmed
+                is_critical_command=True,
+                user_confirmed=config.user_confirmed,
+                confirmation_token=self._confirmation_token(),
             )
             if not resp.is_positive:
                 raise ProtocolError(f"RequestTransferExit reddedildi: {resp.nrc_description_tr}")
@@ -703,6 +870,7 @@ class EcuFlashingEngine:
                 routine_id=config.checksum_routine_id,
                 options=crc_bytes,
                 user_confirmed=config.user_confirmed,
+                confirmation_token=self._confirmation_token(),
             )
             if not resp.is_positive:
                 raise ProtocolError(f"Sağlama toplamı doğrulama başlatılamadı: {resp.nrc_description_tr}")
@@ -768,7 +936,9 @@ class EcuFlashingEngine:
                 self._check_cancelled()
                 self._log("Adım 9/10: ECU yeniden başlatılıyor (Hard Reset 0x11)...", "info")
                 with_reset_resp = self.uds_client.ecu_reset(
-                    reset_type=config.reset_type, user_confirmed=config.user_confirmed
+                    reset_type=config.reset_type,
+                    user_confirmed=config.user_confirmed,
+                    confirmation_token=self._confirmation_token(),
                 )
                 if not with_reset_resp.is_positive:
                     # REVIEW 3-HIGH: the flash image is verified on the ECU but

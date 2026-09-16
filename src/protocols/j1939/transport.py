@@ -290,6 +290,12 @@ class CmdtSenderSession:
     cts_window: int = 0
     next_sequence: int = 1
     last_activity_time: float = field(default_factory=time.monotonic)
+    # T57-D / J-2: HOLD (CTS packet_count=0) and rewind anti-abuse bookkeeping.
+    # A fake peer used to be able to send unlimited HOLD CTS frames (each
+    # refreshing last_activity_time) so the session was never reaped, and to
+    # request arbitrarily deep `next_seq` rewinds (DT amplification).
+    hold_count: int = 0
+    hold_window_start: float = 0.0
 
     @property
     def key(self) -> tuple[int, int, int, str]:
@@ -307,6 +313,20 @@ class J1939TransportProtocol:
     T4_TIMEOUT_SEC: ClassVar[float] = 1.050  # 1050 ms (Time to hold connection)
     MAX_CONCURRENT_SESSIONS: ClassVar[int] = 512
     MAX_SESSIONS_PER_SA: ClassVar[int] = 4  # F-19: per source-address session quota
+    # T57-D / J-1: TX (CMDT sender) session bounds. `start_cmdt_transfer`
+    # used to open sessions without any cap and `poll_cmdt_timeouts` had no
+    # production caller, so a caller that never advanced/polled leaked
+    # `_tx_sessions` until process exit. Cap the table and auto-reap on open.
+    MAX_TX_SESSIONS: ClassVar[int] = 256
+    # T57-D / J-2: HOLD (packet_count=0) anti-abuse. A legitimate HOLD
+    # extends the wait by T4; an unbounded stream of HOLD CTS frames would
+    # refresh activity forever. Bound the count within a sliding window.
+    MAX_HOLD_CTS: ClassVar[int] = 8
+    HOLD_WINDOW_S: ClassVar[float] = 2.0
+    # T57-D / J-2: maximum legitimate `next_seq` rewind depth. A deep rewind
+    # forces re-transmission of already-sent DT packets (amplification);
+    # only a shallow retransmit window is legitimate.
+    MAX_REWIND_DEPTH: ClassVar[int] = 2
     # Receiver-side CTS grant window for CMDT sessions (0 = grant all packets
     # in one CTS, the simple-buffer default). Non-zero bounds each CTS to N
     # packets, requiring re-CTS exchanges for longer transfers.
@@ -521,6 +541,31 @@ class J1939TransportProtocol:
         """Lock-holding public alias for reaping stale sessions."""
         with self._sessions_lock:
             return self._reap_stale_sessions(now=now)
+
+    def _reap_stale_tx_sessions(self, now: float) -> list[CanFrame]:
+        """Reap expired CMDT SENDER sessions; return their timeout aborts.
+
+        T57-D / J-1: `poll_cmdt_timeouts` exists but has no production
+        caller, so the TX session table had no automatic reaper. This helper
+        runs on every `start_cmdt_transfer` (and is reused by
+        `poll_cmdt_timeouts`) so an abandoned/never-polled sender session is
+        released and the peer is told via a TP.Conn_Abort.
+
+        Caller must hold `_sessions_lock`.
+        """
+        expired = [
+            key
+            for key, sess in self._tx_sessions.items()
+            if (
+                (sess.state == "WAIT_CTS" and (now - sess.last_activity_time) > self.T2_TIMEOUT_SEC)
+                or (sess.state == "WAIT_ACK" and (now - sess.last_activity_time) > self.T3_TIMEOUT_SEC)
+            )
+        ]
+        aborts: list[CanFrame] = []
+        for key in expired:
+            session = self._tx_sessions.pop(key)
+            aborts.append(self._create_tx_abort_frame(session, ABORT_REASON_TIMEOUT))
+        return aborts
 
     def _handle_tp_cm(
         self, frame: CanFrame, sa: int, da: int
@@ -859,12 +904,19 @@ class J1939TransportProtocol:
             return
         self._rx_sessions.pop(key, None)
 
-    def _lookup_dt_session(self, sa: int, da: int, channel_id: str) -> tuple[tuple | None, ReassemblySession | None]:
+    def _lookup_dt_session(
+        self, sa: int, da: int, channel_id: str, seq_num: int | None = None
+    ) -> tuple[tuple | None, ReassemblySession | None]:
         """Resolve the RX session owning a TP.DT frame.
 
         TP.DT carries no PGN, so the 4-tuple key cannot be built directly.
-        Unique match wins; ambiguous (parallel PGN) DT is dropped
-        fail-closed (no cross-PGN payload mixing).
+        A unique match wins. T57-D / J-5: when parallel PGN sessions exist
+        for one (SA, DA, channel) prefix, the old code dropped ALL DT
+        fail-closed — a slow attacker could open a parallel session and
+        starve a legitimate reassembly (DoS). The DT's sequence number now
+        disambiguates: the session whose ``expected_sequence`` matches is the
+        owner. If the sequence is still ambiguous, the most-recently-active
+        session wins (the live one), never a blanket drop.
         """
         candidates = [
             (key, sess)
@@ -878,10 +930,27 @@ class J1939TransportProtocol:
         if len(candidates) == 1:
             return candidates[0]
         if len(candidates) > 1:
+            # Disambiguate by expected sequence number.
+            if seq_num is not None:
+                seq_matches = [(k, s) for k, s in candidates if s.expected_sequence == seq_num]
+                if len(seq_matches) == 1:
+                    return seq_matches[0]
+                if len(seq_matches) > 1:
+                    candidates = seq_matches
+            # Still ambiguous: pick the most-recently-active (live) session
+            # instead of dropping every DT (J-5 fail-open-to-progress).
+            chosen = max(candidates, key=lambda ks: ks[1].last_activity_time)
             logger.warning(
-                "J1939 TP.DT dropped: ambiguous parallel sessions (fail-closed)",
-                extra={"sa": sa, "da": da, "candidates": len(candidates)},
+                "J1939 TP.DT ambiguous parallel sessions — routing to most-recent session",
+                extra={
+                    "sa": sa,
+                    "da": da,
+                    "candidates": len(candidates),
+                    "chosen_pgn": hex(chosen[1].target_pgn),
+                    "seq_num": seq_num,
+                },
             )
+            return chosen
         return None, None
 
     def _handle_tp_dt(
@@ -897,7 +966,7 @@ class J1939TransportProtocol:
         # append, completion, and slot release — runs under one lock hold so
         # concurrent TP.DT frames cannot interleave with torn state.
         with self._sessions_lock:
-            session_key, session = self._lookup_dt_session(sa, da, frame.channel_id)
+            session_key, session = self._lookup_dt_session(sa, da, frame.channel_id, seq_num=seq_num)
 
             if session is None or session_key is None:
                 return None, None
@@ -1241,6 +1310,26 @@ class J1939TransportProtocol:
             last_activity_time=self._get_now(),
         )
         with self._sessions_lock:
+            # T57-D / J-1: `poll_cmdt_timeouts` has no production caller, so
+            # opening a transfer must itself reap expired sender sessions and
+            # enforce a hard cap — otherwise a caller that opens CMDT
+            # sessions and never advances/polls them leaks `_tx_sessions`.
+            self._pending_tx_frames.extend(self._reap_stale_tx_sessions(self._get_now()))
+            if len(self._tx_sessions) >= self.MAX_TX_SESSIONS:
+                # Evict the stalest sender session (fail-closed: never grow
+                # unbounded). Its abort is queued so the peer is told.
+                oldest_key = min(
+                    self._tx_sessions.keys(),
+                    key=lambda k: self._tx_sessions[k].last_activity_time,
+                )
+                evicted = self._tx_sessions.pop(oldest_key)
+                logger.warning(
+                    "J1939 TX session table full — evicting stalest sender session",
+                    extra={"cap": self.MAX_TX_SESSIONS, "target_pgn": hex(evicted.target_pgn)},
+                )
+                self._pending_tx_frames.append(
+                    self._create_tx_abort_frame(evicted, ABORT_REASON_TIMEOUT)
+                )
             self._tx_sessions[session.key] = session
 
         rts_data = bytearray(8)
@@ -1379,11 +1468,52 @@ class J1939TransportProtocol:
                 if packet_count == 0:
                     # HOLD: keep the session alive, refresh activity so T4
                     # governs the wait, and emit nothing until a real CTS.
+                    # T57-D / J-2: an unbounded stream of HOLD CTS frames
+                    # would refresh activity forever and never let the
+                    # session be reaped. Bound the count within a sliding
+                    # window; exceeding it aborts the session.
+                    now_hold = self._get_now()
+                    if (
+                        session.hold_window_start == 0.0
+                        or (now_hold - session.hold_window_start) > self.HOLD_WINDOW_S
+                    ):
+                        session.hold_window_start = now_hold
+                        session.hold_count = 0
+                    session.hold_count += 1
+                    if session.hold_count > self.MAX_HOLD_CTS:
+                        logger.warning(
+                            "J1939 CMDT HOLD storm — aborting session",
+                            extra={
+                                "hold_count": session.hold_count,
+                                "cap": self.MAX_HOLD_CTS,
+                                "window_s": self.HOLD_WINDOW_S,
+                            },
+                        )
+                        abort = self._create_tx_abort_frame(session, ABORT_REASON_UNEXPECTED_CONTROL)
+                        self._tx_sessions.pop(key, None)
+                        return [], abort
                     session.state = "WAIT_CTS"
-                    session.last_activity_time = self._get_now()
+                    session.last_activity_time = now_hold
                     return [], None
                 if next_seq < session.next_sequence:
                     # Retransmit window: rewind to the requested sequence.
+                    # T57-D / J-2: bound the rewind depth — a deep rewind
+                    # forces re-transmission of already-sent DT packets
+                    # (amplification); only a shallow retransmit is legal.
+                    rewind_depth = session.next_sequence - next_seq
+                    if rewind_depth > self.MAX_REWIND_DEPTH:
+                        logger.warning(
+                            "J1939 CMDT CTS rewind depth exceeds limit — aborting session",
+                            extra={
+                                "from_seq": session.next_sequence,
+                                "to_seq": next_seq,
+                                "depth": rewind_depth,
+                                "cap": self.MAX_REWIND_DEPTH,
+                            },
+                        )
+                        abort = self._create_tx_abort_frame(session, ABORT_REASON_UNEXPECTED_CONTROL)
+                        self._tx_sessions.pop(key, None)
+                        return [], abort
                     logger.info(
                         "J1939 CMDT retransmit requested by receiver CTS",
                         extra={"from_seq": session.next_sequence, "to_seq": next_seq},
@@ -1391,6 +1521,8 @@ class J1939TransportProtocol:
                 session.cts_window = packet_count
                 session.next_sequence = next_seq
                 session.state = "GRANTED"
+                session.hold_count = 0
+                session.hold_window_start = 0.0
                 session.last_activity_time = self._get_now()
                 return self._emit_dt_window(session, self._get_now()), None
 
@@ -1459,22 +1591,13 @@ class J1939TransportProtocol:
 
         T2 governs waiting for CTS after RTS; T3 governs waiting for
         EndOfMsgACK after the last DT. Both expire with Abort reason 3.
+
+        T57-D / J-1: delegates to `_reap_stale_tx_sessions`, which also runs
+        automatically on every `start_cmdt_transfer` (this poll had no
+        production caller, so the table used to leak).
         """
-        now = self._get_now()
-        aborts: list[CanFrame] = []
         with self._sessions_lock:
-            expired = [
-                key
-                for key, sess in self._tx_sessions.items()
-                if (
-                    (sess.state == "WAIT_CTS" and (now - sess.last_activity_time) > self.T2_TIMEOUT_SEC)
-                    or (sess.state == "WAIT_ACK" and (now - sess.last_activity_time) > self.T3_TIMEOUT_SEC)
-                )
-            ]
-            for key in expired:
-                session = self._tx_sessions.pop(key)
-                aborts.append(self._create_tx_abort_frame(session, ABORT_REASON_TIMEOUT))
-        return aborts
+            return self._reap_stale_tx_sessions(self._get_now())
 
 
 __all__ = [

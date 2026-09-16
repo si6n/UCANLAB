@@ -236,14 +236,26 @@ class UdsClient:
             confirmation_token=confirmation_token,
         )
 
-    def write_did(self, did: int, data: bytes, user_confirmed: bool = False) -> UdsResponse:
+    def write_did(
+        self,
+        did: int,
+        data: bytes,
+        user_confirmed: bool = False,
+        confirmation_token: bytes | str | None = None,
+    ) -> UdsResponse:
         """Write Data Identifier (0x2E) - Critical command.
 
         Requires explicit operator confirmation; dual confirmation is NOT
-        granted by default.
+        granted by default. T57-D (F-2): `confirmation_token` carries the
+        gateway-issued HMAC proof for production wiring.
         """
         req_payload = UdsServiceBuilder.build_write_data_by_identifier(did, data)
-        return self._send_and_receive(req_payload, is_critical_command=True, user_confirmed=user_confirmed)
+        return self._send_and_receive(
+            req_payload,
+            is_critical_command=True,
+            user_confirmed=user_confirmed,
+            confirmation_token=confirmation_token,
+        )
 
     def read_memory_by_address(
         self,
@@ -303,11 +315,13 @@ class UdsClient:
         data_format_identifier: int = 0x00,
         address_and_length_format_identifier: int = 0x44,
         user_confirmed: bool = False,
+        confirmation_token: bytes | str | None = None,
     ) -> UdsResponse:
         """Request Download (0x34) - Critical command.
 
         Requires explicit operator confirmation; dual confirmation is NOT
-        granted by default.
+        granted by default. T57-D (F-2): `confirmation_token` carries the
+        gateway-issued HMAC proof for production wiring.
         """
         req_payload = UdsServiceBuilder.build_request_download(
             memory_address=memory_address,
@@ -315,7 +329,12 @@ class UdsClient:
             data_format_identifier=data_format_identifier,
             address_and_length_format_identifier=address_and_length_format_identifier,
         )
-        return self._send_and_receive(req_payload, is_critical_command=True, user_confirmed=user_confirmed)
+        return self._send_and_receive(
+            req_payload,
+            is_critical_command=True,
+            user_confirmed=user_confirmed,
+            confirmation_token=confirmation_token,
+        )
 
     def transfer_data(
         self,
@@ -323,6 +342,7 @@ class UdsClient:
         data: bytes,
         is_critical_command: bool = True,
         user_confirmed: bool = False,
+        confirmation_token: bytes | str | None = None,
     ) -> UdsResponse:
         """Transfer Data Block (0x36) - Memory write is safety-critical.
 
@@ -343,13 +363,17 @@ class UdsClient:
             )
         req_payload = UdsServiceBuilder.build_transfer_data(block_sequence=block_sequence, data=data)
         return self._send_and_receive(
-            req_payload, is_critical_command=True, user_confirmed=user_confirmed
+            req_payload,
+            is_critical_command=True,
+            user_confirmed=user_confirmed,
+            confirmation_token=confirmation_token,
         )
 
     def request_transfer_exit(
         self,
         is_critical_command: bool = True,
         user_confirmed: bool = False,
+        confirmation_token: bytes | str | None = None,
     ) -> UdsResponse:
         """Request Transfer Exit (0x37) - closes a flash transfer.
 
@@ -358,6 +382,7 @@ class UdsClient:
         REVIEW hardening: `is_critical_command` is kept for API
         compatibility but downgrading it is forbidden — passing False
         raises ValueError (fail-closed, no silent gateway bypass).
+        T57-D (F-2): `confirmation_token` carries the gateway HMAC proof.
         """
         if not is_critical_command:
             raise ValueError(
@@ -366,7 +391,10 @@ class UdsClient:
             )
         req_payload = UdsServiceBuilder.build_request_transfer_exit()
         return self._send_and_receive(
-            req_payload, is_critical_command=True, user_confirmed=user_confirmed
+            req_payload,
+            is_critical_command=True,
+            user_confirmed=user_confirmed,
+            confirmation_token=confirmation_token,
         )
 
     def ecu_reset(
@@ -389,14 +417,26 @@ class UdsClient:
             confirmation_token=confirmation_token,
         )
 
-    def start_routine(self, routine_id: int, options: bytes = b"", user_confirmed: bool = False) -> UdsResponse:
+    def start_routine(
+        self,
+        routine_id: int,
+        options: bytes = b"",
+        user_confirmed: bool = False,
+        confirmation_token: bytes | str | None = None,
+    ) -> UdsResponse:
         """Start ECU Routine (0x31) - Critical command.
 
         Requires explicit operator confirmation; dual confirmation is NOT
-        granted by default.
+        granted by default. T57-D (F-2): `confirmation_token` carries the
+        gateway-issued HMAC proof for production wiring.
         """
         req_payload = UdsServiceBuilder.build_routine_control(RoutineControlType.START_ROUTINE, routine_id, options)
-        return self._send_and_receive(req_payload, is_critical_command=True, user_confirmed=user_confirmed)
+        return self._send_and_receive(
+            req_payload,
+            is_critical_command=True,
+            user_confirmed=user_confirmed,
+            confirmation_token=confirmation_token,
+        )
 
     def stop_routine(self, routine_id: int) -> UdsResponse:
         """Stop ECU Routine (0x31)."""
@@ -751,10 +791,21 @@ class UdsClient:
                         # train over the default lane (100 msg/s) could trip
                         # the gateway's sustained-overload E-Stop mid-read.
                         # Route through the protocol_burst budget lane.
+                        # T57-D (U-2): this FC/CF is a PROTOCOL RESPONSE to
+                        # inbound bus traffic — mark it inbound_triggered so a
+                        # hostile ECU's FC flood can never bait the tool into a
+                        # remote self-DoS E-Stop.
                         try:
-                            self.tx_port.send_sync(resp_frame, budget_category="protocol_burst")
+                            self.tx_port.send_sync(
+                                resp_frame,
+                                budget_category="protocol_burst",
+                                inbound_triggered=True,
+                            )
                         except TypeError:
-                            self.tx_port.send_sync(resp_frame)
+                            try:
+                                self.tx_port.send_sync(resp_frame, budget_category="protocol_burst")
+                            except TypeError:
+                                self.tx_port.send_sync(resp_frame)
                     if completed_data is not None:
                         resp = UdsServiceBuilder.parse_response(completed_data)
                         expected_sid = payload[0]
@@ -867,10 +918,20 @@ class UdsClient:
                     continue
                 data, resp_frame = per_id[rid].handle_rx_frame(rx_frame)
                 if resp_frame is not None:
+                    # T57-D (U-2): FC responses to inbound functional-poll
+                    # answers are protocol responses — inbound_triggered so a
+                    # hostile ECU cannot bait a remote self-DoS E-Stop.
                     try:
-                        self.tx_port.send_sync(resp_frame, budget_category="protocol_burst")
+                        self.tx_port.send_sync(
+                            resp_frame,
+                            budget_category="protocol_burst",
+                            inbound_triggered=True,
+                        )
                     except TypeError:
-                        self.tx_port.send_sync(resp_frame)
+                        try:
+                            self.tx_port.send_sync(resp_frame, budget_category="protocol_burst")
+                        except TypeError:
+                            self.tx_port.send_sync(resp_frame)
                 if data is not None:
                     resp = UdsServiceBuilder.parse_response(data)
                     if resp.service_id == expected_sid:
