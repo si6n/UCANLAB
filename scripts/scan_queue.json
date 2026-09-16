@@ -28,10 +28,11 @@
    "domain": "obd-codes.com",
    "type": "dtc",
    "method": "brightdata",
-   "status": "pending",
+   "status": "scanning",
    "credits_used": 0,
    "tur": "<=35",
-   "notes": "9300 DTC"
+   "notes": "9300 DTC",
+   "locked_by": "chassis:t_7ce79f38"
   },
   {
    "id": "repair_diesellaptops_com",
@@ -39,10 +40,11 @@
    "domain": "repair.diesellaptops.com",
    "type": "dtc",
    "method": "free",
-   "status": "pending",
+   "status": "scanning",
    "credits_used": 0,
    "tur": "<=35",
-   "notes": "26434 satir / 618 SPN"
+   "notes": "26434 satir / 618 SPN",
+   "locked_by": "chassis:t_7ce79f38"
   },
   {
    "id": "4roadservice_com",
@@ -50,10 +52,11 @@
    "domain": "4roadservice.com",
    "type": "dtc",
    "method": "brightdata",
-   "status": "pending",
+   "status": "scanning",
    "credits_used": 0,
    "tur": "<=35",
-   "notes": "Detroit DD13/15/16"
+   "notes": "Detroit DD13/15/16",
+   "locked_by": "chassis:t_7ce79f38"
   },
   {
    "id": "b2bendix_com",
@@ -351,6 +354,81 @@
    "credits_used": 0,
    "tur": "T55-C",
    "notes": "Navistar MaxxForce diagnostic manual x4 (free urllib): SPN 3242/3719/3936 referansli prosedur (DB'de zaten dolu)"
+  },
+  {
+   "id": "primodetech_com",
+   "url": "primodetech.com/dtc-lookup + /api/dtc/search?q=<spn>",
+   "domain": "primodetech.com",
+   "type": "j1939",
+   "method": "free",
+   "status": "pending",
+   "credits_used": 0,
+   "tur": "KESIF-2026-09-16",
+   "quality": "high",
+   "est_items": 638,
+   "license": "belirsiz (site kendi DTC veritabani; API robots.txt'te Allow)",
+   "sitemap": "https://www.primodetech.com/sitemap.xml",
+   "notes": "ACIK JSON API (/api/dtc/search?q=<spn|name>, /api/dtc/detail/<uuid>, /api/dtc/popular) — robots.txt'te bu 3 endpoint 'Allow'. Kayit alanlari: protocol/spn/fmi/name/description/possible_causes/recommended_actions/affected_systems/severity/manufacturer. 9 SPN test -> 8 hit, hepsinde causes+actions dolu. sitemap 1276 dtc-lookup URL (~638 benzersiz EN). HTML sayfalar JS-render (statik metin yok) ama API duz JSON."
+  },
+  {
+   "id": "github_foerbsnavi_obdex",
+   "url": "raw.githubusercontent.com/foerbsnavi/OBDex/main/data/generic/*_enriched.yaml",
+   "domain": "raw.githubusercontent.com",
+   "type": "dtc",
+   "method": "free",
+   "status": "pending",
+   "credits_used": 0,
+   "tur": "KESIF-2026-09-16",
+   "quality": "high",
+   "est_items": 9533,
+   "license": "CC0 1.0 (public domain, LICENSE-DATA)",
+   "sitemap": "https://github.com/foerbsnavi/OBDex/tree/main/data/generic",
+   "notes": "Zenginlestirilmis YAML, makine-okunur. Aile bazinda SAYILDI: P0xxx=3705, P2xxx=3495, U0xxx=1055, C0xxx=626, B0xxx=323, U3xxx=174, P3xxx=155 => 9533 DTC. Her kayit: title(en/de), description(en/de), affected_components, common_causes[{id,likelihood,label}], repair{difficulty,diy_possible,cost_eur,hours}, flags{mil,limp_mode}. DIKKAT: raw.githubusercontent.com domain'i ZATEN var (sitrak) ama FARKLI repo+icerik (OBD-II generic vs SITRAK J1939) — ayri kaynak id."
+  },
+  {
+   "id": "github_wal33d_dtc_database",
+   "url": "raw.githubusercontent.com/Wal33D/dtc-database/main/data/dtc_codes.db",
+   "domain": "raw.githubusercontent.com",
+   "type": "dtc",
+   "method": "free",
+   "status": "pending",
+   "credits_used": 0,
+   "tur": "KESIF-2026-09-16",
+   "quality": "medium",
+   "est_items": 12128,
+   "license": "MIT",
+   "sitemap": "https://github.com/Wal33D/dtc-database",
+   "notes": "SQLite 3.2MB + kaynak txt. README'ye gore: 18805 tanim satiri / 12128 benzersiz DTC / 9415 generic SAE J2012 / 9390 marka-ozel / 33 marka (P=14821,B=1465,C=985,U=1534). Yalniz kod+aciklama (semptom/neden/adim YOK) -> kalite medium. OBDex ile buyuk olcude ORTUSUR (OBDex kaynagi olarak Wal33D'yi gosteriyor) — merge'te dedup sart."
+  },
+  {
+   "id": "dieselscanners_com",
+   "url": "dieselscanners.com/blogs/news/spn-*",
+   "domain": "dieselscanners.com",
+   "type": "j1939",
+   "method": "free",
+   "status": "pending",
+   "credits_used": 0,
+   "tur": "KESIF-2026-09-16",
+   "quality": "high",
+   "est_items": 104,
+   "license": "belirsiz (ticari Shopify blog, telif hakkı saklı)",
+   "sitemap": "https://dieselscanners.com/sitemap.xml -> sitemap_blogs_1.xml (144 URL)",
+   "notes": "104 SPN/FMI 'full fix guide' makalesi. 2 ornek sayfa cekildi (SPN 5246/FMI 0, SPN 3055): semptom + gercek neden + adim gercek metin (5.4KB). SPN 3719 3. ornekte symptom/cause/step hepsi VAR. Kalite high. Lisans belirsiz — attribution/kaynak notu ile kullan."
+  },
+  {
+   "id": "carcarehacks_com",
+   "url": "carcarehacks.com/<p|b|c|u><NNNN>-*  ve /spn-*",
+   "domain": "carcarehacks.com",
+   "type": "dtc",
+   "method": "free",
+   "status": "pending",
+   "credits_used": 0,
+   "tur": "KESIF-2026-09-16",
+   "quality": "high",
+   "est_items": 476,
+   "license": "belirsiz (WordPress blog, telif hakkı saklı)",
+   "sitemap": "https://www.carcarehacks.com/sitemap.xml -> post-sitemap{,2,3}.xml",
+   "notes": "2126 post; SAYILDI: 421 P/B/C/U kod yazisi + 55 SPN/FMI yazisi = 476 hedef. Ornek P0401 sayfasi 18KB metin; Symptoms+Causes+How to Fix+Diagnostic bolumleri mevcut. Kalite high. Lisans belirsiz."
   }
  ],
  "blacklist": [

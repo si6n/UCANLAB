@@ -423,6 +423,36 @@
       "date": "2026-09-15",
       "site": "dieselhub.com",
       "note": "444 URL, motor/sanziman teknik referans (SPN/FMI degil) — dusuk oncelik"
+    },
+    {
+      "date": "2026-09-16",
+      "site": "primodetech.com",
+      "note": "ACIK JSON DTC API (/api/dtc/search?q=<spn>, /detail/<uuid>, /popular) — robots.txt'te ALLOW; J1939 SPN/FMI + name + description + possible_causes + recommended_actions + severity + manufacturer. 638 benzersiz EN detay (sitemap). HTML JS-render -> API kullan."
+    },
+    {
+      "date": "2026-09-16",
+      "site": "foerbsnavi/OBDex (GitHub, CC0)",
+      "note": "9533 zenginlestirilmis DTC (7 YAML ailesi: P0 3705/P2 3495/U0 1055/C0 626/B0 323/U3 174/P3 155). title+description(en/de)+causes{likelihood}+repair. raw.githubusercontent.com uzerinden free. NOT: STAS63 sitrak ile AYNI domain ama FARKLI repo/icerik."
+    },
+    {
+      "date": "2026-09-16",
+      "site": "Wal33D/dtc-database (GitHub, MIT)",
+      "note": "12128 benzersiz DTC SQLite (18805 satir, 33 marka). Yalniz kod+description. OBDex ile ortusur -> merge'te dedup sart."
+    },
+    {
+      "date": "2026-09-16",
+      "site": "dieselscanners.com",
+      "note": "104 SPN/FMI 'full fix guide' blogu (sitemap_blogs_1.xml 144 URL). Gercek semptom+neden+adim (ornek SPN 5246/3055/3719 dogrulandi). Telif: belirsiz."
+    },
+    {
+      "date": "2026-09-16",
+      "site": "carcarehacks.com",
+      "note": "421 P/B/C/U kod yazisi + 55 SPN/FMI yazisi (post-sitemap{,2,3} 2126 post). Ornek P0401 18KB metin semptom+neden+fix. Telif: belirsiz."
+    },
+    {
+      "date": "2026-09-16",
+      "site": "huggingface.co",
+      "note": "VERI YOK — 'j1939' 0 dataset; 'dtc'/'obd' ilgisiz (satranc/LLVM/uzaktan algilama). Agir arac DTC veri seti YOK."
     }
   ]
 }
