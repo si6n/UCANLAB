@@ -1,0 +1,42 @@
+# ORCA AI / CLINE AGENT RULES — Universal CAN-BUS Platform
+
+## 1. Mimari & Görev Kapsamı
+- Platform: Hexagonal / ISO 26262 ASIL-B/D CAN & CAN-FD telemetri ve teşhis sistemi.
+- Çalışma ortamı: Orca AI + Cline Terminal.
+- İletişim tarzı: Ultra-terse, telgraf stili, gereksiz dolgu yok. [nesne] [eylem] [gerekçe]. [sonraki adım].
+
+## 2. İhlal Edilemez Güvenlik Kuralları (ISO 26262 ASIL-B/D)
+1. **Tek TX Geçidi (Choke-Point):** Tüm CAN iletimleri `TxSafetyGateway` ve `TxPort` üzerinden geçer. HAL seviyesinde doğrudan enjeksiyon yasaktır.
+2. **Fail-Closed:** Hata, timeout, CRC uyumsuzluğunda sistem `SAFE_STATE` veya `ESTOP_TRIGGERED` moduna geçer.
+3. **Uydurma Veri Yok:** Teşhis sinyalleri veya telemetri uydurulamaz/düzleştirilemez; gerekirse sentetik etiketi taşır.
+4. **Çevrimdışı AI:** `src/engine/ai/**` katmanı kesinlikle çevrimdışıdır (deterministik uzman motor). Ağ kütüphaneleri (`socket`, `requests`, `http`, `urllib`) veya HAL/TX modülleri import edilemez.
+
+## 3. Orca Uzmanlık Rolleri (Personas & Sub-Agents)
+Orca görev tipine göre ilgili uzmanlık şapkasını takar veya alt-ajan (`spawn_agent`) başlatır:
+- **`marshal` [Safety]:** ASIL-B/D denetimi, TxSafetyGateway kontrolü, uydurma veri denetimi.
+- **`telemetry` [Data]:** CAN & J1939 DBC/DTC çözümleme, sinyal matematiği, veri tabanı merge.
+- **`tuner` [Dev]:** Temiz kod, refactoring, pytest birim ve entegrasyon testleri.
+- **`scout` [RE/DBC]:** Dokümantasyon keşfi, tersine mühendislik, DBC oluşturma.
+- **`chassis` [HAL]:** Bus donanım soyutlama (`AbstractBus`, PCAN/Vector/RP1210), replay logları.
+- **`uplink` [Cloud]:** MDF4 telemetri yükleme, lisanslama, Cloud API.
+- **`cockpit` [UI]:** React 18, WebView2 ve IPC köprüsü.
+
+## 4. Obsidian Vault & Bellek Entegrasyonu
+- Vault Konumu: `obsidian-vault/`
+- Local REST API: `http://127.0.0.1:27123/`
+- REST API Token: `8f466f4bcf33b6ba030c2cb8d5333024eff55107abef30d27cd00323c43d3aa5`
+- MCP SSE Endpoint: `http://127.0.0.1:27123/mcp`
+- CLI İstemci: `python scripts/obsidian_api.py [read|search|append|report]`
+- Ana Yönlendirmeler:
+  - Operasyon Paneli: `obsidian-vault/01-Projeler/UCANLAB-Operasyon-Paneli.md`
+  - Mimari Harita: `obsidian-vault/01-Projeler/Proje-Haritasi.md`
+  - Güvenlik Mimarisi: `obsidian-vault/02-Diagnostics/Guvenlik-Mimarisi.md`
+  - Ajan Rehberi: `obsidian-vault/04-Ajan-Notlari/Ajan-Calisma-Rehberi.md`
+  - Orca Kılavuzu: `obsidian-vault/04-Ajan-Notlari/Orca-Entegrasyonu.md`
+  - Şablon: `obsidian-vault/templates/orca-session.md`
+
+## 5. Çalışma Disiplini
+- Göreve başlamadan önce ilgili 1-2 vault notunu tara (tüm vault'u okuma).
+- Kod değişiklikleri sonrasında testleri (`pytest tests/...`) çalıştır.
+- Yapılan majör oturum çıktılarını `obsidian-vault/04-Ajan-Notlari/` altına `orca-session.md` şablonuyla kaydet.
+

@@ -32,8 +32,9 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_PATH = REPO_ROOT / "scripts" / "merge_t45_dtc.py"
 PROD_DB_PATH = REPO_ROOT / "data" / "diagnostics" / "dtc_database.json"
-TCN_INPUT = REPO_ROOT / "spn_gap_hunter" / "output" / "t45c_tcn_symptoms.json"
-OBDHUT_INPUT = REPO_ROOT / "spn_gap_hunter" / "output" / "t45c_dtc_symptoms.json"
+FIXTURE_ROOT = REPO_ROOT / "tests" / "fixtures"
+TCN_INPUT = FIXTURE_ROOT / "t45c_tcn_symptoms.json"
+OBDHUT_INPUT = FIXTURE_ROOT / "t45c_dtc_symptoms.json"
 
 EN_FIELDS = ("symptoms_en", "causes_en", "description_en", "title_en")
 EN_SOURCE_FIELDS = {
@@ -54,6 +55,8 @@ def _load_merge_module() -> Any:
     module = importlib.util.module_from_spec(spec)
     sys.modules["merge_t45_dtc"] = module
     spec.loader.exec_module(module)
+    module.TCN_INPUT = TCN_INPUT
+    module.OBDHUT_INPUT = OBDHUT_INPUT
     return module
 
 

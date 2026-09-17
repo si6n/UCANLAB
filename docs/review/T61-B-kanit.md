@@ -110,7 +110,7 @@ Görev listesindeki 7. kaynak grubu (Bosch/Delphi/Continental teknik doküman po
 
 ## 6. YÖNTEM NOTLARI (pitboss teşhisi uygulandı)
 
-- **Ücretsiz arama motorları bu IP'den captcha duvarı:** Google `/sorry/`, DDG "duck" challenge, Bing "solve challenge". Hermes `web_search` (Nous gateway) erişilemez.
+- **Ücretsiz arama motorları bu IP'den captcha duvarı:** Google `/sorry/`, DDG "duck" challenge, Bing "solve challenge". Doğrudan `web_search` erişilemez.
 - **İşe yarayan:** BrightData browser + `html.duckduckgo.com/html/?q=` (0 captcha, temiz sonuç). Pitboss tespiti doğrulandı.
 - **BD 502/no_peer:** tek `connect_over_cdp` oturumunda çok domain + hızlı ardışık istek → 502. Çözüm: her domain için ayrı bağlantı + 2-3s bekleme.
 - **Google çıkış lokasyonu VN** → `&gl=us&hl=en` veya DDG önerildi.

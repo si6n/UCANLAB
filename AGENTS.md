@@ -1,6 +1,6 @@
-﻿# AGENTS.md — Universal CAN-Bus Diagnostic & Telemetry Platform
+# AGENTS.md — Universal CAN-Bus Diagnostic & Telemetry Platform
 
-This document defines context, architectural boundaries, safety requirements, and development guidelines for Hermes Agent and autonomous sub-agents working within this repository.
+This document defines context, architectural boundaries, safety requirements, and development guidelines for AI engineering assistants and autonomous sub-agents working within this repository.
 
 ---
 
@@ -61,21 +61,20 @@ Any agent modifying or interacting with transmission, flashing, or diagnostic in
 
 ---
 
-## 3. Pit-Crew Team Collaboration ("Ofis Mantığı" & Non-Blocking Workflow)
+## 3. Orca AI Specialist Modes & Sub-Agents ("Uzmanlık Şapkaları")
 
-The Pit-Crew operates on an asynchronous delegation model so the user is never blocked:
+In Orca AI / Cline environment, the previous Pit-Crew roles operate as specialized execution modes (personas) or autonomous sub-agents (`spawn_agent` / `team_spawn_teammate`):
 
-1. **PitBoss Dispatches & Returns Immediately**:
-   - When a task requires research, coding, or testing, PitBoss assigns the job to the specialist via `delegate_task(..., background=True)` or background sub-processes.
-   - PitBoss responds immediately to the user: *"Görevleri ofislere dağıttım, arka planda çalışıyorlar. Ben buradayım, yeni bir talimatınız var mı?"*
-2. **Specialists Work in Their Respective Offices**:
-   - **`telemetry` [Data]**: CAN & J1939 telemetry decoding and frame analysis.
-   - **`marshal` [Safety]**: ASIL-B/D compliance and TxSafetyGateway auditing.
-   - **`tuner` [Dev]**: Clean code implementation and pytest validation.
-   - **`scout` [RE/DBC]**: Signal discovery and DBC generation.
-   - **`chassis` [HAL]**: Hardware driver abstraction and replay logs.
-   - **`uplink` [Cloud]**: Telemetry uploads and licensing.
-   - **`cockpit` [UI]**: React 18 & WebView2 dashboard.
-3. **Synthesis on Completion**:
-   - Specialists report back milestones and final outcomes to PitBoss.
-   - PitBoss updates the user concisely without cluttering the chat history.
+1. **Orca AI Execution Workflow**:
+   - Orca handles tasks either directly by assuming the corresponding specialist persona, or by dispatching sub-agents for parallel exploration.
+   - Every session logs its active specialist role into the Obsidian session report.
+2. **Specialist Roles (Personas & Sub-Agents)**:
+   - **`telemetry` [Data]**: CAN & J1939 telemetry decoding, DBC databases, DTC dictionaries, and frame parsing.
+   - **`marshal` [Safety]**: ASIL-B/D compliance auditing, `TxSafetyGateway` choke-point verification, fail-closed enforcement, and zero-fabrication verification.
+   - **`tuner` [Dev]**: Clean code implementation, refactoring, and strict pytest / CI validation.
+   - **`scout` [RE/DBC]**: Protocol reverse engineering, open documentation harvest, and DBC curation.
+   - **`chassis` [HAL]**: Hardware driver abstraction (`AbstractBus`, `PythonCanBus`, `RP1210Client`) and replay logs (`.asc`, `.blf`, `.csv`).
+   - **`uplink` [Cloud]**: Telemetry uploads, MDF4 chunking, cloud REST APIs, and licensing.
+   - **`cockpit` [UI]**: React 18 & WebView2 dashboard, pywebview IPC bridge.
+3. **Synthesis & Vault Logging**:
+   - Findings and test evidence are logged using `obsidian-vault/templates/orca-session.md` under `04-Ajan-Notlari/` with the active role tagged.

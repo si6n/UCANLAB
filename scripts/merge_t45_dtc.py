@@ -50,9 +50,18 @@ from typing import Any, Iterable
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = REPO_ROOT / "data" / "diagnostics" / "dtc_database.json"
+FIXTURES_DIR = REPO_ROOT / "tests" / "fixtures"
 
-TCN_INPUT = REPO_ROOT / "spn_gap_hunter" / "output" / "t45c_tcn_symptoms.json"
-OBDHUT_INPUT = REPO_ROOT / "spn_gap_hunter" / "output" / "t45c_dtc_symptoms.json"
+TCN_INPUT = (
+    FIXTURES_DIR / "t45c_tcn_symptoms.json"
+    if (FIXTURES_DIR / "t45c_tcn_symptoms.json").exists()
+    else REPO_ROOT / "spn_gap_hunter" / "output" / "t45c_tcn_symptoms.json"
+)
+OBDHUT_INPUT = (
+    FIXTURES_DIR / "t45c_dtc_symptoms.json"
+    if (FIXTURES_DIR / "t45c_dtc_symptoms.json").exists()
+    else REPO_ROOT / "spn_gap_hunter" / "output" / "t45c_dtc_symptoms.json"
+)
 
 # English payload fields emitted by the harvesters and their parallel DB
 # counterpart. The harvest field is the source, the DB field is the target.

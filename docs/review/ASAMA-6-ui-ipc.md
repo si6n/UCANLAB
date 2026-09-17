@@ -1,5 +1,5 @@
 # ASAMA 6: Arayüz ve Başlatıcı Raporu
-Denetçi: Claude Fable 5.1 (Hermes/cockpit) | Tarih: 2026-09-15
+Denetçi: cockpit | Tarih: 2026-09-15
 Kapsam: `src/ui/desktop_app.py` (3104 satır), `src/launcher/app.py` (352 satır), `src/main.py` (190 satır). Bağlam için okunan ek dosyalar: `src/core/logging.py`, `src/safety/watchdog.py` (heartbeat/lease semantiği), `src/safety/multiplexer.py` (yalnız imza), `src/safety/gateway.py` (yalnız ilgili metod imzaları), `src/ui/frontend/src/services/bridge.ts`, `docs/review/PROMPT-6.md`, `docs/review/ASAMA-1-tx-guvenlik.md`, `AGENTS.md`, `CONTRIBUTING.md`.
 
 > **Doğrulama yöntemi:** Yalnızca statik kaynak kod okuması. Bu oturumda **hiçbir test çalıştırılmadı**, hiçbir bulgu çalışma zamanında yeniden üretilmedi. Her bulguda "Kanıt" satır referansı ile kod alıntısıdır; "Senaryo" kod okumasından türetilmiş bir tetiklenme yoludur, saha/laboratuvar doğrulaması değildir. Satır numaraları 1 tabanlıdır.

@@ -50,8 +50,13 @@ from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = REPO_ROOT / "data" / "diagnostics" / "j1939_spn_fmi_database.json"
-SOURCE_PATH = Path(
-    r"C:\Users\canak\Desktop\UCANLAB-ARSIV\collector-final\output-final\t44_recovered_final.json"
+FIXTURES_DIR = REPO_ROOT / "tests" / "fixtures"
+SOURCE_PATH = (
+    FIXTURES_DIR / "t44_recovered_final.json"
+    if (FIXTURES_DIR / "t44_recovered_final.json").exists()
+    else Path(
+        r"C:\Users\canak\Desktop\UCANLAB-ARSIV\collector-final\output-final\t44_recovered_final.json"
+    )
 )
 
 # Marker + source field stamped on every record this script touches.

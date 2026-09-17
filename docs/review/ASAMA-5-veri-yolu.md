@@ -1,5 +1,5 @@
 # ASAMA 5: Veri Yolu ve Tamponlar Raporu
-Denetçi: scout (Hermes) | Tarih: 2026-09-15
+Denetçi: scout | Tarih: 2026-09-15
 Kapsam: `src/engine/buffer/ring_buffer.py` (306 satır), `src/engine/buffer/rolling_disk.py` (723 satır), `src/engine/decoder/dbc_decoder.py` (474 satır), `src/engine/router.py` (274 satır). Bağlam için okunan ek dosyalar: `src/core/models/can_frame.py`, `src/protocols/j1939/sentinel.py`, `src/safety/multiplexer.py`, `src/engine/pipeline/reassembly_pipeline.py`, `src/ui/desktop_app.py` (composition root: wiring satır 783-798, ingest 2645-2660, telemetry loop 2861-2901, close 3100-3104).
 
 > **Doğrulama yöntemi:** Yalnızca statik kaynak kod okuması (`main` dalı, commit `f151a9f`). Bu oturumda **hiçbir test çalıştırılmadı**, hiçbir bulgu çalışma zamanında yeniden üretilmedi. Her bulguda "Kanıt" satır referansı ile kod alıntısıdır; "Senaryo" kod okumasından türetilmiş bir tetiklenme yoludur. Satır numaraları 1 tabanlıdır ve dosyayla birebir doğrulanmıştır.

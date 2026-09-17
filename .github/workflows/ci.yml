@@ -75,6 +75,20 @@ jobs:
         run: |
           ruff check .
 
+      - name: Verify regression fixtures
+        shell: pwsh
+        run: |
+          $files = @(
+            "tests/fixtures/t45c_tcn_symptoms.json",
+            "tests/fixtures/t45c_dtc_symptoms.json",
+            "tests/fixtures/t44_recovered_final.json"
+          )
+          foreach ($file in $files) {
+            if (-not (Test-Path $file)) {
+              throw "Required regression fixture is missing: $file"
+            }
+          }
+
       - name: Run PyTest Conformance & Safety Tests
         env:
           QT_QPA_PLATFORM: offscreen

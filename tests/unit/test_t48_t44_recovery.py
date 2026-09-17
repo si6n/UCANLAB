@@ -44,9 +44,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PROD_DB_PATH = REPO_ROOT / "data" / "diagnostics" / "j1939_spn_fmi_database.json"
 SCRIPT_PATH = REPO_ROOT / "scripts" / "merge_t44_recovery.py"
-SOURCE_PATH = Path(
-    r"C:\Users\canak\Desktop\UCANLAB-ARSIV\collector-final\output-final\t44_recovered_final.json"
-)
+SOURCE_PATH = REPO_ROOT / "tests" / "fixtures" / "t44_recovered_final.json"
 
 EXPECTED_RECOVERED = 6
 EXPECTED_SPNS = 4253
@@ -59,6 +57,7 @@ def _load_recover_module() -> Any:
     module = importlib.util.module_from_spec(spec)
     sys.modules["merge_t44_recovery"] = module
     spec.loader.exec_module(module)
+    module.SOURCE_PATH = SOURCE_PATH
     return module
 
 

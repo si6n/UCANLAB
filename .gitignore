@@ -96,6 +96,8 @@ data/traces/marine/project_haris/raw/
 # AI Agent Workspaces & Local Prompts
 .agents/
 .agent/
+.cline/
+
 
 # Local review/benchmark scratch — never commit
 .scratch/

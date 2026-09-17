@@ -1,5 +1,5 @@
 # ASAMA 4: Protokol Katmanları Raporu
-Denetçi: chassis [Hermes] | Tarih: 2026-09-15
+Denetçi: chassis | Tarih: 2026-09-15
 Kapsam: `src/protocols/j1939/transport.py` (1505 satır), `src/protocols/uds/isotp.py` (1386 satır), `src/protocols/uds/flasher.py` (853 satır), `src/protocols/uds/client.py` (848 satır). Bağlam için okunan ek dosyalar: `src/safety/gateway.py`, `src/ui/desktop_app.py` (composition root), `src/protocols/uds/services.py`, `src/protocols/uds/nrc.py`, `src/core/models/can_frame.py`, `src/core/exceptions.py`, `src/engine/pipeline/reassembly_pipeline.py`, `AGENTS.md`, `tests/unit/test_flasher.py`, `tests/safety/test_e2e_safety_audit.py`.
 
 > **Doğrulama yöntemi:** Yalnızca statik kaynak kod okuması (çalışma zamanı yok). Bu oturumda **hiçbir test çalıştırılmadı**, hiçbir bulgu saha/laboratuvarda yeniden üretilmedi. Her bulguda "Kanıt" gerçek `dosya:satır` + kod alıntısıdır; "Senaryo" kod okumasından türetilmiş bir tetiklenme yoludur. Satır numaraları 1 tabanlıdır ve rapor yazıldığı andaki dosya içeriğiyle birebir doğrulanmıştır.
