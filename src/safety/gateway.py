@@ -11,6 +11,12 @@ Enforces strict 6-stage policy evaluation order:
 followed by the optional E2E stamping stage (docs/ai_context/02 §1 stage 6:
 rolling counter + CRC sealing via E2ESafetyPackager when a profile is
 configured for the frame's arbitration id) before fenced dispatch.
+
+R2-N1 / AGENTS.md §2.7 (Wiring Gate): the E2E stage is WIRING-GATED and
+experimental — the production composition root wires NO e2e_profiles, so the
+stage passes frames through unstamped. Do NOT wire profiles into the live
+TX path without addressing the P2-7/P2-8 remediation notes and routing
+through this choke-point.
 """
 
 from __future__ import annotations
