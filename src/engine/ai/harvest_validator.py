@@ -4,7 +4,9 @@ Never blindly merges scraped external data into production databases.
 """
 from __future__ import annotations
 
-import html, re, hashlib
+import hashlib
+import html
+import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -46,15 +48,19 @@ def validate_dtc_record(record: Dict[str, Any]) -> ValidationReport:
     for s in record.get("symptoms", []) if isinstance(record.get("symptoms"), list) else []:
         c = clean_and_sanitize(s)
         ok, err = validate_text(c, "symptom")
-        if ok: sanitized_symptoms.append(c)
-        elif err: warnings.append(err)
+        if ok:
+            sanitized_symptoms.append(c)
+        elif err:
+            warnings.append(err)
 
     sanitized_causes = []
     for c_raw in record.get("causes", []) if isinstance(record.get("causes"), list) else []:
         c = clean_and_sanitize(c_raw)
         ok, err = validate_text(c, "cause")
-        if ok: sanitized_causes.append(c)
-        elif err: warnings.append(err)
+        if ok:
+            sanitized_causes.append(c)
+        elif err:
+            warnings.append(err)
 
     if not sanitized_symptoms and not sanitized_causes:
         errors.append(f"DTC {code} has zero valid symptoms/causes after sanitization")
@@ -100,10 +106,12 @@ def validate_spn_record(record: Dict[str, Any]) -> ValidationReport:
 
     if causes:
         ok, err = validate_text(causes, "causes")
-        if not ok: errors.append(err)
+        if not ok:
+            errors.append(err)
     if actions:
         ok, err = validate_text(actions, "actions")
-        if not ok: errors.append(err)
+        if not ok:
+            errors.append(err)
 
     if not causes and not actions:
         errors.append(f"SPN {spn} missing both causes and actions")
@@ -124,12 +132,16 @@ class QuarantineGatekeeper:
         app_d, rej_d, app_s, rej_s = [], [], [], []
         for d in dtc_records:
             rep = validate_dtc_record(d)
-            if rep.is_valid and rep.sanitized: app_d.append(rep.sanitized)
-            else: rej_d.append({"raw": d, "reasons": rep.errors})
+            if rep.is_valid and rep.sanitized:
+                app_d.append(rep.sanitized)
+            else:
+                rej_d.append({"raw": d, "reasons": rep.errors})
         for s in spn_records:
             rep = validate_spn_record(s)
-            if rep.is_valid and rep.sanitized: app_s.append(rep.sanitized)
-            else: rej_s.append({"raw": s, "reasons": rep.errors})
+            if rep.is_valid and rep.sanitized:
+                app_s.append(rep.sanitized)
+            else:
+                rej_s.append({"raw": s, "reasons": rep.errors})
         return {
             "approved_dtcs": app_d, "quarantined_dtcs": rej_d,
             "approved_spns": app_s, "quarantined_spns": rej_s,

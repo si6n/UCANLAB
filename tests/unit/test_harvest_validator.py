@@ -1,13 +1,13 @@
 """Unit tests for Harvest Data Validation and Quarantine Gatekeeper.
 Ensures no unverified, malicious, or malformed external diagnostic data enters production.
 """
-import pytest
 from src.engine.ai.harvest_validator import (
+    QuarantineGatekeeper,
+    clean_and_sanitize,
     validate_dtc_record,
     validate_spn_record,
-    QuarantineGatekeeper,
-    clean_and_sanitize
 )
+
 
 def test_clean_and_sanitize_html():
     raw = "<div><b>Engine Misfire</b><script>alert(1)</script> detected</div>"
@@ -51,7 +51,7 @@ def test_dtc_validation_rejects_junk_and_404():
 def test_spn_validation_rejects_out_of_range():
     rep_neg = validate_spn_record({"spn": -1, "fmi": 0, "causes": "Short circuit"})
     assert not rep_neg.is_valid
-    
+
     rep_huge = validate_spn_record({"spn": 600000, "fmi": 0, "causes": "Short circuit"})
     assert not rep_huge.is_valid
 
@@ -95,7 +95,7 @@ def test_quarantine_gatekeeper_batch():
         {"spn": 9999999, "fmi": 0, "causes": "Invalid"},
     ]
     audit = QuarantineGatekeeper.audit_batch(dtcs, spns)
-    
+
     assert audit["summary"]["dtc_in"] == 3
     assert audit["summary"]["dtc_ok"] == 1
     assert audit["summary"]["dtc_rej"] == 2

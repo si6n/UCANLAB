@@ -4,13 +4,13 @@ Separates verified records from quarantined ones without modifying production DB
 """
 import json
 import sys
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 MAIN_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(MAIN_DIR))
 
-from src.engine.ai.harvest_validator import QuarantineGatekeeper
+from src.engine.ai.harvest_validator import QuarantineGatekeeper  # noqa: E402
 
 RAW_FILE = MAIN_DIR / "spn_gap_hunter" / "output" / "scout_harvest_2026-09-17.json"
 VERIFIED_DIR = MAIN_DIR / "spn_gap_hunter" / "output" / "verified"
@@ -70,8 +70,8 @@ status: tamamlandi
 
 # 🛡️ Marshal Teşhis Veri Karantina ve Güvenlik Denetim Raporu
 
-**Tarih:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}  
-**Denetçi:** `marshal` (ASIL-B/D Güvenlik Kapısı)  
+**Tarih:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\
+**Denetçi:** `marshal` (ASIL-B/D Güvenlik Kapısı)\
 **Kural:** Dış kaynak verilerine asla doğrudan güvenilmez. Sıfır uydurma veri, katı şema ve sanitizasyon denetimi.
 
 ## 1. Denetim İstatistikleri
@@ -91,7 +91,7 @@ status: tamamlandi
 """
     VAULT_REPORT.parent.mkdir(parents=True, exist_ok=True)
     VAULT_REPORT.write_text(md, encoding="utf-8")
-    print(f"[OK] Karantina denetimi tamamlandi.")
+    print("[OK] Karantina denetimi tamamlandi.")
     print(f"  -> Onaylanan: {summary['dtc_ok']} DTC, {summary['spn_ok']} SPN")
     print(f"  -> Karantina: {summary['dtc_rej']} DTC, {summary['spn_rej']} SPN")
     print(f"  -> Rapor: {VAULT_REPORT}")

@@ -1,7 +1,7 @@
 """Telemetry Data Audit Script - UCANLAB."""
 import json
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 MAIN_DIR = Path(__file__).resolve().parent.parent
 J1939_PATH = MAIN_DIR / "data" / "diagnostics" / "j1939_spn_fmi_database.json"
@@ -43,8 +43,10 @@ def audit_dtc():
         p = code[0] if code and code[0] in prefixes else "other"
         prefixes[p] += 1
         if isinstance(info, dict):
-            if info.get("symptoms"): symptoms += 1
-            if info.get("causes"): causes += 1
+            if info.get("symptoms"):
+                symptoms += 1
+            if info.get("causes"):
+                causes += 1
     return {
         "total_dtcs": total_dtcs,
         "prefixes": prefixes,
