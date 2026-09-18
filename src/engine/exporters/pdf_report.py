@@ -1,8 +1,14 @@
-"""Diagnostic and Telemetry Service Report Generator with Cryptographic Session Hash."""
+"""Diagnostic and Telemetry Service Report Generator (HTML; R2-EN4 alias).
+
+R2-EN4: this module historically carried the `pdf_report` name but produces
+HTML. It is kept as a backward-compatible alias — `html_report.py` is the
+canonical module going forward.
+"""
 
 from __future__ import annotations
 
 import hashlib
+import hmac as _hmac
 import html as html_mod
 import tempfile
 import time
@@ -13,6 +19,19 @@ from src.core.logging import get_logger
 from src.protocols.j1939.diagnostics import DMMessage
 
 logger = get_logger("engine.exporters.report")
+
+
+def _sign_canonical(raw: str, signing_key: bytes | None) -> tuple[str, str]:
+    """R2-EN1: keyed HMAC when a REPORT_SIGNING_KEY is supplied, else plain hash.
+
+    Returns (hex_digest, label). A keyless SHA-256 is an integrity checksum
+    only — anyone can recompute it — so the label must never claim
+    tamper-evidence for it.
+    """
+    if signing_key:
+        digest = _hmac.new(signing_key, raw.encode("utf-8"), hashlib.sha256).hexdigest().upper()
+        return digest, "HMAC-SHA256 (keyed, tamper-evident)"
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest().upper(), "SHA-256 (integrity checksum — not tamper-evident)"
 
 
 def _resolve_export_path(output_file: str | Path, exports_root: str | Path | None) -> Path:
@@ -55,8 +74,13 @@ class DiagnosticReportGenerator:
         dm_messages: list[DMMessage],
         summary_stats: dict[str, str | int | float],
         exports_root: str | Path | None = None,
+        signing_key: bytes | None = None,
     ) -> Path:
-        """Generate structured HTML diagnostic report with cryptographic tamper-evident hash."""
+        """Generate structured HTML diagnostic report with session seal.
+
+        R2-EN1: pass the `REPORT_SIGNING_KEY` bytes for a keyed HMAC seal;
+        without it the report carries an integrity checksum only.
+        """
         path = _resolve_export_path(output_file, exports_root)
         path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -128,7 +152,7 @@ class DiagnosticReportGenerator:
             f"DTCS={','.join(canonical_dtcs)}|"
             f"STATS={','.join(canonical_stats)}"
         )
-        report_sha256 = hashlib.sha256(raw_to_hash.encode("utf-8")).hexdigest().upper()
+        report_sha256, seal_label = _sign_canonical(raw_to_hash, signing_key)
 
         html_content = f"""<!DOCTYPE html>
 <html lang="tr">
@@ -173,7 +197,7 @@ class DiagnosticReportGenerator:
   </table>
   {stats_html}
   <div class="signature">
-    <p>🔒 <strong>Cryptographic Session SHA-256:</strong> {report_sha256}</p>
+    <p>🔒 <strong>Session seal [{seal_label}]:</strong> {report_sha256}</p>
     <p>Platform: Universal CAN-Bus Diagnostic & Telemetry System v13.0 (SAE J1939 / NMEA 2000 / ISO 14229)</p>
   </div>
 </body>
@@ -192,8 +216,9 @@ class DiagnosticReportGenerator:
         dm_messages: list[DMMessage],
         summary_stats: dict[str, str | int | float],
         date_str: str,
+        signing_key: bytes | None = None,
     ) -> str:
-        """Calculate canonical SHA-256 integrity hash for verification."""
+        """Calculate canonical session seal for verification (R2-EN1: HMAC when keyed)."""
         canonical_dtcs = []
         for dm in dm_messages:
             for dtc in dm.dtcs:
@@ -216,4 +241,5 @@ class DiagnosticReportGenerator:
             f"DTCS={','.join(canonical_dtcs)}|"
             f"STATS={','.join(canonical_stats)}"
         )
-        return hashlib.sha256(raw_to_hash.encode("utf-8")).hexdigest().upper()
+        digest, _label = _sign_canonical(raw_to_hash, signing_key)
+        return digest

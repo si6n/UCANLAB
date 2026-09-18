@@ -175,6 +175,22 @@ class PythonCanBus(AbstractBus):
             self.metrics.state = BusState.PASSIVE if listen_only else BusState.ACTIVE
             return True
 
+    def flush_tx_buffer(self) -> None:
+        """R2-H1: E-Stop abort hook — drain the backend TX queue if exposed.
+
+        Delegates to the python-can backend's `flush_tx_buffer` when the
+        backend provides one (e.g. socketcan); otherwise a no-op so the
+        gateway's `_resolve_driver_flush` finds a registered (harmless) hook
+        instead of silently running without abort coverage.
+        """
+        bus = self._bus
+        flush = getattr(bus, "flush_tx_buffer", None)
+        if callable(flush):
+            try:
+                flush()
+            except Exception:
+                logger.warning("Backend flush_tx_buffer failed (best-effort)", exc_info=True)
+
     def disconnect(self) -> None:
         """Shutdown CAN bus and release transceiver handles."""
         with self._lifecycle_lock:

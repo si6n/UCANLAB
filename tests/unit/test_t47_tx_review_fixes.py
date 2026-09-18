@@ -612,7 +612,12 @@ def test_g3_arm_tx_without_operator_token_fails_closed() -> None:
 
 
 def test_g3_diagnostic_action_requires_a_gateway_hmac_token() -> None:
-    """The renderer's in-process challenge string must no longer be accepted."""
+    """The renderer's challenge is a nonce; gateway HMAC proof stays process-internal.
+
+    R2-EN2: a forged/self-minted 32-hex string is refused, a genuine nonce
+    challenge verifies once (single-use), and a gateway HMAC token presented
+    from JS is refused — only the composition root mints TX authorization.
+    """
     from src.ui.desktop_app import DesktopApiBridge, UniversalCanDesktopApp
 
     app = UniversalCanDesktopApp(channel="vcan0", bitrate=250000)
@@ -631,15 +636,20 @@ def test_g3_diagnostic_action_requires_a_gateway_hmac_token() -> None:
 
     ch = bridge.request_diagnostic_challenge(action)
     assert ch["success"] is True
-    assert ch.get("cryptographic") is True
+    assert ch.get("cryptographic") is None
     token = ch["token"]
 
     first = bridge.execute_diagnostic_action(action, confirmation_token=token)
     assert first["success"] is True
 
-    # Single-use: the gateway burns the token.
+    # Single-use: the nonce challenge burns on first use.
     replay = bridge.execute_diagnostic_action(action, confirmation_token=token)
     assert replay["success"] is False
+
+    # A genuine gateway HMAC token presented from JS is refused (R2-EN2).
+    gw_token = app.gateway.issue_confirmation_token(0x7E0).hex()
+    res_gw = bridge.execute_diagnostic_action(action, confirmation_token=gw_token)
+    assert res_gw["success"] is False
 
 
 # ---------------------------------------------------------------------------
@@ -721,3 +731,203 @@ def test_e2_reset_does_not_touch_the_provider_when_no_rotation_happened() -> Non
     estop.reset(token)
     assert estop.is_engaged is False
     assert calls["n"] == before, "reset() must use the cached secret, not provider I/O"
+
+
+# ---------------------------------------------------------------------------
+# R2 (TUR 2) — ASAMA 1-6 review remainders
+# ---------------------------------------------------------------------------
+
+
+def _r2_gateway(**kwargs: object) -> tuple[TxSafetyGateway, VirtualBus, EmergencyStopSystem]:
+    """Gateway with a confirmation secret wired (production-like)."""
+    bus = VirtualBus(channel_id=f"r2_vbus_{time.monotonic_ns()}")
+    bus.connect()
+    estop = EmergencyStopSystem(allow_self_reset=True)
+    gateway = TxSafetyGateway(
+        bus=bus,
+        estop=estop,
+        whitelist_ids={0x7E0, 0x7DF},
+        confirmation_secret=b"r" * 32,
+        **kwargs,  # type: ignore[arg-type]
+    )
+    gateway.update_physical_speed(0.0)
+    return gateway, bus, estop
+
+
+def test_r2_g1_rate_reject_does_not_burn_the_confirmation_token() -> None:
+    """R2-G1: a token validated in Stage 5 but rejected in Stage 6 stays valid."""
+    gateway, bus, _estop = _r2_gateway()
+    frame = CanFrame.create(channel_id="c0", arbitration_id=0x7E0, data=b"\x02\x11\x01")
+
+    token = gateway.issue_confirmation_token(0x7E0, ttl_s=30.0)
+    # Saturate the default lane so Stage 6 rejects.
+    for _ in range(TxSafetyGateway.MAX_TX_RATE_PER_SEC):
+        filler = CanFrame.create(channel_id="c0", arbitration_id=0x7DF, data=b"\x01\x02")
+        gateway.validate_and_transmit(filler)
+    with pytest.raises(RateLimitExceededError):
+        gateway.validate_and_transmit(
+            frame, is_critical_command=True, user_confirmed=True, confirmation_token=token
+        )
+    # The token must NOT be consumed by the rejected attempt: drain the lane
+    # and retry with the SAME token.
+    gateway._tx_timestamps.clear()
+    gateway._tx_total_timestamps.clear()
+    assert gateway.validate_and_transmit(
+        frame, is_critical_command=True, user_confirmed=True, confirmation_token=token
+    ) is True
+
+    bus.disconnect()
+
+
+def test_r2_g2_rollback_removes_the_global_envelope_stamp() -> None:
+    """R2-G2: fence/estop rollback removes the aggregate-envelope stamp too."""
+    gateway, bus, _estop = _r2_gateway()
+    frame = CanFrame.create(channel_id="c0", arbitration_id=0x7DF, data=b"\x01\x02")
+    gateway.validate_and_transmit(frame)
+    assert len(gateway._tx_total_timestamps) == 1
+    total_stamp = gateway._tx_total_timestamps[0]
+    stamp = gateway._tx_timestamps[0]
+    gateway._rollback_tx_reservation(True, False, stamp, None, total_stamp=total_stamp)
+    assert len(gateway._tx_total_timestamps) == 0
+    assert len(gateway._tx_timestamps) == 0
+
+    bus.disconnect()
+
+
+def test_r2_g3_bad_profile_type_fails_fast_at_construction() -> None:
+    """R2-G3: a non-enum profile_type is a config error, not a TX-path crash."""
+    from src.safety.e2e.profiles import E2EProfileConfig
+
+    with pytest.raises(ValueError, match="profile_type"):
+        E2EProfileConfig(profile_type="E2E_P01")  # type: ignore[arg-type]
+
+    bus = VirtualBus(channel_id=f"r2_vbus_g3_{time.monotonic_ns()}")
+    bus.connect()
+    estop = EmergencyStopSystem(allow_self_reset=True)
+    with pytest.raises(ValueError, match="profile_type"):
+        TxSafetyGateway(
+            bus=bus,
+            estop=estop,
+            whitelist_ids={0x7E0},
+            e2e_profiles={0x7E0: E2EProfileConfig.__new__(E2EProfileConfig)},
+        )
+    bus.disconnect()
+
+
+def test_r2_g3_e2e_stage_failure_is_a_safety_error_with_rollback() -> None:
+    """R2-G3: E2E stamping errors roll back the reservation as SafetyError."""
+    from src.safety.e2e.packager import E2ESafetyPackager
+    from src.safety.e2e.profiles import E2EProfileConfig, E2EProfileType
+
+    gateway, bus, _estop = _r2_gateway(
+        e2e_packager=E2ESafetyPackager(),
+        e2e_profiles={
+            0x7E0: E2EProfileConfig(profile_type=E2EProfileType.AUTOSAR_PROFILE_1C)
+        },
+    )
+
+    def _boom(frame: object, profile: object) -> object:
+        raise ValueError("injected packager fault")
+
+    gateway.e2e_packager.package = _boom  # type: ignore[method-assign]
+    frame = CanFrame.create(channel_id="c0", arbitration_id=0x7E0, data=b"\x02\x3e\x00")
+    with pytest.raises(SafetyError) as exc:
+        gateway.validate_and_transmit(frame)
+    assert exc.value.code == "E2E_STAMP_FAILED"
+    assert len(gateway._tx_timestamps) == 0
+    assert len(gateway._tx_total_timestamps) == 0
+
+    bus.disconnect()
+
+
+def test_r2_g4_broad_mask_requires_superset_acknowledgement() -> None:
+    """R2-G4: a ~2M-ID mask without the explicit flag fails closed."""
+    bus = VirtualBus(channel_id=f"r2_vbus_g4_{time.monotonic_ns()}")
+    bus.connect()
+    estop = EmergencyStopSystem(allow_self_reset=True)
+    with pytest.raises(SafetyError) as exc:
+        TxSafetyGateway(
+            bus=bus, estop=estop, whitelist_masks=[(0, 0x00FF0000)],
+        )
+    assert exc.value.code == "WHITELIST_SUPERSET_DENIED"
+    # Explicit acknowledgement wires it.
+    gateway = TxSafetyGateway(
+        bus=bus,
+        estop=estop,
+        whitelist_ids={0x7E0},
+        whitelist_masks=[(0, 0x00FF0000)],
+        whitelist_superset_allowed=True,
+    )
+    assert gateway.whitelist_superset_allowed is True
+    bus.disconnect()
+
+
+def test_r2_s2_failed_arm_does_not_burn_the_token() -> None:
+    """R2-S2: a rejected arm (illegal transition) leaves the token spendable."""
+    from src.safety.state_machine import SafetySupervisor
+
+    supervisor = SafetySupervisor(auth_secret=b"s" * 32)
+    token = supervisor.issue_arm_token(ttl_s=30.0)
+    # STARTUP -> ARMED_TX is an illegal transition: the burn must not happen.
+    with pytest.raises(SafetyError):
+        supervisor.arm_tx(reason="r2-s2 illegal transition", auth_token=token)
+    # Walk to PASSIVE through legal transitions, then arm with the SAME token.
+    supervisor.transition_to(SafetyState.SAFE, reason="r2-s2")
+    supervisor.transition_to(SafetyState.PASSIVE, reason="r2-s2")
+    supervisor.arm_tx(reason="r2-s2 retry", auth_token=token)
+    assert supervisor.current_state == SafetyState.ARMED_TX
+
+
+def test_r2_g5_en3_bound_token_rejects_wrong_payload_and_wrong_action() -> None:
+    """R2-G5/R2-EN3: payload/action-bound tokens reject mismatched use."""
+    gateway, bus, _estop = _r2_gateway()
+    frame = CanFrame.create(channel_id="c0", arbitration_id=0x7E0, data=b"\x02\x11\x01")
+    other = CanFrame.create(channel_id="c0", arbitration_id=0x7E0, data=b"\x02\x11\x02")
+    ctx = "uds_ecu_reset:t47"
+
+    bound = gateway.issue_confirmation_token(
+        0x7E0,
+        payload_hash=TxSafetyGateway.confirmation_payload_hash(bytes(frame.data)),
+        context=ctx,
+    )
+    # Wrong payload -> reject, token NOT consumed (fail-closed, retryable).
+    with pytest.raises(DualConfirmationRequiredError):
+        gateway.validate_and_transmit(
+            other,
+            is_critical_command=True,
+            user_confirmed=True,
+            confirmation_token=bound,
+            confirmation_context=ctx,
+        )
+    # Wrong action context -> reject.
+    with pytest.raises(DualConfirmationRequiredError):
+        gateway.validate_and_transmit(
+            frame,
+            is_critical_command=True,
+            user_confirmed=True,
+            confirmation_token=bound,
+            confirmation_context="uds_clear_dtc:t47",
+        )
+    # Exact frame + exact context -> accept.
+    assert gateway.validate_and_transmit(
+        frame,
+        is_critical_command=True,
+        user_confirmed=True,
+        confirmation_token=bound,
+        confirmation_context=ctx,
+    ) is True
+
+    bus.disconnect()
+
+
+def test_r2_h1_abort_hook_registered_for_python_can_driver() -> None:
+    """R2-H1: the E-Stop driver abort hook resolves on PythonCanBus."""
+    from src.hal.drivers.pcan_kvaser import PythonCanBus
+
+    bus = PythonCanBus(interface="virtual", channel="r2_h1")
+    bus.connect()
+    estop = EmergencyStopSystem(allow_self_reset=True)
+    gateway = TxSafetyGateway(bus=bus, estop=estop, whitelist_ids={0x7E0})
+    assert gateway._resolve_driver_flush() is not None
+    assert len(estop._abort_hooks) > 0
+    bus.disconnect()

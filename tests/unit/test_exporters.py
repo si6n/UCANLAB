@@ -99,7 +99,32 @@ def test_report_generator_html_and_hash() -> None:
         assert "TR-MAR-12345-K324" in content
         assert "SPN 100" in content
         assert "Ali Usta" in content
-        assert "Cryptographic Session SHA-256" in content
+        # R2-EN1: keyless reports are labeled checksum-only, never tamper-evident.
+        assert "Session seal [SHA-256 (integrity checksum" in content
+
+
+def test_report_generator_hmac_seal_differs_and_labels_keyed() -> None:
+    """R2-EN1: a REPORT_SIGNING_KEY upgrades the seal to HMAC-SHA256."""
+    import tempfile as _tempfile
+    from pathlib import Path as _Path
+
+    meta = ServiceReportMetadata(
+        vin_or_hin="WVWZZZ3CZWE123456",
+        technician_name="Master Tech",
+        workshop_name="Bosch Car Service",
+    )
+    with _tempfile.TemporaryDirectory() as tmp:
+        out = _Path(tmp) / "r.html"
+        DiagnosticReportGenerator.generate_html_report(
+            output_file=out,
+            metadata=meta,
+            dm_messages=[],
+            summary_stats={},
+            exports_root=tmp,
+            signing_key=b"s" * 32,
+        )
+        content = out.read_text(encoding="utf-8")
+        assert "HMAC-SHA256 (keyed, tamper-evident)" in content
 
 
 def test_report_generator_tamper_detection() -> None:

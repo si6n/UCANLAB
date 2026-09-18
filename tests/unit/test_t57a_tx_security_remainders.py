@@ -344,13 +344,16 @@ def test_g11_rebind_whitelist_is_the_sanctioned_path() -> None:
 
 
 def test_g11_zero_mask_never_authorizes_any_id() -> None:
-    """G-11: `(id & 0) == 0` used to match EVERY id — mask==0 must be inert."""
+    """G-11: `(id & 0) == 0` used to match EVERY id — mask==0 must be inert.
+
+    R2-G4: hardened to fail-fast — a zero mask is rejected at construction
+    (ValueError) instead of lingering as a dead whitelist entry that only
+    fails at send time.
+    """
     bus = VirtualBus(channel_id="t57_g11_mask0")
     bus.connect()
-    gw = TxSafetyGateway(bus=bus, whitelist_masks=[(0x0, 0x0)])
-    frame = CanFrame.create(channel_id="c0", arbitration_id=0x123, data=b"\x01")
-    with pytest.raises(SafetyError):
-        gw.validate_and_transmit(frame)
+    with pytest.raises(ValueError, match="maskesi 0 olamaz"):
+        TxSafetyGateway(bus=bus, whitelist_masks=[(0x0, 0x0)])
     bus.disconnect()
 
 

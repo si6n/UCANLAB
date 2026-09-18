@@ -91,7 +91,12 @@ def test_collect_bios_serial_fallback() -> None:
 
 def test_collect_primary_mac_fallback() -> None:
     """Test MAC address falls back to uuid.getnode() when PowerShell returns empty."""
-    with patch("src.security.hwid.collector._run_powershell", return_value=""):
+    # R2-S2: pin uuid.getnode to a deterministic physical value so the test
+    # is hermetic on NIC-less CI/VM hosts (product then returns it formatted).
+    with (
+        patch("src.security.hwid.collector._run_powershell", return_value=""),
+        patch("src.security.hwid.collector.uuid.getnode", return_value=0x00155D123456),
+    ):
         mac = collect_primary_mac()
         assert isinstance(mac, str)
         # Verify MAC format XX:XX:XX:XX:XX:XX
@@ -100,6 +105,23 @@ def test_collect_primary_mac_fallback() -> None:
         for part in parts:
             assert len(part) == 2
             int(part, 16)  # must be valid hex
+
+
+def test_collect_primary_mac_sentinel_when_no_physical_nic() -> None:
+    """R2-S2: a random/multicast node id must surface UNKNOWN_MAC (fail-closed)."""
+    import uuid as _uuid
+
+    from src.security.hwid.collector import UNKNOWN_MAC
+    from src.security.hwid.collector import collect_primary_mac as _collect
+
+    with (
+        patch("src.security.hwid.collector._run_powershell", return_value=""),
+        patch("src.security.hwid.collector.uuid.getnode", return_value=_uuid.getnode() | (0x02 << 40)),
+    ):
+        # Multicast-bit-set node ids are random, not hardware: sentinel expected
+        # on hosts where getnode itself reports a random value. If this host
+        # has a real NIC the mock above forces the random path regardless.
+        assert _collect() == UNKNOWN_MAC
 
 
 def test_wmi_query_delegates_to_run_powershell() -> None:

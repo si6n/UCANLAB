@@ -80,9 +80,24 @@ class E2EProfileConfig:
     custom_polynomial: int = POLYNOMIAL_0X1D
     custom_init: int = DEFAULT_CRC_INIT
     custom_final_xor: int = DEFAULT_CRC_XOR
+    # R2-N2: payload family bound for offset validation. Classic CAN keeps
+    # the 8-byte ceiling; CAN-FD streams set e.g. 64 so CRC/counter at
+    # offsets >= 8 are representable.
+    max_payload_len: int = 8
 
     def __post_init__(self) -> None:
         """Validate profile configuration parameters."""
+        # R2-G3: fail fast on a non-enum profile_type (dataclass does no type
+        # checking — a stray string used to surface as a raw
+        # NotImplementedError on the TX hot path instead).
+        if not isinstance(self.profile_type, E2EProfileType):
+            raise ValueError(
+                f"profile_type must be an E2EProfileType member, got {self.profile_type!r}"
+            )
+        if self.max_payload_len not in (8, 12, 16, 20, 24, 32, 48, 64):
+            raise ValueError(
+                f"max_payload_len must be a valid CAN(-FD) length, got {self.max_payload_len}"
+            )
         if self.counter_modulo <= 0:
             raise ValueError(f"counter_modulo must be positive, got {self.counter_modulo}")
         if self.max_delta_counter <= 0:
@@ -95,9 +110,11 @@ class E2EProfileConfig:
         # the 8-byte payload — a profile with crc_byte_offset >= 8 silently
         # lengthened frames in the packager and then raised a raw ValueError
         # out of CanFrame.create instead of a configuration error.
-        if max(self.crc_byte_offset, self.counter_byte_offset) >= 8:
+        # R2-N2: the ceiling follows max_payload_len so CAN-FD layouts
+        # (offsets >= 8) are representable when the stream opts into FD.
+        if max(self.crc_byte_offset, self.counter_byte_offset) >= self.max_payload_len:
             raise ValueError(
-                f"E2E profile offsets exceed the 8-byte classic CAN payload "
+                f"E2E profile offsets exceed the {self.max_payload_len}-byte payload "
                 f"(crc_byte_offset={self.crc_byte_offset}, "
                 f"counter_byte_offset={self.counter_byte_offset})"
             )

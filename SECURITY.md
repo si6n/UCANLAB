@@ -21,5 +21,23 @@ If you discover a safety interlock bypass, buffer overflow, cryptographic flaw, 
 
 ### Coordinated Disclosure Timeline
 - **Initial Acknowledgement**: Within 24 hours.
-- **Triage & Risk Assessment**: Within 72 hours (Complies with Saha Risk Kataloğu v1.2).
+- **Triage & Risk Assessment**: Within 72 hours (Complies with Saha Risk Katalo�Yu v1.2).
 - **Patch & Critical Release**: Immediate expedited release based on severity.
+
+## Enforcement Scope Notes (R2 review remainders)
+
+- **License gate (R2-S1):** license enforcement lives in the launcher chain
+  (`src/launcher/app.py`); the core entry point (`src/main.py`) performs no
+  license check — direct `python src/main.py` execution is outside the
+  license threat model (open-core, honest-user assumption). If the commercial
+  model ever requires otherwise, wire a launcher-issued HMAC launch ticket
+  verified at core startup.
+- **E-Stop latch (R2-E1):** the E-Stop latch is process-local by design — a
+  process restart clears it. The out-of-band cryptographic reset ceremony
+  (`estop_request_challenge` → `scripts/estop_reset_tool.py` → out-of-band
+  authorization → `estop_submit_reset_token`, see `docs/runbook/estop-reset.md`)
+  stops *remote/JS* actors; a *local* operator can always restart. This is an
+  accepted, documented trade-off, not a bypass.
+- **Telemetry privacy (R2-S3):** cloud telemetry uploads carry `vehicle_vin`
+  only with explicit operator consent (`user_consented=True` on
+  `TelemetryUploader.upload_file`); VINs never appear in logs.

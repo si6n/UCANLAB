@@ -201,11 +201,16 @@ class EcuFlashingEngine:
         gateway: TxSafetyGateway,
         on_progress: Callable[[FlashingProgress], None] | None = None,
         on_log: Callable[[str, str], None] | None = None,
+        confirmation_token_factory: Callable[[int], bytes | str | None] | None = None,
     ) -> None:
         self.uds_client = uds_client
         self.gateway = gateway
         self.on_progress = on_progress
         self.on_log = on_log
+        # R2-P2: composition-root-owned mint capability. When supplied, step
+        # tokens are minted through this factory — the engine never touches
+        # the gateway's public mint directly.
+        self._issuer_factory = confirmation_token_factory
 
         self.current_step: FlashingStep = FlashingStep.IDLE
         self._is_cancelled = False
@@ -227,14 +232,18 @@ class EcuFlashingEngine:
         critical step (single-use, short TTL).
 
         Resolution order:
-          1. `config.confirmation_token_factory` (composition-root supplied).
-          2. The gateway's own `issue_confirmation_token` when it has a
+          1. Engine-level `confirmation_token_factory` (R2-P2: passed by the
+             composition root at construction — preferred).
+          2. `config.confirmation_token_factory` (composition-root supplied).
+          3. The gateway's own `issue_confirmation_token` when it has a
              confirmation secret (legacy composition roots).
         Returns None when no secret is wired (legacy boolean path), so the
         parameter is simply omitted.
         """
         config = self._active_config
         arb_id = int(getattr(self.uds_client, "tx_id", 0x7E0))
+        if self._issuer_factory is not None:
+            return self._issuer_factory(arb_id)
         if config is not None and config.confirmation_token_factory is not None:
             return config.confirmation_token_factory(arb_id)
         gateway = self.gateway

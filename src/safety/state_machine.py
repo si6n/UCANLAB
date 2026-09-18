@@ -381,7 +381,7 @@ class SafetySupervisor:
         mac = hmac.new(self._auth_secret, payload, hashlib.sha256).digest()
         return f"{expiry_ns}.{nonce.hex()}.{mac.hex()}"
 
-    def _verify_arm_token(self, auth_token: str) -> None:
+    def _verify_arm_token(self, auth_token: str, *, consume: bool = True) -> bytes | None:
         """Verify a presented arm token (fail-closed: expiry + single-use + HMAC).
 
         P6 (S-2): the check-then-append was NOT atomic — two threads presenting
@@ -389,6 +389,10 @@ class SafetySupervisor:
         before either appended, breaking the single-use contract. The whole
         verify+burn sequence now runs under the (re-entrant) state lock, so at
         most one caller can spend a given token.
+
+        R2-S2: with `consume=False` the token is only VALIDATED; the caller
+        burns it after the state transition succeeds. Returns the payload so
+        the caller can burn exactly it.
         """
         assert self._auth_secret is not None
         token = auth_token.strip() if isinstance(auth_token, str) else ""
@@ -436,6 +440,21 @@ class SafetySupervisor:
             )
         # P6 (S-2): atomic check + burn. The state lock is re-entrant, so the
         # `arm_tx` caller holding it (if any) does not deadlock.
+        # R2-S2: deferred burn — validate now, burn only after the transition
+        # succeeds so a rejected arm does not eat the operator approval.
+        with self._lock:
+            if payload in self._consumed_arm_tokens:
+                raise SafetyError(
+                    "TX authorization rejected: auth token already consumed",
+                    code="ARM_AUTH_REPLAYED",
+                )
+            if consume:
+                self._consumed_arm_tokens.append(payload)
+                return None
+            return payload
+
+    def _burn_arm_token(self, payload: bytes) -> None:
+        """R2-S2: burn a previously validated arm payload (no-return point)."""
         with self._lock:
             if payload in self._consumed_arm_tokens:
                 raise SafetyError(
@@ -444,7 +463,9 @@ class SafetySupervisor:
                 )
             self._consumed_arm_tokens.append(payload)
 
-    def _require_arm_authorization(self, operation: str, auth_token: str | None) -> None:
+    def _require_arm_authorization(
+        self, operation: str, auth_token: str | None, *, consume: bool = True
+    ) -> bytes | None:
         """Enforce the TX-authorization gate for arm_tx/activate_tx (T41 / S-1).
 
         Fail-closed policy:
@@ -472,12 +493,12 @@ class SafetySupervisor:
                     "(a supervisor auth_secret is configured)",
                     code="ARM_AUTH_REQUIRED",
                 )
-            self._verify_arm_token(auth_token)
-            return
+            return self._verify_arm_token(auth_token, consume=consume)
         logger.warning(
             "%s without auth_secret configured (legacy unauthenticated path)",
             operation,
         )
+        return None
 
     def arm_tx(
         self,
@@ -490,9 +511,13 @@ class SafetySupervisor:
         when an ``auth_secret`` is configured on this supervisor, ``auth_token``
         is mandatory and HMAC-verified (fail-closed). See the constructor for
         the ``allow_unauthenticated_arm`` compatibility flag.
+
+        R2-S2: the token burns only after the transition succeeds.
         """
-        self._require_arm_authorization("arm_tx", auth_token)
+        pending = self._require_arm_authorization("arm_tx", auth_token, consume=False)
         self.transition_to(SafetyState.ARMED_TX, reason=reason)
+        if pending is not None:
+            self._burn_arm_token(pending)
 
     def activate_tx(
         self,
@@ -500,8 +525,10 @@ class SafetySupervisor:
         auth_token: str | None = None,
     ) -> None:
         """Transition from ARMED_TX to ACTIVE (same authorization gate as arm_tx)."""
-        self._require_arm_authorization("activate_tx", auth_token)
+        pending = self._require_arm_authorization("activate_tx", auth_token, consume=False)
         self.transition_to(SafetyState.ACTIVE, reason=reason)
+        if pending is not None:
+            self._burn_arm_token(pending)
 
     def _record_fault_event(self, reason: str) -> None:
         """S-1: monotonic record of every fault event, independent of state.

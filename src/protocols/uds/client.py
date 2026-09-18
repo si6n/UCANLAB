@@ -166,6 +166,7 @@ class UdsClient:
         session_type: DiagnosticSessionType,
         user_confirmed: bool = False,
         confirmation_token: bytes | str | None = None,
+        confirmation_context: bytes | str | None = None,
     ) -> UdsResponse:
         """Switch diagnostic session (0x10).
 
@@ -190,6 +191,7 @@ class UdsClient:
             is_critical_command=is_critical,
             user_confirmed=user_confirmed,
             confirmation_token=confirmation_token,
+            confirmation_context=confirmation_context,
         )
 
     def security_access_request_seed(self, level: int = 1, user_confirmed: bool = False) -> UdsResponse:
@@ -221,6 +223,7 @@ class UdsClient:
         dtc_group: int = 0xFFFFFF,
         user_confirmed: bool = False,
         confirmation_token: bytes | str | None = None,
+        confirmation_context: bytes | str | None = None,
     ) -> UdsResponse:
         """Clear Diagnostic Information (0x14) - Critical command.
 
@@ -234,6 +237,7 @@ class UdsClient:
             is_critical_command=True,
             user_confirmed=user_confirmed,
             confirmation_token=confirmation_token,
+            confirmation_context=confirmation_context,
         )
 
     def write_did(
@@ -242,6 +246,7 @@ class UdsClient:
         data: bytes,
         user_confirmed: bool = False,
         confirmation_token: bytes | str | None = None,
+        confirmation_context: bytes | str | None = None,
     ) -> UdsResponse:
         """Write Data Identifier (0x2E) - Critical command.
 
@@ -255,6 +260,7 @@ class UdsClient:
             is_critical_command=True,
             user_confirmed=user_confirmed,
             confirmation_token=confirmation_token,
+            confirmation_context=confirmation_context,
         )
 
     def read_memory_by_address(
@@ -316,6 +322,7 @@ class UdsClient:
         address_and_length_format_identifier: int = 0x44,
         user_confirmed: bool = False,
         confirmation_token: bytes | str | None = None,
+        confirmation_context: bytes | str | None = None,
     ) -> UdsResponse:
         """Request Download (0x34) - Critical command.
 
@@ -334,6 +341,7 @@ class UdsClient:
             is_critical_command=True,
             user_confirmed=user_confirmed,
             confirmation_token=confirmation_token,
+            confirmation_context=confirmation_context,
         )
 
     def transfer_data(
@@ -343,6 +351,7 @@ class UdsClient:
         is_critical_command: bool = True,
         user_confirmed: bool = False,
         confirmation_token: bytes | str | None = None,
+        confirmation_context: bytes | str | None = None,
     ) -> UdsResponse:
         """Transfer Data Block (0x36) - Memory write is safety-critical.
 
@@ -367,6 +376,7 @@ class UdsClient:
             is_critical_command=True,
             user_confirmed=user_confirmed,
             confirmation_token=confirmation_token,
+            confirmation_context=confirmation_context,
         )
 
     def request_transfer_exit(
@@ -374,6 +384,7 @@ class UdsClient:
         is_critical_command: bool = True,
         user_confirmed: bool = False,
         confirmation_token: bytes | str | None = None,
+        confirmation_context: bytes | str | None = None,
     ) -> UdsResponse:
         """Request Transfer Exit (0x37) - closes a flash transfer.
 
@@ -395,6 +406,7 @@ class UdsClient:
             is_critical_command=True,
             user_confirmed=user_confirmed,
             confirmation_token=confirmation_token,
+            confirmation_context=confirmation_context,
         )
 
     def ecu_reset(
@@ -402,6 +414,7 @@ class UdsClient:
         reset_type: int = 0x01,
         user_confirmed: bool = False,
         confirmation_token: bytes | str | None = None,
+        confirmation_context: bytes | str | None = None,
     ) -> UdsResponse:
         """ECU Reset (0x11) - Critical command.
 
@@ -415,6 +428,7 @@ class UdsClient:
             is_critical_command=True,
             user_confirmed=user_confirmed,
             confirmation_token=confirmation_token,
+            confirmation_context=confirmation_context,
         )
 
     def start_routine(
@@ -423,6 +437,7 @@ class UdsClient:
         options: bytes = b"",
         user_confirmed: bool = False,
         confirmation_token: bytes | str | None = None,
+        confirmation_context: bytes | str | None = None,
     ) -> UdsResponse:
         """Start ECU Routine (0x31) - Critical command.
 
@@ -436,6 +451,7 @@ class UdsClient:
             is_critical_command=True,
             user_confirmed=user_confirmed,
             confirmation_token=confirmation_token,
+            confirmation_context=confirmation_context,
         )
 
     def stop_routine(self, routine_id: int) -> UdsResponse:
@@ -463,6 +479,7 @@ class UdsClient:
         is_critical_command: bool = False,
         user_confirmed: bool = False,
         confirmation_token: bytes | str | None = None,
+        confirmation_context: bytes | str | None = None,
     ) -> None:
         """Transmit a UDS payload through the TxPort.
 
@@ -487,7 +504,11 @@ class UdsClient:
                     self._tx_frame(frame, is_critical_command, user_confirmed)
                 else:
                     self._tx_frame(
-                        frame, is_critical_command, user_confirmed, confirmation_token=confirmation_token
+                        frame,
+                        is_critical_command,
+                        user_confirmed,
+                        confirmation_token=confirmation_token,
+                        confirmation_context=confirmation_context,
                     )
             return
 
@@ -496,7 +517,11 @@ class UdsClient:
             self._tx_frame(frames[0], is_critical_command, user_confirmed)
         else:
             self._tx_frame(
-                frames[0], is_critical_command, user_confirmed, confirmation_token=confirmation_token
+                frames[0],
+                is_critical_command,
+                user_confirmed,
+                confirmation_token=confirmation_token,
+                confirmation_context=confirmation_context,
             )
         self._send_consecutive_frames_flow_controlled(
             frames[1:], payload, is_critical_command, user_confirmed
@@ -509,6 +534,7 @@ class UdsClient:
         user_confirmed: bool,
         budget_category: str = "protocol_burst",
         confirmation_token: bytes | str | None = None,
+        confirmation_context: bytes | str | None = None,
     ) -> None:
         """Send one frame through the gateway TxPort choke-point.
 
@@ -529,6 +555,8 @@ class UdsClient:
             }
             if confirmation_token is not None:
                 kwargs["confirmation_token"] = confirmation_token
+            if confirmation_context is not None:
+                kwargs["confirmation_context"] = confirmation_context
             self.tx_port.validate_and_transmit(frame, **kwargs)
         elif hasattr(self.tx_port, "send_sync") and not hasattr(self.tx_port, "validate_and_transmit"):
             # TxSafetyGateway-shaped port: honour the category-aware lane.
@@ -729,6 +757,7 @@ class UdsClient:
         is_critical_command: bool = False,
         user_confirmed: bool = False,
         confirmation_token: bytes | str | None = None,
+        confirmation_context: bytes | str | None = None,
     ) -> UdsResponse:
         """Send segmented UDS request and wait for complete ISO-TP reassembled response.
 
@@ -751,6 +780,7 @@ class UdsClient:
                 is_critical_command=is_critical_command,
                 user_confirmed=user_confirmed,
                 confirmation_token=confirmation_token,
+                confirmation_context=confirmation_context,
             )
 
             start_time = time.monotonic()

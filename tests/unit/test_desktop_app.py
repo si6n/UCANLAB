@@ -585,12 +585,12 @@ def test_desktop_api_bridge_actionable_speed_and_input_hardening() -> None:
 def test_desktop_api_bridge_diagnostic_challenge_security() -> None:
     """Verify challenge token generation, single-use consumption, expiration, and mismatch rejection.
 
-    T47-B (P3/G-3): with a gateway confirmation secret wired (production), the
-    token is a gateway-minted HMAC token — a 152-byte hex string binding
-    (arbitration_id, expiry, nonce). The in-process challenge store is only
-    used when NO secret is configured, so the legacy assertions below are
-    adapted to the cryptographic path while keeping the same security intent:
-    single-use, tamper-evident, expiring.
+    R2-EN2: the renderer-reachable challenge endpoint NEVER mints a gateway
+    HMAC token — it returns a 16-byte nonce bound to (action_type,
+    action_id). Gateway TX authorization is minted process-internally after
+    the nonce verifies, so the legacy nonce assertions below encode the
+    current contract: single-use, action-bound, expiring, and gateway tokens
+    presented from JS are rejected.
     """
     app = UniversalCanDesktopApp(channel="vcan0", bitrate=250000)
     bridge = DesktopApiBridge(app)
@@ -607,30 +607,51 @@ def test_desktop_api_bridge_diagnostic_challenge_security() -> None:
     assert bridge.request_diagnostic_challenge(None)["success"] is False  # type: ignore[arg-type]
     assert bridge.request_diagnostic_challenge({})["success"] is False
 
-    # 2. Challenge generation (cryptographic path: gateway HMAC token)
+    # 2. Challenge generation (R2-EN2: nonce only, never a gateway token)
     ch = bridge.request_diagnostic_challenge(action_routine)
     assert ch["success"] is True
     tok = ch["token"]
-    assert ch.get("cryptographic") is True
-    assert len(tok) == 2 * (4 + 8 + 16 + 32)  # payload + SHA-256 MAC, hex
+    assert ch.get("cryptographic") is None
+    assert len(tok) == 32  # 16-byte nonce, hex
     assert ch["expires_in_s"] == 30.0
 
     # 3. Tampered token -> fail closed
     res_forged = bridge.execute_diagnostic_action(action_routine, confirmation_token="de" * 60)
     assert res_forged["success"] is False
 
-    # 4. Single-use replay protection: the gateway burns the token on use.
+    # 4. Single-use replay protection: the nonce burns on first use.
     #    First consumption succeeds; the replay is refused.
     first = bridge.execute_diagnostic_action(action_routine, confirmation_token=tok)
     assert first["success"] is True
     res_replay = bridge.execute_diagnostic_action(action_routine, confirmation_token=tok)
     assert res_replay["success"] is False
 
-    # 5. Expiration: an HMAC token bound to a past expiry is refused.
-    expired = _mint_expired_confirmation_token(app.gateway, 0x7E0)
-    res_expired = bridge.execute_diagnostic_action(action_routine, confirmation_token=expired)
-    assert res_expired["success"] is False
-    assert ("süresi" in res_expired["error"].lower()) or ("onay token" in res_expired["error"].lower())
+    # 5. R2-EN2: a gateway HMAC token presented from JS is rejected — the
+    #    renderer path accepts nonce challenges only.
+    gw_tok = app.gateway.issue_confirmation_token(0x7E0).hex()
+    res_gw = bridge.execute_diagnostic_action(action_routine, confirmation_token=gw_tok)
+    assert res_gw["success"] is False
+
+
+def test_bridge_manifest_covers_all_methods() -> None:
+    """R2-U1: every public bridge method must be classified in the risk manifest."""
+    import ast
+    from pathlib import Path
+
+    from src.ui.desktop_app import DesktopApiBridge
+
+    tree = ast.parse((Path("src/ui/desktop_app.py")).read_text(encoding="utf-8"))
+    public: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef) and node.name == "DesktopApiBridge":
+            for item in node.body:
+                if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)) and not item.name.startswith("_"):
+                    public.add(item.name)
+    assert public, "no public bridge methods found"
+    missing = public - set(DesktopApiBridge.BRIDGE_RISK_MANIFEST)
+    assert not missing, f"unclassified bridge methods: {sorted(missing)}"
+    for name, cls in DesktopApiBridge.BRIDGE_RISK_MANIFEST.items():
+        assert cls in ("safety", "data", "read", "config"), f"{name}: bad risk class {cls!r}"
 
 
 def _mint_expired_confirmation_token(gateway: object, arbitration_id: int) -> str:

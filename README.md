@@ -22,8 +22,8 @@ ISO 14229-1 (UDS) · ISO 15765-2 (DoCAN) · NMEA 2000 · TMC RP1210 (A/B/C)
   fast packet, and Volvo Penta EDC/EVC decoding.
 - **Safety architecture** — E-Stop interlock, 800 ms TX watchdog,
   dual-confirmation TX gateway with speed interlock and dynamic whitelist,
-  fail-closed replay filter. Every transmission passes a single audited
-  choke-point.
+  replay safety filter (analysis-side; replay has no live-bus TX path).
+  Every transmission passes a single audited choke-point.
 - **Signal discovery** — evidence-based reverse engineering (stimulus–response
   protocol, Pearson/Spearman correlation, time-lag analysis) with one-click
   DBC export.
@@ -33,7 +33,8 @@ ISO 14229-1 (UDS) · ISO 15765-2 (DoCAN) · NMEA 2000 · TMC RP1210 (A/B/C)
   analysis (no cloud LLM, no API keys, no data leaves the host); never
   fabricates measurements.
 - **Export formats** — ASAM MDF4, MATLAB, KML, Vector ASC, CSV/JSON, plus
-  SHA-256-signed tamper-evident HTML service reports.
+  HMAC-sealed HTML service reports (keyless SHA-256 checksum when no
+  `REPORT_SIGNING_KEY` is configured).
 - **Black-box recording** — 300K-frame zero-GC NumPy ring buffer and
   Zstandard-compressed rolling disk chunks with fsync durability.
 
@@ -42,12 +43,12 @@ ISO 14229-1 (UDS) · ISO 15765-2 (DoCAN) · NMEA 2000 · TMC RP1210 (A/B/C)
 | Interface | Driver | Channel format |
 | :--- | :--- | :--- |
 | Virtual (demo) | built-in simulator | `vcan0` |
-| PEAK PCAN | `PCANBasic.dll` | `PCAN_USBBUS1` |
-| Kvaser | `canlib32.dll` | `0`, `1` |
-| RP1210 adapters (Nexiq, Noregon, DPA5) | `RP121064.DLL` / `RP121032.DLL` (auto by bitness) | device ID (`1`) |
-| Vector | `vcan2.dll` | `0`, `1` |
-| Linux SocketCAN | kernel vcan/can | `can0`, `vcan0` |
-| Replay | Vector `.asc`, `.csv`, `.blf` | file path |
+| PEAK PCAN | `PCANBasic.dll` via `PythonCanBus` (python-can backend) | `PCAN_USBBUS1` |
+| Kvaser | `canlib32.dll` via `PythonCanBus` (python-can backend) | `0`, `1` |
+| RP1210 adapters (Nexiq, Noregon, DPA5) | `RP121064.DLL` / `RP121032.DLL` (auto by bitness), native implementation | device ID (`1`) |
+| Vector | `vcan2.dll` via `PythonCanBus` (python-can backend, hardware-untested) | `0`, `1` |
+| Linux SocketCAN | kernel vcan/can via `PythonCanBus` (python-can backend, hardware-untested) | `can0`, `vcan0` |
+| Replay | Vector `.asc`, `.csv`, `.blf` (analysis-only, no live-bus TX) | file path |
 
 ## Quick Start
 

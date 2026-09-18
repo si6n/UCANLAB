@@ -143,6 +143,60 @@ class DesktopApiBridge:
     })
     VALID_FAULTS: ClassVar[frozenset[str]] = frozenset({"error_frame", "wiring_dropout"})
 
+    # R2-U1: bridge risk manifest. Every JS-reachable method is classified so
+    # a new endpoint defaults to scrutiny, not silent exposure:
+    #   "safety" — TX/E-Stop/flash authority (fail-closed token/interlock gates)
+    #   "data"   — export/upload (allowlist + size/rate guards)
+    #   "read"   — queries (low risk) | "config" — settings (validated)
+    # Methods missing here are flagged by test_bridge_manifest_covers_all_methods.
+    BRIDGE_RISK_MANIFEST: ClassVar[dict[str, str]] = {
+        "trigger_estop": "safety",
+        "estop_request_challenge": "safety",
+        "estop_submit_reset_token": "safety",
+        "arm_tx": "safety",
+        "disarm_tx": "safety",
+        "flash_start": "safety",
+        "flash_progress": "safety",
+        "flash_cancel": "safety",
+        "request_diagnostic_challenge": "safety",
+        "execute_diagnostic_action": "safety",
+        "heartbeat": "safety",
+        "inject_fault": "safety",
+        "replay_load": "safety",
+        "replay_start": "safety",
+        "replay_stop": "safety",
+        "set_simulation_speed": "safety",
+        "export_logs": "data",
+        "export_session_report": "data",
+        "cloud_upload_session": "data",
+        "cloud_upload_raw_content": "data",
+        "discovery_export_dbc": "data",
+        "record_operator_measurement": "data",
+        "ask_copilot": "read",
+        "cloud_activate_license": "config",
+        "cloud_get_status": "read",
+        "cloud_register_device": "config",
+        "cloud_save_config": "config",
+        "cloud_test_connection": "read",
+        "discovery_analyze_all": "read",
+        "discovery_analyze_id": "read",
+        "discovery_clear": "config",
+        "discovery_get_summary": "read",
+        "get_action_triggers": "read",
+        "get_bus_traffic_status": "read",
+        "get_diagnostic_analysis": "read",
+        "get_diagnostic_db_metrics": "read",
+        "get_dtc_info": "read",
+        "get_safety_state": "read",
+        "get_session_evidence_summary": "read",
+        "oem_list_decoders": "read",
+        "reset_diagnostic_session": "safety",
+        "save_settings": "config",
+        "search_nhtsa_recalls": "read",
+        "select_scenario": "config",
+        "toggle_simulator": "config",
+    }
+
     def __init__(self, app: UniversalCanDesktopApp) -> None:
         self.app = app
         # H-2: the bridge is the UI-reachable heartbeat entry point. It adopts
@@ -740,14 +794,19 @@ class DesktopApiBridge:
             )
         return resolved
 
-    def cloud_upload_session(self, file_path: str, vehicle_vin: str | None = None) -> dict[str, Any]:
+    def cloud_upload_session(
+        self, file_path: str, vehicle_vin: str | None = None, user_consented: bool = False
+    ) -> dict[str, Any]:
         try:
             safe_path = self._validate_telemetry_upload_path(file_path)
             logger.info(
                 "Cloud telemetry upload accepted",
                 extra={"path": str(safe_path), "bytes": safe_path.stat().st_size},
             )
-            result = self.app.telemetry_uploader.upload_file(file_path=safe_path, vehicle_vin=vehicle_vin)
+            # R2-S3: VIN is forwarded only with explicit operator consent.
+            result = self.app.telemetry_uploader.upload_file(
+                file_path=safe_path, vehicle_vin=vehicle_vin, user_consented=user_consented
+            )
             return {
                 "success": True,
                 "sessionId": result.session_id,
@@ -773,7 +832,13 @@ class DesktopApiBridge:
             cls._raw_upload_count += 1
             return cls._raw_upload_count <= cls._RAW_UPLOAD_MAX_PER_SEC
 
-    def cloud_upload_raw_content(self, filename: str, content: str, vehicle_vin: str | None = None) -> dict[str, Any]:
+    def cloud_upload_raw_content(
+        self,
+        filename: str,
+        content: str,
+        vehicle_vin: str | None = None,
+        user_consented: bool = False,
+    ) -> dict[str, Any]:
         import os as _os
         try:
             if not self._check_raw_upload_rate():
@@ -819,7 +884,9 @@ class DesktopApiBridge:
             if tmp_path is None:
                 return {"success": False, "error": "Geçici dosya oluşturulamadı."}
             try:
-                result = self.app.telemetry_uploader.upload_file(file_path=tmp_path, vehicle_vin=vehicle_vin)
+                result = self.app.telemetry_uploader.upload_file(
+                    file_path=tmp_path, vehicle_vin=vehicle_vin, user_consented=user_consented
+                )
                 return {
                     "success": True,
                     "sessionId": result.session_id,
@@ -1716,7 +1783,7 @@ class UniversalCanDesktopApp:
     # ------------------------------------------------------------------
     # Diagnostic Challenge & Action Execution Subsystem (Dual Confirmation)
     # ------------------------------------------------------------------
-    def _mint_confirmation_token(self) -> str:
+    def _mint_confirmation_token(self, context: str | None = None) -> str:
         """Mint a single-use HMAC confirmation token via the gateway (P3 / G-3).
 
         The token is produced from the `GATEWAY_CONFIRM_SECRET` by the SAME
@@ -1724,29 +1791,42 @@ class UniversalCanDesktopApp:
         bound to the canonical diagnostic arbitration ID — not an in-process
         random string the renderer could mint for itself.
 
-        The minting entry point is deliberately NOT exposed on
-        `DesktopApiBridge`: only this trusted composition root can produce a
-        token (§2.5 — the renderer cannot manufacture its own authorization).
+        R2-EN2: process-internal ONLY — never returned to JS. The renderer
+        path (`request_diagnostic_challenge`) issues nonce challenges;
+        gateway tokens are minted here and consumed by the TX path.
+        R2-EN3: `context` (e.g. "action_type:action_id") binds the token to
+        the authorized action.
         """
-        return self.gateway.issue_confirmation_token(_DIAGNOSTIC_CONFIRM_ARB_ID, ttl_s=30.0).hex()
+        token = self.gateway.issue_confirmation_token(
+            _DIAGNOSTIC_CONFIRM_ARB_ID, ttl_s=30.0, context=context
+        )
+        return token.hex()
 
-    def _confirm_token_for(self, arbitration_id: int) -> bytes | None:
+    def _confirm_token_for(
+        self, arbitration_id: int, context: str | None = None
+    ) -> bytes | None:
         """Fresh single-use gateway ConfirmationToken bound to `arbitration_id`.
 
         P3 (G-3): only the trusted composition root mints these; returns None
         when the gateway has no confirmation secret (legacy wiring), so the
         UDS client simply omits the parameter.
+        R2-EN3: `context` binds the token to the calling action; the gateway
+        rejects the token when presented with a different context.
         """
         if self.gateway._confirmation_secret is None:  # noqa: SLF001 - wiring introspection
             return None
-        return self.gateway.issue_confirmation_token(arbitration_id, ttl_s=30.0)
+        return self.gateway.issue_confirmation_token(
+            arbitration_id, ttl_s=30.0, context=context
+        )
 
     def request_diagnostic_challenge(self, action: dict[str, Any]) -> dict[str, Any]:
-        """Issue a short-lived (≤30s) single-use confirmation token for a diagnostic action.
+        """Issue a short-lived (≤30s) single-use nonce challenge for a diagnostic action.
 
-        P3 (G-3): when the gateway has a confirmation secret (production
-        wiring), the returned token is an HMAC token minted by the gateway.
-        Otherwise the legacy in-process challenge is used (no secret wired).
+        R2-EN2: this renderer-reachable endpoint NEVER mints a gateway HMAC
+        token — it returns a nonce bound to (action_type, action_id) only.
+        The gateway token authorizing the TX is minted process-internally in
+        `execute_diagnostic_action` after the nonce verifies, so a renderer
+        script can never manufacture its own TX authorization.
         """
         if not isinstance(action, dict):
             return {"success": False, "error": "Geçersiz aksiyon verisi (dictionary bekleniyor)."}
@@ -1756,17 +1836,6 @@ class UniversalCanDesktopApp:
             return {"success": False, "error": "Aksiyon türü (action_type) belirtilmelidir."}
 
         action_id = str(action.get("id") or "")
-
-        if self.gateway._confirmation_secret is not None:  # noqa: SLF001 - wiring introspection
-            token = self._mint_confirmation_token()
-            return {
-                "success": True,
-                "token": token,
-                "expires_in_s": 30.0,
-                "action_type": action_type,
-                "action_id": action_id,
-                "cryptographic": True,
-            }
 
         token = secrets.token_hex(16)
         now_ns = time.monotonic_ns()
@@ -1795,27 +1864,17 @@ class UniversalCanDesktopApp:
         }
 
     def _verify_and_consume_diagnostic_token(self, token: str | None, action_type: str, action_id: str = "") -> tuple[bool, str]:
-        """Verify that a single-use token is present, unexpired (≤30s), and matches action_type/action_id."""
+        """Verify that a single-use nonce challenge is present, unexpired (≤30s), and matches action_type/action_id.
+
+        R2-EN2: renderer-presented tokens are nonce challenges ONLY. A
+        gateway HMAC token presented from JS is rejected — gateway tokens
+        are minted process-internally (`_confirm_token_for`) and never cross
+        the bridge.
+        """
         if not token or not isinstance(token, str) or not token.strip():
             return False, "Kullanıcı onayı gereklidir (Dual Confirmation challenge token eksik)."
 
         cleaned_token = token.strip()
-
-        # P3 (G-3): when the gateway has a confirmation secret, the token MUST
-        # be a valid gateway-issued HMAC token. The gateway owns single-use
-        # burning, so a replayed token fails closed here.
-        if self.gateway._confirmation_secret is not None:  # noqa: SLF001 - wiring introspection
-            frame = CanFrame.create(
-                channel_id=self.channel_name,
-                arbitration_id=_DIAGNOSTIC_CONFIRM_ARB_ID,
-                data=b"\x02\x3e\x00",
-            )
-            try:
-                self.gateway._verify_confirmation_token(cleaned_token, frame)  # noqa: SLF001
-            except Exception as exc:
-                logger.warning("Diagnostic HMAC confirmation rejected: %s", exc)
-                return False, f"Geçersiz onay token'ı ({exc})."
-            return True, "OK"
 
         now_ns = time.monotonic_ns()
 
@@ -1953,10 +2012,12 @@ class UniversalCanDesktopApp:
                     if arm_err_resp is not None:
                         return arm_err_resp
                     client = self.create_uds_client()
+                    _ctx = f"{action_type}:{action_id}"
                     resp = client.clear_dtc(
                         group,
                         user_confirmed=True,
-                        confirmation_token=self._confirm_token_for(client.tx_id),
+                        confirmation_token=self._confirm_token_for(client.tx_id, _ctx),
+                        confirmation_context=_ctx,
                     )
                     if resp.is_positive:
                         self._set_ui_state(_error_count=0)
@@ -2023,10 +2084,12 @@ class UniversalCanDesktopApp:
                     if arm_err_resp is not None:
                         return arm_err_resp
                     client = self.create_uds_client()
+                    _ctx = f"{action_type}:{action_id}"
                     resp = client.change_session(
                         DiagnosticSessionType(st),
                         user_confirmed=True,
-                        confirmation_token=self._confirm_token_for(client.tx_id),
+                        confirmation_token=self._confirm_token_for(client.tx_id, _ctx),
+                        confirmation_context=_ctx,
                     )
                     if resp.is_positive:
                         return {
@@ -2087,10 +2150,12 @@ class UniversalCanDesktopApp:
                     if arm_err_resp is not None:
                         return arm_err_resp
                     client = self.create_uds_client()
+                    _ctx = f"{action_type}:{action_id}"
                     resp = client.ecu_reset(
                         reset_type=rt,
                         user_confirmed=True,
-                        confirmation_token=self._confirm_token_for(client.tx_id),
+                        confirmation_token=self._confirm_token_for(client.tx_id, _ctx),
+                        confirmation_context=_ctx,
                     )
                     if resp.is_positive:
                         return {
@@ -2290,6 +2355,51 @@ class UniversalCanDesktopApp:
     # ------------------------------------------------------------------
     # ECU Flashing Engine & Progress Subsystem
     # ------------------------------------------------------------------
+    @staticmethod
+    def _validate_flash_prerequisites(config: dict[str, Any]) -> str | None:
+        """R2-P1: synchronous flash precondition check (runs BEFORE arm_tx).
+
+        Returns an error string when the UI-supplied material cannot satisfy
+        the motor's fail-closed gates (signature / trust anchor / target
+        identity), else None. The caller refuses synchronously so the bus is
+        never armed for a flash that is doomed to fail.
+        """
+        if not config.get("firmwareSignature") and not config.get("firmware_signature"):
+            return "Flashing ön-koşulu sağlanamadı: firmware imzası (firmwareSignature) gerekli."
+        if not config.get("trustedPubkey") and not config.get("trusted_pubkey"):
+            return "Flashing ön-koşulu sağlanamadı: güvenilir ortak anahtar (trustedPubkey) gerekli."
+        if not (
+            config.get("expectedVin") or config.get("expected_vin")
+            or config.get("expectedSerial") or config.get("expected_serial")
+            or config.get("skipTargetIdentity") is True
+        ):
+            return "Flashing ön-koşulu sağlanamadı: hedef VIN/seri (expectedVin) gerekli."
+        return None
+
+    @staticmethod
+    def _parse_flash_signature(config: dict[str, Any]) -> bytes | None:
+        raw = config.get("firmwareSignature", config.get("firmware_signature"))
+        if raw is None:
+            return None
+        if isinstance(raw, (bytes, bytearray)):
+            return bytes(raw)
+        try:
+            return bytes.fromhex(str(raw).strip())
+        except ValueError:
+            return None
+
+    @staticmethod
+    def _parse_flash_pubkey(config: dict[str, Any]) -> Any | None:
+        raw = config.get("trustedPubkey", config.get("trusted_pubkey"))
+        if raw is None:
+            return None
+        if not isinstance(raw, str):
+            return raw
+        try:
+            return ed25519.Ed25519PublicKey.from_public_bytes(bytes.fromhex(raw.strip()))
+        except Exception:
+            return None
+
     def flash_start(self, config: dict[str, Any], confirmation_token: str | None = None) -> dict[str, Any]:
         """Start ECU reprogramming via EcuFlashingEngine with challenge verification."""
         if not isinstance(config, dict):
@@ -2415,6 +2525,16 @@ class UniversalCanDesktopApp:
             self._push_flash_log(msg, level)
 
         if self.supervisor.current_state == SafetyState.PASSIVE:
+            # R2-P1: synchronous precondition check BEFORE arming — the motor
+            # fail-closes on missing signature/trust-anchor/target-identity,
+            # so arming first would leave the bus TX-capable for a flash that
+            # can never start. Validate the UI-supplied material here.
+            _pre_err = self._validate_flash_prerequisites(config)
+            if _pre_err is not None:
+                with self._flash_lock:
+                    self._flash_progress_state["status"] = "failed"
+                    self._flash_progress_state["error"] = _pre_err
+                return {"success": False, "error": _pre_err, "message": _pre_err}
             arm_res = self.arm_tx(reason="Operator started ECU flashing")
             if not arm_res.get("success", False):
                 err = arm_res.get("error", "TX pipeline cannot be armed for flashing")
@@ -2429,6 +2549,9 @@ class UniversalCanDesktopApp:
             gateway=self.gateway,
             on_progress=_on_progress,
             on_log=_on_log,
+            # R2-P2: the flasher mints step tokens through the
+            # composition-root-owned issuer, never the gateway directly.
+            confirmation_token_factory=self.gateway.create_confirmation_issuer(),
         )
 
         raw_data = config.get("data")
@@ -2446,7 +2569,17 @@ class UniversalCanDesktopApp:
             memory_address=int(config.get("memoryAddress", 0x80000)),
             data=payload_bytes,
             block_size=int(config.get("blockSize", 256)),
+            # R2-P3: operator approval is taken ONCE at flash_start entry via
+            # the diagnostic nonce challenge above; this flag forwards that
+            # session-level approval to the motor (NOT a per-step UI prompt).
             user_confirmed=True,
+            # R2-P1: feed the motor's mandatory gates from the UI config —
+            # without these the real-mode flash fail-closes by design.
+            firmware_signature=self._parse_flash_signature(config),
+            trusted_pubkey=self._parse_flash_pubkey(config),
+            expected_vin=config.get("expectedVin", config.get("expected_vin")),
+            expected_serial=config.get("expectedSerial", config.get("expected_serial")),
+            require_target_identity=config.get("skipTargetIdentity") is not True,
         )
 
         def _real_flash_worker() -> None:
@@ -2467,7 +2600,8 @@ class UniversalCanDesktopApp:
 
         self._flash_thread = threading.Thread(target=_real_flash_worker, name="real_flasher", daemon=True)
         self._flash_thread.start()
-        return {"success": True, "message": "Flashing işlemi başlatıldı."}
+        # R2-P4: the worker validates asynchronously — report ACCEPTANCE, not success.
+        return {"success": True, "accepted": True, "message": "Flashing isteği kabul edildi (ön-koşullar doğrulandı, işlem sürüyor)."}
 
     def _push_flash_progress(self) -> None:
         if self._window is None:

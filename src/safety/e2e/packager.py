@@ -7,7 +7,6 @@ computes CRC-8 / checksum bytes, and generates ASIL-compliant CanFrame structure
 from __future__ import annotations
 
 import threading
-import time
 
 from src.core.logging import get_logger
 from src.core.models.can_frame import CanFrame, dlc_to_length, length_to_dlc
@@ -99,7 +98,9 @@ class E2ESafetyPackager:
     ) -> CanFrame:
         """Package and seal an outgoing CanFrame with rolling counter and computed CRC."""
         stream_key = (frame.channel_id, frame.arbitration_id)
-        ts = timestamp_ns if timestamp_ns is not None else time.time_ns()
+        # R2-G6: preserve the original frame timestamp (monotonic domain);
+        # wall-clock stamping used to reorder telemetry on NTP jumps.
+        ts = timestamp_ns if timestamp_ns is not None else frame.timestamp_ns
 
         with self._lock:
             counter_to_use = self._resolve_counter(stream_key, profile, counter)
@@ -107,9 +108,10 @@ class E2ESafetyPackager:
             payload = bytearray(frame.data)
 
             # Ensure payload has sufficient length to hold counter and CRC offsets
+            # R2-G6: pad with the canonical 0xCC (can_frame.pad_payload), not 0x00.
             min_len = max(profile.crc_byte_offset, profile.counter_byte_offset) + 1
             if len(payload) < min_len:
-                payload.extend(b"\x00" * (min_len - len(payload)))
+                payload.extend(b"\xCC" * (min_len - len(payload)))
 
             # Inject rolling counter
             inject_counter(payload, counter_to_use, profile)

@@ -125,7 +125,19 @@ class TelemetryUploader:
         file_path: str | Path,
         vehicle_vin: str | None = None,
         session_id: str | None = None,
+        user_consented: bool = False,
     ) -> UploadResult:
+        """Upload a telemetry file in resumable chunks.
+
+        R2-S3: `vehicle_vin` is vehicle-identifying data — it is sent only
+        with explicit operator consent (`user_consented=True`); otherwise a
+        VIN-bearing upload fails closed. VINs never appear in logs.
+        """
+        if vehicle_vin is not None and not user_consented:
+            raise LicenseError(
+                "Telemetry upload with vehicle VIN requires explicit operator consent",
+                code="TELEMETRY_CONSENT_REQUIRED",
+            )
         path = Path(file_path)
         if not path.is_file():
             raise LicenseError(f"Telemetry file not found: {path}", code="FILE_NOT_FOUND")

@@ -403,7 +403,7 @@ def test_telemetry_upload_end_to_end(client, tmp_path: Path) -> None:
         chunk_size=256 * 1024,  # 4 chunks
         progress_callback=received.append,
     )
-    result = uploader.upload_file(session_file, vehicle_vin="TR-TEST-001")
+    result = uploader.upload_file(session_file, vehicle_vin="TR-TEST-001", user_consented=True)
 
     assert result.status == "processing"
     assert result.session_id.startswith("ses_")
@@ -424,6 +424,20 @@ def test_upload_rejects_missing_file(client) -> None:
     uploader = TelemetryUploader(client)
     with pytest.raises(LicenseError, match="not found"):
         uploader.upload_file("Z:/yok/bÃ¶yle.mf4")
+
+
+def test_upload_vin_requires_explicit_consent(client, tmp_path: Path) -> None:
+    """R2-S3: a VIN-bearing upload without consent fails closed."""
+    from src.core.errors import LicenseError
+
+    session_file = tmp_path / "consent.mdf4"
+    session_file.write_bytes(b"v" * 1024)
+    uploader = TelemetryUploader(client)
+    with pytest.raises(LicenseError, match="consent"):
+        uploader.upload_file(session_file, vehicle_vin="TR-NO-CONSENT")
+    # With consent the announce proceeds.
+    result = uploader.upload_file(session_file, vehicle_vin="TR-CONSENT", user_consented=True)
+    assert result.session_id.startswith("ses_")
 
 
 def test_resume_queries_session_state(client, tmp_path: Path) -> None:

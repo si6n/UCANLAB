@@ -154,6 +154,53 @@ class TxSafetyGateway:
         "default": (100, 100.0),
     }
 
+    # R2-G4: a whitelist mask authorizes a whole ID family. A mis-parsed
+    # hand-written mask (e.g. value=0) silently opens the bus. Masks covering
+    # more than this many IDs require explicit `whitelist_superset_allowed`.
+    # 65536 keeps the legitimate J1939 response families (e.g. an 8192-ID
+    # TP.CM SA family) working while catching gross mis-parses such as
+    # (0, 0x00FF0000) which opens ~2M IDs.
+    _MASK_SUPERSET_LIMIT: ClassVar[int] = 65536
+
+    @staticmethod
+    def _validate_mask_breadth(
+        masks: Sequence[tuple[int, int]], superset_allowed: bool
+    ) -> None:
+        """R2-G4: enforce the conscious broad-mask acknowledgement gate."""
+        for value, mask in masks:
+            if mask == 0:
+                raise ValueError("whitelist maskesi 0 olamaz (tum bus'i gecirir)")
+            mask = int(mask)
+            # Breadth is measured in the mask's own ID space: an 11-bit mask
+            # (e.g. a standard 0x7FF diagnostic mask) covers 11-bit IDs only,
+            # not the full 29-bit extended space.
+            if mask <= 0x7FF and int(value) <= 0x7FF:
+                matched = 1 << (11 - bin(mask).count("1"))
+            else:
+                matched = 1 << (29 - bin(mask & 0x1FFFFFFF).count("1"))
+            if matched > TxSafetyGateway._MASK_SUPERSET_LIMIT and not superset_allowed:
+                raise SafetyError(
+                    f"Maske ~{matched} ID'lik aileyi kapsiyor; bilincli genis aile icin "
+                    "whitelist_superset_allowed=True gerekir",
+                    code="WHITELIST_SUPERSET_DENIED",
+                )
+
+    @staticmethod
+    def _validate_e2e_profiles(
+        profiles: Mapping[int, E2EProfileConfig] | None,
+    ) -> None:
+        """R2-G3: fail-fast E2E profile validation at configuration time."""
+        if not profiles:
+            return
+        from src.safety.e2e.profiles import E2EProfileType as _PT
+
+        for arb_id, cfg in profiles.items():
+            if not isinstance(getattr(cfg, "profile_type", None), _PT):
+                raise ValueError(
+                    f"E2E profile for 0x{int(arb_id):X} has non-enum profile_type "
+                    f"({getattr(cfg, 'profile_type', None)!r}); refusing to wire"
+                )
+
     # MEDIUM-6: bounded, gateway-owned executor for the async TxPort entry.
     # Never offload onto the event loop's shared default executor (unbounded
     # and shared with every other offload in the process).
@@ -192,6 +239,8 @@ class TxSafetyGateway:
         self.whitelist_masks: tuple[tuple[int, int], ...] = (
             tuple(whitelist_masks) if whitelist_masks is not None else ()
         )
+        # R2-G4: enforce the broad-mask gate at construction (fail-closed).
+        self._validate_mask_breadth(self.whitelist_masks, bool(whitelist_superset_allowed))
         # P9 (G-11): explicit, auditable acknowledgement that the configured
         # mask set is a deliberately BROAD family override (e.g. a J1939
         # response mask of 0xF9 that matches many source addresses). The
@@ -207,6 +256,9 @@ class TxSafetyGateway:
         # per protected stream, matching the profiles' per-stream counters.
         self.e2e_packager = e2e_packager
         self.e2e_profiles: Mapping[int, E2EProfileConfig] = dict(e2e_profiles) if e2e_profiles else {}
+        # R2-G3: configuration-time E2E validation — a mis-wired profile must
+        # fail at construction, never as a raw exception on the TX path.
+        self._validate_e2e_profiles(self.e2e_profiles if e2e_profiles else None)
         # Fail-closed whitelist stage can only be bypassed through the
         # explicit for_testing() factory — never via a constructor flag
         # that production wiring could set by accident.
@@ -272,7 +324,7 @@ class TxSafetyGateway:
         # reachable by a mis-wired producer that simply picked a different
         # `budget_category` string — the total TX plane had no ceiling. This
         # non-bypassing window caps the aggregate of ALL lanes.
-        self._tx_total_timestamps: "collections.deque[int]" = collections.deque()
+        self._tx_total_timestamps: "collections.deque[tuple[int, int, int]]" = collections.deque()
         self._total_overload_streak: int = 0
 
         # MEDIUM-6: gateway-owned bounded executor for async sends (F-26/E-12).
@@ -357,7 +409,10 @@ class TxSafetyGateway:
             if callable(candidate):
                 return candidate  # type: ignore[no-any-return]
         # Some drivers expose the primitive only through their raw transport.
+        # R2-H1: PythonCanBus keeps the handle as `_bus`, not `bus`.
         raw = getattr(self._bus, "bus", None)
+        if raw is None:
+            raw = getattr(self._bus, "_bus", None)
         if raw is not None:
             for name in ("flush_tx_buffer", "abort_tx"):
                 candidate = getattr(raw, name, None)
@@ -464,6 +519,10 @@ class TxSafetyGateway:
                 if whitelist_ids is not None:
                     self.whitelist_ids = frozenset(whitelist_ids)
                 if whitelist_masks is not None:
+                    # R2-G4: the broad-mask gate applies to runtime rebinds too.
+                    self._validate_mask_breadth(
+                        tuple(whitelist_masks), self.whitelist_superset_allowed
+                    )
                     self.whitelist_masks = tuple(whitelist_masks)
                 # A whitelist change is a policy change: reset the miss streak
                 # so the new policy starts from a clean slate.
@@ -480,11 +539,40 @@ class TxSafetyGateway:
             },
         )
 
-    def issue_confirmation_token(self, arbitration_id: int, ttl_s: float = 30.0) -> bytes:
+    # R2-G5/R2-EN3: token payload binding. Tokens bind arbitration_id +
+    # expiry + nonce + sha256(frame.data)[:8] + sha256(context)[:8], where
+    # context carries e.g. "action_type:action_id". Legacy 28-byte-payload
+    # tokens (no binding) still verify for backward compatibility.
+    _CONFIRM_BASE_LEN: ClassVar[int] = 4 + 8 + 16
+    _CONFIRM_BIND_LEN: ClassVar[int] = 4 + 8 + 16 + 8 + 8
+
+    @staticmethod
+    def confirmation_payload_hash(data: bytes | bytearray) -> bytes:
+        """R2-G5: 8-byte binding digest of the exact CAN payload."""
+        return hashlib.sha256(bytes(data)).digest()[:8]
+
+    @staticmethod
+    def confirmation_context_hash(context: bytes | str | None) -> bytes:
+        """R2-EN3: 8-byte binding digest of the action context string."""
+        if context is None:
+            return b"\x00" * 8
+        raw = context.encode("utf-8") if isinstance(context, str) else bytes(context)
+        return hashlib.sha256(raw).digest()[:8]
+
+    def issue_confirmation_token(
+        self,
+        arbitration_id: int,
+        ttl_s: float = 30.0,
+        *,
+        payload_hash: bytes | None = None,
+        context: bytes | str | None = None,
+    ) -> bytes:
         """Mint a single-use HMAC confirmation token for a critical arbitration ID.
 
         Operator/UI authorization path: the token binds (arbitration_id, expiry,
-        nonce) under the gateway confirmation secret. Requires a configured secret.
+        nonce) under the gateway confirmation secret, plus — when supplied —
+        the exact frame payload hash and an action context (R2-G5/R2-EN3).
+        Requires a configured secret.
         """
         if self._confirmation_secret is None:
             raise SafetyError(
@@ -498,12 +586,36 @@ class TxSafetyGateway:
         payload = (
             int(arbitration_id).to_bytes(4, "big") + expiry_ns.to_bytes(8, "big", signed=False) + nonce
         )
+        if payload_hash is not None or context is not None:
+            payload += bytes(payload_hash)[:8].ljust(8, b"\x00") + self.confirmation_context_hash(context)
         mac = hmac.new(self._confirmation_secret, payload, hashlib.sha256).digest()
         return payload + mac
 
-    def _verify_confirmation_token(self, token: bytes | str, frame: CanFrame) -> None:
-        """Verify a presented ConfirmationToken (fail-closed, single-use, TTL-bound)."""
-        assert self._confirmation_secret is not None
+    def create_confirmation_issuer(self) -> "Callable[..., bytes]":
+        """R2-P2: composition-root-owned mint capability for protocol engines.
+
+        Returns a closure over `issue_confirmation_token` so the flasher (and
+        future engines) mint through an explicitly passed factory instead of
+        holding the gateway reference. The gateway itself keeps only
+        verify+consume on its hot path.
+        """
+
+        def _issuer(
+            arbitration_id: int,
+            ttl_s: float = 30.0,
+            **kwargs: object,
+        ) -> bytes:
+            return self.issue_confirmation_token(
+                arbitration_id,
+                ttl_s,
+                payload_hash=kwargs.get("payload_hash"),  # type: ignore[arg-type]
+                context=kwargs.get("context"),  # type: ignore[arg-type]
+            )
+
+        return _issuer
+
+    def _parse_confirmation_token(self, token: bytes | str) -> bytes:
+        """Split and MAC-verify a token; returns the payload (raises if bad)."""
         raw: bytes
         if isinstance(token, str):
             try:
@@ -518,7 +630,7 @@ class TxSafetyGateway:
             raise DualConfirmationRequiredError(
                 "Critical command rejected: malformed confirmation token",
             )
-        if len(raw) != 4 + 8 + 16 + 32:
+        if len(raw) not in (self._CONFIRM_BASE_LEN + 32, self._CONFIRM_BIND_LEN + 32):
             raise DualConfirmationRequiredError(
                 "Critical command rejected: malformed confirmation token",
             )
@@ -528,11 +640,49 @@ class TxSafetyGateway:
             raise DualConfirmationRequiredError(
                 "Critical command rejected: invalid confirmation token",
             )
+        return payload
+
+    def _verify_confirmation_token(
+        self,
+        token: bytes | str,
+        frame: CanFrame,
+        *,
+        expected_context: bytes | str | None = None,
+        consume: bool = True,
+    ) -> tuple[bytes, int] | None:
+        """Verify a presented ConfirmationToken (fail-closed, single-use, TTL-bound).
+
+        R2-G1: with `consume=False` the token is only VALIDATED; the caller
+        burns it at the no-return point. Returns (payload, expiry_ns) when
+        `consume=False` so the caller can burn exactly this payload later.
+        """
+        assert self._confirmation_secret is not None
+        payload = self._parse_confirmation_token(token)
         arb = int.from_bytes(payload[0:4], "big")
         expiry_ns = int.from_bytes(payload[4:12], "big", signed=False)
         if arb != frame.arbitration_id:
             raise DualConfirmationRequiredError(
                 "Critical command rejected: confirmation token arbitration mismatch",
+            )
+        if len(payload) == self._CONFIRM_BIND_LEN:
+            bound_phash = payload[28:36]
+            bound_ctx = payload[36:44]
+            actual_phash = self.confirmation_payload_hash(bytes(frame.data))
+            if not hmac.compare_digest(bound_phash, actual_phash):
+                raise DualConfirmationRequiredError(
+                    "Critical command rejected: confirmation token payload mismatch",
+                )
+            if expected_context is not None:
+                if not hmac.compare_digest(
+                    bound_ctx, self.confirmation_context_hash(expected_context)
+                ):
+                    raise DualConfirmationRequiredError(
+                        "Critical command rejected: confirmation token action mismatch",
+                    )
+        elif expected_context is not None:
+            # Legacy unbound token presented where a bound one is required.
+            raise DualConfirmationRequiredError(
+                "Critical command rejected: confirmation token lacks action binding",
             )
         if time.monotonic_ns() > expiry_ns:
             raise DualConfirmationRequiredError(
@@ -542,7 +692,17 @@ class TxSafetyGateway:
             raise DualConfirmationRequiredError(
                 "Critical command rejected: confirmation token already consumed",
             )
-        self._consume_confirmation(payload, expiry_ns=expiry_ns)
+        if consume:
+            self._consume_confirmation(payload, expiry_ns=expiry_ns)
+            return None
+        return (payload, expiry_ns)
+
+    def _refund_confirmation(self, payload: bytes | None) -> None:
+        """R2-G1: return a prematurely consumed token (fence/rate rejection)."""
+        if payload is None:
+            return
+        with self._lock:
+            self._consumed_confirmations.pop(payload, None)
 
     # G-4: hard ceiling on the replay store. Beyond this we evict the OLDEST
     # entries first — but ONLY after pruning everything already expired, so a
@@ -841,6 +1001,7 @@ class TxSafetyGateway:
         budget_category: str = "default",
         confirmation_token: bytes | str | None = None,
         inbound_triggered: bool = False,
+        confirmation_context: bytes | str | None = None,
     ) -> bool:
         """G-10 wrapper: run the policy pipeline and fire any E-Stop decided
         under the gateway lock AFTER that lock has been released.
@@ -861,6 +1022,7 @@ class TxSafetyGateway:
                 budget_category=budget_category,
                 confirmation_token=confirmation_token,
                 inbound_triggered=inbound_triggered,
+                confirmation_context=confirmation_context,
                 deferred=deferred,
             )
         finally:
@@ -877,6 +1039,7 @@ class TxSafetyGateway:
         confirmation_token: bytes | str | None = None,
         inbound_triggered: bool = False,
         deferred: list[tuple[EStopTriggerSource, str, float]] | None = None,
+        confirmation_context: bytes | str | None = None,
     ) -> bool:
         """Enforce strict 6-stage policy evaluation order before transmitting onto HAL.
 
@@ -917,6 +1080,14 @@ class TxSafetyGateway:
         budget_consumed = False
         stamp: tuple[int, int, int] | None = None
         budget: TxBudget | None = None
+        # R2-G1: validated-but-not-yet-burned token; burned at no-return point.
+        pending_consume: tuple[bytes, int] | None = None
+        burned_payload: bytes | None = None
+        # R2-G2: identity stamp for the global aggregate envelope.
+        total_stamp: tuple[int, int, int] | None = None
+        # R2-E2: a private direct call without a sink must not silently drop
+        # parked E-Stop decisions — fire them locally after lock release.
+        _own_deferred = deferred is None
         # G-10: E-Stop engagements decided under the gateway lock are parked
         # here and fired by the `validate_and_transmit` wrapper AFTER the lock
         # is released (snapshot-then-release), so the trigger decision stays
@@ -925,6 +1096,11 @@ class TxSafetyGateway:
         deferred_estops: list[tuple[EStopTriggerSource, str, float]] = (
             deferred if deferred is not None else []
         )
+        _local_deferred: list[tuple[EStopTriggerSource, str, float]] = (
+            deferred_estops if not _own_deferred else []
+        )
+        if _own_deferred:
+            deferred_estops = _local_deferred
 
         with self._lock:
             now_ns = time.monotonic_ns()
@@ -1075,7 +1251,13 @@ class TxSafetyGateway:
             # -----------------------------------------------------------------
             if is_critical_command:
                 if self._confirmation_secret is not None and confirmation_token is not None:
-                    self._verify_confirmation_token(confirmation_token, frame)
+                    # R2-G1: validate now, burn at the no-return point below.
+                    pending_consume = self._verify_confirmation_token(
+                        confirmation_token,
+                        frame,
+                        expected_context=confirmation_context,
+                        consume=False,
+                    )
                 if not user_confirmed:
                     raise DualConfirmationRequiredError(
                         "Critical command rejected: Operator dual-confirmation missing",
@@ -1121,7 +1303,7 @@ class TxSafetyGateway:
             # protocol responses (inbound_triggered), because bus starvation
             # is a physical limit, not a trust decision.
             while self._tx_total_timestamps and (
-                now_ns - self._tx_total_timestamps[0]
+                now_ns - self._tx_total_timestamps[0][0]
             ) >= self.RATE_LIMIT_WINDOW_NS:
                 self._tx_total_timestamps.popleft()
             if len(self._tx_total_timestamps) >= self.MAX_TOTAL_TX_PER_SEC:
@@ -1150,7 +1332,10 @@ class TxSafetyGateway:
                     f"Global TX envelope exceeded ({self.MAX_TOTAL_TX_PER_SEC} msg/s across all lanes)"
                 )
             self._total_overload_streak = 0
-            self._tx_total_timestamps.append(now_ns)
+            # R2-G2: identity-carrying global-envelope stamp (rollback-safe).
+            self._stamp_seq += 1
+            total_stamp = (now_ns, threading.get_ident(), self._stamp_seq)
+            self._tx_total_timestamps.append(total_stamp)
 
             # M-23 (P2-4): the simulation lane's generous budget (500/250)
             # exists for the DEMO generator's synthetic multi-ECU traffic. A
@@ -1270,6 +1455,38 @@ class TxSafetyGateway:
                     )
                 budget_consumed = True
 
+            # -----------------------------------------------------------------
+            # E2E STAMPING STAGE (docs/ai_context/02 §1 stage 6)
+            # Applied only when a profile is configured for this arbitration
+            # id: the frame is sealed (rolling counter + CRC-8) and the sealed
+            # frame replaces the raw one for dispatch. Runs under the gateway
+            # lock because the packager's per-stream counters are stateful —
+            # sealing outside the lock could interleave senders on one stream.
+            # R2-G3: guarded — a mis-wired profile must roll back the rate
+            # reservation and surface a SafetyError, never a raw domain
+            # exception (NotImplementedError/ValueError).
+            # -----------------------------------------------------------------
+            if self.e2e_packager is not None and frame.arbitration_id in self.e2e_profiles:
+                try:
+                    frame = self.e2e_packager.package(frame, self.e2e_profiles[frame.arbitration_id])
+                except Exception as exc:
+                    self._rollback_tx_reservation(
+                        timestamp_consumed, budget_consumed, stamp, budget,
+                        total_stamp=total_stamp,
+                    )
+                    raise SafetyError(
+                        "E2E stamping failed",
+                        code="E2E_STAMP_FAILED",
+                        cause=exc,
+                    ) from exc
+
+            # R2-G1: no-return point — every rejectable stage passed; burn the
+            # validated token while still under the lock.
+            if pending_consume is not None:
+                _payload, _expiry = pending_consume
+                self._consume_confirmation(_payload, expiry_ns=_expiry)
+                burned_payload = _payload
+
             # Snapshot estop state at the moment of lock release
             estop_snapshot = self.estop.is_engaged
             # CRITICAL-1: capture the TX fence generation the frame is being
@@ -1278,16 +1495,12 @@ class TxSafetyGateway:
             # the frame before it can reach the wire.
             fence_snapshot = self.estop.tx_fence
 
-            # -----------------------------------------------------------------
-            # E2E STAMPING STAGE (docs/ai_context/02 §1 stage 6)
-            # Applied only when a profile is configured for this arbitration
-            # id: the frame is sealed (rolling counter + CRC-8) and the sealed
-            # frame replaces the raw one for dispatch. Runs under the gateway
-            # lock because the packager's per-stream counters are stateful —
-            # sealing outside the lock could interleave senders on one stream.
-            # -----------------------------------------------------------------
-            if self.e2e_packager is not None and frame.arbitration_id in self.e2e_profiles:
-                frame = self.e2e_packager.package(frame, self.e2e_profiles[frame.arbitration_id])
+        # R2-E2: direct private call without a sink — fire locally decided
+        # engagements synchronously (fail-closed) instead of dropping them.
+        if _own_deferred:
+            for source, reason, speed in _local_deferred:
+                self._request_estop(source, reason, vehicle_speed_kmh=speed)
+            _local_deferred.clear()
 
         # -----------------------------------------------------------------
         # PHASE 2: FINAL E-STOP GUARD (lock-free)
@@ -1297,7 +1510,11 @@ class TxSafetyGateway:
         if estop_snapshot or self.estop.is_engaged:
             # E-Stop was engaged either during Stage 2 validation or in the
             # window between lock release and this check. Roll back consumed tokens.
-            self._rollback_tx_reservation(timestamp_consumed, budget_consumed, stamp, budget)
+            self._rollback_tx_reservation(
+                timestamp_consumed, budget_consumed, stamp, budget,
+                total_stamp=total_stamp,
+                consumed_token_payload=burned_payload,
+            )
             raise SafetyError(
                 "Transmission blocked: Emergency Stop is currently ENGAGED",
                 code="ESTOP_ACTIVE",
@@ -1333,7 +1550,11 @@ class TxSafetyGateway:
             if fence_snapshot != self.estop.tx_fence or self.estop.is_engaged:
                 # State transitioned between validation and dispatch: the
                 # reservation is already rolled back below; nothing reaches the wire.
-                self._rollback_tx_reservation(timestamp_consumed, budget_consumed, stamp, budget)
+                self._rollback_tx_reservation(
+                    timestamp_consumed, budget_consumed, stamp, budget,
+                    total_stamp=total_stamp,
+                    consumed_token_payload=burned_payload,
+                )
                 raise SafetyError(
                     "Transmission blocked: E-Stop TX fence invalidated "
                     "(state transition during dispatch)",
@@ -1348,6 +1569,9 @@ class TxSafetyGateway:
         budget_consumed: bool,
         stamp: tuple[int, int, int] | None,
         budget: TxBudget | None,
+        *,
+        total_stamp: tuple[int, int, int] | None = None,
+        consumed_token_payload: bytes | None = None,
     ) -> None:
         """Roll back exactly the caller's own consumed rate-limit reservation.
 
@@ -1355,6 +1579,10 @@ class TxSafetyGateway:
         (now_ns, thread_id, seq). A rollback removes EXACTLY that tuple via
         remove(stamp) — never a blind pop() that could delete the newest
         stamp of an unrelated concurrent sender.
+
+        R2-G2: the global aggregate envelope stamp is rolled back too.
+        R2-G1: a token burned at the no-return point is refunded when the
+        fence rejects the frame after the burn.
         """
         with self._lock:
             if timestamp_consumed and stamp is not None:
@@ -1364,6 +1592,13 @@ class TxSafetyGateway:
                     # The stamp was already removed (e.g. the window was
                     # cleared by an E-Stop callback). Nothing to roll back.
                     pass
+            if total_stamp is not None:
+                try:
+                    self._tx_total_timestamps.remove(total_stamp)
+                except ValueError:
+                    pass
+            if consumed_token_payload is not None:
+                self._consumed_confirmations.pop(consumed_token_payload, None)
             if budget_consumed and budget is not None:
                 budget.refund()
 
@@ -1376,6 +1611,7 @@ class TxSafetyGateway:
         user_confirmed: bool = False,
         confirmation_token: bytes | str | None = None,
         inbound_triggered: bool = False,
+        confirmation_context: bytes | str | None = None,
     ) -> None:
         """Synchronously transmit frame conforming to TxPort protocol.
 
@@ -1394,6 +1630,7 @@ class TxSafetyGateway:
             budget_category=budget_category,
             confirmation_token=confirmation_token,
             inbound_triggered=inbound_triggered,
+            confirmation_context=confirmation_context,
         )
 
     async def send(
@@ -1405,6 +1642,7 @@ class TxSafetyGateway:
         budget_category: str = "default",
         confirmation_token: bytes | str | None = None,
         inbound_triggered: bool = False,
+        confirmation_context: bytes | str | None = None,
     ) -> None:
         """Asynchronously transmit without blocking the running event loop (F-26/E-12).
 
@@ -1439,6 +1677,7 @@ class TxSafetyGateway:
             user_confirmed=user_confirmed,
             confirmation_token=confirmation_token,
             inbound_triggered=inbound_triggered,
+            confirmation_context=confirmation_context,
         )
         await loop.run_in_executor(self._tx_executor, fn)
 
