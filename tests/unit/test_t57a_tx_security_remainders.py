@@ -371,7 +371,8 @@ def test_g11_valid_mask_still_authorizes_family() -> None:
 # W-1: the wiring claim must match reality. AGENTS.md §2.7 is a PROTECTED
 # agent-instruction file (writes require explicit user consent), so this test
 # pins the CODE-side fact instead: EcuFlashingEngine IS reachable from
-# flash_start()'s live-bus branch. The doc correction is tracked separately.
+# flash_start()'s live-bus branch (and AGENTS.md §2.7 records it as WIRED
+# since TUR-2 R2, with issuer-factory + sync-precondition gates).
 # ---------------------------------------------------------------------------
 
 
