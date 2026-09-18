@@ -77,7 +77,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       : 'Bağlı';
 
   return (
-    <aside className="flex h-screen w-[240px] shrink-0 flex-col border-r border-slate-200 bg-white">
+    <aside className="glass-surface glass-sidebar flex h-screen w-[240px] shrink-0 flex-col border-r">
       {/* Brand Header */}
       <div className="flex h-[60px] shrink-0 items-center gap-3 border-b border-slate-200 px-5">
         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 shadow-sm shadow-brand-900/15">

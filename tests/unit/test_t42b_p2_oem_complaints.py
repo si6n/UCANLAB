@@ -8,8 +8,9 @@ Task t_b5e29627: the remaining two P2 items from the T40 audit
         printed as text only — they never influenced the decision. When the
         operator names a vehicle make the irrelevant OEM variants are now
         hidden; with no make the previous behaviour is preserved (fail-safe).
-  P2-3  Complaints kanıt füzyonu: `get_nhtsa_complaints_database` (4.388
-        complaints) had zero consumers. The 5.9 MB corpus is now read through a
+  P2-3  Complaints kanıt füzyonu: `get_nhtsa_complaints_database` (4.459
+        complaints, HD truck expansion included) had zero consumers. The corpus
+        is now read through a
         lazy, cached accessor and fused into the `nhtsa_evidence` block of the
         4-stage report with a make/year filter.
 
@@ -174,14 +175,20 @@ class TestP2_3ComplaintsFusion:
 
     def test_search_by_make(self) -> None:
         result = search_nhtsa_complaints(make="tesla", limit=3)
-        assert result["total_complaints"] == 4388
+        assert result["total_complaints"] == 4459
         assert result["matched_vehicles"]
         for v in result["matched_vehicles"]:
             assert v["make"].upper() == "TESLA"
 
+    def test_search_hd_make_returns_truck_hits(self) -> None:
+        """HD expansion: Peterbilt 579 complaints are now in the corpus."""
+        result = search_nhtsa_complaints(make="peterbilt", limit=3)
+        assert result["complaints"] != []
+        assert any(v["make"].upper() == "PETERBILT" for v in result["matched_vehicles"])
+
     def test_search_unknown_make_returns_empty(self) -> None:
         """Fail-safe: a make absent from the corpus yields no fabricated hits."""
-        result = search_nhtsa_complaints(make="peterbilt", limit=3)
+        result = search_nhtsa_complaints(make="zzznomake", limit=3)
         assert result["complaints"] == []
         assert result["matched_vehicles"] == []
 

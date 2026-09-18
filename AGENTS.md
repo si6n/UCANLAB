@@ -61,14 +61,14 @@ Any agent modifying or interacting with transmission, flashing, or diagnostic in
 
 ---
 
-## 3. Orca AI Specialist Modes & Sub-Agents ("Uzmanlık Şapkaları")
+## 3. Specialist Review Focus Areas
 
-In Orca AI / Cline environment, the previous Pit-Crew roles operate as specialized execution modes (personas) or autonomous sub-agents (`spawn_agent` / `team_spawn_teammate`):
+Engineering work is organized by review focus area (tool-agnostic; no vendor-specific agent framework is required):
 
-1. **Orca AI Execution Workflow**:
-   - Orca handles tasks either directly by assuming the corresponding specialist persona, or by dispatching sub-agents for parallel exploration.
-   - Every session logs its active specialist role into the Obsidian session report.
-2. **Specialist Roles (Personas & Sub-Agents)**:
+1. **Execution Workflow**:
+   - Work is handled either directly or via parallel exploration subtasks with a clear owner per workstream.
+   - Every session logs its active focus area into the session report.
+2. **Specialist Roles (Review Focus Areas)**:
    - **`telemetry` [Data]**: CAN & J1939 telemetry decoding, DBC databases, DTC dictionaries, and frame parsing.
    - **`marshal` [Safety]**: ASIL-B/D compliance auditing, `TxSafetyGateway` choke-point verification, fail-closed enforcement, and zero-fabrication verification.
    - **`tuner` [Dev]**: Clean code implementation, refactoring, and strict pytest / CI validation.
@@ -77,4 +77,4 @@ In Orca AI / Cline environment, the previous Pit-Crew roles operate as specializ
    - **`uplink` [Cloud]**: Telemetry uploads, MDF4 chunking, cloud REST APIs, and licensing.
    - **`cockpit` [UI]**: React 18 & WebView2 dashboard, pywebview IPC bridge.
 3. **Synthesis & Vault Logging**:
-   - Findings and test evidence are logged using `obsidian-vault/templates/orca-session.md` under `04-Ajan-Notlari/` with the active role tagged.
+   - Findings and test evidence are logged using `obsidian-vault/templates/session-report.md` under `04-Ajan-Notlari/` with the active role tagged.

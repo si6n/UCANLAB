@@ -1,8 +1,18 @@
 # Universal CAN-Bus Diagnostic & Telemetry Platform
 # GRAND UNIFIED MASTER ARCHITECTURAL SPECIFICATION
 ## Nihai Bütünleşik Master Mimari Şartname ve Görev Yol Haritası (`MASTER_PLAN.md`)
-*Tarih: 2026-08-24 | Sürüm: 13.0 Grand Unified Industrial Master (Pure Architecture Specification)*
+*Tarih: 2026-09-17 | Sürüm: 13.1 Grand Unified Industrial Master (Pure Architecture Specification)*
 *Bu doküman; SAE International (J1939-21, J1939-71, J1939-73, J1939-81), ISO 11898-1/2:2015-2024, ISO 14229 UDS, TMC RP1210 (A/B/C), NMEA 2000, Microsoft Learn (Win32/DPAPI/CIM), OWASP Top 10, RFC 8032 Ed25519, İyzico V3, PayTR ve TimescaleDB standartlarıyla doğrulanmış, hakem denetiminden geçmiş ve tüm alt şartnameleri tek çatı altında toplayan BÜTÜNLEŞİK NİHAİ MASTER ŞARTNAMEDİR.*
+
+> **Durum Notu (2026-09-17, v13.1):** Normatif gövde değişmedi; yalnızca durum
+> bilgileri eklendi. Masaüstü ürün tarafında M1–M7 kilometre taşları tamamlandı
+> (OBD/UDS bilgi tabanları, OEM J1939, çok paketli taşıma, E2E güvenlik, bulut
+> istemcisi, tam-çevrimdışı AI + P1 veri modeli + Golden-Traces formatı).
+> AI katmanı operatör kararıyla **tam çevrimdışıdır** (bulut LLM anlatıcı
+> kaldırıldı). T47–T61 güvenlik/teşhis review turu kapatıldı; kayıtlar vault
+> (`Review-Dogrulama-T56-T59`) ve git geçmişindedir. FAZ 5 sunucu tarafı ayrı
+> depodadır (`Universal-CAN-Cloud`). Uygulama sapmaları §19.1 sonundaki
+> "Uygulama Durum Notu"ndadır.
 
 ---
 
@@ -384,6 +394,12 @@ TELEMATICS & SESSIONS:
 
 # BÖLÜM 18: Çok Katmanlı Test Piramidi (15 Golden Trace, Fuzzing, Hypothesis)
 
+> **Durum Notu (2026-09-17):** Aşağıdaki 15 vektör hedef listedir. Mevcut
+> durum: `data/golden_traces/cases/` altında v1 şema + 1 taslak tohum vaka
+> (`volvo_penta_d4_300_nonstart.json`, operatör verisi bekliyor);
+> `tests/golden_traces/` dizini henüz kurulmadı. Kalibrasyona uygun vaka
+> birikince vektörler buradan beslenecek.
+
 `tests/golden_traces/` dizini altındaki 15 adet gerçek araç benchmark vektörü:
 1. `j1939_dm1_single.asc`, 2. `j1939_dm1_bam_multiframe.asc`, 3. `j1939_cmdt_rts_cts.asc`, 4. `j1939_address_claim_win.asc`, 5. `j1939_address_claim_loss.asc`, 6. `j1939_dm11_clear_ack.asc`, 7. `n2k_engine_rapid.asc`, 8. `n2k_fast_packet_dynamic.asc`, 9. `n2k_transmission_dynamic.asc`, 10. `n2k_fluid_level.asc`, 11. `volvo_mid128_pid100.asc`, 12. `volvo_evc_prop_a.asc`, 13. `uds_iso15765_flow_control.asc`, 14. `uds_routine_compression.asc`, 15. `canfd_64byte_high_load.asc`.
 * **Doğrulama**: L1 (Byte Exact), L2 (Frame Semantic), L3 (Diagnostic Semantic).
@@ -406,6 +422,14 @@ TELEMATICS & SESSIONS:
 * `ADR-010`: Nuitka Standalone & LGPLv3 Dinamik Bağlantı.
 * `ADR-011`: Zaman Serisi Depolama Katmanı Seçimi (TimescaleDB).
 * `ADR-012`: Masaüstü Cihaz Kimlik Doğrulama Akışı & Windows DPAPI.
+
+> **Uygulama Durum Notu (2026-09-17):** ADR'ler karar tarihindeki haliyle
+> korunur; aşağıdaki sapmalar bilinçli güncel durumdur:
+> - ADR-001 "Python 3.12+ / PySide6": uygulamada `pyproject.toml`
+>   `requires-python = ">=3.11"` ve masaüstü arayüz **pywebview + React 18**
+>   (`src/ui/desktop_app.py`, `src/ui/frontend/`) kullanılır.
+> - Test ve güvenlik izolasyon kilitleri `tests/safety/` altındadır
+>   (`test_ai_tx_isolation.py` AI katmanı çevrimdışılığını AST ile kilitler).
 
 ---
 
@@ -492,6 +516,10 @@ Status Legend:
 ---
 
 #### ☁️ FAZ 5: Kurumsal Web Platformu, Multi-Tenancy, Ödeme & Bulut Telemetri
+> **Durum Notu (2026-09-17):** Masaüstü istemci tarafı tamamlandı (M6:
+> cihaz kaydı, Ed25519 lisans aktivasyonu, 5 MB parçalı MDF4 yükleme;
+> `src/cloud/`). Aşağıdaki Task 5.x maddeleri sunucu tarafı
+> (`Universal-CAN-Cloud` deposu) kapsamıdır.
 - [ ] **Task 5.1: FastAPI REST API İskeleti, TimescaleDB & PostgreSQL Şeması** (`backend/app/`).
   > *Kabul Kriteri (DoD)*: Multi-Tenant `Organization` modeli, TimescaleDB hypertables ve S3/MinIO istemcisi çalışır.
 - [ ] **Task 5.2: İyzico 3D Secure (V3) & PayTR İki Aşamalı Idempotent Webhook Entegrasyonu** (`backend/app/routers/payments.py`).

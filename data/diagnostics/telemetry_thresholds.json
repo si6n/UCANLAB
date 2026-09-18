@@ -1,28 +1,96 @@
 {
-  "schema_version": 1,
-  "_source_rule": "Tum degerler mevcut KB/senaryo kayitlarindan birebir tasindi (diagnostic_copilot.py:2605 yag basinci, senaryo 7 hararet >108C, senaryo 6 turbo >2.5 bar). Yeni degerler yalniz operator onayiyla eklenir — agent deger uydurmaz (AGENTS.md 2.3).",
-  "signals": {
-    "EngineCoolantTemp": {
-      "unit": "C",
-      "ranges": [
-        {"min_rpm": 0, "max_rpm": null, "min": -40.0, "max": 108.0}
-      ],
-      "source_ref": "diagnostic_copilot.py senaryo 7 (P0115/SPN 110): coolant_temp > 108.0 -> CRITICAL_STOP esigi; nominal alt sinir J1939-71 ET1 ofset -40C"
-    },
-    "TurboBoost": {
-      "unit": "bar",
-      "ranges": [
-        {"min_rpm": 0, "max_rpm": null, "min": 0.0, "max": 2.5}
-      ],
-      "source_ref": "diagnostic_copilot.py senaryo 6 (P0234/P0299/SPN 102): boost_bar > 2.5 -> overboost senaryosu esigi"
-    },
-    "EngineOilPressure": {
-      "unit": "bar",
-      "ranges": [
-        {"min_rpm": 0, "max_rpm": 800, "min": 1.0, "max": null},
-        {"min_rpm": 1800, "max_rpm": 2200, "min": 3.0, "max": null}
-      ],
-      "source_ref": "diagnostic_copilot.py:2605 SPN 100 senaryo adimi: 'Rolantide min 1.0 bar, 2000 RPM'de 3.0 bar' — coklu rpm-band temsili"
+ "schema_version": 1,
+ "_source_rule": "Tum degerler mevcut KB/senaryo kayitlarindan birebir tasindi (diagnostic_copilot.py:2605 yag basinci, senaryo 7 hararet >108C, senaryo 6 turbo >2.5 bar). Yeni degerler yalniz operator onayiyla eklenir — agent deger uydurmaz (AGENTS.md 2.3).",
+ "signals": {
+  "EngineCoolantTemp": {
+   "unit": "C",
+   "ranges": [
+    {
+     "min_rpm": 0,
+     "max_rpm": null,
+     "min": -40.0,
+     "max": 108.0
     }
+   ],
+   "source_ref": "diagnostic_copilot.py senaryo 7 (P0115/SPN 110): coolant_temp > 108.0 -> CRITICAL_STOP esigi; nominal alt sinir J1939-71 ET1 ofset -40C"
+  },
+  "TurboBoost": {
+   "unit": "bar",
+   "ranges": [
+    {
+     "min_rpm": 0,
+     "max_rpm": null,
+     "min": 0.0,
+     "max": 2.5
+    }
+   ],
+   "source_ref": "diagnostic_copilot.py senaryo 6 (P0234/P0299/SPN 102): boost_bar > 2.5 -> overboost senaryosu esigi"
+  },
+  "EngineOilPressure": {
+   "unit": "bar",
+   "ranges": [
+    {
+     "min_rpm": 0,
+     "max_rpm": 800,
+     "min": 1.0,
+     "max": null
+    },
+    {
+     "min_rpm": 1800,
+     "max_rpm": 2200,
+     "min": 3.0,
+     "max": null
+    }
+   ],
+   "source_ref": "diagnostic_copilot.py:2605 SPN 100 senaryo adimi: 'Rolantide min 1.0 bar, 2000 RPM'de 3.0 bar' — coklu rpm-band temsili"
+  },
+  "EngineSpeed": {
+   "unit": "rpm",
+   "ranges": [
+    {
+     "min_rpm": 0,
+     "max_rpm": null,
+     "min": 0.0,
+     "max": 8031.875
+    }
+   ],
+   "source_ref": "j1939_spn_fmi_database.json SPN_190 Engine Speed range 0.0-8031.875 RPM (bütünlük bandı: üstü bozuk veri; devir-kesici mekanik bandı filo verisi ister)"
+  },
+  "VehicleSpeed": {
+   "unit": "km/h",
+   "ranges": [
+    {
+     "min_rpm": 0,
+     "max_rpm": null,
+     "min": 0.0,
+     "max": 250.0
+    }
+   ],
+   "source_ref": "j1939_spn_fmi_database.json SPN_84 Wheel-Based Vehicle Speed range 0.0-250.0 km/h (bütünlük bandı)"
+  },
+  "EngineLoad": {
+   "unit": "percent",
+   "ranges": [
+    {
+     "min_rpm": 0,
+     "max_rpm": null,
+     "min": 0.0,
+     "max": 250.0
+    }
+   ],
+   "source_ref": "j1939_spn_fmi_database.json SPN_92 Engine Percent Load range 0.0-250.0 % (bütünlük bandı)"
+  },
+  "EngineTorque": {
+   "unit": "percent",
+   "ranges": [
+    {
+     "min_rpm": 0,
+     "max_rpm": null,
+     "min": -125.0,
+     "max": 125.0
+    }
+   ],
+   "source_ref": "j1939_spn_fmi_database.json SPN_513 Actual Engine Percent Torque range -125.0-125.0 % (bütünlük bandı)"
   }
+ }
 }

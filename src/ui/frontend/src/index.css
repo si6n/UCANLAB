@@ -3,7 +3,14 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: light;
+  color-scheme: dark;
+  --workspace: #060606;
+  --shell: #0d0d0d;
+  --panel: #0e0e0e;
+  --raised: #343438;
+  --foreground: #e8e8ea;
+  --muted: #a9a9ae;
+  --accent: #8b7cf6;
 }
 
 @layer base {
@@ -11,19 +18,78 @@
     border-color: theme("colors.slate.200");
   }
   body {
-    background-color: #FAFBFC;
-    color: theme("colors.slate.800");
+    background-color: var(--workspace);
+    color: var(--foreground);
     font-family: 'Inter', system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
   ::selection {
-    background-color: #b7d9ff;
-    color: #0b1f42;
+    background-color: #44358c;
+    color: var(--foreground);
   }
   h1, h2, h3, h4 {
     letter-spacing: -0.02em;
+  }
+}
+
+.glass-workspace {
+  background-color: var(--workspace);
+  background-image: radial-gradient(ellipse at top left, rgba(255, 255, 255, 0.035), transparent 65%);
+}
+
+.glass-surface {
+  background-color: var(--shell);
+  border-color: rgba(255, 255, 255, 0.10);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.glass-sidebar {
+  --glass-tint: rgba(13, 13, 13, 0.82);
+}
+
+.glass-topbar {
+  --glass-tint: rgba(13, 13, 13, 0.88);
+}
+
+.glass-modal {
+  --glass-tint: rgba(20, 20, 22, 0.94);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 24px 80px rgba(0, 0, 0, 0.5);
+}
+
+.glass-overlay {
+  background-color: rgba(0, 0, 0, 0.60);
+}
+
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass-surface {
+    background-color: var(--glass-tint, rgba(13, 13, 13, 0.88));
+    -webkit-backdrop-filter: blur(24px);
+    backdrop-filter: blur(24px);
+  }
+
+  .glass-overlay {
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce), (forced-colors: active) {
+  .glass-workspace {
+    background-image: none;
+  }
+
+  .glass-surface {
+    background-color: var(--shell);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .glass-overlay {
+    background-color: #e5ecf5;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 }
 

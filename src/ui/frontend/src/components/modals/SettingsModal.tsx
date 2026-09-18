@@ -10,8 +10,7 @@ import {
   Cloud,
   ShieldCheck,
   Laptop,
-  Server,
-  RefreshCw
+  ExternalLink
 } from 'lucide-react';
 import { DesktopBridge, CloudStatus } from '../../services/bridge';
 
@@ -19,7 +18,6 @@ export interface AppSettings {
   channel: string;
   baudRate: string;
   cloudBaseUrl?: string;
-  cloudSessionToken?: string;
 }
 
 interface SettingsModalProps {
@@ -37,7 +35,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onClose,
   onSave
 }) => {
-  const [modalTab, setModalTab] = useState<'hardware' | 'cloud'>('hardware');
+  const [modalTab, setModalTab] = useState<'hardware' | 'cloud'>('cloud');
 
   // Hardware State
   const [channel, setChannel] = useState(initChannel);
@@ -47,9 +45,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [cloudUrl, setCloudUrl] = useState(() => {
     return localStorage.getItem('cloud_base_url') || 'https://ucan-cloud.si6n.io';
   });
-  // H-11 (P1-9): the cloud session token is not persisted to localStorage —
-  // the backend vault holds it; the modal keeps only the transient value.
-  const [cloudToken, setCloudToken] = useState('');
   const [licenseKeyInput, setLicenseKeyInput] = useState('');
   const [cloudStatus, setCloudStatus] = useState<CloudStatus | null>(null);
   const [cloudTestState, setCloudTestState] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
@@ -76,7 +71,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       const savedCloudUrl = localStorage.getItem('cloud_base_url') || 'https://ucan-cloud.si6n.io';
 
       setCloudUrl(savedCloudUrl);
-      setCloudToken('');
 
       setCloudTestState('idle');
       setCloudTestMsg('');
@@ -88,20 +82,32 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   if (!isOpen) return null;
 
+  let portalUrl = 'https://ucanlab.org/login';
+  try {
+    const origin = new URL(cloudUrl.trim()).origin;
+    if (origin === 'https://ucan-cloud.si6n.io' || origin === 'https://cloud.universalcan.io') {
+      portalUrl = 'https://ucanlab.org/login';
+    } else {
+      portalUrl = `${origin}/login`;
+    }
+  } catch {
+    /* keep default portal */
+  }
+
   const handleTestCloud = async () => {
     setCloudTestState('testing');
     setCloudTestMsg('Universal-CAN-Cloud API (/health) test ediliyor...');
     setActionFeedback(null);
 
     try {
-      const res = await DesktopBridge.cloudTestConnection(cloudUrl.trim(), cloudToken.trim() || undefined);
+      const res = await DesktopBridge.cloudTestConnection(cloudUrl.trim());
       if (res.success) {
         setCloudTestState('success');
         let msg = `Bulut API erişilebilir (HTTP ${res.status || 200}).`;
         if (res.user) {
           msg += ` Giriş yapıldı: ${res.user.email || 'Operatör'} (${res.user.organization_name || 'Kurumsal'})`;
-        } else if (!cloudToken.trim()) {
-          msg += ' (Anonim oturum — Cihaz kaydı için web portalı tokenı gerekebilir)';
+        } else {
+          msg += ' (Anonim oturum — Giriş için yukarıdaki portal düğmesini kullanın)';
         }
         setCloudTestMsg(msg);
       } else {
@@ -191,20 +197,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     localStorage.removeItem('ai_provider');
     localStorage.setItem('cloud_base_url', cloudUrl.trim());
 
-    DesktopBridge.cloudSaveConfig(cloudUrl.trim(), cloudToken.trim() || undefined);
+    DesktopBridge.cloudSaveConfig(cloudUrl.trim());
 
     onSave({
       channel,
       baudRate,
-      cloudBaseUrl: cloudUrl.trim(),
-      cloudSessionToken: cloudToken.trim()
+      cloudBaseUrl: cloudUrl.trim()
     });
     onClose();
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white border border-slate-200 rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95">
+    <div className="glass-overlay fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="glass-surface glass-modal border rounded-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95">
         {/* Header */}
         <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
           <div className="flex items-center space-x-2 text-xs font-bold text-slate-900">
@@ -316,53 +321,37 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <>
               {/* Cloud SaaS Section */}
               <div className="space-y-3">
-                {/* Server URL Input */}
-                <div className="space-y-1.5">
+                {/* Portal Login Card */}
+                <div className="bg-brand-50 border border-brand-200 rounded-lg p-3 space-y-2">
                   <div className="flex items-center justify-between">
-                    <label className="font-semibold text-slate-700 flex items-center space-x-1.5">
-                      <Server className="w-3.5 h-3.5 text-brand-600" />
-                      <span>Universal-CAN-Cloud Sunucu URL:</span>
-                    </label>
-                    <button
-                      type="button"
-                      onClick={handleTestCloud}
-                      disabled={cloudTestState === 'testing' || !cloudUrl.trim()}
-                      className="flex items-center space-x-1 text-xs font-semibold text-brand-600 hover:text-brand-800 disabled:opacity-50 transition-colors"
-                    >
-                      {cloudTestState === 'testing' ? (
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                      ) : (
-                        <RefreshCw className="w-3 h-3" />
-                      )}
-                      <span>Sunucuyu Test Et</span>
-                    </button>
+                    <div className="flex items-center space-x-1.5 font-bold text-slate-800 text-xs">
+                      <Cloud className="w-3.5 h-3.5 text-brand-600" />
+                      <span>Hesap & Abonelik Girişi</span>
+                    </div>
+                    {cloudStatus?.hasSessionToken ? (
+                      <span className="text-xs font-semibold bg-signal-100 text-signal-800 px-2 py-0.5 rounded-full flex items-center space-x-1">
+                        <CheckCircle2 className="w-3 h-3" />
+                        <span>Oturum Aktif</span>
+                      </span>
+                    ) : (
+                      <span className="text-xs font-semibold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
+                        Giriş Yapılmadı
+                      </span>
+                    )}
                   </div>
-
-                  <input
-                    type="text"
-                    value={cloudUrl}
-                    onChange={(e) => setCloudUrl(e.target.value)}
-                    placeholder="http://127.0.0.1:8000"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
-                  />
-                </div>
-
-                {/* Session Token Input */}
-                <div className="space-y-1.5">
-                  <label className="font-semibold text-slate-700 flex items-center space-x-1.5">
-                    <Server className="w-3 h-3 text-slate-400" />
-                    <span>Web Portalı Oturum Tokenı (Session Token):</span>
-                  </label>
-                  <input
-                    type="password"
-                    value={cloudToken}
-                    onChange={(e) => setCloudToken(e.target.value)}
-                    placeholder="Web SaaS portalından kopyaladığınız ucan_session tokenı..."
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
-                  />
-                  <p className="text-xs text-slate-500">
-                    Token Windows DPAPI ile donanımsal olarak şifrelenir (asla düz metin saklanmaz).
+                  <p className="text-xs text-slate-600 leading-snug">
+                    Giriş, abonelik satın alma ve lisans yönetimi web portalında yapılır. Portalda oturum açtıktan sonra
+                    buradan bağlantıyı test edip cihazınızı kaydedin — uygulama oturumunuzu otomatik doğrular.
                   </p>
+                  <a
+                    href={portalUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full flex items-center justify-center space-x-1.5 px-3 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded font-bold text-xs shadow-xs transition-colors"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>Web Sitemizde Giriş Yap / Abonelik Al</span>
+                  </a>
                 </div>
 
                 {/* Cloud Connection Test Alert */}

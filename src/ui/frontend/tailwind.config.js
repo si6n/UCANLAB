@@ -1,4 +1,12 @@
-/** @type {import('tailwindcss').Config} */
+const neutralBorders = {
+  50: '#1c1c1e', 100: '#242426', 200: '#303033', 300: '#45454a',
+  400: '#616167', 500: '#85858a', 600: '#45454a', 700: '#343438',
+  800: '#303033', 900: '#242426', 950: '#1c1c1e',
+};
+
+const statusSurfaces = (soft, strong) => ({ 50: soft, 100: strong, 200: strong });
+const statusText = (color) => ({ 500: color, 600: color, 700: color, 800: color, 900: color, 950: color });
+const statusBorders = (color) => ({ 100: color, 200: color, 300: color });
 export default {
   content: [
     "./index.html",
@@ -8,17 +16,17 @@ export default {
     extend: {
       colors: {
         brand: {
-          50: "#eef6ff",
-          100: "#d9ebff",
-          200: "#b7d9ff",
-          300: "#85c0ff",
-          400: "#4b9fff",
-          500: "#1f7dff",
-          600: "#0f60e6",
-          700: "#0d4bb8",
-          800: "#103f8f",
-          900: "#123671",
-          950: "#0b1f42",
+          50: "#f4f2ff",
+          100: "#e8e3ff",
+          200: "#d2caff",
+          300: "#bcb0ff",
+          400: "#a596ff",
+          500: "#8b7cf6",
+          600: "#6552c9",
+          700: "#5543ad",
+          800: "#44358c",
+          900: "#30265e",
+          950: "#1c1830",
         },
         signal: {
           50: "#ecfdf6",
@@ -41,6 +49,42 @@ export default {
           950: "#020617",
         },
       },
+      backgroundColor: {
+        white: '#0e0e0e',
+        slate: {
+          50: '#161618', 100: '#202022', 200: '#303033', 300: '#45454a',
+          400: '#616167', 500: '#85858a', 600: '#45454a', 700: '#343438',
+          800: '#262628', 850: '#202022', 900: '#0d0d0d', 950: '#060606',
+        },
+        brand: { 50: '#1b1923', 100: '#272335', 200: '#39314f' },
+        signal: statusSurfaces('#11201b', '#193329'),
+        rose: statusSurfaces('#261719', '#3b2024'),
+        amber: statusSurfaces('#252115', '#38301b'),
+        indigo: statusSurfaces('#1b1923', '#272335'),
+      },
+      textColor: {
+        slate: {
+          50: '#f4f4f5', 100: '#e8e8ea', 200: '#d6d6d9', 300: '#bdbdc3',
+          400: '#929298', 500: '#a9a9ae', 600: '#bdbdc3', 700: '#d6d6d9',
+          800: '#e8e8ea', 900: '#f4f4f5', 950: '#fafafa',
+        },
+        brand: { 600: '#a596ff', 700: '#bcb0ff', 800: '#d2caff', 900: '#e8e3ff', 950: '#f4f2ff' },
+        signal: statusText('#34d399'),
+        rose: statusText('#f87171'),
+        amber: statusText('#facc15'),
+        indigo: statusText('#bcb0ff'),
+      },
+      borderColor: {
+        DEFAULT: '#303033',
+        slate: neutralBorders,
+        brand: { 100: '#302b41', 200: '#39314f', 300: '#51456f' },
+        signal: statusBorders('#285542'),
+        rose: statusBorders('#67343b'),
+        amber: statusBorders('#61522c'),
+        indigo: statusBorders('#39314f'),
+      },
+      divideColor: { slate: neutralBorders },
+      ringOffsetColor: { white: '#0e0e0e' },
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
         mono: ['JetBrains Mono', 'Fira Code', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace'],

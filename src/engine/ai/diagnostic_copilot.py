@@ -44,6 +44,10 @@ class FaultSeverity(Enum):
     INFO = "INFO"
     LOW = "LOW"
     MEDIUM = "MEDIUM"
+    # Restored rung: 379 external-DB DTC records carry severity HIGH and the
+    # drive-safety policy already maps HIGH->RED. Dropping the member
+    # silently demoted them to MEDIUM via the parse fallback.
+    HIGH = "HIGH"
     CRITICAL_STOP = "CRITICAL_STOP"
 
 
@@ -3634,8 +3638,8 @@ class CausalBayesianInferenceEngine:
                 _show = [str(x)[:60] for x in _occ[:5]]
                 oem_block += "\n\n🚚 **Görüldüğü Araçlar/Platformlar:** " + ", ".join(_show)
 
-        # T41 P1-2: J1939 SPN girdisindeki `causes` (3.710 SPN dolu) ve `steps`
-        # (3.444 SPN dolu) alanlari motorda HIC okunmuyordu. Uydurma yok —
+        # T41 P1-2: J1939 SPN girdisindeki `causes` (3.720 SPN dolu) ve `steps`
+        # (3.457 SPN dolu) alanlari motorda HIC okunmuyordu. Uydurma yok —
         # yalnizca DB'de dolu olan liste elemanlari basilir (fail-safe).
         j1939_causes_block = ""
         _jc = spn_entry.get("causes")
@@ -3747,9 +3751,10 @@ def _raise_severity(current: FaultSeverity, candidate: FaultSeverity) -> FaultSe
     MEDIUM. Severity can only rise; order of scenario evaluation is then
     irrelevant.
     """
-    # ponytail: enum members are INFO/LOW/MEDIUM/CRITICAL_STOP only — the
-    # legacy HIGH/CRITICAL rungs no longer exist on FaultSeverity.
-    _order = {FaultSeverity.INFO: 0, FaultSeverity.LOW: 1, FaultSeverity.MEDIUM: 2, FaultSeverity.CRITICAL_STOP: 3}
+    # HIGH rung restored (379 external-DB DTC records carry it; drive-safety
+    # policy maps HIGH->RED). Monotonic order: INFO < LOW < MEDIUM < HIGH <
+    # CRITICAL_STOP.
+    _order = {FaultSeverity.INFO: 0, FaultSeverity.LOW: 1, FaultSeverity.MEDIUM: 2, FaultSeverity.HIGH: 3, FaultSeverity.CRITICAL_STOP: 4}
     return candidate if _order[candidate] > _order[current] else current
 
 
@@ -4113,7 +4118,7 @@ class AiDiagnosticCopilot:
             spn_candidate = f"SPN{d.get('spn')}" if d.get("spn") else ""
             match_key = code_candidate if code_candidate in EXPERT_KNOWLEDGE_BASE else (spn_candidate if spn_candidate in EXPERT_KNOWLEDGE_BASE else None)
             # REVIEW (Tur-27 P0, @tuner AI plan Boguluk 1): canli DM1 akisindan gelen
-            # SPN'ler EXPERT_KB'de yoksa 3.710'luk J1939 DB'sine dus. Onceden bu yol
+            # SPN'ler EXPERT_KB'de yoksa 4.253'luk J1939 DB'sine dus. Onceden bu yol
             # atlanip jenerik fallback'e gidiyordu; sorgu yolu ile oturum yolu asimetrikti.
             j1939_entry = None
             if match_key is None and d.get("spn"):
@@ -4181,9 +4186,70 @@ class AiDiagnosticCopilot:
                 sev_str = info.get("severity", "MEDIUM")
                 if sev_str == "CRITICAL_STOP":
                     severity = _raise_severity(severity, FaultSeverity.CRITICAL_STOP)
+                elif sev_str == "HIGH":
+                    severity = _raise_severity(severity, FaultSeverity.HIGH)
                 elif sev_str == "MEDIUM":
                     severity = _raise_severity(severity, FaultSeverity.MEDIUM)
 
+
+        # FAZ 4 wiring (AI plan Faz 3): rank graph hypotheses from the SAME
+        # active-DTC evidence and fold the top-1 into correlations as the
+        # root-cause candidate. Additive ONLY into correlations (never
+        # likely_causes — its length is acceptance-locked by
+        # test_adversarial_final_gate). Fail-soft: graph missing/unreadable
+        # → no line, analysis otherwise unchanged. No fabrication: only
+        # graph node titles verbatim, scored from real session codes.
+        try:
+            from src.core.models.diagnostics import DiagnosticDomain, DiagnosticEvent, VehicleSession
+            from src.engine.ai.hypothesis_engine import rank_hypotheses
+
+            _evts: list[DiagnosticEvent] = []
+            for d in active_dtcs:
+                _code = str(d.get("code") or "").strip()
+                if not _code and d.get("spn") is not None:
+                    _code = f"SPN {d.get('spn')}" + (
+                        f" FMI {d.get('fmi')}" if d.get("fmi") is not None else ""
+                    )
+                if not _code:
+                    continue
+                _evts.append(
+                    DiagnosticEvent(
+                        timestamp_ns=time.time_ns(),
+                        code=_code,
+                        domain=(
+                            DiagnosticDomain.HEAVY_DUTY
+                            if d.get("spn") is not None
+                            else DiagnosticDomain.PASSENGER
+                        ),
+                        severity="MEDIUM",
+                        status="ACTIVE",
+                    )
+                )
+            if _evts:
+                _mini = VehicleSession(
+                    session_id="local-expert",
+                    started_at_ns=time.time_ns(),
+                    domain=(
+                        DiagnosticDomain.HEAVY_DUTY
+                        if any(d.get("spn") is not None for d in active_dtcs)
+                        else DiagnosticDomain.PASSENGER
+                    ),
+                    events=_evts,
+                )
+                _hyps = rank_hypotheses(_mini, [], None)
+                if _hyps:
+                    _top = _hyps[0]
+                    _line = (
+                        f"🎯 Kök neden adayı [{_top.id}]: {_top.fault} "
+                        f"(kanıt skoru %{_top.score * 100:.0f})"
+                    )
+                    if _line not in correlations:
+                        correlations.append(_line)
+        except Exception as exc:  # noqa: BLE001 — hypothesis layer must never break the expert report
+            logger.warning(
+                "Hipotez sıralama atlandı — kök neden adayı üretilmedi",
+                extra={"error": str(exc)},
+            )
 
         # Default fallback if no specific rule matched
         if not likely_causes:

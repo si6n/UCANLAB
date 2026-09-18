@@ -256,8 +256,12 @@ class PythonCanBus(AbstractBus):
                 if self._active_sends == 0:
                     self._send_cond.notify_all()
 
-    # H7: consecutive error frames before the driver is flagged BUS_OFF
-    # and the gateway E-Stop path (BUS_OFF_DETECTED) is informed.
+    # H7: consecutive error frames before the driver latches BUS_OFF metrics.
+    # The latch is OBSERVED by the composition root (desktop telemetry loop
+    # polls metrics.state each tick) and reported to TxSafetyGateway
+    # .notify_bus_off, which turns it into an E-Stop + supervisor FAULT + TX
+    # fence bump while TX is permitted. The driver itself never imports the
+    # safety layer (HAL stays dependency-free).
     ERROR_FRAMES_BUS_OFF_THRESHOLD: ClassVar[int] = 128
 
     def recv(self, timeout_s: float | None = 0.1) -> CanFrame | None:

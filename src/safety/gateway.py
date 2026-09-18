@@ -123,6 +123,20 @@ class TxSafetyGateway:
     # log record per rejected frame, flooding stdout I/O and slowing the
     # very loop that should back off (positive feedback).
     _RATE_LOG_INTERVAL_NS: ClassVar[int] = 1_000_000_000
+    # LINK-FAULT wiring (Kontrol §3/§5 #21/#23/#44): numeric bounds for the
+    # hardware-link observers. The HAL publishes link state (BUS_OFF latch,
+    # recv I/O errors, RX silence); the composition root observes it each
+    # telemetry tick and reports here via notify_* — the gateway is the
+    # single choke-point turning a link fault into an E-Stop + supervisor
+    # FAULT + TX fence bump. COMMUNICATION_TIMEOUT only fires while TX is
+    # permitted (ARMED_TX/ACTIVE): a silent bus in listen-only PASSIVE is
+    # normal operation, not a fault. 2.0 s = 2x the speed-freshness window
+    # (1.0 s), well below the UDS P2* ceiling (5.0 s).
+    COMMUNICATION_TIMEOUT_NS: ClassVar[int] = 2_000_000_000
+    # Link-fault kinds observed by the composition root (telemetry loop).
+    LINK_FAULT_BUS_OFF: ClassVar[str] = "bus_off"
+    LINK_FAULT_DISCONNECT: ClassVar[str] = "hardware_disconnect"
+    LINK_FAULT_COMM_TIMEOUT: ClassVar[str] = "communication_timeout"
 
     # Per-category token buckets (F-18): protocol bursts such as a J1939 BAM
     # transfer (<=255 packets) must fit inside a single burst budget.
@@ -221,6 +235,13 @@ class TxSafetyGateway:
         # Whitelist single-miss streak: first miss = reject+alarm, persistent
         # pattern (>= WHITELIST_ESTOP_AFTER) = latch E-Stop.
         self._whitelist_miss_streak: int = 0
+        # LINK-FAULT edge latches: each kind engages the E-Stop at most once
+        # per E-Stop epoch — a persistent bus-off must not re-bump the fence
+        # + re-log CRITICAL on every 50 ms telemetry tick. The set is keyed
+        # to estop.epoch: an operator reset bumps the epoch and re-arms edge
+        # detection, so a STILL-broken link re-latches on the next observe.
+        self._link_fault_latched: set[str] = set()
+        self._link_fault_epoch: int = self.estop.epoch
 
         self._tx_timestamps: "collections.deque[tuple[int, int, int]]" = collections.deque()
         # P1-9: consecutive-rejection counter for sustained-overload detection
@@ -598,6 +619,85 @@ class TxSafetyGateway:
         if getattr(new_state, "value", str(new_state)) == "FAULT":
             with self._lock:
                 self._tx_timestamps.clear()
+
+    def notify_bus_off(self, reason: str = "CAN controller BUS_OFF latched by HAL") -> bool:
+        """Report a HAL-latched BUS_OFF (Kontrol #23).
+
+        Called by the composition root (telemetry loop polls
+        ``bus.metrics.state`` each tick). Engages the E-Stop with
+        ``BUS_OFF_DETECTED`` when TX is permitted; the engagement fans out
+        to a supervisor FAULT + TX fence bump via the registered callbacks.
+        """
+        return self._notify_link_fault(
+            self.LINK_FAULT_BUS_OFF, EStopTriggerSource.BUS_OFF_DETECTED, reason
+        )
+
+    def notify_hardware_disconnect(self, reason: str = "CAN interface I/O failure") -> bool:
+        """Report a persistent interface failure / hot-unplug (Kontrol #21/#44).
+
+        The caller applies the consecutive-error streak (a single transient
+        glitch must not latch); this method edge-triggers the E-Stop with
+        ``HARDWARE_DISCONNECT``.
+        """
+        return self._notify_link_fault(
+            self.LINK_FAULT_DISCONNECT, EStopTriggerSource.HARDWARE_DISCONNECT, reason
+        )
+
+    def notify_communication_timeout(self, reason: str = "No CAN RX while TX permitted") -> bool:
+        """Report RX silence beyond COMMUNICATION_TIMEOUT_NS (Kontrol #44).
+
+        Engages the E-Stop with ``COMMUNICATION_TIMEOUT`` so stale TX
+        authority can never keep transmitting into a dead link.
+        """
+        return self._notify_link_fault(
+            self.LINK_FAULT_COMM_TIMEOUT, EStopTriggerSource.COMMUNICATION_TIMEOUT, reason
+        )
+
+    def clear_link_fault(self, kind: str) -> None:
+        """Clear one edge latch after the link demonstrably recovered.
+
+        Call ONLY on positive link evidence (a received frame, a fresh
+        non-BUS_OFF metrics state) — never on a timer — so a still-broken
+        link cannot disarm its own latch.
+        """
+        with self._lock:
+            self._link_fault_latched.discard(kind)
+
+    def _notify_link_fault(self, kind: str, source: EStopTriggerSource, reason: str) -> bool:
+        """Edge-triggered link-fault → E-Stop (fail-closed, snapshot-then-release).
+
+        Suppression rules (all fail-safe):
+          * already latched this E-Stop epoch → suppress (no fence churn /
+            log spam on a persistent fault at 50 ms tick rate);
+          * E-Stop already engaged (any cause) → latch + suppress (already safe);
+          * supervisor disarmed (not ARMED_TX/ACTIVE) → latch + suppress:
+            with no TX authority there is no TX hazard, and the arm path
+            independently fail-closes on a dead driver / stale speed. This
+            keeps a wiggled USB cable in pure-sniffer mode from demanding a
+            cryptographic reset ceremony for zero safety gain.
+          * supervisor None (standalone gateway) → engage (fail-closed: no
+            state machine to consult).
+
+        An operator reset bumps ``estop.epoch``, which re-arms edge
+        detection on the next call — a STILL-broken link re-latches.
+
+        Returns True when this call engaged the E-Stop, False when suppressed.
+        """
+        with self._lock:
+            if self.estop.epoch != self._link_fault_epoch:
+                self._link_fault_latched.clear()
+                self._link_fault_epoch = self.estop.epoch
+            if kind in self._link_fault_latched:
+                return False
+            self._link_fault_latched.add(kind)
+            if self.estop.is_engaged:
+                return False
+            if self.supervisor is not None and not self.supervisor.is_tx_permitted:
+                return False
+        # Outside the gateway lock (G-10): the callback chain
+        # (supervisor fault, UI mirror, abort hooks) must never run under it.
+        self._request_estop(source, reason)
+        return True
 
     def update_vehicle_speed(self, speed_kmh: float, *, source: str = "physical") -> None:
         """Update live vehicle speed for dynamic interlock enforcement.

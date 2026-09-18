@@ -536,6 +536,324 @@
       "credits": 10,
       "result": "URL kesfi: 10 arama / 10 BD kredisi (cap 40 altinda). 7 sonuc + 3 captcha. Kesfedilen URL'ler: static.nhtsa.gov (zaten free), b2bendix DTCSearch (login), justanswer (KARA LISTE), forum/scribd/bendixvrc/bendix.com (T61-B'de VERI YOK). YENI DTC prosedur kaynagi YOK.",
       "artifact": "spn_gap_hunter/output/scan_google.com_2026-09-16.json"
+    },
+    {
+      "pattern": "https://obd2pros.com/dtc-codes/u0002",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "quarantined"
+    },
+    {
+      "pattern": "https://www.engine-codes.com/p0006.html",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "quarantined"
+    },
+    {
+      "pattern": "https://obd2pros.com/dtc-codes/p0006",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "4 sym, 4 cause"
+    },
+    {
+      "pattern": "https://www.engine-codes.com/p2031.html",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "quarantined"
+    },
+    {
+      "pattern": "https://obd2pros.com/dtc-codes/p2031",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "quarantined"
+    },
+    {
+      "pattern": "https://www.engine-codes.com/p2032.html",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "8 sym, 8 cause"
+    },
+    {
+      "pattern": "https://obd2pros.com/dtc-codes/p2032",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "quarantined"
+    },
+    {
+      "pattern": "https://www.engine-codes.com/p2033.html",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "8 sym, 8 cause"
+    },
+    {
+      "pattern": "https://obd2pros.com/dtc-codes/p2033",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "quarantined"
+    },
+    {
+      "pattern": "https://www.engine-codes.com/p2035.html",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "quarantined"
+    },
+    {
+      "pattern": "https://obd2pros.com/dtc-codes/p2035",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "quarantined"
+    },
+    {
+      "pattern": "https://www.engine-codes.com/p2073.html",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "quarantined"
+    },
+    {
+      "pattern": "https://obd2pros.com/dtc-codes/p2073",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "quarantined"
+    },
+    {
+      "pattern": "https://www.engine-codes.com/p2074.html",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "quarantined"
+    },
+    {
+      "pattern": "https://obd2pros.com/dtc-codes/p2074",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "quarantined"
+    },
+    {
+      "pattern": "https://www.engine-codes.com/p2077.html",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "7 sym, 7 cause"
+    },
+    {
+      "pattern": "https://obd2pros.com/dtc-codes/p2077",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "quarantined"
+    },
+    {
+      "pattern": "https://www.engine-codes.com/p2078.html",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "7 sym, 7 cause"
+    },
+    {
+      "pattern": "https://obd2pros.com/dtc-codes/p2078",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "quarantined"
+    },
+    {
+      "pattern": "https://www.engine-codes.com/p2079.html",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "7 sym, 7 cause"
+    },
+    {
+      "pattern": "https://obd2pros.com/dtc-codes/p2079",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "quarantined"
+    },
+    {
+      "pattern": "https://www.engine-codes.com/p2082.html",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "quarantined"
+    },
+    {
+      "pattern": "https://obd2pros.com/dtc-codes/p2082",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "quarantined"
+    },
+    {
+      "pattern": "https://www.engine-codes.com/p2083.html",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "quarantined"
+    },
+    {
+      "pattern": "https://obd2pros.com/dtc-codes/p2083",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "quarantined"
+    },
+    {
+      "pattern": "https://www.engine-codes.com/p2084.html",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "quarantined"
+    },
+    {
+      "pattern": "https://obd2pros.com/dtc-codes/p2084",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "quarantined"
+    },
+    {
+      "pattern": "https://www.engine-codes.com/p2085.html",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "quarantined"
+    },
+    {
+      "pattern": "https://obd2pros.com/dtc-codes/p2085",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "quarantined"
+    },
+    {
+      "pattern": "https://www.engine-codes.com/p2086.html",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "quarantined"
+    },
+    {
+      "pattern": "https://obd2pros.com/dtc-codes/p2086",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "quarantined"
+    },
+    {
+      "pattern": "https://www.engine-codes.com/p0096.html",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "quarantined"
+    },
+    {
+      "pattern": "https://obd2pros.com/dtc-codes/p0096",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "3 sym, 4 cause"
+    },
+    {
+      "pattern": "https://www.engine-codes.com/p0098.html",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "quarantined"
+    },
+    {
+      "pattern": "https://obd2pros.com/dtc-codes/p0098",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "3 sym, 4 cause"
+    },
+    {
+      "pattern": "https://www.engine-codes.com/p0110.html",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "quarantined"
+    },
+    {
+      "pattern": "https://obd2pros.com/dtc-codes/p0110",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "1 sym, 4 cause"
+    },
+    {
+      "pattern": "https://www.engine-codes.com/p0111.html",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "quarantined"
+    },
+    {
+      "pattern": "https://obd2pros.com/dtc-codes/p0111",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "4 sym, 4 cause"
+    },
+    {
+      "pattern": "https://www.engine-codes.com/p0112.html",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "quarantined"
+    },
+    {
+      "pattern": "https://obd2pros.com/dtc-codes/p0112",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "4 sym, 5 cause"
+    },
+    {
+      "pattern": "https://www.engine-codes.com/p2136.html",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "quarantined"
+    },
+    {
+      "pattern": "https://obd2pros.com/dtc-codes/p2136",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "quarantined"
+    },
+    {
+      "pattern": "https://www.engine-codes.com/p2137.html",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "quarantined"
+    },
+    {
+      "pattern": "https://obd2pros.com/dtc-codes/p2137",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "quarantined"
+    },
+    {
+      "pattern": "https://www.engine-codes.com/p2138.html",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "quarantined"
+    },
+    {
+      "pattern": "https://obd2pros.com/dtc-codes/p2138",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "4 sym, 7 cause"
+    },
+    {
+      "pattern": "https://www.engine-codes.com/p2140.html",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "quarantined"
+    },
+    {
+      "pattern": "https://obd2pros.com/dtc-codes/p2140",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "quarantined"
+    },
+    {
+      "pattern": "https://www.engine-codes.com/p2169.html",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "quarantined"
+    },
+    {
+      "pattern": "https://obd2pros.com/dtc-codes/p2169",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "quarantined"
+    },
+    {
+      "pattern": "https://www.engine-codes.com/p2170.html",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "quarantined"
+    },
+    {
+      "pattern": "https://obd2pros.com/dtc-codes/p2170",
+      "method": "brightdata",
+      "credits": 1,
+      "result": "quarantined"
     }
   ],
   "blacklist": [
@@ -902,5 +1220,431 @@
       "site": "huggingface-datasets",
       "note": "HuggingFace API ile arama: 'j1939' -> 0, 'diagnostic trouble' -> 0, 'automotive fault' -> 1 (zhengr, Cinca otomotif NLP). YENI: fabiovilao/obd2-ptbr (2973 DTC, PT-BR, CC-BY-4.0, cdescr'de neden+cozum). Dusuk: Epitech/obd-codes-fine-tune (3071 kod, yalniz aciklama), arunpanda22/dtc (yanlislikla Amazon QA verisi)."
     }
-  ]
+  ],
+  "scraped_urls": {
+    "https://obd2pros.com/dtc-codes/u0002": {
+      "dom": "obd2pros.com",
+      "code": "U0002",
+      "ok": false,
+      "cred": 1,
+      "fnd": "quarantined",
+      "ts": "2026-09-17 17:27:13"
+    },
+    "https://www.engine-codes.com/p0006.html": {
+      "dom": "engine-codes.com",
+      "code": "P0006",
+      "ok": false,
+      "cred": 1,
+      "fnd": "quarantined",
+      "ts": "2026-09-17 17:31:28"
+    },
+    "https://obd2pros.com/dtc-codes/p0006": {
+      "dom": "obd2pros.com",
+      "code": "P0006",
+      "ok": true,
+      "cred": 1,
+      "fnd": "4 sym, 4 cause",
+      "ts": "2026-09-17 17:32:52"
+    },
+    "https://www.engine-codes.com/p2031.html": {
+      "dom": "engine-codes.com",
+      "code": "P2031",
+      "ok": false,
+      "cred": 1,
+      "fnd": "quarantined",
+      "ts": "2026-09-17 17:33:35"
+    },
+    "https://obd2pros.com/dtc-codes/p2031": {
+      "dom": "obd2pros.com",
+      "code": "P2031",
+      "ok": false,
+      "cred": 1,
+      "fnd": "quarantined",
+      "ts": "2026-09-17 17:33:47"
+    },
+    "https://www.engine-codes.com/p2032.html": {
+      "dom": "engine-codes.com",
+      "code": "P2032",
+      "ok": true,
+      "cred": 1,
+      "fnd": "8 sym, 8 cause",
+      "ts": "2026-09-17 17:34:05"
+    },
+    "https://obd2pros.com/dtc-codes/p2032": {
+      "dom": "obd2pros.com",
+      "code": "P2032",
+      "ok": false,
+      "cred": 1,
+      "fnd": "quarantined",
+      "ts": "2026-09-17 17:34:21"
+    },
+    "https://www.engine-codes.com/p2033.html": {
+      "dom": "engine-codes.com",
+      "code": "P2033",
+      "ok": true,
+      "cred": 1,
+      "fnd": "8 sym, 8 cause",
+      "ts": "2026-09-17 17:34:40"
+    },
+    "https://obd2pros.com/dtc-codes/p2033": {
+      "dom": "obd2pros.com",
+      "code": "P2033",
+      "ok": false,
+      "cred": 1,
+      "fnd": "quarantined",
+      "ts": "2026-09-17 17:34:53"
+    },
+    "https://www.engine-codes.com/p2035.html": {
+      "dom": "engine-codes.com",
+      "code": "P2035",
+      "ok": false,
+      "cred": 1,
+      "fnd": "quarantined",
+      "ts": "2026-09-17 17:35:28"
+    },
+    "https://obd2pros.com/dtc-codes/p2035": {
+      "dom": "obd2pros.com",
+      "code": "P2035",
+      "ok": false,
+      "cred": 1,
+      "fnd": "quarantined",
+      "ts": "2026-09-17 17:35:45"
+    },
+    "https://www.engine-codes.com/p2073.html": {
+      "dom": "engine-codes.com",
+      "code": "P2073",
+      "ok": false,
+      "cred": 1,
+      "fnd": "quarantined",
+      "ts": "2026-09-17 17:36:19"
+    },
+    "https://obd2pros.com/dtc-codes/p2073": {
+      "dom": "obd2pros.com",
+      "code": "P2073",
+      "ok": false,
+      "cred": 1,
+      "fnd": "quarantined",
+      "ts": "2026-09-17 17:36:34"
+    },
+    "https://www.engine-codes.com/p2074.html": {
+      "dom": "engine-codes.com",
+      "code": "P2074",
+      "ok": false,
+      "cred": 1,
+      "fnd": "quarantined",
+      "ts": "2026-09-17 17:37:09"
+    },
+    "https://obd2pros.com/dtc-codes/p2074": {
+      "dom": "obd2pros.com",
+      "code": "P2074",
+      "ok": false,
+      "cred": 1,
+      "fnd": "quarantined",
+      "ts": "2026-09-17 17:37:23"
+    },
+    "https://www.engine-codes.com/p2077.html": {
+      "dom": "engine-codes.com",
+      "code": "P2077",
+      "ok": true,
+      "cred": 1,
+      "fnd": "7 sym, 7 cause",
+      "ts": "2026-09-17 17:37:43"
+    },
+    "https://obd2pros.com/dtc-codes/p2077": {
+      "dom": "obd2pros.com",
+      "code": "P2077",
+      "ok": false,
+      "cred": 1,
+      "fnd": "quarantined",
+      "ts": "2026-09-17 17:37:54"
+    },
+    "https://www.engine-codes.com/p2078.html": {
+      "dom": "engine-codes.com",
+      "code": "P2078",
+      "ok": true,
+      "cred": 1,
+      "fnd": "7 sym, 7 cause",
+      "ts": "2026-09-17 17:38:18"
+    },
+    "https://obd2pros.com/dtc-codes/p2078": {
+      "dom": "obd2pros.com",
+      "code": "P2078",
+      "ok": false,
+      "cred": 1,
+      "fnd": "quarantined",
+      "ts": "2026-09-17 17:38:30"
+    },
+    "https://www.engine-codes.com/p2079.html": {
+      "dom": "engine-codes.com",
+      "code": "P2079",
+      "ok": true,
+      "cred": 1,
+      "fnd": "7 sym, 7 cause",
+      "ts": "2026-09-17 17:38:50"
+    },
+    "https://obd2pros.com/dtc-codes/p2079": {
+      "dom": "obd2pros.com",
+      "code": "P2079",
+      "ok": false,
+      "cred": 1,
+      "fnd": "quarantined",
+      "ts": "2026-09-17 17:39:04"
+    },
+    "https://www.engine-codes.com/p2082.html": {
+      "dom": "engine-codes.com",
+      "code": "P2082",
+      "ok": false,
+      "cred": 1,
+      "fnd": "quarantined",
+      "ts": "2026-09-17 17:39:39"
+    },
+    "https://obd2pros.com/dtc-codes/p2082": {
+      "dom": "obd2pros.com",
+      "code": "P2082",
+      "ok": false,
+      "cred": 1,
+      "fnd": "quarantined",
+      "ts": "2026-09-17 17:39:51"
+    },
+    "https://www.engine-codes.com/p2083.html": {
+      "dom": "engine-codes.com",
+      "code": "P2083",
+      "ok": false,
+      "cred": 1,
+      "fnd": "quarantined",
+      "ts": "2026-09-17 17:40:26"
+    },
+    "https://obd2pros.com/dtc-codes/p2083": {
+      "dom": "obd2pros.com",
+      "code": "P2083",
+      "ok": false,
+      "cred": 1,
+      "fnd": "quarantined",
+      "ts": "2026-09-17 17:40:40"
+    },
+    "https://www.engine-codes.com/p2084.html": {
+      "dom": "engine-codes.com",
+      "code": "P2084",
+      "ok": false,
+      "cred": 1,
+      "fnd": "quarantined",
+      "ts": "2026-09-17 17:41:15"
+    },
+    "https://obd2pros.com/dtc-codes/p2084": {
+      "dom": "obd2pros.com",
+      "code": "P2084",
+      "ok": false,
+      "cred": 1,
+      "fnd": "quarantined",
+      "ts": "2026-09-17 17:41:29"
+    },
+    "https://www.engine-codes.com/p2085.html": {
+      "dom": "engine-codes.com",
+      "code": "P2085",
+      "ok": false,
+      "cred": 1,
+      "fnd": "quarantined",
+      "ts": "2026-09-17 17:42:04"
+    },
+    "https://obd2pros.com/dtc-codes/p2085": {
+      "dom": "obd2pros.com",
+      "code": "P2085",
+      "ok": false,
+      "cred": 1,
+      "fnd": "quarantined",
+      "ts": "2026-09-17 17:42:26"
+    },
+    "https://www.engine-codes.com/p2086.html": {
+      "dom": "engine-codes.com",
+      "code": "P2086",
+      "ok": false,
+      "cred": 1,
+      "fnd": "quarantined",
+      "ts": "2026-09-17 17:43:01"
+    },
+    "https://obd2pros.com/dtc-codes/p2086": {
+      "dom": "obd2pros.com",
+      "code": "P2086",
+      "ok": false,
+      "cred": 1,
+      "fnd": "quarantined",
+      "ts": "2026-09-17 17:43:13"
+    },
+    "https://www.engine-codes.com/p0096.html": {
+      "dom": "engine-codes.com",
+      "code": "P0096",
+      "ok": false,
+      "cred": 1,
+      "fnd": "quarantined",
+      "ts": "2026-09-17 17:43:48"
+    },
+    "https://obd2pros.com/dtc-codes/p0096": {
+      "dom": "obd2pros.com",
+      "code": "P0096",
+      "ok": true,
+      "cred": 1,
+      "fnd": "3 sym, 4 cause",
+      "ts": "2026-09-17 17:44:00"
+    },
+    "https://www.engine-codes.com/p0098.html": {
+      "dom": "engine-codes.com",
+      "code": "P0098",
+      "ok": false,
+      "cred": 1,
+      "fnd": "quarantined",
+      "ts": "2026-09-17 17:44:35"
+    },
+    "https://obd2pros.com/dtc-codes/p0098": {
+      "dom": "obd2pros.com",
+      "code": "P0098",
+      "ok": true,
+      "cred": 1,
+      "fnd": "3 sym, 4 cause",
+      "ts": "2026-09-17 17:44:48"
+    },
+    "https://www.engine-codes.com/p0110.html": {
+      "dom": "engine-codes.com",
+      "code": "P0110",
+      "ok": false,
+      "cred": 1,
+      "fnd": "quarantined",
+      "ts": "2026-09-17 17:45:22"
+    },
+    "https://obd2pros.com/dtc-codes/p0110": {
+      "dom": "obd2pros.com",
+      "code": "P0110",
+      "ok": true,
+      "cred": 1,
+      "fnd": "1 sym, 4 cause",
+      "ts": "2026-09-17 17:45:36"
+    },
+    "https://www.engine-codes.com/p0111.html": {
+      "dom": "engine-codes.com",
+      "code": "P0111",
+      "ok": false,
+      "cred": 1,
+      "fnd": "quarantined",
+      "ts": "2026-09-17 17:46:11"
+    },
+    "https://obd2pros.com/dtc-codes/p0111": {
+      "dom": "obd2pros.com",
+      "code": "P0111",
+      "ok": true,
+      "cred": 1,
+      "fnd": "4 sym, 4 cause",
+      "ts": "2026-09-17 17:46:27"
+    },
+    "https://www.engine-codes.com/p0112.html": {
+      "dom": "engine-codes.com",
+      "code": "P0112",
+      "ok": false,
+      "cred": 1,
+      "fnd": "quarantined",
+      "ts": "2026-09-17 17:47:02"
+    },
+    "https://obd2pros.com/dtc-codes/p0112": {
+      "dom": "obd2pros.com",
+      "code": "P0112",
+      "ok": true,
+      "cred": 1,
+      "fnd": "4 sym, 5 cause",
+      "ts": "2026-09-17 17:47:16"
+    },
+    "https://www.engine-codes.com/p2136.html": {
+      "dom": "engine-codes.com",
+      "code": "P2136",
+      "ok": false,
+      "cred": 1,
+      "fnd": "quarantined",
+      "ts": "2026-09-17 17:47:50"
+    },
+    "https://obd2pros.com/dtc-codes/p2136": {
+      "dom": "obd2pros.com",
+      "code": "P2136",
+      "ok": false,
+      "cred": 1,
+      "fnd": "quarantined",
+      "ts": "2026-09-17 17:48:01"
+    },
+    "https://www.engine-codes.com/p2137.html": {
+      "dom": "engine-codes.com",
+      "code": "P2137",
+      "ok": false,
+      "cred": 1,
+      "fnd": "quarantined",
+      "ts": "2026-09-17 17:48:17"
+    },
+    "https://obd2pros.com/dtc-codes/p2137": {
+      "dom": "obd2pros.com",
+      "code": "P2137",
+      "ok": false,
+      "cred": 1,
+      "fnd": "quarantined",
+      "ts": "2026-09-17 17:48:30"
+    },
+    "https://www.engine-codes.com/p2138.html": {
+      "dom": "engine-codes.com",
+      "code": "P2138",
+      "ok": false,
+      "cred": 1,
+      "fnd": "quarantined",
+      "ts": "2026-09-17 17:49:05"
+    },
+    "https://obd2pros.com/dtc-codes/p2138": {
+      "dom": "obd2pros.com",
+      "code": "P2138",
+      "ok": true,
+      "cred": 1,
+      "fnd": "4 sym, 7 cause",
+      "ts": "2026-09-17 17:49:15"
+    },
+    "https://www.engine-codes.com/p2140.html": {
+      "dom": "engine-codes.com",
+      "code": "P2140",
+      "ok": false,
+      "cred": 1,
+      "fnd": "quarantined",
+      "ts": "2026-09-17 17:49:50"
+    },
+    "https://obd2pros.com/dtc-codes/p2140": {
+      "dom": "obd2pros.com",
+      "code": "P2140",
+      "ok": false,
+      "cred": 1,
+      "fnd": "quarantined",
+      "ts": "2026-09-17 17:50:03"
+    },
+    "https://www.engine-codes.com/p2169.html": {
+      "dom": "engine-codes.com",
+      "code": "P2169",
+      "ok": false,
+      "cred": 1,
+      "fnd": "quarantined",
+      "ts": "2026-09-17 17:50:38"
+    },
+    "https://obd2pros.com/dtc-codes/p2169": {
+      "dom": "obd2pros.com",
+      "code": "P2169",
+      "ok": false,
+      "cred": 1,
+      "fnd": "quarantined",
+      "ts": "2026-09-17 17:50:50"
+    },
+    "https://www.engine-codes.com/p2170.html": {
+      "dom": "engine-codes.com",
+      "code": "P2170",
+      "ok": false,
+      "cred": 1,
+      "fnd": "quarantined",
+      "ts": "2026-09-17 17:51:24"
+    },
+    "https://obd2pros.com/dtc-codes/p2170": {
+      "dom": "obd2pros.com",
+      "code": "P2170",
+      "ok": false,
+      "cred": 1,
+      "fnd": "quarantined",
+      "ts": "2026-09-17 17:51:40"
+    }
+  }
 }

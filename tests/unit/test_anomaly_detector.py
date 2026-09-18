@@ -205,3 +205,32 @@ class TestOilPressureBands:
         samples = [_sample("EngineOilPressure", 0.4) for _ in range(5)]
         findings = detect_anomalies(_session(samples), thresholds)
         assert any(f.signal == "EngineOilPressure" for f in findings)
+
+
+class TestIntegrityBands:
+    """SPN-DB-derived integrity bands (flag corrupt data, never false-alarm)."""
+
+    def test_corrupt_engine_speed_flagged(self) -> None:
+        thresholds = load_thresholds()
+        samples = [_sample("EngineSpeed", 9000.0) for _ in range(5)]
+        findings = detect_anomalies(_session(samples), thresholds)
+        assert any(f.signal == "EngineSpeed" for f in findings)
+
+    def test_nominal_engine_speed_passes(self) -> None:
+        thresholds = load_thresholds()
+        samples = [_sample("EngineSpeed", 1500.0) for _ in range(5)]
+        findings = detect_anomalies(_session(samples), thresholds)
+        assert not any(f.signal == "EngineSpeed" for f in findings)
+
+    def test_corrupt_vehicle_speed_flagged(self) -> None:
+        thresholds = load_thresholds()
+        samples = [_sample("VehicleSpeed", 300.0) for _ in range(5)]
+        findings = detect_anomalies(_session(samples), thresholds)
+        assert any(f.signal == "VehicleSpeed" for f in findings)
+
+    def test_engine_load_bounds(self) -> None:
+        thresholds = load_thresholds()
+        bad = [_sample("EngineLoad", 300.0) for _ in range(5)]
+        assert any(f.signal == "EngineLoad" for f in detect_anomalies(_session(bad), thresholds))
+        good = [_sample("EngineLoad", 65.0) for _ in range(5)]
+        assert not any(f.signal == "EngineLoad" for f in detect_anomalies(_session(good), thresholds))

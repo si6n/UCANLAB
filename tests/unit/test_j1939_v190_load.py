@@ -6,7 +6,7 @@ Orijinal assert-tabanlı script sonuçları korunmuştur (gecikme/bellek eşikle
 Kapsam:
 - get_j1939_spn_database() soğuk/sıcak yükleme gecikmesi
 - tracemalloc ile bellek ayak izi
-- 3.710 SPN bütünlüğü ve copilot arama yolları
+- 4.253 SPN bütünlüğü ve copilot arama yolları
 - tekrarlı yüklemelerde sızıntı kontrolü
 - DiagnosticCopilot public API üzerinden J1939 SPN/FMI analizi
 - J1939-73 DM1 -> DB uçtan uca çapraz kontrol

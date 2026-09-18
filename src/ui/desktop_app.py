@@ -23,7 +23,7 @@ from typing import Any, ClassVar
 import webview
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
-from src.core.errors import SafetyError
+from src.core.errors import HardwareError, SafetyError
 from src.core.logging import get_logger
 from src.core.models.can_frame import CanFrame, length_to_dlc
 from src.core.models.diagnostics import (
@@ -39,6 +39,7 @@ from src.engine.buffer.rolling_disk import RollingDiskBuffer
 from src.engine.discovery.engine import SignalDiscoveryEngine
 from src.engine.pipeline.reassembly_pipeline import j1939_protocol_response_masks
 from src.engine.router import FrameRouter
+from src.hal.base import BusState
 from src.hal.drivers.pcan_kvaser import PythonCanBus
 from src.hal.replay.player import ReplayBus
 from src.protocols.j1939.diagnostics import J1939DiagnosticService
@@ -1070,6 +1071,23 @@ class UniversalCanDesktopApp:
         # lock-free (atomic in CPython).
         self._ui_state_lock = threading.Lock()
         self._bus_lock = threading.RLock()
+        # LINK-FAULT observers (Kontrol #21/#23/#44): consecutive interface
+        # I/O-error streak + last-RX monotonic anchor for the silence check.
+        self._hw_error_streak = 0
+        self._last_rx_monotonic_ns = 0
+        # Mirror ANY E-Stop engagement (UI button AND hardware link faults)
+        # into the UI state so the frontend can never show "Connected/TX"
+        # while the safety latch is engaged. Engagement-only: clearing stays
+        # exclusively on the challenge/response reset flow (C-1/P0-1).
+        self.estop.register_callback(self._sync_ui_mirror_on_estop)
+
+    def _sync_ui_mirror_on_estop(self, event: object) -> None:
+        """E-Stop engagement → UI mirror (link-fault AND operator paths).
+
+        Runs on the E-Stop callback chain (outside all locks, exception-
+        isolated by trigger()), so it only performs lock-guarded flag writes.
+        """
+        self._set_ui_state(_is_estop=True, _is_simulating=False, _bus_load=0)
 
     def _on_upload_progress(self, progress: UploadProgress) -> None:
         if self._window is None:
@@ -1270,7 +1288,7 @@ class UniversalCanDesktopApp:
         # Engineering report feeds the deterministic user decision card.
         # T56-B / A3-1: the bridge used to hardcode spn/fmi to None, so the
         # copilot's J1939 KB path (SPN<num> lookup in _analyze_local_expert)
-        # was unreachable for live DM1 codes and the 3.9k-entry SPN database
+        # was unreachable for live DM1 codes and the 4.2k-entry SPN database
         # never enriched a session report. The SPN/FMI is already textually
         # present in DiagnosticEvent.code ("SPN <n> FMI <m>") — re-derive it
         # instead of dropping the information. Codes without the SPN form
@@ -1630,6 +1648,11 @@ class UniversalCanDesktopApp:
     # stuck/spoofed speed source (fail-closed to unknown).
     SPEED_PLAUSIBILITY_KMH: ClassVar[float] = 2.0
     SPEED_PLAUSIBILITY_RPM: ClassVar[float] = 600.0
+    # LINK-FAULT wiring (Kontrol #21/#44): consecutive telemetry-tick
+    # HardwareErrors before the interface is declared disconnected. 3 ticks
+    # ≈ 150–300 ms — fast enough to bound stale-TX authority, slow enough
+    # that one transient vendor glitch cannot latch the E-Stop.
+    HW_ERROR_ESTOP_AFTER: ClassVar[int] = 3
 
     # Scenario -> representative DTC for the copilot's live telemetry context.
     # One map instead of a per-scenario elif cascade duplicating scenario names.
@@ -3210,6 +3233,39 @@ class UniversalCanDesktopApp:
         except (AttributeError, OSError, RuntimeError) as exc:
             logger.debug("Batched frame UI push failed", extra={"error": str(exc)})
 
+    def _observe_link_state(self, bus: object | None, *, drained: int) -> None:
+        """Poll HAL link state each telemetry tick and report to the gateway.
+
+        * BUS_OFF latched by the driver (128+ consecutive error frames) →
+          ``gateway.notify_bus_off`` (Kontrol #23). Recovery (driver leaves
+          BUS_OFF on the next good frame, M-30) clears the edge latch so a
+          later bus-off re-fires.
+        * RX silence beyond ``COMMUNICATION_TIMEOUT_NS`` → the gateway's
+          ``notify_communication_timeout`` (Kontrol #44), which itself only
+          engages while TX is permitted — a quiet listen-only bus is normal
+          and never latches.
+
+        Runs outside ``_bus_lock``; the gateway engages the E-Stop outside
+        its own lock (snapshot-then-release, G-10). Latches clear ONLY on
+        positive link evidence, never on a timer.
+        """
+        now_ns = time.monotonic_ns()
+        if self._last_rx_monotonic_ns == 0:
+            self._last_rx_monotonic_ns = now_ns
+        metrics = getattr(bus, "metrics", None)
+        state = getattr(metrics, "state", None)
+        if state == BusState.BUS_OFF:
+            self.gateway.notify_bus_off(
+                "CAN controller BUS_OFF latched by HAL "
+                f"(error_frames={getattr(metrics, 'error_frames', '?')})"
+            )
+        elif drained > 0:
+            self.gateway.clear_link_fault(TxSafetyGateway.LINK_FAULT_BUS_OFF)
+        if drained == 0 and (now_ns - self._last_rx_monotonic_ns) > TxSafetyGateway.COMMUNICATION_TIMEOUT_NS:
+            self.gateway.notify_communication_timeout(
+                f"No CAN RX for {(now_ns - self._last_rx_monotonic_ns) // 1_000_000} ms while link observed"
+            )
+
     def _telemetry_loop(self) -> None:
         """Background loop: live CAN ingestion when connected, synthetic values in DEMO mode.
 
@@ -3235,24 +3291,51 @@ class UniversalCanDesktopApp:
             if not self._is_simulating:
                 drained = 0
                 tick_frames: list[object] = []
+                bus_snapshot: object | None = None
                 try:
                     with self._bus_lock:
-                        bus = self.bus
+                        bus_snapshot = self.bus
                     # Perf (C-9): the first recv paces the tick against
                     # frame arrival; every subsequent drain call is
                     # non-blocking (timeout 0) so an empty queue costs ~0
                     # instead of a 10 ms park per frame at high speed mults.
                     while drained < 200:
-                        frame = bus.recv(timeout_s=0.01 if drained == 0 else 0.0)
+                        frame = bus_snapshot.recv(timeout_s=0.01 if drained == 0 else 0.0)  # type: ignore[union-attr]
                         if frame is None:
                             break
                         self._ingest_live_frame(frame)
                         tick_frames.append(frame)
                         drained += 1
+                except HardwareError as exc:
+                    # LINK-FAULT #21: persistent interface I/O errors (hot-
+                    # unplug, wedged vendor handle) fail CLOSED after a short
+                    # streak — a single transient glitch must not latch the
+                    # E-Stop. The gateway edge-triggers (one engagement per
+                    # E-Stop epoch) and the supervisor FAULT revokes TX.
+                    self._hw_error_streak += 1
+                    if self._hw_error_streak >= self.HW_ERROR_ESTOP_AFTER:
+                        self.gateway.notify_hardware_disconnect(
+                            f"CAN interface I/O failure ({self._hw_error_streak} consecutive "
+                            f"errors): {type(exc).__name__}: {str(exc)[:200]}"
+                        )
+                    time.sleep(0.1)
+                    self._observe_link_state(bus_snapshot, drained=0)
+                    continue
                 except Exception as exc:  # noqa: BLE001 — loop must NEVER die on bus/driver errors
                     logger.warning("Telemetry frame ingestion error (recovering)", extra={"error": str(exc)})
                     time.sleep(0.1)
                     continue
+
+                if drained > 0:
+                    # Positive link evidence: reset the I/O-error streak and
+                    # re-anchor the silence check; a live link clears its own
+                    # timeout/disconnect latches (bus-off clears separately
+                    # below once the driver leaves the BUS_OFF metrics state).
+                    self._hw_error_streak = 0
+                    self._last_rx_monotonic_ns = time.monotonic_ns()
+                    self.gateway.clear_link_fault(TxSafetyGateway.LINK_FAULT_COMM_TIMEOUT)
+                    self.gateway.clear_link_fault(TxSafetyGateway.LINK_FAULT_DISCONNECT)
+                self._observe_link_state(bus_snapshot, drained=drained)
 
                 if drained == 0:
                     continue

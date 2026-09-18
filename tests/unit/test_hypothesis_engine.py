@@ -117,6 +117,60 @@ class TestRanking:
         assert any("SPN 100" in s for s in hyps[0].supporting_evidence)
         assert 0.0 < hyps[0].score <= 1.0
 
+    def test_related_pair_nodes_rank_from_groups(self) -> None:
+        """_RELATED_CODE_GROUPS-derived nodes fire on their documented pairs."""
+        graph = load_root_cause_graph()
+        cases = {
+            ("P0299", "P0401"): "egr-low-flow",
+            ("P0087", "P0088"): "fuel-rail-regulator",
+            ("P2002", "P2453"): "dpf-diff-pressure",
+            ("U0100", "P0620"): "can-power-ground",
+            ("P0171", "P0174"): "lean-both-banks",
+        }
+        for codes, node_id in cases.items():
+            hyps = rank_hypotheses(_session(list(codes)), [], None, graph=graph)
+            assert hyps, f"{codes} must produce hypotheses"
+            # The pair node must fire (top-3). Exact top-1 is a documented
+            # tie-break: single-code nodes matching a subset score equally
+            # (WEIGHT_DTC_MATCH is per-node, not per-code) and win
+            # lexicographically — deterministic, not a bug.
+            assert node_id in [h.id for h in hyps[:3]]
+
+    def test_j1939_sensor_nodes_fire(self) -> None:
+        """J1939 sensor-descriptor nodes (graph expansion round 3)."""
+        graph = load_root_cause_graph()
+        cases = {
+            "SPN 91 FMI 2": "accel-pedal-sensor",
+            "SPN 96 FMI 1": "fuel-level-sensor",
+            "SPN 111 FMI 1": "coolant-level-low",
+            "SPN 175 FMI 0": "oil-temp-high",
+            "SPN 513 FMI 2": "engine-torque-actual",
+        }
+        for code, node_id in cases.items():
+            hyps = rank_hypotheses(_session([code]), [], None, graph=graph)
+            assert hyps, f"{code} must produce hypotheses"
+            assert node_id in [h.id for h in hyps[:3]]
+
+    def test_single_code_nodes_fire(self) -> None:
+        """KB/J1939-grounded single-code nodes (graph expansion round 2)."""
+        graph = load_root_cause_graph()
+        cases = {
+            "P0A93": "inverter-coolant-pump",
+            "P0401": "egr-valve-stuck",
+            "P0620": "alternator-control",
+            "P0171": "lean-bank-1",
+            "P2002": "dpf-efficiency",
+            "P0217": "engine-overtemp",
+            "P0521": "oil-pressure-sensor",
+            "SPN 3216 FMI 0": "nox-inlet-sensor",
+            "SPN 3226 FMI 0": "nox-outlet-sensor",
+            "SPN 157 FMI 1": "rail-pressure-sensor",
+        }
+        for code, node_id in cases.items():
+            hyps = rank_hypotheses(_session([code]), [], None, graph=graph)
+            assert hyps, f"{code} must produce hypotheses"
+            assert node_id in [h.id for h in hyps[:3]]
+
     def test_anomaly_increases_support(self) -> None:
         graph = load_root_cause_graph()
         session = _session(["SPN 110 FMI 0"])

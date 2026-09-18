@@ -73,7 +73,7 @@ class TestP1_1ProceduresFull:
 
 
 class TestP1_2J1939CausesSteps:
-    """P1-2: J1939 `causes`/`steps` (3.710/3.444 SPN) reach the engine."""
+    """P1-2: J1939 `causes`/`steps` (3.720/3.457 SPN) reach the engine."""
 
     def test_spn_report_shows_causes_and_steps(self) -> None:
         num, entry = _first_spn_with("causes")
@@ -192,6 +192,68 @@ class TestP1_5SeverityBasisAndLamp:
                     assert str(row["lamp"]) in report
                     return
         pytest.skip("no fault_matrix row with lamp")
+
+
+class TestSessionHypothesisWiring:
+    """FAZ 4 wiring: analyze_session folds the graph top-1 into correlations.
+
+    The bridge used to be the only rank_hypotheses caller; the engine core
+    now ranks from the same active-DTC evidence so the two analysis lines
+    agree on the root-cause candidate.
+    """
+
+    def test_top1_hypothesis_line_present_for_graph_code(self) -> None:
+        copilot = AiDiagnosticCopilot()
+        report = copilot.analyze_session(
+            [{"code": "SPN 100 FMI 1", "spn": 100, "fmi": 1}],
+            {"EngineSpeed": 1500.0},
+            ["ECU_0"],
+        )
+        assert any("Kök neden adayı" in c for c in report.telemetry_correlations)
+
+    def test_no_hypothesis_line_without_evidence(self) -> None:
+        copilot = AiDiagnosticCopilot()
+        report = copilot.analyze_session([], {}, [])
+        assert not any("Kök neden adayı" in c for c in report.telemetry_correlations)
+
+    def test_hypothesis_line_does_not_touch_likely_causes_budget(self) -> None:
+        """likely_causes length stays engine-governed (acceptance lock)."""
+        copilot = AiDiagnosticCopilot()
+        a = copilot.analyze_session(
+            [{"code": "SPN 100 FMI 1", "spn": 100, "fmi": 1}],
+            {"EngineSpeed": 1500.0},
+            ["ECU_0"],
+        )
+        b = copilot.analyze_session(
+            [{"code": "SPN 100 FMI 1", "spn": 100, "fmi": 1}],
+            {"EngineSpeed": 1500.0},
+            ["ECU_0"],
+        )
+        assert a.telemetry_correlations == b.telemetry_correlations  # determinism
+
+
+class TestHighSeverityRung:
+    """379 external-DB DTC records carry severity HIGH — it must survive the
+    engine instead of falling back to MEDIUM (silent demotion)."""
+
+    def test_high_dtc_raises_report_to_high(self) -> None:
+        copilot = AiDiagnosticCopilot()
+        report = copilot.analyze_session([{"code": "C003F"}], {}, [])
+        from src.engine.ai.diagnostic_copilot import FaultSeverity
+
+        assert report.severity in (FaultSeverity.HIGH, FaultSeverity.CRITICAL_STOP)
+
+    def test_raise_is_monotonic_through_high(self) -> None:
+        from src.engine.ai.diagnostic_copilot import FaultSeverity, _raise_severity
+
+        assert _raise_severity(FaultSeverity.MEDIUM, FaultSeverity.HIGH) is FaultSeverity.HIGH
+        assert _raise_severity(FaultSeverity.HIGH, FaultSeverity.MEDIUM) is FaultSeverity.HIGH
+        assert _raise_severity(FaultSeverity.HIGH, FaultSeverity.CRITICAL_STOP) is FaultSeverity.CRITICAL_STOP
+
+    def test_parse_keeps_high(self) -> None:
+        from src.engine.ai.diagnostic_copilot import FaultSeverity, map_severity_or_default
+
+        assert map_severity_or_default("HIGH") is FaultSeverity.HIGH
 
 
 class TestT41Determinism:

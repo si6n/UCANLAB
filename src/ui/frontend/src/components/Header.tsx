@@ -111,7 +111,7 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header
       ref={rootRef}
-      className="surface-header relative z-40 flex h-[60px] shrink-0 items-center justify-between gap-4 bg-white/80 px-5 backdrop-blur-xl"
+      className="glass-surface glass-topbar relative z-40 flex h-[60px] shrink-0 items-center justify-between gap-4 border-b px-5"
     >
       {/* Left: Page Title Area */}
       <div className="flex min-w-0 items-center gap-3">

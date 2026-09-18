@@ -259,6 +259,14 @@ def _camelize(name: str) -> str:
         "boost_pressure": "TurboBoost",
         "engine_oil_pressure": "EngineOilPressure",
         "oil_pressure": "EngineOilPressure",
+        "engine_speed": "EngineSpeed",
+        "rpm": "EngineSpeed",
+        "vehicle_speed": "VehicleSpeed",
+        "wheel_speed": "VehicleSpeed",
+        "engine_load": "EngineLoad",
+        "load_percent": "EngineLoad",
+        "engine_torque": "EngineTorque",
+        "torque_percent": "EngineTorque",
     }
     return mapping.get(name, name)
 

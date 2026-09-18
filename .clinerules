@@ -1,42 +1,38 @@
-# ORCA AI / CLINE AGENT RULES — Universal CAN-BUS Platform
+# AGENT RULES — Universal CAN-BUS Platform
 
-## 1. Mimari & Görev Kapsamı
-- Platform: Hexagonal / ISO 26262 ASIL-B/D CAN & CAN-FD telemetri ve teşhis sistemi.
-- Çalışma ortamı: Orca AI + Cline Terminal.
-- İletişim tarzı: Ultra-terse, telgraf stili, gereksiz dolgu yok. [nesne] [eylem] [gerekçe]. [sonraki adım].
+## 1. Architecture & Scope
+- Platform: Hexagonal / ISO 26262 ASIL-B/D CAN & CAN-FD telemetry and diagnostics system.
+- Working language: concise, technical, no filler. [object] [action] [rationale]. [next step].
 
-## 2. İhlal Edilemez Güvenlik Kuralları (ISO 26262 ASIL-B/D)
-1. **Tek TX Geçidi (Choke-Point):** Tüm CAN iletimleri `TxSafetyGateway` ve `TxPort` üzerinden geçer. HAL seviyesinde doğrudan enjeksiyon yasaktır.
-2. **Fail-Closed:** Hata, timeout, CRC uyumsuzluğunda sistem `SAFE_STATE` veya `ESTOP_TRIGGERED` moduna geçer.
-3. **Uydurma Veri Yok:** Teşhis sinyalleri veya telemetri uydurulamaz/düzleştirilemez; gerekirse sentetik etiketi taşır.
-4. **Çevrimdışı AI:** `src/engine/ai/**` katmanı kesinlikle çevrimdışıdır (deterministik uzman motor). Ağ kütüphaneleri (`socket`, `requests`, `http`, `urllib`) veya HAL/TX modülleri import edilemez.
+## 2. Inviolable Safety Rules (ISO 26262 ASIL-B/D)
+1. **Single TX Gateway (Choke-Point):** All CAN transmissions go through `TxSafetyGateway` and `TxPort`. Direct HAL-level injection is forbidden.
+2. **Fail-Closed:** On error, timeout, or CRC mismatch the system enters `SAFE_STATE` or `ESTOP_TRIGGERED`.
+3. **No Fabricated Data:** Diagnostic signals or telemetry must never be invented/smoothed; synthetic channels must be explicitly tagged.
+4. **Offline AI:** The `src/engine/ai/**` layer is strictly offline (deterministic expert engine). Network libraries (`socket`, `requests`, `http`, `urllib`) and HAL/TX modules must not be imported.
 
-## 3. Orca Uzmanlık Rolleri (Personas & Sub-Agents)
-Orca görev tipine göre ilgili uzmanlık şapkasını takar veya alt-ajan (`spawn_agent`) başlatır:
-- **`marshal` [Safety]:** ASIL-B/D denetimi, TxSafetyGateway kontrolü, uydurma veri denetimi.
-- **`telemetry` [Data]:** CAN & J1939 DBC/DTC çözümleme, sinyal matematiği, veri tabanı merge.
-- **`tuner` [Dev]:** Temiz kod, refactoring, pytest birim ve entegrasyon testleri.
-- **`scout` [RE/DBC]:** Dokümantasyon keşfi, tersine mühendislik, DBC oluşturma.
-- **`chassis` [HAL]:** Bus donanım soyutlama (`AbstractBus`, PCAN/Vector/RP1210), replay logları.
-- **`uplink` [Cloud]:** MDF4 telemetri yükleme, lisanslama, Cloud API.
-- **`cockpit` [UI]:** React 18, WebView2 ve IPC köprüsü.
+## 3. Specialist Roles
+Task types map to review focus areas (no vendor-specific agent framework required):
+- **`safety`:** ASIL-B/D audit, TxSafetyGateway check, fabrication audit.
+- **`data`:** CAN & J1939 DBC/DTC decoding, signal math, database merge.
+- **`dev`:** Clean code, refactoring, pytest unit and integration tests.
+- **`research`:** Documentation discovery, reverse engineering, DBC authoring.
+- **`hal`:** Bus hardware abstraction (`AbstractBus`, PCAN/Vector/RP1210), replay logs.
+- **`cloud`:** MDF4 telemetry upload, licensing, Cloud API.
+- **`ui`:** React 18, WebView2 and IPC bridge.
 
-## 4. Obsidian Vault & Bellek Entegrasyonu
-- Vault Konumu: `obsidian-vault/`
-- Local REST API: `http://127.0.0.1:27123/`
-- REST API Token: `8f466f4bcf33b6ba030c2cb8d5333024eff55107abef30d27cd00323c43d3aa5`
-- MCP SSE Endpoint: `http://127.0.0.1:27123/mcp`
-- CLI İstemci: `python scripts/obsidian_api.py [read|search|append|report]`
-- Ana Yönlendirmeler:
-  - Operasyon Paneli: `obsidian-vault/01-Projeler/UCANLAB-Operasyon-Paneli.md`
-  - Mimari Harita: `obsidian-vault/01-Projeler/Proje-Haritasi.md`
-  - Güvenlik Mimarisi: `obsidian-vault/02-Diagnostics/Guvenlik-Mimarisi.md`
-  - Ajan Rehberi: `obsidian-vault/04-Ajan-Notlari/Ajan-Calisma-Rehberi.md`
-  - Orca Kılavuzu: `obsidian-vault/04-Ajan-Notlari/Orca-Entegrasyonu.md`
-  - Şablon: `obsidian-vault/templates/orca-session.md`
+## 4. Knowledge Vault (Obsidian, optional & local-only)
+- Vault location: `obsidian-vault/` (git-ignored, never committed to this repo).
+- No secrets are stored in this repo. Local REST/MCP access — if enabled — uses
+  environment variables only: `OBSIDIAN_API_URL`, `OBSIDIAN_API_KEY`.
+- CLI client (optional): `python scripts/obsidian_api.py [status|read|search|report]`
+- Entry points:
+  - Operations: `obsidian-vault/01-Projeler/UCANLAB-Operasyon-Paneli.md`
+  - Architecture map: `obsidian-vault/01-Projeler/Proje-Haritasi.md`
+  - Security architecture: `obsidian-vault/02-Diagnostics/Guvenlik-Mimarisi.md`
+  - Agent guide: `obsidian-vault/04-Ajan-Notlari/Ajan-Calisma-Rehberi.md`
+  - Template: `obsidian-vault/templates/session-report.md`
 
-## 5. Çalışma Disiplini
-- Göreve başlamadan önce ilgili 1-2 vault notunu tara (tüm vault'u okuma).
-- Kod değişiklikleri sonrasında testleri (`pytest tests/...`) çalıştır.
-- Yapılan majör oturum çıktılarını `obsidian-vault/04-Ajan-Notlari/` altına `orca-session.md` şablonuyla kaydet.
-
+## 5. Working Discipline
+- Before starting, scan the 1–2 relevant vault notes (never the whole vault).
+- Run tests (`pytest tests/...`) after code changes.
+- Record major session outcomes under `obsidian-vault/04-Ajan-Notlari/` with the session template.

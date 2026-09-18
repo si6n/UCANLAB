@@ -369,7 +369,7 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[#FAFBFC] text-slate-800 select-none">
+    <div className="glass-workspace flex h-screen w-screen overflow-hidden text-slate-800 select-none">
       {/* 1. Vertical Left Sidebar Navigation */}
       <Sidebar
         activeTab={activeTab}

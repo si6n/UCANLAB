@@ -26728,6 +26728,588 @@
      "date_of_incident": "11/24/2021"
     }
    ]
+  },
+  {
+   "make": "FREIGHTLINER",
+   "model": "Cascadia",
+   "year": "2020",
+   "raw_count": 26,
+   "can_related": [
+    {
+     "odi_number": 11645885,
+     "components": "ELECTRICAL SYSTEM",
+     "summary": "I have experienced this issue a few times, and so have several acquaintances who drive the same make and model of truck as I do. Whenever it rains or I go through a truck wash, the starter shifter blocked comes on the screen while driving, causing the RPMs to fluctuate and resulting in a complete loss of power to the vehicle. One dealership informed me that this is a common problem, attributed to moisture seeping into a harness located near the transmission. Tried connecting the truck to a computer so see fault codes nothing comes up because it's a glitch and clears out. This situation poses a serious risk, as it could potentially lead to a fatal accident. With no proof of the malfunction.",
+     "date_of_incident": "03/02/2025"
+    },
+    {
+     "odi_number": 11632316,
+     "components": "ENGINE AND ENGINE COOLING,ENGINE,FUEL/PROPULSION SYSTEM",
+     "summary": "Subject: Complaint Regarding Illegal Practices by Lemberg Group   My name is [XXX] , and I am currently employed as a driver for Lemberg Group. I operate a white Freightliner Cascadia truck, unit number [XXX]. I am writing to formally report illegal practices being conducted by Lemberg Group that violate environmental regulations and federal transportation safety laws. These practices not only jeopardize public safety but also put drivers like myself in unsafe and unlawful situations.  Company Information: •Company Name: Lemberg Group •USDOT Number: 2395323 •Address: 1051 E Main St, Suite 108, East Dundee, IL 60118 •Phone: (630) 626-0686 •Owner: Greg Shpak (Russian Name: Yegor Shpak) •Email: greg@lembergtrans.com  Violations Reported: 1.Tampering with DEF Systems The company has intentionally disabled Diesel Exhaust Fluid (DEF) systems on certain trucks through software manipulation, violating environmental laws under the Clean Air Act and contributing to harmful emissions. •Truck Details Without DEF Systems: •Freightliner Cascadia, Unit Number [XXX], white. •Freightliner Cascadia, Unit Number [XXX], white. License Plate: [XXX]  VIN: [XXX]  Year: 2020   I respectfully request that the relevant authorities investigate Lemberg Group’s practices and take the necessary enforcement actions to ensure compliance with safety and environmental laws. These violations are severe and pose significant risks to public safety and the environment.  Sincerely, [XXX]   INFORMATION REDACTED PURSUANT TO THE FREEDOM OF INFORMATION ACT (FOIA), 5 U.S.C. 552(B)(6)",
+     "date_of_incident": "11/30/2024"
+    },
+    {
+     "odi_number": 11621849,
+     "components": "SERVICE BRAKES,FORWARD COLLISION AVOIDANCE",
+     "summary": "While driving on the highway on cruise at 70mph the right front brakes locked up. The day was clear. I was driving across a bridge. The truck pulled to the right and I fought to pull it back on to the road. My company has the incident on camera. I was pulling a loaded tanker. Had the pavement been wet or snowy I could have easily jack knifed. If a vehicle would have been next to me I would have struck them. The vehicle was inspected by our mechanic and was told the system was within specs. The truck has also hard braked and pulled to the right when vehicles in the lane next to it are turning.",
+     "date_of_incident": "08/09/2024"
+    },
+    {
+     "odi_number": 11570495,
+     "components": "SERVICE BRAKES,FORWARD COLLISION AVOIDANCE",
+     "summary": "A collision avoidance system (CAS), also known as a pre-crash system, forward collision warning system (FCW), or collision mitigation system, is an advanced driver-assistance system designed to prevent or reduce the severity of a collision. System applied brakes bringing our Unit to a complete stop traveling 55 MPH on an Interstate while making a lane change, Because of this our Unit was rear-ended by another CMV, On board cameras video on both V1 and V2 clearly show incident. A print out of the DDEC shows code for braking system control at exact time of incident. In our fleet we have the same 2020 Freightliner Cascadia with this system and in trying to maintain the safety of our drivers and equipment no to mention our Insurance cost and CSA scores, This is a major issue as you can see on the Web the many cases and stories of these same incidents happening. Direction is needed   Thank You",
+     "date_of_incident": "12/11/2023"
+    },
+    {
+     "odi_number": 11547088,
+     "components": "UNKNOWN OR OTHER,SERVICE BRAKES,FORWARD COLLISION AVOIDANCE",
+     "summary": "Semi was traveling on the highway and transporting a 48,000 pound steel coil. The steel coil was secured with 4 chains. The automatic emergency braking system engaged with nothing in front of the vehicle, causing it to suddenly come to a dead stop in traffic. This caused the steel coil to break free of its bounds, crash through the trailer and into the vehicle cab, trapping the driver.",
+     "date_of_incident": "08/15/2023"
+    },
+    {
+     "odi_number": 11522762,
+     "components": "SERVICE BRAKES,FORWARD COLLISION AVOIDANCE",
+     "summary": "Ascending Tehachapi Pass CA Hwy 58 Eastbound in the left lane  grossing 45,000lbs and traveling at 55mph with cruise control ON. I was passing another slower moving truck(~35-40mph). Before I came along the other vehicle the highway curved to the left. The Collision Aviodance System(CAS) didn't alarm, however the cruise control cut power and Automatic Emergency Braking(AEB) hardbraked my truck reducing the speed from 55mph to 40-45mph. This was sudden and unexpected. Once I determined the issue, I applied throttle overriding the AEB/CAS. However my forward momentum was lost and accelerating uphill was slow.  It was midday and clear skies. No one was following me fortunately, but sudden and unexpected braking could have had a vehicle tailing too closely(It was an uphill grade with a speed limit of 65 mph for POV)  rear-end my trailer(48 foot stepdeck trailer).  Please explain to me how CAS/AEB are safety systems for a CMV?!? This is the 4th report I have filed with NHTSA about the same Freightliner Cascadia tractor. According to the vehicle operating Manual that this occurrence of unexplained and unwarranted braking is a \"feature\" of this \"safety system\". Meaning that the CAS/AEB was functioning as designed(A flawed designed in my professional opinion).  I have been contacted by the NHTSA about previous filed report about an ongoing investigation with the manufacturer. What action is this agency going to take? Will there be an investigation when the system performs as designed causing an avoidable accident, injury, or death? Will I be a defendant, witness, or victim?  Sincerely,  [XXX] Junction City, Oregon   INFORMATION Redacted PURSUANT TO THE FREEDOM OF INFORMATION ACT (FOIA), 5 U.S.C. 552(B)(6).",
+     "date_of_incident": "05/17/2023"
+    },
+    {
+     "odi_number": 11521957,
+     "components": "ELECTRICAL SYSTEM",
+     "summary": "The computer system that logs and keeps track of hours is not working properly.  The wires are I guess are messed up.  Is that dangerous?  My hubby works at the Walmart dc and he said  a girl slipped and got a bad spinal injury from the flooring not being non-skid.",
+     "date_of_incident": "05/01/2023"
+    },
+    {
+     "odi_number": 11513719,
+     "components": "SERVICE BRAKES,FORWARD COLLISION AVOIDANCE",
+     "summary": "On Off ramp I-40 W Segliman, AZ there was a cattle guard 10 feet before Stop sign. I was braking for Stop Sign. AEB(aka CAS Collision Aviodance System) detected the cattle guard grate as obstruction, not something flat of the pavement, and apply maximum braking(Note: I was already braking). It had been snowing that night thou at this location the road was dry. Unnecessary panic braking by automated system can cause lose of control of vehicles on wet and icy surfaces. How is it safe for the AEB/CAS system to over ride the operator's action? Doesn't the CDL driver who is a trained and licensed professional have the ability to identify and take appropriate action, in this case a cattle guard grate wasn't a safety concern, whether to brake or avoid the obstacle? I have had numerous instances that I have and haven't reported to NHTSA of the deficiencies of the AEB/CAS falsely reading the conditions and taking the incorrect action. Sincerely,  [XXX] AX Transportation   INFORMATION Redacted PURSUANT TO THE FREEDOM OF INFORMATION ACT (FOIA), 5 U.S.C. 552(B)(6).",
+     "date_of_incident": "03/23/2023"
+    },
+    {
+     "odi_number": 11505866,
+     "components": "STEERING,VEHICLE SPEED CONTROL,FORWARD COLLISION AVOIDANCE",
+     "summary": "Multiple safety issues with truck  #1 When driving & using cruise control (CC) at 60 mph & truck is at that speed (60 mph) truck is moving from top speed to E coast mode. Immediately RPM is down (from 1250 to 600) & steering wheel is much harder b/c reduced power from engine . Response time for driver to avoid potential hazardous situations on the road (i.e. animals, rocks, trees, etc.) is longer & not safe   #2 This problem is related to when truck is in regen. In driving, and when truck is doing regen (visible on the dash: high temp light/ icon). CC set to (60 mph) when truck is at that speed (60 mph) truck goes to E coast mode. RPM is going down to 600 RPM which is not adequate engine speed to finish regen. With regen interrupted there is a lot of white smoke under the truck and red light for engine shut down is on the dash. There is 30 seconds time to override shut down but at the same time the driver needs to safely park the truck on the shoulder, on a busy highway, with reduced power and steering wheel (600 RPM or no power at all because engine shut down). With high DPF temperature,there is potential for fire (truck,grass,trees ). I am told engine shut down was caused by interrupted regen process.   #3  Collision warning is coming with no reason, and can activate active brake, at high speed. Radar malfunction (snow, ice in the front)can cause malfunction to adaptive cruise control, active brake assist, & malfunction other safety features. Combination of malfunction (radar, active break assist, collision warning, IPM [intelligent powertrain management], engine break not engaging) can cause dangerous acceleration for heavy loaded truck.   I contacted DTNA (Daimler Truck North America) in regard to these issues & am told in order to solve these issues the truck should be inspected where mechanics and programmers are involved. At the same time I spoke with the company I work for about safety issues with those trucks.  You can contact me for further information.",
+     "date_of_incident": "05/13/2022"
+    },
+    {
+     "odi_number": 11498496,
+     "components": "ELECTRICAL SYSTEM,TIRES",
+     "summary": "The contact owns a 2020 Freightliner Cascadia. The contact stated that while driving at various speeds, the low tire pressure alarm sounded at 120 PSI. The contact stated that there was an abnormal buzzing sound detected. The contact stated that the air pressure alert should engage at 60 PSI. The vehicle was taken to the dealer however, the mechanic was unable to duplicate the failure. The vehicle was not diagnosed or repaired. The manufacturer was not contacted. The failure mileage was approximately 400,000.",
+     "date_of_incident": "02/01/2022"
+    },
+    {
+     "odi_number": 11485792,
+     "components": "FORWARD COLLISION AVOIDANCE",
+     "summary": "CAS actived with a Collision Warning and applied hard braking for about 1/2 second for a vehicle that stopped in a paved turnout. The stopped vehicle was not in the travel lane. There was a slight left curve and I could see the stopped vehicle. I thought the CAS May trip because I had experience FALSE Collision Warnings many times in the 88,000 miles I have driving this truck. Before the CAS Collison Warning alerted, I was not in cruise control and was accelerating with the throttle. As stated before the CAS applied hard braking for 1/2 second.  I have read the Driver’s Manual about the Driver Assist, Active Braking Assist(CAS) Section 5. On page 5.6 Table 5.2 is says that the above situation can trigger Collision Warning and braking. This may be so, however this has on numerous occasions FALSE Warnings, applied partial braking, and 3 times emergency braking for vehicles that were not traveling in my lane. Earlier this year, Freightliner had a road service mechanic in my company yard to verify that current software and working Driver Assistance Systems on our fleet of trucks. Mechanic determined that this truck was up to date and no recalibration was required. I’m very concerned that the CAS will activate in poor weather conditions, causing a lost of control of the vehicle OR I maybe rear ended by a following vehicle when there is no reason for my vehicle to be stopping. I cannot have the CAS deactivated because it would violate manufacturer, company, and insurance policies.",
+     "date_of_incident": "09/21/2022"
+    },
+    {
+     "odi_number": 11474018,
+     "components": "SERVICE BRAKES,FORWARD COLLISION AVOIDANCE",
+     "summary": "Wednesday 13 July, 2022 6:45pm PDT. Location US395 Lakeview, OR. Collision Avoidance System(CAS) applied maximum AEB braking for a false detection of obstruction in my travel lane. I was following a pickup and horse trailer at about 45mph. The pickup signaled a left turn and slowed. I applied minimum braking. The pickup and trailer turned clearing my travel lane(the tail end of the trailer was in the opposing lane). At this moment the CAS detected a collision warning(I was still applying some braking) and the AEB slammed on the brakes for about half second then canceled. The CAS has falsely detects numerous incidents a day for the 7 months I have driven this truck. The above incident has been the most severe. Other false incidents range from warning(without braking), cutting power to engine, to applying some amount of braking. At NO TIME during this period did the CAS detected a true obstruction.  Manufacturer has checked that truck's system software is current and properly calibrated.",
+     "date_of_incident": "07/13/2022"
+    },
+    {
+     "odi_number": 11444204,
+     "components": "SERVICE BRAKES, AIR,SERVICE BRAKES",
+     "summary": "SHOW ABS NOT WORKING SERVICE REQUIRED ABS DETECTED INTERNAL PROBLEM,AND MAY NEED REPROGRAMMING OR REPLASEMENT STABILLY CONTROLS NOT WORKING SERVICE REQUIRED  Error CODE 520247  31  ERROR CODE 1810",
+     "date_of_incident": "07/09/2021"
+    },
+    {
+     "odi_number": 11435928,
+     "components": "FORWARD COLLISION AVOIDANCE",
+     "summary": "The contact state that the Detroit Assurance Safety System radar failed.  When the contact drove a Freightliner Cascadia at 65 to 68mph south on the New York state freeway howling two 48-foot trailers. The contact stated that the Detroit Assurance Safety System detected an object and locked the brake and steering pushed the tractor and trailers abruptly swing to the right causing the trailers Tai to whiplash. The contact was able to keep the unit from crashing into the guard rail and tipping over. The contact was able to press the camera button and the red light went off. The contact doesn’t remember the Freight liner Cascadia year truck he was driving the truck was put out of service. The contact also wanted to state that the Detroit Assurance Safety System radar failure occurred twice.",
+     "date_of_incident": "07/07/2021"
+    },
+    {
+     "odi_number": 11408007,
+     "components": "EQUIPMENT,FORWARD COLLISION AVOIDANCE",
+     "summary": "I DRIVE A 2020 FREIGHTLINER CASCADIA EQUIPPED WITH THE MERITOR WABCO ON GUARD COLLISION MITIGATION SYSTEM. THIS SYSTEM ROUTINELY SIGNALS AN IMPENDING COLLISION AND APPLIES THE BRAKES, SOMETIMES IN A VERY AGGRESSIVE WAY, FOR NO REASON WHATSOEVER. IT HAPPENS AT LEAST ONCE EVERY SINGLE DAY. THE SYSTEM TAKES COMPLETE CONTROL OF THE VEHICLE BRAKING SYSTEM AND THERE IS NO WAY FOR THE DRIVER TO STOP THE HARD APPLICATION OF THE BRAKES. I HAVE COMPLAINED TO MY LOCAL DEALERSHIP ABOUT THIS PROBLEM AND HAVE BEEN TOLD THAT ALL ON GUARD CMS SYSTEMS DO THIS OCCASIONALLY. I BELIEVE THIS SYSTEM IS UNSAFE AND MERITOR WABCO SHOULD BE COMPELLED TO FIX THIS ISSUE.",
+     "date_of_incident": "04/14/2021"
+    },
+    {
+     "odi_number": 11329834,
+     "components": "ELECTRICAL SYSTEM",
+     "summary": "WHEN MY TRUCK DRIVING ON THE HIGH WAY WITH 70 MILES PER HOUR. THE CLUTCH FAN KICK IN - CRUISE CONTROL AUTOMATICALLY CANCEL - GEAR IN AND OUT. RPM ROSE UP AND DOWN FAST FROM IDLE TO THE CURRENT SPEED. IT BROUGHT TO DEALER TWICE BUT THEY SAID MY TRUCK IS RUNNING FINE. THERE IS NO LIGHT COME ON. 1ST TIME TOOK TO DEALER AT 54000 MILE, 2ND AT 63000. NOW IT IS 70,000 MILES.  *TR",
+     "date_of_incident": "06/20/2020"
+    },
+    {
+     "odi_number": 11326113,
+     "components": "UNKNOWN OR OTHER,FORWARD COLLISION AVOIDANCE",
+     "summary": "AUTOMATIC EMERGENCY BRAKING SYSTEM ACTIVATING WHEN IT SHOULD NOT BE. COMPANY SAYS TRUCK IS NOT SHOWING A BRAKING EVENT ON THEIR END EITHER THIS HAS HAPPENED ATOTAL OF 3 TIMES. THE TRUCKS LANE GUIDANCE SENSOR IS GOING OFF EVEN WHEN THERE'S NO LINE TO GUIDE IT AND THE TRACTION SENSOR COMES ON EVEN WHEN IT DOESN'T BREAK TRACTION.  *TR",
+     "date_of_incident": "05/25/2020"
+    },
+    {
+     "odi_number": 11193866,
+     "components": "VEHICLE SPEED CONTROL,COMMUNICATION",
+     "summary": "TL* THE CONTACT OWNS A 2020 FREIGHTLINER CASCADIA. WHILE DRIVING WITH THE CRUISE CONTROL ENGAGED, THE VEHICLE UNINTENTIONALLY ACCELERATED. ALSO, THE CRASH WARNING ICON ILLUMINATED ALTHOUGH THERE WAS NO OBJECT IN FRONT OF THE VEHICLE. THE VEHICLE WAS TAKEN TO PENSKE TRUCK RENTAL (1405 GLENDALE AVE, SPARKS, NV 89431, (775) 359-6226) TO BE DIAGNOSED, BUT THE CAUSE OF THE FAILURES COULD NOT BE DETERMINED. THE VEHICLE WAS NOT REPAIRED. THE MANUFACTURER WAS NOT MADE AWARE OF THE FAILURES. THE FAILURE MILEAGE WAS 4,766. CONTACT ALSO ALLEGED LOSS OF POWER STEERING ASSIST WHEN TURNING LEFT AT A LOWER SPEED THAT REQUIRED ADDITIONAL STEERING EFFORT.",
+     "date_of_incident": "03/25/2019"
+    }
+   ]
+  },
+  {
+   "make": "FREIGHTLINER",
+   "model": "Cascadia",
+   "year": "2021",
+   "raw_count": 14,
+   "can_related": [
+    {
+     "odi_number": 11569193,
+     "components": "FORWARD COLLISION AVOIDANCE",
+     "summary": "While vehicle approached a hazard blocking the roadway the forward collision and automatic braking feature did not engage; apparently due to the vehicle sensors not recognizing the hazard. The object in the roadway was a 53 ft van trailer that was laid on it's side with the translucent roof facing the approaching vehicle.",
+     "date_of_incident": "12/14/2023"
+    },
+    {
+     "odi_number": 11561665,
+     "components": "STEERING,ELECTRICAL SYSTEM,SERVICE BRAKES",
+     "summary": "When driving, there is a constant and very strong vibration throughout the entirety of the truck. This makes it difficult to steer and drive in a safe manner. I've replaced any parts that might be associated with this malfunction with brand new parts at the advice of professional mechanics (cost over $30,000) and it was to no avail. The truck is still malfunctioning and I have been left unable to work or barely working for 14 months. The vibration has caused many health concerns, like headaches, nausea, and stomach ulcers. I went to over 10 dealers and there has been no solutions that have worked.",
+     "date_of_incident": "10/10/2022"
+    },
+    {
+     "odi_number": 11530297,
+     "components": "UNKNOWN OR OTHER,SERVICE BRAKES,ENGINE",
+     "summary": "My Emplyoer has not fixed anything on the truck, the truck shouldn’t be  operating, doesn’t meet DOT Regulations, I was told not to go into any scales or weigh stations, loses air and the air doesn’t build back up properly, I lost all air in my breaks while driving on the road",
+     "date_of_incident": "06/01/2023"
+    },
+    {
+     "odi_number": 11529649,
+     "components": "FORWARD COLLISION AVOIDANCE",
+     "summary": "I'd like to report the automatic braking device on our company semi tractor. I work for a large mega carrier hauling all types of freight, with triples and doubles combination trailers. We operate with Freightliners, Kenworths, and Internationals. The tractor tractor I use is a 2021 Freightliner equipped with a safety feature, an automatic braking system to avoid collisions for stopped or slowed traffic ahead. The issue is, it randomly brakes with no obstructions ahead. I've seen reports that you guys are looking into this. And I'm also informing you that our trucks deal with this issue as well. There's no defect warnings on the device's monitor system. No previous accidents that would cause issues to the device to have faulty sensor. The problem with the system, it sees a shadow on the road and it thinks theres a stopped vehicle, forcing the truck to hard apply the brakes. This can be extremely dangerous on inclement weather, more so on icy conditions. Few weeks ago, I traveled through the same part of the toll road like I always do, I know this spot activates the brakes 70-85% of the time during the night. That night, my trailers ABS light was on, when I approached the bad spot, all my brakes activated and almost caused my truck to jack-knife, lost full control but didn't crash, nor was anyone near me. But it would've been a different outcome if it was bad weather. When I approach this area, I always turn on my high beams to try to eliminate the shadow on the road. Where this happens: Indiana Toll Road 80-90, Elkhart IN, West bound lanes, right before exit 92. The overpass that causes this shadow is Johnson Street. You can see on Google street maps, where other trucks have had automatic braking activated, from seeing tire marks on the road. The lights around create that shadow at night. I would just like to inform you guys of my experiences. I have also reached out to INDOT about the issue, not sure if they looked into it. Reporting before a crash could happen.",
+     "date_of_incident": "06/28/2023"
+    },
+    {
+     "odi_number": 11524581,
+     "components": "FORWARD COLLISION AVOIDANCE",
+     "summary": "The contact owns a 2021 Freightliner Cascadia. The contact stated while driving 65 MPH with the cruise control activated, the brakes applied independently. The contact took the vehicle to the local dealer, where it was diagnosed with needing the calibration of the radar. The vehicle was repaired but experienced the failure within a week. The contact took the vehicle back to the local dealer, where it was diagnosed with needing the radar to be replaced. The vehicle was repaired but continued to experience the same failure within a month. The contact took the vehicle back a third time to the local dealer, where it was diagnosed with needing the recalibration of the radar. The vehicle was repaired but continued to experience the failure intermittently. The contact called the local dealer and made them aware of the failure. The vehicle was not repaired. The manufacturer had not been informed of the failure. The failure mileage was approximately 215,000.",
+     "date_of_incident": "04/20/2022"
+    },
+    {
+     "odi_number": 11485349,
+     "components": "SUSPENSION,FORWARD COLLISION AVOIDANCE",
+     "summary": "This complaint is being filed in addition to my previous complaint which is complaint #1147128511471285.  Both left and right vehicle airbag suspension height regulators were just replace a month ago, and once again, the right side airbag ride height regulator has blown apart, causing my semi truck to lean heavily to the right side, and wear out my right front steer tire exceedingly fast. And, the radar braking system erratically slams the brakes on at random times, which could cause a catastrophic accident. Imagine hauling an 80,000 lb. load, and the truck just decides to slam on the brakes, in a corner, in the rain, or in the snow. You’re riding a very thin line between life and death. Freightliner will now be sued for negligence, embezzlement, fraud, and loss of use of my truck. My truck just spent 40 days at the Freightliner Dealership for several Factory Safety Recalls, and they just replaced both airbag ride height control vale’s, because they both failed.  If this isn’t a clear cut case of the Federal Lemon Law, nothing is.",
+     "date_of_incident": "09/19/2022"
+    }
+   ]
+  },
+  {
+   "make": "FREIGHTLINER",
+   "model": "Cascadia",
+   "year": "2022",
+   "raw_count": 13,
+   "can_related": [
+    {
+     "odi_number": 11631506,
+     "components": "ELECTRICAL SYSTEM,FORWARD COLLISION AVOIDANCE",
+     "summary": "ABS system is shutting causing all safety systems to shut down including cruise control.  Freightliner is overlaying the harness for abs sensors at the owners expense.  There should be a recall for them to fix this issue.  They are very aware of what's going on and are doing nothing to fix the issue.",
+     "date_of_incident": "12/01/2024"
+    },
+    {
+     "odi_number": 11622158,
+     "components": "ENGINE",
+     "summary": "The flex flang behind the turbocharger has broken off. This lets the hot exhaust gases blow directly onto the underside of the cab and onto electrical wires. And other parts of the truck",
+     "date_of_incident": "10/27/2024"
+    },
+    {
+     "odi_number": 11550118,
+     "components": "SERVICE BRAKES, AIR,FORWARD COLLISION AVOIDANCE",
+     "summary": "The contact owns a 2022 Freightliner Cascadia. The contact received notification of NHTSA Campaign Number: 22V817000 (Service Brakes, Air, Forward Collision Avoidance) however, the part to do the recall repair was unavailable. The contact stated that the manufacturer had exceeded a reasonable amount of time for the recall repair. The contact stated while driving at various speeds, the Axiomatic Braking System independently activated. The failure had occurred approximately 15 times and occurred intermittently. The contact took the vehicle to the dealer who confirmed that it was a known issue. The vehicle had not been diagnosed or repaired. The manufacturer was not made aware of the issue. The approximate failure mileage was 115,629. Parts distribution disconnect.",
+     "date_of_incident": "11/16/2021"
+    },
+    {
+     "odi_number": 11532293,
+     "components": "SERVICE BRAKES, AIR",
+     "summary": "The contact owns a 2022 Freightliner Cascadia. The contact stated while reversing at 10 MPH, the brake caliper seized and the two front driver’s side inside tires exploded. The vehicle was taken to the dealer and diagnosed with front brake modulator failure. The contact was informed that the front brake modulator valve needed to be replaced. The vehicle was not repaired. The manufacturer was made aware of the failure. The contact stated that she had contacted the dealer and the manufacturer about the failure and was informed by the manufacturer that the VIN was included in NHTSA Campaign Number: 22V817000 (Service Brakes, Air, Forward Collision Avoidance) however, the dealer would not honor the recall repair. The failure mileage was approximately 201,285.",
+     "date_of_incident": "02/14/2023"
+    },
+    {
+     "odi_number": 11529518,
+     "components": "SERVICE BRAKES, AIR,FORWARD COLLISION AVOIDANCE",
+     "summary": "The contact owns a 2022 Freightliner Cascadia. The contact stated that while driving at approximately 60 MPH, the service brakes were applied without input from the driver. The Forward Collision-Avoidance warning light was illuminated. There was no object in the roadway to activate the feature. The vehicle was taken to the local dealer where a diagnostic test was performed. The vehicle was repaired; however, the failure recurred. The contact stated that the failure was related to NHTSA Action Number: PE23010 (Forward Collision Avoidance). The manufacturer was not contacted. The failure mileage was approximately 148,000.",
+     "date_of_incident": "04/01/2023"
+    },
+    {
+     "odi_number": 11523252,
+     "components": "SERVICE BRAKES",
+     "summary": "There was brake failure during an accident or 4/23/21 on the Massachusetts turnpike where there was a fatality. The air dryer filter broke off and my question is regarding nhtsa part 573 safety recall report 22v-443. I would like to know the two simultaneous events in this recall test. I realize the production date is a month or less after the recall date of vehicles.",
+     "date_of_incident": "05/22/2023"
+    },
+    {
+     "odi_number": 11516519,
+     "components": "FORWARD COLLISION AVOIDANCE",
+     "summary": "CMV traveling on a four lane divided highway approached another cmv that had overturned in the road ahead some time prior to that time. The approaching CMV did not get any warnings and the collision mitigation features did not activate on the truck, giving the driver no warning of eminent impact which did occur",
+     "date_of_incident": "01/18/2023"
+    },
+    {
+     "odi_number": 11503055,
+     "components": "SERVICE BRAKES",
+     "summary": "Front end collision with camery hybrid at 35 to 40 mph.  Vehicle was rented from Miller Leasing in Hartford CT.  Miller ordered truck without Detroit assurance 5.0 or front desk brakes.  On collision the screw in air fryer broke off causing loss of brakes.  Air dryer was mounted on the frame passenger side exposed to possible damage.  After traveling a couple hundred feet the truck smashed the camery in the guardrail and there was a fatality.",
+     "date_of_incident": "04/23/2021"
+    },
+    {
+     "odi_number": 11451612,
+     "components": "UNKNOWN OR OTHER,LANE DEPARTURE,FORWARD COLLISION AVOIDANCE",
+     "summary": "The system isn't working properly. The AEB(automatic emergency braking) has been braking when I was driving on ice for no reason almost making cars get skids. It's essential to not brake hard on a slippery road. But that system put me in dangerous conditions. Not only one time but several. I was afraid to drive with them on. Also, I tried to see how the truck goes without it, I unplugged it and the truck was braking properly and never had skidded on slippery roads. And funny thing my acceleration was better, and fuel consumption mile/gallons increased from 5.6 to 6.7. I know manufacturers are forced to install AEB, but I don't want to die from it. I don't need AEB and want you like the government to protect my life and right to disable legally AEB and lane changing system from the truck. I want to take responsibility 100% for any accidents front end collisions or losing control of a vehicle. I am a rally driver, I know how to handle equipment in severe conditions, I know physics and know-how to go off-road, drift. I don't want some system like AEB to held me liable if there would be an accident caused by it. I want you, as protector of our rights of life, liberty and pursuit of happiness to allow drivers to choose by the will to legally disable the AEB system taking responsibility. I take care of road safety and even want to buy one day a Cab Over Engine semi-truck because I am watching the road all the time. I hold a safe following distance and never did a hard brake in 3 years of driving to avoid a collision. I want an AEB system only when it gonna surpass my professional approach to safe driving. It needs more development and calibration, and cameras surrounding systems to do it better. As for now, I don't want to risk my life being an experiment in the eyes of big manufacturing companies.",
+     "date_of_incident": "02/10/2022"
+    },
+    {
+     "odi_number": 11445705,
+     "components": "UNKNOWN OR OTHER,FORWARD COLLISION AVOIDANCE",
+     "summary": "FYI, this is the second 2022 Cascadia I’ve driven with this issue. The forward radar sensor detects a target 3 feet in front of me and slams on the brakes if the cruise control is set. I can over ride it by turning off the CC, but then I get constant alarms for following too closely and collision alerts. The issue has generated 4 critical events to my company. This happens randomly, with no warning whether I am in traffic or not. I believe this to be a significant safety issue at worst, and a very unpleasant driving environment at best. According to my company, this is not the only two tractors in which this occurs. My previous tractor was looked at by a Freightliner dealer who failed to repair the issue.",
+     "date_of_incident": "12/30/2021"
+    }
+   ]
+  },
+  {
+   "make": "FREIGHTLINER",
+   "model": "Cascadia",
+   "year": "2023",
+   "raw_count": 12,
+   "can_related": [
+    {
+     "odi_number": 11722434,
+     "components": "SERVICE BRAKES",
+     "summary": "while driving a UPS Freightliner truck (Cascadia Vin number [XXX] ) on [XXX] on [XXX] in Charlotte, North Carolina, the tractor brakes locked down causing [XXX] 's arm to jam into shoulder from having all momentum come to abrupt stop causing seatbelt to yank across shoulder ultimately necessitating surgery and putting me out of work for 6 months+ and ongoing INFORMATION REDACTED PURSUANT TO THE FREEDOM OF INFORMATION ACT (FOIA), 5 U.S.C. 552(B)(6)",
+     "date_of_incident": "07/15/2025"
+    },
+    {
+     "odi_number": 11722541,
+     "components": "FORWARD COLLISION AVOIDANCE",
+     "summary": "The front sensor is calibrated wrong.  It slams my brakes on road if a shadow is in road, bridges, vehicles parked on side of road, and sometimes if another semi passes me it slams the breaks on. It happens if its just raining out not so much winter because snow and ice blocks the sensor. This has also almost caused accidents as well.",
+     "date_of_incident": "03/29/1974"
+    },
+    {
+     "odi_number": 11678206,
+     "components": "POWER TRAIN",
+     "summary": "See attached document for complaint",
+     "date_of_incident": "04/03/2025"
+    },
+    {
+     "odi_number": 11666845,
+     "components": "FORWARD COLLISION AVOIDANCE",
+     "summary": "I was north of Louisville Kentucky on [XXX]  traveling at 65 mph and I was in the middle lane and the collision lights came on and the truck abruptly started stopping. Luckily no one was on my right side. I made it to the shoulder of the road. Thank God I wasn’t rear ended by anyone and there were three lanes of traffic.  INFORMATION REDACTED PURSUANT TO THE FREEDOM OF INFORMATION ACT (FOIA), 5 U.S.C. 552(B)(6)",
+     "date_of_incident": "06/13/2025"
+    },
+    {
+     "odi_number": 11658652,
+     "components": "ELECTRICAL SYSTEM",
+     "summary": "Malfunction check engine lights on and show faults 520349. 14",
+     "date_of_incident": "05/23/2024"
+    },
+    {
+     "odi_number": 11626573,
+     "components": "STEERING,ELECTRICAL SYSTEM",
+     "summary": "The contact owns a 2023 Freightliner Cascadia. The contact stated that while driving at 55 MPH, the steering wheel locked up, the vehicle became uncontrollable, and the vehicle flipped over. The vehicle was uncontrollable. All the warning lights illuminated. A police report was filed. The contact received injuries to her back and was taken by ambulance to a hospital, where medical attention was provided. The airbags deployed. There was an unknown substance leaking from the vehicle. There was no reported fire. The vehicle was towed to an unknown location. The local dealer was not contacted. The vehicle was not diagnosed or repaired. The manufacturer was not contacted. The failure mileage was unknown.",
+     "date_of_incident": "07/31/2023"
+    },
+    {
+     "odi_number": 11535215,
+     "components": "ELECTRICAL SYSTEM,VEHICLE SPEED CONTROL,FORWARD COLLISION AVOIDANCE",
+     "summary": "Dash light warning lights come on and causes the cruise control to stop working. A total of 6 fault lights comes on and also causes the Adaptive Cruise Control to not work. This is the 3rd Freightliner Cascadia that I have driven in the past 3 and a half years and every single truck has had the same problem. Freightliner has refused to acknowledge that there is a problem. Nobody seems to know what to do to correct the problem. We are owner operators and long haul drivers and needcruise control. Freightliner dealers are almost impossible to get anything repaired because they do not accept appointments and they have so many trucks sitting around waiting for repairs.",
+     "date_of_incident": "07/28/2023"
+    },
+    {
+     "odi_number": 11524587,
+     "components": "FORWARD COLLISION AVOIDANCE",
+     "summary": "While operating the vehicle on an open section of highway I passed under an overpass.  The collision mitigation system sounded an audible warning and the vehicle abruptly applied momentary maximum braking. Had another vehicle been behind me It likely would have resulted in a rear end collision.",
+     "date_of_incident": "02/15/2023"
+    },
+    {
+     "odi_number": 11516552,
+     "components": "FORWARD COLLISION AVOIDANCE",
+     "summary": "The CMV was on a straight road on a sunny day approaching a standard railroad crossing, and for no apparent reason the emergency braking system engaged.    We have video of this incident from the truck. I tried to download it but your system would not allow the format.",
+     "date_of_incident": "01/27/2023"
+    }
+   ]
+  },
+  {
+   "make": "VOLVO",
+   "model": "VN",
+   "year": "2020",
+   "raw_count": 1,
+   "can_related": [
+    {
+     "odi_number": 11630307,
+     "components": "SERVICE BRAKES, HYDRAULIC,ELECTRICAL SYSTEM",
+     "summary": "The contact owns a 2020 Volvo VN. The contact received notification of NHTSA Campaign Number: 24V790000 (Electrical System, Service Brakes, Hydraulic); however, the contact called the local dealer to schedule an appointment and was informed that there was no recall associated with the VIN. The manufacturer was contacted and informed the contact that there was no recall associated with the VIN. The contact had not experienced a failure. Parts distribution disconnect.",
+     "date_of_incident": "10/23/2024"
+    }
+   ]
+  },
+  {
+   "make": "VOLVO",
+   "model": "VN",
+   "year": "2021",
+   "raw_count": 3,
+   "can_related": [
+    {
+     "odi_number": 11654584,
+     "components": "ELECTRICAL SYSTEM",
+     "summary": "Odometer Fraud. The contact purchased a 2021 Volvo VN. The contact stated that while attempting to register the vehicle, it was discovered that there was a mileage discrepancy. The vehicle was a private sale. At the time of purchase, the vehicle mileage was 615,000 and at the time of registration, it was discovered that the mileage was 763,309. Local Authorities had not been notified.",
+     "date_of_incident": "04/14/2025"
+    }
+   ]
+  },
+  {
+   "make": "VOLVO",
+   "model": "VN",
+   "year": "2022",
+   "raw_count": 0,
+   "can_related": []
+  },
+  {
+   "make": "VOLVO",
+   "model": "VN",
+   "year": "2023",
+   "raw_count": 0,
+   "can_related": []
+  },
+  {
+   "make": "PETERBILT",
+   "model": "579",
+   "year": "2020",
+   "raw_count": 2,
+   "can_related": [
+    {
+     "odi_number": 11560967,
+     "components": "SERVICE BRAKES,FORWARD COLLISION AVOIDANCE",
+     "summary": "Vehicle has a following distance sensor on front bumper.  Sensor is sensing overpasses when traveling underneath them and that should not be detected.  Vehicle is automatically applying hard braking.  This is causing a possible rear end collision and or loss of vehicle controll in wet conditions.",
+     "date_of_incident": "12/18/2023"
+    }
+   ]
+  },
+  {
+   "make": "PETERBILT",
+   "model": "579",
+   "year": "2021",
+   "raw_count": 1,
+   "can_related": [
+    {
+     "odi_number": 11501812,
+     "components": "ELECTRICAL SYSTEM",
+     "summary": "I was driving  on a freeway when suddenly my truck lost all power. I managed  to coast to a safe spot  to park. I immediately  opened  hood and started  troubleshooting.  Left key on so I'd  know if power came back on.  After about 10 minutes  of moving wires gently I found  the issue.  A power wire plug connected to cab.  I wiggled it and everything  worked  again.   Messed  up again  and again, that day. Vehicle  was still warrantied, but shops didn't  have time to get it in.  Finally  I found  a temporary solution.  If I hold wire sideways  after cutting zip ties it wouldn't mess up again.  Shop said  they must replace  entire wire.  Totally  a safety issue.   Could  have resulted  in bad situations if it happened  at the wrong  time.",
+     "date_of_incident": "01/14/2022"
+    }
+   ]
+  },
+  {
+   "make": "PETERBILT",
+   "model": "579",
+   "year": "2022",
+   "raw_count": 7,
+   "can_related": [
+    {
+     "odi_number": 11761348,
+     "components": "SERVICE BRAKES, HYDRAULIC,ELECTRICAL SYSTEM",
+     "summary": "The contact owns a 2022 Peterbilt 579. The vehicle was previously repaired under NHTSA Campaign Number: 24V915000 (SERVICE BRAKES, HYDRAULIC, ELECTRICAL SYSTEM); however, the vehicle experienced the failure listed in the recall after the recall repair. The contact stated that while driving 22 MPH, the brakes failed to activate. There was no warning light illuminated. The vehicle was taken to a dealer to be diagnosed, and the contact was informed that the failure with the brakes was caused by a loss of communication between the ECM and the ECU. The contact was informed that the ECU was not installed on the vehicle, and the lane mitigation system was found unplugged. The vehicle was not repaired. The manufacturer was notified of the failure; however, the manufacturer refused to help due to how the vehicle was manufactured. The contact stated that the vehicle was manufactured improperly with salvaged parts and stated that the serial number for the engine was not a match for the original engine. The failure mileage was 526,000.",
+     "date_of_incident": "07/09/2025"
+    },
+    {
+     "odi_number": 11737845,
+     "components": "POWER TRAIN",
+     "summary": "After a decel to 20ish mph, the automated manual transmission attempted to shift into gear to begin acceleration. The transmission made load noises indicating a failure followed by a transmission warning with the fault code being 617 FMI 14. All acceleration and engine braking ability was disabled, increasing the risk of an accident due to the vehicle being disabled. A similar safety recall for the same vehicle would be NHTSA #24V-190 which causes the vehicle to become disabled and increase a crash risk. This is a known issue caused by compressed air contamination according to Eaton Transmissions service bulletin TAIB-1006, which was first published April 2023. In the over 3 years since the service bulletin was released, Eaton, Peterbilt, Paccar, and Cummins(engine manufacturers) have failed to develop adjusted maintenance intervals, added inspections, or additional filtration to prevent contamination of the transmissions air system. They've instead passed the financial burden of repair on the customers by denying warranties. The dealer determined based on TAIB-1006 that the MTM requires replacement and the air system cleaned of contamination. This was based on data and not a detailed inspection to determine the internal failure.",
+     "date_of_incident": "05/09/2026"
+    },
+    {
+     "odi_number": 11674544,
+     "components": "POWER TRAIN,ELECTRICAL SYSTEM",
+     "summary": "The contact owns a 2022 Peterbilt Conventional 579.  The contact stated while driving at an undisclosed speed, the transmission independently shifted to neutral. The vehicle was driven to the shoulder of the road. The vehicle was turned off and restarted, and the vehicle was independently reset. The vehicle was taken to the dealer; however, the contact was informed that a software update was ordered by the manufacturer. The software update was performed; however, the failure reoccurred. The contact was informed that there was no fix for the failure because the dealer was unable to determine the cause of the failure. The manufacturer was made aware of the failure and the dealer was instructed to perform the software update again. The failure mileage was approximately 540,000.",
+     "date_of_incident": "06/18/2025"
+    },
+    {
+     "odi_number": 11633660,
+     "components": "POWER TRAIN",
+     "summary": "The contact owns a 2022 Peterbilt 579. The contact stated that while driving at an undisclosed speed, the vehicle downshifted with multiple warning lights illuminated. The vehicle was restarted; however, the failure recurred. The contact received notification of NHTSA Campaign Number: 24V190000 (Power Train); however, the part to do the recall repair was unavailable. The dealer was contacted. The vehicle was taken to the dealer where it was diagnosed and determined that the gear shifter assembly had failed and needed to be replaced. The vehicle was not repaired. The contact was informed by the dealer that the parts were not available. The contact stated that the manufacturer had exceeded a reasonable amount of time for the recall repair. The manufacturer was not made aware of the failure. The approximate failure mileage was 220,536. VIN tool confirms parts not available.",
+     "date_of_incident": "01/02/2025"
+    },
+    {
+     "odi_number": 11507789,
+     "components": "POWER TRAIN",
+     "summary": "Drive line installed incorrectly. Fell out while driver was on the highway.",
+     "date_of_incident": "02/04/2023"
+    }
+   ]
+  },
+  {
+   "make": "PETERBILT",
+   "model": "579",
+   "year": "2023",
+   "raw_count": 3,
+   "can_related": [
+    {
+     "odi_number": 11711116,
+     "components": "POWER TRAIN",
+     "summary": "Peterbilt has a recall 24V190 for the right hand shifter stalk. This VIN is not on the recall list however it does have the defective shift stalk and has been replaced 3 times prior to the recall. The most recent replacement was 8/20/24 replaced with the same defective part #. How do I get this truck on the recall list?",
+     "date_of_incident": "12/12/2025"
+    },
+    {
+     "odi_number": 11523128,
+     "components": "POWER TRAIN",
+     "summary": "1. The components that malfunctioned were the \"engine/transmission match\" and \"transmission communications failure idle torque limit\". Yes, my unit is available for inspection at any time.   2. When I had to stop on the freeway due to heavy traffic, the gearshift would not budge, causing an even bigger traffic delay. I had to turn off/on my unit multiple times to be able to pull over, safely. If I were not able to change gears while on the road, it could create a big accident due to faulty parts.   3. Yes, my local Peterbilt is aware of this issue and ordered a \"right hand turn stalk shift\" (part# Q21-6155-211X) to fix the issue. I was told that this replacement part was out of stock and may need to wait up to 3 months for it. I called other Peterbilt's in CA but everyone was out of stock, with 20 to 30 trucks also waiting for the same part.  I even called Canada to see if they had parts, but they are also out of this particular part, with a long waitlist of trucks at their dealerships. Peterbilt had to recall the gearshifts on their units back in 2018: https://www.truckinginfo.com/278812/kenworth-peterbilt-trucks-recalled-for-transmission-gear-display  4. There were no prior indications that the gearshift needed inspection. The vehicle only indicated \"Transmission fault\" when the gearshift became stuck. When I put my unit in \"Drive\" the dashboard showed an \"!\" and when I put my unit in \"R\" the dashboard showed the unit was in \"Drive\". These incorrect messages/gear changes can be very dangerous.   My unit is a 2023 Peterbilt 579 with only 90K miles, there is no reason it would have a faulty gearshift and no reason why each dealership has a waitlist of 20-30 trucks waiting for this exact part. Paccar clearly did not learn from the 2018 recall 118-A. I believe Peterbilt is knowingly manufacturing faulty parts in an effort to make as many sales as possible.  These faulty parts need immediate attention but are completely out of stock nationally.",
+     "date_of_incident": "05/12/2023"
+    }
+   ]
+  },
+  {
+   "make": "KENWORTH",
+   "model": "T680",
+   "year": "2020",
+   "raw_count": 8,
+   "can_related": [
+    {
+     "odi_number": 11629546,
+     "components": "POWER TRAIN",
+     "summary": "Right-hand shift stalk between the shifter and the transmission is causing the vehicle to become disabled while stopped  and unable to go from forward to reverse. Also getting SPN 639 pop-up when communication has been lost between the engine control module (ECM) and  SAE J1939 data link. The check engine light illuminates,  and the ECM immediately logs the fault code. Have to depress brake pedal while stopped & cycle gear selector to get fault to clear to start engine . Message also displayed Transmission Fault Repair Required Find Service Center . Also had new spring clutch replaced in May of 2024. Truck has 525k miles on it .",
+     "date_of_incident": "12/06/2024"
+    },
+    {
+     "odi_number": 11628937,
+     "components": "POWER TRAIN",
+     "summary": "The clutch Spring on these trucks have been failing heavily. We have a couple more of these trucks and they all have the same issue. the housing for the clutch springs are cracked or damaged at less than 500,000 miles on a heavy duty truck. These clutches are supposed to last over 1MM miles. Its not a coincidence that every truck we have is failing at the same mileage. These clutches are made defective from the manufacturer. Its also a coincidence that the replacement clutches are not the original design and are of a newer design and brand. THIS is RED FLAGS!!!!",
+     "date_of_incident": "12/04/2024"
+    },
+    {
+     "odi_number": 11617225,
+     "components": "POWER TRAIN",
+     "summary": "My circumstances are EXACTLY as described in a release 12/19/2019 Tech Service Bulletin A002  I experienced the vibration in my steering wheel that caused me to be suspect that there was something wrong in the drive train. Upon further investigation. I noticed that an oil seal was leaking, and when I dug a little deeper, I noticed gears that were broken and shaved down and then stopped at a Kenworth corporate location upon which they told me that I needed to purchase the entire unit to fix it. I then decided that I was going to add some differential oil and drive at a speed of 45 miles an hour, which did not cause any vibration to Chicago, which was roughly 3 hours away from my location in Michigan upon which I would have more resources at my disposal. It is then that I learned of the technical service bulletin relating to my issue. I then took it to CIT trucks which is where I learned that you do not have to buy the complete unit that. The parts are available to be purchased to fix the issue. They did, however say that they would process the claim on behalf of this technical service bulletin. They advised me that the individual that they got a hold of seem to have an attitude about it and sometimes this happens whereas other times they will get a hold of somebody that will make an exception. Apparently they stated my situation is two months out of warranty from when my tractor was placed into service but it’s original owner. I am not in a position due to other issues that I have experience with the truck since purchasing it in June that I can afford this but more importantly, there is a known issue with the same exact identical problem that I experienced. I need help with my situation they need to be held accountable for what has gone wrong because it is not my fault.",
+     "date_of_incident": "09/26/2024"
+    },
+    {
+     "odi_number": 11604753,
+     "components": "POWER TRAIN",
+     "summary": "Throw out bearing failed prematurely. Truck only has 491,000 miles and has had a catastrophic failure resulting in a $29,000 repair bill. I have 4 other trucks like this and they are all showing signs of the same thing.",
+     "date_of_incident": "07/23/2024"
+    },
+    {
+     "odi_number": 11604756,
+     "components": "POWER TRAIN",
+     "summary": "The clutch has a loose spring, Fork is damaged. Throwout bearing worn.",
+     "date_of_incident": "05/20/2024"
+    },
+    {
+     "odi_number": 11491361,
+     "components": "SERVICE BRAKES,FORWARD COLLISION AVOIDANCE",
+     "summary": "This truck was breaking automatically, and no one was front of the truck, it was scary, I almost crashed with loaded trailer on my back, it has done it multiple times, and my traction light and stability light is on all the time and adaptive cruise control had turned off completely abs light comes on and off frequently,",
+     "date_of_incident": "10/27/2022"
+    },
+    {
+     "odi_number": 11320219,
+     "components": "VEHICLE SPEED CONTROL,SERVICE BRAKES",
+     "summary": "ON SUNDAY, THE 22ND OF MARCH, I WAS TRAVELING SOUTH ON US HWY 45. THE SKY WAS CLEARING AND THE ROAD WAS DRY. I HAD MY CRUISE SET TO 65 MPH. AS I APPROACHED AN OVERPASS, THE DISTANCE SENSOR ON THE FRONT OF THE TRUCK MISTOOK THE SHADOW OF THE OVERPASS AS A STOPPED VEHICLE. WARNING LIGHTS AND BUZZERS WENT OFF AND THE VEHICLE DID A HARD BRAKE. LUCKILY, THERE WERE NO OTHER VEHICLES AROUND ME. I TOOK IT TO OUR SHOP AND THE SYSTEM WAS CLEANED. FOUR DAYS LATER, THE SENSOR MISTOOK AN OVERHEAD INTERSTATE SIGN FOR A STOPPED VEHICLE. AGAIN, THE WARNING LIGHTS AND BUZZERS AND A HARD BRAKE. KENWORTH TECHS WERE SENT OUT TO OUR SHOP TO MAKE REPAIRS. EVERY ONE OF OUR DRIVERS THAT I HAVE SPOKEN TO HAVE EXPERIENCED THE SAME THING MULTIPLE TIMES. THIS IS DANGEROUS. IF SOMEONE HAD BEEN FOLLOWING ME, THEY WOULD HAVE REAR-ENDED MY TRAILER.",
+     "date_of_incident": "03/22/2020"
+    }
+   ]
+  },
+  {
+   "make": "KENWORTH",
+   "model": "T680",
+   "year": "2021",
+   "raw_count": 0,
+   "can_related": []
+  },
+  {
+   "make": "KENWORTH",
+   "model": "T680",
+   "year": "2022",
+   "raw_count": 2,
+   "can_related": [
+    {
+     "odi_number": 11731193,
+     "components": "SERVICE BRAKES,FORWARD COLLISION AVOIDANCE",
+     "summary": "I drive a 2022 Kenworth T680 equipped with a Bendix collision mitigation / automatic emergency braking system. On multiple occasions, the system has applied the service brakes hard with no real obstacle in front of the truck, creating a serious rear‑end collision risk for vehicles behind me. The events typically occur in rain, fog, or under overpasses and signs at highway speeds with cruise control engaged. The truck suddenly brakes without warning or driver input, dropping speed rapidly in the travel lane while traffic is following. I have documented dates, locations, weather, and traffic conditions for these incidents. In each case, there was no stopped or slowing vehicle in my lane that justified automatic emergency braking. This appears to be a “false positive” AEB activation similar to those NHTSA is already investigating on other Class 8 tractors, where the system misidentifies harmless objects or roadway features and commands an unnecessary stop. These false activations put me and other motorists at risk of a rear‑end crash. The dealer has indicated they are limited in how much they can disable the system for liability reasons, so I am submitting this as a safety defect report and requesting that NHTSA investigate this behavior on Kenworth T680 trucks with this collision mitigation system.",
+     "date_of_incident": "04/09/2026"
+    }
+   ]
+  },
+  {
+   "make": "KENWORTH",
+   "model": "T680",
+   "year": "2023",
+   "raw_count": 9,
+   "can_related": [
+    {
+     "odi_number": 11718845,
+     "components": "POWER TRAIN",
+     "summary": "I have 2 Kenworth trucks VIN [XXX]  and [XXX]  both on recall NHTSA 24V190. The recalls have been performed my issue is with reimbursement for prior replacement for the recalled parts. I have attached emails from Paccar as well as the invoices for the replacement of the recalled parts. Any help you can provide is appreciated as I'm not getting anywhere with Paccar or the dealers. INFORMATION REDACTED PURSUANT TO THE FREEDOM OF INFORMATION ACT (FOIA), 5 U.S.C. 552(B)(6)",
+     "date_of_incident": "01/12/2026"
+    },
+    {
+     "odi_number": 11621540,
+     "components": "SERVICE BRAKES, AIR,POWER TRAIN",
+     "summary": "The contact owns a 2023 Kenworth T680 with the camper attached. The contact stated that the ABS warning light was illuminated before the failure. The contact stated that while standing behind the passenger side seat in between the sleeper portion and the cab, there was an abnormally loud popping sound detected. The vehicle began to move and crashed into the door of an unknown tractor-trailer cab. The vehicle had been parked for approximately 45- 60 minutes before the crash. The contact had to seek medical assistance from a therapist due to the incident. There was no report of fire, airbag deployment, or police report filed. The local dealer was not contacted. The vehicle was not diagnosed or repaired. The manufacturer was not contacted. The failure mileage was approximately 25,000.",
+     "date_of_incident": "07/18/2024"
+    },
+    {
+     "odi_number": 11606528,
+     "components": "POWER TRAIN",
+     "summary": "The contact owns a 2023 Kenworth T680. The contact received notification of NHTSA Campaign Number: 24V190000 (Power Train) however, the part to do the recall repair was not yet available. The local dealer was contacted. The contact stated that the manufacturer had exceeded a reasonable amount of time for the recall. The contact stated that while driving at an undisclosed speed, the transmission was not operating properly. The contact stated that the vehicle downshifted unexpectedly with the transmission fault warning light illuminated. The vehicle was restarted; however, the failure recurred. The dealer was contacted; however, the vehicle was not repaired. The manufacturer was made aware of the failure. The failure mileage was approximately 338,388. The VIN was not available.",
+     "date_of_incident": "08/05/2024"
+    },
+    {
+     "odi_number": 11524865,
+     "components": "LANE DEPARTURE",
+     "summary": "The contact's employer owns a 2023 Kenworth T680. The contact stated that while driving at 55 MPH with the Lane Departure Mitigation System activated, and the brakes were applied unintendedly. The vehicle was not diagnosed or repaired. The manufacturer was not notified of the failure. The failure mileage was approximately 135,000.",
+     "date_of_incident": "05/15/2023"
+    },
+    {
+     "odi_number": 11499511,
+     "components": "POWER TRAIN,TRACTION CONTROL SYSTEM",
+     "summary": "The contact owns a 2023 Kenworth T680. The contact stated that the dealer previously repaired the vehicle under NHTSA Campaign Number: 22V547000 (Steering). The contact stated that while driving at an undisclosed speed, the ABS, traction control, transmission, and hill assist warning lights illuminated. The dealer was made aware of the failure but provided no assistance. The vehicle was not diagnosed or repaired. The manufacturer was made aware of the failure. The failure mileage was approximately 109,000.",
+     "date_of_incident": "12/29/2022"
+    }
+   ]
+  },
+  {
+   "make": "INTERNATIONAL",
+   "model": "LT",
+   "year": "2020",
+   "raw_count": 2,
+   "can_related": [
+    {
+     "odi_number": 11524828,
+     "components": "FORWARD COLLISION AVOIDANCE",
+     "summary": "The contact owns a 2020 International LT625 Truck. The contact stated that while driving at an undisclosed speed, the vehicle experienced unintended braking. The contact stated that the Forward Collision Avoidance warning light illuminated; however, the contact stated there was no object nearby or in the roadway. The vehicle was taken to the dealer, where Forward Collision Avoidance sensors were recalibrated; however, the failure recurred. The manufacturer was made aware of the failure. The failure mileage was approximately 290,000.",
+     "date_of_incident": "08/15/2021"
+    }
+   ]
+  },
+  {
+   "make": "INTERNATIONAL",
+   "model": "LT",
+   "year": "2021",
+   "raw_count": 2,
+   "can_related": [
+    {
+     "odi_number": 11514699,
+     "components": "SERVICE BRAKES,FORWARD COLLISION AVOIDANCE",
+     "summary": "The brake assist malfunctioned causing the brakes to abruptly stop without cause or warning. When the braking system abruptly stopped it caused a jack knife and lost of a trailer on a congested highway with vehicles in all lanes, I was able to finally get control of the tractor with out causing contact or injury with other vehicles and the rear trailer broke free and rolled back and landed in the grass that divided the highways. I injured myself and had to have surgery. The tractor was taken to a shop 4 days after the accident. They found that the module for abs ec80 had blocked radar and data link faults for camera, radar  & camera was not properly installed. Rush truck center told the company that they needed to drive tractor on a long drive to recreate issues, but the company denied to go forward and picked the tractor up.",
+     "date_of_incident": "05/25/2022"
+    },
+    {
+     "odi_number": 11442614,
+     "components": "STRUCTURE,ENGINE,FUEL/PROPULSION SYSTEM",
+     "summary": "I drive tractor trailer for JB Hunt.  Over the last 4 Years, the three trucks I have been assigned to have had exhaust leaks that vented into the cab.  One was a Freightliner (approx 2017 model), and two have been Internationals.  These exhaust leaks caused me medical problems, requiring that I take off time unscheduled.  The last three trucks I have been assigned to have had exhaust leaks into the cab.  Some leaks I only found with a thermal camera. The exhaust leaks are not the main problem.  The problem is that design of these trucks cause any leaking engine gases to be pushed into the cab of the truck, mostly through the air conditioning/heater vents.   I have tested this. I zip tied a can of orange air freshener under the hood.  The can was positioned in such a way as to point away from the air intake box, toward the back of the engine.  When driving at highway speed, the orange air freshener was very strong coming into the cab from the a/c vents. The truck is supposed to be getting the fresh air from outside the truck, and forward of where the air freshener was spraying.  I originally thought the only problem was that the cabin air intake box is located under the hood, in immediate proximity to all of the leaks.  This in itself is a poor design.  Even with duct tape over the openings into the cabin air box, any gases (or air freshener) is immediately pulled into the cab through the a/c and heat.  I have no idea how this occurs.  The design of the trucks allows any leaking gases under the hood to come directly into the cab.  This applies to Freightliners and Internationals.  They have the same basic design, and by experience I can say that both perform the same way. The hoods on both truck makes are designed with dedicated pathways to provide pure outside air for the intake of the ENGINE.  The air provided to the driver comes from an unsealed airbox located under the hood.   The main problem is not the leaks but that they get vented into the driver's cabin. The",
+     "date_of_incident": "10/14/2021"
+    }
+   ]
+  },
+  {
+   "make": "INTERNATIONAL",
+   "model": "LT",
+   "year": "2022",
+   "raw_count": 2,
+   "can_related": []
+  },
+  {
+   "make": "INTERNATIONAL",
+   "model": "LT",
+   "year": "2023",
+   "raw_count": 1,
+   "can_related": [
+    {
+     "odi_number": 11560239,
+     "components": "POWER TRAIN",
+     "summary": "The contact owns a 2023 International LT. The contact stated that the fuel economy feature inadvertently shifted the vehicle out of the intended gear. The contact stated that the vehicle remained in neutral. There were no warning lights illuminated. The local dealer was not contacted. The vehicle was not diagnosed or repaired. The manufacturer was notified of the failure, but no assistance was provided. The failure mileage was approximately 1,000. The VIN was not available.",
+     "date_of_incident": "03/01/2023"
+    }
+   ]
   }
  ],
  "complaints": [
@@ -53058,6 +53640,432 @@
    "components": "ELECTRICAL SYSTEM,STRUCTURE,FUEL/PROPULSION SYSTEM",
    "summary": "The gas door on the vehicle would not open. It is locked when the vehicle is locked, and is unlocked when the vehicle is unlocked. The gas door opens by pushing the door, and the door will pop open. After repeatedly locking and unlocking the vehicle, the gas door still would not open. I ended up prying the door open, breaking it off in the process.",
    "date_of_incident": "11/24/2021"
+  },
+  {
+   "odi_number": 11645885,
+   "components": "ELECTRICAL SYSTEM",
+   "summary": "I have experienced this issue a few times, and so have several acquaintances who drive the same make and model of truck as I do. Whenever it rains or I go through a truck wash, the starter shifter blocked comes on the screen while driving, causing the RPMs to fluctuate and resulting in a complete loss of power to the vehicle. One dealership informed me that this is a common problem, attributed to moisture seeping into a harness located near the transmission. Tried connecting the truck to a computer so see fault codes nothing comes up because it's a glitch and clears out. This situation poses a serious risk, as it could potentially lead to a fatal accident. With no proof of the malfunction.",
+   "date_of_incident": "03/02/2025"
+  },
+  {
+   "odi_number": 11632316,
+   "components": "ENGINE AND ENGINE COOLING,ENGINE,FUEL/PROPULSION SYSTEM",
+   "summary": "Subject: Complaint Regarding Illegal Practices by Lemberg Group   My name is [XXX] , and I am currently employed as a driver for Lemberg Group. I operate a white Freightliner Cascadia truck, unit number [XXX]. I am writing to formally report illegal practices being conducted by Lemberg Group that violate environmental regulations and federal transportation safety laws. These practices not only jeopardize public safety but also put drivers like myself in unsafe and unlawful situations.  Company Information: •Company Name: Lemberg Group •USDOT Number: 2395323 •Address: 1051 E Main St, Suite 108, East Dundee, IL 60118 •Phone: (630) 626-0686 •Owner: Greg Shpak (Russian Name: Yegor Shpak) •Email: greg@lembergtrans.com  Violations Reported: 1.Tampering with DEF Systems The company has intentionally disabled Diesel Exhaust Fluid (DEF) systems on certain trucks through software manipulation, violating environmental laws under the Clean Air Act and contributing to harmful emissions. •Truck Details Without DEF Systems: •Freightliner Cascadia, Unit Number [XXX], white. •Freightliner Cascadia, Unit Number [XXX], white. License Plate: [XXX]  VIN: [XXX]  Year: 2020   I respectfully request that the relevant authorities investigate Lemberg Group’s practices and take the necessary enforcement actions to ensure compliance with safety and environmental laws. These violations are severe and pose significant risks to public safety and the environment.  Sincerely, [XXX]   INFORMATION REDACTED PURSUANT TO THE FREEDOM OF INFORMATION ACT (FOIA), 5 U.S.C. 552(B)(6)",
+   "date_of_incident": "11/30/2024"
+  },
+  {
+   "odi_number": 11621849,
+   "components": "SERVICE BRAKES,FORWARD COLLISION AVOIDANCE",
+   "summary": "While driving on the highway on cruise at 70mph the right front brakes locked up. The day was clear. I was driving across a bridge. The truck pulled to the right and I fought to pull it back on to the road. My company has the incident on camera. I was pulling a loaded tanker. Had the pavement been wet or snowy I could have easily jack knifed. If a vehicle would have been next to me I would have struck them. The vehicle was inspected by our mechanic and was told the system was within specs. The truck has also hard braked and pulled to the right when vehicles in the lane next to it are turning.",
+   "date_of_incident": "08/09/2024"
+  },
+  {
+   "odi_number": 11570495,
+   "components": "SERVICE BRAKES,FORWARD COLLISION AVOIDANCE",
+   "summary": "A collision avoidance system (CAS), also known as a pre-crash system, forward collision warning system (FCW), or collision mitigation system, is an advanced driver-assistance system designed to prevent or reduce the severity of a collision. System applied brakes bringing our Unit to a complete stop traveling 55 MPH on an Interstate while making a lane change, Because of this our Unit was rear-ended by another CMV, On board cameras video on both V1 and V2 clearly show incident. A print out of the DDEC shows code for braking system control at exact time of incident. In our fleet we have the same 2020 Freightliner Cascadia with this system and in trying to maintain the safety of our drivers and equipment no to mention our Insurance cost and CSA scores, This is a major issue as you can see on the Web the many cases and stories of these same incidents happening. Direction is needed   Thank You",
+   "date_of_incident": "12/11/2023"
+  },
+  {
+   "odi_number": 11547088,
+   "components": "UNKNOWN OR OTHER,SERVICE BRAKES,FORWARD COLLISION AVOIDANCE",
+   "summary": "Semi was traveling on the highway and transporting a 48,000 pound steel coil. The steel coil was secured with 4 chains. The automatic emergency braking system engaged with nothing in front of the vehicle, causing it to suddenly come to a dead stop in traffic. This caused the steel coil to break free of its bounds, crash through the trailer and into the vehicle cab, trapping the driver.",
+   "date_of_incident": "08/15/2023"
+  },
+  {
+   "odi_number": 11522762,
+   "components": "SERVICE BRAKES,FORWARD COLLISION AVOIDANCE",
+   "summary": "Ascending Tehachapi Pass CA Hwy 58 Eastbound in the left lane  grossing 45,000lbs and traveling at 55mph with cruise control ON. I was passing another slower moving truck(~35-40mph). Before I came along the other vehicle the highway curved to the left. The Collision Aviodance System(CAS) didn't alarm, however the cruise control cut power and Automatic Emergency Braking(AEB) hardbraked my truck reducing the speed from 55mph to 40-45mph. This was sudden and unexpected. Once I determined the issue, I applied throttle overriding the AEB/CAS. However my forward momentum was lost and accelerating uphill was slow.  It was midday and clear skies. No one was following me fortunately, but sudden and unexpected braking could have had a vehicle tailing too closely(It was an uphill grade with a speed limit of 65 mph for POV)  rear-end my trailer(48 foot stepdeck trailer).  Please explain to me how CAS/AEB are safety systems for a CMV?!? This is the 4th report I have filed with NHTSA about the same Freightliner Cascadia tractor. According to the vehicle operating Manual that this occurrence of unexplained and unwarranted braking is a \"feature\" of this \"safety system\". Meaning that the CAS/AEB was functioning as designed(A flawed designed in my professional opinion).  I have been contacted by the NHTSA about previous filed report about an ongoing investigation with the manufacturer. What action is this agency going to take? Will there be an investigation when the system performs as designed causing an avoidable accident, injury, or death? Will I be a defendant, witness, or victim?  Sincerely,  [XXX] Junction City, Oregon   INFORMATION Redacted PURSUANT TO THE FREEDOM OF INFORMATION ACT (FOIA), 5 U.S.C. 552(B)(6).",
+   "date_of_incident": "05/17/2023"
+  },
+  {
+   "odi_number": 11521957,
+   "components": "ELECTRICAL SYSTEM",
+   "summary": "The computer system that logs and keeps track of hours is not working properly.  The wires are I guess are messed up.  Is that dangerous?  My hubby works at the Walmart dc and he said  a girl slipped and got a bad spinal injury from the flooring not being non-skid.",
+   "date_of_incident": "05/01/2023"
+  },
+  {
+   "odi_number": 11513719,
+   "components": "SERVICE BRAKES,FORWARD COLLISION AVOIDANCE",
+   "summary": "On Off ramp I-40 W Segliman, AZ there was a cattle guard 10 feet before Stop sign. I was braking for Stop Sign. AEB(aka CAS Collision Aviodance System) detected the cattle guard grate as obstruction, not something flat of the pavement, and apply maximum braking(Note: I was already braking). It had been snowing that night thou at this location the road was dry. Unnecessary panic braking by automated system can cause lose of control of vehicles on wet and icy surfaces. How is it safe for the AEB/CAS system to over ride the operator's action? Doesn't the CDL driver who is a trained and licensed professional have the ability to identify and take appropriate action, in this case a cattle guard grate wasn't a safety concern, whether to brake or avoid the obstacle? I have had numerous instances that I have and haven't reported to NHTSA of the deficiencies of the AEB/CAS falsely reading the conditions and taking the incorrect action. Sincerely,  [XXX] AX Transportation   INFORMATION Redacted PURSUANT TO THE FREEDOM OF INFORMATION ACT (FOIA), 5 U.S.C. 552(B)(6).",
+   "date_of_incident": "03/23/2023"
+  },
+  {
+   "odi_number": 11505866,
+   "components": "STEERING,VEHICLE SPEED CONTROL,FORWARD COLLISION AVOIDANCE",
+   "summary": "Multiple safety issues with truck  #1 When driving & using cruise control (CC) at 60 mph & truck is at that speed (60 mph) truck is moving from top speed to E coast mode. Immediately RPM is down (from 1250 to 600) & steering wheel is much harder b/c reduced power from engine . Response time for driver to avoid potential hazardous situations on the road (i.e. animals, rocks, trees, etc.) is longer & not safe   #2 This problem is related to when truck is in regen. In driving, and when truck is doing regen (visible on the dash: high temp light/ icon). CC set to (60 mph) when truck is at that speed (60 mph) truck goes to E coast mode. RPM is going down to 600 RPM which is not adequate engine speed to finish regen. With regen interrupted there is a lot of white smoke under the truck and red light for engine shut down is on the dash. There is 30 seconds time to override shut down but at the same time the driver needs to safely park the truck on the shoulder, on a busy highway, with reduced power and steering wheel (600 RPM or no power at all because engine shut down). With high DPF temperature,there is potential for fire (truck,grass,trees ). I am told engine shut down was caused by interrupted regen process.   #3  Collision warning is coming with no reason, and can activate active brake, at high speed. Radar malfunction (snow, ice in the front)can cause malfunction to adaptive cruise control, active brake assist, & malfunction other safety features. Combination of malfunction (radar, active break assist, collision warning, IPM [intelligent powertrain management], engine break not engaging) can cause dangerous acceleration for heavy loaded truck.   I contacted DTNA (Daimler Truck North America) in regard to these issues & am told in order to solve these issues the truck should be inspected where mechanics and programmers are involved. At the same time I spoke with the company I work for about safety issues with those trucks.  You can contact me for further information.",
+   "date_of_incident": "05/13/2022"
+  },
+  {
+   "odi_number": 11498496,
+   "components": "ELECTRICAL SYSTEM,TIRES",
+   "summary": "The contact owns a 2020 Freightliner Cascadia. The contact stated that while driving at various speeds, the low tire pressure alarm sounded at 120 PSI. The contact stated that there was an abnormal buzzing sound detected. The contact stated that the air pressure alert should engage at 60 PSI. The vehicle was taken to the dealer however, the mechanic was unable to duplicate the failure. The vehicle was not diagnosed or repaired. The manufacturer was not contacted. The failure mileage was approximately 400,000.",
+   "date_of_incident": "02/01/2022"
+  },
+  {
+   "odi_number": 11485792,
+   "components": "FORWARD COLLISION AVOIDANCE",
+   "summary": "CAS actived with a Collision Warning and applied hard braking for about 1/2 second for a vehicle that stopped in a paved turnout. The stopped vehicle was not in the travel lane. There was a slight left curve and I could see the stopped vehicle. I thought the CAS May trip because I had experience FALSE Collision Warnings many times in the 88,000 miles I have driving this truck. Before the CAS Collison Warning alerted, I was not in cruise control and was accelerating with the throttle. As stated before the CAS applied hard braking for 1/2 second.  I have read the Driver’s Manual about the Driver Assist, Active Braking Assist(CAS) Section 5. On page 5.6 Table 5.2 is says that the above situation can trigger Collision Warning and braking. This may be so, however this has on numerous occasions FALSE Warnings, applied partial braking, and 3 times emergency braking for vehicles that were not traveling in my lane. Earlier this year, Freightliner had a road service mechanic in my company yard to verify that current software and working Driver Assistance Systems on our fleet of trucks. Mechanic determined that this truck was up to date and no recalibration was required. I’m very concerned that the CAS will activate in poor weather conditions, causing a lost of control of the vehicle OR I maybe rear ended by a following vehicle when there is no reason for my vehicle to be stopping. I cannot have the CAS deactivated because it would violate manufacturer, company, and insurance policies.",
+   "date_of_incident": "09/21/2022"
+  },
+  {
+   "odi_number": 11474018,
+   "components": "SERVICE BRAKES,FORWARD COLLISION AVOIDANCE",
+   "summary": "Wednesday 13 July, 2022 6:45pm PDT. Location US395 Lakeview, OR. Collision Avoidance System(CAS) applied maximum AEB braking for a false detection of obstruction in my travel lane. I was following a pickup and horse trailer at about 45mph. The pickup signaled a left turn and slowed. I applied minimum braking. The pickup and trailer turned clearing my travel lane(the tail end of the trailer was in the opposing lane). At this moment the CAS detected a collision warning(I was still applying some braking) and the AEB slammed on the brakes for about half second then canceled. The CAS has falsely detects numerous incidents a day for the 7 months I have driven this truck. The above incident has been the most severe. Other false incidents range from warning(without braking), cutting power to engine, to applying some amount of braking. At NO TIME during this period did the CAS detected a true obstruction.  Manufacturer has checked that truck's system software is current and properly calibrated.",
+   "date_of_incident": "07/13/2022"
+  },
+  {
+   "odi_number": 11444204,
+   "components": "SERVICE BRAKES, AIR,SERVICE BRAKES",
+   "summary": "SHOW ABS NOT WORKING SERVICE REQUIRED ABS DETECTED INTERNAL PROBLEM,AND MAY NEED REPROGRAMMING OR REPLASEMENT STABILLY CONTROLS NOT WORKING SERVICE REQUIRED  Error CODE 520247  31  ERROR CODE 1810",
+   "date_of_incident": "07/09/2021"
+  },
+  {
+   "odi_number": 11435928,
+   "components": "FORWARD COLLISION AVOIDANCE",
+   "summary": "The contact state that the Detroit Assurance Safety System radar failed.  When the contact drove a Freightliner Cascadia at 65 to 68mph south on the New York state freeway howling two 48-foot trailers. The contact stated that the Detroit Assurance Safety System detected an object and locked the brake and steering pushed the tractor and trailers abruptly swing to the right causing the trailers Tai to whiplash. The contact was able to keep the unit from crashing into the guard rail and tipping over. The contact was able to press the camera button and the red light went off. The contact doesn’t remember the Freight liner Cascadia year truck he was driving the truck was put out of service. The contact also wanted to state that the Detroit Assurance Safety System radar failure occurred twice.",
+   "date_of_incident": "07/07/2021"
+  },
+  {
+   "odi_number": 11408007,
+   "components": "EQUIPMENT,FORWARD COLLISION AVOIDANCE",
+   "summary": "I DRIVE A 2020 FREIGHTLINER CASCADIA EQUIPPED WITH THE MERITOR WABCO ON GUARD COLLISION MITIGATION SYSTEM. THIS SYSTEM ROUTINELY SIGNALS AN IMPENDING COLLISION AND APPLIES THE BRAKES, SOMETIMES IN A VERY AGGRESSIVE WAY, FOR NO REASON WHATSOEVER. IT HAPPENS AT LEAST ONCE EVERY SINGLE DAY. THE SYSTEM TAKES COMPLETE CONTROL OF THE VEHICLE BRAKING SYSTEM AND THERE IS NO WAY FOR THE DRIVER TO STOP THE HARD APPLICATION OF THE BRAKES. I HAVE COMPLAINED TO MY LOCAL DEALERSHIP ABOUT THIS PROBLEM AND HAVE BEEN TOLD THAT ALL ON GUARD CMS SYSTEMS DO THIS OCCASIONALLY. I BELIEVE THIS SYSTEM IS UNSAFE AND MERITOR WABCO SHOULD BE COMPELLED TO FIX THIS ISSUE.",
+   "date_of_incident": "04/14/2021"
+  },
+  {
+   "odi_number": 11329834,
+   "components": "ELECTRICAL SYSTEM",
+   "summary": "WHEN MY TRUCK DRIVING ON THE HIGH WAY WITH 70 MILES PER HOUR. THE CLUTCH FAN KICK IN - CRUISE CONTROL AUTOMATICALLY CANCEL - GEAR IN AND OUT. RPM ROSE UP AND DOWN FAST FROM IDLE TO THE CURRENT SPEED. IT BROUGHT TO DEALER TWICE BUT THEY SAID MY TRUCK IS RUNNING FINE. THERE IS NO LIGHT COME ON. 1ST TIME TOOK TO DEALER AT 54000 MILE, 2ND AT 63000. NOW IT IS 70,000 MILES.  *TR",
+   "date_of_incident": "06/20/2020"
+  },
+  {
+   "odi_number": 11326113,
+   "components": "UNKNOWN OR OTHER,FORWARD COLLISION AVOIDANCE",
+   "summary": "AUTOMATIC EMERGENCY BRAKING SYSTEM ACTIVATING WHEN IT SHOULD NOT BE. COMPANY SAYS TRUCK IS NOT SHOWING A BRAKING EVENT ON THEIR END EITHER THIS HAS HAPPENED ATOTAL OF 3 TIMES. THE TRUCKS LANE GUIDANCE SENSOR IS GOING OFF EVEN WHEN THERE'S NO LINE TO GUIDE IT AND THE TRACTION SENSOR COMES ON EVEN WHEN IT DOESN'T BREAK TRACTION.  *TR",
+   "date_of_incident": "05/25/2020"
+  },
+  {
+   "odi_number": 11193866,
+   "components": "VEHICLE SPEED CONTROL,COMMUNICATION",
+   "summary": "TL* THE CONTACT OWNS A 2020 FREIGHTLINER CASCADIA. WHILE DRIVING WITH THE CRUISE CONTROL ENGAGED, THE VEHICLE UNINTENTIONALLY ACCELERATED. ALSO, THE CRASH WARNING ICON ILLUMINATED ALTHOUGH THERE WAS NO OBJECT IN FRONT OF THE VEHICLE. THE VEHICLE WAS TAKEN TO PENSKE TRUCK RENTAL (1405 GLENDALE AVE, SPARKS, NV 89431, (775) 359-6226) TO BE DIAGNOSED, BUT THE CAUSE OF THE FAILURES COULD NOT BE DETERMINED. THE VEHICLE WAS NOT REPAIRED. THE MANUFACTURER WAS NOT MADE AWARE OF THE FAILURES. THE FAILURE MILEAGE WAS 4,766. CONTACT ALSO ALLEGED LOSS OF POWER STEERING ASSIST WHEN TURNING LEFT AT A LOWER SPEED THAT REQUIRED ADDITIONAL STEERING EFFORT.",
+   "date_of_incident": "03/25/2019"
+  },
+  {
+   "odi_number": 11569193,
+   "components": "FORWARD COLLISION AVOIDANCE",
+   "summary": "While vehicle approached a hazard blocking the roadway the forward collision and automatic braking feature did not engage; apparently due to the vehicle sensors not recognizing the hazard. The object in the roadway was a 53 ft van trailer that was laid on it's side with the translucent roof facing the approaching vehicle.",
+   "date_of_incident": "12/14/2023"
+  },
+  {
+   "odi_number": 11561665,
+   "components": "STEERING,ELECTRICAL SYSTEM,SERVICE BRAKES",
+   "summary": "When driving, there is a constant and very strong vibration throughout the entirety of the truck. This makes it difficult to steer and drive in a safe manner. I've replaced any parts that might be associated with this malfunction with brand new parts at the advice of professional mechanics (cost over $30,000) and it was to no avail. The truck is still malfunctioning and I have been left unable to work or barely working for 14 months. The vibration has caused many health concerns, like headaches, nausea, and stomach ulcers. I went to over 10 dealers and there has been no solutions that have worked.",
+   "date_of_incident": "10/10/2022"
+  },
+  {
+   "odi_number": 11530297,
+   "components": "UNKNOWN OR OTHER,SERVICE BRAKES,ENGINE",
+   "summary": "My Emplyoer has not fixed anything on the truck, the truck shouldn’t be  operating, doesn’t meet DOT Regulations, I was told not to go into any scales or weigh stations, loses air and the air doesn’t build back up properly, I lost all air in my breaks while driving on the road",
+   "date_of_incident": "06/01/2023"
+  },
+  {
+   "odi_number": 11529649,
+   "components": "FORWARD COLLISION AVOIDANCE",
+   "summary": "I'd like to report the automatic braking device on our company semi tractor. I work for a large mega carrier hauling all types of freight, with triples and doubles combination trailers. We operate with Freightliners, Kenworths, and Internationals. The tractor tractor I use is a 2021 Freightliner equipped with a safety feature, an automatic braking system to avoid collisions for stopped or slowed traffic ahead. The issue is, it randomly brakes with no obstructions ahead. I've seen reports that you guys are looking into this. And I'm also informing you that our trucks deal with this issue as well. There's no defect warnings on the device's monitor system. No previous accidents that would cause issues to the device to have faulty sensor. The problem with the system, it sees a shadow on the road and it thinks theres a stopped vehicle, forcing the truck to hard apply the brakes. This can be extremely dangerous on inclement weather, more so on icy conditions. Few weeks ago, I traveled through the same part of the toll road like I always do, I know this spot activates the brakes 70-85% of the time during the night. That night, my trailers ABS light was on, when I approached the bad spot, all my brakes activated and almost caused my truck to jack-knife, lost full control but didn't crash, nor was anyone near me. But it would've been a different outcome if it was bad weather. When I approach this area, I always turn on my high beams to try to eliminate the shadow on the road. Where this happens: Indiana Toll Road 80-90, Elkhart IN, West bound lanes, right before exit 92. The overpass that causes this shadow is Johnson Street. You can see on Google street maps, where other trucks have had automatic braking activated, from seeing tire marks on the road. The lights around create that shadow at night. I would just like to inform you guys of my experiences. I have also reached out to INDOT about the issue, not sure if they looked into it. Reporting before a crash could happen.",
+   "date_of_incident": "06/28/2023"
+  },
+  {
+   "odi_number": 11524581,
+   "components": "FORWARD COLLISION AVOIDANCE",
+   "summary": "The contact owns a 2021 Freightliner Cascadia. The contact stated while driving 65 MPH with the cruise control activated, the brakes applied independently. The contact took the vehicle to the local dealer, where it was diagnosed with needing the calibration of the radar. The vehicle was repaired but experienced the failure within a week. The contact took the vehicle back to the local dealer, where it was diagnosed with needing the radar to be replaced. The vehicle was repaired but continued to experience the same failure within a month. The contact took the vehicle back a third time to the local dealer, where it was diagnosed with needing the recalibration of the radar. The vehicle was repaired but continued to experience the failure intermittently. The contact called the local dealer and made them aware of the failure. The vehicle was not repaired. The manufacturer had not been informed of the failure. The failure mileage was approximately 215,000.",
+   "date_of_incident": "04/20/2022"
+  },
+  {
+   "odi_number": 11485349,
+   "components": "SUSPENSION,FORWARD COLLISION AVOIDANCE",
+   "summary": "This complaint is being filed in addition to my previous complaint which is complaint #1147128511471285.  Both left and right vehicle airbag suspension height regulators were just replace a month ago, and once again, the right side airbag ride height regulator has blown apart, causing my semi truck to lean heavily to the right side, and wear out my right front steer tire exceedingly fast. And, the radar braking system erratically slams the brakes on at random times, which could cause a catastrophic accident. Imagine hauling an 80,000 lb. load, and the truck just decides to slam on the brakes, in a corner, in the rain, or in the snow. You’re riding a very thin line between life and death. Freightliner will now be sued for negligence, embezzlement, fraud, and loss of use of my truck. My truck just spent 40 days at the Freightliner Dealership for several Factory Safety Recalls, and they just replaced both airbag ride height control vale’s, because they both failed.  If this isn’t a clear cut case of the Federal Lemon Law, nothing is.",
+   "date_of_incident": "09/19/2022"
+  },
+  {
+   "odi_number": 11631506,
+   "components": "ELECTRICAL SYSTEM,FORWARD COLLISION AVOIDANCE",
+   "summary": "ABS system is shutting causing all safety systems to shut down including cruise control.  Freightliner is overlaying the harness for abs sensors at the owners expense.  There should be a recall for them to fix this issue.  They are very aware of what's going on and are doing nothing to fix the issue.",
+   "date_of_incident": "12/01/2024"
+  },
+  {
+   "odi_number": 11622158,
+   "components": "ENGINE",
+   "summary": "The flex flang behind the turbocharger has broken off. This lets the hot exhaust gases blow directly onto the underside of the cab and onto electrical wires. And other parts of the truck",
+   "date_of_incident": "10/27/2024"
+  },
+  {
+   "odi_number": 11550118,
+   "components": "SERVICE BRAKES, AIR,FORWARD COLLISION AVOIDANCE",
+   "summary": "The contact owns a 2022 Freightliner Cascadia. The contact received notification of NHTSA Campaign Number: 22V817000 (Service Brakes, Air, Forward Collision Avoidance) however, the part to do the recall repair was unavailable. The contact stated that the manufacturer had exceeded a reasonable amount of time for the recall repair. The contact stated while driving at various speeds, the Axiomatic Braking System independently activated. The failure had occurred approximately 15 times and occurred intermittently. The contact took the vehicle to the dealer who confirmed that it was a known issue. The vehicle had not been diagnosed or repaired. The manufacturer was not made aware of the issue. The approximate failure mileage was 115,629. Parts distribution disconnect.",
+   "date_of_incident": "11/16/2021"
+  },
+  {
+   "odi_number": 11532293,
+   "components": "SERVICE BRAKES, AIR",
+   "summary": "The contact owns a 2022 Freightliner Cascadia. The contact stated while reversing at 10 MPH, the brake caliper seized and the two front driver’s side inside tires exploded. The vehicle was taken to the dealer and diagnosed with front brake modulator failure. The contact was informed that the front brake modulator valve needed to be replaced. The vehicle was not repaired. The manufacturer was made aware of the failure. The contact stated that she had contacted the dealer and the manufacturer about the failure and was informed by the manufacturer that the VIN was included in NHTSA Campaign Number: 22V817000 (Service Brakes, Air, Forward Collision Avoidance) however, the dealer would not honor the recall repair. The failure mileage was approximately 201,285.",
+   "date_of_incident": "02/14/2023"
+  },
+  {
+   "odi_number": 11529518,
+   "components": "SERVICE BRAKES, AIR,FORWARD COLLISION AVOIDANCE",
+   "summary": "The contact owns a 2022 Freightliner Cascadia. The contact stated that while driving at approximately 60 MPH, the service brakes were applied without input from the driver. The Forward Collision-Avoidance warning light was illuminated. There was no object in the roadway to activate the feature. The vehicle was taken to the local dealer where a diagnostic test was performed. The vehicle was repaired; however, the failure recurred. The contact stated that the failure was related to NHTSA Action Number: PE23010 (Forward Collision Avoidance). The manufacturer was not contacted. The failure mileage was approximately 148,000.",
+   "date_of_incident": "04/01/2023"
+  },
+  {
+   "odi_number": 11523252,
+   "components": "SERVICE BRAKES",
+   "summary": "There was brake failure during an accident or 4/23/21 on the Massachusetts turnpike where there was a fatality. The air dryer filter broke off and my question is regarding nhtsa part 573 safety recall report 22v-443. I would like to know the two simultaneous events in this recall test. I realize the production date is a month or less after the recall date of vehicles.",
+   "date_of_incident": "05/22/2023"
+  },
+  {
+   "odi_number": 11516519,
+   "components": "FORWARD COLLISION AVOIDANCE",
+   "summary": "CMV traveling on a four lane divided highway approached another cmv that had overturned in the road ahead some time prior to that time. The approaching CMV did not get any warnings and the collision mitigation features did not activate on the truck, giving the driver no warning of eminent impact which did occur",
+   "date_of_incident": "01/18/2023"
+  },
+  {
+   "odi_number": 11503055,
+   "components": "SERVICE BRAKES",
+   "summary": "Front end collision with camery hybrid at 35 to 40 mph.  Vehicle was rented from Miller Leasing in Hartford CT.  Miller ordered truck without Detroit assurance 5.0 or front desk brakes.  On collision the screw in air fryer broke off causing loss of brakes.  Air dryer was mounted on the frame passenger side exposed to possible damage.  After traveling a couple hundred feet the truck smashed the camery in the guardrail and there was a fatality.",
+   "date_of_incident": "04/23/2021"
+  },
+  {
+   "odi_number": 11451612,
+   "components": "UNKNOWN OR OTHER,LANE DEPARTURE,FORWARD COLLISION AVOIDANCE",
+   "summary": "The system isn't working properly. The AEB(automatic emergency braking) has been braking when I was driving on ice for no reason almost making cars get skids. It's essential to not brake hard on a slippery road. But that system put me in dangerous conditions. Not only one time but several. I was afraid to drive with them on. Also, I tried to see how the truck goes without it, I unplugged it and the truck was braking properly and never had skidded on slippery roads. And funny thing my acceleration was better, and fuel consumption mile/gallons increased from 5.6 to 6.7. I know manufacturers are forced to install AEB, but I don't want to die from it. I don't need AEB and want you like the government to protect my life and right to disable legally AEB and lane changing system from the truck. I want to take responsibility 100% for any accidents front end collisions or losing control of a vehicle. I am a rally driver, I know how to handle equipment in severe conditions, I know physics and know-how to go off-road, drift. I don't want some system like AEB to held me liable if there would be an accident caused by it. I want you, as protector of our rights of life, liberty and pursuit of happiness to allow drivers to choose by the will to legally disable the AEB system taking responsibility. I take care of road safety and even want to buy one day a Cab Over Engine semi-truck because I am watching the road all the time. I hold a safe following distance and never did a hard brake in 3 years of driving to avoid a collision. I want an AEB system only when it gonna surpass my professional approach to safe driving. It needs more development and calibration, and cameras surrounding systems to do it better. As for now, I don't want to risk my life being an experiment in the eyes of big manufacturing companies.",
+   "date_of_incident": "02/10/2022"
+  },
+  {
+   "odi_number": 11445705,
+   "components": "UNKNOWN OR OTHER,FORWARD COLLISION AVOIDANCE",
+   "summary": "FYI, this is the second 2022 Cascadia I’ve driven with this issue. The forward radar sensor detects a target 3 feet in front of me and slams on the brakes if the cruise control is set. I can over ride it by turning off the CC, but then I get constant alarms for following too closely and collision alerts. The issue has generated 4 critical events to my company. This happens randomly, with no warning whether I am in traffic or not. I believe this to be a significant safety issue at worst, and a very unpleasant driving environment at best. According to my company, this is not the only two tractors in which this occurs. My previous tractor was looked at by a Freightliner dealer who failed to repair the issue.",
+   "date_of_incident": "12/30/2021"
+  },
+  {
+   "odi_number": 11722434,
+   "components": "SERVICE BRAKES",
+   "summary": "while driving a UPS Freightliner truck (Cascadia Vin number [XXX] ) on [XXX] on [XXX] in Charlotte, North Carolina, the tractor brakes locked down causing [XXX] 's arm to jam into shoulder from having all momentum come to abrupt stop causing seatbelt to yank across shoulder ultimately necessitating surgery and putting me out of work for 6 months+ and ongoing INFORMATION REDACTED PURSUANT TO THE FREEDOM OF INFORMATION ACT (FOIA), 5 U.S.C. 552(B)(6)",
+   "date_of_incident": "07/15/2025"
+  },
+  {
+   "odi_number": 11722541,
+   "components": "FORWARD COLLISION AVOIDANCE",
+   "summary": "The front sensor is calibrated wrong.  It slams my brakes on road if a shadow is in road, bridges, vehicles parked on side of road, and sometimes if another semi passes me it slams the breaks on. It happens if its just raining out not so much winter because snow and ice blocks the sensor. This has also almost caused accidents as well.",
+   "date_of_incident": "03/29/1974"
+  },
+  {
+   "odi_number": 11678206,
+   "components": "POWER TRAIN",
+   "summary": "See attached document for complaint",
+   "date_of_incident": "04/03/2025"
+  },
+  {
+   "odi_number": 11666845,
+   "components": "FORWARD COLLISION AVOIDANCE",
+   "summary": "I was north of Louisville Kentucky on [XXX]  traveling at 65 mph and I was in the middle lane and the collision lights came on and the truck abruptly started stopping. Luckily no one was on my right side. I made it to the shoulder of the road. Thank God I wasn’t rear ended by anyone and there were three lanes of traffic.  INFORMATION REDACTED PURSUANT TO THE FREEDOM OF INFORMATION ACT (FOIA), 5 U.S.C. 552(B)(6)",
+   "date_of_incident": "06/13/2025"
+  },
+  {
+   "odi_number": 11658652,
+   "components": "ELECTRICAL SYSTEM",
+   "summary": "Malfunction check engine lights on and show faults 520349. 14",
+   "date_of_incident": "05/23/2024"
+  },
+  {
+   "odi_number": 11626573,
+   "components": "STEERING,ELECTRICAL SYSTEM",
+   "summary": "The contact owns a 2023 Freightliner Cascadia. The contact stated that while driving at 55 MPH, the steering wheel locked up, the vehicle became uncontrollable, and the vehicle flipped over. The vehicle was uncontrollable. All the warning lights illuminated. A police report was filed. The contact received injuries to her back and was taken by ambulance to a hospital, where medical attention was provided. The airbags deployed. There was an unknown substance leaking from the vehicle. There was no reported fire. The vehicle was towed to an unknown location. The local dealer was not contacted. The vehicle was not diagnosed or repaired. The manufacturer was not contacted. The failure mileage was unknown.",
+   "date_of_incident": "07/31/2023"
+  },
+  {
+   "odi_number": 11535215,
+   "components": "ELECTRICAL SYSTEM,VEHICLE SPEED CONTROL,FORWARD COLLISION AVOIDANCE",
+   "summary": "Dash light warning lights come on and causes the cruise control to stop working. A total of 6 fault lights comes on and also causes the Adaptive Cruise Control to not work. This is the 3rd Freightliner Cascadia that I have driven in the past 3 and a half years and every single truck has had the same problem. Freightliner has refused to acknowledge that there is a problem. Nobody seems to know what to do to correct the problem. We are owner operators and long haul drivers and needcruise control. Freightliner dealers are almost impossible to get anything repaired because they do not accept appointments and they have so many trucks sitting around waiting for repairs.",
+   "date_of_incident": "07/28/2023"
+  },
+  {
+   "odi_number": 11524587,
+   "components": "FORWARD COLLISION AVOIDANCE",
+   "summary": "While operating the vehicle on an open section of highway I passed under an overpass.  The collision mitigation system sounded an audible warning and the vehicle abruptly applied momentary maximum braking. Had another vehicle been behind me It likely would have resulted in a rear end collision.",
+   "date_of_incident": "02/15/2023"
+  },
+  {
+   "odi_number": 11516552,
+   "components": "FORWARD COLLISION AVOIDANCE",
+   "summary": "The CMV was on a straight road on a sunny day approaching a standard railroad crossing, and for no apparent reason the emergency braking system engaged.    We have video of this incident from the truck. I tried to download it but your system would not allow the format.",
+   "date_of_incident": "01/27/2023"
+  },
+  {
+   "odi_number": 11630307,
+   "components": "SERVICE BRAKES, HYDRAULIC,ELECTRICAL SYSTEM",
+   "summary": "The contact owns a 2020 Volvo VN. The contact received notification of NHTSA Campaign Number: 24V790000 (Electrical System, Service Brakes, Hydraulic); however, the contact called the local dealer to schedule an appointment and was informed that there was no recall associated with the VIN. The manufacturer was contacted and informed the contact that there was no recall associated with the VIN. The contact had not experienced a failure. Parts distribution disconnect.",
+   "date_of_incident": "10/23/2024"
+  },
+  {
+   "odi_number": 11654584,
+   "components": "ELECTRICAL SYSTEM",
+   "summary": "Odometer Fraud. The contact purchased a 2021 Volvo VN. The contact stated that while attempting to register the vehicle, it was discovered that there was a mileage discrepancy. The vehicle was a private sale. At the time of purchase, the vehicle mileage was 615,000 and at the time of registration, it was discovered that the mileage was 763,309. Local Authorities had not been notified.",
+   "date_of_incident": "04/14/2025"
+  },
+  {
+   "odi_number": 11560967,
+   "components": "SERVICE BRAKES,FORWARD COLLISION AVOIDANCE",
+   "summary": "Vehicle has a following distance sensor on front bumper.  Sensor is sensing overpasses when traveling underneath them and that should not be detected.  Vehicle is automatically applying hard braking.  This is causing a possible rear end collision and or loss of vehicle controll in wet conditions.",
+   "date_of_incident": "12/18/2023"
+  },
+  {
+   "odi_number": 11501812,
+   "components": "ELECTRICAL SYSTEM",
+   "summary": "I was driving  on a freeway when suddenly my truck lost all power. I managed  to coast to a safe spot  to park. I immediately  opened  hood and started  troubleshooting.  Left key on so I'd  know if power came back on.  After about 10 minutes  of moving wires gently I found  the issue.  A power wire plug connected to cab.  I wiggled it and everything  worked  again.   Messed  up again  and again, that day. Vehicle  was still warrantied, but shops didn't  have time to get it in.  Finally  I found  a temporary solution.  If I hold wire sideways  after cutting zip ties it wouldn't mess up again.  Shop said  they must replace  entire wire.  Totally  a safety issue.   Could  have resulted  in bad situations if it happened  at the wrong  time.",
+   "date_of_incident": "01/14/2022"
+  },
+  {
+   "odi_number": 11761348,
+   "components": "SERVICE BRAKES, HYDRAULIC,ELECTRICAL SYSTEM",
+   "summary": "The contact owns a 2022 Peterbilt 579. The vehicle was previously repaired under NHTSA Campaign Number: 24V915000 (SERVICE BRAKES, HYDRAULIC, ELECTRICAL SYSTEM); however, the vehicle experienced the failure listed in the recall after the recall repair. The contact stated that while driving 22 MPH, the brakes failed to activate. There was no warning light illuminated. The vehicle was taken to a dealer to be diagnosed, and the contact was informed that the failure with the brakes was caused by a loss of communication between the ECM and the ECU. The contact was informed that the ECU was not installed on the vehicle, and the lane mitigation system was found unplugged. The vehicle was not repaired. The manufacturer was notified of the failure; however, the manufacturer refused to help due to how the vehicle was manufactured. The contact stated that the vehicle was manufactured improperly with salvaged parts and stated that the serial number for the engine was not a match for the original engine. The failure mileage was 526,000.",
+   "date_of_incident": "07/09/2025"
+  },
+  {
+   "odi_number": 11737845,
+   "components": "POWER TRAIN",
+   "summary": "After a decel to 20ish mph, the automated manual transmission attempted to shift into gear to begin acceleration. The transmission made load noises indicating a failure followed by a transmission warning with the fault code being 617 FMI 14. All acceleration and engine braking ability was disabled, increasing the risk of an accident due to the vehicle being disabled. A similar safety recall for the same vehicle would be NHTSA #24V-190 which causes the vehicle to become disabled and increase a crash risk. This is a known issue caused by compressed air contamination according to Eaton Transmissions service bulletin TAIB-1006, which was first published April 2023. In the over 3 years since the service bulletin was released, Eaton, Peterbilt, Paccar, and Cummins(engine manufacturers) have failed to develop adjusted maintenance intervals, added inspections, or additional filtration to prevent contamination of the transmissions air system. They've instead passed the financial burden of repair on the customers by denying warranties. The dealer determined based on TAIB-1006 that the MTM requires replacement and the air system cleaned of contamination. This was based on data and not a detailed inspection to determine the internal failure.",
+   "date_of_incident": "05/09/2026"
+  },
+  {
+   "odi_number": 11674544,
+   "components": "POWER TRAIN,ELECTRICAL SYSTEM",
+   "summary": "The contact owns a 2022 Peterbilt Conventional 579.  The contact stated while driving at an undisclosed speed, the transmission independently shifted to neutral. The vehicle was driven to the shoulder of the road. The vehicle was turned off and restarted, and the vehicle was independently reset. The vehicle was taken to the dealer; however, the contact was informed that a software update was ordered by the manufacturer. The software update was performed; however, the failure reoccurred. The contact was informed that there was no fix for the failure because the dealer was unable to determine the cause of the failure. The manufacturer was made aware of the failure and the dealer was instructed to perform the software update again. The failure mileage was approximately 540,000.",
+   "date_of_incident": "06/18/2025"
+  },
+  {
+   "odi_number": 11633660,
+   "components": "POWER TRAIN",
+   "summary": "The contact owns a 2022 Peterbilt 579. The contact stated that while driving at an undisclosed speed, the vehicle downshifted with multiple warning lights illuminated. The vehicle was restarted; however, the failure recurred. The contact received notification of NHTSA Campaign Number: 24V190000 (Power Train); however, the part to do the recall repair was unavailable. The dealer was contacted. The vehicle was taken to the dealer where it was diagnosed and determined that the gear shifter assembly had failed and needed to be replaced. The vehicle was not repaired. The contact was informed by the dealer that the parts were not available. The contact stated that the manufacturer had exceeded a reasonable amount of time for the recall repair. The manufacturer was not made aware of the failure. The approximate failure mileage was 220,536. VIN tool confirms parts not available.",
+   "date_of_incident": "01/02/2025"
+  },
+  {
+   "odi_number": 11507789,
+   "components": "POWER TRAIN",
+   "summary": "Drive line installed incorrectly. Fell out while driver was on the highway.",
+   "date_of_incident": "02/04/2023"
+  },
+  {
+   "odi_number": 11711116,
+   "components": "POWER TRAIN",
+   "summary": "Peterbilt has a recall 24V190 for the right hand shifter stalk. This VIN is not on the recall list however it does have the defective shift stalk and has been replaced 3 times prior to the recall. The most recent replacement was 8/20/24 replaced with the same defective part #. How do I get this truck on the recall list?",
+   "date_of_incident": "12/12/2025"
+  },
+  {
+   "odi_number": 11523128,
+   "components": "POWER TRAIN",
+   "summary": "1. The components that malfunctioned were the \"engine/transmission match\" and \"transmission communications failure idle torque limit\". Yes, my unit is available for inspection at any time.   2. When I had to stop on the freeway due to heavy traffic, the gearshift would not budge, causing an even bigger traffic delay. I had to turn off/on my unit multiple times to be able to pull over, safely. If I were not able to change gears while on the road, it could create a big accident due to faulty parts.   3. Yes, my local Peterbilt is aware of this issue and ordered a \"right hand turn stalk shift\" (part# Q21-6155-211X) to fix the issue. I was told that this replacement part was out of stock and may need to wait up to 3 months for it. I called other Peterbilt's in CA but everyone was out of stock, with 20 to 30 trucks also waiting for the same part.  I even called Canada to see if they had parts, but they are also out of this particular part, with a long waitlist of trucks at their dealerships. Peterbilt had to recall the gearshifts on their units back in 2018: https://www.truckinginfo.com/278812/kenworth-peterbilt-trucks-recalled-for-transmission-gear-display  4. There were no prior indications that the gearshift needed inspection. The vehicle only indicated \"Transmission fault\" when the gearshift became stuck. When I put my unit in \"Drive\" the dashboard showed an \"!\" and when I put my unit in \"R\" the dashboard showed the unit was in \"Drive\". These incorrect messages/gear changes can be very dangerous.   My unit is a 2023 Peterbilt 579 with only 90K miles, there is no reason it would have a faulty gearshift and no reason why each dealership has a waitlist of 20-30 trucks waiting for this exact part. Paccar clearly did not learn from the 2018 recall 118-A. I believe Peterbilt is knowingly manufacturing faulty parts in an effort to make as many sales as possible.  These faulty parts need immediate attention but are completely out of stock nationally.",
+   "date_of_incident": "05/12/2023"
+  },
+  {
+   "odi_number": 11629546,
+   "components": "POWER TRAIN",
+   "summary": "Right-hand shift stalk between the shifter and the transmission is causing the vehicle to become disabled while stopped  and unable to go from forward to reverse. Also getting SPN 639 pop-up when communication has been lost between the engine control module (ECM) and  SAE J1939 data link. The check engine light illuminates,  and the ECM immediately logs the fault code. Have to depress brake pedal while stopped & cycle gear selector to get fault to clear to start engine . Message also displayed Transmission Fault Repair Required Find Service Center . Also had new spring clutch replaced in May of 2024. Truck has 525k miles on it .",
+   "date_of_incident": "12/06/2024"
+  },
+  {
+   "odi_number": 11628937,
+   "components": "POWER TRAIN",
+   "summary": "The clutch Spring on these trucks have been failing heavily. We have a couple more of these trucks and they all have the same issue. the housing for the clutch springs are cracked or damaged at less than 500,000 miles on a heavy duty truck. These clutches are supposed to last over 1MM miles. Its not a coincidence that every truck we have is failing at the same mileage. These clutches are made defective from the manufacturer. Its also a coincidence that the replacement clutches are not the original design and are of a newer design and brand. THIS is RED FLAGS!!!!",
+   "date_of_incident": "12/04/2024"
+  },
+  {
+   "odi_number": 11617225,
+   "components": "POWER TRAIN",
+   "summary": "My circumstances are EXACTLY as described in a release 12/19/2019 Tech Service Bulletin A002  I experienced the vibration in my steering wheel that caused me to be suspect that there was something wrong in the drive train. Upon further investigation. I noticed that an oil seal was leaking, and when I dug a little deeper, I noticed gears that were broken and shaved down and then stopped at a Kenworth corporate location upon which they told me that I needed to purchase the entire unit to fix it. I then decided that I was going to add some differential oil and drive at a speed of 45 miles an hour, which did not cause any vibration to Chicago, which was roughly 3 hours away from my location in Michigan upon which I would have more resources at my disposal. It is then that I learned of the technical service bulletin relating to my issue. I then took it to CIT trucks which is where I learned that you do not have to buy the complete unit that. The parts are available to be purchased to fix the issue. They did, however say that they would process the claim on behalf of this technical service bulletin. They advised me that the individual that they got a hold of seem to have an attitude about it and sometimes this happens whereas other times they will get a hold of somebody that will make an exception. Apparently they stated my situation is two months out of warranty from when my tractor was placed into service but it’s original owner. I am not in a position due to other issues that I have experience with the truck since purchasing it in June that I can afford this but more importantly, there is a known issue with the same exact identical problem that I experienced. I need help with my situation they need to be held accountable for what has gone wrong because it is not my fault.",
+   "date_of_incident": "09/26/2024"
+  },
+  {
+   "odi_number": 11604753,
+   "components": "POWER TRAIN",
+   "summary": "Throw out bearing failed prematurely. Truck only has 491,000 miles and has had a catastrophic failure resulting in a $29,000 repair bill. I have 4 other trucks like this and they are all showing signs of the same thing.",
+   "date_of_incident": "07/23/2024"
+  },
+  {
+   "odi_number": 11604756,
+   "components": "POWER TRAIN",
+   "summary": "The clutch has a loose spring, Fork is damaged. Throwout bearing worn.",
+   "date_of_incident": "05/20/2024"
+  },
+  {
+   "odi_number": 11491361,
+   "components": "SERVICE BRAKES,FORWARD COLLISION AVOIDANCE",
+   "summary": "This truck was breaking automatically, and no one was front of the truck, it was scary, I almost crashed with loaded trailer on my back, it has done it multiple times, and my traction light and stability light is on all the time and adaptive cruise control had turned off completely abs light comes on and off frequently,",
+   "date_of_incident": "10/27/2022"
+  },
+  {
+   "odi_number": 11320219,
+   "components": "VEHICLE SPEED CONTROL,SERVICE BRAKES",
+   "summary": "ON SUNDAY, THE 22ND OF MARCH, I WAS TRAVELING SOUTH ON US HWY 45. THE SKY WAS CLEARING AND THE ROAD WAS DRY. I HAD MY CRUISE SET TO 65 MPH. AS I APPROACHED AN OVERPASS, THE DISTANCE SENSOR ON THE FRONT OF THE TRUCK MISTOOK THE SHADOW OF THE OVERPASS AS A STOPPED VEHICLE. WARNING LIGHTS AND BUZZERS WENT OFF AND THE VEHICLE DID A HARD BRAKE. LUCKILY, THERE WERE NO OTHER VEHICLES AROUND ME. I TOOK IT TO OUR SHOP AND THE SYSTEM WAS CLEANED. FOUR DAYS LATER, THE SENSOR MISTOOK AN OVERHEAD INTERSTATE SIGN FOR A STOPPED VEHICLE. AGAIN, THE WARNING LIGHTS AND BUZZERS AND A HARD BRAKE. KENWORTH TECHS WERE SENT OUT TO OUR SHOP TO MAKE REPAIRS. EVERY ONE OF OUR DRIVERS THAT I HAVE SPOKEN TO HAVE EXPERIENCED THE SAME THING MULTIPLE TIMES. THIS IS DANGEROUS. IF SOMEONE HAD BEEN FOLLOWING ME, THEY WOULD HAVE REAR-ENDED MY TRAILER.",
+   "date_of_incident": "03/22/2020"
+  },
+  {
+   "odi_number": 11731193,
+   "components": "SERVICE BRAKES,FORWARD COLLISION AVOIDANCE",
+   "summary": "I drive a 2022 Kenworth T680 equipped with a Bendix collision mitigation / automatic emergency braking system. On multiple occasions, the system has applied the service brakes hard with no real obstacle in front of the truck, creating a serious rear‑end collision risk for vehicles behind me. The events typically occur in rain, fog, or under overpasses and signs at highway speeds with cruise control engaged. The truck suddenly brakes without warning or driver input, dropping speed rapidly in the travel lane while traffic is following. I have documented dates, locations, weather, and traffic conditions for these incidents. In each case, there was no stopped or slowing vehicle in my lane that justified automatic emergency braking. This appears to be a “false positive” AEB activation similar to those NHTSA is already investigating on other Class 8 tractors, where the system misidentifies harmless objects or roadway features and commands an unnecessary stop. These false activations put me and other motorists at risk of a rear‑end crash. The dealer has indicated they are limited in how much they can disable the system for liability reasons, so I am submitting this as a safety defect report and requesting that NHTSA investigate this behavior on Kenworth T680 trucks with this collision mitigation system.",
+   "date_of_incident": "04/09/2026"
+  },
+  {
+   "odi_number": 11718845,
+   "components": "POWER TRAIN",
+   "summary": "I have 2 Kenworth trucks VIN [XXX]  and [XXX]  both on recall NHTSA 24V190. The recalls have been performed my issue is with reimbursement for prior replacement for the recalled parts. I have attached emails from Paccar as well as the invoices for the replacement of the recalled parts. Any help you can provide is appreciated as I'm not getting anywhere with Paccar or the dealers. INFORMATION REDACTED PURSUANT TO THE FREEDOM OF INFORMATION ACT (FOIA), 5 U.S.C. 552(B)(6)",
+   "date_of_incident": "01/12/2026"
+  },
+  {
+   "odi_number": 11621540,
+   "components": "SERVICE BRAKES, AIR,POWER TRAIN",
+   "summary": "The contact owns a 2023 Kenworth T680 with the camper attached. The contact stated that the ABS warning light was illuminated before the failure. The contact stated that while standing behind the passenger side seat in between the sleeper portion and the cab, there was an abnormally loud popping sound detected. The vehicle began to move and crashed into the door of an unknown tractor-trailer cab. The vehicle had been parked for approximately 45- 60 minutes before the crash. The contact had to seek medical assistance from a therapist due to the incident. There was no report of fire, airbag deployment, or police report filed. The local dealer was not contacted. The vehicle was not diagnosed or repaired. The manufacturer was not contacted. The failure mileage was approximately 25,000.",
+   "date_of_incident": "07/18/2024"
+  },
+  {
+   "odi_number": 11606528,
+   "components": "POWER TRAIN",
+   "summary": "The contact owns a 2023 Kenworth T680. The contact received notification of NHTSA Campaign Number: 24V190000 (Power Train) however, the part to do the recall repair was not yet available. The local dealer was contacted. The contact stated that the manufacturer had exceeded a reasonable amount of time for the recall. The contact stated that while driving at an undisclosed speed, the transmission was not operating properly. The contact stated that the vehicle downshifted unexpectedly with the transmission fault warning light illuminated. The vehicle was restarted; however, the failure recurred. The dealer was contacted; however, the vehicle was not repaired. The manufacturer was made aware of the failure. The failure mileage was approximately 338,388. The VIN was not available.",
+   "date_of_incident": "08/05/2024"
+  },
+  {
+   "odi_number": 11524865,
+   "components": "LANE DEPARTURE",
+   "summary": "The contact's employer owns a 2023 Kenworth T680. The contact stated that while driving at 55 MPH with the Lane Departure Mitigation System activated, and the brakes were applied unintendedly. The vehicle was not diagnosed or repaired. The manufacturer was not notified of the failure. The failure mileage was approximately 135,000.",
+   "date_of_incident": "05/15/2023"
+  },
+  {
+   "odi_number": 11499511,
+   "components": "POWER TRAIN,TRACTION CONTROL SYSTEM",
+   "summary": "The contact owns a 2023 Kenworth T680. The contact stated that the dealer previously repaired the vehicle under NHTSA Campaign Number: 22V547000 (Steering). The contact stated that while driving at an undisclosed speed, the ABS, traction control, transmission, and hill assist warning lights illuminated. The dealer was made aware of the failure but provided no assistance. The vehicle was not diagnosed or repaired. The manufacturer was made aware of the failure. The failure mileage was approximately 109,000.",
+   "date_of_incident": "12/29/2022"
+  },
+  {
+   "odi_number": 11524828,
+   "components": "FORWARD COLLISION AVOIDANCE",
+   "summary": "The contact owns a 2020 International LT625 Truck. The contact stated that while driving at an undisclosed speed, the vehicle experienced unintended braking. The contact stated that the Forward Collision Avoidance warning light illuminated; however, the contact stated there was no object nearby or in the roadway. The vehicle was taken to the dealer, where Forward Collision Avoidance sensors were recalibrated; however, the failure recurred. The manufacturer was made aware of the failure. The failure mileage was approximately 290,000.",
+   "date_of_incident": "08/15/2021"
+  },
+  {
+   "odi_number": 11514699,
+   "components": "SERVICE BRAKES,FORWARD COLLISION AVOIDANCE",
+   "summary": "The brake assist malfunctioned causing the brakes to abruptly stop without cause or warning. When the braking system abruptly stopped it caused a jack knife and lost of a trailer on a congested highway with vehicles in all lanes, I was able to finally get control of the tractor with out causing contact or injury with other vehicles and the rear trailer broke free and rolled back and landed in the grass that divided the highways. I injured myself and had to have surgery. The tractor was taken to a shop 4 days after the accident. They found that the module for abs ec80 had blocked radar and data link faults for camera, radar  & camera was not properly installed. Rush truck center told the company that they needed to drive tractor on a long drive to recreate issues, but the company denied to go forward and picked the tractor up.",
+   "date_of_incident": "05/25/2022"
+  },
+  {
+   "odi_number": 11442614,
+   "components": "STRUCTURE,ENGINE,FUEL/PROPULSION SYSTEM",
+   "summary": "I drive tractor trailer for JB Hunt.  Over the last 4 Years, the three trucks I have been assigned to have had exhaust leaks that vented into the cab.  One was a Freightliner (approx 2017 model), and two have been Internationals.  These exhaust leaks caused me medical problems, requiring that I take off time unscheduled.  The last three trucks I have been assigned to have had exhaust leaks into the cab.  Some leaks I only found with a thermal camera. The exhaust leaks are not the main problem.  The problem is that design of these trucks cause any leaking engine gases to be pushed into the cab of the truck, mostly through the air conditioning/heater vents.   I have tested this. I zip tied a can of orange air freshener under the hood.  The can was positioned in such a way as to point away from the air intake box, toward the back of the engine.  When driving at highway speed, the orange air freshener was very strong coming into the cab from the a/c vents. The truck is supposed to be getting the fresh air from outside the truck, and forward of where the air freshener was spraying.  I originally thought the only problem was that the cabin air intake box is located under the hood, in immediate proximity to all of the leaks.  This in itself is a poor design.  Even with duct tape over the openings into the cabin air box, any gases (or air freshener) is immediately pulled into the cab through the a/c and heat.  I have no idea how this occurs.  The design of the trucks allows any leaking gases under the hood to come directly into the cab.  This applies to Freightliners and Internationals.  They have the same basic design, and by experience I can say that both perform the same way. The hoods on both truck makes are designed with dedicated pathways to provide pure outside air for the intake of the ENGINE.  The air provided to the driver comes from an unsealed airbox located under the hood.   The main problem is not the leaks but that they get vented into the driver's cabin. The",
+   "date_of_incident": "10/14/2021"
+  },
+  {
+   "odi_number": 11560239,
+   "components": "POWER TRAIN",
+   "summary": "The contact owns a 2023 International LT. The contact stated that the fuel economy feature inadvertently shifted the vehicle out of the intended gear. The contact stated that the vehicle remained in neutral. There were no warning lights illuminated. The local dealer was not contacted. The vehicle was not diagnosed or repaired. The manufacturer was notified of the failure, but no assistance was provided. The failure mileage was approximately 1,000. The VIN was not available.",
+   "date_of_incident": "03/01/2023"
   }
  ]
 }
