@@ -107,10 +107,15 @@ def run_merge() -> dict[str, int]:
         spn_db = json.load(f)
     c_dtc = merge_dtcs(dtc_db, dtcs)
     c_spn = merge_spns(spn_db, spns)
-    with open(DTC_DB, "w", encoding="utf-8") as f:
-        json.dump(dtc_db, f, indent=2, ensure_ascii=False)
-    with open(SPN_DB, "w", encoding="utf-8") as f:
-        json.dump(spn_db, f, indent=2, ensure_ascii=False)
+    # T54 dersi: DB formatı indent=1 + trailing newline. indent=2 sahte diff üretir.
+    if c_dtc > 0:
+        with open(DTC_DB, "w", encoding="utf-8", newline="\n") as f:
+            json.dump(dtc_db, f, indent=1, ensure_ascii=False)
+            f.write("\n")
+    if c_spn > 0:
+        with open(SPN_DB, "w", encoding="utf-8", newline="\n") as f:
+            json.dump(spn_db, f, indent=1, ensure_ascii=False)
+            f.write("\n")
     return {"dtcs_candidates": len(dtcs), "dtcs_merged": c_dtc, "spns_candidates": len(spns), "spns_merged": c_spn}
 
 if __name__ == "__main__":

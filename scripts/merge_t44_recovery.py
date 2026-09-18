@@ -229,9 +229,9 @@ def merge(db_path: Path = DB_PATH, source_path: Path = SOURCE_PATH) -> dict[str,
             f"({stats['spns_before']} -> {stats['spns_after']}) — new SPNs must not be added"
         )
 
-    Path(db_path).write_text(
-        json.dumps(db, ensure_ascii=False, indent=1) + "\n", encoding="utf-8"
-    )
+    if stats["records_merged"] > 0:
+        with open(db_path, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(json.dumps(db, ensure_ascii=False, indent=1) + "\n")
     return stats
 
 
