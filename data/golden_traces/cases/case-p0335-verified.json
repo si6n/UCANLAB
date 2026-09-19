@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-p0335-verified",
+  "domain": "PASSENGER",
+  "make": "Hyundai",
+  "model": "Tucson",
+  "year": 2021,
+  "symptom": "P0335 arıza kodu: Krank mili konum sensörü dahili sargı kısa devresi",
+  "dtcs": [
+    {
+      "code": "P0335",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "EngineSpeed",
+      "expected_behavior": "Nominal fabrika çalışma aralığında",
+      "observed_behavior": "Marş anında devir göstergesi 0 RPM"
+    }
+  ],
+  "actual_fault": "Krank mili konum sensörü dahili sargı kısa devresi",
+  "repair": "Krank devir sensörü (CKP) değiştirildi",
+  "verification": "Yol testi ve arıza hafızası kontrolü ile doğrulandı",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-04-10"
+}

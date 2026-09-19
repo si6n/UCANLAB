@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "dtc": "P0018",
+  "system": "Yakıt Ölçümü & Hava Emiş / Kam Mili Zamanlaması",
+  "symptoms": [
+    "Malfunction Indicator Lamp (MIL) illumination",
+    "The engine may run but with reduced performance",
+    "The engine may crank but not start",
+    "The engine may exhibit a rattle near the harmonic balancer indicating the tone\n    ring is damaged",
+    "The engine may start and run, but poorly"
+  ],
+  "questions": [
+    {
+      "id": "Q_P0018_1",
+      "kind": "yes_no",
+      "text": "Timing chain stretched, or timing belt skipped a tooth due to wear durumunu kontrol ettiniz mi?",
+      "why": "P0018 arızasında olası kök neden"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Kablo Tesisatı & Soketler",
+      "test_type": "Kolay (Görsel)",
+      "safety_note": "Kontak kapalıyken ölçüm yapın."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 12.0
+  },
+  "pass_next": "Canlı veride sinyal nominal ise arıza hafızasını silin.",
+  "fail_next": "İlgili bileşeni veya kablo demetini onarın/değiştirin.",
+  "safety_notes": [
+    "Kontak kapalı konumda çalışın."
+  ]
+}

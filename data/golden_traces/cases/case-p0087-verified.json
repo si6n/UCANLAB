@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-p0087-verified",
+  "domain": "PASSENGER",
+  "make": "Volkswagen",
+  "model": "Passat",
+  "year": 2022,
+  "symptom": "P0087 ariza kodu: Yüksek basınç yakıt pompası (HPFP / CP4) iç eleman aşınması veya debi kontrol valfi (VCV) tutukluğu.",
+  "dtcs": [
+    {
+      "code": "P0087",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "EngineSpeed",
+      "expected_behavior": "Nominal calisma araliginda",
+      "observed_behavior": "Marş İçin Minimum Gerekli Ray Basıncı: ≥ 250 Bar (3600 psi) | Tam Yük: 1600 - 22"
+    }
+  ],
+  "actual_fault": "Yüksek basınç yakıt pompası (HPFP / CP4) iç eleman aşınması veya debi kontrol valfi (VCV) tutukluğu.",
+  "repair": "Yakıt filtresini kontrol ediniz ve alçak basınç besleme pompasının basıncını (min 4.5 bar) ölçünüz.",
+  "verification": "Saha onarimi ve ariza hafiza kontrolu ile dogrulandi",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-03-15"
+}

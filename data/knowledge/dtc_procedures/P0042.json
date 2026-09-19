@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "dtc": "P0042",
+  "system": "Yakıt Ölçümü & Hava Emiş / Kam Mili Zamanlaması",
+  "symptoms": [
+    "Inspecting the oxygen sensor wiring: Check for any damaged wires, loose connections, or corrosion in the wiring harness. Repair or replace as necessary.",
+    "Testing the oxygen sensor: Use a multimeter to measure the resistance of the heater circuit in the oxygen sensor. If the resistance is outside the specified range, the sensor may need to be replaced.",
+    "Checking the ECM: Perform a thorough diagnostic scan of the ECM to check for any related fault codes or issues. If other codes are present, they need to be addressed first before focusing on the P0042 code.",
+    "Clearing the fault code: After any repairs or replacements, clear the fault code using an OBD-II scanner. This will reset the ECM and allow it to re-evaluate the sensor&#x27;s performance."
+  ],
+  "questions": [
+    {
+      "id": "Q_P0042_1",
+      "kind": "yes_no",
+      "text": "Open circuit inside oxygen sensor or open power or ground wires to bank 1, #3 oxygen sensor durumunu kontrol ettiniz mi?",
+      "why": "P0042 arızasında olası kök neden"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Kablo Tesisatı",
+      "test_type": "Kolay (Görsel)",
+      "safety_note": "Kontak kapalıyken ölçüm yapın."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 12.0
+  },
+  "pass_next": "Canlı veride sinyal nominal ise arıza hafızasını silin.",
+  "fail_next": "İlgili bileşeni veya kablo demetini onarın/değiştirin.",
+  "safety_notes": [
+    "Kontak kapalı konumda çalışın."
+  ]
+}

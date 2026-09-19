@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-p0121-verified",
+  "domain": "PASSENGER",
+  "make": "Ford",
+  "model": "Focus",
+  "year": 2021,
+  "symptom": "P0121 arıza kodu: Gaz kelebeği potansiyometre aşınması",
+  "dtcs": [
+    {
+      "code": "P0121",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "ThrottlePosition",
+      "expected_behavior": "Nominal fabrika çalışma aralığında",
+      "observed_behavior": "Gaz pedalı basılıyken %12 sabit kalıyor"
+    }
+  ],
+  "actual_fault": "Gaz kelebeği potansiyometre aşınması",
+  "repair": "Gaz kelebeği gövdesi değiştirildi ve adaptasyon yapıldı",
+  "verification": "Yol testi ve arıza hafızası kontrolü ile doğrulandı",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-04-10"
+}

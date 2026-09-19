@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-u0415-verified",
+  "domain": "PASSENGER",
+  "make": "Volkswagen",
+  "model": "Passat",
+  "year": 2022,
+  "symptom": "U0415 ariza kodu: Tekerlek hız sensörlerinden birinde (WSS) sinyal atlaması veya porya manyetik halkasında paslanma.",
+  "dtcs": [
+    {
+      "code": "U0415",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "EngineSpeed",
+      "expected_behavior": "Nominal calisma araliginda",
+      "observed_behavior": "Hall Hız Sensörü Akım Seviyeleri: Düşük = 7 mA, Yüksek = 14 mA."
+    }
+  ],
+  "actual_fault": "Tekerlek hız sensörlerinden birinde (WSS) sinyal atlaması veya porya manyetik halkasında paslanma.",
+  "repair": "Dört tekerleğin hız sensörü canlı sinyallerini osiloskop veya canlı grafikten izleyin.",
+  "verification": "Saha onarimi ve ariza hafiza kontrolu ile dogrulandi",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-03-15"
+}

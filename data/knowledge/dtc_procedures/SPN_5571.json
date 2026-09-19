@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 5571",
+  "system": "Ağır Vasıta J1939 (OEM tablo hasadı)",
+  "symptoms": [
+    "Yüksek Basınç Common Rail Yakıt Basıncı Tahliye Valfi ikazı",
+    "J1939 DM1 aktif arıza kaydı"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_5571_1",
+      "kind": "yes_no",
+      "text": "Yüksek Basınç Common Rail Yakıt Basıncı Tahliye Valfi (FMI 0): Sensör besleme hattını ve fiziksel aşırı basınç/sıcaklık durumunu mekanik test portundan doğrulayın.",
+      "why": "SPN 5571 arıza prosedür adımı"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "High Pressure Common Rail Fuel Pressure Relief Valve Sinyal Hattı",
+      "test_type": "J1939 / Multimetre"
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "DM11 ile arıza hafızasını temizleyip yol testi yapın.",
+  "fail_next": "Sensör veya tesisatı değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemi ile uyumlu çalışın."
+  ]
+}

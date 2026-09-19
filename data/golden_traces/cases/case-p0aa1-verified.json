@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-p0aa1-verified",
+  "domain": "PASSENGER",
+  "make": "Toyota",
+  "model": "Prius",
+  "year": 2022,
+  "symptom": "P0AA1 ariza kodu: Aşırı inrush akımı veya precharge direnci arızası nedeniyle kontaktör kontaklarının kaynak olması.",
+  "dtcs": [
+    {
+      "code": "P0AA1",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "EngineSpeed",
+      "expected_behavior": "Nominal calisma araliginda",
+      "observed_behavior": "Kontaktör Açık Durum Direnci: >100 MΩ | Bobin Direnci: 24.0 Ω ±%10."
+    }
+  ],
+  "actual_fault": "Aşırı inrush akımı veya precharge direnci arızası nedeniyle kontaktör kontaklarının kaynak olması.",
+  "repair": "LOTO uygulayın, MSD sökün. Kontaktör güç terminalleri arasındaki direnci ölçün (>100 MΩ olmalıdır).",
+  "verification": "Saha onarimi ve ariza hafiza kontrolu ile dogrulandi",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-03-15"
+}

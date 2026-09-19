@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 4257",
+  "system": "Yakıt Enjeksiyonu (J1939)",
+  "symptoms": [
+    "Enjektör Yükselteç Kontrol Valfi Silindir 1, 2 veya 3 arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_4257_FMI_3",
+      "kind": "yes_no",
+      "text": "Enjektör Yükselteç Kontrol Valfi Silindir 1, 2 veya 3 (FMI 3): Sensör soketini ayırın; voltaj şasiye göre düşmüyorsa kablo demeti akü besleme hattına ezilmiştir.",
+      "why": "Injector Amplifier Control Valve Cylinder 1, 2, or 3 - Injector Amplifier Control Valve Cylinder 1, "
+    },
+    {
+      "id": "Q_SPN_4257_FMI_4",
+      "kind": "yes_no",
+      "text": "Enjektör Yükselteç Kontrol Valfi Silindir 1, 2 veya 3 (FMI 4): Sinyal pini ile şasi arasındaki direnci ölçün (<1.0 Ω ise tesisatta şasi teması vardır).",
+      "why": "Injector Amplifier Control Valve Cylinder 1, 2, or 3 - Injector Amplifier Control Valve Cylinder 1, "
+    },
+    {
+      "id": "Q_SPN_4257_FMI_7",
+      "kind": "yes_no",
+      "text": "Enjektör Yükselteç Kontrol Valfi Silindir 1, 2 veya 3 (FMI 7): Aktüatör itici kollarını, kurum birikmesini ve hava/yağ tahrik hatlarını mekanik olarak inceleyin.",
+      "why": "Injector Amplifier Control Valve Cylinder 1, 2, or 3 - Injector Coking Compensation Factor Reached M"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Engine Fuel 1 Injector Group 3 Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

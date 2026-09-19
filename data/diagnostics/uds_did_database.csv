@@ -1,69 +1,69 @@
 ﻿DID (Hex),DID (Int),Parametre Adı,Parametre (TR),Üretici (OEM),Alt Sistem,Birim,Ölçek,Offset,Bayt Uzunluğu
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
-,,,,,,,,,
+0x1153,4435,DPF Soot Mass Measured,DPF Ölçülen Kurum Kütlesi,VAG,Egzoz & DPF Kurum Yönetimi,g,0.01,0.0,2
+0x1154,4436,DPF Soot Mass Calculated,DPF Hesaplanmış Kurum Kütlesi,VAG,Egzoz & DPF Rejenerasyonu,g,0.01,0.0,2
+0x115E,4446,DPF Oil Ash Mass,DPF Yağ Külü Kalıntısı (Ömür Göstergesi),VAG,Egzoz & DPF Ömür Takibi,g,0.1,0.0,2
+0x1160,4448,Distance Since Last Regeneration,Son Rejenerasyondan Bu Yana Kat Edilen Yol,VAG,Egzoz & DPF Rejenerasyonu,km,1.0,0.0,4
+0x0501,1281,Boost Pressure Specified,Turboşarj Hedeflenen Takviye Basıncı (Setpoint),VAG,Hava Emiş & Turbo Yönetimi,mbar,1.0,0.0,2
+0x0502,1282,Boost Pressure Actual,Turboşarj Gerçekleşen Takviye Basıncı,VAG,Hava Emiş & Turbo Yönetimi,mbar,1.0,0.0,2
+0x2035,8245,DSG Clutch 1 Actual Hydraulic Pressure,DSG Kavrama 1 Hidrolik Basıncı,VAG,Otomatik Şanzıman (DQ250 / DQ381 / DQ500),bar,0.01,0.0,2
+0x2036,8246,DSG Clutch 2 Actual Hydraulic Pressure,DSG Kavrama 2 Hidrolik Basıncı,VAG,Otomatik Şanzıman (DQ250 / DQ381 / DQ500),bar,0.01,0.0,2
+0x2037,8247,DSG Transmission Fluid Temperature,DSG Şanzıman Yağ Sıcaklığı,VAG,Otomatik Şanzıman Mekatronik,°C,1.0,-40.0,1
+0x2A10,10768,Steering Angle Sensor Actual Angle,Direksiyon Açı Sensörü (SAS) Gerçek Açısı,VAG,"Şasi, ESP & Direksiyon Açı Sensörü",deg,0.1,0.0,2
+0xD001,53249,VANOS Intake Camshaft Position Actual,VANOS Emiş Kam Mili Gerçek Konumu,BMW,Değişken Supap Zamanlaması (VANOS),°CRK,0.1,0.0,2
+0xD002,53250,VANOS Exhaust Camshaft Position Actual,VANOS Egzoz Kam Mili Gerçek Konumu,BMW,Değişken Supap Zamanlaması (VANOS),°CRK,0.1,0.0,2
+0xD010,53264,Valvetronic Eccentric Shaft Angle,Valvetronic Eksantrik Mil Açısı,BMW,Valvetronic Değişken Supap Açma,deg,0.05,0.0,2
+0xD105,53509,Common Rail Pressure Actual,Common Rail Yakıt Basıncı (Gerçek),BMW,Yüksek Basınç Yakıt Enjeksiyonu,bar,0.1,0.0,2
+0xD210,53776,HV Battery Pack State of Charge (SOC),Yüksek Voltaj Batarya Şarj Seviyesi (SOC),BMW,Hibrit / EV Batarya Yönetim Sistemi,%,0.1,0.0,2
+0xD215,53781,HV Insulation Resistance,Yüksek Voltaj İzolasyon Direnci,BMW,EV Yüksek Voltaj Güvenliği,kΩ,1.0,0.0,2
+0x1E01,7681,Cylinder Head Temperature (CHT),Silindir Kapağı Metal Sıcaklığı (CHT),Ford,Motor Termal Koruma & Soğutma,°C,0.1,-40.0,2
+0x1E1C,7708,Transmission Fluid Temperature (TFT),Otomatik Şanzıman Yağ Sıcaklığı (TFT),Ford,Otomatik Şanzıman (6R80 / 10R80),°C,0.1,-40.0,2
+0x0200,512,Engine Oil Life Remaining,Kalan Motor Yağı Ömrü,Ford,Motor Yağlama & Bakım Takibi,%,1.0,0.0,1
+0x0118,280,HV Battery Pack Terminal Voltage,Yüksek Voltaj Batarya Paketi Terminal Voltajı,Tesla,EV Yüksek Voltaj Batarya Paketi,V,0.1,0.0,2
+0x0119,281,HV Battery Pack Current,Yüksek Voltaj Batarya Paketi Akımı,Tesla,EV Yüksek Voltaj Güç Akışı,A,0.1,0.0,2
+0x0120,288,Maximum Cell Temperature,En Sıcak Batarya Hücresi Sıcaklığı,Tesla,EV Batarya Termal Yönetim,°C,0.1,-40.0,2
+0x0121,289,Minimum Cell Temperature,En Soğuk Batarya Hücresi Sıcaklığı,Tesla,EV Batarya Termal Yönetim,°C,0.1,-40.0,2
+0x0130,304,High Voltage Isolation Resistance,Yüksek Voltaj İzolasyon Direnci,Tesla,EV Yüksek Voltaj Güvenliği (LOTO / ISO 6469),kΩ,1.0,0.0,2
+0x0140,320,Pyrotechnic Battery Fuse Status,Piroteknik Batarya Emniyet Sigortası Durumu,Tesla,EV Kaza & Yangın Güvenliği,state,1.0,0.0,1
+0x011A,282,Rail Pressure Actual Value,Common Rail Gerçek Yakıt Basıncı,Mercedes-Benz,CDI Dizel Yakıt Enjeksiyonu,bar,0.1,0.0,2
+0x0256,598,Transmission Fluid Temperature,Şanzıman Yağı (ATF) Sıcaklığı,Mercedes-Benz,722.9 / 9G-Tronic Otomatik Şanzıman (VGS),°C,1.0,-50.0,1
+0x0342,834,AdBlue / DEF Concentration Quality,AdBlue Üre Konsantrasyon Kalitesi,Mercedes-Benz,BlueTEC SCR Emisyon Kontrolü,%,0.01,0.0,2
+0x0504,1284,48V EQ Boost Battery State of Charge,48V EQ Boost Hafif Hibrit Şarj Durumu,Mercedes-Benz,48V Mild Hybrid & Entegre Marş Jeneratörü (ISG),%,0.5,0.0,1
+0x2101,8449,Motor Generator 2 (MG2) Stator Temperature,Elektrik Motoru MG2 Stator Sıcaklığı,Toyota,THS-II Hibrit Güç Aktarma & İnvertör,°C,0.1,-40.0,2
+0x2103,8451,HV Traction Battery State of Health,Yüksek Voltaj Hibrit Batarya Sağlık Durumu (SOH),Toyota,THS-II Hibrit Batarya Yönetim Sistemi (BMS),%,0.5,0.0,1
+0x2120,8480,HV Battery Block Internal Resistance,Batarya Blok İç Direnci (Empedans),Toyota,THS-II Hibrit Batarya Yönetim Sistemi (BMS),Ω,0.001,0.0,2
+0x2168,8552,D-4S Port vs Direct Fuel Injection Ratio,D-4S Emme Manifoldu / Direkt Enjeksiyon Oranı,Toyota,D-4S Çift Yakıt Enjeksiyon Sistemi,%,1.0,0.0,1
+0x1015,4117,GDI High Pressure Fuel Rail Sensor,GDI Direkt Enjeksiyon Yakıt Ray Basıncı,Hyundai-Kia,GDI / Smartstream Benzinli Direkt Enjeksiyon,bar,0.1,0.0,2
+0x1028,4136,DCT Clutch 1 & 2 Wear Clearance,7-İleri DCT Çift Kavrama Aşınma Boşluğu,Hyundai-Kia,7-DCT / 8-DCT Çift Kavramalı Şanzıman,mm,0.01,0.0,2
+0x1070,4208,E-GMP 800V EV Battery Pack Voltage,E-GMP 800V EV Batarya Paketi Toplam Voltajı,Hyundai-Kia,E-GMP 800V Elektrikli Araç Mimarisi (Ioniq 5 / EV6),V,0.1,0.0,2
+0XF180,61824,Boot Software Identification,,ISO 14229 (Universal),boot_software,,,,
+0XF181,61825,Application Software Identification,,ISO 14229 (Universal),application_software,,,,
+0XF182,61826,Application Data Identification,,ISO 14229 (Universal),application_data,,,,
+0XF183,61827,Boot Software Fingerprint,,ISO 14229 (Universal),boot_software,,,,
+0XF184,61828,Application Software Fingerprint,,ISO 14229 (Universal),application_software,,,,
+0XF185,61829,Application Data Fingerprint,,ISO 14229 (Universal),application_data,,,,
+0XF186,61830,Active Diagnostic Session,,ISO 14229 (Universal),diagnostic_session,,,,
+0XF187,61831,Vehicle Manufacturer Spare Part Number,,ISO 14229 (Universal),identification,,,,
+0XF188,61832,Vehicle Manufacturer ECU Software Number,,ISO 14229 (Universal),software_version,,,,
+0XF189,61833,Vehicle Manufacturer ECU Software Version Number,,ISO 14229 (Universal),software_version,,,,
+0XF18A,61834,System Supplier Identifier,,ISO 14229 (Universal),identification,,,,
+0XF18B,61835,ECU Manufacturing Date,,ISO 14229 (Universal),manufacturing,,,,
+0XF18C,61836,ECU Serial Number,,ISO 14229 (Universal),identification,,,,
+0XF18D,61837,Supported Functional Units,,ISO 14229 (Universal),identification,,,,
+0XF18E,61838,Vehicle Manufacturer Kit Assembly Part Number,,ISO 14229 (Universal),identification,,,,
+0XF18F,61839,ISO SAE Reserved Standardized,,ISO 14229 (Universal),reserved,,,,
+0XF190,61840,Vehicle Identification Number (VIN),,ISO 14229 (Universal),identification,,,,
+0XF191,61841,Vehicle Manufacturer ECU Hardware Number,,ISO 14229 (Universal),hardware_version,,,,
+0XF192,61842,System Supplier ECU Hardware Number,,ISO 14229 (Universal),hardware_version,,,,
+0XF193,61843,System Supplier ECU Hardware Version Number,,ISO 14229 (Universal),hardware_version,,,,
+0XF194,61844,System Supplier ECU Software Number,,ISO 14229 (Universal),software_version,,,,
+0XF195,61845,System Supplier ECU Software Version Number,,ISO 14229 (Universal),software_version,,,,
+0XF196,61846,Exhaust Regulation Or Type Approval Number,,ISO 14229 (Universal),homologation,,,,
+0XF197,61847,System Name Or Engine Type,,ISO 14229 (Universal),identification,,,,
+0XF198,61848,Repair Shop Code Or Tester Serial Number,,ISO 14229 (Universal),service_history,,,,
+0XF199,61849,Programming Date,,ISO 14229 (Universal),service_history,,,,
+0XF19A,61850,Calibration Repair Shop Code Or Calibration Equipment Serial Number,,ISO 14229 (Universal),calibration,,,,
+0XF19B,61851,Calibration Date,,ISO 14229 (Universal),calibration,,,,
+0XF19C,61852,Calibration Equipment Software Number,,ISO 14229 (Universal),calibration,,,,
+0XF19D,61853,ECU Installation Date,,ISO 14229 (Universal),manufacturing,,,,
+0XF19E,61854,ODX File,,ISO 14229 (Universal),odx_data,,,,
+0XF19F,61855,Entity,,ISO 14229 (Universal),odx_data,,,,

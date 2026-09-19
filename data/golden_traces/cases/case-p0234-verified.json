@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-p0234-verified",
+  "domain": "PASSENGER",
+  "make": "Volkswagen",
+  "model": "Passat",
+  "year": 2022,
+  "symptom": "P0234 ariza kodu: Wastegate aktüatör kolunun mekanik olarak kapalı konumda sıkışması.",
+  "dtcs": [
+    {
+      "code": "P0234",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "EngineSpeed",
+      "expected_behavior": "Nominal calisma araliginda",
+      "observed_behavior": "N75 Bobin Direnci: 25 - 35 Ω | Vakum Tutma: -0.8 Bar'da 1 dakika boyunca düşmeme"
+    }
+  ],
+  "actual_fault": "Wastegate aktüatör kolunun mekanik olarak kapalı konumda sıkışması.",
+  "repair": "Wastegate aktüatör kolunu vakum pompası (Mityvac) ile test edin (0.6 barda tam açılmalıdır).",
+  "verification": "Saha onarimi ve ariza hafiza kontrolu ile dogrulandi",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-03-15"
+}

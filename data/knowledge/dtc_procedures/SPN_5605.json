@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 5605",
+  "system": "Sürücü Girişleri & Hız Kontrol (J1939)",
+  "symptoms": [
+    "Hız Sabitleyici Pause Komutu ikazı",
+    "J1939 DM1 aktif arıza kaydı"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_5605_1",
+      "kind": "yes_no",
+      "text": "Hız Sabitleyici Pause Komutu (FMI 31): İlgili anahtar veya sensör kontak pozisyonunu doğrulayın.",
+      "why": "SPN 5605 arıza prosedür adımı"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Cruise Control Pause Command Sinyal Hattı",
+      "test_type": "J1939 / Multimetre"
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "DM11 ile arıza hafızasını temizleyip yol testi yapın.",
+  "fail_next": "Sensör veya tesisatı değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemi ile uyumlu çalışın."
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-spn100-verified",
+  "domain": "HEAVY_DUTY",
+  "make": "Cummins",
+  "model": "ISX15",
+  "year": 2022,
+  "symptom": "SPN100 ariza kodu: FMI 1 (Kritik Düşük): Yağ pompası aşınması, karterde yağ seviyesinin tükenmesi veya ana yatak aşınması.",
+  "dtcs": [
+    {
+      "code": "SPN 100",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "OilPressure",
+      "expected_behavior": "Nominal calisma araliginda",
+      "observed_behavior": "Sensör Skalası: 0.5V = 0 kPa, 4.5V = 1000 kPa | Kritik Kırmızı Lamba Limiti: <70"
+    }
+  ],
+  "actual_fault": "FMI 1 (Kritik Düşük): Yağ pompası aşınması, karterde yağ seviyesinin tükenmesi veya ana yatak aşınması.",
+  "repair": "Motoru derhal durdurun ve yağ seviye çubuğunu kontrol edin.",
+  "verification": "Saha onarimi ve ariza hafiza kontrolu ile dogrulandi",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-03-15"
+}

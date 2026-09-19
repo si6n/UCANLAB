@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 236",
+  "system": "Yakıt Ekonomisi & Telemetri",
+  "symptoms": [
+    "Motor Toplam Rölanti Yakıt Tüketimi arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_236_FMI_2",
+      "kind": "yes_no",
+      "text": "Motor Toplam Rölanti Yakıt Tüketimi (FMI 2): Rölanti yakıt sayacının anlık debi (SPN 183) integraliyle tutarlılığını kontrol edin; PTO çalışması rölanti tanımına dahil olabilir, kalibrasyonu doğrulayın.",
+      "why": "Motor Toplam Rölanti Yakıt Tüketimi - Veri tutarsız, aralıklı veya hatalı"
+    },
+    {
+      "id": "Q_SPN_236_FMI_9",
+      "kind": "yes_no",
+      "text": "Motor Toplam Rölanti Yakıt Tüketimi (FMI 9): PGN 65244 yayınını sniffer'da izleyin; boş 0xFFFF değerleri ECU'nun parametreyi desteklemediğini gösterir.",
+      "why": "Motor Toplam Rölanti Yakıt Tüketimi - Anormal güncelleme hızı"
+    },
+    {
+      "id": "Q_SPN_236_FMI_19",
+      "kind": "yes_no",
+      "text": "Motor Toplam Rölanti Yakıt Tüketimi (FMI 19): Fiziksel katman hatalarını (bus-off, CRC) kontrol edin; DM1 ağ hata kayıtlarıyla eşleştirin.",
+      "why": "Motor Toplam Rölanti Yakıt Tüketimi - Alınan ağ verisi hatalı"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Engine Total Idle Fuel Used Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

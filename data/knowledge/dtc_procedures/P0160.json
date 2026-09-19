@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "dtc": "P0160",
+  "system": "Yakıt & Hava Ölçümü (MAF, MAP, O2, ECT Sensörleri)",
+  "symptoms": [
+    "MIL (Malfunction Indicator Lamp) on",
+    "May idle or drive poorly",
+    "Fuel economy may decrease"
+  ],
+  "questions": [
+    {
+      "id": "Q_P0160_1",
+      "kind": "yes_no",
+      "text": "Şu olası nedeni kontrol ettiniz mi: Holes in exhaust near post cat o2 sensor?",
+      "why": "P0160 için en sık bildirilen kök neden"
+    },
+    {
+      "id": "Q_P0160_2",
+      "kind": "yes_no",
+      "text": "Sensör/aktüatör kablo tesisatında kopuk veya kısa devre var mı (Bad Bank 2, position 2, o2 sensor)?",
+      "why": "Elektriksel tesisat kontrolü"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Kablo Tesisatı",
+      "test_type": "Kolay (Görsel)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    },
+    {
+      "step": 2,
+      "target": "Sensör / Aktüatör",
+      "test_type": "Orta (Alet Gerekir)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    },
+    {
+      "step": 3,
+      "target": "Sinyal Hattı",
+      "test_type": "İleri (Servis)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 12.0
+  },
+  "pass_next": "Canlı veride sinyal nominal ise arıza hafızasını temizleyip yol testi yapın.",
+  "fail_next": "Arızalı bileşeni veya tesisatı onarın/değiştirin.",
+  "safety_notes": [
+    "Kontak kapalıyken çalışma yapın.",
+    "Sıcak motor parçalarına ve dönen kayışlara dikkat edin."
+  ]
+}

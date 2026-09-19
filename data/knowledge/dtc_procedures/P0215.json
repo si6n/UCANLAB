@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "dtc": "P0215",
+  "system": "Yakıt Ölçümü & Enjektör Devresi / Turboşarj",
+  "symptoms": [
+    "There are frequently no symptoms when a P0215 is stored",
+    "Engine won’t start",
+    "Other fuel system codes",
+    "Lean exhaust codes"
+  ],
+  "questions": [
+    {
+      "id": "Q_P0215_1",
+      "kind": "yes_no",
+      "text": "Şu olası nedeni kontrol ettiniz mi: Defective engine cutoff solenoid?",
+      "why": "P0215 için en sık bildirilen kök neden"
+    },
+    {
+      "id": "Q_P0215_2",
+      "kind": "yes_no",
+      "text": "Sensör/aktüatör kablo tesisatında kopuk veya kısa devre var mı (Faulty engine shutoff relay)?",
+      "why": "Elektriksel tesisat kontrolü"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Kablo Tesisatı & Soketler",
+      "test_type": "Kolay (Görsel)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    },
+    {
+      "step": 2,
+      "target": "P0215 İlgili Komponent",
+      "test_type": "Orta (Alet Gerekir)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    },
+    {
+      "step": 3,
+      "target": "P0215 İlgili Komponent",
+      "test_type": "Orta (Alet Gerekir)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 12.0
+  },
+  "pass_next": "Canlı veride sinyal nominal ise arıza hafızasını temizleyip yol testi yapın.",
+  "fail_next": "Arızalı bileşeni veya tesisatı onarın/değiştirin.",
+  "safety_notes": [
+    "Kontak kapalıyken çalışma yapın.",
+    "Sıcak motor parçalarına ve dönen kayışlara dikkat edin."
+  ]
+}

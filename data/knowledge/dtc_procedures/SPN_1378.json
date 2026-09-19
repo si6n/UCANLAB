@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 1378",
+  "system": "Motor Yağlama Sistemi (J1939)",
+  "symptoms": [
+    "Motor Yağ Change Interval arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_1378_FMI_1",
+      "kind": "yes_no",
+      "text": "Motor Yağ Change Interval (FMI 1): Sıvı seviyelerini, emiş filtrelerini ve mekanik aşınma belirtilerini kontrol edin.",
+      "why": "Engine Oil Change Interval - Engine Oil Change Interval – Data Valid But Below Normal Operating Rang"
+    },
+    {
+      "id": "Q_SPN_1378_FMI_31",
+      "kind": "yes_no",
+      "text": "Motor Yağ Change Interval (FMI 31): İlgili anahtar veya sensör kontak pozisyonunu doğrulayın.",
+      "why": "Engine Oil Change Interval - Engine Oil Change Interval – Condition Exists"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Engine Oil Change Interval Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

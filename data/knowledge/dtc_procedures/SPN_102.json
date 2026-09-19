@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 102",
+  "system": "Hava Emiş & Turboşarj (CAC)",
+  "symptoms": [
+    "Turboşarj Takviye Basıncı (Boost Pressure) arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_102_FMI_0",
+      "kind": "yes_no",
+      "text": "Turboşarj Takviye Basıncı (Boost Pressure) (FMI 0): Sensör besleme hattını ve fiziksel aşırı basınç/sıcaklık durumunu mekanik test portundan doğrulayın.",
+      "why": "Turboşarj Takviye Basıncı (Boost Pressure) - Veri geçerli fakat normal çalışma aralığının üzerinde ("
+    },
+    {
+      "id": "Q_SPN_102_FMI_2",
+      "kind": "yes_no",
+      "text": "Turboşarj Takviye Basıncı (Boost Pressure) (FMI 2): Kablo demetinde titreşim temassızlığı, gevşek klemens veya manyetik relüktör çark diş hasarı arayın.",
+      "why": "Turboşarj Takviye Basıncı (Boost Pressure) - Veri tutarsız, kesintili veya yanlış (Sinyal Sıçraması)"
+    },
+    {
+      "id": "Q_SPN_102_FMI_16",
+      "kind": "yes_no",
+      "text": "Turboşarj Takviye Basıncı (Boost Pressure) (FMI 16): Motor tork sınırlandırması (Derate) başlamadan önce ilgili devreyi temizleyin.",
+      "why": "Turboşarj Takviye Basıncı (Boost Pressure) - Veri normalin üzerinde (Orta Seviye - Derate Başlayabil"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Engine Turbocharger 1 Boost Pressure Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "pressure_kpa": 250.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

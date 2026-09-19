@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-spn190-verified",
+  "domain": "HEAVY_DUTY",
+  "make": "Cummins",
+  "model": "ISX15",
+  "year": 2022,
+  "symptom": "SPN190 ariza kodu: FMI 0 (Aşırı Devir): Motor devri >2450 RPM (Yokuş aşağı vites hatası).",
+  "dtcs": [
+    {
+      "code": "SPN 190",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "EngineSpeed",
+      "expected_behavior": "Nominal calisma araliginda",
+      "observed_behavior": "VR Sensör Direnci: 800 - 1400 Ω | Marş Sırasında VR AC Genlik: >1.0 Vpp."
+    }
+  ],
+  "actual_fault": "FMI 0 (Aşırı Devir): Motor devri >2450 RPM (Yokuş aşağı vites hatası).",
+  "repair": "Osiloskop ile Krank (VR sinüs) ve Kam (Hall 0-5V) sinyallerini eşzamanlı kaydedip diş eksiklerini karşılaştırın.",
+  "verification": "Saha onarimi ve ariza hafiza kontrolu ile dogrulandi",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-03-15"
+}

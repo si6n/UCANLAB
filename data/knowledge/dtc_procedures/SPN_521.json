@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 521",
+  "system": "Pnömatik Fren Sistemi (J1939)",
+  "symptoms": [
+    "Fren Pedal Pozisyonu arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_521_FMI_2",
+      "kind": "yes_no",
+      "text": "Fren Pedal Pozisyonu (FMI 2): Kablo demetinde titreşim temassızlığı, gevşek klemens veya manyetik relüktör çark diş hasarı arayın.",
+      "why": "Brake Pedal Position - Brake Pedal Position – Data Erratic, Intermittent or Incorrect"
+    },
+    {
+      "id": "Q_SPN_521_FMI_9",
+      "kind": "yes_no",
+      "text": "Fren Pedal Pozisyonu (FMI 9): Sensör veya kaynak modülün CAN-Bus hattına bağlı olduğunu ve adres aldığını (Address Claim) doğrulayın.",
+      "why": "Brake Pedal Position - Brake Pedal Position – Abnormal Update Rate"
+    },
+    {
+      "id": "Q_SPN_521_FMI_19",
+      "kind": "yes_no",
+      "text": "Fren Pedal Pozisyonu (FMI 19): Veri yolunda 120Ω hat sonlandırma direncini ve CAN-H/CAN-L sinyal gürültüsünü test edin.",
+      "why": "Brake Pedal Position - Brake Switch Circuit Fault"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Brake Pedal Position Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

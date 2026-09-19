@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "dtc": "P0004",
+  "system": "Yakıt Ölçümü & Hava Emiş / Kam Mili Zamanlaması",
+  "symptoms": [
+    "Malfunction indicator lamp (MIL) illumination",
+    "Vehicle won't start",
+    "\"Limp mode\" enabled and/or lack of power"
+  ],
+  "questions": [
+    {
+      "id": "Q_P0004_1",
+      "kind": "yes_no",
+      "text": "Failed fuel volume regulator (FVR) solenoid durumunu kontrol ettiniz mi?",
+      "why": "P0004 arızasında olası kök neden"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Kablo Tesisatı",
+      "test_type": "Kolay (Görsel)",
+      "safety_note": "Kontak kapalıyken ölçüm yapın."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 12.0
+  },
+  "pass_next": "Canlı veride sinyal nominal ise arıza hafızasını silin.",
+  "fail_next": "İlgili bileşeni veya kablo demetini onarın/değiştirin.",
+  "safety_notes": [
+    "Kontak kapalı konumda çalışın."
+  ]
+}

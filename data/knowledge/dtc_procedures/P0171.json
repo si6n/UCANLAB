@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "dtc": "P0171",
+  "system": "Yakıt Ölçümü & Karışım Kontrolü",
+  "symptoms": [
+    "Hızlanırken tereddüt ve tekleme",
+    "Rölantide dalgalanma",
+    "Yüksek yakıt sarfiyatı",
+    "Çekiş düşüklüğü"
+  ],
+  "questions": [
+    {
+      "id": "Q_P0171_1",
+      "kind": "yes_no",
+      "text": "Şu olası nedeni kontrol ettiniz mi: MAF sensörü sonrası emiş manifoldunda vakum kaçağı (yırtık hortum, conta kaçağı)?",
+      "why": "P0171 için en sık bildirilen kök neden"
+    },
+    {
+      "id": "Q_P0171_2",
+      "kind": "yes_no",
+      "text": "Sensör/aktüatör kablo tesisatında kopuk veya kısa devre var mı (Düşük yakıt basıncı (Tıkalı yakıt filtresi veya arızalı yakıt pompası))?",
+      "why": "Elektriksel tesisat kontrolü"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Vakum Hatları & Manifold",
+      "test_type": "Orta (Alet Gerekir)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    },
+    {
+      "step": 2,
+      "target": "Canlı Telemetri (STFT/LTFT)",
+      "test_type": "Orta (Alet Gerekir)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    },
+    {
+      "step": 3,
+      "target": "Yakıt Dağıtım Kütüğü",
+      "test_type": "İleri (Servis)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 12.0
+  },
+  "pass_next": "Canlı veride sinyal nominal ise arıza hafızasını temizleyip yol testi yapın.",
+  "fail_next": "Arızalı bileşeni veya tesisatı onarın/değiştirin.",
+  "safety_notes": [
+    "Kontak kapalıyken çalışma yapın.",
+    "Sıcak motor parçalarına ve dönen kayışlara dikkat edin."
+  ]
+}

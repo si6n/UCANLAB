@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-p0b24-verified",
+  "domain": "PASSENGER",
+  "make": "Volkswagen",
+  "model": "Passat",
+  "year": 2022,
+  "symptom": "P0B24 ariza kodu: Hücrede aşırı kendi kendine deşarj (mikro kısa devre) veya hücre voltajı < 2.50V (NMC) / < 2.00V (LFP).",
+  "dtcs": [
+    {
+      "code": "P0B24",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "EngineSpeed",
+      "expected_behavior": "Nominal calisma araliginda",
+      "observed_behavior": "NMC/NCA Alt Kesme: 2.50V | LFP Alt Kesme: 2.00V | Sağlıklı Nominal: 3.20V - 4.20"
+    }
+  ],
+  "actual_fault": "Hücrede aşırı kendi kendine deşarj (mikro kısa devre) veya hücre voltajı < 2.50V (NMC) / < 2.00V (LFP).",
+  "repair": "Hücre voltajını CSC soket pinlerinden 6.5 dijit DMM ile doğrudan ölçün.",
+  "verification": "Saha onarimi ve ariza hafiza kontrolu ile dogrulandi",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-03-15"
+}

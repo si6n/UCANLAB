@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "dtc": "P0200",
+  "system": "Yakıt Ölçümü & Enjektör Devresi / Turboşarj",
+  "symptoms": [
+    "MIL (Malfunction Indicator Lamp) illumination",
+    "Engine misfire at idle or at highway speed",
+    "Engine may start and stall or not start at all",
+    "Cylinder misfire codes may be present"
+  ],
+  "questions": [
+    {
+      "id": "Q_P0200_1",
+      "kind": "yes_no",
+      "text": "Şu olası nedeni kontrol ettiniz mi: Open or shorted injector?",
+      "why": "P0200 için en sık bildirilen kök neden"
+    },
+    {
+      "id": "Q_P0200_2",
+      "kind": "yes_no",
+      "text": "Sensör/aktüatör kablo tesisatında kopuk veya kısa devre var mı (Injector low internal resistance (basically an injector that works, but is out of specs))?",
+      "why": "Elektriksel tesisat kontrolü"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Kablo Tesisatı",
+      "test_type": "Kolay (Görsel)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    },
+    {
+      "step": 2,
+      "target": "Sensör / Aktüatör",
+      "test_type": "Orta (Alet Gerekir)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    },
+    {
+      "step": 3,
+      "target": "Sinyal Hattı",
+      "test_type": "İleri (Servis)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 12.0
+  },
+  "pass_next": "Canlı veride sinyal nominal ise arıza hafızasını temizleyip yol testi yapın.",
+  "fail_next": "Arızalı bileşeni veya tesisatı onarın/değiştirin.",
+  "safety_notes": [
+    "Kontak kapalıyken çalışma yapın.",
+    "Sıcak motor parçalarına ve dönen kayışlara dikkat edin."
+  ]
+}

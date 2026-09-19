@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "dtc": "P0174",
+  "system": "Yakıt & Hava Ölçümü (MAF, MAP, O2, ECT Sensörleri)",
+  "symptoms": [
+    "lack of power",
+    "increased fuel consumption",
+    "detonation (spark knock)",
+    "hesitation/surge on acceleration"
+  ],
+  "questions": [
+    {
+      "id": "Q_P0174_1",
+      "kind": "yes_no",
+      "text": "Şu olası nedeni kontrol ettiniz mi: The MAF (Mass Air Flow) Sensor is dirty or faulty (if equipped). Note: The use of \"oiled\" \n    air filters can cause the MAF to become contaminated if the filter is over-oiled. \n    There is also an issue with some vehicles where the MAF sensors leak the silicone \n    potting material used to protect the circuitry?",
+      "why": "P0174 için en sık bildirilen kök neden"
+    },
+    {
+      "id": "Q_P0174_2",
+      "kind": "yes_no",
+      "text": "Sensör/aktüatör kablo tesisatında kopuk veya kısa devre var mı (There could be a vacuum leak downstream of the MAF sensor)?",
+      "why": "Elektriksel tesisat kontrolü"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Kablo Tesisatı & Soketler",
+      "test_type": "Kolay (Görsel)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    },
+    {
+      "step": 2,
+      "target": "P0174 İlgili Komponent",
+      "test_type": "Orta (Alet Gerekir)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    },
+    {
+      "step": 3,
+      "target": "P0174 İlgili Komponent",
+      "test_type": "Orta (Alet Gerekir)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 12.0
+  },
+  "pass_next": "Canlı veride sinyal nominal ise arıza hafızasını temizleyip yol testi yapın.",
+  "fail_next": "Arızalı bileşeni veya tesisatı onarın/değiştirin.",
+  "safety_notes": [
+    "Kontak kapalıyken çalışma yapın.",
+    "Sıcak motor parçalarına ve dönen kayışlara dikkat edin."
+  ]
+}

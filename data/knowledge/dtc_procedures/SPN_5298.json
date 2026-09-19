@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 5298",
+  "system": "Egzoz & DPF Termal Rejenerasyonu",
+  "symptoms": [
+    "Egzoz Ard İşlem Diesel Oxidation Catalyst Dönüşüm Verimliliği arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_5298_FMI_2",
+      "kind": "yes_no",
+      "text": "Egzoz Ard İşlem Diesel Oxidation Catalyst Dönüşüm Verimliliği (FMI 2): Kablo demetinde titreşim temassızlığı, gevşek klemens veya manyetik relüktör çark diş hasarı arayın.",
+      "why": "Aftertreatment Diesel Oxidation Catalyst Conversion Efficiency - Aftertreatment Diesel Oxidation Cat"
+    },
+    {
+      "id": "Q_SPN_5298_FMI_7",
+      "kind": "yes_no",
+      "text": "Egzoz Ard İşlem Diesel Oxidation Catalyst Dönüşüm Verimliliği (FMI 7): Aktüatör itici kollarını, kurum birikmesini ve hava/yağ tahrik hatlarını mekanik olarak inceleyin.",
+      "why": "Aftertreatment Diesel Oxidation Catalyst Conversion Efficiency - Aftertreatment Diesel Oxidation Cat"
+    },
+    {
+      "id": "Q_SPN_5298_FMI_14",
+      "kind": "yes_no",
+      "text": "Egzoz Ard İşlem Diesel Oxidation Catalyst Dönüşüm Verimliliği (FMI 14): Motor üreticisinin (Cummins/CAT/Volvo) yetkili servis kılavuzuna başvurun.",
+      "why": "Aftertreatment Diesel Oxidation Catalyst Conversion Efficiency - Selective Catalytic Reduction Catal"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Aftertreatment 1 Diesel Oxidation Catalyst Conversion Efficiency Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

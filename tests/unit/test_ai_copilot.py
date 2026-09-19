@@ -287,3 +287,24 @@ class TestJ1939TechnicianReport:
             spn_entry, "yağ basıncı", {"EngineSpeed": 1500.0}
         )
         assert isinstance(text, str) and len(text) > 0
+
+
+class TestCanFrameForensics:
+    def test_j1939_pgn59904_iso_request_analysis(self) -> None:
+        from src.engine.ai.diagnostic_copilot import CausalBayesianInferenceEngine
+
+        query = (
+            "CAN ID 0x18EAFFFE (CAN-1, DLC: 3, DATA: 00 EE 00) karesini analiz et. "
+            "Anomali Tespiti: Adres isteme çakışması PGN 59904 ACK Reddi. "
+            "Bu kare ne anlama geliyor ve teşhis adımları nelerdir?"
+        )
+        result = CausalBayesianInferenceEngine.evaluate_diagnostic_query(query, [], {})
+
+        assert "0x18EAFFFE" in result
+        assert "PGN 59904" in result
+        assert "PGN 60928" in result
+        assert "Adres İsteme Çakışması" in result or "çakışma" in result.lower()
+        assert "Veri Yolu Trafik Analizi" not in result
+        assert "UDS 0x14" not in result
+        assert "act_j1939_dm1_query" in result
+

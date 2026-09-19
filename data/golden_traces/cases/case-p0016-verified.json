@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-p0016-verified",
+  "domain": "PASSENGER",
+  "make": "Volkswagen",
+  "model": "Passat",
+  "year": 2022,
+  "symptom": "P0016 ariza kodu: Triger kayışı/zincirinde uzama, senteden atlama veya gergide gevşeme.",
+  "dtcs": [
+    {
+      "code": "P0016",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "EngineSpeed",
+      "expected_behavior": "Nominal calisma araliginda",
+      "observed_behavior": "Faz Senkronizasyon Sapma Limiti: < ±4.0° Krank Açısı."
+    }
+  ],
+  "actual_fault": "Triger kayışı/zincirinde uzama, senteden atlama veya gergide gevşeme.",
+  "repair": "Osiloskop ile Krank (CKP) ve Kam (CMP) sinyallerini eşzamanlı kaydedip faz açısını inceleyin.",
+  "verification": "Saha onarimi ve ariza hafiza kontrolu ile dogrulandi",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-03-15"
+}

@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "dtc": "P0033",
+  "system": "Yakıt Ölçümü & Hava Emiş / Kam Mili Zamanlaması",
+  "symptoms": [
+    "Reduced engine performance",
+    "Whining or rattling noises from the turbocharger or turbo pipes",
+    "Excessive smoke from the exhaust",
+    "Fouled spark plugs",
+    "Elevated engine and/or transmission temperature"
+  ],
+  "questions": [
+    {
+      "id": "Q_P0033_1",
+      "kind": "yes_no",
+      "text": "Bad turbocharger bypass valve actuator durumunu kontrol ettiniz mi?",
+      "why": "P0033 arızasında olası kök neden"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Kablo Tesisatı & Soketler",
+      "test_type": "Kolay (Görsel)",
+      "safety_note": "Kontak kapalıyken ölçüm yapın."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 12.0
+  },
+  "pass_next": "Canlı veride sinyal nominal ise arıza hafızasını silin.",
+  "fail_next": "İlgili bileşeni veya kablo demetini onarın/değiştirin.",
+  "safety_notes": [
+    "Kontak kapalı konumda çalışın."
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 237",
+  "system": "Ağır Vasıta J1939 (OEM tablo hasadı)",
+  "symptoms": [
+    "Araç Identification Number arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_237_FMI_2",
+      "kind": "yes_no",
+      "text": "Araç Identification Number (FMI 2): Kablo demetinde titreşim temassızlığı, gevşek klemens veya manyetik relüktör çark diş hasarı arayın.",
+      "why": "Vehicle Identification Number - Vehicle Identification Number – Data Erratic, Intermittent, or Incor"
+    },
+    {
+      "id": "Q_SPN_237_FMI_12",
+      "kind": "yes_no",
+      "text": "Araç Identification Number (FMI 12): Modülün besleme voltajını teyit edin; düzelmiyorsa dahili ECU/Sensör arızasıdır.",
+      "why": "Vehicle Identification Number - Vehicle Identification Number – Bad Intelligent Device or Component"
+    },
+    {
+      "id": "Q_SPN_237_FMI_19",
+      "kind": "yes_no",
+      "text": "Araç Identification Number (FMI 19): Kablo tesisatı ve sensör empedansını kontrol edin.",
+      "why": "CAN VI_VEH_IDENT_NUM sinyali erişim dışı"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Vehicle Identification Number Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 975",
+  "system": "Motor Soğutma & Termal Yönetim",
+  "symptoms": [
+    "Motor Fanı 1 Tahmini Yüzde Hızı arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_975_FMI_2",
+      "kind": "yes_no",
+      "text": "Motor Fanı 1 Tahmini Yüzde Hızı (FMI 2): Fan hızını SPN 647 (fan sürücü durumu) ve soğutma suyu sıcaklığıyla (SPN 110) birlikte izleyin; tahmini hız ile fiziksel fan devri (stroboskop/foto takometre) arasındaki sapma kavrama kaymasına işaret eder.",
+      "why": "Motor Fanı 1 Tahmini Yüzde Hızı - Veri tutarsız, aralıklı veya hatalı"
+    },
+    {
+      "id": "Q_SPN_975_FMI_3",
+      "kind": "yes_no",
+      "text": "Motor Fanı 1 Tahmini Yüzde Hızı (FMI 3): Fan sürücü valfi/sensör hattını +5V'a karşı ölçün; hidrolik fan konnektörünü yağ kaçağına karşı kontrol edin.",
+      "why": "Motor Fanı 1 Tahmini Yüzde Hızı - Voltaj normalin üzerinde veya yüksek kaynağa kısa devre"
+    },
+    {
+      "id": "Q_SPN_975_FMI_4",
+      "kind": "yes_no",
+      "text": "Motor Fanı 1 Tahmini Yüzde Hızı (FMI 4): Fan sürücü hattını şasiye karşı ölçün; fan klutc solenoid bobin direncini ölçün.",
+      "why": "Motor Fanı 1 Tahmini Yüzde Hızı - Voltaj normalin altında veya şasiye kısa devre"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Engine Fan 1 Estimated Percent Speed Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

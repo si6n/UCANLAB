@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 1176",
+  "system": "Hava Emiş & Turboşarj (CAC)",
+  "symptoms": [
+    "Motor Turboşarj 1 Kompresör Emme Basıncı arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_1176_FMI_1",
+      "kind": "yes_no",
+      "text": "Motor Turboşarj 1 Kompresör Emme Basıncı (FMI 1): Sıvı seviyelerini, emiş filtrelerini ve mekanik aşınma belirtilerini kontrol edin.",
+      "why": "Turbocharger 1 Compressor Intake Pressure Circuit - Turbocharger 1 Compressor Inlet Pressure – Data "
+    },
+    {
+      "id": "Q_SPN_1176_FMI_2",
+      "kind": "yes_no",
+      "text": "Motor Turboşarj 1 Kompresör Emme Basıncı (FMI 2): Kablo demetinde titreşim temassızlığı, gevşek klemens veya manyetik relüktör çark diş hasarı arayın.",
+      "why": "Turbocharger 1 Compressor Intake Pressure Circuit - Turbocharger 1 Compressor Intake Pressure – Data"
+    },
+    {
+      "id": "Q_SPN_1176_FMI_3",
+      "kind": "yes_no",
+      "text": "Motor Turboşarj 1 Kompresör Emme Basıncı (FMI 3): Sensör soketini ayırın; voltaj şasiye göre düşmüyorsa kablo demeti akü besleme hattına ezilmiştir.",
+      "why": "Turbocharger 1 Compressor Intake Pressure Circuit - Turbocharger 1 Compressor Intake Pressure Circui"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Engine Turbocharger 1 Compressor Intake Pressure Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

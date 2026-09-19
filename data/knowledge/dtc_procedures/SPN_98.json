@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 98",
+  "system": "Motor Yağlama Sistemi (J1939)",
+  "symptoms": [
+    "Motor Yağ Seviyesi arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_98_FMI_1",
+      "kind": "yes_no",
+      "text": "Motor Yağ Seviyesi (FMI 1): Sıvı seviyelerini, emiş filtrelerini ve mekanik aşınma belirtilerini kontrol edin.",
+      "why": "Motor Yağ Seviyesi - Veri geçerli fakat normal çalışma aralığının altında (Kritik Düşük)"
+    },
+    {
+      "id": "Q_SPN_98_FMI_3",
+      "kind": "yes_no",
+      "text": "Motor Yağ Seviyesi (FMI 3): Sensör soketini ayırın; voltaj şasiye göre düşmüyorsa kablo demeti akü besleme hattına ezilmiştir.",
+      "why": "Motor Yağ Seviyesi - Voltaj normalin üzerinde veya yüksek kaynağa (+5V / +24V) kısa devre"
+    },
+    {
+      "id": "Q_SPN_98_FMI_4",
+      "kind": "yes_no",
+      "text": "Motor Yağ Seviyesi (FMI 4): Sinyal pini ile şasi arasındaki direnci ölçün (<1.0 Ω ise tesisatta şasi teması vardır).",
+      "why": "Motor Yağ Seviyesi - Voltaj normalin altında veya şasiye (GND) kısa devre"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Engine Oil Level Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

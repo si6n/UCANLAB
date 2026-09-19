@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "dtc": "U0001",
+  "system": "CAN-Bus & Ağ Haberleşme / ECU İletişim Kaybı",
+  "symptoms": [
+    "Code U0001 will set and the check engine light will illuminate",
+    "Vehicle's key alarm may activate intermittently",
+    "Vehicle may require several attempts to start",
+    "Vehicle may stall and be difficult to restart"
+  ],
+  "questions": [
+    {
+      "id": "Q_U0001_1",
+      "kind": "yes_no",
+      "text": "Loose, corroded, bent or short circuit in the CAN bus harness durumunu kontrol ettiniz mi?",
+      "why": "U0001 arızasında olası kök neden"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Kablo Tesisatı & Soketler",
+      "test_type": "Kolay (Görsel)",
+      "safety_note": "Kontak kapalıyken ölçüm yapın."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 12.0
+  },
+  "pass_next": "Canlı veride sinyal nominal ise arıza hafızasını silin.",
+  "fail_next": "İlgili bileşeni veya kablo demetini onarın/değiştirin.",
+  "safety_notes": [
+    "Kontak kapalı konumda çalışın."
+  ]
+}

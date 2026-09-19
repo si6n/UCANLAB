@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "dtc": "P2002",
+  "system": "Yakıt, Emisyon & SCR / AdBlue Dozaj Sistemi",
+  "symptoms": [
+    "A drop in fuel economy occurs as the engine management system attempts to increase the temperature of the exhaust to burn off the excess soot in the DPF",
+    "The check engine light will be on with the code \"P2002.\" The light may stay on or light intermittently as the DPF regenerates. The engine will be sluggish on acceleration.",
+    "The engine oil will exhibit dilution from the ECUs attempts to increase engine temperature. Some vehicles advance the fuel injection timing slightly after top center to afterburn a small amount of fuel to increase exhaust temperatures. Some of this fuel enters the crankcase. When the ECU determines the necessity to regenerate the DPF, the service life of the oil be shortened significantly",
+    "If the DPF is not cleared the ECU will revert to the \"Limp Home Mode\" until the situation is corrected"
+  ],
+  "questions": [
+    {
+      "id": "Q_P2002_1",
+      "kind": "yes_no",
+      "text": "Too much slow speed operation will cause this code. It takes heat in the 500c to 600c range to burn off the soot in the DPF. Even with the ECUs efforts in engine management, it has difficulty in creating enough heat to clear the DPF at slow engine speeds durumunu kontrol ettiniz mi?",
+      "why": "P2002 arızasında olası kök neden"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Kablo Tesisatı",
+      "test_type": "Kolay (Görsel)",
+      "safety_note": "Kontak kapalıyken ölçüm yapın."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 12.0
+  },
+  "pass_next": "Canlı veride sinyal nominal ise arıza hafızasını silin.",
+  "fail_next": "İlgili bileşeni veya kablo demetini onarın/değiştirin.",
+  "safety_notes": [
+    "Kontak kapalı konumda çalışın."
+  ]
+}

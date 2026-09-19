@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-spn3251-verified",
+  "domain": "HEAVY_DUTY",
+  "make": "Cummins",
+  "model": "ISX15",
+  "year": 2022,
+  "symptom": "SPN3251 ariza kodu: FMI 0 (Aşırı Kurum Tıkanıklığı): DPF basınç farkı >35 kPa; partikül filtresi dolu, rejenerasyon kilitlenmiş.",
+  "dtcs": [
+    {
+      "code": "SPN 3251",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "EngineSpeed",
+      "expected_behavior": "Nominal calisma araliginda",
+      "observed_behavior": "Temiz DPF Rölanti Basıncı: 0.5 - 2.0 kPa | Tam Yük: 5.0 - 12.0 kPa | Tıkalı Limi"
+    }
+  ],
+  "actual_fault": "FMI 0 (Aşırı Kurum Tıkanıklığı): DPF basınç farkı >35 kPa; partikül filtresi dolu, rejenerasyon kilitlenmiş.",
+  "repair": "DPF fark basınç sensörü silikon hortumlarında delinme veya erime olup olmadığını kontrol edin.",
+  "verification": "Saha onarimi ve ariza hafiza kontrolu ile dogrulandi",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-03-15"
+}

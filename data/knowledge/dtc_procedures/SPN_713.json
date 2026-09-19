@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 713",
+  "system": "Ağır Vasıta J1939 (OEM tablo hasadı)",
+  "symptoms": [
+    "Yardımcı G/Ç #13 arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_713_FMI_3",
+      "kind": "yes_no",
+      "text": "Yardımcı G/Ç #13 (FMI 3): Sensör soketini ayırın; voltaj şasiye göre düşmüyorsa kablo demeti akü besleme hattına ezilmiştir.",
+      "why": "Digital Output 3 07 - Digital Output 3 07 – Circuit Failed High"
+    },
+    {
+      "id": "Q_SPN_713_FMI_4",
+      "kind": "yes_no",
+      "text": "Yardımcı G/Ç #13 (FMI 4): Sinyal pini ile şasi arasındaki direnci ölçün (<1.0 Ω ise tesisatta şasi teması vardır).",
+      "why": "Digital Output 3 07 - Digital Output 3 07 – Circuit Failed Low"
+    },
+    {
+      "id": "Q_SPN_713_FMI_5",
+      "kind": "yes_no",
+      "text": "Yardımcı G/Ç #13 (FMI 5): Aktüatör/solenoid bobin direncini ölçün ve soket kilit tırnaklarını kontrol edin.",
+      "why": "Digital Output 3 07 - Digital Output 3 07 – Open Circuit"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Auxiliary I/O #13 Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

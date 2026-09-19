@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "dtc": "P0021",
+  "system": "Yakıt Ölçümü & Hava Emiş / Kam Mili Zamanlaması",
+  "symptoms": [
+    "Inspect the camshaft position sensor: Check for any signs of damage or loose connections. If necessary, replace the sensor.",
+    "Examine the timing chain or belt: Inspect for any signs of wear, stretching, or misalignment. Replace if necessary.",
+    "Check the variable valve timing system: Inspect the VVT solenoids, oil passages, and control valves for any blockages or malfunctions. Clean or replace components as needed.",
+    "Clear the fault code: After addressing the underlying issue, use an OBD-II scanner to clear the fault code and reset the ECM."
+  ],
+  "questions": [
+    {
+      "id": "Q_P0021_1",
+      "kind": "yes_no",
+      "text": "Incorrect camshaft timing durumunu kontrol ettiniz mi?",
+      "why": "P0021 arızasında olası kök neden"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Kablo Tesisatı",
+      "test_type": "Kolay (Görsel)",
+      "safety_note": "Kontak kapalıyken ölçüm yapın."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 12.0
+  },
+  "pass_next": "Canlı veride sinyal nominal ise arıza hafızasını silin.",
+  "fail_next": "İlgili bileşeni veya kablo demetini onarın/değiştirin.",
+  "safety_notes": [
+    "Kontak kapalı konumda çalışın."
+  ]
+}

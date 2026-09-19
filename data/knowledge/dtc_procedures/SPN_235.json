@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 235",
+  "system": "Yakıt Ekonomisi & Telemetri",
+  "symptoms": [
+    "Motor Toplam Rölanti Çalışma Saati arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_235_FMI_2",
+      "kind": "yes_no",
+      "text": "Motor Toplam Rölanti Çalışma Saati (FMI 2): Rölanti saatinin toplam çalışma saatine (SPN 247) oranını kontrol edin; rölanti tanımı ECU kalibrasyonuna bağlıdır, sayaç sıfırlaması ECU değişiminde kaybolur.",
+      "why": "Motor Toplam Rölanti Çalışma Saati - Veri tutarsız, aralıklı veya hatalı"
+    },
+    {
+      "id": "Q_SPN_235_FMI_9",
+      "kind": "yes_no",
+      "text": "Motor Toplam Rölanti Çalışma Saati (FMI 9): PGN 65244 yayın periyodunu izleyin; kesintili yayın ECU çökme/yeniden başlama döngüsüne işaret edebilir.",
+      "why": "Motor Toplam Rölanti Çalışma Saati - Anormal güncelleme hızı"
+    },
+    {
+      "id": "Q_SPN_235_FMI_19",
+      "kind": "yes_no",
+      "text": "Motor Toplam Rölanti Çalışma Saati (FMI 19): DM1 ağ hatalarını ve bus istatistiklerini kontrol edin; tekrarlayan çerçeve hatası terminasyon/sinyal bütünlüğü problemidir.",
+      "why": "Motor Toplam Rölanti Çalışma Saati - Alınan ağ verisi hatalı"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Engine Total Idle Hours Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

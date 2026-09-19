@@ -9,6 +9,8 @@ cover line (wall-clock, read-only record field per plan §Riskler).
 
 from __future__ import annotations
 
+import hashlib
+import hmac as _hmac
 import time
 from typing import Any
 
@@ -22,6 +24,14 @@ from src.engine.ai.hypothesis_engine import Hypothesis
 _SIM_MARKER = "canlı veri kaydı yok — simülasyon/demo modu"
 
 
+def _sign_report(raw: str, signing_key: bytes | None) -> tuple[str, str]:
+    """R2-EN1: keyed HMAC when a signing key is supplied, else plain SHA-256 checksum."""
+    if signing_key:
+        digest = _hmac.new(signing_key, raw.encode("utf-8"), hashlib.sha256).hexdigest().upper()
+        return digest, "HMAC-SHA256 (keyed, tamper-evident)"
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest().upper(), "SHA-256 (integrity checksum)"
+
+
 def build_technician_report(
     session: VehicleSession,
     sufficiency: SufficiencyReport,
@@ -29,8 +39,12 @@ def build_technician_report(
     hypotheses: list[Hypothesis],
     similar_cases: list[CaseMatch],
     discriminating_tests: list[str] | None = None,
+    dialogue_transcript: list[dict[str, Any]] | None = None,
+    eliminated_hypotheses: list[Any] | None = None,
+    technician_correction: str | None = None,
+    signing_key: bytes | None = None,
 ) -> str:
-    """Build the Markdown session report (deterministic body, wall-clock cover)."""
+    """Build the Markdown session report (deterministic body, wall-clock cover, R2-EN1 seal)."""
     duration_s = max(0.0, _session_span_s(session))
     lines: list[str] = []
     lines.append("# Teşhis Oturum Raporu")
@@ -45,7 +59,9 @@ def build_technician_report(
     if not session.samples and not session.events:
         lines.append(f"- {_SIM_MARKER}")
         lines.append("- Hipotez tablosu üretilmedi (kanıt yok).")
-        return "\n".join(lines) + "\n"
+        raw_body = "\n".join(lines) + "\n"
+        seal, algo = _sign_report(raw_body, signing_key)
+        return raw_body + f"\n---\n**Rapor Kriptografik Mührü (R2-EN1):** `{seal}`  \n*Algoritma:* {algo}\n"
     if sufficiency.anomaly_sufficient:
         lines.append("- Kanıt kalitesi yeterli (anomali analizi çalıştırılabilir).")
     else:
@@ -111,12 +127,45 @@ def build_technician_report(
     else:
         lines.append("- Ayrıştırıcı test önerisi yok (hipotez çifti belirsiz değil veya KB ölçüm adımı yok).")
 
+    # ── Interactive Dialogue & Evidence Chain (FAZ 5) ──
+    if dialogue_transcript:
+        lines.append("")
+        lines.append("## İnteraktif Diyalog Transkripti & Kanıt Zinciri")
+        lines.append("| # | Soru | Cevap | Tür | Kanıt / Etki |")
+        lines.append("|---|------|-------|-----|--------------|")
+        for i, turn in enumerate(dialogue_transcript, start=1):
+            q_txt = turn.get("question", "")
+            ans_txt = turn.get("answer", "")
+            k_txt = turn.get("kind", "")
+            link = turn.get("evidence_link", "")
+            lines.append(f"| {i} | {q_txt} | {ans_txt} | {k_txt} | {link} |")
+
+    if eliminated_hypotheses:
+        lines.append("")
+        lines.append("## Elenen Olasılıklar ve Nedenleri")
+        for eh in eliminated_hypotheses:
+            fault = getattr(eh, "fault", None) or (eh.get("fault") if isinstance(eh, dict) else str(eh))
+            reason = getattr(eh, "reason", None) or (eh.get("reason") if isinstance(eh, dict) else "")
+            qid = getattr(eh, "eliminated_by_question_id", None) or (eh.get("eliminated_by_question_id") if isinstance(eh, dict) else "")
+            qid_str = f" (Soru: {qid})" if qid else ""
+            lines.append(f"- **{fault}**: {reason}{qid_str}")
+
+    if technician_correction:
+        lines.append("")
+        lines.append("## Teknisyen Düzeltme Notu (\"Yanıldım\" Geri Bildirimi)")
+        lines.append(f"> {technician_correction.strip()}")
+        lines.append("*(Bu geri bildirim cihaz-içi öğrenme havuzuna golden case adayı olarak kaydedilmiştir.)*")
+
     # ── Action triggers (deterministic make_* generators only) ──
     actions = [make_uds_clear_dtc_action(), make_j1939_dm1_action()] if actives else []
     body = "\n".join(lines) + "\n"
     if actions:
         body = attach_action_triggers(body, actions)
-    return body
+
+    # ── Cryptographic Seal (R2-EN1) ──
+    seal, algo = _sign_report(body, signing_key)
+    seal_block = f"\n---\n**Rapor Kriptografik Mührü (R2-EN1):** `{seal}`  \n*Algoritma:* {algo}\n"
+    return body + seal_block
 
 
 def _session_span_s(session: VehicleSession) -> float:
@@ -142,4 +191,4 @@ def report_summary_dict(
     }
 
 
-__all__ = ["build_technician_report", "report_summary_dict", "_SIM_MARKER"]
+__all__ = ["build_technician_report", "report_summary_dict", "_sign_report", "_SIM_MARKER"]

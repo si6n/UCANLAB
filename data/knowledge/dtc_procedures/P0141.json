@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "P0141",
+  "system": "Yakıt & Hava Ölçümü (MAF, MAP, O2, ECT Sensörleri)",
+  "symptoms": [
+    "A properly functioning O2 sensor heater is important for reducing emissions and ensuring the engine runs efficiently.",
+    "When this circuit malfunctions, it can lead to poor fuel economy and increased emissions."
+  ],
+  "questions": [
+    {
+      "id": "Q_P0141_1",
+      "kind": "yes_no",
+      "text": "Şu olası nedeni kontrol ettiniz mi: open or short to ground in the wiring harness?",
+      "why": "P0141 için en sık bildirilen kök neden"
+    },
+    {
+      "id": "Q_P0141_2",
+      "kind": "yes_no",
+      "text": "Sensör/aktüatör kablo tesisatında kopuk veya kısa devre var mı (O2 heater circuit wiring high resistance)?",
+      "why": "Elektriksel tesisat kontrolü"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Kablo Tesisatı & Soketler",
+      "test_type": "Kolay (Görsel)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    },
+    {
+      "step": 2,
+      "target": "P0141 İlgili Komponent",
+      "test_type": "Orta (Alet Gerekir)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 12.0
+  },
+  "pass_next": "Canlı veride sinyal nominal ise arıza hafızasını temizleyip yol testi yapın.",
+  "fail_next": "Arızalı bileşeni veya tesisatı onarın/değiştirin.",
+  "safety_notes": [
+    "Kontak kapalıyken çalışma yapın.",
+    "Sıcak motor parçalarına ve dönen kayışlara dikkat edin."
+  ]
+}

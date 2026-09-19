@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-p0301-verified",
+  "domain": "PASSENGER",
+  "make": "Volkswagen",
+  "model": "Golf",
+  "year": 2021,
+  "symptom": "P0301 arıza kodu: 1. Silindir ateşleme bobini izolasyon çatlağı",
+  "dtcs": [
+    {
+      "code": "P0301",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "MisfireCount",
+      "expected_behavior": "Nominal fabrika çalışma aralığında",
+      "observed_behavior": "1. silindir tekleme sayacı hızla artıyor"
+    }
+  ],
+  "actual_fault": "1. Silindir ateşleme bobini izolasyon çatlağı",
+  "repair": "1. silindir bobini ve 4 adet buji yenilendi",
+  "verification": "Yol testi ve arıza hafızası kontrolü ile doğrulandı",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-04-10"
+}

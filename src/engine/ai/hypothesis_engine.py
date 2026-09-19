@@ -67,6 +67,8 @@ class Hypothesis:
     id: str
     fault: str
     score: float  # normalized [0, 1]
+    confidence_interval: tuple[float, float] = (0.0, 1.0)
+    prior_probability: float = 0.5
     supporting_evidence: list[str] = field(default_factory=list)
     contradicting_evidence: list[str] = field(default_factory=list)
     discriminating_tests: list[str] = field(default_factory=list)
@@ -76,6 +78,8 @@ class Hypothesis:
             "id": self.id,
             "fault": self.fault,
             "score": round(self.score, 3),
+            "confidence_interval": [round(self.confidence_interval[0], 3), round(self.confidence_interval[1], 3)],
+            "prior_probability": round(self.prior_probability, 3),
             "supporting_evidence": list(self.supporting_evidence),
             "contradicting_evidence": list(self.contradicting_evidence),
             "discriminating_tests": list(self.discriminating_tests),
@@ -236,13 +240,24 @@ def rank_hypotheses(
         return []
     # Normalize to [0, 1] over the best raw score, deterministic order.
     best = max(r for r, _, _ in raw) or 1.0
+    prior_prob = round(1.0 / len(graph), 3) if graph else 0.5
     out: list[Hypothesis] = []
     for r, nid, hyp in sorted(raw, key=lambda t: (-t[0], t[1])):
+        norm_score = r / best
+        n_ev = len(hyp.supporting_evidence) + len(hyp.contradicting_evidence)
+        # Wilson-like conservative confidence interval
+        import math
+        margin = 1.96 * math.sqrt(max(0.001, (norm_score * (1.0 - norm_score) + 0.05) / (n_ev + 4)))
+        ci_lower = max(0.0, round(norm_score - margin, 3))
+        ci_upper = min(1.0, round(norm_score + margin, 3))
+
         out.append(
             Hypothesis(
                 id=nid,
                 fault=hyp.fault,
-                score=r / best,
+                score=norm_score,
+                confidence_interval=(ci_lower, ci_upper),
+                prior_probability=prior_prob,
                 supporting_evidence=hyp.supporting_evidence,
                 contradicting_evidence=hyp.contradicting_evidence,
             )

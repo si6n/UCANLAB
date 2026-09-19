@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 520",
+  "system": "Pnömatik Fren Sistemi (J1939)",
+  "symptoms": [
+    "Reduced Motor Fren Power arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_520_FMI_1",
+      "kind": "yes_no",
+      "text": "Reduced Motor Fren Power (FMI 1): Sıvı seviyelerini, emiş filtrelerini ve mekanik aşınma belirtilerini kontrol edin.",
+      "why": "Reduced Engine Brake Power - Reduced Engine Brake Power"
+    },
+    {
+      "id": "Q_SPN_520_FMI_18",
+      "kind": "yes_no",
+      "text": "Reduced Motor Fren Power (FMI 18): Dozaj pompası, hava tahrik valfi veya debi kısıtlamalarını giderin.",
+      "why": "Reduced Engine Brake Power - Reduced Engine Brake Power"
+    },
+    {
+      "id": "Q_SPN_520_FMI_2",
+      "kind": "yes_no",
+      "text": "Reduced Motor Fren Power (FMI 2): Kablo tesisatı ve sensör empedansını kontrol edin.",
+      "why": "Retarder'in gerçek fren torkunun referans değere (SPN 556) oranı; not: SAE J1939-71 bölüm 5.2.1'e ba"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Actual Retarder - Percent Torque Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 38",
+  "system": "Yakıt Besleme & Enjeksiyon (J1939)",
+  "symptoms": [
+    "Yakıt Seviyesi 2 ikazı",
+    "J1939 DM1 aktif arıza kaydı"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_38_1",
+      "kind": "yes_no",
+      "text": "Yakıt Seviyesi 2 (FMI 9): Sensör veya kaynak modülün CAN-Bus hattına bağlı olduğunu ve adres aldığını (Address Claim) doğrulayın.",
+      "why": "SPN 38 arıza prosedür adımı"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Sensor Electrical Fault Sinyal Hattı",
+      "test_type": "J1939 / Multimetre"
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "DM11 ile arıza hafızasını temizleyip yol testi yapın.",
+  "fail_next": "Sensör veya tesisatı değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemi ile uyumlu çalışın."
+  ]
+}

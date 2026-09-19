@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-n2k-impeller-verified",
+  "domain": "PASSENGER",
+  "make": "Volkswagen",
+  "model": "Passat",
+  "year": 2022,
+  "symptom": "N2K_IMPELLER ariza kodu: Lastik impeller kanatlarının kuru çalışma veya aşınma nedeniyle parçalanması (Su debisi sıfıra indi).",
+  "dtcs": [
+    {
+      "code": "N2K_IMPELLER",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "EngineSpeed",
+      "expected_behavior": "Nominal calisma araliginda",
+      "observed_behavior": "Termal Gradyan Eşiği: dT/dt > 1.5°C/saniye (Rölantide dahi saniyeler içinde 100°"
+    }
+  ],
+  "actual_fault": "Lastik impeller kanatlarının kuru çalışma veya aşınma nedeniyle parçalanması (Su debisi sıfıra indi).",
+  "repair": "Motoru derhal stop edin! Kinseft vanasının açık olduğunu ve deniz suyu filtresini kontrol edin.",
+  "verification": "Saha onarimi ve ariza hafiza kontrolu ile dogrulandi",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-03-15"
+}

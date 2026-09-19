@@ -258,9 +258,6 @@ export const SignalDiscoveryView: React.FC<SignalDiscoveryViewProps> = ({
  <div>
  <div className="flex items-center space-x-2">
  <h2 className="text-sm font-bold text-slate-900">CAN-Bus Reverse Engineering & Sinyal Çözümleme</h2>
- <span className="bg-brand-50 text-brand-700 text-xs font-semibold px-2 py-0.5 rounded-md border border-brand-200">
- Deterministik Kanıt Protokolü v2.0
- </span>
  </div>
  <p className="text-xs text-slate-500">
  Bilinmeyen CAN-Bus ağlarındaki çerçeveleri 6 saniyelik kontrollü Uyarı-Tepki (Stimulus-Response) deneyleri ile çözün ve DBC üretin

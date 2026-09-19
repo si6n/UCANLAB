@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "dtc": "P0090",
+  "system": "Yakıt Ölçümü & Hava Emiş / Kam Mili Zamanlaması",
+  "symptoms": [
+    "Delayed startup",
+    "Black smoke from the exhaust system",
+    "Diminished fuel efficiency",
+    "Engine drivability codes may also accompany a P0090"
+  ],
+  "questions": [
+    {
+      "id": "Q_P0090_1",
+      "kind": "yes_no",
+      "text": "Şu olası nedeni kontrol ettiniz mi: Shorted or open wiring and/or connectors in the fuel pressure regulator control circuit?",
+      "why": "P0090 için en sık bildirilen kök neden"
+    },
+    {
+      "id": "Q_P0090_2",
+      "kind": "yes_no",
+      "text": "Sensör/aktüatör kablo tesisatında kopuk veya kısa devre var mı (Defective fuel pressure regulator)?",
+      "why": "Elektriksel tesisat kontrolü"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Kablo Tesisatı & Soketler",
+      "test_type": "Kolay (Görsel)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    },
+    {
+      "step": 2,
+      "target": "P0090 İlgili Komponent",
+      "test_type": "Orta (Alet Gerekir)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    },
+    {
+      "step": 3,
+      "target": "P0090 İlgili Komponent",
+      "test_type": "Orta (Alet Gerekir)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 12.0
+  },
+  "pass_next": "Canlı veride sinyal nominal ise arıza hafızasını temizleyip yol testi yapın.",
+  "fail_next": "Arızalı bileşeni veya tesisatı onarın/değiştirin.",
+  "safety_notes": [
+    "Kontak kapalıyken çalışma yapın.",
+    "Sıcak motor parçalarına ve dönen kayışlara dikkat edin."
+  ]
+}

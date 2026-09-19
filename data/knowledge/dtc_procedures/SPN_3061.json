@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 3061",
+  "system": "EGR Sistemi (Egzoz Gazı Geri Dönüşümü)",
+  "symptoms": [
+    "Motor Soğuk Çalıştırma Emisyon Azaltma Stratejisi Sistem Monitörü ikazı",
+    "J1939 DM1 aktif arıza kaydı"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_3061_1",
+      "kind": "yes_no",
+      "text": "Motor Soğuk Çalıştırma Emisyon Azaltma Stratejisi Sistem Monitörü (FMI 1): Sıvı seviyelerini, emiş filtrelerini ve mekanik aşınma belirtilerini kontrol edin.",
+      "why": "SPN 3061 arıza prosedür adımı"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Engine Cold Start Emission Reduction Strategy System Monitor Sinyal Hattı",
+      "test_type": "J1939 / Multimetre"
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "DM11 ile arıza hafızasını temizleyip yol testi yapın.",
+  "fail_next": "Sensör veya tesisatı değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemi ile uyumlu çalışın."
+  ]
+}

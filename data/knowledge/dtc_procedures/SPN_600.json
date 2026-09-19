@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 600",
+  "system": "Sürücü Girişleri & Hız Kontrol (J1939)",
+  "symptoms": [
+    "Hız Sabitleyici Yavaşlama (Coast) Şalteri ikazı",
+    "J1939 DM1 aktif arıza kaydı"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_600_1",
+      "kind": "yes_no",
+      "text": "Hız Sabitleyici Yavaşlama (Coast) Şalteri (FMI 19): Veri yolunda 120Ω hat sonlandırma direncini ve CAN-H/CAN-L sinyal gürültüsünü test edin.",
+      "why": "SPN 600 arıza prosedür adımı"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Cruise Control Coast (Decelerate) Switch Sinyal Hattı",
+      "test_type": "J1939 / Multimetre"
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "DM11 ile arıza hafızasını temizleyip yol testi yapın.",
+  "fail_next": "Sensör veya tesisatı değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemi ile uyumlu çalışın."
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 188",
+  "system": "Ağır Vasıta J1939 (OEM tablo hasadı)",
+  "symptoms": [
+    "Motor Devri/Hızı at Rölanti arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_188_FMI_0",
+      "kind": "yes_no",
+      "text": "Motor Devri/Hızı at Rölanti (FMI 0): Sensör besleme hattını ve fiziksel aşırı basınç/sıcaklık durumunu mekanik test portundan doğrulayın.",
+      "why": "Engine Speed at Idle - Engine Unable to Achieve Desired Idle Speed (Too High)"
+    },
+    {
+      "id": "Q_SPN_188_FMI_1",
+      "kind": "yes_no",
+      "text": "Motor Devri/Hızı at Rölanti (FMI 1): Sıvı seviyelerini, emiş filtrelerini ve mekanik aşınma belirtilerini kontrol edin.",
+      "why": "Engine Speed at Idle - Engine Unable to Achieve Desired Idle Speed (Too Low)"
+    },
+    {
+      "id": "Q_SPN_188_FMI_14",
+      "kind": "yes_no",
+      "text": "Motor Devri/Hızı at Rölanti (FMI 14): Motor üreticisinin (Cummins/CAT/Volvo) yetkili servis kılavuzuna başvurun.",
+      "why": "Engine Speed at Idle - Engine Speed at Idle, Point 1 – Special Instructions"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Engine Speed At Idle, Point 1 Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

@@ -264,9 +264,9 @@ export const CanSnifferTable: React.FC<CanSnifferTableProps> = ({
   };
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl shadow-card flex flex-col h-full overflow-hidden relative">
+    <div className="panel-flat flex flex-col h-full overflow-hidden relative">
       {/* Sniffer Header & Toolbar */}
-      <div className="px-3.5 py-2 bg-white border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+      <div className="px-3.5 py-2 bg-transparent border-b border-white/[0.07] flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center space-x-2.5">
           <div className="w-6 h-6 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700">
             <Terminal className="w-3.5 h-3.5 text-brand-600 stroke-[2.2]" />
@@ -362,12 +362,12 @@ export const CanSnifferTable: React.FC<CanSnifferTableProps> = ({
       </div>
 
       {/* Table Container */}
-      <div 
+      <div
         ref={tableContainerRef}
-        className="flex-1 overflow-y-auto overflow-x-auto text-xs font-mono select-text bg-white"
+        className="flex-1 overflow-y-auto overflow-x-auto text-xs font-mono select-text bg-transparent"
       >
         <table className="w-full text-left border-collapse">
-          <thead className="sticky top-0 bg-slate-50/95 backdrop-blur-xs border-b border-slate-200 text-xs font-semibold text-slate-600 tracking-normal z-10">
+          <thead className="sticky top-0 bg-[#0b0b0e]/70 backdrop-blur-md border-b border-white/[0.07] text-xs font-semibold text-slate-600 tracking-normal z-10">
             <tr>
               <th className="py-1.5 px-3 w-24">Zaman (s)</th>
               <th className="py-1.5 px-2.5 w-16">Kanal</th>
@@ -463,7 +463,7 @@ export const CanSnifferTable: React.FC<CanSnifferTableProps> = ({
       </div>
 
       {/* Sniffer Footer Metrics */}
-      <div className="px-3.5 py-1.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500 font-mono">
+      <div className="px-3.5 py-1.5 bg-transparent border-t border-white/[0.07] flex items-center justify-between text-xs text-slate-500 font-mono">
         <div className="flex items-center space-x-4">
           <span>Toplam Gösterilen: <strong className="text-slate-700">{totalDisplayedCount}</strong></span>
           <span>

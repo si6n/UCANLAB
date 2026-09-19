@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 961",
+  "system": "Ağır Vasıta J1939 (OEM tablo hasadı)",
+  "symptoms": [
+    "Saat arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_961_FMI_2",
+      "kind": "yes_no",
+      "text": "Saat (FMI 2): Kablo demetinde titreşim temassızlığı, gevşek klemens veya manyetik relüktör çark diş hasarı arayın.",
+      "why": "CPC Clock Data Invalid - CPC Clock Data Invalid"
+    },
+    {
+      "id": "Q_SPN_961_FMI_0",
+      "kind": "yes_no",
+      "text": "Saat (FMI 0): Kablo tesisatı ve sensör empedansını kontrol edin.",
+      "why": "ECU dahili hataları"
+    },
+    {
+      "id": "Q_SPN_961_FMI_19",
+      "kind": "yes_no",
+      "text": "Saat (FMI 19): Kablo tesisatı ve sensör empedansını kontrol edin.",
+      "why": "Günün geçerli saati bileşeni (UTC / yerel zaman formatında kaydedilen saat bileşeni)"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Hours Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

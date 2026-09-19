@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 3056",
+  "system": "SCR & DEF Dozaj Emisyon Sistemi",
+  "symptoms": [
+    "Selective Catalyst Reduction Inlet NOx Sensörü arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_3056_FMI_2",
+      "kind": "yes_no",
+      "text": "Selective Catalyst Reduction Inlet NOx Sensörü (FMI 2): Kablo demetinde titreşim temassızlığı, gevşek klemens veya manyetik relüktör çark diş hasarı arayın.",
+      "why": "Selective Catalyst Reduction Inlet NOx Sensor - Selective Catalyst Reduction Inlet NOx Sensor – Erro"
+    },
+    {
+      "id": "Q_SPN_3056_FMI_4",
+      "kind": "yes_no",
+      "text": "Selective Catalyst Reduction Inlet NOx Sensörü (FMI 4): Sinyal pini ile şasi arasındaki direnci ölçün (<1.0 Ω ise tesisatta şasi teması vardır).",
+      "why": "Selective Catalyst Reduction Inlet NOx Sensor - O₂ Sensor Heater Performance Error"
+    },
+    {
+      "id": "Q_SPN_3056_FMI_5",
+      "kind": "yes_no",
+      "text": "Selective Catalyst Reduction Inlet NOx Sensörü (FMI 5): Aktüatör/solenoid bobin direncini ölçün ve soket kilit tırnaklarını kontrol edin.",
+      "why": "Selective Catalyst Reduction Inlet NOx Sensor - O₂ Sensor Signal Reference Circuit Failed Open"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Oxygen (or Exhaust Gas) Sensor Bank 1 Monitor Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

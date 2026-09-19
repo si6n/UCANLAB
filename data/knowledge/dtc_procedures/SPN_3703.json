@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 3703",
+  "system": "Egzoz & DPF Rejenerasyonu",
+  "symptoms": [
+    "Particulate Trap Active Rejenerasyon Engellemeed Due to Engelleme Şalteri ikazı",
+    "J1939 DM1 aktif arıza kaydı"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_3703_1",
+      "kind": "yes_no",
+      "text": "Particulate Trap Active Rejenerasyon Engellemeed Due to Engelleme Şalteri (FMI 31): İlgili anahtar veya sensör kontak pozisyonunu doğrulayın.",
+      "why": "SPN 3703 arıza prosedür adımı"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Diesel Particulate Filter Active Regeneration Inhibited Due to Inhibit Switch Sinyal Hattı",
+      "test_type": "J1939 / Multimetre"
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "DM11 ile arıza hafızasını temizleyip yol testi yapın.",
+  "fail_next": "Sensör veya tesisatı değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemi ile uyumlu çalışın."
+  ]
+}

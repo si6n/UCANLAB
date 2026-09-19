@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 177",
+  "system": "Otomatik / AMT Şanzıman Kontrolü",
+  "symptoms": [
+    "Şanzıman 1 Yağ Sıcaklığı arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_177_FMI_0",
+      "kind": "yes_no",
+      "text": "Şanzıman 1 Yağ Sıcaklığı (FMI 0): Şanzıman yağ soğutucu hattını ve by-pass valfini kontrol edin; yağ seviyesi ve yağ tipinin (ATF spesifikasyonu) doğru olduğunu doğrulayın. TCU termal derate devrede olabilir - yükü azaltıp soğumaya bırakın.",
+      "why": "Şanzıman 1 Yağ Sıcaklığı - Veri geçerli fakat normal çalışma aralığının üzerinde (Kritik Yüksek)"
+    },
+    {
+      "id": "Q_SPN_177_FMI_1",
+      "kind": "yes_no",
+      "text": "Şanzıman 1 Yağ Sıcaklığı (FMI 1): Soğuk çalıştırmada beklenir; sensör okumasını el termometresiyle karter yüzeyinden karşılaştırın.",
+      "why": "Şanzıman 1 Yağ Sıcaklığı - Veri geçerli fakat normal çalışma aralığının altında (Kritik Düşük)"
+    },
+    {
+      "id": "Q_SPN_177_FMI_3",
+      "kind": "yes_no",
+      "text": "Şanzıman 1 Yağ Sıcaklığı (FMI 3): Sensör soketini ayırın; sinyal hattı beslemeye kısa devreyi kontrol edin.",
+      "why": "Şanzıman 1 Yağ Sıcaklığı - Voltaj normalin üzerinde veya yüksek kaynağa kısa devre"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Transmission Oil Temperature 1 Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "temperature_c": 85.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

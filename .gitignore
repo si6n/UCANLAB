@@ -19,6 +19,8 @@ yarn-error.log*
 
 # Testing & Quality
 .pytest_cache/
+.pytest_temp/
+.npm-cache/
 .ruff_cache/
 .mypy_cache/
 .hypothesis/
@@ -32,6 +34,8 @@ dist/
 *.build/
 *.egg-info/
 *.spec
+!ucanlab.spec
+!ucanlab_launcher.spec
 
 # IDE & Editors
 .vs/
@@ -44,6 +48,11 @@ dist/
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+# Ad-hoc Root Media & Screenshots
+/*.png
+/*.jpg
+/*.jpeg
 
 # Logs & Generated Reports
 *.log
@@ -73,8 +82,11 @@ data/*
 !data/diagnostics/
 !data/diagnostics/**
 data/diagnostics/*.bak_t*
+data/diagnostics/user_feedback.json
 !data/golden_traces/
 !data/golden_traces/**
+!data/knowledge/
+!data/knowledge/**
 *.bin.zst
 traces/
 !data/traces/
@@ -97,21 +109,21 @@ data/traces/marine/project_haris/raw/
 .agents/
 .agent/
 .cline/
-
-
-# Local review/benchmark scratch — never commit
+.clinerules
+.gemini/
+.antigravity/
+.cursor/
+.windsurf/
 .scratch/
-
-# Multi-agent session internals
-.agents/
 
 # Logseq local backups & transient caches
 .logseq/bak/
 .logseq/version-control/
+
 # ── Obsidian Vault ─────────────────────────────────────────────
 # NOT: Vault TAMAMEN ignore edilir. Kisisel not alani + ajan raporlari
 # urun deposuna girmez; ajanlar dosya yolu uzerinden okur.
-# Vault'i git'te tutmak isterseniz asagidaki kurali silin.
+# Vault kendi bagimsiz Git reposuyla yonetilir.
 obsidian-vault/
 
 # --- Ad-hoc scratch / agent working files (Tur-27) ---
@@ -141,7 +153,6 @@ spn_gap_hunter/
 arsiv_ajan_scriptleri/
 repro/
 
-# --- Ad-hoc scratch / agent working files (Tur-27) ---
 # Tum gecici/uretim ciktilari repoya girmez (T40 chassis raporu).
 output/
 !output/.gitkeep

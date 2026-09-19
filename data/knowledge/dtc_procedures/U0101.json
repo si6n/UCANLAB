@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "dtc": "U0101",
+  "system": "CAN-Bus & Ağ Haberleşme / ECU İletişim Kaybı",
+  "symptoms": [
+    "Malfunction Indicator Lamp (MIL) on",
+    "Vehicle will not shift",
+    "Vehicle stays in one gear (usually 2nd or 3rd)"
+  ],
+  "questions": [
+    {
+      "id": "Q_U0101_1",
+      "kind": "yes_no",
+      "text": "Şu olası nedeni kontrol ettiniz mi: Open in the CAN bus + circuit?",
+      "why": "U0101 için en sık bildirilen kök neden"
+    },
+    {
+      "id": "Q_U0101_2",
+      "kind": "yes_no",
+      "text": "Sensör/aktüatör kablo tesisatında kopuk veya kısa devre var mı (Open in the CAN bus - circuit)?",
+      "why": "Elektriksel tesisat kontrolü"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Kablo Tesisatı",
+      "test_type": "Kolay (Görsel)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    },
+    {
+      "step": 2,
+      "target": "Sensör / Aktüatör",
+      "test_type": "Orta (Alet Gerekir)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    },
+    {
+      "step": 3,
+      "target": "Sinyal Hattı",
+      "test_type": "İleri (Servis)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 12.0
+  },
+  "pass_next": "Canlı veride sinyal nominal ise arıza hafızasını temizleyip yol testi yapın.",
+  "fail_next": "Arızalı bileşeni veya tesisatı onarın/değiştirin.",
+  "safety_notes": [
+    "Kontak kapalıyken çalışma yapın.",
+    "Sıcak motor parçalarına ve dönen kayışlara dikkat edin."
+  ]
+}

@@ -92,7 +92,20 @@ declare global {
         get_diagnostic_analysis?: () => Promise<Record<string, any>>;
         reset_diagnostic_session?: () => Promise<Record<string, any>>;
         record_operator_measurement?: (name: string, value: number) => Promise<{ success: boolean; recorded?: string; error?: string }>;
+        record_operator_answer?: (
+          question_id: string,
+          value: any,
+          kind?: string,
+          unit?: string | null,
+          is_unknown?: boolean,
+        ) => Promise<Record<string, any>>;
+        get_dialogue_state?: () => Promise<Record<string, any>>;
+        get_diagnostic_kpi_metrics?: () => Promise<Record<string, any>>;
+        record_technician_feedback?: (dtc: string, resolved: boolean, notes?: string) => Promise<Record<string, any>>;
         export_session_report?: () => Promise<{ success: boolean; path?: string; report_length?: number; error?: string }>;
+        window_minimize?: () => void;
+        window_maximize?: () => void;
+        window_close?: () => void;
       };
     };
     onNewCanFrame?: (frame: CANFrame) => void;
@@ -568,6 +581,52 @@ export class DesktopBridge {
     return { success: false, error: 'native bridge unavailable', execution_mode: 'mock' };
   }
 
+  public static async recordOperatorAnswer(
+    questionId: string,
+    value: any,
+    kind: string = 'yes_no',
+    unit?: string | null,
+    isUnknown: boolean = false,
+  ): Promise<{ success: boolean; [key: string]: any; execution_mode?: 'mock' | 'simulated' | 'native' }> {
+    if (this.isNative() && window.pywebview?.api?.record_operator_answer) {
+      const res = await window.pywebview.api.record_operator_answer(questionId, value, kind, unit, isUnknown);
+      return { success: res?.success !== false, ...res, execution_mode: 'native' };
+    }
+    this.requireNativeOrDev();
+    return { success: false, error: 'native bridge unavailable', execution_mode: 'mock' };
+  }
+
+  public static async getDialogueState(): Promise<{ success: boolean; [key: string]: any; execution_mode?: 'mock' | 'simulated' | 'native' }> {
+    if (this.isNative() && window.pywebview?.api?.get_dialogue_state) {
+      const res = await window.pywebview.api.get_dialogue_state();
+      return { success: res?.success !== false, ...res, execution_mode: 'native' };
+    }
+    this.requireNativeOrDev();
+    return { success: false, error: 'native bridge unavailable', execution_mode: 'mock' };
+  }
+
+  public static async getDiagnosticKpiMetrics(): Promise<{ success: boolean; metrics?: Record<string, any>; error?: string; execution_mode?: 'mock' | 'simulated' | 'native' }> {
+    if (this.isNative() && window.pywebview?.api?.get_diagnostic_kpi_metrics) {
+      const res = await window.pywebview.api.get_diagnostic_kpi_metrics();
+      return { success: res?.success !== false, ...res, execution_mode: 'native' };
+    }
+    this.requireNativeOrDev();
+    return { success: false, error: 'native bridge unavailable', execution_mode: 'mock' };
+  }
+
+  public static async recordTechnicianFeedback(
+    dtc: string,
+    resolved: boolean,
+    notes: string = '',
+  ): Promise<{ success: boolean; [key: string]: any; execution_mode?: 'mock' | 'simulated' | 'native' }> {
+    if (this.isNative() && window.pywebview?.api?.record_technician_feedback) {
+      const res = await window.pywebview.api.record_technician_feedback(dtc, resolved, notes);
+      return { success: res?.success !== false, ...res, execution_mode: 'native' };
+    }
+    this.requireNativeOrDev();
+    return { success: false, error: 'native bridge unavailable', execution_mode: 'mock' };
+  }
+
   public static async exportSessionReport(): Promise<{ success: boolean; path?: string; report_length?: number; error?: string; execution_mode?: 'mock' | 'simulated' | 'native' }> {
     const m = this.apiMethod('export_session_report');
     if (this.isNative() && m) {
@@ -576,5 +635,23 @@ export class DesktopBridge {
     }
     this.requireNativeOrDev();
     return { success: false, error: 'native bridge unavailable', execution_mode: 'mock' };
+  }
+
+  public static minimizeWindow(): void {
+    if (this.isNative() && window.pywebview?.api?.window_minimize) {
+      window.pywebview.api.window_minimize();
+    }
+  }
+
+  public static maximizeWindow(): void {
+    if (this.isNative() && window.pywebview?.api?.window_maximize) {
+      window.pywebview.api.window_maximize();
+    }
+  }
+
+  public static closeWindow(): void {
+    if (this.isNative() && window.pywebview?.api?.window_close) {
+      window.pywebview.api.window_close();
+    }
   }
 }

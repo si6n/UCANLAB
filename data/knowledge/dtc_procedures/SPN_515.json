@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 515",
+  "system": "Motor Yönetimi & Tork Talebi",
+  "symptoms": [
+    "Motor İstenen Çalışma Devri arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_515_FMI_2",
+      "kind": "yes_no",
+      "text": "Motor İstenen Çalışma Devri (FMI 2): Hız sabitleyici (SPN 371 cruise aktif) kapalıyken değer rölanti devrine dönmelidir; devirde dalgalanma uzaktan gaz (PTO) potansiyometresi gürültüsünden gelebilir - hat taramasını kontrol edin.",
+      "why": "Motor İstenen Çalışma Devri - Veri tutarsız, aralıklı veya hatalı"
+    },
+    {
+      "id": "Q_SPN_515_FMI_3",
+      "kind": "yes_no",
+      "text": "Motor İstenen Çalışma Devri (FMI 3): PTO/uzaktan gaz potansiyometresi sinyal hattını +5V'a karşı ölçün; soket pin gevşekliğini kontrol edin.",
+      "why": "Motor İstenen Çalışma Devri - Voltaj normalin üzerinde veya yüksek kaynağa kısa devre"
+    },
+    {
+      "id": "Q_SPN_515_FMI_4",
+      "kind": "yes_no",
+      "text": "Motor İstenen Çalışma Devri (FMI 4): Potansiyometre hatlarını şasiye karşı ölçün; PTO konsol konnektöründe korozyon arayın.",
+      "why": "Motor İstenen Çalışma Devri - Voltaj normalin altında veya şasiye kısa devre"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Engine's Desired Operating Speed Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

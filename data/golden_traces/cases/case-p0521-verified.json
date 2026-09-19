@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-p0521-verified",
+  "domain": "PASSENGER",
+  "make": "Dodge",
+  "model": "Ram",
+  "year": 2021,
+  "symptom": "P0521 arıza kodu: Yağ basınç sensörü diyafram kirlenmesi",
+  "dtcs": [
+    {
+      "code": "P0521",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "OilPressure",
+      "expected_behavior": "Nominal fabrika çalışma aralığında",
+      "observed_behavior": "Mekanik basınç 3 bar iken sensör 0.6 bar okuyor"
+    }
+  ],
+  "actual_fault": "Yağ basınç sensörü diyafram kirlenmesi",
+  "repair": "Yağ basınç sensörü ve yağ filtresi yenilendi",
+  "verification": "Yol testi ve arıza hafızası kontrolü ile doğrulandı",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-04-10"
+}

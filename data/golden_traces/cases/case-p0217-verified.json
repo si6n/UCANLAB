@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-p0217-verified",
+  "domain": "PASSENGER",
+  "make": "Audi",
+  "model": "A4",
+  "year": 2021,
+  "symptom": "P0217 arıza kodu: Termostat gövdesinin kapalı konumda sıkışması",
+  "dtcs": [
+    {
+      "code": "P0217",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "CoolantTemperature",
+      "expected_behavior": "Nominal fabrika çalışma aralığında",
+      "observed_behavior": "Motor sıcaklığı 118°C üzerine çıktı"
+    }
+  ],
+  "actual_fault": "Termostat gövdesinin kapalı konumda sıkışması",
+  "repair": "Elektronik kontrollü termostat değiştirildi ve antifriz yenilendi",
+  "verification": "Yol testi ve arıza hafızası kontrolü ile doğrulandı",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-04-10"
+}

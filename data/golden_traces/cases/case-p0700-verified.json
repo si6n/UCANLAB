@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-p0700-verified",
+  "domain": "PASSENGER",
+  "make": "Jeep",
+  "model": "Grand Cherokee",
+  "year": 2021,
+  "symptom": "P0700 arıza kodu: Şanzıman kontrol modülü (TCM) soketine yağ sızması",
+  "dtcs": [
+    {
+      "code": "P0700",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "TransmissionState",
+      "expected_behavior": "Nominal fabrika çalışma aralığında",
+      "observed_behavior": "TCM acil koruma modunda (Limp)"
+    }
+  ],
+  "actual_fault": "Şanzıman kontrol modülü (TCM) soketine yağ sızması",
+  "repair": "Soket contası yenilendi ve kontak sprey ile kurutuldu",
+  "verification": "Yol testi ve arıza hafızası kontrolü ile doğrulandı",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-04-10"
+}

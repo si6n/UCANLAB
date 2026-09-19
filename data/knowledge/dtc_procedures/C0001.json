@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "dtc": "C0001",
+  "system": "Şasi, ABS / ESP Fren Sistemi & Süspansiyon",
+  "symptoms": [
+    "Motor arıza lambası"
+  ],
+  "questions": [
+    {
+      "id": "Q_C0001_1",
+      "kind": "yes_no",
+      "text": "C0001 devresi sensöründe sinyal kayması veya referans voltaj hatası durumunu kontrol ettiniz mi?",
+      "why": "C0001 arızasında olası kök neden"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Kablo Tesisatı",
+      "test_type": "Kolay (Görsel)",
+      "safety_note": "Kontak kapalıyken ölçüm yapın."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 12.0
+  },
+  "pass_next": "Canlı veride sinyal nominal ise arıza hafızasını silin.",
+  "fail_next": "İlgili bileşeni veya kablo demetini onarın/değiştirin.",
+  "safety_notes": [
+    "Kontak kapalı konumda çalışın."
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-spn-157-verified",
+  "domain": "HEAVY_DUTY",
+  "make": "Scania",
+  "model": "R450",
+  "year": 2021,
+  "symptom": "SPN 157 arıza kodu: Common rail basınç sensörü kablo demeti sürtünme teması",
+  "dtcs": [
+    {
+      "code": "SPN 157",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "RailPressure",
+      "expected_behavior": "Nominal fabrika çalışma aralığında",
+      "observed_behavior": "Basınç sinyalinde ani sıçramalar"
+    }
+  ],
+  "actual_fault": "Common rail basınç sensörü kablo demeti sürtünme teması",
+  "repair": "Kablo demeti onarıldı ve koruyucu spiral kılıf takıldı",
+  "verification": "Yol testi ve arıza hafızası kontrolü ile doğrulandı",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-04-10"
+}

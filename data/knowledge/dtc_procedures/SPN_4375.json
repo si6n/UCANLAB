@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 4375",
+  "system": "SCR / AdBlue Sıvı Yönetimi",
+  "symptoms": [
+    "Egzoz Ard İşlem 1 Dizel Egzoz Sıvısı Pompası Tahrik Yüzdesi arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_4375_FMI_0",
+      "kind": "yes_no",
+      "text": "Egzoz Ard İşlem 1 Dizel Egzoz Sıvısı Pompası Tahrik Yüzdesi (FMI 0): Sensör besleme hattını ve fiziksel aşırı basınç/sıcaklık durumunu mekanik test portundan doğrulayın.",
+      "why": "Aftertreatment 1 Diesel Exhaust Fluid Pump Command Circuit - Aftertreatment Diesel Exhaust Fluid Pum"
+    },
+    {
+      "id": "Q_SPN_4375_FMI_1",
+      "kind": "yes_no",
+      "text": "Egzoz Ard İşlem 1 Dizel Egzoz Sıvısı Pompası Tahrik Yüzdesi (FMI 1): Sıvı seviyelerini, emiş filtrelerini ve mekanik aşınma belirtilerini kontrol edin.",
+      "why": "Aftertreatment 1 Diesel Exhaust Fluid Pump Command Circuit - Aftertreatment Diesel Exhaust Fluid Pum"
+    },
+    {
+      "id": "Q_SPN_4375_FMI_2",
+      "kind": "yes_no",
+      "text": "Egzoz Ard İşlem 1 Dizel Egzoz Sıvısı Pompası Tahrik Yüzdesi (FMI 2): Kablo demetinde titreşim temassızlığı, gevşek klemens veya manyetik relüktör çark diş hasarı arayın.",
+      "why": "Aftertreatment 1 Diesel Exhaust Fluid Pump Command Circuit - Aftertreatment 1 Diesel Exhaust Fluid P"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Aftertreatment 1 Diesel Exhaust Fluid Pump Drive Percentage Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

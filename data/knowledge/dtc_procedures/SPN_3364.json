@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 3364",
+  "system": "SCR / AdBlue Sıvı Kalitesi",
+  "symptoms": [
+    "AdBlue / DEF Sıvı Kalitesi & Üre Konsantrasyonu arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_3364_FMI_1",
+      "kind": "yes_no",
+      "text": "AdBlue / DEF Sıvı Kalitesi & Üre Konsantrasyonu (FMI 1): Sıvı seviyelerini, emiş filtrelerini ve mekanik aşınma belirtilerini kontrol edin.",
+      "why": "AdBlue / DEF Sıvı Kalitesi & Üre Konsantrasyonu - Veri geçerli fakat normal çalışma aralığının altın"
+    },
+    {
+      "id": "Q_SPN_3364_FMI_18",
+      "kind": "yes_no",
+      "text": "AdBlue / DEF Sıvı Kalitesi & Üre Konsantrasyonu (FMI 18): Dozaj pompası, hava tahrik valfi veya debi kısıtlamalarını giderin.",
+      "why": "AdBlue / DEF Sıvı Kalitesi & Üre Konsantrasyonu - Veri normalin altında (Orta Seviye - Tork Sınırlan"
+    },
+    {
+      "id": "Q_SPN_3364_FMI_2",
+      "kind": "yes_no",
+      "text": "AdBlue / DEF Sıvı Kalitesi & Üre Konsantrasyonu (FMI 2): Standart OEM saha servis manuallerine başvurun.",
+      "why": "Aftertreatment Diesel Exhaust Fluid Quality – Data Erratic, Intermittent, or Incorrect"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Aftertreatment 1 Diesel Exhaust Fluid Quality Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

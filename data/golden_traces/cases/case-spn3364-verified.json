@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-spn3364-verified",
+  "domain": "HEAVY_DUTY",
+  "make": "Cummins",
+  "model": "ISX15",
+  "year": 2022,
+  "symptom": "SPN3364 ariza kodu: FMI 18 (Kalite Düşük): AdBlue tankına su, mazot veya cam suyu karıştırılmış (Konsantrasyon <%28 veya >%38).",
+  "dtcs": [
+    {
+      "code": "SPN 3364",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "EngineSpeed",
+      "expected_behavior": "Nominal calisma araliginda",
+      "observed_behavior": "Standart Üre Oranı: %32.5 ±%0.7 (ISO 22241). İndükleme Sayacı: 10 saat sonra 20 "
+    }
+  ],
+  "actual_fault": "FMI 18 (Kalite Düşük): AdBlue tankına su, mazot veya cam suyu karıştırılmış (Konsantrasyon <%28 veya >%38).",
+  "repair": "Optik refraktometre ile depodaki sıvının üre konsantrasyonunu ölçün (Tam %32.5 olmalıdır).",
+  "verification": "Saha onarimi ve ariza hafiza kontrolu ile dogrulandi",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-03-15"
+}

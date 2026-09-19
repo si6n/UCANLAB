@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 171",
+  "system": "Çevre Koşulları & İklimlendirme",
+  "symptoms": [
+    "Dış Ortam Hava Sıcaklığı arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_171_FMI_2",
+      "kind": "yes_no",
+      "text": "Dış Ortam Hava Sıcaklığı (FMI 2): Kablo demetinde titreşim temassızlığı, gevşek klemens veya manyetik relüktör çark diş hasarı arayın.",
+      "why": "Dış Ortam Hava Sıcaklığı - Veri tutarsız, kesintili veya yanlış (Sinyal Sıçraması)"
+    },
+    {
+      "id": "Q_SPN_171_FMI_3",
+      "kind": "yes_no",
+      "text": "Dış Ortam Hava Sıcaklığı (FMI 3): Sensör soketini ayırın; voltaj şasiye göre düşmüyorsa kablo demeti akü besleme hattına ezilmiştir.",
+      "why": "Dış Ortam Hava Sıcaklığı - Voltaj normalin üzerinde veya yüksek kaynağa (+5V / +24V) kısa devre"
+    },
+    {
+      "id": "Q_SPN_171_FMI_4",
+      "kind": "yes_no",
+      "text": "Dış Ortam Hava Sıcaklığı (FMI 4): Sinyal pini ile şasi arasındaki direnci ölçün (<1.0 Ω ise tesisatta şasi teması vardır).",
+      "why": "Dış Ortam Hava Sıcaklığı - Voltaj normalin altında veya şasiye (GND) kısa devre"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Ambient Air Temperature Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "temperature_c": 85.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

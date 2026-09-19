@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-p0562-verified",
+  "domain": "PASSENGER",
+  "make": "Fiat",
+  "model": "Egea",
+  "year": 2021,
+  "symptom": "P0562 arıza kodu: Şasi pulesi korozyonu ve akü kutup başı gevşekliği",
+  "dtcs": [
+    {
+      "code": "P0562",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "BatteryVoltage",
+      "expected_behavior": "Nominal fabrika çalışma aralığında",
+      "observed_behavior": "Voltaj 10.8V seviyesine düşüyor"
+    }
+  ],
+  "actual_fault": "Şasi pulesi korozyonu ve akü kutup başı gevşekliği",
+  "repair": "Şasi bağlantı yüzeyi zımparalandı ve klemens sıkıldı",
+  "verification": "Yol testi ve arıza hafızası kontrolü ile doğrulandı",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-04-10"
+}

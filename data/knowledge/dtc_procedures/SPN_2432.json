@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 2432",
+  "system": "Motor Yönetimi & Tork Talebi",
+  "symptoms": [
+    "Motor Talebi - Yüzde Tork arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_2432_FMI_2",
+      "kind": "yes_no",
+      "text": "Motor Talebi - Yüzde Tork (FMI 2): SPN 512 (sürücü talebi) ile SPN 2432 arasındaki farkı izleyin; fark, aktif bir kısıtlama (SPN 3644 derate, retarder, hız limiti SPN 1437) tarafından yaratılıyor olabilir - kısıt kaynaklarını listeleyin.",
+      "why": "Motor Talebi - Yüzde Tork - Veri tutarsız, aralıklı veya hatalı"
+    },
+    {
+      "id": "Q_SPN_2432_FMI_12",
+      "kind": "yes_no",
+      "text": "Motor Talebi - Yüzde Tork (FMI 12): Talep sürekli -125 %'ye kilitliyse ECU içi tork arbitrajını kontrol edin; yazılım sürümü ve kalibrasyon kimliğini doğrulayın.",
+      "why": "Motor Talebi - Yüzde Tork - Hatalı akıllı aygıt veya bileşen"
+    },
+    {
+      "id": "Q_SPN_2432_FMI_13",
+      "kind": "yes_no",
+      "text": "Motor Talebi - Yüzde Tork (FMI 13): J1939 DM1 uzerinden SPN 2432 FMI 13 icin OEM tablo teshis kaydi (kaynak: T62 Eaton ServiceRanger 4 Product Information Library harvest).",
+      "why": "Motor Talebi - Yüzde Tork - Fault Code 184: Engine Demand Percent Torque (TRTS0950) Endurant HD"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Engine Demand - Percent Torque Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

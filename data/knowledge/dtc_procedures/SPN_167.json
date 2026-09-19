@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 167",
+  "system": "Elektrik Dağıtım & Alternatör",
+  "symptoms": [
+    "Electrical Şarj Sistemi Voltajı arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_167_FMI_1",
+      "kind": "yes_no",
+      "text": "Electrical Şarj Sistemi Voltajı (FMI 1): Sıvı seviyelerini, emiş filtrelerini ve mekanik aşınma belirtilerini kontrol edin.",
+      "why": "Electrical Charging System Voltage - Electrical Charging System Voltage – Data Valid But Below Norma"
+    },
+    {
+      "id": "Q_SPN_167_FMI_16",
+      "kind": "yes_no",
+      "text": "Electrical Şarj Sistemi Voltajı (FMI 16): Motor tork sınırlandırması (Derate) başlamadan önce ilgili devreyi temizleyin.",
+      "why": "Electrical Charging System Voltage - Electrical Charging System Voltage – Data Valid but Above Norma"
+    },
+    {
+      "id": "Q_SPN_167_FMI_18",
+      "kind": "yes_no",
+      "text": "Electrical Şarj Sistemi Voltajı (FMI 18): Dozaj pompası, hava tahrik valfi veya debi kısıtlamalarını giderin.",
+      "why": "Electrical Charging System Voltage - Electrical Charging System Voltage – Data Valid but Below Norma"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Charging System Potential (Voltage) Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

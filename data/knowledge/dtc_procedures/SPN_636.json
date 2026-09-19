@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 636",
+  "system": "Motor Zamanlama & Krank Sensörü",
+  "symptoms": [
+    "No Match of Eksantrik and Krank Signals arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_636_FMI_1",
+      "kind": "yes_no",
+      "text": "No Match of Eksantrik and Krank Signals (FMI 1): Sıvı seviyelerini, emiş filtrelerini ve mekanik aşınma belirtilerini kontrol edin.",
+      "why": "No Match of Camshaft and Crankshaft Signals - Crankshaft Position Sensor Signal Voltage Too Low"
+    },
+    {
+      "id": "Q_SPN_636_FMI_2",
+      "kind": "yes_no",
+      "text": "No Match of Eksantrik and Krank Signals (FMI 2): Kablo demetinde titreşim temassızlığı, gevşek klemens veya manyetik relüktör çark diş hasarı arayın.",
+      "why": "No Match of Camshaft and Crankshaft Signals - No Match of Camshaft and Crankshaft Signals"
+    },
+    {
+      "id": "Q_SPN_636_FMI_3",
+      "kind": "yes_no",
+      "text": "No Match of Eksantrik and Krank Signals (FMI 3): Sensör soketini ayırın; voltaj şasiye göre düşmüyorsa kablo demeti akü besleme hattına ezilmiştir.",
+      "why": "No Match of Camshaft and Crankshaft Signals - Crankshaft Position Sensor – Open Circuit"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Engine Position Sensor Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

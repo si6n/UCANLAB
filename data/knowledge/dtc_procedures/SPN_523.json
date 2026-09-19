@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 523",
+  "system": "Otomatik / Robotize Şanzıman (TCU)",
+  "symptoms": [
+    "Şanzıman Mevcut Vitesi arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_523_FMI_2",
+      "kind": "yes_no",
+      "text": "Şanzıman Mevcut Vitesi (FMI 2): SPN 523 (mevcut vites) ile SPN 522/524 (seçili/istenen vites) geçiş zamanlamasını izleyin; senkron gecikmesi kavrama/senkronizatör aşınmasına işaret eder. Vites sensörü (range sensor) kalibrasyonunu doğrulayın.",
+      "why": "Şanzıman Mevcut Vitesi - Veri tutarsız, aralıklı veya hatalı"
+    },
+    {
+      "id": "Q_SPN_523_FMI_12",
+      "kind": "yes_no",
+      "text": "Şanzıman Mevcut Vitesi (FMI 12): Vites değeri -125'e kilitliyse (0 = nötr) vites aralığı sensörünü ve TCU referans voltajlarını kontrol edin; sensör kalibrasyon prosedürünü tekrarlayın.",
+      "why": "Şanzıman Mevcut Vitesi - Hatalı akıllı aygıt veya bileşen"
+    },
+    {
+      "id": "Q_SPN_523_FMI_19",
+      "kind": "yes_no",
+      "text": "Şanzıman Mevcut Vitesi (FMI 19): PGN 61445 çerçeve bütünlüğünü ve TCU kaynak adresinin (SPN 1483 benzeri) doğru olduğunu kontrol edin; DM1 ağ hatalarıyla eşleştirin.",
+      "why": "Şanzıman Mevcut Vitesi - Alınan ağ verisi hatalı"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Transmission Current Gear Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

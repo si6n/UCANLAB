@@ -479,288 +479,285 @@ export const EcuFlashingView: React.FC = () => {
  ]);
  };
 
- return (
- <div className="p-4 space-y-4 max-w-7xl mx-auto">
- {/* Hidden File Input */}
- <input
- type="file"
- ref={fileInputRef}
- onChange={handleFileInputChange}
- accept=".bin,.hex,.ihex,.s19,.s28,.s37,.mot,.dcm"
- className="hidden"
- />
+  return (
+    <div className="p-4 space-y-4 max-w-7xl mx-auto text-text-body">
+      {/* Hidden File Input */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileInputChange}
+        accept=".bin,.hex,.ihex,.s19,.s28,.s37,.mot,.dcm"
+        className="hidden"
+      />
 
- {/* Header Card */}
- <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-card flex items-center justify-between">
- <div className="flex items-center space-x-3">
- <div className="w-10 h-10 rounded-lg bg-brand-50 border border-brand-200 flex items-center justify-center text-brand-600">
- <Cpu className="w-5 h-5" />
- </div>
- <div>
- <h2 className="text-sm font-bold text-slate-900">
- ECU Flashing & Bootloader Yöneticisi{' '}
- <span className="ml-1 px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-300 text-xs font-bold uppercase tracking-wide">
- Demo / Simülasyon
- </span>
- </h2>
- <p className="text-xs text-slate-500">
- ISO 14229 (UDS) & ISO 15765-2 (DoCAN) Protokolü ile Güvenli Firmware Yükleme —{' '}
- <span className="font-semibold text-amber-600">bu görünüm CAN veriyoluyla gerçek TX yapmaz</span>
- </p>
- </div>
- </div>
+      {/* Header Card */}
+      <div className="glass-panel border border-border-whisper rounded-xl p-4 flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 rounded-lg bg-accent-soft border border-accent/30 flex items-center justify-center text-accent">
+            <Cpu className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-sm font-bold text-text-hi">
+              ECU Flashing & Bootloader Yöneticisi{' '}
+              <span className="ml-1 px-1.5 py-0.5 rounded bg-warn-soft text-warn border border-warn/30 text-xs font-bold uppercase tracking-wide">
+                Demo / Simülasyon
+              </span>
+            </h2>
+            <p className="text-xs text-text-mid">
+              ISO 14229 (UDS) & ISO 15765-2 (DoCAN) Protokolü ile Güvenli Firmware Yükleme —{' '}
+              <span className="font-semibold text-warn">bu görünüm CAN veriyoluyla gerçek TX yapmaz</span>
+            </p>
+          </div>
+        </div>
 
- {/* ECU Selector */}
- <div className="flex items-center space-x-2">
- <span className="text-xs text-slate-500 font-medium">Hedef Modül:</span>
- <div className="inline-flex bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
- {(['ECM', 'TCU', 'ABS', 'BCM'] as const).map((ecu) => (
- <button
- key={ecu}
- onClick={() => {
- if (isFlashing) return;
- setSelectedEcu(ecu);
- }}
- disabled={isFlashing}
- className={`px-3 py-1 rounded-md font-semibold transition-all ${
- selectedEcu === ecu ? 'bg-white text-brand-600 shadow-xs' : 'text-slate-600 hover:text-slate-900'
- }`}
- >
- {ecu}
- </button>
- ))}
- </div>
- </div>
- </div>
+        {/* ECU Selector */}
+        <div className="flex items-center space-x-2">
+          <span className="text-xs text-text-mid font-medium">Hedef Modül:</span>
+          <div className="inline-flex bg-bg-app p-0.5 rounded-lg border border-border-whisper text-xs">
+            {(['ECM', 'TCU', 'ABS', 'BCM'] as const).map((ecu) => (
+              <button
+                key={ecu}
+                onClick={() => {
+                  if (isFlashing) return;
+                  setSelectedEcu(ecu);
+                }}
+                disabled={isFlashing}
+                className={`px-3 py-1 rounded-md font-semibold transition-all ${
+                  selectedEcu === ecu ? 'bg-accent-soft text-accent-text shadow-xs' : 'text-text-mid hover:text-text-hi'
+                }`}
+              >
+                {ecu}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
 
- {/* 2-Column Split */}
- <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
- {/* Left Column: Flash Controls & Sectors */}
- <div className="lg:col-span-7 bg-white border border-slate-200 rounded-xl p-5 shadow-card space-y-4">
- <div className="flex items-center justify-between">
- <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center space-x-1.5">
- <FileCode className="w-4 h-4 text-brand-600" />
- <span>Firmware Dosyası Seçimi (S-Record / Intel Hex / Bin)</span>
- </h3>
- <span className="text-xs bg-signal-50 text-signal-700 px-2 py-0.5 rounded-md border border-signal-200/80 font-medium">
- Seed-Key (0x27) Korumalı
- </span>
- </div>
+      {/* 2-Column Split */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        {/* Left Column: Flash Controls & Sectors */}
+        <div className="lg:col-span-7 glass-panel border border-border-whisper rounded-xl p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold text-text-hi uppercase tracking-wider flex items-center space-x-1.5">
+              <FileCode className="w-4 h-4 text-accent" />
+              <span>Firmware Dosyası Seçimi (S-Record / Intel Hex / Bin)</span>
+            </h3>
+          </div>
 
- {/* Interactive File Drop Box */}
- {!selectedFile ? (
- <div className="space-y-3">
- <div 
- onClick={() => fileInputRef.current?.click()}
- onDragOver={handleDragOver}
- onDragLeave={handleDragLeave}
- onDrop={handleDrop}
- className={`border-2 border-dashed rounded-xl p-6 text-center space-y-2 transition-all cursor-pointer ${
- fileError 
- ? 'border-rose-300 bg-rose-50/40 hover:bg-rose-50'
- : isDragging 
- ? 'border-brand-500 bg-brand-50/60 ring-2 ring-brand-500/20' 
- : 'border-slate-300 bg-slate-50/50 hover:bg-slate-50 hover:border-brand-400'
- }`}
- >
- {fileError ? (
- <FileX className="w-9 h-9 text-rose-500 mx-auto transition-transform hover:scale-105" />
- ) : (
- <UploadCloud className="w-9 h-9 text-brand-600 mx-auto transition-transform hover:scale-105" />
- )}
- <div className={`text-xs font-bold ${fileError ? 'text-rose-900' : 'text-slate-800'}`}>
- {fileError ? 'Geçersiz Dosya Seçildi - Yeniden Dosya Seçin' : 'Firmware Dosyası Seçin veya Sürükleyin'}
- </div>
- <p className="text-xs text-slate-500">
- Desteklenen formatlar: .bin, .hex, .s19, .s28, .s37, .mot (Maksimum 32 MB)
- </p>
- <button 
- type="button"
- className={`mt-2 inline-flex items-center px-3 py-1 rounded-md text-xs font-semibold shadow-xs ${
- fileError
- ? 'bg-rose-600 text-white hover:bg-rose-700'
- : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'
- }`}
- >
- Bilgisayardan Dosya Seç...
- </button>
- </div>
+          {/* Interactive File Drop Box */}
+          {!selectedFile ? (
+            <div className="space-y-3">
+              <div 
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={`border-2 border-dashed rounded-xl p-6 text-center space-y-2 transition-all cursor-pointer ${
+                  fileError 
+                    ? 'border-danger/50 bg-danger-soft/20 hover:bg-danger-soft/30'
+                    : isDragging 
+                    ? 'border-accent bg-accent-soft/30 ring-2 ring-accent/20' 
+                    : 'border-border-whisper bg-bg-app/40 hover:bg-bg-app/70 hover:border-border-strong'
+                }`}
+              >
+                {fileError ? (
+                  <FileX className="w-9 h-9 text-danger mx-auto transition-transform hover:scale-105" />
+                ) : (
+                  <UploadCloud className="w-9 h-9 text-accent mx-auto transition-transform hover:scale-105" />
+                )}
+                <div className={`text-xs font-bold ${fileError ? 'text-danger' : 'text-text-hi'}`}>
+                  {fileError ? 'Geçersiz Dosya Seçildi - Yeniden Dosya Seçin' : 'Firmware Dosyası Seçin veya Sürükleyin'}
+                </div>
+                <p className="text-xs text-text-mid">
+                  Desteklenen formatlar: .bin, .hex, .s19, .s28, .s37, .mot (Maksimum 32 MB)
+                </p>
+                <button 
+                  type="button"
+                  className={`mt-2 inline-flex items-center px-3 py-1 rounded-md text-xs font-semibold shadow-xs transition-colors ${
+                    fileError
+                      ? 'bg-danger text-white hover:bg-danger/90'
+                      : 'bg-bg-panel border border-border-whisper text-text-body hover:bg-bg-row-hover hover:text-text-hi'
+                  }`}
+                >
+                  Bilgisayardan Dosya Seç...
+                </button>
+              </div>
 
- {/* Error Alert Banner */}
- {fileError && (
- <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs flex items-start space-x-2.5 shadow-xs">
- <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
- <div>
- <strong className="font-bold">Doğrulama Hatası:</strong>
- <div className="text-xs text-rose-700 mt-0.5">{fileError}</div>
- </div>
- </div>
- )}
- </div>
- ) : (
- <div className="border border-signal-200 bg-signal-50/30 rounded-xl p-4 space-y-3">
- <div className="flex items-center justify-between">
- <div className="flex items-center space-x-3">
- <div className="w-10 h-10 rounded-lg bg-signal-100 border border-signal-200 flex items-center justify-center text-signal-700">
- <CheckCircle2 className="w-5 h-5" />
- </div>
- <div>
- <div className="text-xs font-bold text-slate-900 font-mono">
- {selectedFile.name}
- </div>
- <div className="text-xs text-slate-500 flex items-center space-x-2">
- <span>{selectedFile.sizeFormatted}</span>
- <span>•</span>
- <span>Format: .{selectedFile.extension}</span>
- <span>•</span>
- <span className="font-mono text-signal-700">{selectedFile.checksumSha256}</span>
- </div>
- </div>
- </div>
+              {/* Error Alert Banner */}
+              {fileError && (
+                <div className="p-3 bg-danger-soft border border-danger/30 rounded-xl text-danger text-xs flex items-start space-x-2.5 shadow-xs">
+                  <AlertCircle className="w-4 h-4 text-danger shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="font-bold">Doğrulama Hatası:</strong>
+                    <div className="text-xs mt-0.5">{fileError}</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="border border-ok/30 bg-ok-soft/20 rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 rounded-lg bg-ok-soft border border-ok/30 flex items-center justify-center text-ok">
+                    <CheckCircle2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-text-hi font-mono">
+                      {selectedFile.name}
+                    </div>
+                    <div className="text-xs text-text-mid flex items-center space-x-2">
+                      <span>{selectedFile.sizeFormatted}</span>
+                      <span>•</span>
+                      <span>Format: .{selectedFile.extension}</span>
+                      <span>•</span>
+                      <span className="font-mono text-ok">{selectedFile.checksumSha256}</span>
+                    </div>
+                  </div>
+                </div>
 
- <div className="flex items-center space-x-1.5">
- <button
- onClick={() => fileInputRef.current?.click()}
- disabled={isFlashing}
- className="px-2.5 py-1 text-xs font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 rounded-lg border border-brand-200 transition-colors disabled:opacity-50"
- >
- Değiştir
- </button>
- <button
- onClick={removeFile}
- disabled={isFlashing}
- className="p-1 text-slate-500 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors disabled:opacity-50"
- title="Dosyayı Kaldır"
- >
- <Trash2 className="w-4 h-4" />
- </button>
- </div>
- </div>
+                <div className="flex items-center space-x-1.5">
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isFlashing}
+                    className="px-2.5 py-1 text-xs font-semibold text-accent-text bg-accent-soft hover:bg-accent/20 rounded-lg border border-accent/30 transition-colors disabled:opacity-50"
+                  >
+                    Değiştir
+                  </button>
+                  <button
+                    onClick={removeFile}
+                    disabled={isFlashing}
+                    className="p-1 text-text-mid hover:text-danger rounded-lg hover:bg-danger-soft transition-colors disabled:opacity-50"
+                    title="Dosyayı Kaldır"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
 
- <div className="text-xs text-signal-800 font-medium bg-white/80 p-2 rounded border border-signal-100">
- Flash Bellek Haritası Doğrulandı ({selectedFile.architecture}): 16 Sektör (0x00080000 - 0x{(0x80000 + selectedFile.sizeBytes).toString(16).toUpperCase()})
- </div>
- </div>
- )}
+              <div className="text-xs text-ok font-medium bg-bg-app/80 p-2 rounded border border-border-whisper">
+                Flash Bellek Haritası Doğrulandı ({selectedFile.architecture}): 16 Sektör (0x00080000 - 0x{(0x80000 + selectedFile.sizeBytes).toString(16).toUpperCase()})
+              </div>
+            </div>
+          )}
 
- {/* Progress Bar & Status */}
- <div className="space-y-1.5">
- <div className="flex items-center justify-between text-xs">
- <span className={`font-semibold ${isFlashing ? 'text-brand-600' : fileError ? 'text-rose-600' : selectedFile ? 'text-slate-800' : 'text-slate-500'}`}>
- {statusText}
- </span>
- <span className="font-mono font-bold text-brand-600">%{progress}</span>
- </div>
- <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
- <div
- className="h-full bg-brand-600 transition-all duration-150 rounded-full shadow-xs"
- style={{ width: `${progress}%` }}
- />
- </div>
- </div>
+          {/* Progress Bar & Status */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-xs">
+              <span className={`font-semibold ${isFlashing ? 'text-accent' : fileError ? 'text-danger' : selectedFile ? 'text-text-hi' : 'text-text-mid'}`}>
+                {statusText}
+              </span>
+              <span className="font-mono font-bold text-accent">%{progress}</span>
+            </div>
+            <div className="w-full h-3 bg-bg-app rounded-full overflow-hidden border border-border-whisper">
+              <div
+                className="h-full bg-accent transition-all duration-150 rounded-full shadow-xs"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </div>
 
- {/* Action Buttons */}
- <div className="flex items-center space-x-2 pt-1">
- {isFlashing ? (
- <button
- onClick={cancelFlashing}
- className="flex items-center space-x-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold shadow-xs active:scale-[0.98] transition-all"
- title="Flash işlemini durdur"
- >
- <Square className="w-3.5 h-3.5 fill-current" />
- <span>Flashing İptal Et</span>
- </button>
- ) : (
- <button
- onClick={startFlashing}
- disabled={!selectedFile}
- className={`flex items-center space-x-1.5 px-4 py-2 rounded-lg text-xs font-bold shadow-xs transition-all ${
- !selectedFile
- ? 'bg-slate-200 text-slate-500 cursor-not-allowed border border-slate-300'
- : 'bg-brand-600 hover:bg-brand-700 text-white active:scale-[0.98]'
- }`}
- title={!selectedFile ? 'Lütfen önce geçerli bir firmware dosyası seçiniz' : 'Flash işlemini başlat'}
- >
- {!selectedFile ? <Lock className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 fill-current" />}
- <span>{!selectedFile ? 'Geçerli Dosya Bekleniyor (Flash Kilitli)' : 'Flash İşlemini Başlat'}</span>
- </button>
- )}
+          {/* Action Buttons */}
+          <div className="flex items-center space-x-2 pt-1">
+            {isFlashing ? (
+              <button
+                onClick={cancelFlashing}
+                className="flex items-center space-x-1.5 px-4 py-2 bg-danger hover:bg-danger/90 text-white rounded-lg text-xs font-bold shadow-xs active:scale-[0.98] transition-all"
+                title="Flash işlemini durdur"
+              >
+                <Square className="w-3.5 h-3.5 fill-current" />
+                <span>Flashing İptal Et</span>
+              </button>
+            ) : (
+              <button
+                onClick={startFlashing}
+                disabled={!selectedFile}
+                className={`flex items-center space-x-1.5 px-4 py-2 rounded-lg text-xs font-bold shadow-xs transition-all ${
+                  !selectedFile
+                    ? 'bg-bg-panel text-text-low cursor-not-allowed border border-border-whisper'
+                    : 'bg-accent hover:bg-accent/90 text-white active:scale-[0.98]'
+                }`}
+                title={!selectedFile ? 'Lütfen önce geçerli bir firmware dosyası seçiniz' : 'Flash işlemini başlat'}
+              >
+                {!selectedFile ? <Lock className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 fill-current" />}
+                <span>{!selectedFile ? 'Geçerli Dosya Bekleniyor (Flash Kilitli)' : 'Flash İşlemini Başlat'}</span>
+              </button>
+            )}
 
- <button
- onClick={resetSession}
- disabled={isFlashing}
- className="flex items-center space-x-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 rounded-lg text-xs font-semibold border border-slate-200 transition-colors"
- >
- <RotateCcw className="w-3.5 h-3.5" />
- <span>Oturumu Sıfırla</span>
- </button>
- </div>
+            <button
+              onClick={resetSession}
+              disabled={isFlashing}
+              className="flex items-center space-x-1.5 px-3 py-2 bg-bg-panel hover:bg-bg-row-hover disabled:opacity-50 text-text-body rounded-lg text-xs font-semibold border border-border-whisper transition-colors"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Oturumu Sıfırla</span>
+            </button>
+          </div>
 
- {/* Flash Sectors Grid */}
- <div className="space-y-2 pt-2 border-t border-slate-100">
- <div className="flex items-center justify-between">
- <div className="text-xs font-bold text-slate-700 uppercase tracking-wider">
- Flash Bellek Sektörleri (16 Sektör)
- </div>
- <span className="text-xs text-slate-500 font-mono">
- {selectedFile ? `Toplam: ${selectedFile.sizeFormatted}` : 'Dosya bekleniyor'}
- </span>
- </div>
- <div className="grid grid-cols-8 gap-1.5 text-center font-mono text-xs">
- {sectors.map((sec) => (
- <div
- key={sec.name}
- className={`p-2 rounded border transition-all ${
- sec.flashed
- ? 'bg-brand-50 border-brand-300 text-brand-700 font-bold shadow-xs'
- : selectedFile
- ? 'bg-slate-50 border-slate-200 text-slate-600'
- : 'bg-slate-50/50 border-slate-200 text-slate-500 opacity-60'
- }`}
- >
- <div>{sec.name}</div>
- <div className="text-xs opacity-75">{sec.size}</div>
- </div>
- ))}
- </div>
- </div>
- </div>
+          {/* Flash Sectors Grid */}
+          <div className="space-y-2 pt-2 border-t border-border-whisper">
+            <div className="flex items-center justify-between">
+              <div className="text-xs font-bold text-text-hi uppercase tracking-wider">
+                Flash Bellek Sektörleri (16 Sektör)
+              </div>
+              <span className="text-xs text-text-mid font-mono">
+                {selectedFile ? `Toplam: ${selectedFile.sizeFormatted}` : 'Dosya bekleniyor'}
+              </span>
+            </div>
+            <div className="grid grid-cols-8 gap-1.5 text-center font-mono text-xs">
+              {sectors.map((sec) => (
+                <div
+                  key={sec.name}
+                  className={`p-2 rounded border transition-all ${
+                    sec.flashed
+                      ? 'bg-accent-soft border-accent/40 text-accent-text font-bold shadow-xs'
+                      : selectedFile
+                      ? 'bg-bg-app border-border-whisper text-text-body'
+                      : 'bg-bg-app/50 border-border-whisper text-text-low opacity-60'
+                  }`}
+                >
+                  <div>{sec.name}</div>
+                  <div className="text-xs opacity-75">{sec.size}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
 
- {/* Right Column: UDS Diagnostic Terminal Logs */}
- <div className="lg:col-span-5 bg-white border border-slate-200 rounded-xl p-4 shadow-card flex flex-col h-[490px]">
- <div className="flex items-center justify-between pb-3 border-b border-slate-100">
- <div className="flex items-center space-x-2 text-xs font-bold text-slate-900">
- <Terminal className="w-4 h-4 text-slate-600" />
- <span>UDS DİAGNOSTİK LOG TERMİNALİ</span>
- </div>
- <ShieldCheck className="w-4 h-4 text-signal-600" />
- </div>
+        {/* Right Column: UDS Diagnostic Terminal Logs */}
+        <div className="lg:col-span-5 glass-panel border border-border-whisper rounded-xl p-4 flex flex-col h-[490px]">
+          <div className="flex items-center justify-between pb-3 border-b border-border-whisper">
+            <div className="flex items-center space-x-2 text-xs font-bold text-text-hi">
+              <Terminal className="w-4 h-4 text-accent" />
+              <span>UDS DİAGNOSTİK LOG TERMİNALİ</span>
+            </div>
+            <ShieldCheck className="w-4 h-4 text-ok" />
+          </div>
 
- <div className="flex-1 bg-slate-950 rounded-lg p-3 my-3 overflow-y-auto font-mono text-xs text-slate-200 space-y-1.5 leading-relaxed select-text">
- {logs.map((line, idx) => (
- <div 
- key={idx} 
- className={
- line.includes('SUCCESS') ? 'text-signal-400 font-bold' : 
- line.includes('ERROR') || line.includes('REJECT') || line.includes('ABORT') ? 'text-rose-400 font-semibold' :
- line.includes('SECURITY') ? 'text-brand-300' : 
- line.includes('ERASE') || line.includes('FLASH_START') ? 'text-amber-300 font-semibold' : 
- line.includes('WAIT') ? 'text-amber-400' :
- line.includes('FILE') || line.includes('INTEGRITY') || line.includes('ARCH') ? 'text-brand-300' :
- 'text-slate-300'
- }
- >
- {line}
- </div>
- ))}
- </div>
+          <div className="flex-1 bg-bg-app/90 border border-border-whisper rounded-lg p-3 my-3 overflow-y-auto font-mono text-xs text-text-body space-y-1.5 leading-relaxed select-text">
+            {logs.map((line, idx) => (
+              <div 
+                key={idx} 
+                className={
+                  line.includes('SUCCESS') ? 'text-ok font-bold' : 
+                  line.includes('ERROR') || line.includes('REJECT') || line.includes('ABORT') ? 'text-danger font-semibold' :
+                  line.includes('SECURITY') ? 'text-accent-text' : 
+                  line.includes('ERASE') || line.includes('FLASH_START') ? 'text-warn font-semibold' : 
+                  line.includes('WAIT') ? 'text-warn' :
+                  line.includes('FILE') || line.includes('INTEGRITY') || line.includes('ARCH') ? 'text-accent-text' :
+                  'text-text-mid'
+                }
+              >
+                {line}
+              </div>
+            ))}
+          </div>
 
- <div className="text-xs text-slate-500 font-mono flex items-center justify-between pt-1">
- <span>Baud: 500 kbps (High Speed CAN)</span>
- <span>UDS: ISO 14229-1 (Level 0x01)</span>
- </div>
- </div>
- </div>
- </div>
- );
+          <div className="text-xs text-text-mid font-mono flex items-center justify-between pt-1">
+            <span>Baud: 500 kbps (High Speed CAN)</span>
+            <span>UDS: ISO 14229-1 (Level 0x01)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 };

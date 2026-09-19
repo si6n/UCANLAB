@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-c1a00-verified",
+  "domain": "PASSENGER",
+  "make": "Volkswagen",
+  "model": "Passat",
+  "year": 2022,
+  "symptom": "C1A00 ariza kodu: Ön tampon darbesi sonrası radar braketinin açısal olarak kayması (>1.5°).",
+  "dtcs": [
+    {
+      "code": "C1A00",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "EngineSpeed",
+      "expected_behavior": "Nominal calisma araliginda",
+      "observed_behavior": "Maksimum İzin Verilen Açısal Sapma: Yatayda < ±0.8°, Düşeyde < ±0.5°."
+    }
+  ],
+  "actual_fault": "Ön tampon darbesi sonrası radar braketinin açısal olarak kayması (>1.5°).",
+  "repair": "Radar kapağındaki yabancı cisim ve buz tabakasını temizleyin.",
+  "verification": "Saha onarimi ve ariza hafiza kontrolu ile dogrulandi",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-03-15"
+}

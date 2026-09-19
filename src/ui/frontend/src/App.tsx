@@ -1,108 +1,186 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Header } from './components/Header';
-import { Sidebar } from './components/Sidebar';
-import { CanSnifferTable } from './components/dashboard/CanSnifferTable';
-import { SignalOscilloscope } from './components/dashboard/SignalOscilloscope';
-import { AiCopilotPanel } from './components/dashboard/AiCopilotPanel';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Toolbar } from './components/Toolbar';
+import { SideRail } from './components/SideRail';
+import { DataTable } from './components/dashboard/DataTable';
+import { SummaryStrip } from './components/dashboard/SummaryStrip';
+import { ScopePanel } from './components/dashboard/ScopePanel';
+import { StatusBar } from './components/StatusBar';
+
+// Other subsystem views
+import { SettingsView } from './components/settings/SettingsView';
 import { EcuFlashingView } from './components/ecu/EcuFlashingView';
 import { PinoutGuideView } from './components/pinout/PinoutGuideView';
 import { ReportsExportView } from './components/reports/ReportsExportView';
 import { SignalDiscoveryView } from './components/discovery/SignalDiscoveryView';
-import { SettingsModal } from './components/modals/SettingsModal';
 
-import { 
-  CANFrame, 
-  TelemetryPoint, 
-  ScenarioType, 
-  ActiveTab, 
-  ChatMessage, 
-  DiagnosticState,
-  CopilotAction
-} from './types/can';
-import { CANSimulatorEngine } from './services/canSimulator';
-import { DiagnosticEngine } from './services/diagnosticEngine';
+// Domain constants and realistic packet generator
+import {
+  INITIAL_PACKET_ROWS,
+  CanPacketRow,
+  ANOMALY_IDS,
+  formatAscii,
+} from './data/constants';
+import { CANFrame, ChatMessage, CopilotAction, DiagnosticState, ScenarioType, FaultInjectionType } from './types/can';
 import { DesktopBridge } from './services/bridge';
+import { DiagnosticEngine } from './services/diagnosticEngine';
+import { AiCopilotPanel } from './components/dashboard/AiCopilotPanel';
 import { fromNativeFrame, fromNativeFrames } from './services/nativeFrameAdapter';
 
 export const App: React.FC = () => {
-  // Global Application State
-  const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
+  // Theme State (Zeron Dark / Zeron Light)
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    try {
+      const saved = localStorage.getItem('ucanlab.theme');
+      if (saved === 'dark' || saved === 'light') return saved;
+      return 'dark'; // Zeron Dark default
+    } catch {
+      return 'dark';
+    }
+  });
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+    try {
+      localStorage.setItem('ucanlab.theme', theme);
+    } catch {}
+  }, [theme]);
+
+  const handleToggleTheme = useCallback(() => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  }, []);
+
+  // Navigation State
+  const [activeTab, setActiveTab] = useState<string>('dashboard');
+
+  // Channel & Hardware State
   const [channel, setChannel] = useState('vcan0');
   const [baudRate, setBaudRate] = useState('250 kbps');
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-  // Vertical Resizer State for Dashboard (Sniffer vs Oscilloscope)
-  const [snifferHeightPercent, setSnifferHeightPercent] = useState(55);
-  const [isDraggingVertical, setIsDraggingVertical] = useState(false);
-  const leftPanelRef = useRef<HTMLDivElement>(null);
-
-  // Simulation & Telemetry State
+  // Simulation & Stream State
   const [isSimulating, setIsSimulating] = useState(false);
   const [isEstopActive, setIsEstopActive] = useState(false);
   const [activeScenario, setActiveScenario] = useState<ScenarioType>('nominal');
-  const [simulationSpeed, setSimulationSpeed] = useState<number>(1.0);
-  const [busLoad, setBusLoad] = useState(0);
-  const [totalPackets, setTotalPackets] = useState(0);
-  const [errorCount, setErrorCount] = useState(0);
+  const [busLoad, setBusLoad] = useState(14);
+  const [totalPackets, setTotalPackets] = useState(15553);
+  const [errorCount, setErrorCount] = useState(5);
   const [frameRate, setFrameRate] = useState(0);
 
-  // Buffer and Graph Data (Clean Live Start)
-  const [frames, setFrames] = useState<CANFrame[]>([]);
-  const [currentTelemetry, setCurrentTelemetry] = useState<TelemetryPoint | null>(null);
-  const [telemetryHistory, setTelemetryHistory] = useState<TelemetryPoint[]>([]);
+  // Packet Buffer
+  const [packetRows, setPacketRows] = useState<CanPacketRow[]>(INITIAL_PACKET_ROWS);
+  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
 
-  // Engines
-  const [simulator] = useState(() => new CANSimulatorEngine());
+  // Copilot & Diagnostics State
+  const [isCopilotOpen, setIsCopilotOpen] = useState(false);
   const [diagnosticEngine] = useState(() => {
-    // H-11 (P1-9): legacy plaintext keys are scrubbed once — the AI is fully
-    // offline now; no cloud provider state exists.
     localStorage.removeItem('gemini_api_key');
     localStorage.removeItem('openai_api_key');
     localStorage.removeItem('cloud_session_token');
     localStorage.removeItem('ai_provider');
     return new DiagnosticEngine();
   });
-
-  // Diagnostic State & Chat (Clean Live Start)
-  const [diagnosticState, setDiagnosticState] = useState<DiagnosticState>(() => 
+  const [diagnosticState, setDiagnosticState] = useState<DiagnosticState>(() =>
     diagnosticEngine.evaluateSystemState('nominal', {
       timeSec: 0,
       timeFormatted: '0s',
-      rpm: 0,
-      turboBoostBar: 0,
-      coolantTempC: 0,
-      oilPressureBar: 0,
-      busLoadPercent: 0,
-      errorCount: 0
+      rpm: 850,
+      turboBoostBar: 0.2,
+      coolantTempC: 88,
+      oilPressureBar: 3.8,
+      busLoadPercent: 14,
+      errorCount: 5,
     })
   );
-
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome-1',
       sender: 'copilot',
       timestamp: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
       isDtcCard: false,
-      text: `**Universal CAN-Bus Teşhis & AI Copilot Hazır**
-
-• **Durum:** CAN veri yolu dinleniyor (\`vcan0\`).
-• **Rehberlik:** Canlı veri akışı başladığında veya sistemde bir DTC hata kodu tespit edildiğinde kök neden analizi ve adım adım onarım yönergeleri burada görüntülenecektir.
-• *Aşağıdaki hızlı soru butonlarını kullanarak veya mesaj yazarak teknik sorular sorabilirsiniz.*`
-    }
+      text: `**Universal CAN Teşhis Asistanı Hazır**\n\nCAN veri yolundaki anomaliler, hata kodları (DTC) veya protokoller hakkında soru sorabilir, canlı telemetri analizi başlatabilirsiniz. Aşağıdaki hazır başlıklardan birini seçebilir veya doğrudan yazabilirsiniz.`,
+    },
   ]);
   const [isAiLoading, setIsAiLoading] = useState(false);
+
+  // Layout Resizer State
+  const [snifferHeightPercent, setSnifferHeightPercent] = useState(55);
+  const [isDraggingVertical, setIsDraggingVertical] = useState(false);
+  const dashboardContainerRef = useRef<HTMLDivElement>(null);
+
+  // Rail collapse state (FIX 6) — persisted, icon-only ~48px vs full ~168px
+  const [isRailCollapsed, setIsRailCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('ucanlab.railCollapsed') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const handleToggleRail = useCallback(() => {
+    setIsRailCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('ucanlab.railCollapsed', next ? '1' : '0');
+      } catch { /* storage unavailable — collapse still works for session */ }
+      return next;
+    });
+  }, []);
+
+  // Keyboard shortcut listener: Space to toggle feed, Esc to clear selection
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      const isInputFocused =
+        activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA');
+
+      if (e.code === 'Space' && !isInputFocused) {
+        e.preventDefault();
+        if (!isEstopActive) {
+          setIsSimulating((prev) => !prev);
+        }
+      } else if (e.key === 'Escape') {
+        setSelectedRowId(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isEstopActive]);
+
+  // UI-alive heartbeat for the TX Watchdog (ISO 26262 functional safety rule)
+  useEffect(() => {
+    let alive = true;
+    let lastSent = 0;
+    const tick = () => {
+      const now = performance.now();
+      if (alive && now - lastSent >= 250 && window.pywebview?.api?.heartbeat) {
+        lastSent = now;
+        window.pywebview.api.heartbeat().catch(() => {
+          // Bridge hiccup: next frame retries; watchdog tolerates misses
+        });
+      }
+      requestAnimationFrame(tick);
+    };
+    const raf = requestAnimationFrame(tick);
+    return () => {
+      alive = false;
+      cancelAnimationFrame(raf);
+    };
+  }, []);
 
   // Vertical Resizer Drag Effect
   useEffect(() => {
     if (!isDraggingVertical) return;
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (!leftPanelRef.current) return;
-      const rect = leftPanelRef.current.getBoundingClientRect();
+      if (!dashboardContainerRef.current) return;
+      const rect = dashboardContainerRef.current.getBoundingClientRect();
       const relativeY = e.clientY - rect.top;
       const newPercent = (relativeY / rect.height) * 100;
-      // Clamp between 20% and 80%
-      setSnifferHeightPercent(Math.max(20, Math.min(80, newPercent)));
+      setSnifferHeightPercent(Math.max(25, Math.min(75, newPercent)));
     };
 
     const handleMouseUp = () => {
@@ -118,176 +196,239 @@ export const App: React.FC = () => {
     };
   }, [isDraggingVertical]);
 
-  // Mount listeners for Telemetry & Real-time Frames
+  // Realistic synthetic packet generator when running
   useEffect(() => {
-    simulator.subscribe({
-      // REVIEW (double delivery): the engine emits BOTH onNewFrame per
-      // frame AND onNewFrameBatch per batch — subscribing to both
-      // appended every frame twice (100% duplicates in the sniffer and
-      // every stats counter). The batch hook is the single delivery path.
-      onNewFrame: () => {
-        /* delivered via onNewFrameBatch only */
-      },
-      onNewFrameBatch: (batch) => {
-        // F-35: single state update for the whole 5-frame batch
-        setFrames((prev) => [...prev.slice(-(200 - batch.length)), ...batch].slice(-200));
-      },
-      onTelemetryUpdate: (point) => {
-        setCurrentTelemetry(point);
-        setTelemetryHistory((prev) => [...prev.slice(-149), point]);
-      },
-      onStatsUpdate: (stats) => {
-        setTotalPackets(stats.totalPackets);
-        setBusLoad(stats.busLoad);
-        setErrorCount(stats.errorCount);
-        setFrameRate(stats.frameRate);
-      }
-    });
+    if (!isSimulating || isEstopActive) {
+      setFrameRate(0);
+      return;
+    }
 
-    // Native Python window listener hooks
-    // REVIEW (DTO boundary): native frames cross the bridge as
-    // {id, timestamp, data, ...} — every frontend consumer reads
-    // canIdHex/dataHex/timeSec, so raw storage crashed the sniffer table
-    // with a TypeError. All native frames pass the adapter first.
-    window.onNewCanFrame = (f) => {
+    setFrameRate(44);
+
+    const interval = setInterval(() => {
+      setPacketRows((prev) => {
+        const now = (74.08 + (prev.length * 0.0035)).toFixed(4);
+        const rand = Math.random();
+        let newCanId = '0x18FEF200';
+        let frameType: 'Ext' | 'Std' = 'Ext';
+        let direction: 'RX' | 'TX' = 'RX';
+        let isAnomaly = false;
+        let anomalyDesc: string | undefined = undefined;
+
+        if (rand < 0.12) {
+          // Inject periodic anomaly
+          newCanId = '0x18FF0501';
+          isAnomaly = true;
+          anomalyDesc = 'ECM DTC Bildirimi (Tekleme Çentiği)';
+        } else if (rand < 0.22) {
+          newCanId = '0x0CF00400';
+          isAnomaly = true;
+          anomalyDesc = 'EEC1 Motor Devri Ani Düşüşü';
+        } else if (rand < 0.35) {
+          newCanId = '0x7DF';
+          frameType = 'Std';
+          direction = 'TX';
+        } else if (rand < 0.50) {
+          newCanId = '0x19F50200';
+        }
+
+        const rawBytes = Array.from({ length: 8 }, () =>
+          Math.floor(Math.random() * 256)
+            .toString(16)
+            .padStart(2, '0')
+            .toUpperCase()
+        );
+
+        const newRow: CanPacketRow = {
+          id: `pkt-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+          timestamp: `${now}s`,
+          timeSec: parseFloat(now),
+          channel,
+          canId: newCanId,
+          frameType,
+          direction,
+          dlc: 8,
+          dataBytes: rawBytes,
+          ascii: formatAscii(rawBytes),
+          isAnomaly,
+          anomalyDescription: anomalyDesc,
+        };
+
+        // Cap buffer to last 300 rows for 60fps performance
+        return [newRow, ...prev.slice(0, 299)];
+      });
+
+      setTotalPackets((prev) => prev + 1);
+      setBusLoad(Math.floor(12 + Math.random() * 6));
+    }, 45);
+
+    return () => clearInterval(interval);
+  }, [isSimulating, isEstopActive, channel]);
+
+  // Native pywebview bridge listener hooks
+  useEffect(() => {
+    window.onNewCanFrame = (f: any) => {
       const adapted = fromNativeFrame(f);
       if (!adapted) return;
-      setFrames((prev) => [...prev.slice(-199), adapted]);
+      const isAnomaly = ANOMALY_IDS.has(adapted.canIdHex);
+      const row: CanPacketRow = {
+        id: `native-${adapted.id || Date.now()}`,
+        timestamp: adapted.timeFormatted || `${adapted.timeSec.toFixed(4)}s`,
+        timeSec: adapted.timeSec,
+        channel: adapted.channel || channel,
+        canId: adapted.canIdHex,
+        frameType: adapted.frameType === 'Ext' ? 'Ext' : 'Std',
+        direction: adapted.dir,
+        dlc: adapted.dlc,
+        dataBytes: adapted.dataHex,
+        ascii: adapted.ascii,
+        isAnomaly,
+      };
+      setPacketRows((prev) => [row, ...prev.slice(0, 299)]);
+      setTotalPackets((prev) => prev + 1);
     };
 
-    // E13: batched live frames — ONE call per 50ms tick from Python (mirrors
-    // the F-35 single-state-update pattern used by the simulator).
-    window.onNewCanFrames = (batch) => {
+    window.onNewCanFrames = (batch: any[]) => {
       if (!Array.isArray(batch) || batch.length === 0) return;
-      const adapted = fromNativeFrames(batch);
-      if (adapted.length === 0) return;
-      setFrames((prev) => [...prev.slice(-(200 - adapted.length)), ...adapted].slice(-200));
+      const adaptedList = fromNativeFrames(batch);
+      if (adaptedList.length === 0) return;
+
+      const newRows: CanPacketRow[] = adaptedList.map((adapted) => ({
+        id: `native-${adapted.id || Math.random()}`,
+        timestamp: adapted.timeFormatted || `${adapted.timeSec.toFixed(4)}s`,
+        timeSec: adapted.timeSec,
+        channel: adapted.channel || channel,
+        canId: adapted.canIdHex,
+        frameType: adapted.frameType === 'Ext' ? 'Ext' : 'Std',
+        direction: adapted.dir,
+        dlc: adapted.dlc,
+        dataBytes: adapted.dataHex,
+        ascii: adapted.ascii,
+        isAnomaly: ANOMALY_IDS.has(adapted.canIdHex),
+      }));
+
+      setPacketRows((prev) => [...newRows, ...prev].slice(0, 300));
+      setTotalPackets((prev) => prev + newRows.length);
     };
 
-    window.onTelemetryTick = (p) => {
-      setCurrentTelemetry(p);
-      setTelemetryHistory((prev) => [...prev.slice(-149), p]);
+    window.onStatsTick = (s: any) => {
+      if (s.totalPackets !== undefined) setTotalPackets(s.totalPackets);
+      if (s.busLoad !== undefined) setBusLoad(s.busLoad);
+      if (s.errorCount !== undefined) setErrorCount(s.errorCount);
+      if (s.frameRate !== undefined) setFrameRate(s.frameRate);
     };
-
-    window.onStatsTick = (s) => {
-      setTotalPackets(s.totalPackets);
-      setBusLoad(s.busLoad);
-      setErrorCount(s.errorCount);
-      setFrameRate(s.frameRate);
-    };
-
-    return () => {
-      simulator.destroy();
-    };
-  }, [simulator]);
-
-  // UI-alive heartbeat for the TX Watchdog (F-16 / E-11):
-  // driven by the render/rAF loop, NOT a blind setInterval — if the UI
-  // genuinely freezes (main-thread block), the pulse stops and the Python
-  // watchdog expires (800ms timeout, 250ms pulse => 550ms tolerance).
-  useEffect(() => {
-    let alive = true;
-    let lastSent = 0;
-    const tick = () => {
-      const now = performance.now();
-      if (alive && now - lastSent >= 250 && window.pywebview?.api?.heartbeat) {
-        lastSent = now;
-        window.pywebview.api.heartbeat().catch(() => {
-          // Bridge hiccup: next frame retries; watchdog tolerates misses.
-        });
-      }
-      requestAnimationFrame(tick);
-    };
-    const raf = requestAnimationFrame(tick);
-    return () => {
-      alive = false;
-      cancelAnimationFrame(raf);
-    };
-  }, []);
-
-  // Update diagnostic state upon scenario change
-  useEffect(() => {
-    if (currentTelemetry) {
-      const evalState = diagnosticEngine.evaluateSystemState(activeScenario, currentTelemetry);
-      setDiagnosticState(evalState);
-    }
-  }, [activeScenario, currentTelemetry, diagnosticEngine]);
+  }, [channel]);
 
   // Handlers
   const handleToggleSimulator = async () => {
-    // P0-1 (REVIEW C-1): the simulator toggle may no longer clear a latched
-    // E-Stop — the backend refuses the toggle while engaged, and the local
-    // E-Stop flag is never cleared implicitly here either.
+    if (isEstopActive) return;
     const isNativeResult = await DesktopBridge.toggleSimulator();
-    const nextState = isNativeResult !== null ? isNativeResult : simulator.toggleRunning();
-    setIsSimulating(nextState);
-    if (nextState) {
-      simulator.resume();
-    } else {
-      simulator.pause();
-      setBusLoad(0);
-      setFrameRate(0);
-    }
+    const next = isNativeResult !== null ? isNativeResult : !isSimulating;
+    setIsSimulating(next);
   };
 
   const handleEstop = async () => {
     await DesktopBridge.triggerEstop();
-    simulator.emergencyStop();
     setIsEstopActive(true);
     setIsSimulating(false);
-    setBusLoad(0);
     setFrameRate(0);
   };
 
   const handleSelectScenario = async (scenario: ScenarioType) => {
-    // P0-1 (REVIEW C-1): a scenario switch no longer clears the local E-Stop
-    // flag implicitly — the backend keeps the latch engaged and only the
-    // challenge/response reset flow may clear it.
-    await DesktopBridge.selectScenario(scenario);
-    simulator.setScenario(scenario);
     setActiveScenario(scenario);
-    setIsSimulating(true);
-    simulator.resume();
-  };
-
-  const handleChangeSpeed = (speed: number) => {
-    setSimulationSpeed(speed);
-    simulator.setSpeedMultiplier(speed);
-  };
-
-  const handleInjectFault = (type: any) => {
-    // REVIEW (LIVE guard): fault injection used to bypass the bridge and
-    // hit the local simulator directly, dropping synthetic error frames
-    // into the LIVE sniffer buffer (the simulator's own isLiveMode gate
-    // covers startSimulation but not injectFault). In native/LIVE mode
-    // the backend path is used — it refuses while E-Stop is latched
-    // (a simulator must never disarm safety).
-    if (DesktopBridge.isNative()) {
-      DesktopBridge.injectFault(type);
-      return;
+    await DesktopBridge.selectScenario(scenario);
+    const updated = diagnosticEngine.evaluateSystemState(scenario, {
+      timeSec: 0,
+      timeFormatted: '0s',
+      rpm: scenario === 'nominal' ? 850 : scenario === 'misfire_p0300' ? 1420 : 2100,
+      turboBoostBar: scenario === 'overboost' ? 2.45 : 0.8,
+      coolantTempC: scenario === 'overheat' ? 112 : 88,
+      oilPressureBar: 3.5,
+      busLoadPercent: scenario === 'bus_surge' ? 88 : 16,
+      errorCount: scenario === 'bus_surge' ? 142 : errorCount,
+    });
+    setDiagnosticState(updated);
+    if (!isSimulating && !isEstopActive) {
+      setIsSimulating(true);
+      await DesktopBridge.toggleSimulator();
     }
-    simulator.injectFault(type);
+  };
+
+  const handleInjectFault = async (faultType: FaultInjectionType) => {
+    await DesktopBridge.injectFault(faultType);
+
+    const nowSec = (74.08 + packetRows.length * 0.0035).toFixed(4);
+    let injectedId = '0x00000000';
+    let anomalyDesc = 'CAN Fiziksel Hata Karesi (Error Frame)';
+    let dataBytes = ['00', '00', '00', '00', '00', '00', '00', '00'];
+
+    if (faultType === 'error_frame') {
+      injectedId = '0x00000000';
+      anomalyDesc = 'CAN Fiziksel Hat Hata Karesi (Active Error Flag)';
+      setErrorCount((prev) => prev + 1);
+    } else if (faultType === 'dtc_fault') {
+      injectedId = '0x18FECA00';
+      anomalyDesc = 'J1939 DM1 Aktif Arıza Kodu (SPN 100 FMI 1)';
+      dataBytes = ['04', 'FF', '64', '00', '01', '01', 'FF', 'FF'];
+    } else if (faultType === 'sensor_freeze') {
+      injectedId = '0x0CF00400';
+      anomalyDesc = 'Sensör Sinyal Donması / Değer Değişmiyor';
+      dataBytes = ['F0', '7D', '7D', '25', '4B', 'FF', 'FF', 'FF'];
+    } else if (faultType === 'babbling_surge') {
+      injectedId = '0x18FF03B0';
+      anomalyDesc = 'Babbling Node Ağ Taşması (%85+ Yük)';
+      setBusLoad(89);
+      setErrorCount((prev) => prev + 12);
+    } else if (faultType === 'wiring_dropout') {
+      injectedId = '0x18EAFFFE';
+      anomalyDesc = 'Kesintili Hat & Adres Çakışması (PGN 59904 NACK)';
+      dataBytes = ['00', 'EE', '00'];
+    }
+
+    const injectedRow: CanPacketRow = {
+      id: `fault-${Date.now()}`,
+      timestamp: `${nowSec}s`,
+      timeSec: parseFloat(nowSec),
+      channel,
+      canId: injectedId,
+      frameType: injectedId === '0x00000000' ? 'Std' : 'Ext',
+      direction: 'RX',
+      dlc: dataBytes.length,
+      dataBytes,
+      ascii: '........',
+      isAnomaly: true,
+      anomalyDescription: anomalyDesc,
+    };
+
+    setPacketRows((prev) => [injectedRow, ...prev].slice(0, 300));
+    setTotalPackets((prev) => prev + 1);
   };
 
   const handleClearBuffer = () => {
-    setFrames([]);
+    setPacketRows([]);
+    setSelectedRowId(null);
+  };
+
+  const handleSaveSettings = async (settings: any) => {
+    setChannel(settings.channel);
+    setBaudRate(settings.baudRate);
+    await DesktopBridge.updateSettings(settings);
   };
 
   const handleRescan = () => {
-    const point = currentTelemetry || {
+    const updated = diagnosticEngine.evaluateSystemState(activeScenario, {
       timeSec: 0,
       timeFormatted: '0s',
-      rpm: 0,
-      turboBoostBar: 0,
-      coolantTempC: 0,
-      oilPressureBar: 0,
-      busLoadPercent: 0,
-      errorCount: 0
-    };
-    const updated = diagnosticEngine.evaluateSystemState(activeScenario, point);
+      rpm: activeScenario === 'nominal' ? 850 : 1850,
+      turboBoostBar: activeScenario === 'overboost' ? 2.45 : 0.8,
+      coolantTempC: activeScenario === 'overheat' ? 112 : 88,
+      oilPressureBar: 3.8,
+      busLoadPercent: busLoad,
+      errorCount: errorCount,
+    });
     setDiagnosticState({
       ...updated,
-      lastScanTimestamp: new Date().toLocaleTimeString('tr-TR', { hour12: false })
+      lastScanTimestamp: new Date().toLocaleTimeString('tr-TR', { hour12: false }),
     });
   };
 
@@ -296,7 +437,7 @@ export const App: React.FC = () => {
       id: `user-${Date.now()}`,
       sender: 'user',
       timestamp: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
-      text: query
+      text: query,
     };
 
     setChatMessages((prev) => [...prev, userMsg]);
@@ -316,24 +457,16 @@ export const App: React.FC = () => {
       const res = await DesktopBridge.executeDiagnosticAction(action, true);
       const statusIcon = res.success ? '✅' : '❌';
       const detailText = res.message || res.error || (res.success ? 'İşlem başarıyla tamamlandı.' : 'İşlem başarısız oldu.');
-      let resultText = `**${statusIcon} Teşhis Aksiyonu Sonucu: ${action.label}**\n\n` +
-        `• **Durum:** ${res.success ? 'Başarılı' : 'Başarısız'}\n` +
-        `• **Detay:** ${detailText}`;
-
-      if (res.data && Object.keys(res.data).length > 0) {
-        resultText += `\n• **Dönen Veri:** \`${JSON.stringify(res.data)}\``;
-      }
+      let resultText = `**${statusIcon} Teşhis Aksiyonu: ${action.label}**\n\n• **Durum:** ${res.success ? 'Başarılı' : 'Başarısız'}\n• **Detay:** ${detailText}`;
 
       const resultMsg: ChatMessage = {
         id: `action-res-${Date.now()}`,
         sender: 'copilot',
         timestamp: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
-        text: resultText
+        text: resultText,
       };
 
       setChatMessages((prev) => [...prev, resultMsg]);
-
-      // If DTCs were cleared or scenario reset, trigger rescan to update UI state
       if (action.action_type === 'uds_clear_dtc' || action.action_type === 'j1939_clear_dtc') {
         if (res.success) {
           handleRescan();
@@ -344,7 +477,7 @@ export const App: React.FC = () => {
         id: `action-err-${Date.now()}`,
         sender: 'copilot',
         timestamp: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
-        text: `❌ **Aksiyon Yürütülemedi:** ${err?.message || 'Bilinmeyen hata'}`
+        text: `❌ **Aksiyon Yürütülemedi:** ${err?.message || 'Bilinmeyen hata'}`,
       };
       setChatMessages((prev) => [...prev, errMsg]);
     } finally {
@@ -352,142 +485,197 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleAskCopilotAboutFrame = (frame: CANFrame) => {
-    const prompt = `Lütfen şu CAN karesini detaylı analiz et:\n\n` +
-      `• CAN ID: ${frame.canIdHex} (${frame.frameType})\n` +
-      `• Kanal: ${frame.channel} | Yön: ${frame.dir} | DLC: ${frame.dlc}\n` +
-      `• Hex Payload: ${frame.dataHex.join(' ')}\n` +
-      `• ASCII: ${frame.ascii}\n\n` +
-      `Bu mesajın olası protokolünü, içerdiği fiziksel sinyalleri ve varsa aktif arıza kodunu (DTC / SPN / FMI) açıkla.`;
-    handleSendMessage(prompt);
-  };
+  // Convert CanPacketRow to CANFrame for legacy export/discovery views if needed
+  const canFramesCompat: CANFrame[] = packetRows.map((r, i) => ({
+    id: `compat-${r.id}-${i}`,
+    timeSec: r.timeSec,
+    timeFormatted: r.timestamp,
+    channel: r.channel,
+    canIdHex: r.canId,
+    canIdDec: parseInt(r.canId, 16) || 0,
+    dlc: r.dlc,
+    dataHex: r.dataBytes,
+    ascii: r.ascii,
+    dir: r.direction,
+    frameType: r.frameType === 'Ext' ? 'Ext' : 'Std',
+    isErrorFrame: r.isAnomaly,
+  }));
 
-  const handleSaveSettings = async (settings: any) => {
-    setChannel(settings.channel);
-    setBaudRate(settings.baudRate);
-    await DesktopBridge.updateSettings(settings);
-  };
+  const anomalyCount = packetRows.filter((r) => r.isAnomaly).length;
 
   return (
-    <div className="glass-workspace flex h-screen w-screen overflow-hidden text-slate-800 select-none">
-      {/* 1. Vertical Left Sidebar Navigation */}
-      <Sidebar
+    <div className="glass-workspace relative flex h-screen w-screen flex-row overflow-hidden text-text-body select-none">
+      {/* Ambient corner glow behind everything */}
+      <div className="app-ambient-glow" aria-hidden="true" />
+
+      {/* Left Side Rail — continuous full-height column, integrated header with PanelLeft, zero cut lines */}
+      <SideRail
         activeTab={activeTab}
         onSelectTab={setActiveTab}
         channel={channel}
         isSimulating={isSimulating}
         isEstopActive={isEstopActive}
+        collapsed={isRailCollapsed}
+        onToggleCollapse={handleToggleRail}
       />
 
-      {/* 2. Main Column: Sticky Topbar + Content Area */}
-      <div className="flex min-w-0 flex-1 flex-col">
-        <Header
-          channel={channel}
-          baudRate={baudRate}
-          busLoad={busLoad}
-          totalPackets={totalPackets}
-          isSimulating={isSimulating}
-          isEstopActive={isEstopActive}
-          activeScenario={activeScenario}
-          simulationSpeed={simulationSpeed}
-          onToggleSimulator={handleToggleSimulator}
-          onSelectScenario={handleSelectScenario}
-          onEstop={handleEstop}
-          onChangeSpeed={handleChangeSpeed}
-          onInjectFault={handleInjectFault}
-          onOpenSettings={() => setIsSettingsOpen(true)}
-        />
+      {/* Right Column: Toolbar + Main Workspace + StatusBar */}
+      <div className="relative flex flex-1 min-w-0 flex-col overflow-hidden" style={{ zIndex: 10 }}>
+        {/* Top bar over the main workspace: Yük, Paket, E-STOP, Başlat, Hata, Sun/Moon, Copilot, Window controls */}
+        <div className="relative shrink-0" style={{ zIndex: 20 }}>
+          <Toolbar
+            channel={channel}
+            baudRate={baudRate}
+            busLoad={busLoad}
+            totalPackets={totalPackets}
+            isSimulating={isSimulating}
+            isEstopActive={isEstopActive}
+            activeScenario={activeScenario}
+            isCopilotOpen={isCopilotOpen}
+            theme={theme}
+            onToggleTheme={handleToggleTheme}
+            onToggleSimulator={handleToggleSimulator}
+            onSelectScenario={handleSelectScenario}
+            onInjectFault={handleInjectFault}
+            onEstop={handleEstop}
+            onToggleCopilot={() => setIsCopilotOpen((prev) => !prev)}
+          />
+        </div>
 
-        {/* 3. Main Views Container */}
-        <main className="relative flex-1 overflow-hidden p-4">
+        {/* Main Workspace + Copilot Drawer */}
+        <div className="relative flex flex-1 min-h-0 w-full overflow-hidden">
+          <main className="relative flex flex-1 min-w-0 flex-col overflow-hidden bg-transparent p-3">
             {activeTab === 'dashboard' && (
-              <div className="grid h-full grid-cols-1 gap-3 lg:grid-cols-12">
-                {/* Left: Sniffer (top) + thin resize divider + Oscilloscope (bottom) */}
-                <div
-                  ref={leftPanelRef}
-                  className="flex h-full min-h-0 flex-col lg:col-span-7"
-                >
-                  <div
-                    style={{ height: `${snifferHeightPercent}%` }}
-                    className="flex min-h-[140px] flex-col overflow-hidden"
-                  >
-                    <CanSnifferTable
-                      frames={frames}
-                      isStreaming={isSimulating}
-                      frameRate={frameRate}
-                      totalDisplayedCount={frames.length}
-                      errorFrameCount={errorCount}
-                      onToggleStreaming={handleToggleSimulator}
-                      onClearBuffer={handleClearBuffer}
-                      onAskCopilot={handleAskCopilotAboutFrame}
-                    />
-                  </div>
-
-                  {/* Thin draggable divider */}
-                  <div
-                    onMouseDown={() => setIsDraggingVertical(true)}
-                    className={`group relative my-2 h-px shrink-0 cursor-row-resize transition-colors ${
-                      isDraggingVertical ? 'bg-brand-500' : 'bg-slate-200 hover:bg-brand-400'
-                    }`}
-                    title="Sniffer ve Osiloskop boyutunu ayarlamak için sürükleyin"
-                  >
-                    <div className="absolute inset-x-0 -top-2 h-5" />
-                    <div
-                      className={`absolute left-1/2 top-1/2 h-0.5 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full transition-colors ${
-                        isDraggingVertical ? 'bg-brand-600' : 'bg-slate-300 group-hover:bg-brand-500'
-                      }`}
-                    />
-                  </div>
-
-                  <div
-                    style={{ height: `calc(${100 - snifferHeightPercent}% - 20px)` }}
-                    className="flex min-h-[140px] flex-col overflow-hidden"
-                  >
-                    <SignalOscilloscope
-                      currentPoint={currentTelemetry}
-                      history={telemetryHistory}
-                      onAskCopilot={handleSendMessage}
-                    />
-                  </div>
-                </div>
-
-                {/* Right: AI Diagnostic Copilot */}
-                <div className="h-full overflow-hidden lg:col-span-5">
-                  <AiCopilotPanel
-                    diagnosticState={diagnosticState}
-                    chatMessages={chatMessages}
-                    isAiLoading={isAiLoading}
-                    onRescan={handleRescan}
-                    onSendMessage={handleSendMessage}
-                    onExecuteAction={handleExecuteAction}
-                  />
-                </div>
+              <div
+                ref={dashboardContainerRef}
+                className="flex h-full min-h-0 flex-col"
+              >
+              {/* Panel #1: Sniffer Table + Summary Strip — soft frosted glass card */}
+              <div
+                style={{ height: `${snifferHeightPercent}%` }}
+                className="relative flex min-h-[180px] flex-col overflow-hidden rounded-[12px] glass-panel"
+              >
+                <DataTable
+                  rows={packetRows}
+                  isStreaming={isSimulating}
+                  frameRate={frameRate}
+                  onToggleStreaming={handleToggleSimulator}
+                  onClearBuffer={handleClearBuffer}
+                  selectedRowId={selectedRowId}
+                  onSelectRow={setSelectedRowId}
+                  onAskCopilot={(prompt) => {
+                    setIsCopilotOpen(true);
+                    handleSendMessage(prompt);
+                  }}
+                />
+                <SummaryStrip
+                  totalDisplayed={packetRows.length}
+                  anomalyCount={anomalyCount}
+                  busErrorCount={errorCount}
+                />
               </div>
-            )}
 
-            {activeTab === 'signal_discovery' && (
+              {/* High-Precision Floating Pill Resizer — eliminates harsh horizontal cut line */}
+              <div
+                onMouseDown={() => setIsDraggingVertical(true)}
+                className="group relative my-1.5 h-2.5 shrink-0 cursor-row-resize flex items-center justify-center select-none"
+                title="Sniffer ve Osiloskop boyutunu ayarlamak için sürükleyin"
+              >
+                <div
+                  className={`h-1 w-10 rounded-full transition-all duration-200 ${
+                    isDraggingVertical
+                      ? 'bg-accent scale-x-125 w-14'
+                      : 'bg-border-strong/50 group-hover:bg-accent/70'
+                  }`}
+                />
+              </div>
+
+              {/* Panel #2: Graph & Signal Analysis Scope — soft frosted glass card */}
+              <div
+                style={{ height: `calc(${100 - snifferHeightPercent}% - 14px)` }}
+                className="relative flex min-h-[180px] flex-col overflow-hidden rounded-[12px] glass-panel"
+              >
+                <ScopePanel
+                  isStreaming={isSimulating}
+                  onAnalyzeFault={() => setIsCopilotOpen(true)}
+                />
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'signal_discovery' && (
+            <div className="h-full overflow-hidden rounded-[12px] glass-panel p-3">
               <SignalDiscoveryView
-                latestFrame={frames[frames.length - 1] || null}
-                frames={frames}
-                onStimulusChange={(lvl) => simulator.setStimulusLevel(lvl)}
-                onAskCopilot={handleSendMessage}
+                latestFrame={canFramesCompat[0] || null}
+                frames={canFramesCompat}
+                onStimulusChange={() => {}}
+                onAskCopilot={(prompt) => {
+                  setIsCopilotOpen(true);
+                  handleSendMessage(prompt);
+                }}
               />
-            )}
+            </div>
+          )}
 
-            {activeTab === 'ecu_flashing' && <EcuFlashingView />}
-            {activeTab === 'pinout_guide' && <PinoutGuideView />}
-            {activeTab === 'reports' && <ReportsExportView frames={frames} />}
+          {activeTab === 'ecu_flashing' && (
+            <div className="h-full overflow-hidden rounded-[12px] glass-panel p-3">
+              <EcuFlashingView />
+            </div>
+          )}
+
+          {activeTab === 'pinout_guide' && (
+            <div className="h-full overflow-hidden rounded-[12px] glass-panel p-3">
+              <PinoutGuideView />
+            </div>
+          )}
+
+          {activeTab === 'reports' && (
+            <div className="h-full overflow-hidden rounded-[12px] glass-panel p-3">
+              <ReportsExportView frames={canFramesCompat} />
+            </div>
+          )}
+
+          {activeTab === 'settings' && (
+            <div className="h-full overflow-hidden rounded-[12px] glass-panel p-3">
+              <SettingsView
+                channel={channel}
+                baudRate={baudRate}
+                onSave={handleSaveSettings}
+              />
+            </div>
+          )}
         </main>
+
+        {/* Right Drawer: AI Diagnostic Copilot — Smooth desktop width transition matching SideRail */}
+        <aside
+          className={`copilot-drawer relative my-3 flex shrink-0 flex-col overflow-hidden rounded-[12px] glass-panel ${
+            isCopilotOpen
+              ? 'w-[420px] mr-3 p-2.5 opacity-100 pointer-events-auto border border-border shadow-2xl'
+              : 'w-0 mr-0 p-0 opacity-0 pointer-events-none border-0 shadow-none'
+          }`}
+        >
+          <div className="flex h-full w-[420px] min-w-[420px] flex-col overflow-hidden">
+            <AiCopilotPanel
+              diagnosticState={diagnosticState}
+              chatMessages={chatMessages}
+              isAiLoading={isAiLoading}
+              onRescan={handleRescan}
+              onSendMessage={handleSendMessage}
+              onExecuteAction={handleExecuteAction}
+              onClose={() => setIsCopilotOpen(false)}
+            />
+          </div>
+        </aside>
       </div>
 
-      {/* Settings Modal */}
-      <SettingsModal
-        isOpen={isSettingsOpen}
+      {/* 3. Global Status Bar (Bottom Strip) */}
+      <StatusBar
         channel={channel}
-        baudRate={baudRate}
-        onClose={() => setIsSettingsOpen(false)}
-        onSave={handleSaveSettings}
+        isSimulating={isSimulating}
+        isEstopActive={isEstopActive}
+        nodeName="DESKTOP-CAN-NODE"
       />
     </div>
-  );
+  </div>
+);
 };

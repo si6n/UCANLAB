@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "dtc": "P0024",
+  "system": "Yakıt Ölçümü & Hava Emiş / Kam Mili Zamanlaması",
+  "symptoms": [
+    "Faulty camshaft position sensor: The sensor may be providing inaccurate readings, leading to improper camshaft timing.",
+    "Timing chain or belt issues: A stretched or improperly adjusted timing chain/belt can result in over-advanced camshaft timing.",
+    "Engine oil problems: Insufficient or degraded engine oil can affect the camshaft timing, leading to the fault code.",
+    "Mechanical issues: Any mechanical problem in the camshaft or associated components, such as a worn timing gear or tensioner, can cause the timing to be over-advanced.",
+    "Inspect and test the camshaft position sensor and related wiring for any fault. If necessary, replace the sensor.",
+    "Check the timing chain/belt for any signs of wear or stretching. If needed, adjust or replace it.",
+    "Ensure that the engine oil level and quality are adequate. If the oil is degraded, perform an oil change.",
+    "Inspect the mechanical components related to the camshaft for any damages or wear. Replace or repair as needed."
+  ],
+  "questions": [
+    {
+      "id": "Q_P0024_1",
+      "kind": "yes_no",
+      "text": "Incorrect camshaft timing durumunu kontrol ettiniz mi?",
+      "why": "P0024 arızasında olası kök neden"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Kablo Tesisatı",
+      "test_type": "Kolay (Görsel)",
+      "safety_note": "Kontak kapalıyken ölçüm yapın."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 12.0
+  },
+  "pass_next": "Canlı veride sinyal nominal ise arıza hafızasını silin.",
+  "fail_next": "İlgili bileşeni veya kablo demetini onarın/değiştirin.",
+  "safety_notes": [
+    "Kontak kapalı konumda çalışın."
+  ]
+}

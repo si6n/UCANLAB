@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 1663",
+  "system": "Ağır Vasıta J1939 (OEM tablo hasadı)",
+  "symptoms": [
+    "Optimized Rölanti Safety Loop Faulted ikazı",
+    "J1939 DM1 aktif arıza kaydı"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_1663_1",
+      "kind": "yes_no",
+      "text": "Optimized Rölanti Safety Loop Faulted (FMI 7): Aktüatör itici kollarını, kurum birikmesini ve hava/yağ tahrik hatlarını mekanik olarak inceleyin.",
+      "why": "SPN 1663 arıza prosedür adımı"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Engine Automatic Start Safety Interlock Circuit Sinyal Hattı",
+      "test_type": "J1939 / Multimetre"
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "DM11 ile arıza hafızasını temizleyip yol testi yapın.",
+  "fail_next": "Sensör veya tesisatı değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemi ile uyumlu çalışın."
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 412",
+  "system": "EGR Sistemi (Egzoz Gazı Geri Dönüşümü)",
+  "symptoms": [
+    "EGR 1 Gaz Sıcaklığı arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_412_FMI_0",
+      "kind": "yes_no",
+      "text": "EGR 1 Gaz Sıcaklığı (FMI 0): EGR soğutucu etkinliğini doğrulayın: soğutucu su giriş/çıkış sıcaklıklarını ölçün, soğutucu içi kurum tıkanıklığını kontrol edin. Etkisiz soğutucu NOx artışı ve emiş vanası ısıl hasarı yapar.",
+      "why": "EGR 1 Gaz Sıcaklığı - Veri geçerli fakat normal çalışma aralığının üzerinde (Kritik Yüksek)"
+    },
+    {
+      "id": "Q_SPN_412_FMI_1",
+      "kind": "yes_no",
+      "text": "EGR 1 Gaz Sıcaklığı (FMI 1): Sensörün EGR soğutucusunun sıcak (egzoz) tarafında mı soğuk (emme) tarafında mı ölçtüğünü teyit edin; taplama yeri şemayla karşılaştırın.",
+      "why": "EGR 1 Gaz Sıcaklığı - Veri geçerli fakat normal çalışma aralığının altında (Kritik Düşük)"
+    },
+    {
+      "id": "Q_SPN_412_FMI_3",
+      "kind": "yes_no",
+      "text": "EGR 1 Gaz Sıcaklığı (FMI 3): Sensör soketini ayırın; sinyal hattı +5V kısa devresini ve konnektör nem köprüsünü kontrol edin.",
+      "why": "EGR 1 Gaz Sıcaklığı - Voltaj normalin üzerinde veya yüksek kaynağa kısa devre"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Engine Exhaust Gas Recirculation 1 Temperature Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "temperature_c": 85.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

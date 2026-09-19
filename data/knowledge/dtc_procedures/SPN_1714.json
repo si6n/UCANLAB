@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 1714",
+  "system": "Hidrolik & Elektromanyetik Retarder",
+  "symptoms": [
+    "Retarder Fren Torku Limiti arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_1714_FMI_2",
+      "kind": "yes_no",
+      "text": "Retarder Fren Torku Limiti (FMI 2): Kablo demetinde titreşim temassızlığı, gevşek klemens veya manyetik relüktör çark diş hasarı arayın.",
+      "why": "Retarder Fren Torku Limiti - Veri tutarsız, kesintili veya yanlış (Sinyal Sıçraması)"
+    },
+    {
+      "id": "Q_SPN_1714_FMI_7",
+      "kind": "yes_no",
+      "text": "Retarder Fren Torku Limiti (FMI 7): Aktüatör itici kollarını, kurum birikmesini ve hava/yağ tahrik hatlarını mekanik olarak inceleyin.",
+      "why": "Retarder Fren Torku Limiti - Mekanik sistem yanıt vermiyor veya kalibrasyon dışı (Mekanik Sıkışma)"
+    },
+    {
+      "id": "Q_SPN_1714_FMI_11",
+      "kind": "yes_no",
+      "text": "Retarder Fren Torku Limiti (FMI 11): Öncelikli olarak Freeze Frame (DM4) verilerini ve motor çalışma koşullarını okuyun.",
+      "why": "Retarder Fren Torku Limiti - Kök neden bilinmiyor (Genel Arıza Modu)"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Retarder Torque Limit Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

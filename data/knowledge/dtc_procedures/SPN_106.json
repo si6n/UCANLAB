@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 106",
+  "system": "Hava Emiş & Turboşarj (CAC)",
+  "symptoms": [
+    "Hava Giriş Basıncı arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_106_FMI_0",
+      "kind": "yes_no",
+      "text": "Hava Giriş Basıncı (FMI 0): Sensör, turbo kompresör çıkışına mı emiş tarafına mı bağlanmış kontrol edin; yanlış taplama boost oranını bozar. Barometrik referans (SPN 108) ile karşılaştırın.",
+      "why": "Hava Giriş Basıncı - Veri geçerli fakat normal çalışma aralığının üzerinde (Kritik Yüksek)"
+    },
+    {
+      "id": "Q_SPN_106_FMI_1",
+      "kind": "yes_no",
+      "text": "Hava Giriş Basıncı (FMI 1): Emiş hattında aşırı vakum (tıkalı hava filtresi / çöken hortum) var mı manometreyle doğrulayın; hava filtresi servis göstergesini kontrol edin.",
+      "why": "Hava Giriş Basıncı - Veri geçerli fakat normal çalışma aralığının altında (Kritik Düşük)"
+    },
+    {
+      "id": "Q_SPN_106_FMI_3",
+      "kind": "yes_no",
+      "text": "Hava Giriş Basıncı (FMI 3): Sensör sinyal hattını ayrik halde ölçün; +5V kısa devresi ve soket pin eğilmesini kontrol edin.",
+      "why": "Hava Giriş Basıncı - Voltaj normalin üzerinde veya yüksek kaynağa kısa devre"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Air Inlet Pressure Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "pressure_kpa": 250.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

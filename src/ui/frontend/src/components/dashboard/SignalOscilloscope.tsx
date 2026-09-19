@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Activity,
   Flame,
@@ -57,8 +58,8 @@ const C_RPM = '#1f7dff';
 const C_TURBO = '#14b892';
 const C_CRITICAL = '#e11d48';
 const C_WARNING = '#d97706';
-const C_GRID = '#E5E9F0';
-const C_AXIS_TEXT = '#64748B';
+const C_GRID = 'rgba(255, 255, 255, 0.08)';
+const C_AXIS_TEXT = '#8a8a93';
 
 export const SignalOscilloscope: React.FC<SignalOscilloscopeProps> = ({
   currentPoint,
@@ -156,14 +157,14 @@ export const SignalOscilloscope: React.FC<SignalOscilloscopeProps> = ({
     }
 
     // Baseline (x-axis)
-    ctx.strokeStyle = '#CBD5E1';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
     ctx.beginPath();
     ctx.moveTo(padL, padT + plotH + 0.5);
     ctx.lineTo(padL + plotW, padT + plotH + 0.5);
     ctx.stroke();
 
     if (displayHistory.length < 2) {
-      ctx.fillStyle = '#94A3B8';
+      ctx.fillStyle = '#616167';
       ctx.textAlign = 'center';
       ctx.font = '12px Inter, sans-serif';
       ctx.fillText('Canlı telemetri bekleniyor...', padL + plotW / 2, padT + plotH / 2);
@@ -289,12 +290,16 @@ export const SignalOscilloscope: React.FC<SignalOscilloscopeProps> = ({
     e.preventDefault();
     e.stopPropagation();
 
-    const rect = containerRef.current?.getBoundingClientRect();
+    const menuWidth = 230;
+    const menuHeight = 180;
+    const x = Math.max(8, Math.min(e.clientX, window.innerWidth - menuWidth - 8));
+    const y = Math.max(8, Math.min(e.clientY, window.innerHeight - menuHeight - 8));
+
     setContextMenu({
       visible: true,
-      x: e.clientX - (rect ? rect.left : 0),
-      y: e.clientY - (rect ? rect.top : 0),
-      timingState
+      x,
+      y,
+      timingState,
     });
   };
 
@@ -330,9 +335,9 @@ export const SignalOscilloscope: React.FC<SignalOscilloscopeProps> = ({
   );
 
   return (
-    <div ref={containerRef} className="surface-panel relative flex h-full flex-col overflow-hidden">
+    <div ref={containerRef} className="panel-flat relative flex h-full flex-col overflow-hidden">
       {/* Header: title + value legend + controls all in one bar */}
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1.5 border-b border-slate-200 bg-white px-3 py-2">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1.5 border-b border-white/[0.07] bg-transparent px-3 py-2">
         <div className="flex items-center space-x-2.5">
           <div className="flex h-5 w-5 items-center justify-center rounded-md border border-brand-200 bg-brand-50 text-brand-600">
             <LineChart className="h-3 w-3 stroke-[2.2]" />
@@ -443,7 +448,7 @@ export const SignalOscilloscope: React.FC<SignalOscilloscopeProps> = ({
       )}
 
       {/* Main Content */}
-      <div className="relative flex flex-1 flex-col overflow-hidden bg-white p-2">
+      <div className="relative flex flex-1 flex-col overflow-hidden bg-transparent p-2">
         {viewMode === 'oscilloscope' && (
           <div className="relative h-full w-full">
             <canvas ref={canvasRef} className="block h-full w-full" />
@@ -523,7 +528,7 @@ export const SignalOscilloscope: React.FC<SignalOscilloscopeProps> = ({
                         {item.protocol}
                       </div>
 
-                      <div className="my-2 grid grid-cols-2 gap-1.5 rounded-lg border border-slate-100 bg-slate-50 p-1.5 font-mono text-xs transition-colors group-hover:bg-white">
+                      <div className="my-2 grid grid-cols-2 gap-1.5 rounded-lg border border-white/[0.06] bg-white/[0.02] p-1.5 font-mono text-xs transition-colors">
                         <div>
                           <span className="block text-xs text-slate-500">Jitter</span>
                           <span className="font-semibold text-slate-700">{jitter} ms</span>
@@ -563,52 +568,52 @@ export const SignalOscilloscope: React.FC<SignalOscilloscopeProps> = ({
         )}
       </div>
 
-      {/* Context Menu */}
-      {contextMenu && contextMenu.visible && (
-        <div
-          style={{
-            position: 'absolute',
-            top: `${Math.min(contextMenu.y, 220)}px`,
-            left: `${Math.min(contextMenu.x, 520)}px`,
-            zIndex: 60
-          }}
-          className="w-56 select-none rounded-xl border border-slate-200/80 bg-white/95 p-1.5 text-xs text-slate-700 shadow-card-elevated ring-1 ring-slate-950/5 backdrop-blur-xl animate-scale-in"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-2.5 py-1.5 font-mono text-xs font-bold text-slate-500">
-            <span>{contextMenu.timingState.idHex}</span>
-            <span className="font-sans text-xs text-brand-600">{contextMenu.timingState.observedFreqHz} Hz</span>
-          </div>
+      {/* Context Menu — rendered via Portal into document.body */}
+      {contextMenu && contextMenu.visible &&
+        createPortal(
+          <div
+            style={{
+              top: `${contextMenu.y}px`,
+              left: `${contextMenu.x}px`,
+            }}
+            className="fixed z-[9999] w-56 select-none rounded-xl border border-slate-200/80 bg-white/95 p-1.5 text-xs text-slate-700 shadow-card-elevated ring-1 ring-slate-950/5 backdrop-blur-xl animate-scale-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-2.5 py-1.5 font-mono text-xs font-bold text-slate-500">
+              <span>{contextMenu.timingState.idHex}</span>
+              <span className="font-sans text-xs text-brand-600">{contextMenu.timingState.observedFreqHz} Hz</span>
+            </div>
 
-          <div className="py-1">
-            <button
-              onClick={() => handleInspectCanTiming(contextMenu.timingState)}
-              className="flex w-full items-center space-x-2.5 rounded-lg px-2.5 py-2 text-left font-semibold text-brand-700 transition-colors hover:bg-brand-50"
-            >
-              <Bot className="h-4 w-4 shrink-0 text-brand-600" />
-              <span>AI Copilot'a Analiz Ettir</span>
-            </button>
+            <div className="py-1">
+              <button
+                onClick={() => handleInspectCanTiming(contextMenu.timingState)}
+                className="flex w-full items-center space-x-2.5 rounded-lg px-2.5 py-2 text-left font-semibold text-brand-700 transition-colors hover:bg-brand-50"
+              >
+                <Bot className="h-4 w-4 shrink-0 text-brand-600" />
+                <span>AI Copilot'a Analiz Ettir</span>
+              </button>
 
-            <div className="my-1 border-t border-slate-100"></div>
+              <div className="my-1 border-t border-slate-100"></div>
 
-            <button
-              onClick={() => copyToClipboard(contextMenu.timingState.idHex, 'CAN ID')}
-              className="flex w-full items-center space-x-2.5 rounded-lg px-2.5 py-1.5 text-left text-slate-700 transition-colors hover:bg-slate-50"
-            >
-              <Copy className="h-3.5 w-3.5 shrink-0 text-slate-500" />
-              <span>CAN ID Kopyala</span>
-            </button>
+              <button
+                onClick={() => copyToClipboard(contextMenu.timingState.idHex, 'CAN ID')}
+                className="flex w-full items-center space-x-2.5 rounded-lg px-2.5 py-1.5 text-left text-slate-700 transition-colors hover:bg-slate-50"
+              >
+                <Copy className="h-3.5 w-3.5 shrink-0 text-slate-500" />
+                <span>CAN ID Kopyala</span>
+              </button>
 
-            <button
-              onClick={() => copyToClipboard(`${contextMenu.timingState.name} (${contextMenu.timingState.protocol})`, 'Sinyal Bilgisi')}
-              className="flex w-full items-center space-x-2.5 rounded-lg px-2.5 py-1.5 text-left text-slate-700 transition-colors hover:bg-slate-50"
-            >
-              <Copy className="h-3.5 w-3.5 shrink-0 text-slate-500" />
-              <span>Protokol & Sinyali Kopyala</span>
-            </button>
-          </div>
-        </div>
-      )}
+              <button
+                onClick={() => copyToClipboard(`${contextMenu.timingState.name} (${contextMenu.timingState.protocol})`, 'Sinyal Bilgisi')}
+                className="flex w-full items-center space-x-2.5 rounded-lg px-2.5 py-1.5 text-left text-slate-700 transition-colors hover:bg-slate-50"
+              >
+                <Copy className="h-3.5 w-3.5 shrink-0 text-slate-500" />
+                <span>Protokol & Sinyali Kopyala</span>
+              </button>
+            </div>
+          </div>,
+          document.body
+        )}
 
       {/* Copied Toast */}
       {copiedToast && (

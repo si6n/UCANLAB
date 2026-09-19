@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 522",
+  "system": "Otomatik / AMT Şanzıman Kontrolü",
+  "symptoms": [
+    "Şanzıman Mevcut Vites arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_522_FMI_2",
+      "kind": "yes_no",
+      "text": "Şanzıman Mevcut Vites (FMI 2): Kablo demetinde titreşim temassızlığı, gevşek klemens veya manyetik relüktör çark diş hasarı arayın.",
+      "why": "Şanzıman Mevcut Vites - Veri tutarsız, kesintili veya yanlış (Sinyal Sıçraması)"
+    },
+    {
+      "id": "Q_SPN_522_FMI_7",
+      "kind": "yes_no",
+      "text": "Şanzıman Mevcut Vites (FMI 7): Aktüatör itici kollarını, kurum birikmesini ve hava/yağ tahrik hatlarını mekanik olarak inceleyin.",
+      "why": "Şanzıman Mevcut Vites - Mekanik sistem yanıt vermiyor veya kalibrasyon dışı (Mekanik Sıkışma)"
+    },
+    {
+      "id": "Q_SPN_522_FMI_11",
+      "kind": "yes_no",
+      "text": "Şanzıman Mevcut Vites (FMI 11): Öncelikli olarak Freeze Frame (DM4) verilerini ve motor çalışma koşullarını okuyun.",
+      "why": "Şanzıman Mevcut Vites - Kök neden bilinmiyor (Genel Arıza Modu)"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Transmission Current Gear Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

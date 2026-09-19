@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "dtc": "P2029",
+  "system": "Yakıt, Emisyon & SCR / AdBlue Dozaj Sistemi",
+  "symptoms": [
+    "No heat in passenger compartment",
+    "Excessive heat in passenger compartment",
+    "Climate control blower may be temporarily disabled",
+    "No symptoms may be exhibited"
+  ],
+  "questions": [
+    {
+      "id": "Q_P2029_1",
+      "kind": "yes_no",
+      "text": "Defective temperature sensor (air or coolant) durumunu kontrol ettiniz mi?",
+      "why": "P2029 arızasında olası kök neden"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Kablo Tesisatı",
+      "test_type": "Kolay (Görsel)",
+      "safety_note": "Kontak kapalıyken ölçüm yapın."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 12.0
+  },
+  "pass_next": "Canlı veride sinyal nominal ise arıza hafızasını silin.",
+  "fail_next": "İlgili bileşeni veya kablo demetini onarın/değiştirin.",
+  "safety_notes": [
+    "Kontak kapalı konumda çalışın."
+  ]
+}

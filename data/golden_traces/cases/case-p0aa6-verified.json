@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-p0aa6-verified",
+  "domain": "PASSENGER",
+  "make": "Toyota",
+  "model": "Prius",
+  "year": 2022,
+  "symptom": "P0AA6 ariza kodu: Batarya muhafazası içine soğutma sıvısı (antifriz) veya nem sızması.",
+  "dtcs": [
+    {
+      "code": "P0AA6",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "EngineSpeed",
+      "expected_behavior": "Nominal calisma araliginda",
+      "observed_behavior": "ISO 6469-1 / UNECE R100 Standardı: Min İzolasyon Direnci ≥ 500 Ω/V DC (400V için"
+    }
+  ],
+  "actual_fault": "Batarya muhafazası içine soğutma sıvısı (antifriz) veya nem sızması.",
+  "repair": "LOTO güvenlik prosedürünü uygulayın (MSD sök, 10 dk bekle, DC Bus < 5V sıfır enerji onayı).",
+  "verification": "Saha onarimi ve ariza hafiza kontrolu ile dogrulandi",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-03-15"
+}

@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-p2002-verified",
+  "domain": "PASSENGER",
+  "make": "Volvo",
+  "model": "XC60",
+  "year": 2021,
+  "symptom": "P2002 arıza kodu: DPF petek çatlağı sonucu kurum tutma verimsizliği",
+  "dtcs": [
+    {
+      "code": "P2002",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "DPFDiffPressure",
+      "expected_behavior": "Nominal fabrika çalışma aralığında",
+      "observed_behavior": "Diferansiyel basınç nominalden düşük"
+    }
+  ],
+  "actual_fault": "DPF petek çatlağı sonucu kurum tutma verimsizliği",
+  "repair": "DPF filtre ünitesi yenisiyle değiştirildi",
+  "verification": "Yol testi ve arıza hafızası kontrolü ile doğrulandı",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-04-10"
+}

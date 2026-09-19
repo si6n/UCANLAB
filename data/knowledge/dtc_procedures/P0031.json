@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "dtc": "P0031",
+  "system": "Yakıt Ölçümü & Hava Emiş / Kam Mili Zamanlaması",
+  "symptoms": [
+    "Inspect the wiring harness: Check for any signs of damage, such as broken wires, frayed insulation, or corrosion. Repair or replace the harness if necessary.",
+    "Test the oxygen sensor: Perform an electrical test on the Bank 1 Sensor 1 oxygen sensor to measure its resistance and ensure it is functioning properly. Replace the sensor if it fails the test.",
+    "Check the ECM: While rare, it is possible for the ECM to be responsible for the low voltage condition. A diagnostic scan tool can be used to check if the ECM is outputting the correct voltage to the oxygen sensor. If the ECM is faulty, it needs to be replaced or reprogrammed.",
+    "Clear the fault code: After the repairs have been made, clear the P0031 code using a scan tool. This will reset the Check Engine Light and allow for monitoring the system to ensure the code does not reappear."
+  ],
+  "questions": [
+    {
+      "id": "Q_P0031_1",
+      "kind": "yes_no",
+      "text": "A short or open in the heater circuit in the sensor durumunu kontrol ettiniz mi?",
+      "why": "P0031 arızasında olası kök neden"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Kablo Tesisatı & Soketler",
+      "test_type": "Kolay (Görsel)",
+      "safety_note": "Kontak kapalıyken ölçüm yapın."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 12.0
+  },
+  "pass_next": "Canlı veride sinyal nominal ise arıza hafızasını silin.",
+  "fail_next": "İlgili bileşeni veya kablo demetini onarın/değiştirin.",
+  "safety_notes": [
+    "Kontak kapalı konumda çalışın."
+  ]
+}

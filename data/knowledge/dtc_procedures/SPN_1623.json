@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 1623",
+  "system": "Ağır Vasıta J1939 (OEM tablo hasadı)",
+  "symptoms": [
+    "Tachograph Output Shaft Devri/Hızı arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_1623_FMI_9",
+      "kind": "yes_no",
+      "text": "Tachograph Output Shaft Devri/Hızı (FMI 9): Sensör veya kaynak modülün CAN-Bus hattına bağlı olduğunu ve adres aldığını (Address Claim) doğrulayın.",
+      "why": "Tachograph Output Shaft Speed - Tachograph Output Shaft Speed – Abnormal Update Rate"
+    },
+    {
+      "id": "Q_SPN_1623_FMI_19",
+      "kind": "yes_no",
+      "text": "Tachograph Output Shaft Devri/Hızı (FMI 19): Veri yolunda 120Ω hat sonlandırma direncini ve CAN-H/CAN-L sinyal gürültüsünü test edin.",
+      "why": "Tachograph Output Shaft Speed - Tachograph Output Shaft Speed – Received Network Data in Error"
+    },
+    {
+      "id": "Q_SPN_1623_FMI_3",
+      "kind": "yes_no",
+      "text": "Tachograph Output Shaft Devri/Hızı (FMI 3): Kablo tesisatı ve sensör empedansını kontrol edin.",
+      "why": "Şanzıman çıkış hızı (takometre) hatası veya güvenilir değil"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Tachograph output shaft speed Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

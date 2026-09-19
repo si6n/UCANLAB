@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "dtc": "P0300",
+  "system": "Ateşleme Sistemi & Tekleme (Misfire) Tespiti",
+  "symptoms": [
+    "Rölantide şiddetli sarsıntı",
+    "Hızlanmada kesiklik",
+    "Yanıp sönen motor lambası (Katalizör hasar riski!)"
+  ],
+  "questions": [
+    {
+      "id": "Q_P0300_1",
+      "kind": "yes_no",
+      "text": "Şu olası nedeni kontrol ettiniz mi: Eski, aşınmış veya yanlış tırnak aralığına sahip bujiler?",
+      "why": "P0300 için en sık bildirilen kök neden"
+    },
+    {
+      "id": "Q_P0300_2",
+      "kind": "yes_no",
+      "text": "Sensör/aktüatör kablo tesisatında kopuk veya kısa devre var mı (Ateşleme bobinlerinde mikro çatlak ve yüksek voltaj ark kaçağı)?",
+      "why": "Elektriksel tesisat kontrolü"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Buji Grubu",
+      "test_type": "Orta (Alet Gerekir)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    },
+    {
+      "step": 2,
+      "target": "Ateşleme Bobinleri",
+      "test_type": "İleri (Servis)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    },
+    {
+      "step": 3,
+      "target": "Motor Bloğu / Yanma Odası",
+      "test_type": "İleri (Servis)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 12.0
+  },
+  "pass_next": "Canlı veride sinyal nominal ise arıza hafızasını temizleyip yol testi yapın.",
+  "fail_next": "Arızalı bileşeni veya tesisatı onarın/değiştirin.",
+  "safety_notes": [
+    "Kontak kapalıyken çalışma yapın.",
+    "Sıcak motor parçalarına ve dönen kayışlara dikkat edin."
+  ]
+}

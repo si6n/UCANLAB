@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 4193",
+  "system": "Motor Soğutma & Termal Yönetim",
+  "symptoms": [
+    "Motor Soğutma Suyu Pompası Çıkış Sıcaklığı ikazı",
+    "J1939 DM1 aktif arıza kaydı"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_4193_1",
+      "kind": "yes_no",
+      "text": "Motor Soğutma Suyu Pompası Çıkış Sıcaklığı (FMI 2): Kablo demetinde titreşim temassızlığı, gevşek klemens veya manyetik relüktör çark diş hasarı arayın.",
+      "why": "SPN 4193 arıza prosedür adımı"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Engine Coolant Pump Outlet Temperature Sinyal Hattı",
+      "test_type": "J1939 / Multimetre"
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "DM11 ile arıza hafızasını temizleyip yol testi yapın.",
+  "fail_next": "Sensör veya tesisatı değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemi ile uyumlu çalışın."
+  ]
+}

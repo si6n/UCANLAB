@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-p0420-verified",
+  "domain": "PASSENGER",
+  "make": "Volkswagen",
+  "model": "Passat",
+  "year": 2022,
+  "symptom": "P0420 ariza kodu: Katalizör monolitinin kurşun/yağ ile zehirlenmesi veya seramik peteğin erimesi.",
+  "dtcs": [
+    {
+      "code": "P0420",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "EngineSpeed",
+      "expected_behavior": "Nominal calisma araliginda",
+      "observed_behavior": "Sağlıklı Arka Lambda Voltajı: 0.60V - 0.75V (Sabit) | Arızalı: Ön sensör gibi 0."
+    }
+  ],
+  "actual_fault": "Katalizör monolitinin kurşun/yağ ile zehirlenmesi veya seramik peteğin erimesi.",
+  "repair": "Canlı telemetride ön ve arka oksijen sensör voltajlarını karşılaştırın (Arka sensör 0.6 - 0.7V sabit kalmalıdır).",
+  "verification": "Saha onarimi ve ariza hafiza kontrolu ile dogrulandi",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-03-15"
+}

@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-p0401-verified",
+  "domain": "PASSENGER",
+  "make": "Mercedes",
+  "model": "C200d",
+  "year": 2021,
+  "symptom": "P0401 arıza kodu: EGR valfi ve soğutucu borusunda aşırı kurum tıkanıklığı",
+  "dtcs": [
+    {
+      "code": "P0401",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "EGRPosition",
+      "expected_behavior": "Nominal fabrika çalışma aralığında",
+      "observed_behavior": "EGR komutuna rağmen akış artmıyor"
+    }
+  ],
+  "actual_fault": "EGR valfi ve soğutucu borusunda aşırı kurum tıkanıklığı",
+  "repair": "EGR valfi sökülüp ultrasonik banyoda temizlendi",
+  "verification": "Yol testi ve arıza hafızası kontrolü ile doğrulandı",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-04-10"
+}

@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "dtc": "P0204",
+  "system": "Yakıt Ölçümü & Enjektör Devresi / Turboşarj",
+  "symptoms": [
+    "Motor arıza lambası"
+  ],
+  "questions": [
+    {
+      "id": "Q_P0204_1",
+      "kind": "yes_no",
+      "text": "Şu olası nedeni kontrol ettiniz mi: Bad injector. This is usually the cause of this code but doesn't rule out \n    the possibility of one of the other causes?",
+      "why": "P0204 için en sık bildirilen kök neden"
+    },
+    {
+      "id": "Q_P0204_2",
+      "kind": "yes_no",
+      "text": "Sensör/aktüatör kablo tesisatında kopuk veya kısa devre var mı (Open in the wiring to the injector)?",
+      "why": "Elektriksel tesisat kontrolü"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Kablo Tesisatı & Soketler",
+      "test_type": "Kolay (Görsel)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    },
+    {
+      "step": 2,
+      "target": "P0204 İlgili Komponent",
+      "test_type": "Orta (Alet Gerekir)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    },
+    {
+      "step": 3,
+      "target": "P0204 İlgili Komponent",
+      "test_type": "Orta (Alet Gerekir)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 12.0
+  },
+  "pass_next": "Canlı veride sinyal nominal ise arıza hafızasını temizleyip yol testi yapın.",
+  "fail_next": "Arızalı bileşeni veya tesisatı onarın/değiştirin.",
+  "safety_notes": [
+    "Kontak kapalıyken çalışma yapın.",
+    "Sıcak motor parçalarına ve dönen kayışlara dikkat edin."
+  ]
+}

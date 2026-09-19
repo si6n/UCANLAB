@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "dtc": "P0340",
+  "system": "Ateşleme Sistemi & Tekleme (Misfire) Tespiti",
+  "symptoms": [
+    "Hard starting or no start",
+    "Rough running / misfiring",
+    "Loss of engine power"
+  ],
+  "questions": [
+    {
+      "id": "Q_P0340_1",
+      "kind": "yes_no",
+      "text": "Şu olası nedeni kontrol ettiniz mi: a wire or connector in the circuit could be grounded/shorted/broken?",
+      "why": "P0340 için en sık bildirilen kök neden"
+    },
+    {
+      "id": "Q_P0340_2",
+      "kind": "yes_no",
+      "text": "Sensör/aktüatör kablo tesisatında kopuk veya kısa devre var mı (the camshaft position sensor may have failed)?",
+      "why": "Elektriksel tesisat kontrolü"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Kablo Tesisatı & Soketler",
+      "test_type": "Kolay (Görsel)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    },
+    {
+      "step": 2,
+      "target": "P0340 İlgili Komponent",
+      "test_type": "Orta (Alet Gerekir)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    },
+    {
+      "step": 3,
+      "target": "P0340 İlgili Komponent",
+      "test_type": "Orta (Alet Gerekir)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 12.0
+  },
+  "pass_next": "Canlı veride sinyal nominal ise arıza hafızasını temizleyip yol testi yapın.",
+  "fail_next": "Arızalı bileşeni veya tesisatı onarın/değiştirin.",
+  "safety_notes": [
+    "Kontak kapalıyken çalışma yapın.",
+    "Sıcak motor parçalarına ve dönen kayışlara dikkat edin."
+  ]
+}

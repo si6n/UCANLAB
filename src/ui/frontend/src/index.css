@@ -1,201 +1,446 @@
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
+  color-scheme: light;
+
+  /* ZERON LIGHT THEME — Locked to Zeron Image 2 Tokens */
+  --bg-window: #ededf0;
+  --bg-app: #ededf0;
+  --bg-rail: rgba(235, 237, 242, 0.64);
+  --bg-chrome: rgba(240, 242, 246, 0.70);
+  --bg-panel: rgba(255, 255, 255, 0.55);
+  --bg-card: rgba(255, 255, 255, 0.55);
+  --bg-popover: rgba(255, 255, 255, 0.86);
+  --bg-row-hover: rgba(0, 0, 0, 0.03);
+  --bg-row-selected: rgba(29, 78, 216, 0.08);
+  --bg-row-anomaly: rgba(220, 38, 38, 0.06);
+
+  /* Surfaces & Panels: cam panel %55/blur20+sat120, rail %64/blur18, chrome %70/blur22, popover %86/blur16 */
+  --glass-rail: rgba(235, 237, 242, 0.64);
+  --glass-panel: rgba(255, 255, 255, 0.55);
+  --glass-chrome: rgba(240, 242, 246, 0.70);
+  --glass-popover: rgba(255, 255, 255, 0.86);
+  --glass-row-sel: rgba(29, 78, 216, 0.08);
+  --glass-row-anom: rgba(220, 38, 38, 0.06);
+  --table-body-surface: transparent;
+  --surface-inset: #ffffff;
+  --surface-inset-border: rgba(0, 0, 0, 0.10);
+
+  /* Hairlines: %8/%14, satır ayraç 0 */
+  --border: rgba(0, 0, 0, 0.08);
+  --border-strong: rgba(0, 0, 0, 0.14);
+  --border-row: transparent;
+  --border-focus: rgba(29, 78, 216, 0.55);
+  --inset-top-hl: #ffffff;
+
+  /* Metin: #1f1f1f/#3f3f46/#71717a/#a1a1aa/#d4d4d8 */
+  --text-hi: #1f1f1f;
+  --text-body: #3f3f46;
+  --text-mid: #71717a;
+  --text-low: #a1a1aa;
+  --text-faint: #d4d4d8;
+
+  /* Accent: #1d4ed8, soft %10, line %28 */
+  --accent: #1d4ed8;
+  --accent-text: #1d4ed8;
+  --accent-soft: rgba(29, 78, 216, 0.10);
+  --accent-glow: rgba(29, 78, 216, 0.16);
+  --accent-line: rgba(29, 78, 216, 0.28);
+
+  /* Brand Amber: #b45309 (yalnızca güneş + ASIL-D) */
+  --brand-amber: #b45309;
+
+  /* Diff & Semantic: del #dc2626/bg %6/edge #b91c1c, add #16a34a/bg %8/edge #15803d */
+  --del: #dc2626;
+  --del-bg: rgba(220, 38, 38, 0.06);
+  --del-edge: #b91c1c;
+  --add: #16a34a;
+  --add-bg: rgba(22, 163, 74, 0.08);
+  --add-edge: #15803d;
+  --warn: #b45309;
+  --warn-bg: rgba(180, 83, 9, 0.08);
+  --warn-edge: #92400e;
+  --info-teal: #71717a;
+  --info-teal-bg: transparent;
+  --info-teal-edge: transparent;
+}
+
+.dark {
   color-scheme: dark;
-  --workspace: #060606;
-  --shell: #0d0d0d;
-  --panel: #0e0e0e;
-  --raised: #343438;
-  --foreground: #e8e8ea;
-  --muted: #a9a9ae;
-  --accent: #8b7cf6;
+
+  /* ZERON DARK THEME — Locked to Zeron Image 2 Tokens */
+  --bg-window: #0c0e14;
+  --bg-app: #0c0e14;
+  --bg-rail: rgba(16, 19, 28, 0.64);
+  --bg-chrome: rgba(18, 21, 30, 0.70);
+  --bg-panel: rgba(22, 25, 35, 0.55);
+  --bg-card: rgba(22, 25, 35, 0.55);
+  --bg-popover: rgba(26, 30, 42, 0.86);
+  --bg-row-hover: rgba(255, 255, 255, 0.035);
+  --bg-row-selected: rgba(96, 165, 250, 0.10);
+  --bg-row-anomaly: rgba(248, 113, 113, 0.06);
+
+  /* Surfaces & Panels: cam panel %55/blur20+sat120, rail %64/blur18, chrome %70/blur22, popover %86/blur16 */
+  --glass-rail: rgba(16, 19, 28, 0.64);
+  --glass-panel: rgba(22, 25, 35, 0.55);
+  --glass-chrome: rgba(18, 21, 30, 0.70);
+  --glass-popover: rgba(26, 30, 42, 0.86);
+  --glass-row-sel: rgba(96, 165, 250, 0.10);
+  --glass-row-anom: rgba(248, 113, 113, 0.06);
+  --table-body-surface: transparent;
+  --surface-inset: #151824;
+  --surface-inset-border: rgba(255, 255, 255, 0.10);
+
+  /* Hairlines: %8/%14, satır ayraç 0 */
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --border-row: transparent;
+  --border-focus: rgba(96, 165, 250, 0.55);
+  --inset-top-hl: rgba(255, 255, 255, 0.12);
+
+  /* Metin: #fafafa/#d4d4d8/#a1a1aa/#71717a/#52525b */
+  --text-hi: #fafafa;
+  --text-body: #d4d4d8;
+  --text-mid: #a1a1aa;
+  --text-low: #71717a;
+  --text-faint: #52525b;
+
+  /* Accent: #60a5fa, soft %10, line %28 */
+  --accent: #60a5fa;
+  --accent-text: #60a5fa;
+  --accent-soft: rgba(96, 165, 250, 0.10);
+  --accent-glow: rgba(96, 165, 250, 0.18);
+  --accent-line: rgba(96, 165, 250, 0.28);
+
+  /* Brand Amber: #fbbf24 (yalnızca güneş + ASIL-D) */
+  --brand-amber: #fbbf24;
+
+  /* Diff & Semantic: del #f87171/bg %6/edge #ef4444, add #4ade80/bg %8/edge #22c55e */
+  --del: #f87171;
+  --del-bg: rgba(248, 113, 113, 0.06);
+  --del-edge: #ef4444;
+  --add: #4ade80;
+  --add-bg: rgba(74, 222, 128, 0.08);
+  --add-edge: #22c55e;
+  --warn: #fde047;
+  --warn-bg: rgba(253, 224, 71, 0.08);
+  --warn-edge: #eab308;
+  --info-teal: #a1a1aa;
+  --info-teal-bg: transparent;
+  --info-teal-edge: transparent;
 }
 
 @layer base {
   * {
-    border-color: theme("colors.slate.200");
+    border-color: var(--border);
+    box-sizing: border-box;
   }
-  body {
-    background-color: var(--workspace);
-    color: var(--foreground);
-    font-family: 'Inter', system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  html, body {
+    background-color: var(--bg-app) !important;
+    color: var(--text-body);
+    font-family: 'Geist', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
   }
+
   ::selection {
-    background-color: #44358c;
-    color: var(--foreground);
-  }
-  h1, h2, h3, h4 {
-    letter-spacing: -0.02em;
+    background-color: var(--accent-soft);
+    color: var(--text-hi);
   }
 }
 
+/* Glow near-off with soft ambient diffusion so frosted glass blurs luminance, not flat black */
+.app-ambient-glow {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(1000px circle at 85% 10%, rgba(96, 165, 250, 0.045), transparent 65%),
+    radial-gradient(900px circle at 15% 90%, rgba(96, 165, 250, 0.025), transparent 60%);
+}
+
+:root:not(.dark) .app-ambient-glow {
+  background:
+    radial-gradient(1000px circle at 85% 10%, rgba(29, 78, 216, 0.035), transparent 65%),
+    radial-gradient(900px circle at 15% 90%, rgba(29, 78, 216, 0.02), transparent 60%);
+}
+
+/* Zeron Frosted Glass Surfaces with Soft Depth */
 .glass-workspace {
-  background-color: var(--workspace);
-  background-image: radial-gradient(ellipse at top left, rgba(255, 255, 255, 0.035), transparent 65%);
+  background-color: var(--bg-app);
 }
 
-.glass-surface {
-  background-color: var(--shell);
-  border-color: rgba(255, 255, 255, 0.10);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+/* Cam Panel: %55/blur20+sat120, gölgeler saf siyah 0 1px 2px .04 + 0 8px 28px .06, kesik 12px */
+.glass-panel {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 100%), var(--glass-panel);
+  border: 1px solid var(--border);
+  box-shadow:
+    inset 0 1px 0 0 var(--inset-top-hl),
+    0 1px 2px rgba(0, 0, 0, 0.35),
+    0 8px 28px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(20px) saturate(120%);
+  -webkit-backdrop-filter: blur(20px) saturate(120%);
+  border-radius: 12px;
 }
 
-.glass-sidebar {
-  --glass-tint: rgba(13, 13, 13, 0.82);
+:root:not(.dark) .glass-panel {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.65) 0%, rgba(255, 255, 255, 0.30) 100%), var(--glass-panel);
+  box-shadow:
+    inset 0 1px 0 0 var(--inset-top-hl),
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 8px 28px rgba(0, 0, 0, 0.06);
 }
 
-.glass-topbar {
-  --glass-tint: rgba(13, 13, 13, 0.88);
+/* Rail: %64/blur18 */
+.glass-rail {
+  background-color: var(--glass-rail);
+  border-right: 1px solid var(--border);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
 }
 
-.glass-modal {
-  --glass-tint: rgba(20, 20, 22, 0.94);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 24px 80px rgba(0, 0, 0, 0.5);
+/* Chrome: %70/blur22 */
+.glass-chrome {
+  background-color: var(--glass-chrome);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
 }
 
-.glass-overlay {
-  background-color: rgba(0, 0, 0, 0.60);
+/* Popover: %86/blur16, gölgeler saf siyah 0 12px 40px .10, kesik 10px */
+.glass-popover {
+  background-color: var(--glass-popover);
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-radius: 10px;
 }
 
-@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .glass-surface {
-    background-color: var(--glass-tint, rgba(13, 13, 13, 0.88));
-    -webkit-backdrop-filter: blur(24px);
-    backdrop-filter: blur(24px);
-  }
-
-  .glass-overlay {
-    -webkit-backdrop-filter: blur(8px);
-    backdrop-filter: blur(8px);
-  }
+:root:not(.dark) .glass-popover {
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.10);
 }
 
-@media (prefers-reduced-transparency: reduce), (forced-colors: active) {
-  .glass-workspace {
-    background-image: none;
-  }
-
-  .glass-surface {
-    background-color: var(--shell);
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-  }
-
-  .glass-overlay {
-    background-color: #e5ecf5;
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-  }
+/* Inset: inset #ffffff + %10 hairline, kesik 10px */
+.surface-inset {
+  background-color: var(--surface-inset);
+  border: 1px solid var(--surface-inset-border);
+  border-radius: 10px;
 }
 
-.font-mono-num,
-.font-mono-nums {
-  font-variant-numeric: tabular-nums;
+/* Sticky table head: seamless blur within the card, no harsh dark band */
+.glass-thead {
+  background-color: var(--glass-panel);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
-.bg-grid {
-  background-image:
-    linear-gradient(to right, rgba(15, 23, 42, 0.06) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(15, 23, 42, 0.06) 1px, transparent 1px);
-  background-size: 40px 40px;
+.glass-table-body {
+  background-color: transparent;
 }
 
-.bg-grid-technical {
-  background-image:
-    linear-gradient(to right, rgba(15, 42, 74, 0.06) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(15, 42, 74, 0.06) 1px, transparent 1px);
-  background-size: 32px 32px;
+/* Inset top highlight — only for elements without their own shadow stack */
+.glass-edge:not(.glass-panel):not(.glass-popover) {
+  box-shadow: inset 0 1px 0 var(--inset-top-hl);
 }
 
-.bg-dot-technical {
-  background-image: radial-gradient(rgba(15, 42, 74, 0.14) 1px, transparent 1px);
-  background-size: 18px 18px;
+/* Section label & Micro label */
+.flat-section-label, .micro-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-low);
 }
 
-/* ---- Scrollbars: minimal, light ---- */
+/* Status indicator dot */
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  display: inline-block;
+}
+.status-dot-ok {
+  background: var(--add);
+  box-shadow: 0 0 6px var(--add);
+}
+.status-dot-danger {
+  background: var(--del);
+  box-shadow: 0 0 6px var(--del);
+}
+.status-dot-warn {
+  background: var(--warn);
+  box-shadow: 0 0 6px var(--warn);
+}
+.status-dot-idle {
+  background: var(--text-low);
+  box-shadow: none;
+}
+
+/* Zeron Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #DDE3EA;
-  border-radius: 999px;
-  border: 2px solid transparent;
-  background-clip: padding-box;
+  background: var(--border-strong);
+  border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #C4CDD8;
-  border: 2px solid transparent;
-  background-clip: padding-box;
+  background: var(--text-low);
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
-@layer components {
-  /* ---- Surfaces ---- */
-  .surface-card {
-    @apply rounded-2xl border border-slate-200/80 bg-white shadow-card;
-  }
-  .surface-panel {
-    @apply rounded-2xl border border-slate-200/80 bg-white shadow-card transition-all duration-200;
-  }
-  .surface-soft {
-    @apply rounded-2xl border border-slate-200/60 bg-slate-50/80;
-  }
-  .surface-header {
-    @apply sticky top-0 z-40 border-b border-slate-200/70 bg-white/80 backdrop-blur-xl;
-  }
+/* Focus visibility */
+.focus-accent {
+  outline: none;
+}
+.focus-accent:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
 
-  /* ---- Buttons ---- */
-  .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-[13px] font-semibold text-white shadow-sm shadow-brand-900/15 transition-all duration-150 hover:bg-brand-700 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
-  }
-  .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-[13px] font-semibold text-slate-700 shadow-sm transition-all duration-150 hover:border-slate-400 hover:bg-slate-50 hover:text-slate-900 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
-  }
-  .btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-[13px] font-semibold text-slate-600 transition-all duration-150 hover:bg-slate-100 hover:text-slate-900 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
-  }
-  .btn-danger {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2 text-[13px] font-semibold text-rose-700 shadow-sm transition-all duration-150 hover:bg-rose-100 hover:border-rose-300 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
-  }
+/* Rail collapse animation — 220ms smooth desktop easing with will-change */
+.rail-collapse {
+  transition: width 220ms cubic-bezier(0.2, 0, 0, 1);
+  will-change: width;
+}
+.rail-collapse .rail-label {
+  transition: opacity 180ms ease, max-width 220ms cubic-bezier(0.2, 0, 0, 1);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.rail-collapsed .rail-label {
+  opacity: 0;
+  max-width: 0;
+  margin: 0 !important;
+}
 
-  /* ---- Inputs ---- */
-  .input-field {
-    @apply w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm transition-all placeholder:text-slate-400 hover:border-slate-300 focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10;
-  }
+/* Copilot drawer animation — 240ms smooth desktop easing matching the left SideRail */
+.copilot-drawer {
+  transition: width 240ms cubic-bezier(0.2, 0, 0, 1),
+              margin-right 240ms cubic-bezier(0.2, 0, 0, 1),
+              padding 240ms cubic-bezier(0.2, 0, 0, 1),
+              opacity 200ms ease;
+  will-change: width, margin-right, padding, opacity;
+}
 
-  /* ---- Tables ---- */
-  .table-base {
-    @apply w-full text-left text-sm;
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
-  .table-head-row {
-    @apply border-b border-slate-200 bg-slate-50/70 text-[11px] font-semibold uppercase tracking-wider text-slate-500;
-  }
-  .table-body {
-    @apply divide-y divide-slate-100;
-  }
-  .table-row {
-    @apply transition-colors duration-100 hover:bg-slate-50/70;
-  }
+}
 
-  /* ---- Misc ---- */
-  .section-kicker {
-    @apply inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-brand-600;
-  }
-  .chip {
-    @apply inline-flex items-center gap-1.5 rounded-lg border border-slate-200/80 bg-slate-50 px-2 py-1 font-mono text-[10.5px] font-semibold text-slate-600;
-  }
-  .link-accent {
-    @apply font-semibold text-brand-600 transition-colors hover:text-brand-700 hover:underline;
-  }
-  .focus-ring {
-    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-white;
-  }
+/* ────────────────────────────────────────────────────────────
+   ZERON HARMONIZATION LAYER FOR ALL SUB-VIEWS & MODALS
+   ──────────────────────────────────────────────────────────── */
+.dark .bg-white {
+  background-color: var(--bg-panel) !important;
+}
+.dark .bg-slate-50,
+.dark .bg-slate-100 {
+  background-color: var(--surface-inset) !important;
+}
+.dark .border-slate-100,
+.dark .border-slate-200,
+.dark .border-slate-300 {
+  border-color: var(--border) !important;
+}
+.dark .text-slate-900,
+.dark .text-slate-800 {
+  color: var(--text-hi) !important;
+}
+.dark .text-slate-700,
+.dark .text-slate-600 {
+  color: var(--text-body) !important;
+}
+.dark .text-slate-500,
+.dark .text-slate-400 {
+  color: var(--text-mid) !important;
+}
+
+/* Light Mode Harmonization */
+:root:not(.dark) .bg-white {
+  background-color: rgba(255, 255, 255, 0.85) !important;
+}
+:root:not(.dark) .bg-slate-50 {
+  background-color: rgba(247, 247, 249, 0.75) !important;
+}
+:root:not(.dark) .bg-slate-100 {
+  background-color: rgba(237, 237, 240, 0.75) !important;
+}
+:root:not(.dark) .border-slate-100,
+:root:not(.dark) .border-slate-200 {
+  border-color: var(--border) !important;
+}
+:root:not(.dark) .text-slate-900 {
+  color: var(--text-hi) !important;
+}
+:root:not(.dark) .text-slate-500 {
+  color: var(--text-mid) !important;
+}
+
+/* Brand & Signal Harmonization */
+.bg-brand-50 {
+  background-color: var(--accent-soft) !important;
+}
+.border-brand-100,
+.border-brand-200 {
+  border-color: var(--accent-line) !important;
+}
+.text-brand-600,
+.text-brand-700,
+.text-brand-800 {
+  color: var(--accent-text) !important;
+}
+.bg-brand-600,
+.bg-brand-700 {
+  background-color: var(--accent) !important;
+}
+
+.bg-signal-50 {
+  background-color: var(--add-bg) !important;
+}
+.border-signal-200,
+.border-signal-300 {
+  border-color: var(--add-edge) !important;
+}
+.text-signal-600,
+.text-signal-700 {
+  color: var(--add) !important;
+}
+.bg-signal-600,
+.bg-signal-700 {
+  background-color: var(--add) !important;
+}
+
+.bg-rose-50 {
+  background-color: var(--del-bg) !important;
+}
+.border-rose-200 {
+  border-color: var(--del-edge) !important;
+}
+.text-rose-600,
+.text-rose-700 {
+  color: var(--del) !important;
 }

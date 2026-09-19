@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-p0500-verified",
+  "domain": "PASSENGER",
+  "make": "Toyota",
+  "model": "Corolla",
+  "year": 2021,
+  "symptom": "P0500 arıza kodu: Hız sensörü dişli mekanizması sıyırması",
+  "dtcs": [
+    {
+      "code": "P0500",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "VehicleSpeed",
+      "expected_behavior": "Nominal fabrika çalışma aralığında",
+      "observed_behavior": "Araç hareket halindeyken hız 0 km/s"
+    }
+  ],
+  "actual_fault": "Hız sensörü dişli mekanizması sıyırması",
+  "repair": "Şanzıman çıkış hız sensörü değiştirildi",
+  "verification": "Yol testi ve arıza hafızası kontrolü ile doğrulandı",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-04-10"
+}

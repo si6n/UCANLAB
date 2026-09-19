@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 1239",
+  "system": "Yakıt Besleme & Enjeksiyon (J1939)",
+  "symptoms": [
+    "Motor Yakıt Leakage ikazı",
+    "J1939 DM1 aktif arıza kaydı"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_1239_1",
+      "kind": "yes_no",
+      "text": "Motor Yakıt Leakage (FMI 16): Motor tork sınırlandırması (Derate) başlamadan önce ilgili devreyi temizleyin.",
+      "why": "SPN 1239 arıza prosedür adımı"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Engine Fuel Leakage 1 Sinyal Hattı",
+      "test_type": "J1939 / Multimetre"
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "DM11 ile arıza hafızasını temizleyip yol testi yapın.",
+  "fail_next": "Sensör veya tesisatı değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemi ile uyumlu çalışın."
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 27",
+  "system": "EGR Sistemi (Egzoz Gazı Geri Dönüşümü)",
+  "symptoms": [
+    "Motor Egzoz Gazı Devridaim 1 Valfi Konumu arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_27_FMI_0",
+      "kind": "yes_no",
+      "text": "Motor Egzoz Gazı Devridaim 1 Valfi Konumu (FMI 0): Sensör besleme hattını ve fiziksel aşırı basınç/sıcaklık durumunu mekanik test portundan doğrulayın.",
+      "why": "EGR Valve Position Circuit - EGR Valve Failed to Attain Closed Position"
+    },
+    {
+      "id": "Q_SPN_27_FMI_1",
+      "kind": "yes_no",
+      "text": "Motor Egzoz Gazı Devridaim 1 Valfi Konumu (FMI 1): Sıvı seviyelerini, emiş filtrelerini ve mekanik aşınma belirtilerini kontrol edin.",
+      "why": "EGR Valve Position Circuit - EGR Valve Failed to Attain Open Position"
+    },
+    {
+      "id": "Q_SPN_27_FMI_2",
+      "kind": "yes_no",
+      "text": "Motor Egzoz Gazı Devridaim 1 Valfi Konumu (FMI 2): Kablo demetinde titreşim temassızlığı, gevşek klemens veya manyetik relüktör çark diş hasarı arayın.",
+      "why": "EGR Valve Position Circuit - EGR Valve Position – Data Erratic, Intermittent, or Incorrect"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Engine Exhaust Gas Recirculation 1 Valve Position Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

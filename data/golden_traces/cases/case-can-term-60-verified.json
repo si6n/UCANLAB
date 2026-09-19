@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-can-term-60-verified",
+  "domain": "PASSENGER",
+  "make": "Volkswagen",
+  "model": "Passat",
+  "year": 2022,
+  "symptom": "CAN_TERM_60 ariza kodu: 120 Ω okunuyorsa: Hat ucundaki iki adet 120Ω sonlandırma direncinden biri kopuk veya soketi çıkmış.",
+  "dtcs": [
+    {
+      "code": "CAN_TERM_60",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "EngineSpeed",
+      "expected_behavior": "Nominal calisma araliginda",
+      "observed_behavior": "Standart Eşdeğer Direnç: 60.0 Ω ±%5 (120Ω // 120Ω) | Hata Toleransı: 55 Ω - 65 Ω"
+    }
+  ],
+  "actual_fault": "120 Ω okunuyorsa: Hat ucundaki iki adet 120Ω sonlandırma direncinden biri kopuk veya soketi çıkmış.",
+  "repair": "Akü kutup başını veya kontağı KAPATIN. OBD soketi Pin 6 (CAN_H) ile Pin 14 (CAN_L) arasını ohmmetre ile ölçün.",
+  "verification": "Saha onarimi ve ariza hafiza kontrolu ile dogrulandi",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-03-15"
+}

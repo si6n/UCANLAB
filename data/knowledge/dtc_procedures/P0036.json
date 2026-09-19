@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "dtc": "P0036",
+  "system": "Yakıt Ölçümü & Hava Emiş / Kam Mili Zamanlaması",
+  "symptoms": [
+    "Scan the vehicle&#x27;s onboard computer system to retrieve the specific fault code and any related data.",
+    "Inspect the wiring and connectors for any signs of damage, corrosion, or loose connections.",
+    "Check the fuse related to the oxygen sensor heater circuit to ensure it is intact.",
+    "Test the oxygen sensor using a multimeter or oscilloscope to verify if it is functioning properly.",
+    "If necessary, replace the faulty oxygen sensor or repair any wiring/connectivity issues."
+  ],
+  "questions": [
+    {
+      "id": "Q_P0036_1",
+      "kind": "yes_no",
+      "text": "Open circuit inside oxygen sensor or open power or ground wires to oxygen sensor durumunu kontrol ettiniz mi?",
+      "why": "P0036 arızasında olası kök neden"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Kablo Tesisatı",
+      "test_type": "Kolay (Görsel)",
+      "safety_note": "Kontak kapalıyken ölçüm yapın."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 12.0
+  },
+  "pass_next": "Canlı veride sinyal nominal ise arıza hafızasını silin.",
+  "fail_next": "İlgili bileşeni veya kablo demetini onarın/değiştirin.",
+  "safety_notes": [
+    "Kontak kapalı konumda çalışın."
+  ]
+}

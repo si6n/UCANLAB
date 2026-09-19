@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 250",
+  "system": "Yakıt Ekonomisi & Telemetri",
+  "symptoms": [
+    "Motor Toplam Yakıt Tüketimi arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_250_FMI_2",
+      "kind": "yes_no",
+      "text": "Motor Toplam Yakıt Tüketimi (FMI 2): Toplam yakıt değerini yakıt pompası fiş/raporlarıyla karşılaştırın; sistem sapması için SPN 183 (anlık debi) kalibrasyonunu doğrulayın. Sayaç gerilemesi ECU değişimi veya kalibrasyon sıfırlamasıdır.",
+      "why": "Motor Toplam Yakıt Tüketimi - Veri tutarsız, aralıklı veya hatalı"
+    },
+    {
+      "id": "Q_SPN_250_FMI_9",
+      "kind": "yes_no",
+      "text": "Motor Toplam Yakıt Tüketimi (FMI 9): PGN 64777 yayın periyodunu sniffer'da izleyin; 1 s nominal periyodun sapması ECU yüklenmesine işaret eder.",
+      "why": "Motor Toplam Yakıt Tüketimi - Anormal güncelleme hızı"
+    },
+    {
+      "id": "Q_SPN_250_FMI_19",
+      "kind": "yes_no",
+      "text": "Motor Toplam Yakıt Tüketimi (FMI 19): J1939-21 BAM taşırma çerçevelerinin bütünlüğünü ve bus hata sayaçlarını kontrol edin.",
+      "why": "Motor Toplam Yakıt Tüketimi - Alınan ağ verisi hatalı"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Engine Total Fuel Used Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

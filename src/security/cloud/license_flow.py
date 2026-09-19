@@ -61,9 +61,8 @@ def default_license_hwm_path() -> Path:
 
         root = _app_data_root()
     except Exception:  # noqa: BLE001 — desktop_app unavailable (headless/test): mirror its anchor
-        # src/security/cloud/license_flow.py -> parents[3] is the repo root,
-        # parents[4] mirrors desktop_app's `src/ui/desktop_app.py -> parents[3]`.
-        root = Path(__file__).resolve().parents[4]
+        # src/security/cloud/license_flow.py -> parents[3] is the repo root.
+        root = Path(__file__).resolve().parents[3]
     return root / "logs" / "license_hwm.txt"
 
 

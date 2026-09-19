@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-spn102-verified",
+  "domain": "HEAVY_DUTY",
+  "make": "Cummins",
+  "model": "ISX15",
+  "year": 2022,
+  "symptom": "SPN102 ariza kodu: FMI 0/16 (Aşırı Basınç): VGT aktüatör kanatçıklarının kurumdan sıkışması veya wastegate valf arızası.",
+  "dtcs": [
+    {
+      "code": "SPN 102",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "BoostPressure",
+      "expected_behavior": "Nominal calisma araliginda",
+      "observed_behavior": "Tam Yükte Nominal Boost: 2.2 - 3.2 Bar (Abs) | Maksimum Güvenlik Limiti: 3.6 Bar"
+    }
+  ],
+  "actual_fault": "FMI 0/16 (Aşırı Basınç): VGT aktüatör kanatçıklarının kurumdan sıkışması veya wastegate valf arızası.",
+  "repair": "Intercooler hortum kelepçelerini ve şarj hava borularını duman makinesi ile sızdırmazlık testine tabi tutun.",
+  "verification": "Saha onarimi ve ariza hafiza kontrolu ile dogrulandi",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-03-15"
+}

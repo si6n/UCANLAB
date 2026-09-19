@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 3695",
+  "system": "Egzoz & DPF Rejenerasyonu",
+  "symptoms": [
+    "Egzoz Ard İşlem Rejenerasyon Engelleme Şalteri arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_3695_FMI_2",
+      "kind": "yes_no",
+      "text": "Egzoz Ard İşlem Rejenerasyon Engelleme Şalteri (FMI 2): Kablo demetinde titreşim temassızlığı, gevşek klemens veya manyetik relüktör çark diş hasarı arayın.",
+      "why": "Aftertreatment Regeneration Inhibit Switch - Aftertreatment Regeneration Inhibit Switch – Data Errat"
+    },
+    {
+      "id": "Q_SPN_3695_FMI_9",
+      "kind": "yes_no",
+      "text": "Egzoz Ard İşlem Rejenerasyon Engelleme Şalteri (FMI 9): Sensör veya kaynak modülün CAN-Bus hattına bağlı olduğunu ve adres aldığını (Address Claim) doğrulayın.",
+      "why": "Aftertreatment Regeneration Inhibit Switch - Aftertreatment Regeneration Inhibit Switch – Abnormal U"
+    },
+    {
+      "id": "Q_SPN_3695_FMI_14",
+      "kind": "yes_no",
+      "text": "Egzoz Ard İşlem Rejenerasyon Engelleme Şalteri (FMI 14): Motor üreticisinin (Cummins/CAT/Volvo) yetkili servis kılavuzuna başvurun.",
+      "why": "Aftertreatment Regeneration Inhibit Switch - Diesel Particulate Filter Regeneration Inhibit Switch o"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Aftertreatment Regeneration Inhibit Switch Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

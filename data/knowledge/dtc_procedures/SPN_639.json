@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 639",
+  "system": "CAN-Bus Ağ & İletişim Hattı",
+  "symptoms": [
+    "J1939 Ağı #1 (Birincil CAN Veri Yolu) arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_639_FMI_2",
+      "kind": "yes_no",
+      "text": "J1939 Ağı #1 (Birincil CAN Veri Yolu) (FMI 2): Kablo demetinde titreşim temassızlığı, gevşek klemens veya manyetik relüktör çark diş hasarı arayın.",
+      "why": "SAE J1939 Ana CAN Hattı Haberleşme Arızası - Veri tutarsız, kesintili veya yanlış (Sinyal Sıçraması)"
+    },
+    {
+      "id": "Q_SPN_639_FMI_9",
+      "kind": "yes_no",
+      "text": "J1939 Ağı #1 (Birincil CAN Veri Yolu) (FMI 9): Sensör veya kaynak modülün CAN-Bus hattına bağlı olduğunu ve adres aldığını (Address Claim) doğrulayın.",
+      "why": "SAE J1939 Ana CAN Hattı Haberleşme Arızası - Anormal veri güncelleme hızı (CAN Zaman Aşımı)"
+    },
+    {
+      "id": "Q_SPN_639_FMI_12",
+      "kind": "yes_no",
+      "text": "J1939 Ağı #1 (Birincil CAN Veri Yolu) (FMI 12): Modülün besleme voltajını teyit edin; düzelmiyorsa dahili ECU/Sensör arızasıdır.",
+      "why": "SAE J1939 Ana CAN Hattı Haberleşme Arızası - Arızalı akıllı cihaz, mikrodenetleyici veya dahili bile"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "J1939 Network #1 (Primary CAN Bus) Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

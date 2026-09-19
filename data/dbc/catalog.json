@@ -90,7 +90,7 @@
       "protocol": "NMEA 2000",
       "license": "Apache-2.0 / MIT",
       "description": "Marine navigation, GPS, heading, engine telemetry, fluid levels, AIS, and vessel monitoring.",
-      "files_count": 1,
+      "files_count": 2,
       "files": [
         {
           "filename": "n2k_canboat.dbc",
@@ -99,6 +99,15 @@
           "signals_count": 4105,
           "sha256": "d4542b91dbdc1f5078c080d93b04f46e8fbe7437813adbae4730925c8af63dfb",
           "size_bytes": 3465319,
+          "is_valid": true
+        },
+        {
+          "filename": "canboat.dbc",
+          "relative_path": "curated/marine/canboat.dbc",
+          "messages_count": 345,
+          "signals_count": 1382,
+          "sha256": "26f0ee200ba852914a6f36ecaa43ebc256839c01a1e797da987f858abf1a1d19",
+          "size_bytes": 512512,
           "is_valid": true
         }
       ]
@@ -315,7 +324,7 @@
       "protocol": "CAN 2.0B / CAN-FD",
       "license": "MIT / CC-BY-4.0",
       "description": "Reverse-engineered passenger vehicle DBCs across Toyota, Tesla, VW Group, Ford, Hyundai/Kia, BMW, Rivian, GM, Mazda, Honda, Subaru, Nissan, BYD, Geely, Volvo, Mercedes.",
-      "files_count": 148,
+      "files_count": 152,
       "files": [
         {
           "filename": "acura_ilx_2016_can_generated.dbc",
@@ -1648,6 +1657,42 @@
           "sha256": "0d25d3b62e60974bbd6ce40d454012f22d043a7882521cce4c86443d2be97bf0",
           "size_bytes": 103288,
           "is_valid": true
+        },
+        {
+          "filename": "LeafPowertrainBus.dbc",
+          "relative_path": "curated/passenger/LeafPowertrainBus.dbc",
+          "messages_count": 10,
+          "signals_count": 21,
+          "sha256": "13b8ec1be42e92404d939cf2bae6f95f86ef6aceb0e63721a89f38839aa27adb",
+          "size_bytes": 2079,
+          "is_valid": true
+        },
+        {
+          "filename": "ThinkCity.dbc",
+          "relative_path": "curated/passenger/ThinkCity.dbc",
+          "messages_count": 501,
+          "signals_count": 548,
+          "sha256": "223fd960a845d759696b7f2459b810f5dfb4a9c5f9da588386de0496410b8e31",
+          "size_bytes": 280344,
+          "is_valid": true
+        },
+        {
+          "filename": "bms.dbc",
+          "relative_path": "curated/passenger/bms.dbc",
+          "messages_count": 6,
+          "signals_count": 30,
+          "sha256": "3b5601d6d61c1b2a6c08ebcb0b758e21928e06bd6d7fd7ea1ad2450bc74ed4b2",
+          "size_bytes": 2460,
+          "is_valid": true
+        },
+        {
+          "filename": "test.dbc",
+          "relative_path": "curated/passenger/test.dbc",
+          "messages_count": 3,
+          "signals_count": 18,
+          "sha256": "0484d8c0cead515f5db329c429cc4c79e9ce206dcf90e213a8aa6eed44e6b1af",
+          "size_bytes": 1031,
+          "is_valid": true
         }
       ]
     },
@@ -1688,7 +1733,7 @@
       ]
     }
   },
-  "total_files": 181,
-  "total_messages": 14961,
-  "total_signals": 75603
+  "total_files": 186,
+  "total_messages": 15826,
+  "total_signals": 77602
 }

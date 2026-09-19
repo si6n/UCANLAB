@@ -750,7 +750,9 @@ export class DiagnosticEngine {
     // Fully offline: the Python deterministic engine (via DesktopBridge) is
     // the AI authority. The TS fallback below covers bridge-less dev runs.
     const nativeRes = await DesktopBridge.askCopilot(query);
-    if (nativeRes && !nativeRes.includes("Girdiğiniz sorgu (") && !nativeRes.includes("sorunuz için uzman")) {
+    const isFrameQuery = /0x[0-9A-Fa-f]{3,8}/i.test(query);
+    const isMismatchedTrafficResponse = isFrameQuery && (nativeRes?.includes("Veri Yolu Trafik Analizi") || nativeRes?.includes("Hat Durumu"));
+    if (nativeRes && !isMismatchedTrafficResponse && !nativeRes.includes("Girdiğiniz sorgu (") && !nativeRes.includes("sorunuz için uzman")) {
       const parsed = this.parseActionMetadata(nativeRes);
       return {
         id: `msg-${Date.now()}`,
@@ -789,6 +791,50 @@ export class DiagnosticEngine {
           `1. **Direnç Testi:** OBD-II Pin 6 (CAN-H) ve Pin 14 (CAN-L) arasını multimetre ile ölçün (Nominal: 60.0 Ω ±3Ω).\n` +
           `2. **Voltaj Testi:** Şasiye göre CAN-H (2.5V - 3.5V) ve CAN-L (2.5V - 1.5V) diferansiyel seviyelerini osiloskopta inceleyin.\n` +
           `3. **Kablo Tesisatı:** Şasiye temas eden ezilmiş kabloları veya gevşek soket klemenslerini izole edin.`
+      };
+    }
+
+    // 0.5. SAE J1939 ISO Request (PGN 59904) / Address Claim (PGN 60928) / ACK (PGN 59392)
+    if (canIdHex.includes('18EAFF') || canIdHex.includes('EAFF') || canIdHex.includes('18EEFF') || canIdHex.includes('18E8FF') || qNorm.includes('59904') || qNorm.includes('60928') || qNorm.includes('adres isteme') || qNorm.includes('address claim')) {
+      let reqPgnStr = "PGN 60928 (Address Claimed / Adres Bildirimi — 0x00EE00)";
+      if (hexBytes.length >= 3) {
+        const reqPgn = hexBytes[0] | (hexBytes[1] << 8) | (hexBytes[2] << 16);
+        if (reqPgn === 60928) {
+          reqPgnStr = "PGN 60928 (Address Claimed / Adres Bildirimi — 0x00EE00)";
+        } else if (reqPgn === 65226) {
+          reqPgnStr = "PGN 65226 (DM1 Aktif Arıza Kodları — 0x00FECA)";
+        } else {
+          reqPgnStr = `PGN ${reqPgn} (0x${reqPgn.toString(16).toUpperCase()})`;
+        }
+      }
+      return {
+        id: `msg-${Date.now()}`,
+        sender: 'copilot',
+        timestamp,
+        isDtcCard: true,
+        text: `🚛 **SAE J1939 Çerçeve Analizi: ${canIdHex} (PGN 59904 - ISO Request)**\n\n` +
+          `• **Protokol:** SAE J1939-21 Ağ Yönetimi / İstek Çerçevesi\n` +
+          `• **Öncelik:** 6 | **Biçim:** PDU1 (Noktadan Noktaya / Hedef: 0xFF)\n` +
+          `• **Kaynak Adres (SA):** \`0xFE\` (Teşhis / Servis Cihazı)\n` +
+          `• **Hedef Adres (DA):** \`0xFF\` (Tüm Ağ (Broadcast))\n` +
+          `• **Talep Edilen PGN:** **${reqPgnStr}**\n` +
+          `• **Veri Yükü (Payload):** \`${hexBytes.map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(' ') || '00 EE 00'}\`\n\n` +
+          `⚠️ **Tespit Edilen Anomali & Teşhis:**\n` +
+          `• **Durum:** Adres İsteme Çakışması / PGN 59904 ACK Reddi (NACK).\n` +
+          `• **Açıklama:** Ağdaki bir kontrol ünitesi veya tanı cihazı (\`SA: 0xFE\`), ağdan adres beyanı (PGN 60928 - Address Claimed) talep etmiştir. Ancak bu sorguya ağdaki bir düğüm tarafından PGN 59392 üzerinden Negatif Onay (NACK / ACK Reddi) dönülmüş veya aynı kaynak adresi için çakışma meydana gelerek cihaz ağa katılamamıştır.\n\n` +
+          `🛠️ **Usta Saha Kontrol Adımları:**\n` +
+          `1. **Adresleme:** Ağda \`0xFE\` (Service Tool) adresini talep eden ikinci bir tanı cihazı veya gateway olup olmadığını doğrulayın.\n` +
+          `2. **Address Claiming Protokolü:** Düğümün Dinamik Adres Yeteneğini (Arbitrary Address Capable) ve J1939 NAME kimlik önceliğini inceleyin.\n` +
+          `3. **Fiziksel Hat & Direnç:** Veri yolunda 120Ω sonlandırma direncini ve ACK üretecek diğer düğümlerin aktifliğini doğrulayın.`,
+        actions: [
+          {
+            id: 'act_j1939_dm1_query',
+            label: '▶️ J1939 DM1 Arıza Oku',
+            action_type: 'j1939_dm1_query',
+            params: { pgn: 65226 },
+            requires_confirmation: false,
+          }
+        ]
       };
     }
 

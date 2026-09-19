@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 132",
+  "system": "Hava Emiş & Turboşarj (CAC)",
+  "symptoms": [
+    "Motor Emme Havası Kütle Debisi (MAF) arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_132_FMI_2",
+      "kind": "yes_no",
+      "text": "Motor Emme Havası Kütle Debisi (MAF) (FMI 2): MAF sıcak tel yüzeyini özel spreyle temizleyin (mekanik temas yok); sabit devirde debi salınımını izleyin. Salınım, sensör kontaminasyonu veya emiş kaçağına işaret eder.",
+      "why": "Motor Emme Havası Kütle Debisi (MAF) - Veri tutarsız, aralıklı veya hatalı"
+    },
+    {
+      "id": "Q_SPN_132_FMI_3",
+      "kind": "yes_no",
+      "text": "Motor Emme Havası Kütle Debisi (MAF) (FMI 3): MAF soketini ayırıp sinyal pinini ölçün; besleme hattına kısa devreyi ve +12V sızıntısını kontrol edin.",
+      "why": "Motor Emme Havası Kütle Debisi (MAF) - Voltaj normalin üzerinde veya yüksek kaynağa kısa devre"
+    },
+    {
+      "id": "Q_SPN_132_FMI_4",
+      "kind": "yes_no",
+      "text": "Motor Emme Havası Kütle Debisi (MAF) (FMI 4): MAF besleme ve toprak hatlarını multimetrele doğrulayın; konnektör pinlerinde gerilme/kırık teli kontrol edin.",
+      "why": "Motor Emme Havası Kütle Debisi (MAF) - Voltaj normalin altında veya şasiye kısa devre"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Engine Intake Air Mass Flow Rate Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

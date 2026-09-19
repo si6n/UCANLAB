@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "dtc": "P0132",
+  "system": "Yakıt & Hava Ölçümü (MAF, MAP, O2, ECT Sensörleri)",
+  "symptoms": [
+    "The code is often triggered when the O2 sensor voltage exceeds the manufacturer&#x27;s specified range.",
+    "It typically occurs in vehicles with multiple exhaust banks, such as V6 or V8 engines, where Bank 2 refers to the bank of cylinders that is not the reference bank (Bank 1).",
+    "This issue can lead to poor fuel economy and increased emissions, as the engine control unit (ECU) may struggle to maintain the correct air-fuel mixture."
+  ],
+  "questions": [
+    {
+      "id": "Q_P0132_1",
+      "kind": "yes_no",
+      "text": "Şu olası nedeni kontrol ettiniz mi: The oxygen sensor heater circuit is shorted out?",
+      "why": "P0132 için en sık bildirilen kök neden"
+    },
+    {
+      "id": "Q_P0132_2",
+      "kind": "yes_no",
+      "text": "Sensör/aktüatör kablo tesisatında kopuk veya kısa devre var mı (The wiring to the sensor is broken / frayed (less likely))?",
+      "why": "Elektriksel tesisat kontrolü"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Kablo Tesisatı & Soketler",
+      "test_type": "Kolay (Görsel)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    },
+    {
+      "step": 2,
+      "target": "P0132 İlgili Komponent",
+      "test_type": "Orta (Alet Gerekir)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 12.0
+  },
+  "pass_next": "Canlı veride sinyal nominal ise arıza hafızasını temizleyip yol testi yapın.",
+  "fail_next": "Arızalı bileşeni veya tesisatı onarın/değiştirin.",
+  "safety_notes": [
+    "Kontak kapalıyken çalışma yapın.",
+    "Sıcak motor parçalarına ve dönen kayışlara dikkat edin."
+  ]
+}

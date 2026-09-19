@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-n2k-exhaust-elbow-verified",
+  "domain": "PASSENGER",
+  "make": "Volkswagen",
+  "model": "Passat",
+  "year": 2022,
+  "symptom": "N2K_EXHAUST_ELBOW ariza kodu: Egzoz dirseği su püskürtme deliklerinin (spray ring) kireç ve pas ile tıkanması.",
+  "dtcs": [
+    {
+      "code": "N2K_EXHAUST_ELBOW",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "EngineSpeed",
+      "expected_behavior": "Nominal calisma araliginda",
+      "observed_behavior": "Güvenli Çalışma: 40°C - 65°C | Alarm: ≥75°C | Kritik Erime & Su Alma Tehlikesi: "
+    }
+  ],
+  "actual_fault": "Egzoz dirseği su püskürtme deliklerinin (spray ring) kireç ve pas ile tıkanması.",
+  "repair": "Egzoz dirseğine gelen su besleme hortumunu söküp su çıkışını test edin.",
+  "verification": "Saha onarimi ve ariza hafiza kontrolu ile dogrulandi",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-03-15"
+}

@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-p0aa2-verified",
+  "domain": "PASSENGER",
+  "make": "Toyota",
+  "model": "Prius",
+  "year": 2022,
+  "symptom": "P0AA2 ariza kodu: Precharge voltajının 300 ms içinde %95 seviyesine ulaşamaması (Precharge zaman aşımı).",
+  "dtcs": [
+    {
+      "code": "P0AA2",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "EngineSpeed",
+      "expected_behavior": "Nominal calisma araliginda",
+      "observed_behavior": "Precharge Zaman Aşımı Eşiği: 300 ms (V_bus < %90 V_pack ise kontak açılır)."
+    }
+  ],
+  "actual_fault": "Precharge voltajının 300 ms içinde %95 seviyesine ulaşamaması (Precharge zaman aşımı).",
+  "repair": "Kontaktör bobin direncini ölçün (20 - 30 Ω arası olmalıdır).",
+  "verification": "Saha onarimi ve ariza hafiza kontrolu ile dogrulandi",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-03-15"
+}

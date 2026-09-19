@@ -106,7 +106,8 @@ export type ActiveTab =
   | 'signal_discovery'
   | 'ecu_flashing'
   | 'pinout_guide'
-  | 'reports';
+  | 'reports'
+  | 'settings';
 
 export interface DiagnosticState {
   healthStatus: 'standby' | 'nominal' | 'warning' | 'critical';

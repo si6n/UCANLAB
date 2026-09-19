@@ -111,4 +111,73 @@ def get_entry(code: str, kb: dict[str, UserKbEntry] | None = None) -> UserKbEntr
     return table.get((code or "").strip().upper())
 
 
-__all__ = ["UserKbEntry", "UserKbError", "load_user_kb", "get_entry", "SCHEMA_VERSION"]
+def _resolve_feedback_path() -> Path:
+    return _resolve_kb_path().parent / "user_feedback.json"
+
+
+def record_operator_feedback(
+    dtc: str,
+    resolved: bool,
+    notes: str = "",
+    feedback_path: Path | None = None,
+) -> dict[str, Any]:
+    """Record technician resolution feedback ('çözdü / çözmedi') locally on-device (FAZ 3).
+
+    Fully anonymous, on-device only; VINs are strictly rejected or masked.
+    """
+    import time
+
+    from src.engine.ai.diagnostic_copilot import mask_vin_in_text
+
+    target = feedback_path or _resolve_feedback_path()
+    clean_code = (dtc or "").strip().upper()
+    masked_notes = mask_vin_in_text(notes or "")
+
+    existing: list[dict[str, Any]] = []
+    if target.is_file():
+        try:
+            existing = json.loads(target.read_text(encoding="utf-8"))
+            if not isinstance(existing, list):
+                existing = []
+        except Exception:
+            existing = []
+
+    record = {
+        "timestamp_ns": time.monotonic_ns(),
+        "dtc": clean_code,
+        "resolved": bool(resolved),
+        "notes": masked_notes,
+    }
+    existing.append(record)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(existing, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    return {
+        "status": "saved",
+        "dtc": clean_code,
+        "resolved": resolved,
+        "total_records": len(existing),
+    }
+
+
+def load_operator_feedback(feedback_path: Path | None = None) -> list[dict[str, Any]]:
+    """Load local on-device resolution feedback records."""
+    target = feedback_path or _resolve_feedback_path()
+    if not target.is_file():
+        return []
+    try:
+        data = json.loads(target.read_text(encoding="utf-8"))
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
+__all__ = [
+    "UserKbEntry",
+    "UserKbError",
+    "load_user_kb",
+    "get_entry",
+    "record_operator_feedback",
+    "load_operator_feedback",
+    "SCHEMA_VERSION",
+]

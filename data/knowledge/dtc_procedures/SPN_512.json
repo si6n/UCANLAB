@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 512",
+  "system": "Elektronik Gaz Kelebeği & Sürücü Talebi",
+  "symptoms": [
+    "Sürücü Talebi - Motor Yüzde Torku arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_512_FMI_2",
+      "kind": "yes_no",
+      "text": "Sürücü Talebi - Motor Yüzde Torku (FMI 2): SPN 91 (pedal pozisyonu) ile SPN 512'nin oransal eşleşmesini sabit pedal konumlarında izleyin; sapma, pedal adaptasyonunun (pedal tarama/öğrenme) bozulduğunu gösterir - prosedürü tekrarlayın.",
+      "why": "Sürücü Talebi - Motor Yüzde Torku - Veri tutarsız, aralıklı veya hatalı"
+    },
+    {
+      "id": "Q_SPN_512_FMI_12",
+      "kind": "yes_no",
+      "text": "Sürücü Talebi - Motor Yüzde Torku (FMI 12): Pedal talebi sabit -125 % (0 talep) veya 125 %'ye kilitliyse ECU içi talep hesaplama hattını kontrol edin; yazılım güncellemesi ve pedal kalibrasyonunu yeniden yapın.",
+      "why": "Sürücü Talebi - Motor Yüzde Torku - Hatalı akıllı aygıt veya bileşen"
+    },
+    {
+      "id": "Q_SPN_512_FMI_8",
+      "kind": "yes_no",
+      "text": "Sürücü Talebi - Motor Yüzde Torku (FMI 8): Kablo tesisatı ve sensör empedansını kontrol edin.",
+      "why": "Sürücü tork talebi CAN sinyali hatası"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Driver's Demand Engine - Percent Torque Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

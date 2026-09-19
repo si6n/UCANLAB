@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 164",
+  "system": "Yüksek Basınç Yakıt Enjeksiyonu",
+  "symptoms": [
+    "Motor Yakıt Enjeksiyon Kontrol Basıncı (Common Rail) arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_164_FMI_0",
+      "kind": "yes_no",
+      "text": "Motor Yakıt Enjeksiyon Kontrol Basıncı (Common Rail) (FMI 0): Basınç regülatör valfi devresini ve sürücü çıkışını kontrol edin; sensör okuması ile gerçek basınç arasında sapma varsa sensörü değiştirin. Ray basıncı limit üstündeyse motoru durdurun.",
+      "why": "Motor Yakıt Enjeksiyon Kontrol Basıncı (Common Rail) - Veri geçerli fakat normal çalışma aralığının "
+    },
+    {
+      "id": "Q_SPN_164_FMI_1",
+      "kind": "yes_no",
+      "text": "Motor Yakıt Enjeksiyon Kontrol Basıncı (Common Rail) (FMI 1): Şu sırayla izleyin: yakıt seviyesi/filtre -> besleme pompası çıkış basıncı -> yüksek basınç pompası geri kaçak -> regülatör valfi sızdırmazlık -> enjektör leak-off testi. Sabit rölantide hedef/gölge basınç sapmasını ServiceRanger/INSITE benzeri araçla izleyin.",
+      "why": "Motor Yakıt Enjeksiyon Kontrol Basıncı (Common Rail) - Veri geçerli fakat normal çalışma aralığının "
+    },
+    {
+      "id": "Q_SPN_164_FMI_3",
+      "kind": "yes_no",
+      "text": "Motor Yakıt Enjeksiyon Kontrol Basıncı (Common Rail) (FMI 3): Ray basınç sensörü 3 pinli konnektörünü kontrol edin; besleme (+5V), sinyal ve GND pin girilimlerini doğrulayın.",
+      "why": "Motor Yakıt Enjeksiyon Kontrol Basıncı (Common Rail) - Voltaj normalin üzerinde veya yüksek kaynağa "
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Engine Fuel Injection Control Pressure Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

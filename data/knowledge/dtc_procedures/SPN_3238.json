@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 3238",
+  "system": "SCR & DEF Dozaj Emisyon Sistemi",
+  "symptoms": [
+    "Egzoz Ard İşlem 1 Egzoz Çiy Noktası arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_3238_FMI_2",
+      "kind": "yes_no",
+      "text": "Egzoz Ard İşlem 1 Egzoz Çiy Noktası (FMI 2): Kablo demetinde titreşim temassızlığı, gevşek klemens veya manyetik relüktör çark diş hasarı arayın.",
+      "why": "Selective Catalyst Reduction Outlet NOx Sensor Failure to Activate - Selective Catalyst Reduction Ou"
+    },
+    {
+      "id": "Q_SPN_3238_FMI_0",
+      "kind": "yes_no",
+      "text": "Egzoz Ard İşlem 1 Egzoz Çiy Noktası (FMI 0): Kablo tesisatı ve sensör empedansını kontrol edin.",
+      "why": "Cig noktasi tespit teshisi - DewDet tarafindan yeterli surede O2 sensoru serbest birakma kontrolu"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Aftertreatment 1 Exhaust Dew Point Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

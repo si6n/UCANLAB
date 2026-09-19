@@ -4,6 +4,55 @@ Bu klasördeki teşhis bilgi tabanlarının kaynak zinciri, doğrulama yöntemi 
 güncelleme geçmişi burada tutulur. `data/dbc/LICENSES.md` ile aynı disiplini
 izler: içerik üretilmez, kamuya açık kaynaklar ve resmî belgeler referans alınır.
 
+## CSV ikizleri (tüm tablolar) — bütünlük kaydı
+
+### v-R1 — 2026-09-19 (CSV veri satırları geri yüklendi — sessiz veri kaybı onarımı)
+
+**Bulgu (kanıt: git).** `f8bb892` ("feat(diagnostics): J1939/SAE J1939DA enrichment +
+offline AI gap remediation") commit'i üç CSV ikizinin VERİ satırlarını boşalttı;
+yalnız başlık kaldı:
+
+| CSV | f80eb36 (önce) dolu satır | f8bb892 / HEAD (sonra) dolu satır |
+|---|---|---|
+| `dtc_database.csv` | 1.889 | **0** (14.166 boş satır) |
+| `j1939_spn_fmi_database.csv` | 1.437 | **0** (3.710 boş satır) |
+| `uds_did_database.csv` | 37 | **0** (68 boş satır) |
+
+Boş satırlar doğru kolon sayısına sahip olduğu için hiçbir CSV okuyucu hata vermedi
+(Excel'de "boş sayfa" olarak görünür — sessiz veri kaybı). `extended_pid_database.csv`
+(113) ve `obd_mode06_database.csv` (248) bozulmadı. Bu boşalma dosyanın kendi başlığını
+da değiştirmişti (`code,title,…` → `DTC Kodu,Başlık,…`); onarım mevcut başlığı korur.
+
+**Onarım.** `scripts/rebuild_csv_exports.py` — CSV ikizleri JSON bilgi tabanlarından
+yeniden üretilir; uydurma yok, her hücre JSON'daki bir alandan gelir:
+
+- `dtc_database.csv` → 14.352 satır (kayıt ↔ satır 1:1), mevcut başlık korundu
+  (`code,title,subsystem,severity,causes_count,steps_count`)
+- `uds_did_database.csv` → 68 satır (1:1), mevcut başlık korundu
+  (`did_hex,did_int,name,name_tr,oem,subsystem,unit,scaling,offset,byte_length`)
+- `j1939_spn_fmi_database.csv` → 11.128 FMI satırı, üretici düzeni
+  (`scripts/expand_j1939_spn_database.py`; kanıt başlık: git `f80eb36`:
+  `SPN,FMI,Başlık (TR),Alt Sistem,PGN,FMI Tanımı,Öncelik,Saha Adımı`); PGN bilinmiyorsa
+  `0 (TBD)` (eski dosya kuralı). `diagnostic_action` boş olan 6.231 satır boş kalır —
+  kaynakta yok, doldurulmaz.
+
+**Doğrulama (bağımsız ölçüm).** Rastgele 400/400 `dtc` satırı ve 68/68 `uds` satırı JSON
+ile birebir; `j1939` satır sayısı `fault_matrix` toplamına eşit (11.128); hiçbir satırda
+kolon sayısı sapması yok; tekrar koşum aynı md5 (idempotent); yazım atomik
+(tmp + `os.replace`).
+
+**Kalıcı kapı (yeni).**
+
+- `scripts/data_integrity_audit.py` — tam denetim (JSON/metadata/CSV/DBC/schema/prosedür/kırpma),
+  çıkış kodu FAIL bulgusu varsa `1`.
+- `tests/unit/test_data_integrity.py` — 21 test: boş satır, satır sayısı = JSON kaydı,
+  kolon genişliği, metadata toplamları, DBC varlık+sha256+boyut, Golden-Traces şema uyumu,
+  yetim prosedür yok, kırpma & başlık boşluğu ratchet.
+- Rapor: `docs/audit/data_integrity_2026-09-19.md`.
+
+**Kural (yeni).** Bir bilgi tabanı güncellendiğinde CSV ikizi de aynı commit'te yeniden
+üretilir; CI bu uyumu test eder. Ham çıktılar `spn_gap_hunter/output/` altında kalır,
+`data/` yalnız küratörlü ve doğrulanmış içerik taşır.
 ## obd_mode06_database (JSON + CSV)
 
 ### v1.1.0 — 2026-09-12 (Tur-24: GM resmi Mode $06 tanımları, 20 → 38 monitor)

@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-p0a80-verified",
+  "domain": "PASSENGER",
+  "make": "Toyota",
+  "model": "Prius",
+  "year": 2022,
+  "symptom": "P0A80 ariza kodu: Hücreler arası kapasite kaybı >%30 (SOH_C < %70) veya iç direnç sapması >%50.",
+  "dtcs": [
+    {
+      "code": "P0A80",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "EngineSpeed",
+      "expected_behavior": "Nominal calisma araliginda",
+      "observed_behavior": "Nominal Hücre Delta Voltajı: <30 mV | Arıza / Değişim Eşiği: >150 mV (Yükte) vey"
+    }
+  ],
+  "actual_fault": "Hücreler arası kapasite kaybı >%30 (SOH_C < %70) veya iç direnç sapması >%50.",
+  "repair": "Bataryayı %100 SOC'ye şarj edip hücre dengeleme (balancing) rutinini tamamlayın.",
+  "verification": "Saha onarimi ve ariza hafiza kontrolu ile dogrulandi",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-03-15"
+}

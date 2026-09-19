@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "dtc": "P2004",
+  "system": "Yakıt, Emisyon & SCR / AdBlue Dozaj Sistemi",
+  "symptoms": [
+    "Reduction in engine performance, especially at low RPM levels",
+    "Diminished fuel efficiency",
+    "Engine surge"
+  ],
+  "questions": [
+    {
+      "id": "Q_P2004_1",
+      "kind": "yes_no",
+      "text": "Defective IMRC actuator solenoid durumunu kontrol ettiniz mi?",
+      "why": "P2004 arızasında olası kök neden"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Kablo Tesisatı & Soketler",
+      "test_type": "Kolay (Görsel)",
+      "safety_note": "Kontak kapalıyken ölçüm yapın."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 12.0
+  },
+  "pass_next": "Canlı veride sinyal nominal ise arıza hafızasını silin.",
+  "fail_next": "İlgili bileşeni veya kablo demetini onarın/değiştirin.",
+  "safety_notes": [
+    "Kontak kapalı konumda çalışın."
+  ]
+}

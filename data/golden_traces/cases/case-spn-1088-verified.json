@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-spn-1088-verified",
+  "domain": "HEAVY_DUTY",
+  "make": "Mercedes-Benz",
+  "model": "Actros",
+  "year": 2021,
+  "symptom": "SPN 1088 arıza kodu: Pnömatik fren devresi 2 tahliye rekoru sızıntısı",
+  "dtcs": [
+    {
+      "code": "SPN 1088",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "AirPressureCircuit2",
+      "expected_behavior": "Nominal fabrika çalışma aralığında",
+      "observed_behavior": "Devre 2 hava basıncı 5 bar altına düşüyor"
+    }
+  ],
+  "actual_fault": "Pnömatik fren devresi 2 tahliye rekoru sızıntısı",
+  "repair": "Hava devresi 2 rekor bağlantısı ve o-ring değiştirildi",
+  "verification": "Yol testi ve arıza hafızası kontrolü ile doğrulandı",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-04-10"
+}

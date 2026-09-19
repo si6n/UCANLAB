@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "dtc": "P0014",
+  "system": "Yakıt Ölçümü & Hava Emiş / Kam Mili Zamanlaması",
+  "symptoms": [
+    "Timing chain or belt may be stretched or skipped a tooth: If the timing chain or belt of the engine is worn out or has skipped a tooth, it can lead to incorrect camshaft timing and trigger the P0014 code.",
+    "Faulty camshaft position sensor: The camshaft position sensor provides data to the engine control module (ECM) about the position of the camshaft(s). A malfunctioning sensor can result in inaccurate readings and trigger the P0014 code.",
+    "Issues with VVT system components: Problems with components such as camshaft actuators, solenoids, or oil control valves can cause incorrect timing adjustments and trigger the fault code.",
+    "Inspect the timing chain or belt: A visual examination of the timing chain or belt can help determine if it is worn out or has skipped a tooth. If any issues are found, the timing chain or belt should be replaced.",
+    "Check the camshaft position sensor: The sensor should be inspected for any damage or wiring issues. If it is faulty, it should be replaced.",
+    "Verify the VVT system components: The VVT system components should be inspected for proper functioning. Faulty components should be repaired or replaced as necessary."
+  ],
+  "questions": [
+    {
+      "id": "Q_P0014_1",
+      "kind": "yes_no",
+      "text": "Incorrect camshaft timing durumunu kontrol ettiniz mi?",
+      "why": "P0014 arızasında olası kök neden"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Kablo Tesisatı",
+      "test_type": "Kolay (Görsel)",
+      "safety_note": "Kontak kapalıyken ölçüm yapın."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 12.0
+  },
+  "pass_next": "Canlı veride sinyal nominal ise arıza hafızasını silin.",
+  "fail_next": "İlgili bileşeni veya kablo demetini onarın/değiştirin.",
+  "safety_notes": [
+    "Kontak kapalı konumda çalışın."
+  ]
+}

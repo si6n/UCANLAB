@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "dtc": "P0032",
+  "system": "Yakıt Ölçümü & Hava Emiş / Kam Mili Zamanlaması",
+  "symptoms": [
+    "Increased emissions: A malfunctioning heater can result in inaccurate readings from the oxygen sensor, which can cause the engine to run rich or lean. This will result in increased emissions, potentially leading to failed emissions tests.",
+    "Reduced fuel efficiency: Incorrect fuel mixture due to inaccurate oxygen sensor readings can lead to decreased fuel efficiency, as the engine may be running either too rich or too lean.",
+    "Check the wiring and connections: Inspect the wiring and connectors associated with Bank 1 Sensor 1. Look for any signs of damage, loose connections, or corrosion. Repair or replace any damaged components as necessary.",
+    "Test the heater circuit: Use a multimeter to check the resistance and voltage of the heater circuit in Bank 1 Sensor 1. Compare the readings to the manufacturer&#x27;s specifications. If the readings are out of range, the sensor may need to be replaced.",
+    "Replace the oxygen sensor: If the wiring and heater circuit test fine, it is possible that the oxygen sensor itself is faulty and needs to be replaced. Make sure to use a high-quality sensor compatible with your vehicle&#x27;s make and model."
+  ],
+  "questions": [
+    {
+      "id": "Q_P0032_1",
+      "kind": "yes_no",
+      "text": "A short in the heater circuit in the sensor durumunu kontrol ettiniz mi?",
+      "why": "P0032 arızasında olası kök neden"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Kablo Tesisatı & Soketler",
+      "test_type": "Kolay (Görsel)",
+      "safety_note": "Kontak kapalıyken ölçüm yapın."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 12.0
+  },
+  "pass_next": "Canlı veride sinyal nominal ise arıza hafızasını silin.",
+  "fail_next": "İlgili bileşeni veya kablo demetini onarın/değiştirin.",
+  "safety_notes": [
+    "Kontak kapalı konumda çalışın."
+  ]
+}

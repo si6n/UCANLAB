@@ -40,24 +40,24 @@ export const PinoutGuideView: React.FC = () => {
   const currentPinInfo = obd2Pins.find(p => p.pin === selectedPin) || obd2Pins[5];
 
   return (
-    <div className="p-4 space-y-4 max-w-7xl mx-auto">
+    <div className="p-4 space-y-4 max-w-7xl mx-auto text-text-body">
       {/* Header */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-card flex items-center justify-between">
+      <div className="glass-panel border border-border-whisper rounded-xl p-4 flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-lg bg-brand-50 border border-brand-200 flex items-center justify-center text-brand-600">
+          <div className="w-10 h-10 rounded-lg bg-accent-soft border border-accent/30 flex items-center justify-center text-accent">
             <Share2 className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-sm font-bold text-slate-900">Konnektör Pinout & Sinyal Bağlantı Rehberi</h2>
-            <p className="text-xs text-slate-500">OBD-II (J1962), J1939 Deutsch 9-Pin ve 120Ω Sonlandırma Standartları</p>
+            <h2 className="text-sm font-bold text-text-hi">Konnektör Pinout & Sinyal Bağlantı Rehberi</h2>
+            <p className="text-xs text-text-mid">OBD-II (J1962), J1939 Deutsch 9-Pin ve 120Ω Sonlandırma Standartları</p>
           </div>
         </div>
 
-        <div className="inline-flex bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
+        <div className="inline-flex bg-bg-app p-0.5 rounded-lg border border-border-whisper text-xs">
           <button
             onClick={() => setConnectorType('OBD2')}
             className={`px-3 py-1 rounded-md font-semibold transition-all ${
-              connectorType === 'OBD2' ? 'bg-white text-brand-600 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              connectorType === 'OBD2' ? 'bg-accent-soft text-accent-text shadow-xs' : 'text-text-mid hover:text-text-hi'
             }`}
           >
             OBD-II (16-Pin J1962)
@@ -65,7 +65,7 @@ export const PinoutGuideView: React.FC = () => {
           <button
             onClick={() => setConnectorType('J1939')}
             className={`px-3 py-1 rounded-md font-semibold transition-all ${
-              connectorType === 'J1939' ? 'bg-white text-brand-600 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              connectorType === 'J1939' ? 'bg-accent-soft text-accent-text shadow-xs' : 'text-text-mid hover:text-text-hi'
             }`}
           >
             J1939 Deutsch 9-Pin
@@ -76,13 +76,13 @@ export const PinoutGuideView: React.FC = () => {
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Left Column: Interactive Socket Diagram */}
-        <div className="lg:col-span-7 bg-white border border-slate-200 rounded-xl p-5 shadow-card space-y-4">
-          <div className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+        <div className="lg:col-span-7 glass-panel border border-border-whisper rounded-xl p-5 space-y-4">
+          <div className="text-xs font-bold text-text-hi uppercase tracking-wider">
             SAE J1962 (OBD-II) Soket Yerleşimi
           </div>
 
           {/* Socket Shell Representation */}
-          <div className="bg-slate-900 border-2 border-slate-700 rounded-xl p-6 text-center shadow-inner space-y-3">
+          <div className="bg-bg-app border border-border-whisper rounded-xl p-6 text-center shadow-inner space-y-3">
             {/* Top Row: Pin 1 to 8 */}
             <div className="grid grid-cols-8 gap-2">
               {obd2Pins.slice(0, 8).map((p) => (
@@ -91,14 +91,14 @@ export const PinoutGuideView: React.FC = () => {
                   onClick={() => setSelectedPin(p.pin)}
                   className={`p-2.5 rounded-lg border font-mono text-xs font-bold transition-all ${
                     selectedPin === p.pin
-                      ? 'ring-2 ring-brand-400 bg-brand-600 text-white border-white'
+                      ? 'ring-2 ring-accent bg-accent text-white border-accent'
                       : p.type === 'CAN'
-                      ? 'bg-brand-900/60 border-brand-500 text-brand-300 hover:bg-brand-800'
+                      ? 'bg-accent-soft border-accent/40 text-accent-text hover:bg-accent/20'
                       : p.type === 'PWR'
-                      ? 'bg-rose-900/60 border-rose-500 text-rose-300 hover:bg-rose-800'
+                      ? 'bg-danger-soft border-danger/40 text-danger hover:bg-danger/20'
                       : p.type === 'GND'
-                      ? 'bg-slate-800 border-slate-600 text-slate-300 hover:bg-slate-700'
-                      : 'bg-slate-950 border-slate-800 text-slate-500 hover:bg-slate-900'
+                      ? 'bg-bg-panel border-border-whisper text-text-body hover:bg-bg-row-hover'
+                      : 'bg-bg-app border-border-whisper text-text-low hover:bg-bg-row-hover'
                   }`}
                 >
                   <div className="text-xs opacity-75">#{p.pin}</div>
@@ -115,14 +115,14 @@ export const PinoutGuideView: React.FC = () => {
                   onClick={() => setSelectedPin(p.pin)}
                   className={`p-2.5 rounded-lg border font-mono text-xs font-bold transition-all ${
                     selectedPin === p.pin
-                      ? 'ring-2 ring-brand-400 bg-brand-600 text-white border-white'
+                      ? 'ring-2 ring-accent bg-accent text-white border-accent'
                       : p.type === 'CAN'
-                      ? 'bg-brand-900/60 border-brand-500 text-brand-300 hover:bg-brand-800'
+                      ? 'bg-accent-soft border-accent/40 text-accent-text hover:bg-accent/20'
                       : p.type === 'PWR'
-                      ? 'bg-rose-900/60 border-rose-500 text-rose-300 hover:bg-rose-800'
+                      ? 'bg-danger-soft border-danger/40 text-danger hover:bg-danger/20'
                       : p.type === 'GND'
-                      ? 'bg-slate-800 border-slate-600 text-slate-300 hover:bg-slate-700'
-                      : 'bg-slate-950 border-slate-800 text-slate-500 hover:bg-slate-900'
+                      ? 'bg-bg-panel border-border-whisper text-text-body hover:bg-bg-row-hover'
+                      : 'bg-bg-app border-border-whisper text-text-low hover:bg-bg-row-hover'
                   }`}
                 >
                   <div className="text-xs opacity-75">#{p.pin}</div>
@@ -133,59 +133,59 @@ export const PinoutGuideView: React.FC = () => {
           </div>
 
           {/* 120 Ohm Termination Rule Card */}
-          <div className="bg-brand-50 border border-brand-200 rounded-xl p-3.5 flex items-start space-x-3 text-xs text-brand-900">
-            <Info className="w-5 h-5 text-brand-600 shrink-0 mt-0.5" />
+          <div className="bg-accent-soft/30 border border-accent/30 rounded-xl p-3.5 flex items-start space-x-3 text-xs text-text-body">
+            <Info className="w-5 h-5 text-accent shrink-0 mt-0.5" />
             <div className="space-y-1">
-              <div className="font-bold">120Ω Sonlandırma Direnci Kuralı:</div>
-              <p className="text-brand-800 leading-relaxed">
-                ISO 11898 standardına göre CAN-H ve CAN-L sinyal hatlarının fiziksel iki ucunda 120Ω paralel direnç bulunmalıdır. Sistem kapalıyken Pin 6 ile Pin 14 arasında multimetre ile ölçülen eşdeğer direnç <strong>60Ω</strong> olmalıdır.
+              <div className="font-bold text-text-hi">120Ω Sonlandırma Direnci Kuralı:</div>
+              <p className="text-text-mid leading-relaxed">
+                ISO 11898 standardına göre CAN-H ve CAN-L sinyal hatlarının fiziksel iki ucunda 120Ω paralel direnç bulunmalıdır. Sistem kapalıyken Pin 6 ile Pin 14 arasında multimetre ile ölçülen eşdeğer direnç <strong className="text-text-hi">60Ω</strong> olmalıdır.
               </p>
             </div>
           </div>
         </div>
 
         {/* Right Column: Selected Pin Detailed Info */}
-        <div className="lg:col-span-5 bg-white border border-slate-200 rounded-xl p-5 shadow-card space-y-4">
-          <div className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+        <div className="lg:col-span-5 glass-panel border border-border-whisper rounded-xl p-5 space-y-4">
+          <div className="text-xs font-bold text-text-hi uppercase tracking-wider">
             Seçili Pin Özellikleri
           </div>
 
-          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+          <div className="p-4 bg-bg-app/80 border border-border-whisper rounded-xl space-y-3">
             <div className="flex items-center justify-between">
-              <span className="font-mono text-base font-bold text-brand-600">
+              <span className="font-mono text-base font-bold text-accent">
                 Pin #{currentPinInfo.pin}
               </span>
               <span className={`text-xs px-2.5 py-1 rounded-md font-bold ${
-                currentPinInfo.type === 'CAN' ? 'bg-brand-100 text-brand-800' : currentPinInfo.type === 'PWR' ? 'bg-rose-100 text-rose-800' : 'bg-slate-200 text-slate-800'
+                currentPinInfo.type === 'CAN' ? 'bg-accent-soft text-accent-text border border-accent/30' : currentPinInfo.type === 'PWR' ? 'bg-danger-soft text-danger border border-danger/30' : 'bg-bg-panel text-text-mid border border-border-whisper'
               }`}>
                 {currentPinInfo.type}
               </span>
             </div>
 
             <div>
-              <div className="text-xs font-bold text-slate-800">{currentPinInfo.name}</div>
-              <div className="text-xs font-mono font-semibold text-signal-600 mt-0.5">
+              <div className="text-xs font-bold text-text-hi">{currentPinInfo.name}</div>
+              <div className="text-xs font-mono font-semibold text-ok mt-0.5">
                 Voltaj: {currentPinInfo.voltage}
               </div>
             </div>
 
-            <p className="text-xs text-slate-600 leading-relaxed border-t border-slate-200 pt-2 font-sans">
+            <p className="text-xs text-text-mid leading-relaxed border-t border-border-whisper pt-2 font-sans">
               {currentPinInfo.desc}
             </p>
           </div>
 
-          <div className="space-y-2 pt-2 text-xs text-slate-600">
-            <div className="font-bold text-slate-800">Doğrulama İpuçları:</div>
+          <div className="space-y-2 pt-2 text-xs text-text-mid">
+            <div className="font-bold text-text-hi">Doğrulama İpuçları:</div>
             <div className="flex items-center space-x-2">
-              <CheckCircle2 className="w-4 h-4 text-signal-600" />
+              <CheckCircle2 className="w-4 h-4 text-ok shrink-0" />
               <span>Kontak açıkken Pin 16'da +12V akü voltajı okunmalıdır.</span>
             </div>
             <div className="flex items-center space-x-2">
-              <CheckCircle2 className="w-4 h-4 text-signal-600" />
+              <CheckCircle2 className="w-4 h-4 text-ok shrink-0" />
               <span>Pin 4 ve Pin 5 şasiye &lt; 0.1V dirençle bağlı olmalıdır.</span>
             </div>
             <div className="flex items-center space-x-2">
-              <Zap className="w-4 h-4 text-amber-500" />
+              <Zap className="w-4 h-4 text-warn shrink-0" />
               <span>CAN-H ve CAN-L sinyalleri diferansiyel çift olarak bükülmüş olmalıdır.</span>
             </div>
           </div>

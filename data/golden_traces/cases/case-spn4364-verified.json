@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-spn4364-verified",
+  "domain": "HEAVY_DUTY",
+  "make": "Cummins",
+  "model": "ISX15",
+  "year": 2022,
+  "symptom": "SPN4364 ariza kodu: FMI 1 (Verim <%45): SCR katalizörü kükürt veya motor yağı ile zehirlenmiş.",
+  "dtcs": [
+    {
+      "code": "SPN 4364",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "EngineSpeed",
+      "expected_behavior": "Nominal calisma araliginda",
+      "observed_behavior": "Nominal SCR DeNOx Verimliliği: >%90 | DEF Çalışma Basıncı: 9.0 ±0.5 Bar."
+    }
+  ],
+  "actual_fault": "FMI 1 (Verim <%45): SCR katalizörü kükürt veya motor yağı ile zehirlenmiş.",
+  "repair": "AdBlue dozajlama enjektörünü söküp temizleyin; UDS üzerinden 3 dakikalık dozaj testini çalıştırın (110 - 135 mL gelmelidir).",
+  "verification": "Saha onarimi ve ariza hafiza kontrolu ile dogrulandi",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-03-15"
+}

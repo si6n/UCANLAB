@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "dtc": "P0035",
+  "system": "Yakıt Ölçümü & Hava Emiş / Kam Mili Zamanlaması",
+  "symptoms": [
+    "Increased engine and/or transmission temperatures",
+    "Random noises from the turbocharger wastegate and/or hoses",
+    "Reduced engine performance",
+    "Black smoke from the exhaust system",
+    "Other turbocharger boost related codes, engine misfire codes, or knock sensor codes may also be stored"
+  ],
+  "questions": [
+    {
+      "id": "Q_P0035_1",
+      "kind": "yes_no",
+      "text": "A defective boost pressure sensor is possibly the most common cause of a stored turbocharger bypass valve control circuit high code durumunu kontrol ettiniz mi?",
+      "why": "P0035 arızasında olası kök neden"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Kablo Tesisatı & Soketler",
+      "test_type": "Kolay (Görsel)",
+      "safety_note": "Kontak kapalıyken ölçüm yapın."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 12.0
+  },
+  "pass_next": "Canlı veride sinyal nominal ise arıza hafızasını silin.",
+  "fail_next": "İlgili bileşeni veya kablo demetini onarın/değiştirin.",
+  "safety_notes": [
+    "Kontak kapalı konumda çalışın."
+  ]
+}

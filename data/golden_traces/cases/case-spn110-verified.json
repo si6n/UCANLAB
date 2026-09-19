@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-spn110-verified",
+  "domain": "HEAVY_DUTY",
+  "make": "Cummins",
+  "model": "ISX15",
+  "year": 2022,
+  "symptom": "SPN110 ariza kodu: FMI 0 (Kritik Yüksek): Sıcaklık >108°C; termostat kapalı kalmış, viskoz fan kilitlenmiyor veya radyatör tıkalı.",
+  "dtcs": [
+    {
+      "code": "SPN 110",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "CoolantTemp",
+      "expected_behavior": "Nominal calisma araliginda",
+      "observed_behavior": "Normal Çalışma Aralığı: 82°C - 95°C | Uyarı (AWL): >103°C | Kırmızı Lamba (RSL D"
+    }
+  ],
+  "actual_fault": "FMI 0 (Kritik Yüksek): Sıcaklık >108°C; termostat kapalı kalmış, viskoz fan kilitlenmiyor veya radyatör tıkalı.",
+  "repair": "Radyatör alt ve üst hortum sıcaklıklarını infrared termometre ile karşılaştırın (ΔT > 15°C ise termostat açmıyor).",
+  "verification": "Saha onarimi ve ariza hafiza kontrolu ile dogrulandi",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-03-15"
+}

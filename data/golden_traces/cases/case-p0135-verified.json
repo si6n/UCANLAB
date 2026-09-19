@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-p0135-verified",
+  "domain": "PASSENGER",
+  "make": "Honda",
+  "model": "Civic",
+  "year": 2021,
+  "symptom": "P0135 arıza kodu: Bank 1 Sensör 1 Oksijen sensörü dahili ısıtıcı rezistans kopukluğu",
+  "dtcs": [
+    {
+      "code": "P0135",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "O2SensorVoltage",
+      "expected_behavior": "Nominal fabrika çalışma aralığında",
+      "observed_behavior": "Sensör ısınmıyor, 0.45V sabit"
+    }
+  ],
+  "actual_fault": "Bank 1 Sensör 1 Oksijen sensörü dahili ısıtıcı rezistans kopukluğu",
+  "repair": "Ön oksijen sensörü (HO2S) yenisiyle değiştirildi",
+  "verification": "Yol testi ve arıza hafızası kontrolü ile doğrulandı",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-04-10"
+}

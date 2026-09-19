@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "dtc": "P0A80",
+  "system": "Güç Aktarma Organları & Motor Yönetimi (Powertrain)",
+  "symptoms": [
+    "Symptoms of a P0A80 trouble code may include:",
+    "Decreased fuel efficiency",
+    "Diminished overall performance",
+    "Other HV battery related codes",
+    "Electric propulsion system deactivation"
+  ],
+  "questions": [
+    {
+      "id": "Q_P0A80_1",
+      "kind": "yes_no",
+      "text": "Şu olası nedeni kontrol ettiniz mi: Causes for this code may include:?",
+      "why": "P0A80 için en sık bildirilen kök neden"
+    },
+    {
+      "id": "Q_P0A80_2",
+      "kind": "yes_no",
+      "text": "Sensör/aktüatör kablo tesisatında kopuk veya kısa devre var mı (Defective HV battery, cell, or battery pack)?",
+      "why": "Elektriksel tesisat kontrolü"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Kablo Tesisatı & Soketler",
+      "test_type": "Kolay (Görsel)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    },
+    {
+      "step": 2,
+      "target": "P0A80 İlgili Komponent",
+      "test_type": "Orta (Alet Gerekir)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    },
+    {
+      "step": 3,
+      "target": "P0A80 İlgili Komponent",
+      "test_type": "Orta (Alet Gerekir)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 12.0
+  },
+  "pass_next": "Canlı veride sinyal nominal ise arıza hafızasını temizleyip yol testi yapın.",
+  "fail_next": "Arızalı bileşeni veya tesisatı onarın/değiştirin.",
+  "safety_notes": [
+    "Kontak kapalıyken çalışma yapın.",
+    "Sıcak motor parçalarına ve dönen kayışlara dikkat edin.",
+    "YÜKSEK GERİLİM: Turuncu kablolara dokunmayın."
+  ]
+}

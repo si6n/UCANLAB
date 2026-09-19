@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "dtc": "P0043",
+  "system": "Yakıt Ölçümü & Hava Emiş / Kam Mili Zamanlaması",
+  "symptoms": [
+    "Malfunction indicator lamp (MIL) illumination",
+    "There will likely be no other symptoms"
+  ],
+  "questions": [
+    {
+      "id": "Q_P0043_1",
+      "kind": "yes_no",
+      "text": "Sensor #3 on bank 1 oxygen sensor heater element has failed durumunu kontrol ettiniz mi?",
+      "why": "P0043 arızasında olası kök neden"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Kablo Tesisatı",
+      "test_type": "Kolay (Görsel)",
+      "safety_note": "Kontak kapalıyken ölçüm yapın."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 12.0
+  },
+  "pass_next": "Canlı veride sinyal nominal ise arıza hafızasını silin.",
+  "fail_next": "İlgili bileşeni veya kablo demetini onarın/değiştirin.",
+  "safety_notes": [
+    "Kontak kapalı konumda çalışın."
+  ]
+}

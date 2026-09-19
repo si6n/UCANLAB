@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 1590",
+  "system": "Sürücü Girişleri & Hız Kontrol (J1939)",
+  "symptoms": [
+    "Adaptif Hız Sabitleyici Modu arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_1590_FMI_2",
+      "kind": "yes_no",
+      "text": "Adaptif Hız Sabitleyici Modu (FMI 2): Kablo demetinde titreşim temassızlığı, gevşek klemens veya manyetik relüktör çark diş hasarı arayın.",
+      "why": "Adaptive Cruise Control Mode - Adaptive Cruise Control Mode – Data Erratic, Intermittent, or Incorre"
+    },
+    {
+      "id": "Q_SPN_1590_FMI_9",
+      "kind": "yes_no",
+      "text": "Adaptif Hız Sabitleyici Modu (FMI 9): Sensör veya kaynak modülün CAN-Bus hattına bağlı olduğunu ve adres aldığını (Address Claim) doğrulayın.",
+      "why": "Adaptive Cruise Control Mode - Adaptive Cruise Control Mode – Abnormal Update Rate"
+    },
+    {
+      "id": "Q_SPN_1590_FMI_12",
+      "kind": "yes_no",
+      "text": "Adaptif Hız Sabitleyici Modu (FMI 12): Modülün besleme voltajını teyit edin; düzelmiyorsa dahili ECU/Sensör arızasıdır.",
+      "why": "Adaptive Cruise Control Mode - VRDU Data – CAN Timeout"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Adaptive Cruise Control Mode Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

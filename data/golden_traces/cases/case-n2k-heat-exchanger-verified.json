@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-n2k-heat-exchanger-verified",
+  "domain": "PASSENGER",
+  "make": "Volkswagen",
+  "model": "Passat",
+  "year": 2022,
+  "symptom": "N2K_HEAT_EXCHANGER ariza kodu: Bakır-nikel eşanjör boru demetinin içinde kalsiyum karbonat (CaCO3) ve midye tabakası oluşması.",
+  "dtcs": [
+    {
+      "code": "N2K_HEAT_EXCHANGER",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "EngineSpeed",
+      "expected_behavior": "Nominal calisma araliginda",
+      "observed_behavior": "Eşanjör Sıcaklık Düşüşü: Sağlıklı ΔT = 8°C - 12°C | Kireçli Arızalı ΔT < 4°C."
+    }
+  ],
+  "actual_fault": "Bakır-nikel eşanjör boru demetinin içinde kalsiyum karbonat (CaCO3) ve midye tabakası oluşması.",
+  "repair": "Eşanjör kapaklarını söküp boru demetini (tube bundle) özel asit/kireç çözücü solüsyon ile temizleyin (Rydlyme).",
+  "verification": "Saha onarimi ve ariza hafiza kontrolu ile dogrulandi",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-03-15"
+}

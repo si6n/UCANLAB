@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 95",
+  "system": "Yakıt Besleme & Enjeksiyon (J1939)",
+  "symptoms": [
+    "Yakıt Filtresi Differential Basıncı ikazı",
+    "J1939 DM1 aktif arıza kaydı"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_95_1",
+      "kind": "yes_no",
+      "text": "Yakıt Filtresi Differential Basıncı (FMI 15): Filtre ve soğutma temizliği yapın; sistem henüz arıza lambası yakmamış olabilir.",
+      "why": "SPN 95 arıza prosedür adımı"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Engine Fuel Filter Differential Pressure Sinyal Hattı",
+      "test_type": "J1939 / Multimetre"
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "DM11 ile arıza hafızasını temizleyip yol testi yapın.",
+  "fail_next": "Sensör veya tesisatı değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemi ile uyumlu çalışın."
+  ]
+}

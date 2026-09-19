@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-p0325-verified",
+  "domain": "PASSENGER",
+  "make": "Subaru",
+  "model": "Outback",
+  "year": 2021,
+  "symptom": "P0325 arıza kodu: Vuruntu sensörü gövde çatlağı ve tork gevşemesi",
+  "dtcs": [
+    {
+      "code": "P0325",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "KnockRetard",
+      "expected_behavior": "Nominal fabrika çalışma aralığında",
+      "observed_behavior": "Sürekli avans rötarı uyguluyor"
+    }
+  ],
+  "actual_fault": "Vuruntu sensörü gövde çatlağı ve tork gevşemesi",
+  "repair": "Vuruntu sensörü 23 Nm tork ile yenisi takıldı",
+  "verification": "Yol testi ve arıza hafızası kontrolü ile doğrulandı",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-04-10"
+}

@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 51",
+  "system": "Elektronik Gaz Kelebeği & Sürücü Talebi",
+  "symptoms": [
+    "Gaz Kelebeği Pozisyonu arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_51_FMI_2",
+      "kind": "yes_no",
+      "text": "Gaz Kelebeği Pozisyonu (FMI 2): Rölanti ve tam gaz noktalarında TPS voltaj eğrisini osiloskopla çizin; potansiyometre yüzeyinde ölü nokta (drop-out) var mı kontrol edin. Klemens korozyonunu temizleyin.",
+      "why": "Gaz Kelebeği Pozisyonu - Veri tutarsız, aralıklı veya hatalı"
+    },
+    {
+      "id": "Q_SPN_51_FMI_3",
+      "kind": "yes_no",
+      "text": "Gaz Kelebeği Pozisyonu (FMI 3): TPS sinyal hattını +5V referansına karşı ölçün; gaz kelebeği gövdesi konnektöründe pin bükülmesi/kaynaşmasını kontrol edin.",
+      "why": "Gaz Kelebeği Pozisyonu - Voltaj normalin üzerinde veya yüksek kaynağa kısa devre"
+    },
+    {
+      "id": "Q_SPN_51_FMI_4",
+      "kind": "yes_no",
+      "text": "Gaz Kelebeği Pozisyonu (FMI 4): TPS toprak hattı direncini ölçün ve gaz kelebeği gövdesi toprak noktasını (gövde üzerinde) yeniden sıkın.",
+      "why": "Gaz Kelebeği Pozisyonu - Voltaj normalin altında veya şasiye kısa devre"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Throttle Position Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

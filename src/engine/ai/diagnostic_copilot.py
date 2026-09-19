@@ -330,12 +330,14 @@ def compute_root_cause_confidence(
     scenario_matched: int,
     kb_matched: int,
     telemetry_correlation_count: int,
+    calibration_factor: float | None = None,
 ) -> str:
     """Compute an honest weighted root-cause confidence label for the offline expert.
 
     Each evidence kind is normalised to 0..1, weighted, and the weighted mean
     is taken over the total weight — so a full rule+telemetry match scores
     high while an unknown DTC with no corroboration scores near zero.
+    An optional calibration_factor (from golden-set calibration) damps overconfidence.
     """
     if dtc_count <= 0:
         return "Normal"
@@ -347,7 +349,9 @@ def compute_root_cause_confidence(
     }
     total_weight = sum(ROOT_CAUSE_EVIDENCE_WEIGHTS.values())
     weighted_sum = sum(ROOT_CAUSE_EVIDENCE_WEIGHTS[kind] * value for kind, value in entries.items())
-    score = weighted_sum / total_weight
+    base_score = weighted_sum / total_weight
+    cal = 1.0 if calibration_factor is None else max(0.1, min(1.0, float(calibration_factor)))
+    score = max(0.0, min(1.0, base_score * cal))
     label = "Yüksek" if score >= 0.65 else ("Orta" if score >= 0.35 else "Düşük")
     return f"{label} (%{score * 100:.0f} ağırlıklı kanıt skoru)"
 
@@ -2697,6 +2701,233 @@ class CausalBayesianInferenceEngine:
         return (format_mode06_monitor(mid, tid), matched)
 
     @classmethod
+    def analyze_can_frame(
+        cls,
+        user_query: str,
+        norm_query: str,
+        telemetry: dict[str, Any] | None = None,
+    ) -> str | None:
+        """Forensic decoding of a specific CAN frame (SAE J1939, OBD-II/UDS, or raw CAN)."""
+        if "nrc" in norm_query or "negatif yanit" in norm_query:
+            return None
+
+        can_id_match = re.search(r"\b0x([0-9A-Fa-f]{1,8})\b", user_query)
+        if not can_id_match:
+            return None
+
+        can_id_hex = f"0x{can_id_match.group(1).upper()}"
+        can_id_int = int(can_id_match.group(1), 16)
+
+        # 0. CAN Physical Layer Error Frame
+        is_error_frame = "(ERR)" in user_query or "Error Frame" in user_query or "isErrorFrame" in user_query or "hata karesi" in norm_query or can_id_hex in {"0X00000000", "0X0000000", "0X0", "0X00"}
+        if is_error_frame and not re.search(r"\b([PBUC][0-9A-Fa-f]{4})\b", user_query):
+            return (
+                "🔴 **CAN Hata Karesi (Error Frame / Bus Error):**\n"
+                "• **Durum:** Fiziksel katman hatası (Bit Stuffing veya CRC hatası / Active Error Flag) nedeniyle çerçeve iletimi durduruldu.\n"
+                "• **Olası Nedenler:** Hat paraziti, sonlandırma direnci eksikliği veya yanlış baudrate.\n"
+                "• **Hızlı Test:** OBD Pin 6 (CAN-H) ve Pin 14 (CAN-L) arası direnci ölçün (Nominal: 60.0 Ω ±3Ω / 120Ω sonlandırma)."
+            )
+
+        # EV BMS Specific Frames (0x1808E5F4, 0x1807E5F4, etc.)
+        if "1808E5" in can_id_hex or "0X1808E5F4" in can_id_hex:
+            meas_str = "• **Canlı Ölçüm:** Canlı ölçüm yok (BMS telemetrisi bekleniyor)."
+            if telemetry:
+                min_v = telemetry.get("bms_cell_voltage_min_v")
+                max_v = telemetry.get("bms_cell_voltage_max_v")
+                if min_v is not None and max_v is not None:
+                    delta_v = float(max_v) - float(min_v)
+                    meas_str = (
+                        f"• **Canlı Ölçüm:** Min: {float(min_v):.3f}V, Max: {float(max_v):.3f}V "
+                        f"| Delta V: {delta_v * 1000:.1f} mV (ölçüm)"
+                    )
+                elif min_v is not None or max_v is not None:
+                    parts = []
+                    if min_v is not None:
+                        parts.append(f"Min: {float(min_v):.3f}V")
+                    if max_v is not None:
+                        parts.append(f"Max: {float(max_v):.3f}V")
+                    meas_str = f"• **Canlı Ölçüm:** {', '.join(parts)} (ölçüm)"
+            return (
+                f"⚡ **EV BMS Hücre Voltajları ({can_id_hex} - PGN 61447):**\n"
+                f"• **Protokol:** ISO 11898-2 (EV Yüksek Voltaj BMS)\n"
+                f"• **Kaynak Düğüm:** Batarya Yönetim Sistemi (BMS ECU - 0xF4)\n"
+                f"{meas_str}\n"
+                f"• **Hedef:** Hücre voltaj farkı <30 mV olmalıdır."
+            )
+        if "1807E5" in can_id_hex or "0X1807E5F4" in can_id_hex:
+            return (
+                "⚡ **EV BMS Şarj & Sağlık (0x1807E5F4 - PGN 61446):**\n"
+                "• **Protokol:** ISO 11898-2 (BMS ECU 0xF4)\n"
+                "• **Açıklama:** Batarya SOC (Şarj) ve SOH (Sağlık) durumu."
+            )
+        if "1809E5" in can_id_hex or "0X1809E5F4" in can_id_hex:
+            return (
+                "⚡ **EV BMS Termal Yönetimi (0x1809E5F4 - PGN 61448):**\n"
+                "• **Protokol:** ISO 11898-2 (BMS ECU 0xF4)\n"
+                "• **Açıklama:** Batarya paketi ve hücre modülü sıcaklıkları."
+            )
+        if "18F020" in can_id_hex or "0X18F020F4" in can_id_hex:
+            return (
+                "⚡ **EV BMS Yüksek Voltaj İzolasyonu & Kontaktör Güvenliği (0x18F020F4):**\n"
+                "• **Protokol:** ISO 11898-2 (BMS ECU 0xF4)\n"
+                "• **Açıklama:** HV izolasyon direnci ve kontaktör durumları."
+            )
+
+        # Extract payload bytes if present, e.g. "DATA: 00 EE 00" or "[00, EE, 00]"
+        data_match = re.search(r"(?:data|veri|payload)[\s:=]+([0-9a-fA-F\s,]+)", user_query, re.IGNORECASE)
+        data_bytes: list[int] = []
+        if data_match:
+            data_bytes = [int(b, 16) for b in re.findall(r"\b[0-9A-Fa-f]{2}\b", data_match.group(1))]
+
+        chan_match = re.search(r"\b(vcan\d+|can\d+|PCAN\w+|kvaser\w+|rp1210\S*)\b", user_query, re.IGNORECASE)
+        channel_str = chan_match.group(1) if chan_match else "CAN"
+
+        is_extended = can_id_int > 0x7FF or len(can_id_match.group(1)) > 3
+
+        if is_extended:
+            priority = (can_id_int >> 26) & 0x07
+            _edp = (can_id_int >> 25) & 0x01
+            dp = (can_id_int >> 24) & 0x01
+            pf = (can_id_int >> 16) & 0xFF
+            ps = (can_id_int >> 8) & 0xFF
+            sa = can_id_int & 0xFF
+
+            if pf < 240:
+                da = ps
+                pgn = (dp << 16) | (pf << 8)
+                pdu_str = f"PDU1 (Noktadan Noktaya / Hedef: 0x{da:02X})"
+            else:
+                da = 0xFF
+                pgn = (dp << 16) | (pf << 8) | ps
+                pdu_str = "PDU2 (Yayın / Broadcast)"
+
+            # PGN 59904: ISO Request
+            if pgn == 59904:
+                req_pgn_str = "Belirtilmedi"
+                if len(data_bytes) >= 3:
+                    req_pgn_num = data_bytes[0] | (data_bytes[1] << 8) | (data_bytes[2] << 16)
+                    if req_pgn_num == 60928:
+                        req_pgn_str = "PGN 60928 (Address Claimed / Adres Bildirimi — 0x00EE00)"
+                    elif req_pgn_num == 65226:
+                        req_pgn_str = "PGN 65226 (DM1 Aktif Arıza Kodları — 0x00FECA)"
+                    elif req_pgn_num == 65227:
+                        req_pgn_str = "PGN 65227 (DM2 Geçmiş Arıza Kodları — 0x00FECB)"
+                    else:
+                        req_pgn_str = f"PGN {req_pgn_num} (0x{req_pgn_num:04X})"
+
+                has_conflict = any(w in norm_query for w in ["çakışma", "cakisma", "red", "reddi", "ack", "anomali", "nack", "istem"])
+                if has_conflict:
+                    anomaly_sec = (
+                        "⚠️ **Tespit Edilen Anomali & Teşhis:**\n"
+                        "• **Durum:** Adres İsteme Çakışması / PGN 59904 ACK Reddi (NACK).\n"
+                        "• **Açıklama:** Ağdaki bir kontrol ünitesi veya tanı cihazı (`SA: 0xFE`), ağdan adres beyanı (PGN 60928 - Address Claimed) talep etmiştir. "
+                        "Ancak bu sorguya ağdaki bir düğüm tarafından PGN 59392 üzerinden Negatif Onay (NACK / ACK Reddi) dönülmüş veya "
+                        "aynı kaynak adresi için çakışma meydana gelerek cihaz ağa katılamamıştır.\n\n"
+                        "🛠️ **Usta Saha Kontrol Adımları:**\n"
+                        "1. **Adresleme:** Ağda `0xFE` (Service Tool) adresini talep eden ikinci bir tanı cihazı veya gateway olup olmadığını doğrulayın.\n"
+                        "2. **Address Claiming Protokolü:** Düğümün Dinamik Adres Yeteneğini (Arbitrary Address Capable) ve J1939 NAME kimlik önceliğini inceleyin.\n"
+                        "3. **Fiziksel Hat & Direnç:** Veri yolunda 120Ω sonlandırma direncini ve ACK üretecek diğer düğümlerin aktifliğini doğrulayın."
+                    )
+                else:
+                    anomaly_sec = (
+                        "ℹ️ **İşlev Açıklaması:**\n"
+                        f"Bu çerçeve, `SA: 0x{sa:02X}` adresindeki cihazın ağdaki tüm birimlerden `{req_pgn_str}` bilgisini talep ettiği bir sorgu mesajıdır."
+                    )
+
+                return (
+                    f"🚛 **SAE J1939 Çerçeve Analizi: {can_id_hex} (PGN 59904 - ISO Request)**\n\n"
+                    f"• **Protokol:** SAE J1939-21 Ağ Yönetimi / İstek Çerçevesi\n"
+                    f"• **Öncelik:** {priority} | **Biçim:** {pdu_str}\n"
+                    f"• **Kaynak Adres (SA):** `0x{sa:02X}` ({'Teşhis / Servis Cihazı' if sa == 0xFE else 'ECU Düğümü'})\n"
+                    f"• **Hedef Adres (DA):** `0x{da:02X}` ({'Tüm Ağ (Broadcast)' if da == 0xFF else 'Özel Düğüm'})\n"
+                    f"• **Talep Edilen PGN:** **{req_pgn_str}**\n"
+                    f"• **Veri Yükü (Payload):** `{' '.join(f'{b:02X}' for b in data_bytes) if data_bytes else 'N/A'}`\n\n"
+                    f"{anomaly_sec}"
+                )
+
+            elif pgn == 60928:
+                return (
+                    f"🚛 **SAE J1939 Adres Bildirimi: {can_id_hex} (PGN 60928 - Address Claimed)**\n\n"
+                    f"• **Kaynak Düğüm:** `0x{sa:02X}` | **Öncelik:** {priority}\n"
+                    f"• **Açıklama:** Düğüm kendi 64-bit NAME kimliğini yayınlayarak bu adresi talep etmiştir."
+                )
+
+            elif pgn == 59392:
+                ack_type = "Bilinmiyor"
+                if data_bytes:
+                    ctrl = data_bytes[0]
+                    ack_type = "Pozitif Onay (ACK)" if ctrl == 0 else "Negatif Onay / Red (NACK)" if ctrl == 1 else "Erişim Reddedildi"
+                return (
+                    f"🚛 **SAE J1939 Bildirim Onayı: {can_id_hex} (PGN 59392 - Acknowledgment)**\n\n"
+                    f"• **Onay Durumu:** **{ack_type}**\n"
+                    f"• **Kaynak:** `0x{sa:02X}` ➔ **Hedef:** `0x{da:02X}`"
+                )
+
+            elif pgn == 65226:
+                return (
+                    f"🚛 **SAE J1939 DM1 Aktif Arıza Kodu Karesi ({can_id_hex})**\n\n"
+                    f"• **PGN:** 65226 (0xFECA) - Active Diagnostic Trouble Codes\n"
+                    f"• **Kaynak Düğüm:** `0x{sa:02X}`\n"
+                    f"• **Veri Yükü:** `{' '.join(f'{b:02X}' for b in data_bytes)}`\n"
+                    f"• **Açıklama:** Ağır vasıta motor veya fren kontrol ünitesi aktif MIL ve SPN/FMI arızalarını yayınlıyor."
+                )
+
+            elif pgn == 61444:
+                rpm_str = "Hesaplanamadı"
+                if len(data_bytes) >= 5:
+                    rpm_val = ((data_bytes[4] << 8) | data_bytes[3]) * 0.125
+                    rpm_str = f"**{rpm_val:.1f} RPM**"
+                return (
+                    f"🚛 **SAE J1939 EEC1 Elektronik Motor Kontrolü ({can_id_hex})**\n\n"
+                    f"• **PGN:** 61444 (0xF004) - Engine Speed & Torque\n"
+                    f"• **Motor Devri (SPN 190):** {rpm_str}\n"
+                    f"• **Kaynak ECU:** `0x{sa:02X}`"
+                )
+
+            return (
+                f"📡 **29-Bit Genişletilmiş CAN / J1939 Çerçevesi: {can_id_hex}**\n\n"
+                f"• **PGN:** **{pgn}** (0x{pgn:04X}) | **Öncelik:** {priority}\n"
+                f"• **Kaynak Adres (SA):** `0x{sa:02X}` | **Hedef (DA):** `0x{da:02X}`\n"
+                f"• **Veri Yolu:** {channel_str} | **DLC:** {len(data_bytes)} bayt\n"
+                f"• **Veri (Hex):** `{' '.join(f'{b:02X}' for b in data_bytes) if data_bytes else 'N/A'}`\n\n"
+                f"ℹ️ J1939 PDU2/PDU1 standart formatında telemetri yayını."
+            )
+
+        # 11-Bit Standard Frame
+        if can_id_int == 0x7DF:
+            return (
+                f"🚗 **OBD-II / UDS Fonksiyonel Yayın İsteği ({can_id_hex})**\n\n"
+                f"• **Protokol:** ISO 15765-4 / SAE J1979 OBD-II\n"
+                f"• **İşlev:** Araçtaki tüm ECU'lara (ECM, TCM vb.) ortak yayın sorgusu (Broadcast Request).\n"
+                f"• **Veri (Hex):** `{' '.join(f'{b:02X}' for b in data_bytes)}`"
+            )
+
+        if 0x7E0 <= can_id_int <= 0x7E7:
+            ecu_idx = can_id_int - 0x7E0
+            return (
+                f"🚗 **UDS / ISO-TP Fiziksel ECU İstek Karesi ({can_id_hex})**\n\n"
+                f"• **Hedef ECU:** ECU #{ecu_idx} (0x{can_id_int:03X})\n"
+                f"• **Protokol:** ISO 14229 UDS / ISO 15765-2 DoCAN\n"
+                f"• **Veri (Hex):** `{' '.join(f'{b:02X}' for b in data_bytes)}`"
+            )
+
+        if 0x7E8 <= can_id_int <= 0x7EF:
+            ecu_name = "Motor Kontrol Ünitesi (ECM)" if can_id_int == 0x7E8 else "Şanzıman Kontrol Ünitesi (TCM)" if can_id_int == 0x7E9 else f"ECU 0x{can_id_int:03X}"
+            return (
+                f"🚗 **UDS / OBD-II Fiziksel ECU Yanıt Karesi ({can_id_hex})**\n\n"
+                f"• **Yanıt Veren Düğüm:** **{ecu_name}**\n"
+                f"• **Protokol:** ISO 14229 / ISO 15765-2 DoCAN\n"
+                f"• **Veri (Hex):** `{' '.join(f'{b:02X}' for b in data_bytes)}`"
+            )
+
+        return (
+            f"📡 **11-Bit Standart CAN Çerçevesi: {can_id_hex}**\n\n"
+            f"• **Kanal:** {channel_str} | **DLC:** {len(data_bytes)} bayt\n"
+            f"• **Veri (Hex):** `{' '.join(f'{b:02X}' for b in data_bytes) if data_bytes else 'N/A'}`\n\n"
+            f"• **Açıklama:** Standart otomotiv/endüstriyel CAN 2.0B çerçevesi."
+        )
+
+    @classmethod
     def evaluate_diagnostic_query(
         cls,
         user_query: str,
@@ -2721,9 +2952,17 @@ class CausalBayesianInferenceEngine:
         _ym = re.search(r"\b(19[89][0-9]|20[0-2][0-9])\b", user_query)
         vehicle_year = int(_ym.group(1)) if _ym else None
 
-        # 0. CAN Traffic & Bus Load Anomaly Awareness
-        is_traffic_query = any(w in norm_query for w in ["trafik", "hat yuku", "bus load", "anomali", "error frame", "hata karesi", "patlama", "babbling"])
-        if is_traffic_query and any(w in norm_query for w in ["durum", "nasil", "yuku", "yuzde", "load", "anomali", "rapor", "analiz", "hat", "hata"]):
+        # 0. Dedicated CAN Frame Forensics (e.g. from right-click context menu)
+        frame_report = cls.analyze_can_frame(user_query, norm_query, telemetry)
+        if frame_report is not None:
+            actions = []
+            if "j1939" in frame_report.lower() or "59904" in frame_report:
+                actions = [make_j1939_dm1_action()]
+            return attach_action_triggers(frame_report, actions)
+
+        # 0.1 CAN Traffic & Bus Load Anomaly Awareness (General Bus Questions Only)
+        is_traffic_query = any(w in norm_query for w in ["trafik", "hat yuku", "bus load", "error frame", "hata karesi", "patlama", "babbling"])
+        if is_traffic_query and any(w in norm_query for w in ["durum", "nasil", "yuku", "yuzde", "load", "rapor", "analiz", "hat", "hata"]):
             traffic_rep = explain_traffic_metrics(telemetry, user_query)
             actions = [make_uds_clear_dtc_action()]
             return attach_action_triggers(traffic_rep, actions)

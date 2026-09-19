@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-p0340-verified",
+  "domain": "PASSENGER",
+  "make": "Nissan",
+  "model": "Qashqai",
+  "year": 2021,
+  "symptom": "P0340 arıza kodu: Eksantrik zincir uzaması sonucu faz kayması",
+  "dtcs": [
+    {
+      "code": "P0340",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "CamPhaseAngle",
+      "expected_behavior": "Nominal fabrika çalışma aralığında",
+      "observed_behavior": "Krank-kam açı farkı 8 derece nominal dışı"
+    }
+  ],
+  "actual_fault": "Eksantrik zincir uzaması sonucu faz kayması",
+  "repair": "Triger zincir seti ve gergisi yenilendi",
+  "verification": "Yol testi ve arıza hafızası kontrolü ile doğrulandı",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-04-10"
+}

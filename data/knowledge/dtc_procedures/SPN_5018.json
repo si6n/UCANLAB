@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 5018",
+  "system": "Egzoz & DPF Termal Rejenerasyonu",
+  "symptoms": [
+    "Egzoz Ard İşlem 1 Dizel Oksidasyon Katalizörü Sistemi arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_5018_FMI_11",
+      "kind": "yes_no",
+      "text": "Egzoz Ard İşlem 1 Dizel Oksidasyon Katalizörü Sistemi (FMI 11): Öncelikli olarak Freeze Frame (DM4) verilerini ve motor çalışma koşullarını okuyun.",
+      "why": "Diesel Oxidation Catalyst Efficiency Fault - Aftertreatment Diesel Oxidation Catalyst Face Plugged –"
+    },
+    {
+      "id": "Q_SPN_5018_FMI_18",
+      "kind": "yes_no",
+      "text": "Egzoz Ard İşlem 1 Dizel Oksidasyon Katalizörü Sistemi (FMI 18): Dozaj pompası, hava tahrik valfi veya debi kısıtlamalarını giderin.",
+      "why": "Diesel Oxidation Catalyst Efficiency Fault - Aftertreatment 1 Diesel Oxidation Catalyst System – Dat"
+    },
+    {
+      "id": "Q_SPN_5018_FMI_12",
+      "kind": "yes_no",
+      "text": "Egzoz Ard İşlem 1 Dizel Oksidasyon Katalizörü Sistemi (FMI 12): J1939 DM1 uzerinden SPN 5018 FMI 12 icin OEM tablo teshis kaydi (kaynak: T62 repair.diesellaptops.com harvest).",
+      "why": "Egzoz Ard İşlem 1 Dizel Oksidasyon Katalizörü Sistemi - Stationary Regeneration – Time-Out"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Aftertreatment 1 Diesel Oxidation Catalyst System Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

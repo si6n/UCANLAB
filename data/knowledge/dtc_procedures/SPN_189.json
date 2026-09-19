@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 189",
+  "system": "Motor Yönetimi & Tork Talebi",
+  "symptoms": [
+    "Motor Anma Devri arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_189_FMI_2",
+      "kind": "yes_no",
+      "text": "Motor Anma Devri (FMI 2): Anma devri sabit bir kalibrasyon parametresidir; dalgalanma ECU yazılım uyumsuzluğuna işaret eder. Motor plakasındaki devirle yayınlanan değeri karşılaştırın.",
+      "why": "Motor Anma Devri - Veri tutarsız, aralıklı veya hatalı"
+    },
+    {
+      "id": "Q_SPN_189_FMI_12",
+      "kind": "yes_no",
+      "text": "Motor Anma Devri (FMI 12): Yayınlanan değer 0 rpm ise ECU kalibrasyonunun bozulduğunu düşünün; kalibrasyon kimlik çiftini (SPN 166 + 189) birlikte doğrulayın.",
+      "why": "Motor Anma Devri - Hatalı akıllı aygıt veya bileşen"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Engine Rated Speed Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

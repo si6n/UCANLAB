@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-p0a0d-verified",
+  "domain": "PASSENGER",
+  "make": "Toyota",
+  "model": "Prius",
+  "year": 2022,
+  "symptom": "P0A0D ariza kodu: HVIL sinyal kablosu araç 12V/24V akü besleme hattına (KL30/KL15) ezilerek kısa devre yapmış.",
+  "dtcs": [
+    {
+      "code": "P0A0D",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "EngineSpeed",
+      "expected_behavior": "Nominal calisma araliginda",
+      "observed_behavior": "HVIL Sinyal Voltajı > 5.5V (5V loop) veya > 15.0V (12V loop) arıza eşiğidir."
+    }
+  ],
+  "actual_fault": "HVIL sinyal kablosu araç 12V/24V akü besleme hattına (KL30/KL15) ezilerek kısa devre yapmış.",
+  "repair": "HVIL soketini BMS'ten ayırıp araç tesisatındaki voltajı şasiye göre ölçün (0V olmalıdır).",
+  "verification": "Saha onarimi ve ariza hafiza kontrolu ile dogrulandi",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-03-15"
+}

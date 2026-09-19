@@ -17,6 +17,30 @@ from typing import Literal
 
 RiskLevel = Literal["RED", "YELLOW", "GREEN", "GRAY"]
 
+# AI dialogue action types & authority charter (FAZ 0)
+AIDialogueActionType = Literal[
+    "QUESTION",
+    "REQUEST_MEASUREMENT",
+    "PROPOSE_READ",
+    "PROPOSE_WRITE",
+    "PROPOSE_ROUTINE",
+    "PROPOSE_FLASH",
+    "PROPOSE_DTC_CLEAR",
+]
+
+READ_ONLY_AI_ACTIONS: frozenset[str] = frozenset({
+    "QUESTION",
+    "REQUEST_MEASUREMENT",
+    "PROPOSE_READ",
+})
+
+MUTATING_AI_ACTIONS: frozenset[str] = frozenset({
+    "PROPOSE_WRITE",
+    "PROPOSE_ROUTINE",
+    "PROPOSE_FLASH",
+    "PROPOSE_DTC_CLEAR",
+})
+
 # Doküman §6 şablonları birebir — değiştirilemez sabit tablo.
 RISK_ADVICE: dict[RiskLevel, str] = {
     "RED": (
@@ -98,11 +122,44 @@ def risk_advice(risk: RiskLevel) -> str:
     return RISK_ADVICE[risk]
 
 
+def validate_ai_dialogue_action(
+    action_type: str,
+    confirmed_by_operator: bool = False,
+    vehicle_speed_kmh: float | None = None,
+) -> tuple[bool, str]:
+    """Validate whether an AI dialogue initiative is permissible under safety policy.
+
+    - READ_ONLY_AI_ACTIONS (QUESTION, REQUEST_MEASUREMENT, PROPOSE_READ) are non-mutating
+      and allowed freely by the dialogue engine.
+    - MUTATING_AI_ACTIONS (PROPOSE_WRITE, PROPOSE_ROUTINE, PROPOSE_FLASH, PROPOSE_DTC_CLEAR)
+      STRICTLY require affirmative operator confirmation AND confirmed stationary speed (0.0 km/h).
+    - Missing speed (None), negative speed, or speed > 0.0 fail closed immediately.
+    """
+    clean_action = (action_type or "").strip().upper()
+    if clean_action in READ_ONLY_AI_ACTIONS:
+        return True, "Eylem bilgi toplama/okuma amaçlıdır; izin verildi."
+
+    if clean_action in MUTATING_AI_ACTIONS:
+        if not confirmed_by_operator:
+            return False, "Operatör çift onayı olmadan mutating eylem yürütülemez."
+        if vehicle_speed_kmh is None:
+            return False, "Araç hız telemetrisi eksik: interlock doğrulanamadı (fail-closed)."
+        if vehicle_speed_kmh != 0.0:
+            return False, f"Araç hareketsiz değil ({vehicle_speed_kmh:.1f} km/h): mutating eylem engellendi."
+        return True, "Operatör onaylı ve araç sabit: mutating eyleme izin verildi."
+
+    return False, f"Bilinmeyen veya yetkisiz eylem tipi: '{action_type}'"
+
+
 __all__ = [
     "RiskLevel",
     "RISK_ADVICE",
     "EV_HV_WARNING_TR",
+    "AIDialogueActionType",
+    "READ_ONLY_AI_ACTIONS",
+    "MUTATING_AI_ACTIONS",
     "decide_risk",
     "risk_advice",
     "is_ev_hv_code",
+    "validate_ai_dialogue_action",
 ]

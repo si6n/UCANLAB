@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "dtc": "P0030",
+  "system": "Yakıt Ölçümü & Hava Emiş / Kam Mili Zamanlaması",
+  "symptoms": [
+    "Lengthened time needed to achieve closed loop",
+    "MIL (Malfunction indicator lamp) illumination",
+    "Possibly decreased fuel mileage depending on fault"
+  ],
+  "questions": [
+    {
+      "id": "Q_P0030_1",
+      "kind": "yes_no",
+      "text": "Failed or damaged heater circuit element inside the HO2S durumunu kontrol ettiniz mi?",
+      "why": "P0030 arızasında olası kök neden"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Kablo Tesisatı",
+      "test_type": "Kolay (Görsel)",
+      "safety_note": "Kontak kapalıyken ölçüm yapın."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 12.0
+  },
+  "pass_next": "Canlı veride sinyal nominal ise arıza hafızasını silin.",
+  "fail_next": "İlgili bileşeni veya kablo demetini onarın/değiştirin.",
+  "safety_notes": [
+    "Kontak kapalı konumda çalışın."
+  ]
+}

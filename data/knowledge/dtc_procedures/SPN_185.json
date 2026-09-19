@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 185",
+  "system": "Yakıt Ekonomisi & Telemetri",
+  "symptoms": [
+    "Motor Ortalama Yakıt Ekonomisi arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_185_FMI_2",
+      "kind": "yes_no",
+      "text": "Motor Ortalama Yakıt Ekonomisi (FMI 2): Toplam yakıt (SPN 250) ve toplam mesafe (hız integrali) tutarlılığını kontrol edin; tekerlek çapı parametresi hatalıysa ortalama ekonomi sistematik sapar.",
+      "why": "Motor Ortalama Yakıt Ekonomisi - Veri tutarsız, aralıklı veya hatalı"
+    },
+    {
+      "id": "Q_SPN_185_FMI_9",
+      "kind": "yes_no",
+      "text": "Motor Ortalama Yakıt Ekonomisi (FMI 9): PGN 65266 yayınını sniffer'da izleyin; ECU yanıt gecikmesini ve bus hata sayacını kontrol edin.",
+      "why": "Motor Ortalama Yakıt Ekonomisi - Anormal güncelleme hızı"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Engine Average Fuel Economy Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

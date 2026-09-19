@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 4364",
+  "system": "Egzoz & SCR / AdBlue Dozaj Sistemi",
+  "symptoms": [
+    "SCR Katalizör NOx Dönüşüm Verimliliği arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_4364_FMI_1",
+      "kind": "yes_no",
+      "text": "SCR Katalizör NOx Dönüşüm Verimliliği (FMI 1): Sıvı seviyelerini, emiş filtrelerini ve mekanik aşınma belirtilerini kontrol edin.",
+      "why": "SCR Katalizör NOx Dönüşüm Verimliliği - Veri geçerli fakat normal çalışma aralığının altında (Kritik"
+    },
+    {
+      "id": "Q_SPN_4364_FMI_18",
+      "kind": "yes_no",
+      "text": "SCR Katalizör NOx Dönüşüm Verimliliği (FMI 18): Dozaj pompası, hava tahrik valfi veya debi kısıtlamalarını giderin.",
+      "why": "SCR Katalizör NOx Dönüşüm Verimliliği - Veri normalin altında (Orta Seviye - Tork Sınırlandırma)"
+    },
+    {
+      "id": "Q_SPN_4364_FMI_17",
+      "kind": "yes_no",
+      "text": "SCR Katalizör NOx Dönüşüm Verimliliği (FMI 17): Standart OEM saha servis manuallerine başvurun.",
+      "why": "SCR NOx Conversion Efficiency"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Aftertreatment 1 SCR Conversion Efficiency Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

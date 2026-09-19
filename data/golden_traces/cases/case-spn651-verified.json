@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-spn651-verified",
+  "domain": "HEAVY_DUTY",
+  "make": "Cummins",
+  "model": "ISX15",
+  "year": 2022,
+  "symptom": "SPN651 ariza kodu: FMI 5 (Açık Devre): Enjektör bobin teli kopuk veya külbütör altı soketi çıkmış.",
+  "dtcs": [
+    {
+      "code": "SPN 651",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "EngineSpeed",
+      "expected_behavior": "Nominal calisma araliginda",
+      "observed_behavior": "Solenoid Bobin Direnci: 0.35 - 0.55 Ω | İzolasyon: >100 MΩ | Marş Geri Dönüş: ≤ "
+    }
+  ],
+  "actual_fault": "FMI 5 (Açık Devre): Enjektör bobin teli kopuk veya külbütör altı soketi çıkmış.",
+  "repair": "Külbütör kapağı altındaki 1. silindir enjektör bobin direncini hassas miliohmmetre ile ölçün (0.35 - 0.55 Ω).",
+  "verification": "Saha onarimi ve ariza hafiza kontrolu ile dogrulandi",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-03-15"
+}

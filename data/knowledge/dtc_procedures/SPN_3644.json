@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 3644",
+  "system": "Motor Yönetimi & Tork Talebi",
+  "symptoms": [
+    "Motor Güç Düşürme (Derate) Talebi arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_3644_FMI_0",
+      "kind": "yes_no",
+      "text": "Motor Güç Düşürme (Derate) Talebi (FMI 0): Derate talebini tetikleyen aktif DM1 arızalarını listeleyin (SPN 3216 NOx verimliliği, SPN 3251 kurum yükü, DEF kalitesi SPN 3364 gibi); kök arızayı çözmeden derate kalkmaz. Aracı güvenli alana alın.",
+      "why": "Motor Güç Düşürme (Derate) Talebi - Veri geçerli fakat normal çalışma aralığının üzerinde (Kritik Yü"
+    },
+    {
+      "id": "Q_SPN_3644_FMI_31",
+      "kind": "yes_no",
+      "text": "Motor Güç Düşürme (Derate) Talebi (FMI 31): Derate koşulu aktif: mevcut DM1/DM2 arıza listesini (SPN-FMI çiftleriyle) çıkarın ve emisyon/thermal koruma kaynaklı kısıtları önceliklendirin; sıralı kalibrasyon bazlı kalkanma prosedürünü uygulayın.",
+      "why": "Motor Güç Düşürme (Derate) Talebi - Durum mevcut"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Engine Derate Request Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

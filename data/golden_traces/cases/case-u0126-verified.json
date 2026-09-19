@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-u0126-verified",
+  "domain": "PASSENGER",
+  "make": "Volkswagen",
+  "model": "Passat",
+  "year": 2022,
+  "symptom": "U0126 ariza kodu: Direksiyon zembereği içindeki SAS optik okuyucusunun sıfır noktasını kaybetmesi.",
+  "dtcs": [
+    {
+      "code": "U0126",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "EngineSpeed",
+      "expected_behavior": "Nominal calisma araliginda",
+      "observed_behavior": "Düz Konum Açı Toleransı: 0.0° ±1.5° | Besleme: 12.0 - 14.5V DC."
+    }
+  ],
+  "actual_fault": "Direksiyon zembereği içindeki SAS optik okuyucusunun sıfır noktasını kaybetmesi.",
+  "repair": "Direksiyonu tam sol ve tam sağ yaparak sıfır noktası adaptasyonunu gerçekleştirin.",
+  "verification": "Saha onarimi ve ariza hafiza kontrolu ile dogrulandi",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-03-15"
+}

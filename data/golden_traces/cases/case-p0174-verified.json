@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-p0174-verified",
+  "domain": "PASSENGER",
+  "make": "BMW",
+  "model": "530i",
+  "year": 2021,
+  "symptom": "P0174 arıza kodu: Bank 2 emme manifoldu conta kaçağı",
+  "dtcs": [
+    {
+      "code": "P0174",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "LTFT_Bank2",
+      "expected_behavior": "Nominal fabrika çalışma aralığında",
+      "observed_behavior": "Bank 2 LTFT +%22.5"
+    }
+  ],
+  "actual_fault": "Bank 2 emme manifoldu conta kaçağı",
+  "repair": "Manifold sökülerek elastomer contalar yenilendi",
+  "verification": "Yol testi ve arıza hafızası kontrolü ile doğrulandı",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-04-10"
+}

@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-u0100-verified",
+  "domain": "PASSENGER",
+  "make": "Volkswagen",
+  "model": "Passat",
+  "year": 2022,
+  "symptom": "U0100 ariza kodu: Motor beyni ana besleme sigortası (KL30/KL15) veya ana güç rölesi yanmış.",
+  "dtcs": [
+    {
+      "code": "U0100",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "OilPressure",
+      "expected_behavior": "Nominal calisma araliginda",
+      "observed_behavior": "CAN Omurga Direnci: 60.0 Ω ±%5 | Şasi Voltaj Düşümü: <50 mV DC."
+    }
+  ],
+  "actual_fault": "Motor beyni ana besleme sigortası (KL30/KL15) veya ana güç rölesi yanmış.",
+  "repair": "ECM ana besleme sigortalarını ve motor kontrol rölesini (Main Relay) multimetre ile test edin.",
+  "verification": "Saha onarimi ve ariza hafiza kontrolu ile dogrulandi",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-03-15"
+}

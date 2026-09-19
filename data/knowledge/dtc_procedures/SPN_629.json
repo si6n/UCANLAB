@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 629",
+  "system": "ECU Dahili Donanım & Mikrodenetleyici",
+  "symptoms": [
+    "Denetleyici #1 Arızası arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_629_FMI_12",
+      "kind": "yes_no",
+      "text": "Denetleyici #1 Arızası (FMI 12): Modülün besleme voltajını teyit edin; düzelmiyorsa dahili ECU/Sensör arızasıdır.",
+      "why": "Ana Motor Beyni (ECU #1) Dahili Donanım Arızası - Arızalı akıllı cihaz, mikrodenetleyici veya dahili"
+    },
+    {
+      "id": "Q_SPN_629_FMI_0",
+      "kind": "yes_no",
+      "text": "Denetleyici #1 Arızası (FMI 0): Standart OEM saha servis manuallerine başvurun.",
+      "why": "ECM Error – Controller No. 1 – Data Valid But Above Normal Operational Range – Most Severe"
+    },
+    {
+      "id": "Q_SPN_629_FMI_2",
+      "kind": "yes_no",
+      "text": "Denetleyici #1 Arızası (FMI 2): Standart OEM saha servis manuallerine başvurun.",
+      "why": "Multiple Fault Descriptions"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Controller #1 Malfunction Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

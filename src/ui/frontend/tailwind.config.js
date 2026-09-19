@@ -1,13 +1,6 @@
-const neutralBorders = {
-  50: '#1c1c1e', 100: '#242426', 200: '#303033', 300: '#45454a',
-  400: '#616167', 500: '#85858a', 600: '#45454a', 700: '#343438',
-  800: '#303033', 900: '#242426', 950: '#1c1c1e',
-};
-
-const statusSurfaces = (soft, strong) => ({ 50: soft, 100: strong, 200: strong });
-const statusText = (color) => ({ 500: color, 600: color, 700: color, 800: color, 900: color, 950: color });
-const statusBorders = (color) => ({ 100: color, 200: color, 300: color });
+/** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
@@ -15,108 +8,132 @@ export default {
   theme: {
     extend: {
       colors: {
-        brand: {
-          50: "#f4f2ff",
-          100: "#e8e3ff",
-          200: "#d2caff",
-          300: "#bcb0ff",
-          400: "#a596ff",
-          500: "#8b7cf6",
-          600: "#6552c9",
-          700: "#5543ad",
-          800: "#44358c",
-          900: "#30265e",
-          950: "#1c1830",
+        // ZERON DESIGN TOKENS (Reactive Dark & Light theme via CSS variables)
+        'bg-app': 'var(--bg-app)',
+        'bg-rail': 'var(--bg-rail)',
+        'bg-chrome': 'var(--bg-chrome)',
+        'bg-panel': 'var(--bg-panel)',
+        'bg-card': 'var(--bg-card)',
+        'bg-popover': 'var(--bg-popover)',
+        'bg-row-hover': 'var(--bg-row-hover)',
+        'bg-row-selected': 'var(--bg-row-selected)',
+        'bg-row-anomaly': 'var(--bg-row-anomaly)',
+        'glass-rail': 'var(--glass-rail)',
+        'glass-panel': 'var(--glass-panel)',
+        'glass-chrome': 'var(--glass-chrome)',
+        'glass-popover': 'var(--glass-popover)',
+        'glass-row-sel': 'var(--glass-row-sel)',
+        'glass-row-anom': 'var(--glass-row-anom)',
+        'table-body': 'var(--table-body)',
+
+        // Hairlines & Borders
+        'border-whisper': 'var(--border)',
+        'border-strong': 'var(--border-strong)',
+        'border-row': 'var(--border-row)',
+        'border-focus': 'var(--border-focus)',
+
+        // Text ramp — Geist hierarchy
+        'text-hi': 'var(--text-hi)',
+        'text-body': 'var(--text-body)',
+        'text-mid': 'var(--text-mid)',
+        'text-low': 'var(--text-low)',
+        'text-faint': 'var(--text-faint)',
+
+        // Accent — Zeron Blue
+        accent: {
+          DEFAULT: 'var(--accent)',
+          text: 'var(--accent-text)',
+          soft: 'var(--accent-soft)',
+          glow: 'var(--accent-glow)',
+          line: 'var(--accent-line)',
         },
-        signal: {
-          50: "#ecfdf6",
-          100: "#d1fae9",
-          400: "#2dd4a7",
-          500: "#14b892",
-          600: "#0d9276",
+
+        // Diff & State Colors
+        del: 'var(--del)',
+        deledge: 'var(--del-edge)',
+        delbg: 'var(--del-bg)',
+        add: 'var(--add)',
+        addedge: 'var(--add-edge)',
+        addbg: 'var(--add-bg)',
+        brandamber: 'var(--brand-amber)',
+
+        // Semantic Aliases
+        danger: {
+          DEFAULT: 'var(--del)',
+          soft: 'var(--del-bg)',
+          border: 'var(--del-edge)',
         },
+        warn: {
+          DEFAULT: 'var(--warn)',
+          soft: 'var(--warn-bg)',
+          border: 'var(--warn-edge)',
+        },
+        ok: {
+          DEFAULT: 'var(--add)',
+          soft: 'var(--add-bg)',
+          border: 'var(--add-edge)',
+        },
+        'info-teal': {
+          DEFAULT: 'var(--info-teal)',
+          soft: 'var(--info-teal-bg)',
+          border: 'var(--info-teal-edge)',
+        },
+
+        // Slate / Zinc fallbacks harmonized
         slate: {
-          50: "#F8FAFC",
-          100: "#F1F5F9",
-          200: "#E5E9F0",
-          300: "#CBD5E1",
-          400: "#94A3B8",
-          500: "#64748B",
-          600: "#475569",
-          700: "#334155",
-          800: "#1E293B",
-          900: "#0F172A",
-          950: "#020617",
+          50: '#f8fafc',
+          100: '#f1f5f9',
+          200: '#e2e8f0',
+          300: '#cbd5e1',
+          400: '#94a3b8',
+          500: '#64748b',
+          600: '#475569',
+          700: '#334155',
+          800: '#1e293b',
+          900: '#0f172a',
+        },
+        zinc: {
+          50: '#fafafa',
+          100: '#f4f4f5',
+          200: '#e4e4e7',
+          300: '#d4d4d8',
+          400: '#a1a1aa',
+          500: '#71717a',
+          800: '#27272a',
+          900: '#18181b',
         },
       },
-      backgroundColor: {
-        white: '#0e0e0e',
-        slate: {
-          50: '#161618', 100: '#202022', 200: '#303033', 300: '#45454a',
-          400: '#616167', 500: '#85858a', 600: '#45454a', 700: '#343438',
-          800: '#262628', 850: '#202022', 900: '#0d0d0d', 950: '#060606',
-        },
-        brand: { 50: '#1b1923', 100: '#272335', 200: '#39314f' },
-        signal: statusSurfaces('#11201b', '#193329'),
-        rose: statusSurfaces('#261719', '#3b2024'),
-        amber: statusSurfaces('#252115', '#38301b'),
-        indigo: statusSurfaces('#1b1923', '#272335'),
-      },
-      textColor: {
-        slate: {
-          50: '#f4f4f5', 100: '#e8e8ea', 200: '#d6d6d9', 300: '#bdbdc3',
-          400: '#929298', 500: '#a9a9ae', 600: '#bdbdc3', 700: '#d6d6d9',
-          800: '#e8e8ea', 900: '#f4f4f5', 950: '#fafafa',
-        },
-        brand: { 600: '#a596ff', 700: '#bcb0ff', 800: '#d2caff', 900: '#e8e3ff', 950: '#f4f2ff' },
-        signal: statusText('#34d399'),
-        rose: statusText('#f87171'),
-        amber: statusText('#facc15'),
-        indigo: statusText('#bcb0ff'),
-      },
-      borderColor: {
-        DEFAULT: '#303033',
-        slate: neutralBorders,
-        brand: { 100: '#302b41', 200: '#39314f', 300: '#51456f' },
-        signal: statusBorders('#285542'),
-        rose: statusBorders('#67343b'),
-        amber: statusBorders('#61522c'),
-        indigo: statusBorders('#39314f'),
-      },
-      divideColor: { slate: neutralBorders },
-      ringOffsetColor: { white: '#0e0e0e' },
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
-        mono: ['JetBrains Mono', 'Fira Code', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+        sans: ['Geist', 'Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        mono: ['Geist Mono', 'JetBrains Mono', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+      },
+      borderRadius: {
+        panel: '12px',
+        box: '10px',
+        pill: '8px',
+        btn: '6px',
+        chip: '5px',
+        tag: '4px',
+        code: '4px',
+        circle: '9999px',
       },
       boxShadow: {
-        xs: "0 1px 2px 0 rgba(15, 23, 42, 0.04)",
-        sm: "0 1px 2px 0 rgba(15, 23, 42, 0.04), 0 2px 4px -1px rgba(15, 23, 42, 0.03)",
-        card: "0 1px 2px 0 rgba(15, 23, 42, 0.03), 0 4px 16px -4px rgba(15, 23, 42, 0.05)",
-        "card-hover": "0 2px 4px 0 rgba(15, 23, 42, 0.04), 0 12px 32px -6px rgba(15, 23, 42, 0.10)",
-        "card-elevated": "0 4px 8px -2px rgba(15, 23, 42, 0.05), 0 20px 48px -12px rgba(15, 23, 42, 0.14)",
-        glow: "0 0 24px -4px rgba(71, 87, 234, 0.30)",
-        "glow-emerald": "0 0 18px -4px rgba(16, 185, 129, 0.30)",
-      },
-      maxWidth: {
-        "8xl": "88rem",
-      },
-      keyframes: {
-        "fade-up": {
-          "0%": { opacity: "0", transform: "translateY(8px)" },
-          "100%": { opacity: "1", transform: "translateY(0)" },
-        },
-        "scale-in": {
-          "0%": { opacity: "0", transform: "scale(0.96)" },
-          "100%": { opacity: "1", transform: "scale(1)" },
-        },
-        shimmer: {
-          "100%": { transform: "translateX(100%)" },
-        },
+        'chrome-inset': 'inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+        'card-subtle': '0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.03)',
       },
       animation: {
-        "fade-up": "fade-up 0.5s ease-out both",
-        "scale-in": "scale-in 0.18s ease-out both",
+        'row-enter': 'rowEnter 120ms ease-out forwards',
+        'pulse-subtle': 'subtlePulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+      },
+      keyframes: {
+        rowEnter: {
+          '0%': { opacity: '0', transform: 'translateY(-3px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        subtlePulse: {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0.4' },
+        },
       },
     },
   },

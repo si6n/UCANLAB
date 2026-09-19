@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-n2k-prop-slip-verified",
+  "domain": "PASSENGER",
+  "make": "Volkswagen",
+  "model": "Passat",
+  "year": 2022,
+  "symptom": "N2K_PROP_SLIP ariza kodu: Pervane kanatlarında eğilme, çentik veya kauçuk göbek (hub) sıyırması.",
+  "dtcs": [
+    {
+      "code": "N2K_PROP_SLIP",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "EngineSpeed",
+      "expected_behavior": "Nominal calisma araliginda",
+      "observed_behavior": "Pervane Slip Formülü: Slip% = (1 - (SOG × 1215.22 / (RPM/Ratio × Pitch))) × 100 "
+    }
+  ],
+  "actual_fault": "Pervane kanatlarında eğilme, çentik veya kauçuk göbek (hub) sıyırması.",
+  "repair": "Pervaneyi dalgıç veya karada kontrol edin; kanat hatvesinde eğrilik ve kavitasyon korozyonunu inceleyin.",
+  "verification": "Saha onarimi ve ariza hafiza kontrolu ile dogrulandi",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-03-15"
+}

@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-spn1761-verified",
+  "domain": "HEAVY_DUTY",
+  "make": "Cummins",
+  "model": "ISX15",
+  "year": 2022,
+  "symptom": "SPN1761 ariza kodu: FMI 17 (Seviye <%10): Sarı ikaz lambası.",
+  "dtcs": [
+    {
+      "code": "SPN 1761",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "EngineSpeed",
+      "expected_behavior": "Nominal calisma araliginda",
+      "observed_behavior": "AdBlue Şamandıra Skalası: %0 - %100 (0.4%/bit) | Refraktometre Üre Yoğunluğu: %3"
+    }
+  ],
+  "actual_fault": "FMI 17 (Seviye <%10): Sarı ikaz lambası.",
+  "repair": "AdBlue deposuna ISO 22241 standardında temiz DEF sıvısı ekleyin.",
+  "verification": "Saha onarimi ve ariza hafiza kontrolu ile dogrulandi",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-03-15"
+}

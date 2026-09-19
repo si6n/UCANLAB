@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "dtc": "P0500",
+  "system": "Araç Hızı, Rölanti Kontrolü & Yardımcı Girişler",
+  "symptoms": [
+    "Hız göstergesinin (kilometre saati) çalışmaması",
+    "Otomatik viteste sert veya hatalı vites geçişleri",
+    "Hız sabitleyici (Cruise) devre dışı"
+  ],
+  "questions": [
+    {
+      "id": "Q_P0500_1",
+      "kind": "yes_no",
+      "text": "Şu olası nedeni kontrol ettiniz mi: Şanzıman çıkış milindeki araç hız sensörü (VSS) mekanik dişli sıyırması veya elektriksel arıza?",
+      "why": "P0500 için en sık bildirilen kök neden"
+    },
+    {
+      "id": "Q_P0500_2",
+      "kind": "yes_no",
+      "text": "Sensör/aktüatör kablo tesisatında kopuk veya kısa devre var mı (ABS kontrol modülünden gelen tekerlek hız CAN mesajının kesilmesi)?",
+      "why": "Elektriksel tesisat kontrolü"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "VSS Sensör Soketi",
+      "test_type": "Orta (Alet Gerekir)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    },
+    {
+      "step": 2,
+      "target": "Hız Sensörü Sinyal Pini",
+      "test_type": "İleri (Servis)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    },
+    {
+      "step": 3,
+      "target": "ABS/ESP Modülü",
+      "test_type": "Orta (Alet Gerekir)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 12.0
+  },
+  "pass_next": "Canlı veride sinyal nominal ise arıza hafızasını temizleyip yol testi yapın.",
+  "fail_next": "Arızalı bileşeni veya tesisatı onarın/değiştirin.",
+  "safety_notes": [
+    "Kontak kapalıyken çalışma yapın.",
+    "Sıcak motor parçalarına ve dönen kayışlara dikkat edin."
+  ]
+}

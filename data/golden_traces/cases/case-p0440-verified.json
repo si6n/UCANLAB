@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-p0440-verified",
+  "domain": "PASSENGER",
+  "make": "Chevrolet",
+  "model": "Cruze",
+  "year": 2021,
+  "symptom": "P0440 arıza kodu: Yakıt deposu havalandırma kanister tahliye valfi açık kalması",
+  "dtcs": [
+    {
+      "code": "P0440",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "EVAPPressure",
+      "expected_behavior": "Nominal fabrika çalışma aralığında",
+      "observed_behavior": "Depo vakum tutmuyor"
+    }
+  ],
+  "actual_fault": "Yakıt deposu havalandırma kanister tahliye valfi açık kalması",
+  "repair": "EVAP purge solenoid valfi değiştirildi",
+  "verification": "Yol testi ve arıza hafızası kontrolü ile doğrulandı",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-04-10"
+}

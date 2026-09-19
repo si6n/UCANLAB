@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-p0300-verified",
+  "domain": "PASSENGER",
+  "make": "Volkswagen",
+  "model": "Passat",
+  "year": 2022,
+  "symptom": "P0300 ariza kodu: Buji elektrot aşınması veya tırnak aralığının fabrika toleransından sapması.",
+  "dtcs": [
+    {
+      "code": "P0300",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "EngineSpeed",
+      "expected_behavior": "Nominal calisma araliginda",
+      "observed_behavior": "Primer Bobin Direnci: 0.5 - 1.5 Ω | Sekonder: 5.0 - 15.0 kΩ | Kompresyon: >11.0 "
+    }
+  ],
+  "actual_fault": "Buji elektrot aşınması veya tırnak aralığının fabrika toleransından sapması.",
+  "repair": "Osilatör ekranında silindir ateşleme dalga boyunu ve krank sinyalini kontrol ediniz.",
+  "verification": "Saha onarimi ve ariza hafiza kontrolu ile dogrulandi",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-03-15"
+}

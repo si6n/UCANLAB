@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-can-volt-fault-verified",
+  "domain": "PASSENGER",
+  "make": "Volkswagen",
+  "model": "Passat",
+  "year": 2022,
+  "symptom": "CAN_VOLT_FAULT ariza kodu: CAN_H voltajı 3.5V yerine 12V/24V akü voltajına oturmuş (Artıya kısa devre).",
+  "dtcs": [
+    {
+      "code": "CAN_VOLT_FAULT",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "EngineSpeed",
+      "expected_behavior": "Nominal calisma araliginda",
+      "observed_behavior": "Resesif: 2.50V ±0.15V | Dominant CAN_H: 3.50V ±0.25V | Dominant CAN_L: 1.50V ±0."
+    }
+  ],
+  "actual_fault": "CAN_H voltajı 3.5V yerine 12V/24V akü voltajına oturmuş (Artıya kısa devre).",
+  "repair": "Kontak AÇIK durumdayken Pin 6 (CAN_H) ve Pin 14 (CAN_L) voltajlarını şasiye göre ayrı ayrı ölçün.",
+  "verification": "Saha onarimi ve ariza hafiza kontrolu ile dogrulandi",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-03-15"
+}

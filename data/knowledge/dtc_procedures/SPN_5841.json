@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 5841",
+  "system": "SCR / AdBlue Sıvı Yönetimi",
+  "symptoms": [
+    "DEF/AdBlue Quality Low ikazı",
+    "J1939 DM1 aktif arıza kaydı"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_5841_1",
+      "kind": "yes_no",
+      "text": "DEF/AdBlue Quality Low (FMI 14): Motor üreticisinin (Cummins/CAT/Volvo) yetkili servis kılavuzuna başvurun.",
+      "why": "SPN 5841 arıza prosedür adımı"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Diesel Exhaust Fluid Quality Malfunction Sinyal Hattı",
+      "test_type": "J1939 / Multimetre"
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "DM11 ile arıza hafızasını temizleyip yol testi yapın.",
+  "fail_next": "Sensör veya tesisatı değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemi ile uyumlu çalışın."
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 747",
+  "system": "Otomatik / AMT Şanzıman Kontrolü",
+  "symptoms": [
+    "Motor/Şanzıman Match ikazı",
+    "J1939 DM1 aktif arıza kaydı"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_747_1",
+      "kind": "yes_no",
+      "text": "Motor/Şanzıman Match (FMI 19): Veri yolunda 120Ω hat sonlandırma direncini ve CAN-H/CAN-L sinyal gürültüsünü test edin.",
+      "why": "SPN 747 arıza prosedür adımı"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Engine/Transmission Match Sinyal Hattı",
+      "test_type": "J1939 / Multimetre"
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "DM11 ile arıza hafızasını temizleyip yol testi yapın.",
+  "fail_next": "Sensör veya tesisatı değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemi ile uyumlu çalışın."
+  ]
+}

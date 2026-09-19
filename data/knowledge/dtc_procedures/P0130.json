@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "dtc": "P0130",
+  "system": "Yakıt & Hava Ölçümü (MAF, MAP, O2, ECT Sensörleri)",
+  "symptoms": [
+    "MIL illumination",
+    "Engine runs rough, missing or stumbling",
+    "Blows black smoke from tail pipe",
+    "Engine dies",
+    "Poor fuel economy",
+    "The oxygen sensor is typically located upstream of the catalytic converter.",
+    "Bank 2 refers to the side of the engine that does not contain cylinder #1 in V-type engines."
+  ],
+  "questions": [
+    {
+      "id": "Q_P0130_1",
+      "kind": "yes_no",
+      "text": "Şu olası nedeni kontrol ettiniz mi: Water or corrosion in the connector?",
+      "why": "P0130 için en sık bildirilen kök neden"
+    },
+    {
+      "id": "Q_P0130_2",
+      "kind": "yes_no",
+      "text": "Sensör/aktüatör kablo tesisatında kopuk veya kısa devre var mı (Loose terminals in the connector)?",
+      "why": "Elektriksel tesisat kontrolü"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Kablo Tesisatı",
+      "test_type": "Kolay (Görsel)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    },
+    {
+      "step": 2,
+      "target": "Sensör / Aktüatör",
+      "test_type": "Orta (Alet Gerekir)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    },
+    {
+      "step": 3,
+      "target": "Sinyal Hattı",
+      "test_type": "İleri (Servis)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 12.0
+  },
+  "pass_next": "Canlı veride sinyal nominal ise arıza hafızasını temizleyip yol testi yapın.",
+  "fail_next": "Arızalı bileşeni veya tesisatı onarın/değiştirin.",
+  "safety_notes": [
+    "Kontak kapalıyken çalışma yapın.",
+    "Sıcak motor parçalarına ve dönen kayışlara dikkat edin."
+  ]
+}

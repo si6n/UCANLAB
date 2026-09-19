@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "dtc": "U0100",
+  "system": "CAN Veri Yolu & Ağ İletişimi (Network)",
+  "symptoms": [
+    "Araç marş basar fakat çalışmaz (No Start)",
+    "Göstergede tüm arıza ışıklarının yanması",
+    "Teşhis cihazı ECM'ye bağlanamaz"
+  ],
+  "questions": [
+    {
+      "id": "Q_U0100_1",
+      "kind": "yes_no",
+      "text": "Şu olası nedeni kontrol ettiniz mi: ECM ana besleme (KL30 / KL15) rölesinin veya sigortasının atması/yanması?",
+      "why": "U0100 için en sık bildirilen kök neden"
+    },
+    {
+      "id": "Q_U0100_2",
+      "kind": "yes_no",
+      "text": "Sensör/aktüatör kablo tesisatında kopuk veya kısa devre var mı (CAN-Bus (CAN-H veya CAN-L) kablolarında kopukluk, şasiye veya +12V hatta kısa devre)?",
+      "why": "Elektriksel tesisat kontrolü"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "ECM Sigorta & Röle Kutusu",
+      "test_type": "Kolay (Görsel)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    },
+    {
+      "step": 2,
+      "target": "OBD-II Teşhis Portu",
+      "test_type": "Orta (Alet Gerekir)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    },
+    {
+      "step": 3,
+      "target": "ECM Ana Soketi",
+      "test_type": "İleri (Servis)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 12.0
+  },
+  "pass_next": "Canlı veride sinyal nominal ise arıza hafızasını temizleyip yol testi yapın.",
+  "fail_next": "Arızalı bileşeni veya tesisatı onarın/değiştirin.",
+  "safety_notes": [
+    "Kontak kapalıyken çalışma yapın.",
+    "Sıcak motor parçalarına ve dönen kayışlara dikkat edin."
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 3720",
+  "system": "Egzoz & DPF Kurum Yönetimi",
+  "symptoms": [
+    "DPF Has Reached the End of Its Service Life arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_3720_FMI_0",
+      "kind": "yes_no",
+      "text": "DPF Has Reached the End of Its Service Life (FMI 0): Sensör besleme hattını ve fiziksel aşırı basınç/sıcaklık durumunu mekanik test portundan doğrulayın.",
+      "why": "Diesel Particulate Filter Has Reached the End of Its Service Life - Aftertreatment DPF Ash Load Perc"
+    },
+    {
+      "id": "Q_SPN_3720_FMI_14",
+      "kind": "yes_no",
+      "text": "DPF Has Reached the End of Its Service Life (FMI 14): Motor üreticisinin (Cummins/CAT/Volvo) yetkili servis kılavuzuna başvurun.",
+      "why": "Diesel Particulate Filter Has Reached the End of Its Service Life - ACM Reported Ash Mileage is Lowe"
+    },
+    {
+      "id": "Q_SPN_3720_FMI_15",
+      "kind": "yes_no",
+      "text": "DPF Has Reached the End of Its Service Life (FMI 15): Filtre ve soğutma temizliği yapın; sistem henüz arıza lambası yakmamış olabilir.",
+      "why": "Diesel Particulate Filter Has Reached the End of Its Service Life - Particulate Trap No. 1 Ash Load "
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Aftertreatment 1 Diesel Particulate Filter Ash Load Percent Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

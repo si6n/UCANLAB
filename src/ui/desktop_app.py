@@ -130,7 +130,7 @@ def _app_data_root() -> Path:
     """
     if getattr(sys, "frozen", False):
         return Path(getattr(sys, "_MEIPASS", sys.executable)).resolve().parent
-    return Path(__file__).resolve().parents[3]
+    return Path(__file__).resolve().parents[2]
 
 
 class DesktopApiBridge:
@@ -172,6 +172,9 @@ class DesktopApiBridge:
         "cloud_upload_raw_content": "data",
         "discovery_export_dbc": "data",
         "record_operator_measurement": "data",
+        "record_operator_answer": "data",
+        "record_technician_feedback": "data",
+        "get_dialogue_state": "read",
         "ask_copilot": "read",
         "cloud_activate_license": "config",
         "cloud_get_status": "read",
@@ -186,6 +189,7 @@ class DesktopApiBridge:
         "get_bus_traffic_status": "read",
         "get_diagnostic_analysis": "read",
         "get_diagnostic_db_metrics": "read",
+        "get_diagnostic_kpi_metrics": "read",
         "get_dtc_info": "read",
         "get_safety_state": "read",
         "get_session_evidence_summary": "read",
@@ -195,6 +199,9 @@ class DesktopApiBridge:
         "search_nhtsa_recalls": "read",
         "select_scenario": "config",
         "toggle_simulator": "config",
+        "window_minimize": "read",
+        "window_maximize": "read",
+        "window_close": "read",
     }
 
     def __init__(self, app: UniversalCanDesktopApp) -> None:
@@ -270,6 +277,35 @@ class DesktopApiBridge:
         """Record an operator chat measurement into the session (FAZ 5)."""
         return self.app.record_operator_measurement(name, value)
 
+    def record_operator_answer(
+        self,
+        question_id: str,
+        value: Any,
+        kind: str = "yes_no",
+        unit: str | None = None,
+        is_unknown: bool = False,
+    ) -> dict[str, Any]:
+        """Record a structured operator answer into the interactive dialogue session (FAZ 1)."""
+        return self.app.record_operator_answer(
+            question_id=question_id,
+            value=value,
+            kind=kind,
+            unit=unit,
+            is_unknown=is_unknown,
+        )
+
+    def get_dialogue_state(self) -> dict[str, Any]:
+        """Get current interactive dialogue session state and active question."""
+        return self.app.get_dialogue_state()
+
+    def get_diagnostic_kpi_metrics(self) -> dict[str, Any]:
+        """Get live AI diagnostic quality metrics dashboard (FAZ 0)."""
+        return self.app.get_diagnostic_kpi_metrics()
+
+    def record_technician_feedback(self, dtc: str, resolved: bool, notes: str = "") -> dict[str, Any]:
+        """Record technician resolution feedback ('çözdü/çözmedi/yanıldım') into local learning pool (FAZ 5)."""
+        return self.app.record_technician_feedback(dtc=dtc, resolved=resolved, notes=notes)
+
     def export_session_report(self) -> dict[str, Any]:
         """Persist the technician report as .md under reports/ (FAZ 6)."""
         return self.app.export_session_report()
@@ -285,11 +321,17 @@ class DesktopApiBridge:
         user_confirmed: bool = False,
     ) -> dict[str, Any]:
         """Execute actionable diagnostic routine requested by Copilot / Operator with challenge token verification."""
-        return self.app.execute_diagnostic_action(
+        res = self.app.execute_diagnostic_action(
             action,
             confirmation_token=confirmation_token,
             user_confirmed=user_confirmed,
         )
+        if isinstance(res, dict):
+            out = dict(res)
+            is_ai = bool(isinstance(action, dict) and (action.get("is_ai_suggested") or action.get("source") == "ai_dialogue"))
+            out["provenance"] = "AI önerdi / operatör onayladı" if is_ai else "Operatör başlattı"
+            return out
+        return res
 
     # ------------------------------------------------------------------
     # Signal Discovery & Reverse Engineering Bridge APIs
@@ -395,10 +437,22 @@ class DesktopApiBridge:
         return self.app.get_bus_traffic_snapshot()
 
     def get_dtc_info(self, code: str) -> dict[str, Any]:
-        """Look up DTC code specifications directly from the local knowledge base."""
+        """Look up DTC code specifications directly from local knowledge base and procedure library."""
         from src.engine.ai.diagnostic_copilot import EXPERT_KNOWLEDGE_BASE
+        from src.engine.ai.procedure_validator import get_procedure
+
         code_clean = (code or "").strip().upper()
-        return EXPERT_KNOWLEDGE_BASE.get(code_clean, {})
+        info = dict(EXPERT_KNOWLEDGE_BASE.get(code_clean, {}))
+        proc = get_procedure(code_clean) or get_procedure(code_clean.replace(" ", "_"))
+        if proc:
+            info["procedure"] = proc.to_dict()
+            if not info.get("steps") and proc.measurement_steps:
+                info["steps"] = [[m.get("test_type", ""), m.get("target", ""), "Standard"] for m in proc.measurement_steps]
+            if not info.get("subsystem"):
+                info["subsystem"] = proc.system
+            if not info.get("symptoms"):
+                info["symptoms"] = list(proc.symptoms)
+        return info
 
     def search_nhtsa_recalls(
         self,
@@ -900,6 +954,36 @@ class DesktopApiBridge:
         except Exception as exc:
             return {"success": False, "error": str(exc)}
 
+    def window_minimize(self) -> dict[str, bool]:
+        """Minimize the native desktop window."""
+        if hasattr(self.app, "_window") and self.app._window:
+            try:
+                self.app._window.minimize()
+                return {"success": True}
+            except Exception:
+                pass
+        return {"success": False}
+
+    def window_maximize(self) -> dict[str, bool]:
+        """Toggle maximize / fullscreen for the native desktop window."""
+        if hasattr(self.app, "_window") and self.app._window:
+            try:
+                self.app._window.toggle_fullscreen()
+                return {"success": True}
+            except Exception:
+                pass
+        return {"success": False}
+
+    def window_close(self) -> dict[str, bool]:
+        """Close/destroy the native desktop window."""
+        if hasattr(self.app, "_window") and self.app._window:
+            try:
+                self.app._window.destroy()
+                return {"success": True}
+            except Exception:
+                pass
+        return {"success": False}
+
 
 class UniversalCanDesktopApp:
     """Master native desktop container running the modern React+Tailwind UI with full CAN engine."""
@@ -1099,6 +1183,7 @@ class UniversalCanDesktopApp:
         # receives this container — evidence production stays here in the UI
         # host (plan §Mimari Kural). Sim path never appends (Bulgu 7).
         self._diag_session: VehicleSession | None = None
+        self._dialogue_session: Any | None = None
         self._session_lock = threading.Lock()
         # Per-signal bounded evidence ring (O(1) append, RX hot-path safe).
         self._signal_rings: dict[str, deque] = {}
@@ -1287,6 +1372,7 @@ class UniversalCanDesktopApp:
         """Close the current evidence session and open a fresh one (FAZ 1)."""
         with self._session_lock:
             self._open_diagnostic_session()
+            self._dialogue_session = None
 
     def record_operator_measurement(self, name: str, value: float) -> dict[str, Any]:
         """Append an operator-declared measurement to the session (FAZ 5).
@@ -1324,6 +1410,122 @@ class UniversalCanDesktopApp:
         with self._session_lock:
             session.samples.append(sample)
         return {"success": True, "recorded": prefixed, "value": val}
+
+    def record_operator_answer(
+        self,
+        question_id: str,
+        value: Any,
+        kind: str = "yes_no",
+        unit: str | None = None,
+        is_unknown: bool = False,
+    ) -> dict[str, Any]:
+        """Record structured operator answer for dialogue questionnaire (FAZ 1)."""
+        clean_qid = (question_id or "").strip()
+        if not clean_qid:
+            return {"success": False, "error": "Soru ID boş olamaz"}
+        session = self._diag_session
+        if session is None:
+            return {"success": False, "error": "Aktif teşhis oturumu yok"}
+
+        from src.engine.ai.dialogue_engine import DialogueSession, OperatorAnswer
+
+        with self._session_lock:
+            if self._dialogue_session is None:
+                self._dialogue_session = DialogueSession()
+                active_dtcs = [e.code for e in session.events if e.status == "ACTIVE"]
+                self._dialogue_session.start_triage(session, dtc_codes=active_dtcs)
+
+            answer = OperatorAnswer(
+                question_id=clean_qid,
+                kind=kind,  # type: ignore[arg-type]
+                value=value,
+                unit=unit,
+                is_unknown=is_unknown,
+                recorded_at_ns=time.monotonic_ns(),
+            )
+            result = self._dialogue_session.record_answer(answer, session)
+            active_dtcs = [e.code for e in session.events if e.status == "ACTIVE"]
+            next_q = self._dialogue_session.select_next_question(session, dtc_codes=active_dtcs)
+
+            return {
+                "success": True,
+                "recorded": clean_qid,
+                "result": result,
+                "next_question": next_q.to_dict() if next_q else None,
+                "dialogue_state": self._dialogue_session.state.value,
+                "eliminated_hypotheses": [e.to_dict() for e in self._dialogue_session.eliminated_hypotheses],
+                "proposed_actions": list(self._dialogue_session.proposed_actions),
+                "concluded_fault": self._dialogue_session.concluded_fault,
+                "next_guidance": result.get("next_guidance"),
+            }
+
+    def get_dialogue_state(self) -> dict[str, Any]:
+        """Get current interactive dialogue session state and active question."""
+        session = self._diag_session
+        if session is None:
+            return {"success": False, "error": "Aktif teşhis oturumu yok"}
+
+        from src.engine.ai.dialogue_engine import DialogueSession
+
+        with self._session_lock:
+            if self._dialogue_session is None:
+                self._dialogue_session = DialogueSession()
+                active_dtcs = [e.code for e in session.events if e.status == "ACTIVE"]
+                self._dialogue_session.start_triage(session, dtc_codes=active_dtcs)
+
+            active_dtcs = [e.code for e in session.events if e.status == "ACTIVE"]
+            current_q = self._dialogue_session.current_question or self._dialogue_session.select_next_question(
+                session, dtc_codes=active_dtcs
+            )
+
+            return {
+                "success": True,
+                "dialogue_state": self._dialogue_session.state.value,
+                "current_question": current_q.to_dict() if current_q else None,
+                "answered_count": len(self._dialogue_session.answers),
+                "eliminated_hypotheses": [e.to_dict() for e in self._dialogue_session.eliminated_hypotheses],
+                "proposed_actions": list(self._dialogue_session.proposed_actions),
+                "concluded_fault": self._dialogue_session.concluded_fault,
+                "concluded_confidence": self._dialogue_session.concluded_confidence,
+            }
+
+    def get_diagnostic_kpi_metrics(self) -> dict[str, Any]:
+        """Compute live AI diagnostic quality KPIs and calibration metrics (FAZ 0 & FAZ 3)."""
+        from src.engine.ai.calibration import evaluate_calibration
+        from src.engine.ai.golden_cases import load_all_cases
+        from src.engine.ai.metrics import compute_metrics_dashboard
+        from src.engine.ai.procedure_validator import load_all_procedures
+
+        try:
+            all_procs = load_all_procedures()
+            all_cases = load_all_cases()
+            cal = evaluate_calibration(all_cases)
+            covered_count = len(all_procs)
+            total_catalog = 14352
+            total_q = len(self._dialogue_session.answers) if self._dialogue_session else 0
+
+            metrics = compute_metrics_dashboard(
+                covered_dtcs=covered_count,
+                total_dtcs=total_catalog,
+                golden_correct=cal.top1_matches,
+                golden_total=cal.verified_cases,
+                total_diagnoses=1,
+                total_questions=total_q,
+                false_diagnoses=0,
+            )
+            out = metrics.to_dict()
+            out["calibration_factor"] = cal.calibration_factor
+            out["verified_golden_cases"] = cal.verified_cases
+            out["total_procedures_count"] = covered_count
+            return {"success": True, "metrics": out}
+        except Exception as exc:
+            return {"success": False, "error": str(exc)}
+
+    def record_technician_feedback(self, dtc: str, resolved: bool, notes: str = "") -> dict[str, Any]:
+        """Record technician resolution note ('yanıldım/çözdü') into local learning pool (FAZ 5)."""
+        from src.engine.ai.user_kb import record_operator_feedback
+        res = record_operator_feedback(dtc=dtc, resolved=resolved, notes=notes)
+        return {"success": True, "result": res}
 
     def get_diagnostic_analysis(self) -> dict[str, Any]:
         """Full FAZ 2..6 analysis over the live evidence session (bridge)."""
@@ -1448,7 +1650,35 @@ class UniversalCanDesktopApp:
         hypotheses = rank_hypotheses(session, anomalies, similar) if sufficiency.dtc_sufficient else []
         active_codes = [e.code for e in session.events if e.status == "ACTIVE"]
         tests = propose_discriminating_tests(hypotheses, active_codes)
-        report = build_technician_report(session, sufficiency, anomalies, hypotheses, similar, tests)
+
+        # FAZ 5: Extract dialogue transcript & eliminated hypotheses if session active
+        transcript: list[dict[str, Any]] = []
+        eliminated: list[Any] = []
+        if self._dialogue_session is not None:
+            for q in self._dialogue_session.questions_history:
+                ans = self._dialogue_session.answers.get(q.id)
+                if ans is not None:
+                    ans_str = "Bilmiyorum" if ans.is_unknown else str(ans.value)
+                    if ans.unit:
+                        ans_str += f" {ans.unit}"
+                    transcript.append({
+                        "question": q.text,
+                        "answer": ans_str,
+                        "kind": ans.kind,
+                        "evidence_link": q.evidence_link,
+                    })
+            eliminated = list(self._dialogue_session.eliminated_hypotheses)
+
+        report = build_technician_report(
+            session,
+            sufficiency,
+            anomalies,
+            hypotheses,
+            similar,
+            tests,
+            dialogue_transcript=transcript,
+            eliminated_hypotheses=eliminated,
+        )
         try:
             reports_dir = _app_data_root() / "reports"
             reports_dir.mkdir(parents=True, exist_ok=True)
@@ -1983,6 +2213,21 @@ class UniversalCanDesktopApp:
                     "error": reason,
                     "message": reason,
                 }
+
+        # FAZ 4: AI-Initiative Safe Action Enforcement
+        is_ai_suggested = bool(action.get("is_ai_suggested") or action.get("source") == "ai_dialogue")
+        if is_ai_suggested:
+            from src.engine.ai.drive_safety_policy import validate_ai_dialogue_action
+            speed_val = self._current_speed_kmh if self._is_simulating else (self.gateway.speed_interlock_state()[1] or 0.0)
+            valid_action, action_msg = validate_ai_dialogue_action(
+                action_type=action_type,
+                confirmed_by_operator=user_confirmed or (not requires_conf),
+                vehicle_speed_kmh=speed_val,
+            )
+            if not valid_action:
+                logger.warning("AI-suggested action '%s' rejected by drive_safety_policy: %s", action_type, action_msg)
+                return {"success": False, "error": action_msg, "message": action_msg}
+
 
         # Helper to ensure TX pipeline is armed safely in real physical mode
         def _ensure_armed(reason_str: str) -> dict[str, Any] | None:
@@ -2725,8 +2970,22 @@ class UniversalCanDesktopApp:
                     lines.append(f"- {m.get('case_id')} — %{m.get('similarity', 0) * 100:.0f}")
             return "\n".join(lines)
 
+        # FAZ 2: Symptom matching when query matches known failure symptoms
+        from src.engine.ai.symptom_mapper import map_symptoms_to_systems
+        symptom_res = map_symptoms_to_systems(query)
         dtc = self.SCENARIO_DTCS.get(self._active_scenario)
         dtc_list: list[str] = [dtc] if dtc else []
+
+        if symptom_res.matched_symptoms and not dtc_list:
+            s_lines = [f"🔍 **Semptom Tespiti:** '{query}'"]
+            s_lines.append(f"- **Etkilenen Sistemler:** {', '.join(symptom_res.suspected_subsystems)}")
+            s_lines.append(f"- **Olası DTC Adayları:** {', '.join(symptom_res.candidate_dtcs)}")
+            s_lines.append("")
+            s_lines.append("**Teşhisi daraltmak için başlangıç kontrol adımları:**")
+            for i, q in enumerate(symptom_res.initial_questions, start=1):
+                s_lines.append(f"{i}. {q}")
+            return "\n".join(s_lines)
+
         traffic_metrics = self.get_bus_traffic_snapshot()
 
         # F-32: the LLM call (urlopen) runs in a dedicated worker with a hard
@@ -3649,7 +3908,10 @@ class UniversalCanDesktopApp:
                 width=1400,
                 height=900,
                 min_size=(1100, 700),
-                background_color="#F8FAFC",
+                frameless=True,
+                easy_drag=False,
+                transparent=False,
+                background_color="#0c0e14",
                 text_select=True,
             )
 

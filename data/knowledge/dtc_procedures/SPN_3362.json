@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 3362",
+  "system": "SCR / AdBlue Sıvı Yönetimi",
+  "symptoms": [
+    "Egzoz Ard İşlem DEF/AdBlue Dozaj Ünitesi 1 Giriş Hatları ikazı",
+    "J1939 DM1 aktif arıza kaydı"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_3362_1",
+      "kind": "yes_no",
+      "text": "Egzoz Ard İşlem DEF/AdBlue Dozaj Ünitesi 1 Giriş Hatları (FMI 7): Aktüatör itici kollarını, kurum birikmesini ve hava/yağ tahrik hatlarını mekanik olarak inceleyin.",
+      "why": "SPN 3362 arıza prosedür adımı"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Aftertreatment 1 Diesel Exhaust Fluid Dosing Unit 1 Input Lines Sinyal Hattı",
+      "test_type": "J1939 / Multimetre"
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "DM11 ile arıza hafızasını temizleyip yol testi yapın.",
+  "fail_next": "Sensör veya tesisatı değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemi ile uyumlu çalışın."
+  ]
+}

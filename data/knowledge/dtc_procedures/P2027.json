@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "dtc": "P2027",
+  "system": "Yakıt, Emisyon & SCR / AdBlue Dozaj Sistemi",
+  "symptoms": [
+    "Failed state/provincial emission test",
+    "CEL (check engine light) on",
+    "Slight decrease in fuel efficiency",
+    "Fuel smell",
+    "Possible abnormal fuel filling symptoms (lengthy fill ups, cannot pull trigger on gas pump fully, etc.)"
+  ],
+  "questions": [
+    {
+      "id": "Q_P2027_1",
+      "kind": "yes_no",
+      "text": "Defective EVAP (Evaporative emissions) fuel vapor temperature sensor durumunu kontrol ettiniz mi?",
+      "why": "P2027 arızasında olası kök neden"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Kablo Tesisatı",
+      "test_type": "Kolay (Görsel)",
+      "safety_note": "Kontak kapalıyken ölçüm yapın."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 12.0
+  },
+  "pass_next": "Canlı veride sinyal nominal ise arıza hafızasını silin.",
+  "fail_next": "İlgili bileşeni veya kablo demetini onarın/değiştirin.",
+  "safety_notes": [
+    "Kontak kapalı konumda çalışın."
+  ]
+}

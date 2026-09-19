@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "dtc": "P0442",
+  "system": "Yardımcı Emisyon Kontrolleri (EVAP Yakıt Buhar Deposu)",
+  "symptoms": [
+    "Araç çevresinde hafif benzin kokusu",
+    "Motor arıza lambası"
+  ],
+  "questions": [
+    {
+      "id": "Q_P0442_1",
+      "kind": "yes_no",
+      "text": "Şu olası nedeni kontrol ettiniz mi: Yakıt depo kapağının gevşek takılması, contanın çatlaması veya uyumsuz kapak?",
+      "why": "P0442 için en sık bildirilen kök neden"
+    },
+    {
+      "id": "Q_P0442_2",
+      "kind": "yes_no",
+      "text": "Sensör/aktüatör kablo tesisatında kopuk veya kısa devre var mı (EVAP kanister gövdesinde veya havalandırma hortumlarında kılcal çatlak)?",
+      "why": "Elektriksel tesisat kontrolü"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Depo Kapağı & Contası",
+      "test_type": "Kolay (Görsel)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    },
+    {
+      "step": 2,
+      "target": "EVAP Hatları & Kanister",
+      "test_type": "Orta (Alet Gerekir)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    },
+    {
+      "step": 3,
+      "target": "EVAP Vent Solenoidi",
+      "test_type": "Orta (Alet Gerekir)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 12.0
+  },
+  "pass_next": "Canlı veride sinyal nominal ise arıza hafızasını temizleyip yol testi yapın.",
+  "fail_next": "Arızalı bileşeni veya tesisatı onarın/değiştirin.",
+  "safety_notes": [
+    "Kontak kapalıyken çalışma yapın.",
+    "Sıcak motor parçalarına ve dönen kayışlara dikkat edin."
+  ]
+}

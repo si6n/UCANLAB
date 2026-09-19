@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 4766",
+  "system": "Egzoz & DPF Termal Rejenerasyonu",
+  "symptoms": [
+    "AFT1 DOC Çıkış Gaz Sıcaklığı arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_4766_FMI_0",
+      "kind": "yes_no",
+      "text": "AFT1 DOC Çıkış Gaz Sıcaklığı (FMI 0): Rejenerasyon sırasında DOC çıkışında beklenen ekzotermik artış (girişe göre +100..200 °C) aşırıysa dozaj valfi debisini ve HC sızıntısını kontrol edin; DPF termal hasar riski vardır.",
+      "why": "AFT1 DOC Çıkış Gaz Sıcaklığı - Veri geçerli fakat normal çalışma aralığının üzerinde (Kritik Yüksek)"
+    },
+    {
+      "id": "Q_SPN_4766_FMI_1",
+      "kind": "yes_no",
+      "text": "AFT1 DOC Çıkış Gaz Sıcaklığı (FMI 1): Çıkış sıcaklığı giriş (SPN 4765) ile aynıysa DOC dönüşüm etkinliği kaybolmuş olabilir; katalizör kurum/kirlenme durumunu değerlendirin.",
+      "why": "AFT1 DOC Çıkış Gaz Sıcaklığı - Veri geçerli fakat normal çalışma aralığının altında (Kritik Düşük)"
+    },
+    {
+      "id": "Q_SPN_4766_FMI_3",
+      "kind": "yes_no",
+      "text": "AFT1 DOC Çıkış Gaz Sıcaklığı (FMI 3): Sensör soketini ayırın; sinyal hattı +5V kısa devresini kontrol edin.",
+      "why": "AFT1 DOC Çıkış Gaz Sıcaklığı - Voltaj normalin üzerinde veya yüksek kaynağa kısa devre"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Aftertreatment 1 Diesel Oxidation Catalyst Outlet Gas Temperature Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "temperature_c": 85.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

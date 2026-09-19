@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "dtc": "P0562",
+  "system": "Araç Hızı, Rölanti Kontrolü & Yardımcı Girişler",
+  "symptoms": [
+    "Motor arıza lambası"
+  ],
+  "questions": [
+    {
+      "id": "Q_P0562_1",
+      "kind": "yes_no",
+      "text": "Şu olası nedeni kontrol ettiniz mi: P0562 devresinde sinyal aralık/performans veya referans voltaj hatası?",
+      "why": "P0562 için en sık bildirilen kök neden"
+    },
+    {
+      "id": "Q_P0562_2",
+      "kind": "yes_no",
+      "text": "Sensör/aktüatör kablo tesisatında kopuk veya kısa devre var mı (Kablo demetinde ezilme, korozyon, şasi kaçağı veya soket pini temassızlığı)?",
+      "why": "Elektriksel tesisat kontrolü"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Kablo Tesisatı & Konnektörler",
+      "test_type": "Kolay (Görsel)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    },
+    {
+      "step": 2,
+      "target": "P0562 İlgili Sensör/Aktüatör",
+      "test_type": "Orta (Alet Gerekir)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    },
+    {
+      "step": 3,
+      "target": "Kontrol Ünitesi & Sinyal Hattı",
+      "test_type": "İleri (Servis)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 12.0
+  },
+  "pass_next": "Canlı veride sinyal nominal ise arıza hafızasını temizleyip yol testi yapın.",
+  "fail_next": "Arızalı bileşeni veya tesisatı onarın/değiştirin.",
+  "safety_notes": [
+    "Kontak kapalıyken çalışma yapın.",
+    "Sıcak motor parçalarına ve dönen kayışlara dikkat edin."
+  ]
+}

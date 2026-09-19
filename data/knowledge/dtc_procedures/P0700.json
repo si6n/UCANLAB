@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "dtc": "P0700",
+  "system": "Otomatik Şanzıman & Hidrolik Kontrol Sistemi",
+  "symptoms": [
+    "Şanzımanın koruma moduna (Limp Mode / 3. viteste kilitli kalma) geçmesi",
+    "Vites geçişlerinde vuruntu",
+    "MIL lambası"
+  ],
+  "questions": [
+    {
+      "id": "Q_P0700_1",
+      "kind": "yes_no",
+      "text": "Şu olası nedeni kontrol ettiniz mi: Şanzıman Kontrol Modülünde (TCM) aktif bir mekanik veya hidrolik arıza kodu saklanmış olması?",
+      "why": "P0700 için en sık bildirilen kök neden"
+    },
+    {
+      "id": "Q_P0700_2",
+      "kind": "yes_no",
+      "text": "Sensör/aktüatör kablo tesisatında kopuk veya kısa devre var mı (TCM ile Motor Kontrol Modülü (ECM) arasında CAN-Bus haberleşme gecikmesi)?",
+      "why": "Elektriksel tesisat kontrolü"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "TCM Arıza Belleği",
+      "test_type": "Kolay (Görsel)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    },
+    {
+      "step": 2,
+      "target": "Şanzıman Yağ Seviyesi & Kalitesi",
+      "test_type": "Orta (Alet Gerekir)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    },
+    {
+      "step": 3,
+      "target": "TCM CAN Soketi",
+      "test_type": "Orta (Alet Gerekir)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 12.0
+  },
+  "pass_next": "Canlı veride sinyal nominal ise arıza hafızasını temizleyip yol testi yapın.",
+  "fail_next": "Arızalı bileşeni veya tesisatı onarın/değiştirin.",
+  "safety_notes": [
+    "Kontak kapalıyken çalışma yapın.",
+    "Sıcak motor parçalarına ve dönen kayışlara dikkat edin."
+  ]
+}

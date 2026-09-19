@@ -5,11 +5,15 @@ import {
   AlertOctagon,
   Play,
   Pause,
-  Settings,
   ChevronDown,
   Zap,
-  Gauge,
   Check,
+  PanelLeft,
+  PanelRight,
+  FolderGit2,
+  Minus,
+  Square,
+  X,
 } from 'lucide-react';
 import { ScenarioType, FaultInjectionType } from '../types/can';
 
@@ -21,13 +25,16 @@ interface HeaderProps {
   isSimulating: boolean;
   isEstopActive: boolean;
   activeScenario: ScenarioType;
-  simulationSpeed?: number;
   onToggleSimulator: () => void;
   onSelectScenario: (scenario: ScenarioType) => void;
   onEstop: () => void;
-  onChangeSpeed?: (speed: number) => void;
   onInjectFault?: (type: FaultInjectionType) => void;
-  onOpenSettings: () => void;
+
+  // Header Toggles as requested: Sol Sidebar Toggle + Sağ Sidebar Toggle (Copilot)
+  isLeftSidebarOpen: boolean;
+  onToggleLeftSidebar: () => void;
+  isRightSidebarOpen: boolean;
+  onToggleRightSidebar: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -38,17 +45,17 @@ export const Header: React.FC<HeaderProps> = ({
   isSimulating,
   isEstopActive,
   activeScenario,
-  simulationSpeed = 1.0,
   onToggleSimulator,
   onSelectScenario,
   onEstop,
-  onChangeSpeed,
   onInjectFault,
-  onOpenSettings,
+  isLeftSidebarOpen,
+  onToggleLeftSidebar,
+  isRightSidebarOpen,
+  onToggleRightSidebar,
 }) => {
   const [showScenarioMenu, setShowScenarioMenu] = useState(false);
   const [showFaultMenu, setShowFaultMenu] = useState(false);
-  const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
   const scenarioCategories = [
@@ -89,13 +96,11 @@ export const Header: React.FC<HeaderProps> = ({
     },
   ];
 
-  // Close all menus on click outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
         setShowScenarioMenu(false);
         setShowFaultMenu(false);
-        setShowSpeedMenu(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -105,207 +110,173 @@ export const Header: React.FC<HeaderProps> = ({
   const closeAllMenus = () => {
     setShowScenarioMenu(false);
     setShowFaultMenu(false);
-    setShowSpeedMenu(false);
+  };
+
+  const handleWindowMinimize = () => {
+    // ponytail: desktop window minimize; native bridge hook added when pywebview frameless mode toggled.
+    if ((window as any).pywebview?.api?.minimize_window) {
+      (window as any).pywebview.api.minimize_window();
+    }
+  };
+
+  const handleWindowMaximize = () => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen?.().catch(() => {});
+    } else {
+      document.documentElement.requestFullscreen?.().catch(() => {});
+    }
+  };
+
+  const handleWindowClose = () => {
+    if ((window as any).pywebview?.api?.close_window) {
+      (window as any).pywebview.api.close_window();
+    } else if (window.confirm('Universal CAN-Bus uygulamasından çıkmak istiyor musunuz?')) {
+      window.close();
+    }
   };
 
   return (
+    // ponytail: zeron.sh unified title bar; minimal chrome with left and right sidebar toggles.
     <header
       ref={rootRef}
-      className="glass-surface glass-topbar relative z-40 flex h-[60px] shrink-0 items-center justify-between gap-4 border-b px-5"
+      className="glass-surface glass-topbar relative z-40 flex h-11 shrink-0 items-center justify-between gap-3 border-b border-white/[0.08] px-3 select-none text-zinc-300"
     >
-      {/* Left: Page Title Area */}
-      <div className="flex min-w-0 items-center gap-3">
-        <h2 className="hidden truncate text-[15px] font-semibold tracking-tight text-slate-900 lg:block">
-          UCanLab v1.0
-        </h2>
-        <div className="hidden h-4 w-px bg-slate-200 lg:block" />
-        {/* Live Status Pill */}
-        <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-600">
-          <span className="relative flex h-1.5 w-1.5">
+      {/* ─────────────────────────────────────────────────────────────
+          SOL TARAF: Sadece Sol Sidebar Toggle (Sekmeleri Aç/Kapat)
+         ───────────────────────────────────────────────────────────── */}
+      <div className="flex shrink-0 items-center gap-2">
+        <button
+          onClick={onToggleLeftSidebar}
+          className={`focus-ring inline-flex h-7 w-7 items-center justify-center rounded-lg border transition-all duration-150 active:scale-[0.98] ${
+            isLeftSidebarOpen
+              ? 'border-indigo-500/40 bg-indigo-600/20 text-indigo-300 shadow-sm'
+              : 'border-white/[0.08] bg-white/[0.03] text-zinc-400 hover:border-white/[0.15] hover:bg-white/[0.06] hover:text-zinc-100'
+          }`}
+          title={isLeftSidebarOpen ? 'Sekmeler Kenar Çubuğunu Gizle' : 'Sekmeler Kenar Çubuğunu Aç'}
+        >
+          <PanelLeft className="h-4 w-4" strokeWidth={2} />
+        </button>
+      </div>
+
+      {/* ─────────────────────────────────────────────────────────────
+          ORTA ALAN: Çalışma Alanı, Dizin, Protokol & Oturum Bilgisi
+         ───────────────────────────────────────────────────────────── */}
+      <div className="flex min-w-0 flex-1 items-center justify-center px-2">
+        <div className="flex min-w-0 max-w-sm sm:max-w-md lg:max-w-xl items-center gap-2 rounded-lg border border-white/[0.08] bg-black/30 px-3 py-1 text-xs backdrop-blur-md">
+          <FolderGit2 className="h-3.5 w-3.5 text-indigo-400 shrink-0" strokeWidth={2.2} />
+          <span className="truncate font-semibold text-zinc-200">
+            Universal-CAN / {channel}
+          </span>
+          <span className="text-zinc-500 shrink-0">·</span>
+          <span className="font-mono text-zinc-400 text-[11px] shrink-0">{baudRate}</span>
+          <span className="text-zinc-600 shrink-0 hidden sm:inline">·</span>
+          <span className="truncate font-mono text-[11px] text-zinc-500 hidden sm:inline">
+            @ DESKTOP-CAN-NODE
+          </span>
+          {/* Canlı Durum Noktası */}
+          <span className="relative flex h-2 w-2 shrink-0 ml-1">
             {!isEstopActive && isSimulating && (
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-signal-400 opacity-75"></span>
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
             )}
             <span
-              className={`relative inline-flex h-1.5 w-1.5 rounded-full ${
-                isEstopActive ? 'bg-rose-500' : isSimulating ? 'bg-signal-500' : 'bg-amber-500'
+              className={`relative inline-flex h-2 w-2 rounded-full ${
+                isEstopActive ? 'bg-rose-500' : isSimulating ? 'bg-emerald-500' : 'bg-amber-500'
               }`}
-            ></span>
+            />
           </span>
-          <span className="font-mono font-semibold text-slate-700">{channel}</span>
-          <span className="text-slate-400">·</span>
-          <span>{isEstopActive ? 'Durduruldu' : isSimulating ? `Canlı (${baudRate})` : `Bağlı (${baudRate})`}</span>
         </div>
       </div>
 
-      {/* Right: Status Readouts & Action Group */}
-      <div className="flex shrink-0 items-center gap-2.5">
-        {/* Bus Load Chip */}
-        <div className="chip !gap-1.5">
-          <Activity className="h-3 w-3 text-brand-600" strokeWidth={2.4} />
-          <span className="text-slate-500">Yük</span>
-          <span
-            className={`font-mono-num text-xs font-bold ${
-              busLoad > 70 ? 'text-rose-600' : busLoad > 50 ? 'text-amber-600' : '!text-slate-800'
-            }`}
-          >
-            %{busLoad}
-          </span>
-        </div>
+      {/* ─────────────────────────────────────────────────────────────
+          SAĞ TARAF: CAN Kontrolleri, Sağ Sidebar Toggle (Copilot) & Pencere
+         ───────────────────────────────────────────────────────────── */}
+      <div className="flex shrink-0 items-center gap-2">
+        {/* Kompakt Bus Load & Paket sayaçları */}
+        <div className="hidden xl:flex items-center gap-1.5 text-xs">
+          <div className="flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-black/20 px-2 py-0.5 font-mono text-[11px]">
+            <Activity className="h-3 w-3 text-indigo-400" strokeWidth={2.4} />
+            <span className="text-zinc-500 text-[10px]">Yük</span>
+            <span
+              className={`font-bold ${
+                busLoad > 70 ? 'text-rose-400' : busLoad > 50 ? 'text-amber-400' : 'text-zinc-200'
+              }`}
+            >
+              %{busLoad}
+            </span>
+          </div>
 
-        {/* Total Packets Chip */}
-        <div className="chip !gap-1.5">
-          <Layers className="h-3 w-3 text-brand-600" strokeWidth={2.4} />
-          <span className="text-slate-500">Paket</span>
-          <span className="font-mono-num !text-slate-800 text-xs font-bold">
-            {totalPackets.toLocaleString('tr-TR')}
-          </span>
+          <div className="flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-black/20 px-2 py-0.5 font-mono text-[11px]">
+            <Layers className="h-3 w-3 text-indigo-400" strokeWidth={2.4} />
+            <span className="text-zinc-500 text-[10px]">Paket</span>
+            <span className="font-bold text-zinc-200">
+              {totalPackets.toLocaleString('tr-TR')}
+            </span>
+          </div>
         </div>
-
-        <div className="h-4 w-px bg-slate-200" />
 
         {/* E-STOP Button */}
         <button
           onClick={onEstop}
-          className={`focus-ring inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all duration-150 active:scale-[0.98] ${
+          className={`focus-ring inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold transition-all duration-150 active:scale-[0.98] ${
             isEstopActive
-              ? 'border-rose-300 bg-rose-600 text-white shadow-sm shadow-rose-500/30'
-              : 'border-rose-200 bg-rose-50 text-rose-700 shadow-sm hover:border-rose-300 hover:bg-rose-100'
+              ? 'border-rose-500/60 bg-rose-600 text-white shadow-sm shadow-rose-600/30'
+              : 'border-rose-500/30 bg-rose-950/40 text-rose-300 hover:border-rose-500/60 hover:bg-rose-900/50'
           }`}
-          title="Tüm CAN akışını acil durdur"
+          title="Tüm CAN akışını acil durdur (ASIL-D)"
         >
-          <AlertOctagon className="h-3.5 w-3.5" strokeWidth={2.2} />
+          <AlertOctagon className="h-3.5 w-3.5" strokeWidth={2.4} />
           <span>{isEstopActive ? 'E-STOP (DURDU)' : 'E-STOP'}</span>
         </button>
 
-        {/* Fault Injection Button & Dropdown */}
-        <div className="relative">
+        {/* Simülatör & Senaryo Menüsü (Segmented) */}
+        <div className="relative inline-flex overflow-hidden rounded-lg border border-white/[0.08] bg-black/30 shadow-sm">
+          <button
+            onClick={onToggleSimulator}
+            className={`focus-ring inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold transition-all duration-150 ${
+              isSimulating
+                ? 'bg-zinc-800 text-white hover:bg-zinc-700'
+                : 'bg-indigo-600 text-white hover:bg-indigo-500'
+            }`}
+            title={isSimulating ? 'Simülasyonu Duraklat' : 'Simülatörü Başlat'}
+          >
+            {isSimulating ? (
+              <>
+                <Pause className="h-3 w-3 fill-current text-amber-400" />
+                <span className="hidden lg:inline">Duraklat</span>
+              </>
+            ) : (
+              <>
+                <Play className="h-3 w-3 fill-current" />
+                <span className="hidden lg:inline">Başlat</span>
+              </>
+            )}
+          </button>
           <button
             onClick={() => {
-              setShowFaultMenu(!showFaultMenu);
-              setShowScenarioMenu(false);
-              setShowSpeedMenu(false);
+              setShowScenarioMenu(!showScenarioMenu);
+              setShowFaultMenu(false);
             }}
-            className="focus-ring inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-700 shadow-sm transition-all duration-150 hover:border-amber-300 hover:bg-amber-100 active:scale-[0.98]"
-            title="Manuel Hata Enjeksiyonu"
+            className={`focus-ring inline-flex items-center border-l border-white/[0.08] px-1.5 py-1 transition-colors ${
+              isSimulating
+                ? 'bg-zinc-800/80 text-zinc-300 hover:bg-zinc-700'
+                : 'bg-indigo-700 text-white hover:bg-indigo-600'
+            }`}
+            title="Senaryo Galerisi"
           >
-            <Zap className="h-3.5 w-3.5 text-amber-500" strokeWidth={2.4} />
-            <span>Hata Enjekte Et</span>
-            <ChevronDown className={`h-3 w-3 text-amber-600 transition-transform ${showFaultMenu ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`h-3 w-3 transition-transform ${showScenarioMenu ? 'rotate-180' : ''}`} />
           </button>
 
-          {showFaultMenu && (
-            <div className="animate-scale-in absolute right-0 top-full z-50 mt-2 w-64 rounded-xl border border-slate-200/80 bg-white/90 p-1.5 shadow-card-elevated ring-1 ring-slate-950/5 backdrop-blur-xl">
-              <div className="border-b border-slate-100 px-2.5 py-1.5 text-xs font-bold uppercase tracking-wider text-slate-500">
-                Canlı Hat Hata Enjeksiyonu
-              </div>
-              <button
-                onClick={() => {
-                  if (onInjectFault) onInjectFault('error_frame');
-                  setShowFaultMenu(false);
-                }}
-                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] font-semibold text-rose-700 transition-colors hover:bg-rose-50"
-              >
-                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500" />
-                Fiziksel Hata Karesi Bas (Error Frame)
-              </button>
-              <button
-                onClick={() => {
-                  if (onInjectFault) onInjectFault('dtc_fault');
-                  setShowFaultMenu(false);
-                }}
-                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] font-semibold text-amber-800 transition-colors hover:bg-amber-50"
-              >
-                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
-                Aktif DTC Arıza Kodu Tetikle (DM1)
-              </button>
-              <button
-                onClick={() => {
-                  if (onInjectFault) onInjectFault('sensor_freeze');
-                  setShowFaultMenu(false);
-                }}
-                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] font-semibold text-brand-700 transition-colors hover:bg-brand-50"
-              >
-                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-400" />
-                Sensör Sinyal Donması (Frozen ADC)
-              </button>
-              <button
-                onClick={() => {
-                  if (onInjectFault) onInjectFault('babbling_surge');
-                  setShowFaultMenu(false);
-                }}
-                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] font-semibold text-indigo-700 transition-colors hover:bg-indigo-50"
-              >
-                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500" />
-                Ağ Taşması Patlaması (Babbling Node)
-              </button>
-              <button
-                onClick={() => {
-                  if (onInjectFault) onInjectFault('wiring_dropout');
-                  setShowFaultMenu(false);
-                }}
-                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] font-semibold text-slate-700 transition-colors hover:bg-slate-50"
-              >
-                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-slate-500" />
-                Kesintili Kablo & Bus-Off
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Simulator Start / Pause & Scenario Dropdown (Segmented) */}
-        <div className="relative">
-          <div className="inline-flex overflow-hidden rounded-lg border border-slate-200/80 shadow-sm">
-            <button
-              onClick={onToggleSimulator}
-              className={`focus-ring inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-all duration-150 active:scale-[0.98] ${
-                isSimulating
-                  ? 'bg-slate-800 text-white hover:bg-slate-900'
-                  : 'bg-brand-600 text-white shadow-sm shadow-brand-900/15 hover:bg-brand-500'
-              }`}
-              title={isSimulating ? 'Simülasyonu Duraklat' : 'Simülatörü Başlat'}
-            >
-              {isSimulating ? (
-                <>
-                  <Pause className="h-3.5 w-3.5 fill-current text-amber-400" />
-                  <span>Duraklat</span>
-                </>
-              ) : (
-                <>
-                  <Play className="h-3.5 w-3.5 fill-current" />
-                  <span>Simülatör Başlat</span>
-                </>
-              )}
-            </button>
-            <button
-              onClick={() => {
-                setShowScenarioMenu(!showScenarioMenu);
-                setShowFaultMenu(false);
-                setShowSpeedMenu(false);
-              }}
-              className={`focus-ring inline-flex items-center border-l px-2 py-1.5 transition-colors duration-150 ${
-                isSimulating
-                  ? 'border-slate-700 bg-slate-850 hover:bg-slate-900 text-slate-200'
-                  : 'border-brand-500 bg-brand-700 text-white hover:bg-brand-800'
-              }`}
-              title="Senaryo Galerisi"
-            >
-              <ChevronDown
-                className={`h-3.5 w-3.5 transition-transform duration-150 ${showScenarioMenu ? 'rotate-180' : ''}`}
-              />
-            </button>
-          </div>
-
-          {/* Scenario Dropdown */}
+          {/* Senaryo Açılır Menüsü */}
           {showScenarioMenu && (
-            <div className="animate-scale-in absolute right-0 top-full z-50 mt-2 max-h-[480px] w-[22rem] overflow-y-auto rounded-xl border border-slate-200/80 bg-white/90 p-1.5 shadow-card-elevated ring-1 ring-slate-950/5 backdrop-blur-xl">
-              <div className="flex items-center justify-between border-b border-slate-100 px-2.5 py-1.5">
-                <span className="section-kicker !text-xs">CAN-Bus Senaryo Galerisi</span>
-                <span className="chip !py-0.5 !text-xs !text-slate-500">10 Senaryo</span>
+            <div className="animate-scale-in absolute right-0 top-full z-50 mt-1.5 max-h-[440px] w-80 overflow-y-auto rounded-xl border border-white/[0.12] bg-zinc-950/95 p-1.5 shadow-2xl backdrop-blur-2xl">
+              <div className="flex items-center justify-between border-b border-white/[0.06] px-2.5 py-1.5">
+                <span className="text-xs font-bold text-zinc-100">CAN Senaryo Galerisi</span>
+                <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-mono text-zinc-400">10 Senaryo</span>
               </div>
 
               {scenarioCategories.map((cat, catIdx) => (
                 <div key={catIdx} className="py-1">
-                  <div className="border-y border-slate-100 bg-slate-50/70 px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-slate-500">
+                  <div className="border-y border-white/[0.04] bg-white/[0.02] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
                     {cat.category}
                   </div>
                   {cat.items.map((item) => {
@@ -317,19 +288,19 @@ export const Header: React.FC<HeaderProps> = ({
                           onSelectScenario(item.key);
                           closeAllMenus();
                         }}
-                        className={`flex w-full flex-col rounded-lg px-2.5 py-2 text-left text-xs transition-colors duration-150 ${
+                        className={`flex w-full flex-col rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors ${
                           isSelected
-                            ? 'bg-brand-50 font-semibold text-brand-700'
-                            : 'text-slate-700 hover:bg-slate-50'
+                            ? 'bg-indigo-600/30 text-indigo-300 font-semibold'
+                            : 'text-zinc-300 hover:bg-white/[0.05]'
                         }`}
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <span className={`truncate ${isSelected ? 'font-bold text-brand-800' : 'font-semibold text-slate-800'}`}>
+                          <span className={`truncate ${isSelected ? 'font-bold text-white' : 'text-zinc-200'}`}>
                             {item.title}
                           </span>
-                          {isSelected && <Check className="h-3.5 w-3.5 shrink-0 text-brand-600" />}
+                          {isSelected && <Check className="h-3 w-3 shrink-0 text-indigo-400" />}
                         </div>
-                        <span className="mt-0.5 truncate text-xs font-normal text-slate-500">{item.desc}</span>
+                        <span className="truncate text-[11px] text-zinc-500">{item.desc}</span>
                       </button>
                     );
                   })}
@@ -339,50 +310,94 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
 
-        {/* Speed Multiplier Button */}
-        <div className="relative">
+        {/* Hata Enjeksiyon Menüsü */}
+        <div className="relative hidden md:block">
           <button
             onClick={() => {
-              setShowSpeedMenu(!showSpeedMenu);
+              setShowFaultMenu(!showFaultMenu);
               setShowScenarioMenu(false);
-              setShowFaultMenu(false);
             }}
-            className="focus-ring chip !gap-1.5 !px-2.5 !py-1.5 !text-xs transition-all duration-150 hover:border-slate-300 hover:bg-slate-100 active:scale-[0.98]"
-            title="Simülasyon Hızı"
+            className="focus-ring inline-flex items-center gap-1 rounded-lg border border-amber-500/30 bg-amber-950/30 px-2 py-1 text-xs font-semibold text-amber-300 hover:bg-amber-900/40 transition-colors"
+            title="Manuel Hata Enjeksiyonu"
           >
-            <Gauge className="h-3.5 w-3.5 text-slate-500" strokeWidth={2.2} />
-            <span className="font-mono-num !text-slate-800">{simulationSpeed}x</span>
-            <ChevronDown className={`h-3 w-3 text-slate-500 transition-transform ${showSpeedMenu ? 'rotate-180' : ''}`} />
+            <Zap className="h-3 w-3 text-amber-400" strokeWidth={2.4} />
+            <span className="hidden lg:inline">Hata</span>
+            <ChevronDown className={`h-2.5 w-2.5 text-amber-400 transition-transform ${showFaultMenu ? 'rotate-180' : ''}`} />
           </button>
 
-          {showSpeedMenu && (
-            <div className="animate-scale-in absolute right-0 top-full z-50 mt-2 w-28 rounded-xl border border-slate-200/80 bg-white/90 p-1.5 shadow-card-elevated ring-1 ring-slate-950/5 backdrop-blur-xl">
-              {[0.5, 1.0, 2.0, 5.0].map((s) => (
-                <button
-                  key={s}
-                  onClick={() => {
-                    if (onChangeSpeed) onChangeSpeed(s);
-                    setShowSpeedMenu(false);
-                  }}
-                  className={`font-mono-num w-full rounded-lg px-2.5 py-1.5 text-left text-[13px] font-semibold transition-colors duration-150 ${
-                    simulationSpeed === s ? 'bg-brand-50 text-brand-700' : 'text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  {s}x Hız
-                </button>
-              ))}
+          {showFaultMenu && (
+            <div className="animate-scale-in absolute right-0 top-full z-50 mt-1.5 w-60 rounded-xl border border-white/[0.12] bg-zinc-950/95 p-1.5 shadow-2xl backdrop-blur-2xl">
+              <div className="border-b border-white/[0.06] px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-zinc-500">
+                Canlı Hat Hata Enjeksiyonu
+              </div>
+              <div className="py-1 space-y-0.5">
+                {[
+                  { key: 'error_frame', label: 'Error Frame (Hata Karesi)', color: 'bg-rose-500', text: 'text-rose-400' },
+                  { key: 'dtc_fault', label: 'Aktif DTC Tetikle (DM1)', color: 'bg-amber-500', text: 'text-amber-300' },
+                  { key: 'sensor_freeze', label: 'Sensör Sinyal Donması', color: 'bg-indigo-400', text: 'text-indigo-300' },
+                  { key: 'babbling_surge', label: 'Babbling Node Taşması', color: 'bg-purple-500', text: 'text-purple-300' },
+                  { key: 'wiring_dropout', label: 'Kesintili Kablo & Bus-Off', color: 'bg-zinc-400', text: 'text-zinc-300' },
+                ].map((f) => (
+                  <button
+                    key={f.key}
+                    onClick={() => {
+                      if (onInjectFault) onInjectFault(f.key as FaultInjectionType);
+                      setShowFaultMenu(false);
+                    }}
+                    className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-semibold hover:bg-white/[0.06] transition-colors ${f.text}`}
+                  >
+                    <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${f.color}`} />
+                    <span>{f.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>
 
-        {/* Settings Button */}
+        {/* Dikey Ayrıştırıcı */}
+        <div className="h-4 w-px bg-white/[0.08]" />
+
+        {/* SAĞ SIDEBAR TOGGLE: Çevrimdışı Copilot Aç/Kapat */}
         <button
-          onClick={onOpenSettings}
-          className="focus-ring rounded-xl border border-slate-200 bg-white p-2 text-slate-500 shadow-sm transition-all duration-150 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 active:scale-[0.98]"
-          title="Ayarlar"
+          onClick={onToggleRightSidebar}
+          className={`focus-ring inline-flex h-7 w-7 items-center justify-center rounded-lg border transition-all duration-150 active:scale-[0.98] ${
+            isRightSidebarOpen
+              ? 'border-indigo-500/40 bg-indigo-600/20 text-indigo-300 shadow-sm'
+              : 'border-white/[0.08] bg-white/[0.03] text-zinc-400 hover:border-white/[0.15] hover:bg-white/[0.06] hover:text-zinc-100'
+          }`}
+          title={isRightSidebarOpen ? 'Çevrimdışı Copilot Panelini Gizle' : 'Çevrimdışı Copilot Panelini Aç'}
         >
-          <Settings className="h-4 w-4" strokeWidth={2} />
+          <PanelRight className="h-4 w-4" strokeWidth={2} />
         </button>
+
+        {/* Dikey Ayrıştırıcı */}
+        <div className="h-4 w-px bg-white/[0.08]" />
+
+        {/* Pencere Kontrolleri (Minimize, Maximize, Close) */}
+        <div className="inline-flex items-center gap-0.5">
+          <button
+            onClick={handleWindowMinimize}
+            className="focus-ring h-6 w-6 inline-flex items-center justify-center rounded text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-200 transition-colors"
+            title="Simge Durumuna Küçült"
+          >
+            <Minus className="h-3 w-3" strokeWidth={2.4} />
+          </button>
+          <button
+            onClick={handleWindowMaximize}
+            className="focus-ring h-6 w-6 inline-flex items-center justify-center rounded text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-200 transition-colors"
+            title="Büyüt / Geri Yükle"
+          >
+            <Square className="h-2.5 w-2.5" strokeWidth={2.4} />
+          </button>
+          <button
+            onClick={handleWindowClose}
+            className="focus-ring h-6 w-6 inline-flex items-center justify-center rounded text-zinc-500 hover:bg-rose-600 hover:text-white transition-colors"
+            title="Kapat"
+          >
+            <X className="h-3 w-3" strokeWidth={2.4} />
+          </button>
+        </div>
       </div>
     </header>
   );

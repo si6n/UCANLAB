@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-p0627-verified",
+  "domain": "PASSENGER",
+  "make": "Ford",
+  "model": "Transit",
+  "year": 2021,
+  "symptom": "P0627 arıza kodu: Depo içi yakıt pompası röle kontaklarının ark yapması",
+  "dtcs": [
+    {
+      "code": "P0627",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "FuelPressure",
+      "expected_behavior": "Nominal fabrika çalışma aralığında",
+      "observed_behavior": "Depo pompası devreye girmiyor"
+    }
+  ],
+  "actual_fault": "Depo içi yakıt pompası röle kontaklarının ark yapması",
+  "repair": "Yakıt pompa rölesi yenilendi",
+  "verification": "Yol testi ve arıza hafızası kontrolü ile doğrulandı",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-04-10"
+}

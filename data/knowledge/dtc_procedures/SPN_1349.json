@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 1349",
+  "system": "Yakıt Enjeksiyonu (J1939)",
+  "symptoms": [
+    "Motor Yakıt 1 Enjektör Ölçüm Rayı 2 Basıncı arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_1349_FMI_3",
+      "kind": "yes_no",
+      "text": "Motor Yakıt 1 Enjektör Ölçüm Rayı 2 Basıncı (FMI 3): Sensör soketini ayırın; voltaj şasiye göre düşmüyorsa kablo demeti akü besleme hattına ezilmiştir.",
+      "why": "Injector Metering Rail 2 Pressure Sensor Circuit - Injector Metering Rail 2 Pressure Sensor Circuit "
+    },
+    {
+      "id": "Q_SPN_1349_FMI_4",
+      "kind": "yes_no",
+      "text": "Motor Yakıt 1 Enjektör Ölçüm Rayı 2 Basıncı (FMI 4): Sinyal pini ile şasi arasındaki direnci ölçün (<1.0 Ω ise tesisatta şasi teması vardır).",
+      "why": "Injector Metering Rail 2 Pressure Sensor Circuit - Injector Metering Rail 2 Pressure Sensor Circuit "
+    },
+    {
+      "id": "Q_SPN_1349_FMI_7",
+      "kind": "yes_no",
+      "text": "Motor Yakıt 1 Enjektör Ölçüm Rayı 2 Basıncı (FMI 7): Aktüatör itici kollarını, kurum birikmesini ve hava/yağ tahrik hatlarını mekanik olarak inceleyin.",
+      "why": "Injector Metering Rail 2 Pressure Sensor Circuit - Fuel Injector"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Engine Fuel 1 Injector Metering Rail 2 Pressure Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

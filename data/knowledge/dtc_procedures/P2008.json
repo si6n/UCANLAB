@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "dtc": "P2008",
+  "system": "Yakıt, Emisyon & SCR / AdBlue Dozaj Sistemi",
+  "symptoms": [
+    "The engine may have a rougher than normal idle",
+    "At times the engine may exhibit a tendency to surge",
+    "There may be a slight reduction in low-end torque",
+    "The trouble code P2008 will be displayed"
+  ],
+  "questions": [
+    {
+      "id": "Q_P2008_1",
+      "kind": "yes_no",
+      "text": "Over the years I have found that the intake runner control solenoid is largely the problem. They are almost always situated where they are subjected to heat and dirt that fouls the filter causing them to fail. Secondly, the swirl flaps themselves become covered with soot from the EGR valve, and they lock in their current position durumunu kontrol ettiniz mi?",
+      "why": "P2008 arızasında olası kök neden"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Kablo Tesisatı & Soketler",
+      "test_type": "Kolay (Görsel)",
+      "safety_note": "Kontak kapalıyken ölçüm yapın."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 12.0
+  },
+  "pass_next": "Canlı veride sinyal nominal ise arıza hafızasını silin.",
+  "fail_next": "İlgili bileşeni veya kablo demetini onarın/değiştirin.",
+  "safety_notes": [
+    "Kontak kapalı konumda çalışın."
+  ]
+}

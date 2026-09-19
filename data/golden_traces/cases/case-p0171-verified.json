@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-p0171-verified",
+  "domain": "PASSENGER",
+  "make": "BMW",
+  "model": "320i",
+  "year": 2021,
+  "symptom": "P0171 arıza kodu: Karter havalandırma (PCV) diyafram yırtılması ve vakum kaçağı",
+  "dtcs": [
+    {
+      "code": "P0171",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "LTFT",
+      "expected_behavior": "Nominal fabrika çalışma aralığında",
+      "observed_behavior": "Uzun vadeli yakıt düzeltmesi (LTFT) +%24.2 fakir"
+    }
+  ],
+  "actual_fault": "Karter havalandırma (PCV) diyafram yırtılması ve vakum kaçağı",
+  "repair": "Külbütör kapağı PCV valf membranı değiştirildi",
+  "verification": "Yol testi ve arıza hafızası kontrolü ile doğrulandı",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-04-10"
+}

@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 4796",
+  "system": "Egzoz & DPF Termal Rejenerasyonu",
+  "symptoms": [
+    "Egzoz Ard İşlem 1 DOC Eksik ikazı",
+    "J1939 DM1 aktif arıza kaydı"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_4796_1",
+      "kind": "yes_no",
+      "text": "Egzoz Ard İşlem 1 DOC Eksik (FMI 31): İlgili anahtar veya sensör kontak pozisyonunu doğrulayın.",
+      "why": "SPN 4796 arıza prosedür adımı"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Aftertreatment 1 Diesel Oxidation Catalyst Missing Sinyal Hattı",
+      "test_type": "J1939 / Multimetre"
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "DM11 ile arıza hafızasını temizleyip yol testi yapın.",
+  "fail_next": "Sensör veya tesisatı değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemi ile uyumlu çalışın."
+  ]
+}

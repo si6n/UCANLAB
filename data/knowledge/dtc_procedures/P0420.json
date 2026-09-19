@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "dtc": "P0420",
+  "system": "Yardımcı Emisyon Kontrolleri (Katalizör Sistemi)",
+  "symptoms": [
+    "Motor arıza lambasının yanması",
+    "Egzoz emisyon testinden geçememe",
+    "İleri tıkanıklıkta çekiş düşüklüğü"
+  ],
+  "questions": [
+    {
+      "id": "Q_P0420_1",
+      "kind": "yes_no",
+      "text": "Şu olası nedeni kontrol ettiniz mi: Katalitik konvertör monolit petek yapısının erimesi, kırılması veya zehirlenmesi (kurşun/silikon/yağ)?",
+      "why": "P0420 için en sık bildirilen kök neden"
+    },
+    {
+      "id": "Q_P0420_2",
+      "kind": "yes_no",
+      "text": "Sensör/aktüatör kablo tesisatında kopuk veya kısa devre var mı (Downstream (Katalizör sonrası / Sensör 2) Oksijen sensörünün yaşlanması)?",
+      "why": "Elektriksel tesisat kontrolü"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Katalitik Konvertör Gövdesi",
+      "test_type": "Kolay (Görsel)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    },
+    {
+      "step": 2,
+      "target": "Katalizör Giriş/Çıkış Borusu",
+      "test_type": "Orta (Alet Gerekir)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    },
+    {
+      "step": 3,
+      "target": "Downstream O2 Sensörü",
+      "test_type": "İleri (Servis)",
+      "safety_note": "Kontak kapalı konumda çalışın."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 12.0
+  },
+  "pass_next": "Canlı veride sinyal nominal ise arıza hafızasını temizleyip yol testi yapın.",
+  "fail_next": "Arızalı bileşeni veya tesisatı onarın/değiştirin.",
+  "safety_notes": [
+    "Kontak kapalıyken çalışma yapın.",
+    "Sıcak motor parçalarına ve dönen kayışlara dikkat edin."
+  ]
+}

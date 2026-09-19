@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-p0ac0-verified",
+  "domain": "PASSENGER",
+  "make": "Toyota",
+  "model": "Prius",
+  "year": 2022,
+  "symptom": "P0AC0 ariza kodu: Modül NTC termistöründe direnç kayması (>%10) veya soket gevşekliği.",
+  "dtcs": [
+    {
+      "code": "P0AC0",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "EngineSpeed",
+      "expected_behavior": "Nominal calisma araliginda",
+      "observed_behavior": "10k NTC Değerleri: 25°C = 10.0 kΩ (2.50V), 0°C = 32.6 kΩ (3.82V), 60°C = 2.48 kΩ"
+    }
+  ],
+  "actual_fault": "Modül NTC termistöründe direnç kayması (>%10) veya soket gevşekliği.",
+  "repair": "Sensör direncini 25°C ortamda multimetre ile ölçün (10 kΩ ±%1 olmalıdır).",
+  "verification": "Saha onarimi ve ariza hafiza kontrolu ile dogrulandi",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-03-15"
+}

@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 173",
+  "system": "Egzoz Gazı Sıcaklık İzleme",
+  "symptoms": [
+    "Egzoz Gazı Sıcaklığı arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_173_FMI_0",
+      "kind": "yes_no",
+      "text": "Egzoz Gazı Sıcaklığı (FMI 0): Turbo şaft ve DPF giriş sıcaklıklarını izleyin; enjektör sızıntısı, EGR kaçağı veya geç yanma kaynaklı aşırı egzoz sıcaklığını doğrulayın. Sıcaklık ~750 °C üstünde turbonun ve DPF'nin termal ömrü hızla tükenir - yükü azaltın.",
+      "why": "Egzoz Gazı Sıcaklığı - Veri geçerli fakat normal çalışma aralığının üzerinde (Kritik Yüksek)"
+    },
+    {
+      "id": "Q_SPN_173_FMI_1",
+      "kind": "yes_no",
+      "text": "Egzoz Gazı Sıcaklığı (FMI 1): Sensörün doğru taplama noktasında olduğunu (manifold vs DOC girişi) teyit edin; termokupl/RTD bağlantı direncini ölçün. DPF rejenerasyonu başlatmak için gereken minimum sıcaklığın altında kalıyorsa rejenerasyon engellenir.",
+      "why": "Egzoz Gazı Sıcaklığı - Veri geçerli fakat normal çalışma aralığının altında (Kritik Düşük)"
+    },
+    {
+      "id": "Q_SPN_173_FMI_3",
+      "kind": "yes_no",
+      "text": "Egzoz Gazı Sıcaklığı (FMI 3): Termokupl sinyal hatlarının (+/- kutup) doğru bağlandığını ve +5V beslemeye temas etmediğini kontrol edin; konnektörde nem köprüsünü arayın.",
+      "why": "Egzoz Gazı Sıcaklığı - Voltaj normalin üzerinde veya yüksek kaynağa kısa devre"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Engine Exhaust Temperature Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "temperature_c": 85.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

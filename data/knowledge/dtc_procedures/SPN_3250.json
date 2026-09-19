@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 3250",
+  "system": "Egzoz & DPF Termal Rejenerasyonu",
+  "symptoms": [
+    "AFT1 DPF Ara (Intermediate) Sıcaklığı arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_3250_FMI_0",
+      "kind": "yes_no",
+      "text": "AFT1 DPF Ara (Intermediate) Sıcaklığı (FMI 0): Rejenerasyon sırasında seramik sıcaklığı taşarsa DPF çatlaması/ergime riski vardır; rejenerasyonu iptal edin, dozaj valfi (SPN 3361) debisini ve DOC çıkış sıcaklığını (SPN 4766) kontrol edin.",
+      "why": "AFT1 DPF Ara (Intermediate) Sıcaklığı - Veri geçerli fakat normal çalışma aralığının üzerinde (Kriti"
+    },
+    {
+      "id": "Q_SPN_3250_FMI_1",
+      "kind": "yes_no",
+      "text": "AFT1 DPF Ara (Intermediate) Sıcaklığı (FMI 1): Rejenerasyon başlamış ama seramik sıcaklığı 550 °C'ye ulaşmıyorsa yetersiz yakıt dozajı veya DOC etkinlik kaybı vardır; pasif rejenerasyon sıklığını izleyin.",
+      "why": "AFT1 DPF Ara (Intermediate) Sıcaklığı - Veri geçerli fakat normal çalışma aralığının altında (Kritik"
+    },
+    {
+      "id": "Q_SPN_3250_FMI_3",
+      "kind": "yes_no",
+      "text": "AFT1 DPF Ara (Intermediate) Sıcaklığı (FMI 3): DPF üzerindeki termokupl konnektörünü kontrol edin; sinyal hattı +5V kısa devresini ve egzoz sıcaklığındaki klips erimelerini inceleyin.",
+      "why": "AFT1 DPF Ara (Intermediate) Sıcaklığı - Voltaj normalin üzerinde veya yüksek kaynağa kısa devre"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Aftertreatment 1 Diesel Particulate Filter Intermediate Temperature Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "temperature_c": 85.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

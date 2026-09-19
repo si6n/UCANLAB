@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 5024",
+  "system": "SCR & DEF Dozaj Emisyon Sistemi",
+  "symptoms": [
+    "Egzoz Ard İşlem Emiş NOx Sensörü Isıtıcısı ikazı",
+    "J1939 DM1 aktif arıza kaydı"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_5024_1",
+      "kind": "yes_no",
+      "text": "Egzoz Ard İşlem Emiş NOx Sensörü Isıtıcısı (FMI 10): Sensör içindeki elemanın gevşediğini veya soket pini korozyonunu inceleyin.",
+      "why": "SPN 5024 arıza prosedür adımı"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Aftertreatment 1 Intake NOx Sensor Heater Ratio Sinyal Hattı",
+      "test_type": "J1939 / Multimetre"
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "DM11 ile arıza hafızasını temizleyip yol testi yapın.",
+  "fail_next": "Sensör veya tesisatı değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemi ile uyumlu çalışın."
+  ]
+}

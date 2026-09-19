@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 3251",
+  "system": "Egzoz & DPF Kurum Yönetimi",
+  "symptoms": [
+    "DPF Partikül Filtresi Fark Basıncı arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_3251_FMI_0",
+      "kind": "yes_no",
+      "text": "DPF Partikül Filtresi Fark Basıncı (FMI 0): Sensör besleme hattını ve fiziksel aşırı basınç/sıcaklık durumunu mekanik test portundan doğrulayın.",
+      "why": "DPF Partikül Filtresi Fark Basıncı - Veri geçerli fakat normal çalışma aralığının üzerinde (Kritik Y"
+    },
+    {
+      "id": "Q_SPN_3251_FMI_2",
+      "kind": "yes_no",
+      "text": "DPF Partikül Filtresi Fark Basıncı (FMI 2): Kablo demetinde titreşim temassızlığı, gevşek klemens veya manyetik relüktör çark diş hasarı arayın.",
+      "why": "DPF Partikül Filtresi Fark Basıncı - Veri tutarsız, kesintili veya yanlış (Sinyal Sıçraması)"
+    },
+    {
+      "id": "Q_SPN_3251_FMI_3",
+      "kind": "yes_no",
+      "text": "DPF Partikül Filtresi Fark Basıncı (FMI 3): Sensör soketini ayırın; voltaj şasiye göre düşmüyorsa kablo demeti akü besleme hattına ezilmiştir.",
+      "why": "DPF Partikül Filtresi Fark Basıncı - Voltaj normalin üzerinde veya yüksek kaynağa (+5V / +24V) kısa "
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Aftertreatment 1 Diesel Particulate Filter Differential Pressure Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "pressure_kpa": 250.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

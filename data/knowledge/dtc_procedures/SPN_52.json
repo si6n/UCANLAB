@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 52",
+  "system": "Hava Emiş & Turboşarj (CAC)",
+  "symptoms": [
+    "Motor Şarj Hava Soğutucu (Intercooler) Sıcaklığı arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_52_FMI_0",
+      "kind": "yes_no",
+      "text": "Motor Şarj Hava Soğutucu (Intercooler) Sıcaklığı (FMI 0): CAC hava kanallarını dış çamur/böcek filtresi tıkanıklığına karşı temizleyin; radyatör önü hava akışını ve turbo wastegate performansını kontrol edin. Yüksek intercooler sıcaklığı emiş yoğunluğunu düşürerek güç kaybı yapar.",
+      "why": "Motor Şarj Hava Soğutucu (Intercooler) Sıcaklığı - Veri geçerli fakat normal çalışma aralığının üzer"
+    },
+    {
+      "id": "Q_SPN_52_FMI_1",
+      "kind": "yes_no",
+      "text": "Motor Şarj Hava Soğutucu (Intercooler) Sıcaklığı (FMI 1): Soğuk hava koşullarında beklenen değerdir; sensör okumasını el termometresi ile turbo çıkışı üzerinde karşılaştırın. Uçuk düşük değer sensör kaymasına işaret eder.",
+      "why": "Motor Şarj Hava Soğutucu (Intercooler) Sıcaklığı - Veri geçerli fakat normal çalışma aralığının altı"
+    },
+    {
+      "id": "Q_SPN_52_FMI_3",
+      "kind": "yes_no",
+      "text": "Motor Şarj Hava Soğutucu (Intercooler) Sıcaklığı (FMI 3): NTC sensör soketini ayırıp sinyal pinini ölçün; ayrik halde okuma +40 °C civarına düşmüyorsa hat +5V'a kısa devre.",
+      "why": "Motor Şarj Hava Soğutucu (Intercooler) Sıcaklığı - Voltaj normalin üzerinde veya yüksek kaynağa kısa"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Engine Intercooler Temperature Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "temperature_c": 85.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

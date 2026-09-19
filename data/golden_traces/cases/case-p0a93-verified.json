@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-p0a93-verified",
+  "domain": "PASSENGER",
+  "make": "Toyota",
+  "model": "Prius",
+  "year": 2022,
+  "symptom": "P0A93 ariza kodu: Elektrikli inverter su pompasının (E-Pump) debi kaybetmesi veya sıkışması.",
+  "dtcs": [
+    {
+      "code": "P0A93",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "EngineSpeed",
+      "expected_behavior": "Nominal calisma araliginda",
+      "observed_behavior": "İnverter IGBT Kritik Sıcaklık Limiti: >110°C (Derate başlar), >125°C (Acil Kesin"
+    }
+  ],
+  "actual_fault": "Elektrikli inverter su pompasının (E-Pump) debi kaybetmesi veya sıkışması.",
+  "repair": "UDS Routine 0x31 ile inverter soğutma pompasını %100 PWM ile çalıştırıp debiyi kontrol edin.",
+  "verification": "Saha onarimi ve ariza hafiza kontrolu ile dogrulandi",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-03-15"
+}

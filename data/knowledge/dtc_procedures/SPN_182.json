@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 182",
+  "system": "Yakıt Ekonomisi & Telemetri",
+  "symptoms": [
+    "Motor Sefer (Trip) Yakıt Tüketimi arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_182_FMI_2",
+      "kind": "yes_no",
+      "text": "Motor Sefer (Trip) Yakıt Tüketimi (FMI 2): Sayaç değerinin SPN 183 (anlık yakıt tüketimi) integraliyle tutarlılığını kontrol edin; sıçrama, sayacın ECU'da sıfırlanmadan yeniden başlatıldığına işaret eder.",
+      "why": "Motor Sefer (Trip) Yakıt Tüketimi - Veri tutarsız, aralıklı veya hatalı"
+    },
+    {
+      "id": "Q_SPN_182_FMI_9",
+      "kind": "yes_no",
+      "text": "Motor Sefer (Trip) Yakıt Tüketimi (FMI 9): PGN 64777 yayın periyodunu sniffer'da izleyin; kesintiye uğrayan yayın ECU veri yoluna erişim problemidir.",
+      "why": "Motor Sefer (Trip) Yakıt Tüketimi - Anormal güncelleme hızı"
+    },
+    {
+      "id": "Q_SPN_182_FMI_19",
+      "kind": "yes_no",
+      "text": "Motor Sefer (Trip) Yakıt Tüketimi (FMI 19): J1939-21 taşırma protokolü (BAM) frame kayıplarını ve bus-load durumunu kontrol edin; hatalı CRC'li çerçeveler fiziksel katman problemine işaret eder.",
+      "why": "Motor Sefer (Trip) Yakıt Tüketimi - Alınan ağ verisi hatalı"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Engine Trip Fuel Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

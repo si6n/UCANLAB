@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 4765",
+  "system": "Egzoz & DPF Termal Rejenerasyonu",
+  "symptoms": [
+    "AFT1 DOC Giriş Gaz Sıcaklığı arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_4765_FMI_0",
+      "kind": "yes_no",
+      "text": "AFT1 DOC Giriş Gaz Sıcaklığı (FMI 0): Manifold egzoz sıcaklığı (SPN 173) ile karşılaştırın; normalden yüksek giriş, motor tarafında aşırı sıcaklık demektir. Geç yanma/enjektör kaçaklarını kontrol edin.",
+      "why": "AFT1 DOC Giriş Gaz Sıcaklığı - Veri geçerli fakat normal çalışma aralığının üzerinde (Kritik Yüksek)"
+    },
+    {
+      "id": "Q_SPN_4765_FMI_1",
+      "kind": "yes_no",
+      "text": "AFT1 DOC Giriş Gaz Sıcaklığı (FMI 1): Rejenerasyon için gereken minimum DOC giriş sıcaklığına (yaklaşık 250 °C) ulaşılamıyorsa dozaj başlamaz; düşük yük koşullarında beklenen durumdur.",
+      "why": "AFT1 DOC Giriş Gaz Sıcaklığı - Veri geçerli fakat normal çalışma aralığının altında (Kritik Düşük)"
+    },
+    {
+      "id": "Q_SPN_4765_FMI_3",
+      "kind": "yes_no",
+      "text": "AFT1 DOC Giriş Gaz Sıcaklığı (FMI 3): Termokupl kutup bağlantılarını ve +5V besleme temasını kontrol edin; konnektör nemini kurutun.",
+      "why": "AFT1 DOC Giriş Gaz Sıcaklığı - Voltaj normalin üzerinde veya yüksek kaynağa kısa devre"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Aftertreatment 1 Diesel Oxidation Catalyst Intake Gas Temperature Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "temperature_c": 85.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

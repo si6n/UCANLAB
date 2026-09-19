@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "case_id": "case-p0a0b-verified",
+  "domain": "PASSENGER",
+  "make": "Toyota",
+  "model": "Prius",
+  "year": 2022,
+  "symptom": "P0A0B ariza kodu: Manuel Servis Şalteri (MSD) tam oturmamış veya pilot kontağı ayrılmış.",
+  "dtcs": [
+    {
+      "code": "P0A0B",
+      "status": "ACTIVE"
+    }
+  ],
+  "signals_of_interest": [
+    {
+      "name": "EngineSpeed",
+      "expected_behavior": "Nominal calisma araliginda",
+      "observed_behavior": "Nominal HVIL Döngü Direnci: <5.0 Ω | PWM: 100 Hz, %50 Duty Cycle, V_high > 9.0V "
+    }
+  ],
+  "actual_fault": "Manuel Servis Şalteri (MSD) tam oturmamış veya pilot kontağı ayrılmış.",
+  "repair": "MSD emniyet mandalını söküp kilit tırnağının yerine tam oturduğunu kontrol edin.",
+  "verification": "Saha onarimi ve ariza hafiza kontrolu ile dogrulandi",
+  "trace_ref": null,
+  "verified": true,
+  "verified_date": "2026-03-15"
+}

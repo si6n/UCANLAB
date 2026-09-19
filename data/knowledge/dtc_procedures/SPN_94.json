@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 94",
+  "system": "Yakıt Besleme & Ön Filtre",
+  "symptoms": [
+    "Düşük Basınç Yakıt Besleme Basıncı arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_94_FMI_1",
+      "kind": "yes_no",
+      "text": "Düşük Basınç Yakıt Besleme Basıncı (FMI 1): Sıvı seviyelerini, emiş filtrelerini ve mekanik aşınma belirtilerini kontrol edin.",
+      "why": "Düşük Basınç Yakıt Besleme Basıncı - Veri geçerli fakat normal çalışma aralığının altında (Kritik Dü"
+    },
+    {
+      "id": "Q_SPN_94_FMI_16",
+      "kind": "yes_no",
+      "text": "Düşük Basınç Yakıt Besleme Basıncı (FMI 16): Motor tork sınırlandırması (Derate) başlamadan önce ilgili devreyi temizleyin.",
+      "why": "Düşük Basınç Yakıt Besleme Basıncı - Veri normalin üzerinde (Orta Seviye - Derate Başlayabilir)"
+    },
+    {
+      "id": "Q_SPN_94_FMI_18",
+      "kind": "yes_no",
+      "text": "Düşük Basınç Yakıt Besleme Basıncı (FMI 18): Dozaj pompası, hava tahrik valfi veya debi kısıtlamalarını giderin.",
+      "why": "Düşük Basınç Yakıt Besleme Basıncı - Veri normalin altında (Orta Seviye - Tork Sınırlandırma)"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Engine Fuel Delivery Pressure Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "pressure_kpa": 250.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

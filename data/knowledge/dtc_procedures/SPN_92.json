@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 92",
+  "system": "Motor Yönetimi & Tork Talebi",
+  "symptoms": [
+    "Mevcut Devirdeki Motor Yük Yüzdesi arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_92_FMI_0",
+      "kind": "yes_no",
+      "text": "Mevcut Devirdeki Motor Yük Yüzdesi (FMI 0): Sensör besleme hattını ve fiziksel aşırı basınç/sıcaklık durumunu mekanik test portundan doğrulayın.",
+      "why": "Mevcut Devirdeki Motor Yük Yüzdesi - Veri geçerli fakat normal çalışma aralığının üzerinde (Kritik Y"
+    },
+    {
+      "id": "Q_SPN_92_FMI_2",
+      "kind": "yes_no",
+      "text": "Mevcut Devirdeki Motor Yük Yüzdesi (FMI 2): Kablo demetinde titreşim temassızlığı, gevşek klemens veya manyetik relüktör çark diş hasarı arayın.",
+      "why": "Mevcut Devirdeki Motor Yük Yüzdesi - Veri tutarsız, kesintili veya yanlış (Sinyal Sıçraması)"
+    },
+    {
+      "id": "Q_SPN_92_FMI_7",
+      "kind": "yes_no",
+      "text": "Mevcut Devirdeki Motor Yük Yüzdesi (FMI 7): J1939 DM1 uzerinden SPN 92 FMI 7 icin OEM tablo teshis kaydi (kaynak: T62 repair.diesellaptops.com harvest).",
+      "why": "Mevcut Devirdeki Motor Yük Yüzdesi - Cruise Control Brake Signal – Data Erratic, Intermittent, or In"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Engine Percent Load At Current Speed Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}

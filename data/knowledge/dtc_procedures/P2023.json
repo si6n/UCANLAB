@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "dtc": "P2023",
+  "system": "Yakıt, Emisyon & SCR / AdBlue Dozaj Sistemi",
+  "symptoms": [
+    "Malfunction Indicator Lamp (MIL) illuminated",
+    "Lack of power",
+    "Occasional misfire",
+    "Poor fuel economy"
+  ],
+  "questions": [
+    {
+      "id": "Q_P2023_1",
+      "kind": "yes_no",
+      "text": "Sticking/faulty throttle plates/body durumunu kontrol ettiniz mi?",
+      "why": "P2023 arızasında olası kök neden"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Kablo Tesisatı",
+      "test_type": "Kolay (Görsel)",
+      "safety_note": "Kontak kapalıyken ölçüm yapın."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 12.0
+  },
+  "pass_next": "Canlı veride sinyal nominal ise arıza hafızasını silin.",
+  "fail_next": "İlgili bileşeni veya kablo demetini onarın/değiştirin.",
+  "safety_notes": [
+    "Kontak kapalı konumda çalışın."
+  ]
+}

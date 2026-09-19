@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "dtc": "SPN 156",
+  "system": "Yüksek Basınç Yakıt Enjeksiyonu",
+  "symptoms": [
+    "Motor Yakıt Enjektör Zamanlama Rayı 1 Basıncı arızası",
+    "J1939 DM1 ikaz ışığı yanması"
+  ],
+  "questions": [
+    {
+      "id": "Q_SPN_156_FMI_0",
+      "kind": "yes_no",
+      "text": "Motor Yakıt Enjektör Zamanlama Rayı 1 Basıncı (FMI 0): Basınç kontrol valfinin (PCV/MPROP) sıkışmasını ve basınç sensörü okumasının mekanik göstergeyle uyumunu doğrulayın. Aşırı ray basıncı enjektörlere ve yüksek basınç pompasına zarar verir - motoru derhal durdurun.",
+      "why": "Motor Yakıt Enjektör Zamanlama Rayı 1 Basıncı - Veri geçerli fakat normal çalışma aralığının üzerind"
+    },
+    {
+      "id": "Q_SPN_156_FMI_1",
+      "kind": "yes_no",
+      "text": "Motor Yakıt Enjektör Zamanlama Rayı 1 Basıncı (FMI 1): Yakıt filtresini ve besleme pompası emiş tarafını kontrol edin; yüksek basınç pompası çıkışını, regülatör valfi kaçaklarını ve enjektör geri dönüş (leak-off) debilerini ölçün. Ray basıncı inşa edilemiyorsa motor çalışmayı keser.",
+      "why": "Motor Yakıt Enjektör Zamanlama Rayı 1 Basıncı - Veri geçerli fakat normal çalışma aralığının altında"
+    },
+    {
+      "id": "Q_SPN_156_FMI_3",
+      "kind": "yes_no",
+      "text": "Motor Yakıt Enjektör Zamanlama Rayı 1 Basıncı (FMI 3): Ray basınç sensörü soketini ayırın; sinyal hattı +5V'a kısa devreyi kontrol edin. Sensör besleme pin voltajını doğrulayın.",
+      "why": "Motor Yakıt Enjektör Zamanlama Rayı 1 Basıncı - Voltaj normalin üzerinde veya yüksek kaynağa kısa de"
+    }
+  ],
+  "measurement_steps": [
+    {
+      "step": 1,
+      "target": "Engine Fuel 1 Injector Timing Rail 1 Pressure Sensör Sinyal Hattı",
+      "test_type": "J1939 Canlı Veri / Multimetre",
+      "safety_note": "Ölçüm kontak açık motor rölantideyken yapılmalıdır."
+    }
+  ],
+  "expected_values": {
+    "voltage_v": 24.0
+  },
+  "pass_next": "Arıza hafızasını DM11 ile temizleyip yol testi yapın.",
+  "fail_next": "Kablo demetini ve ilgili sensör/aktüatörü değiştirin.",
+  "safety_notes": [
+    "Ağır vasıta 24V elektrik sistemiyle uyumlu çalışın.",
+    "İmdat freni çekili ve tekerlek takozları yerinde olmalıdır."
+  ]
+}
