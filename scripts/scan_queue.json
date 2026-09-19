@@ -7,7 +7,7 @@
     "dedup": "domain zaten sources'ta varsa EKLEME",
     "blacklist": "blacklist listesindekilere DOKUNMA"
   },
-  "updated": "2026-09-17",
+  "updated": "2026-09-20T00:30",
   "credits": {
     "hesap2": {
       "zone": "scraping_browser1",
@@ -535,14 +535,16 @@
       "domain": "autofaultcodes.com",
       "type": "dtc",
       "method": "free",
-      "status": "pending",
+      "status": "done",
       "credits_used": 0,
-      "tur": "KESIF-2026-09-16-r5",
+      "tur": "T63",
       "quality": "high",
       "est_items": 996,
       "license": "belirsiz (site kendi icerigi; robots.txt Allow: /)",
       "sitemap": "https://autofaultcodes.com/sitemap.xml (1009 URL, 996 kod sayfasi /code/PXXXX.php)",
-      "notes": "996 OBD-II DTC (P/B/C/U). 2 ornek sayfa cekildi (P0300, P0171): her sayfada 'Possible symptoms' + 'Causes to test' + 'Step-by-step diagnostic workflow' + 'Scan data worth checking' + 'Severity and drivability' bolumleri VAR. Gercek tani adimlari (orn. 'Record fuel trims at idle and again near 2,500 RPM'). Kalite=high. robots.txt Allow: /. Lisans belirsiz — attribution ile kullan."
+      "notes": "995 kod; boilerplate causes[0] ayiklandi. DTC symptoms. applied=true",
+      "artifact": "output/scan_t63_autofaultcodes.com_2026-09-19.json",
+      "applied": true
     },
     {
       "id": "faultcode_org",
@@ -550,14 +552,16 @@
       "domain": "faultcode.org",
       "type": "dtc",
       "method": "free",
-      "status": "pending",
+      "status": "done",
       "credits_used": 0,
-      "tur": "KESIF-2026-09-16-r5",
+      "tur": "T63",
       "quality": "high",
       "est_items": 1651,
       "license": "belirsiz (site kendi icerigi; robots.txt Allow: /)",
       "sitemap": "https://faultcode.org/sitemap.xml (2238 URL, 1651 benzersiz kod /car/PXXXX)",
-      "notes": "1651 OBD-II DTC. 2 ornek sayfa cekildi (P0300, P0171): her sayfada 'What does that mean?' + 'Symptoms' + 'Causes' + 'Possible Solutions' bolumleri VAR. Gercek semptom + neden + adim metni. 'Related Fault Codes' bolumu de var. Kalite=high. robots.txt Allow: /, Disallow: /api/. Lisans belirsiz."
+      "notes": "900 kayit / 892 gecerli; 3/3 canli MATCH. DTC procedures_full. applied=true",
+      "artifact": "output/scan_t63_faultcode.org_2026-09-19.json",
+      "applied": true
     },
     {
       "id": "huggingface_fabiovilao_obd2_ptbr",
@@ -655,14 +659,16 @@
       "domain": "dieselenginespec.com",
       "type": "j1939",
       "method": "free",
-      "status": "pending",
+      "status": "rejected",
       "credits_used": 0,
-      "tur": "KESIF-2026-09-17-w2",
+      "tur": "T63",
       "quality": "high",
       "est_items": 8,
       "license": "belirsiz (site kendi icerigi; OEM manual derivation beyani)",
       "sitemap": "https://dieselenginespec.com/sitemap.xml (8 SPN/FMI sayfasi: spn-100/105/107/111/3251/3360/641/84 + /fault-codes/)",
-      "notes": "YENI KESIF (canli probe). Her SPN/FMI sayfasi: Common Probable Causes + Sensor Pinout & Diagnostic (ECM pin numaralari, 5V ref voltaj araliklari) + derate severity (Critical/High/Severe/Moderate) + 60-Ohm CAN bus testi. SPN 100 FMI 4 dogrulandi. Kapsam kucuk (8 sayfa) ama koda ozel prosedurel + pinout verisi YUKSEK DEGER. Hedef: J1939 procedures_full + symptoms + causes."
+      "notes": "REDDEDILDI: 0/5 canli dogrulama. steps = site navigasyon dokumu, prosedur degil. DB'ye YAZILMADI.",
+      "artifact": "output/scan_t63_dieselenginespec.com_2026-09-19.json",
+      "applied": false
     },
     {
       "id": "detroitdieselengines_info",
@@ -670,14 +676,16 @@
       "domain": "detroitdieselengines.info",
       "type": "j1939",
       "method": "free",
-      "status": "pending",
+      "status": "done",
       "credits_used": 0,
-      "tur": "KESIF-2026-09-17-w2",
+      "tur": "T63",
       "quality": "high",
       "est_items": 500,
       "license": "belirsiz (WordPress blog; Detroit service manual tabanli)",
       "sitemap": "https://www.detroitdieselengines.info/sitemap.xml (yuzlerce SPN/FMI sayfasi, 2014-2024)",
-      "notes": "YENI KESIF (canli probe). Detroit DD15/Series 60/MBE 900-4000/DDEC III-IV icin PIN-NUMARALI tam prosedur. Ornek DD15 SPN 100/FMI 4: 'pin 82 of 120-pin MCM', EOP sensor pin 1/2/3, 5 ohm testi, coklu-kod dallanma mantigi. Projede src/protocols/j1939/oem/detroit.py decoder VAR. Hedef: J1939 procedures_full + diagnostic_steps."
+      "notes": "200 sayfa / 91 SPN; 5/5 canli MATCH. Pin-numarali Detroit adimlari. applied=true",
+      "artifact": "output/scan_t63_detroitdieselengines.info_2026-09-19.json",
+      "applied": true
     },
     {
       "id": "j1939hub_com_spnfmi",
@@ -700,14 +708,16 @@
       "domain": "dtcdocs.com",
       "type": "j1939",
       "method": "free",
-      "status": "pending",
+      "status": "done",
       "credits_used": 0,
-      "tur": "KESIF-2026-09-17-w3",
+      "tur": "T63",
       "quality": "high",
       "est_items": 100,
       "license": "SAE J1939-73 + OEM service documentation turevi; robots Allow: /",
       "sitemap": "https://dtcdocs.com/sitemap.xml (marka sayfalari: cummins/caterpillar/detroit-diesel/international/mack/paccar/volvo/generic + 102 KOD sayfasi + 8 marka sayfasi + EN/ES)",
-      "notes": "BU TURUN EN DEGERLI KESFI. Her kod sayfasinda: Possible Causes + Causes Ranked by Frequency (%'li) + In-Depth Diagnostic Procedure (6 adim) + Diagnostic & Repair Procedure (5 adim) + severity badge (STOP ENGINE/Check Next Stop/Check Soon) + ilgili kodlar + associated symptoms + gercek senaryo + references (SAE J1939-73/OEM manual/TMC RP 1210). 8 marka projedeki OEM decoder'larla birebir ortusuyor. PACCAR MX-13 SPN 2659 FMI 7 dogrulandi. Hedef: procedures_full + symptoms + causes + severity."
+      "notes": "127 sayfa / 58 SPN; 5/5 canli MATCH. 244 prosedur paketi -> j1939 procedures_full. applied=true",
+      "artifact": "output/scan_t63_dtcdocs.com_2026-09-19.json",
+      "applied": true
     },
     {
       "id": "wholefleet_ca",
@@ -760,14 +770,16 @@
       "domain": "obd2hub.com",
       "type": "dtc",
       "method": "free",
-      "status": "pending",
+      "status": "done",
       "credits_used": 0,
-      "tur": "KESIF-2026-09-17-w4",
+      "tur": "T63",
       "quality": "medium",
       "est_items": 4801,
       "license": "belirsiz (Technical Reference Data)",
       "sitemap": "https://obd2hub.com/en/ (13 kategori + marka bazli)",
-      "notes": "YENI KESIF. 4.801 kod, 13 kategori + marka (Ford/Toyota/Nissan/GM/Honda). Scanner kodu -> causes + symptoms + repair steps. Kayit yok, cift dilli (EN/ES). Hedef: DTC symptoms + causes + repair steps."
+      "notes": "696 sayfa -> 570 gecerli; 162 key/URL uyusmazligi URL otoritesiyle duzeltildi. DTC symptoms. applied=true",
+      "artifact": "output/scan_t63_obd2hub.com_2026-09-19.json",
+      "applied": true
     },
     {
       "id": "github_evanl1_voltage_j1939",
@@ -1323,6 +1335,55 @@
       "license": "MIT",
       "sitemap": "https://github.com/w1ne/udslib",
       "notes": "YENI KESIF. Gomulu sistemler icin tasinabilir ISO 14229 UDS C yigini. UDS SID tanimlari (0x10..0x87), NRC negatif yanit kodlari (0x10..0x93), tani oturumu tipleri (0x01 Default, 0x02 Programming, 0x03 Extended, 0x04 Safety), ECU Reset modlari (0x01..0x05) ve ISO-TP katman arayuzu (uds_isotp.h, uds_dtc.h)."
+    },
+    {
+      "id": "faultcodedb_com",
+      "url": "faultcodedb.com/code/{marka-slug}-{kod}.html",
+      "domain": "faultcodedb.com",
+      "type": "dtc",
+      "method": "free",
+      "status": "done",
+      "credits_used": 0,
+      "tur": "T63",
+      "notes": "@scout T63 kesfi. sitemap 3.433.162 bayt / 18.235 loc / 18.000 kod sayfasi (2.881 caterpillar) — orchestrator birebir dogruladi. 300 OBD-II sayfasi hasat edildi. | T64 DERIN INCELEME: REDDEDILDI (OBD-II toplu hasat): icerik kod-spesifik degil, alt-sistem bazli sablon. 2.586 sayfayi birlestirmek 2.586 neredeyse-tekrar genel kayit enjekte ederdi -> AGENTS.md §2.3 uydurma yasagi. Yalniz T63'te alinan 300 kod-spesifik sayfa birlestirildi.",
+      "artifact": "output/scan_t63_orchestrator_dtc.json",
+      "applied": true,
+      "discovered": "2026-09-19T23:2",
+      "t64_evidence": {
+        "obd-generic-* family": "2586 pages, 400 sampled -> 166 distinct content signatures (42% unique) but duplicates form 15/11/10/10-block groups by subsystem; only 35/400 truly unique. Code-specific symptom text is NOT present for most codes.",
+        "troubleshooting steps": "240 sampled pages -> only 22 distinct step signatures; 66 pages share one identical 5-step procedure. Steps are site boilerplate.",
+        "brand-prefixed pages": "68% unique symptoms but identical cause lists (e.g. audi-p2202 and audi-p2233 share the same 'Actuator mechanical failure / Fuse blown' causes).",
+        "genuinely good minority": "Code-specific pages DO exist (obd-generic-p1207, c0108, p0456, caterpillar-451-2) and the 300 already merged in T63 came from this minority."
+      },
+      "t64_scope_note": "Yalniz kod-spesifik azinlik (300 sayfa, T63) birlestirildi."
+    },
+    {
+      "id": "obdcode_org",
+      "url": "obdcode.org/{p|b|c|u}{4hane}/",
+      "domain": "obdcode.org",
+      "type": "dtc",
+      "method": "free",
+      "status": "done",
+      "credits_used": 0,
+      "tur": "T63",
+      "notes": "@scout T63 kesfi. 140 kod sayfasi (10 adimli teshis). 3 kayit hasat edildi; sinirli kapsam nedeniyle dusuk katki. | T64: regex duzeltildi ancak kaynak adimlari da kismen genel kalipta; oncelik dusuruldu.",
+      "artifact": "output/scan_t63_orchestrator_dtc.json",
+      "applied": true,
+      "discovered": "2026-09-19T23:2"
+    },
+    {
+      "id": "faultcodedb_caterpillar",
+      "url": "faultcodedb.com/brand/caterpillar.html -> /code/caterpillar-{CID}-{FMI}.html",
+      "domain": "faultcodedb.com",
+      "type": "j1939",
+      "method": "free",
+      "status": "pending",
+      "credits_used": 0,
+      "tur": "T63",
+      "notes": "@scout T63 kesfi. CID-FMI formati; proje DB'si SPN_<n> anahtarli. CID->SPN donusum tablosu olmadan j1939 DB'sine YAZILAMAZ. Bekletiliyor.",
+      "artifact": "output/scan_t63_orchestrator_dtc.json",
+      "applied": true,
+      "discovered": "2026-09-19T23:2"
     }
   ],
   "blacklist": [
