@@ -1,8 +1,8 @@
 # Universal CAN-Bus Diagnostic & Telemetry Platform
 # Core & Desktop Engine Dependencies
 # NOTE: upper bounds below are supply-chain pins ("# pinned upper bound (supply-chain)").
-# No hash lock is committed (offline env) — use `pip install` normally; when a
-# lockfile is introduced, enforce it with `pip install --require-hashes -r requirements.lock`.
+# Reproducible hash-locked requirements are committed in requirements.lock (T62-U6).
+# For verified reproducible installations: pip install --require-hashes -r requirements.lock.
 
 # CAN Hardware & Protocol Stack
 python-can>=4.4.0,<5  # pinned upper bound (supply-chain)

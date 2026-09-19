@@ -70,7 +70,7 @@ pip-audit:
     - python -m pip install --upgrade pip
     - *pip-install
     - pip-audit --skip-editable --ignore-vuln PYSEC-2026-2447
-  allow_failure: true   # upstream advisory database changes daily
+  allow_failure: false  # T62-U6 / M2: dependency vulnerability check is mandatory (fail-closed)
 
 # ── Test: Linux, Python 3.12 (main coverage gate) ────────────────────────────
 # GitLab CI cannot request a Windows runner without one being provisioned on
