@@ -157,3 +157,18 @@ repro/
 output/
 !output/.gitkeep
 !output/README.md
+
+# --- pytest / gecici calisma dizinleri (T63) ---
+pytest_temp_workspace/
+pytest_temp_*/
+build_temp/
+test_700/
+test_tmp/
+.test_tmp/
+/tmp/
+/tmp*/
+/tmp2kmfwgq0/
+/tmp9z43rbid/
+/tmpfoj4aobz/
+/tmpi3m1cygf/
+/tmpojsjiu2v/
