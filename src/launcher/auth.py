@@ -59,7 +59,8 @@ class LauncherAuthManager:
         from src.ui.desktop_app import _resolve_cloud_base_url
 
         self.client = cloud_client or CloudClient(
-            config=CloudConfig(base_url=_resolve_cloud_base_url()), secret_provider=self.secrets
+            config=CloudConfig(base_url=_resolve_cloud_base_url(), enforce_allowlist=True),
+            secret_provider=self.secrets,
         )
 
         if public_key is not None:

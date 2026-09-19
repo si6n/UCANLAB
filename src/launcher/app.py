@@ -46,12 +46,24 @@ TARGET_MANIFEST_ENV = "UCANLAB_TARGET_MANIFEST"
 
 
 def _manifest_path() -> Path:
-    """Resolve the target-hash manifest (env override for tests/packaging)."""
-    import os
+    """Resolve the target-hash manifest (env override for tests/packaging).
 
-    override = os.environ.get(TARGET_MANIFEST_ENV, "").strip()
-    if override:
-        return Path(override)
+    In a frozen build (sys.frozen), environment overrides are strictly ignored
+    and the manifest must be read from the packaged, non-writable root (T62-U2).
+    """
+    import os
+    import sys
+
+    is_frozen = getattr(sys, "frozen", False)
+    if not is_frozen:
+        override = os.environ.get(TARGET_MANIFEST_ENV, "").strip()
+        if override:
+            return Path(override)
+
+    if is_frozen:
+        base = Path(getattr(sys, "_MEIPASS", Path(sys.executable).resolve().parent))
+        return base / TARGET_MANIFEST_DIR / TARGET_MANIFEST_NAME
+
     root = Path(__file__).resolve().parent.parent.parent
     return root / TARGET_MANIFEST_DIR / TARGET_MANIFEST_NAME
 
@@ -111,21 +123,12 @@ def _dev_override_enabled() -> bool:
 
 
 def _unsigned_manifest_allowed() -> bool:
-    """True only under an actual test run (D-3).
+    """T62-U5: Deprecated. Environment-variable gating removed (spoofable).
 
-    ``run_preflight(custom_update_manifest=...)`` feeds an UNSIGNED manifest
-    straight into the update router. That is a test affordance, never a
-    production one: a frozen/shipped binary must not be steerable by an
-    unsigned dict. The gate keys off ``PYTEST_CURRENT_TEST`` (set by pytest
-    for the duration of each test) so the existing suite keeps working while
-    every other process — including a frozen build — fails closed.
+    Unsigned manifests are now controlled strictly via explicit test constructor /
+    dependency injection on UniversalCanLauncher.
     """
-    import os
-    import sys
-
-    if getattr(sys, "frozen", False):
-        return False
-    return bool(os.environ.get("PYTEST_CURRENT_TEST"))
+    return False
 
 
 @dataclass(slots=True, frozen=True)
@@ -142,22 +145,46 @@ class LauncherPreflightReport:
 class UniversalCanLauncher:
     """Master Launcher orchestration engine."""
 
-    def __init__(self, current_version: str = "13.0.0") -> None:
+    def __init__(
+        self,
+        current_version: str = "13.0.0",
+        *,
+        allow_unsigned_manifest: bool = False,
+        auth_manager: LauncherAuthManager | None = None,
+        update_manager: UpdateManager | None = None,
+    ) -> None:
         self.version = current_version
         # M-25 (P2-14): stable project root for the mandatory-update
         # obligation record.
         self.root_dir = Path(__file__).resolve().parent.parent.parent
-        self.auth_manager = LauncherAuthManager()
+        self._allow_unsigned_manifest = bool(allow_unsigned_manifest) and not getattr(sys, "frozen", False)
+        self.auth_manager = auth_manager or LauncherAuthManager()
         try:
             pub_bytes = base64.b64decode(DEFAULT_EMBEDDED_CLOUD_PUBLIC_KEY_B64)
             pub_key = ed25519.Ed25519PublicKey.from_public_bytes(pub_bytes)
         except Exception:
             pub_key = None
-        self.update_manager = UpdateManager(
+        self.update_manager = update_manager or UpdateManager(
             current_version=self.version,
             cloud_client=self.auth_manager.client,
             public_key=pub_key,
             require_signature=True,
+        )
+
+    @classmethod
+    def for_testing(
+        cls,
+        current_version: str = "13.0.0",
+        *,
+        auth_manager: LauncherAuthManager | None = None,
+        update_manager: UpdateManager | None = None,
+    ) -> UniversalCanLauncher:
+        """Explicit test-only constructor allowing unsigned update manifests (T62-U5)."""
+        return cls(
+            current_version=current_version,
+            allow_unsigned_manifest=True,
+            auth_manager=auth_manager,
+            update_manager=update_manager,
         )
 
     @classmethod
@@ -188,14 +215,13 @@ class UniversalCanLauncher:
 
         auth_status = self.auth_manager.get_current_status()
         if custom_update_manifest is not None:
-            # D-3: the unsigned manifest parser is TEST-ONLY. In production
-            # (a frozen build, or any non-pytest process) this parameter must
-            # be unreachable — an unsigned dict can never drive update
-            # routing. The comment was the only thing protecting this path;
-            # it is now a hard runtime gate.
-            if not _unsigned_manifest_allowed():
+            # D-3 / T62-U5: the unsigned manifest parser is TEST-ONLY. In production
+            # (or any launcher instance without explicit allow_unsigned_manifest injection),
+            # this parameter must be unreachable — an unsigned dict can never drive update
+            # routing. Environment variable spoofing (PYTEST_CURRENT_TEST) is eliminated.
+            if not self._allow_unsigned_manifest:
                 logger.critical(
-                    "Unsigned update manifest refused outside a test build — launch blocked",
+                    "Unsigned update manifest refused outside an explicit test constructor — launch blocked",
                     extra={"reason": "custom_update_manifest is test-only"},
                 )
                 raise PermissionError(
@@ -243,7 +269,10 @@ class UniversalCanLauncher:
             )
 
         if update_info.check_succeeded and update_info.has_update and update_info.mandatory:
-            self._record_mandatory_obligation(update_info.latest_version)
+            record_ok = self._record_mandatory_obligation(update_info.latest_version)
+            if not record_ok:
+                logger.error("Failed to persist mandatory update obligation — launch blocked (fail-closed)")
+                can_launch = False
         elif update_info.check_succeeded and update_info.has_update and not update_info.mandatory:
             # Obligation cleared only by a SUCCESSFUL check that says so.
             self._clear_mandatory_obligation()
@@ -308,10 +337,11 @@ class UniversalCanLauncher:
                 logger.error("Obligation seal mismatch — fail-closed")
                 return "TAMPERED"
             return ver
-        except OSError:
-            return None
+        except OSError as exc:
+            logger.error("Obligation file read I/O error — fail-closed", extra={"error": str(exc)})
+            return "IO_ERROR"
 
-    def _record_mandatory_obligation(self, min_version: str) -> None:
+    def _record_mandatory_obligation(self, min_version: str) -> bool:
         try:
             import hashlib as _hashlib
             import hmac as _hmac
@@ -332,14 +362,16 @@ class UniversalCanLauncher:
                     secrets.store_secret(self._OBLIGATION_HMAC_KEY_NAME, key)
                 except Exception as exc:
                     logger.error("Failed to provision obligation seal key — fail-closed", extra={"error": str(exc)})
-                    return
+                    return False
             ver = str(min_version).strip()
             mac = _hmac.new(key, ver.encode("utf-8"), _hashlib.sha256).hexdigest()
             path = self._obligation_path()
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(f"{ver}.{mac}", encoding="utf-8")
+            return True
         except OSError as exc:
-            logger.warning("Failed to record mandatory update obligation", extra={"error": str(exc)})
+            logger.error("Failed to record mandatory update obligation — fail-closed", extra={"error": str(exc)})
+            return False
 
     def _clear_mandatory_obligation(self) -> None:
         try:

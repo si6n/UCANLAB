@@ -75,7 +75,11 @@ def _get_hmac_key(secret_provider: SecretProvider) -> tuple[bytes, bool]:
         try:
             secret_provider.store_secret(HMAC_KEY_NAME, key)
         except Exception as store_err:
-            logger.warning("Failed to store rolling disk HMAC key", extra={"error": str(store_err)})
+            logger.error("Failed to store rolling disk HMAC key into vault", extra={"error": str(store_err)})
+            raise SecurityError(
+                f"Failed to persist rolling disk HMAC key into vault: {store_err}",
+                code="SECURITY_ERROR",
+            ) from store_err
         logger.info("Initialized rolling disk HMAC key")
         if len(key) != 32:
             # Explicit `from None`: the length failure is a property of the
@@ -341,6 +345,7 @@ class RollingDiskBuffer:
         self._lock = threading.RLock()
         self._tls = threading.local()
         self._closed = False
+        self._available = True
         self._current_chunk_frames: list[CanFrame] = []
         # E10: count of frames rejected at append-time for malformed content
         self._rejected_frames: int = 0
@@ -353,7 +358,11 @@ class RollingDiskBuffer:
         # previous key — every pre-existing chunk is signed by a key we can
         # no longer verify. Sweep them out of the active store BEFORE any
         # read can misclassify them as tampered (key-loss contract).
-        _, key_was_minted = _get_hmac_key(self._secret_provider)
+        try:
+            _, key_was_minted = _get_hmac_key(self._secret_provider)
+        except SecurityError:
+            self._available = False
+            raise
         if key_was_minted:
             self._quarantine_unverifiable_chunks()
         self._chunk_index = self._next_chunk_index()
@@ -469,10 +478,10 @@ class RollingDiskBuffer:
             # forever and silently never reach disk (black-box durability
             # violation), and drain calls would block 30 s against a dead
             # worker. Reject late frames loudly, once per chunk, and count.
-            if self._closed:
+            if self._closed or not self._available:
                 self._rejected_frames += 1
                 logger.error(
-                    "Rolling disk closed — frame rejected (data loss window)",
+                    "Rolling disk closed or unavailable — frame rejected (data loss window)",
                     extra={"arbitration_id": getattr(frame, "arbitration_id", None), "total_rejected": self._rejected_frames},
                 )
                 return
@@ -496,7 +505,12 @@ class RollingDiskBuffer:
             chunk_idx = self._chunk_index
             self._chunk_index += 1
 
-        key, _ = _get_hmac_key(self._secret_provider)
+        try:
+            key, _ = _get_hmac_key(self._secret_provider)
+        except SecurityError:
+            with self._lock:
+                self._available = False
+            raise
         try:
             raw_bytes = self._serialize_chunk(frames, key)
         except (ValueError, KeyError, struct.error) as exc:
@@ -714,7 +728,12 @@ class RollingDiskBuffer:
             self.flush()
             # F-34: wait for async writes to land before reading the directory
             self._drain_flush_queue(timeout_s=30.0)
-        key, _ = _get_hmac_key(self._secret_provider)
+        try:
+            key, _ = _get_hmac_key(self._secret_provider)
+        except SecurityError:
+            with self._lock:
+                self._available = False
+            raise
         all_frames: list[CanFrame] = []
         unreadable = 0
 
@@ -758,6 +777,12 @@ class RollingDiskBuffer:
         return all_frames
 
     @property
+    def is_available(self) -> bool:
+        """Whether the rolling disk buffer is available and healthy."""
+        with self._lock:
+            return not self._closed and self._available
+
+    @property
     def unreadable_chunks(self) -> int:
         """RD-2: chunks isolated during the last read_all_stored_frames() pass."""
         with self._lock:
@@ -773,6 +798,7 @@ class RollingDiskBuffer:
             if self._closed:
                 return
             self._closed = True
+            self._available = False
         self.flush()
         try:
             self._flush_queue.put(None, timeout=timeout_s)

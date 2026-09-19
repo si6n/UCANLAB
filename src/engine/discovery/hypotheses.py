@@ -1,4 +1,4 @@
-﻿"""Data models and hypothesis contracts for the Signal Discovery & Evidence Engine.
+"""Data models and hypothesis contracts for the Signal Discovery & Evidence Engine.
 
 Complies with MASTER_PLAN.md Section 7 and docs/specs/signal_discovery_spec.md.
 """
@@ -51,3 +51,5 @@ class IdReport:
     # LSB0 bit index -> "CONST" | "INC" | "TOGGLE" | "NOISY" (per-bit flip-rate classification)
     bit_classes: list[str] = field(default_factory=list)
     hypotheses: list[Hypothesis] = field(default_factory=list)
+    channel_id: str = "can0"
+    is_extended: bool = False

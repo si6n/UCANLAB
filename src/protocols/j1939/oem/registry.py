@@ -153,7 +153,15 @@ class OemDecodedPayload:
     confidence: str = "HIGH"
 
     def get_value(self, name: str, default: Any = None) -> Any:
-        """Return the physical value of a decoded signal if present and valid."""
+        """Return the physical value of a decoded signal if present and valid.
+
+        Sentinel / error semantics are expressed by the decoder through
+        `DecodedSignal.is_valid` and `SignalStatus` (NOT_AVAILABLE, ERROR) at
+        the *signal* level, not by re-testing the raw byte here. A raw value of
+        0xFF or 0xFFFF is frequently a legitimate enumerated value (e.g.
+        `target_cylinder == 0xFF` meaning "All cylinders"), so a blanket
+        value-level sentinel filter would silently swallow valid data.
+        """
         sig = self.signals.get(name)
         if sig is not None and sig.is_valid:
             return sig.value
@@ -164,9 +172,13 @@ class OemDecodedPayload:
         return self.signals.get(name)
 
     def is_valid(self, name: str) -> bool:
-        """Check if a specific signal was decoded with valid status."""
+        """Check if a specific signal was decoded with a valid status."""
         sig = self.signals.get(name)
         return sig is not None and sig.is_valid
+
+    def __iter__(self):
+        """Iterate over DecodedSignal values."""
+        return iter(self.signals.values())
 
     def __getitem__(self, name: str) -> DecodedSignal:
         """Dict-like access to signals."""

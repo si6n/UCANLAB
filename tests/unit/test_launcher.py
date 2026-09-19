@@ -92,7 +92,7 @@ def test_launcher_auth_manager_lifecycle() -> None:
 
 
 def test_launcher_preflight_report() -> None:
-    launcher = UniversalCanLauncher(current_version="13.0.0")
+    launcher = UniversalCanLauncher(current_version="13.0.0", allow_unsigned_manifest=True)
     manifest = {
         "version": "13.2.0",
         "download_url": "https://example.com/v13.2.0.exe",

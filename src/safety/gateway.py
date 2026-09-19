@@ -195,9 +195,10 @@ class TxSafetyGateway:
     def _validate_e2e_profiles(
         profiles: Mapping[int, E2EProfileConfig] | None,
     ) -> None:
-        """R2-G3: fail-fast E2E profile validation at configuration time."""
+        """R2-G3 / T62-M8: fail-fast E2E profile validation at configuration time."""
         if not profiles:
             return
+        from src.safety.e2e.profiles import E2EProfileConfig as _PC
         from src.safety.e2e.profiles import E2EProfileType as _PT
 
         for arb_id, cfg in profiles.items():
@@ -206,6 +207,11 @@ class TxSafetyGateway:
                     f"E2E profile for 0x{int(arb_id):X} has non-enum profile_type "
                     f"({getattr(cfg, 'profile_type', None)!r}); refusing to wire"
                 )
+            if not isinstance(cfg, _PC):
+                raise ValueError(
+                    f"E2E profile for 0x{int(arb_id):X} must be an instance of E2EProfileConfig"
+                )
+            cfg.__post_init__()
 
     # MEDIUM-6: bounded, gateway-owned executor for the async TxPort entry.
     # Never offload onto the event loop's shared default executor (unbounded
@@ -343,6 +349,7 @@ class TxSafetyGateway:
             thread_name_prefix=self.TX_EXECUTOR_THREAD_PREFIX,
         )
         self._tx_executor_shutdown = False
+        self._current_abort_hook: "Callable[[], None] | None" = None
 
         # Wire E-stop callback to halt bus TX and trigger fault state
         self.estop.register_callback(self._on_estop_triggered)
@@ -395,11 +402,19 @@ class TxSafetyGateway:
         on `rebind_bus`); where it does not, the residual window stays an
         accepted, documented risk and no no-op hook is installed.
         """
+        if self._current_abort_hook is not None:
+            try:
+                self.estop.unregister_abort_hook(self._current_abort_hook)
+            except Exception:
+                pass
+            self._current_abort_hook = None
+
         flush = self._resolve_driver_flush()
         if flush is None:
             return
         try:
             self.estop.register_abort_hook(flush)
+            self._current_abort_hook = flush
         except Exception:  # pragma: no cover - defensive: never fail construction
             logger.exception("Failed to register the E-Stop driver abort/flush hook")
 
@@ -488,6 +503,9 @@ class TxSafetyGateway:
                 self._tx_timestamps.clear()
                 self._rate_overload_streak = 0
                 self._whitelist_miss_streak = 0
+                # T62-M4: clear global aggregate rate envelope so new channel starts clean
+                self._tx_total_timestamps.clear()
+                self._total_overload_streak = 0
             # Invalidate every in-flight validated frame: dispatch compares
             # its fence snapshot under tx_send_lock and rejects on mismatch.
             # estop.tx_fence getter takes the estop lock; bump via trigger-

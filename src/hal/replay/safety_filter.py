@@ -184,7 +184,8 @@ class ReplaySafetyFilter:
                 if len(frame.data) < 3:
                     return self._UNKNOWN_SID
                 sf_dl = frame.data[1]
-                if sf_dl < 1 or len(frame.data) < sf_dl + 2:
+                # T62-C3: ISO 15765-2:2016 requires CAN-FD escape SF to have 8 <= sf_dl <= 62
+                if sf_dl < 8 or sf_dl > 62 or len(frame.data) < sf_dl + 2:
                     return self._UNKNOWN_SID
                 return frame.data[2]
             # Classic SF: low_nibble is SF_DL (must be >= 1); SID at data[1]

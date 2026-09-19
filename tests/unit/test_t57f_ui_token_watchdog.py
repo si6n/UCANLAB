@@ -217,10 +217,10 @@ def test_toggle_simulator_refuses_when_estop_object_engaged_but_flag_clear() -> 
 def test_run_preflight_unsigned_manifest_refused_outside_test_build(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """D-3: ``custom_update_manifest`` must be refused in production."""
+    """D-3 / T62-U5: ``custom_update_manifest`` must be refused without explicit injection."""
     from src.launcher.app import UniversalCanLauncher
 
-    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+    monkeypatch.setenv("PYTEST_CURRENT_TEST", "spoofed-by-caller")
     launcher = UniversalCanLauncher(current_version="13.0.0")
 
     with pytest.raises(PermissionError):
@@ -230,11 +230,10 @@ def test_run_preflight_unsigned_manifest_refused_outside_test_build(
 def test_run_preflight_unsigned_manifest_allowed_in_test_build(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """D-3: the test-only parser stays usable under pytest (existing suite)."""
+    """D-3 / T62-U5: test-only parser usable via explicit allow_unsigned_manifest injection."""
     from src.launcher.app import UniversalCanLauncher
 
-    monkeypatch.setenv("PYTEST_CURRENT_TEST", "test_x (call)")
-    launcher = UniversalCanLauncher(current_version="13.0.0")
+    launcher = UniversalCanLauncher.for_testing(current_version="13.0.0")
     report = launcher.run_preflight(custom_update_manifest={"version": "13.2.0"})
     assert report.update_info.latest_version == "13.2.0"
 

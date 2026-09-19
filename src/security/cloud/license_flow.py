@@ -206,10 +206,35 @@ class LicenseFlow:
         return stored
 
     def _load_persistent_hwm(self, fallback: float) -> float:
-        """Load the last persisted wall-clock HWM (fail-open to boot time
-        on absence; corrupted/tampered files also fail to boot time)."""
-        if self._hwm_path is None or not self._hwm_path.exists():
+        """Load the last persisted wall-clock HWM (T62-U3 / fail-closed anti-rollback).
+
+        If the HWM was previously initialized, a missing, unreadable, or
+        corrupted HWM file must fail closed with HWM_UNAVAILABLE / LicenseError
+        instead of quietly resetting rollback detection to boot time.
+        """
+        if self._hwm_path is None:
             return fallback
+
+        secrets = getattr(self.client, "_secrets", None)
+        was_initialized = False
+        if secrets is not None:
+            try:
+                was_initialized = secrets.has_secret("LICENSE_HWM_INITIALIZED")
+            except Exception:
+                was_initialized = False
+
+        if not self._hwm_path.exists():
+            if was_initialized:
+                logger.critical(
+                    "License HWM file is missing after previous initialization — "
+                    "refusing to reset anti-rollback to boot time (fail-closed)"
+                )
+                raise LicenseError(
+                    "License HWM file is missing after previous initialization (fail-closed)",
+                    code="HWM_UNAVAILABLE",
+                )
+            return fallback
+
         try:
             import hashlib
             import hmac as _hmac
@@ -217,16 +242,27 @@ class LicenseFlow:
             text = self._hwm_path.read_text(encoding="utf-8").strip()
             ts_part, _, mac = text.rpartition(".")
             if not ts_part or not mac:
-                return fallback
+                logger.critical("License HWM file malformed — fail-closed")
+                raise LicenseError("License HWM file malformed", code="HWM_UNAVAILABLE")
             expected = _hmac.new(self._hmac_key(), ts_part.encode("utf-8"), hashlib.sha256).hexdigest()
             if not _hmac.compare_digest(expected, mac):
-                logger.error("License HWM file failed integrity check — resetting to boot time")
-                return fallback
+                logger.critical("License HWM file failed integrity check — refusing to reset to boot time (fail-closed)")
+                raise LicenseError("License HWM file integrity check failed", code="HWM_UNAVAILABLE")
             hwm_ts = float(ts_part.split(":", 1)[0])
             if not math.isfinite(hwm_ts) or hwm_ts <= 0:
-                return fallback
+                logger.critical("License HWM timestamp invalid — fail-closed")
+                raise LicenseError("License HWM timestamp invalid", code="HWM_UNAVAILABLE")
             return max(fallback, hwm_ts)
-        except (OSError, ValueError):
+        except LicenseError:
+            raise
+        except (OSError, ValueError) as exc:
+            if was_initialized or self._hwm_path.exists():
+                logger.critical("License HWM file read/parse failed — fail-closed", extra={"error": str(exc)})
+                raise LicenseError(
+                    f"License HWM file could not be read or parsed: {exc}",
+                    code="HWM_UNAVAILABLE",
+                    cause=exc,
+                ) from exc
             return fallback
 
     def _persist_hwm(self, ts: float) -> None:
@@ -246,10 +282,16 @@ class LicenseFlow:
             )
             tmp.write_text(f"{ts_part}.{mac}", encoding="utf-8")
             os.replace(tmp, self._hwm_path)
+
+            secrets = getattr(self.client, "_secrets", None)
+            if secrets is not None:
+                try:
+                    secrets.store_secret("LICENSE_HWM_INITIALIZED", b"1")
+                except Exception as exc:
+                    logger.warning("Failed to store HWM initialized marker in secret provider", extra={"error": str(exc)})
         except OSError as exc:
-            # Persistence failure must not break verification; the in-memory
-            # anchor still guards this session.
-            logger.warning("Failed to persist license HWM", extra={"error": str(exc)})
+            logger.error("Failed to persist license HWM — fail-closed", extra={"error": str(exc)})
+            raise LicenseError("Failed to persist license HWM (fail-closed)", code="HWM_UNAVAILABLE", cause=exc) from exc
 
     # ------------------------------------------------------------------
     # POST /api/v1/devices/register

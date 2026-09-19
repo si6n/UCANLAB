@@ -127,6 +127,28 @@ class E2EProfileConfig:
                 f"counter_byte_offset ({self.counter_byte_offset}) — equal offsets "
                 f"would have the CRC overwrite the rolling counter"
             )
+        # T62-M8: validate counter_bit_mask and counter_bit_shift bounds & layout
+        if not (0 <= self.counter_bit_shift <= 7):
+            raise ValueError(f"counter_bit_shift must be in 0..7, got {self.counter_bit_shift}")
+        if not (1 <= self.counter_bit_mask <= 0xFF):
+            raise ValueError(f"counter_bit_mask must be in 1..0xFF, got {self.counter_bit_mask}")
+        if (self.counter_bit_mask & (1 << self.counter_bit_shift)) == 0:
+            raise ValueError(
+                f"counter_bit_mask (0x{self.counter_bit_mask:02X}) lowest bit does not align with "
+                f"counter_bit_shift ({self.counter_bit_shift})"
+            )
+        shifted_mask = self.counter_bit_mask >> self.counter_bit_shift
+        if (shifted_mask & (shifted_mask + 1)) != 0:
+            raise ValueError(
+                f"counter_bit_mask (0x{self.counter_bit_mask:02X}) must be a contiguous bit mask, "
+                f"got non-contiguous pattern (shifted: 0b{shifted_mask:b})"
+            )
+        max_representable = shifted_mask + 1
+        if self.counter_modulo > max_representable:
+            raise ValueError(
+                f"counter_modulo ({self.counter_modulo}) exceeds maximum capacity "
+                f"of counter_bit_mask ({max_representable})"
+            )
 
     @classmethod
     def create_autosar_profile_1(

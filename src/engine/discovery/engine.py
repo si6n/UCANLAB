@@ -1,4 +1,4 @@
-﻿"""Signal Discovery & Evidence Engine Orchestrator.
+"""Signal Discovery & Evidence Engine Orchestrator.
 
 Implements MASTER_PLAN.md Section 7, coordinating live and offline trace ingestion,
 statistical bit profiling, invariant detection (Counter/CRC/Checksum), signal segmentation,
@@ -98,34 +98,42 @@ class SignalDiscoveryEngine:
         return len(frames)
 
     @property
+    def discovered_keys(self) -> list[tuple[str, bool, int]]:
+        """List of all unique (channel_id, is_extended, arbitration_id) keys."""
+        return sorted(self._frames_by_id.keys())
+
+    @property
     def discovered_ids(self) -> list[int]:
         """List of all unique arbitration IDs present in the ingested dataset."""
         return sorted({key[2] for key in self._frames_by_id})
 
-    def get_frame_count(self, arb_id: int) -> int:
-        """Get the number of ingested frames for a specific CAN ID."""
+    def get_frame_count(self, target: int | tuple[str, bool, int]) -> int:
+        """Get the number of ingested frames for a specific CAN ID or stream key."""
+        if isinstance(target, tuple):
+            return len(self._frames_by_id.get(target, []))
         return sum(
-            len(bucket) for key, bucket in self._frames_by_id.items() if key[2] == arb_id
+            len(bucket) for key, bucket in self._frames_by_id.items() if key[2] == target
         )
 
-    def analyze_id(self, arb_id: int) -> IdReport:
-        """Run full evidence-based reverse engineering on a specific CAN ID."""
-        if arb_id in self._reports_cache:
-            return self._reports_cache[arb_id]
+    def analyze_key(self, key: tuple[str, bool, int]) -> IdReport:
+        """Run full evidence-based reverse engineering on a specific (channel, is_extended, arb_id) stream."""
+        if key in self._reports_cache:
+            return self._reports_cache[key]
 
-        # REVIEW (cross-bus keying): analyze the union of every channel and
-        # frame-format bucket that carries this numeric ID — the report API
-        # stays id-keyed for compatibility, but the series themselves are
-        # never merged during ingestion.
-        frames = [f for bucket in self._frames_by_id.values() for f in bucket if f.arbitration_id == arb_id]
+        channel_id, is_extended, arb_id = key
+        frames = self._frames_by_id.get(key, [])
         if not frames:
-            empty_report = IdReport(arbitration_id=arb_id, frame_count=0, rate_hz=0.0, dlc=0)
-            self._reports_cache[arb_id] = empty_report
+            empty_report = IdReport(
+                arbitration_id=arb_id,
+                channel_id=channel_id,
+                is_extended=is_extended,
+                frame_count=0,
+                rate_hz=0.0,
+                dlc=0,
+            )
+            self._reports_cache[key] = empty_report
             return empty_report
 
-        # REVIEW (DLC != payload bytes): `max(f.dlc)` is a DLC CODE — FD
-        # DLC 15 encodes 64 bytes, so bit profiling over range(15) missed
-        # the final 49 bytes. Profile over the real payload lengths.
         byte_len = max(len(f.data) for f in frames)
         payloads = [f.data for f in frames]
         frame_count = len(frames)
@@ -170,38 +178,75 @@ class SignalDiscoveryEngine:
 
         report = IdReport(
             arbitration_id=arb_id,
+            channel_id=channel_id,
+            is_extended=is_extended,
             frame_count=frame_count,
             rate_hz=rate_hz,
-            dlc=byte_len,  # REVIEW: report byte length, not the FD DLC code
+            dlc=byte_len,
             entropy=entropy_by_byte,
             bit_classes=bit_classes,
             hypotheses=all_hypotheses,
         )
-        self._reports_cache[arb_id] = report
+        self._reports_cache[key] = report
         return report
 
-    def analyze_all(self) -> dict[int, IdReport]:
-        """Run analysis on all CAN IDs with sufficient frame counts."""
-        reports: dict[int, IdReport] = {}
-        for arb_id in self.discovered_ids:
-            if self.get_frame_count(arb_id) >= self.min_frames:
-                reports[arb_id] = self.analyze_id(arb_id)
+    def analyze_id(
+        self,
+        arb_id: int | tuple[str, bool, int],
+        channel_id: str | None = None,
+        is_extended: bool | None = None,
+    ) -> IdReport:
+        """Run full evidence-based reverse engineering on a specific CAN ID or stream key."""
+        if isinstance(arb_id, tuple):
+            return self.analyze_key(arb_id)
+        if channel_id is not None and is_extended is not None:
+            return self.analyze_key((channel_id, is_extended, arb_id))
+
+        matching_keys = [k for k in self._frames_by_id if k[2] == arb_id]
+        if channel_id is not None:
+            matching_keys = [k for k in matching_keys if k[0] == channel_id]
+        if is_extended is not None:
+            matching_keys = [k for k in matching_keys if k[1] == is_extended]
+
+        if matching_keys:
+            return self.analyze_key(matching_keys[0])
+
+        return self.analyze_key((channel_id or "can0", is_extended or False, arb_id))
+
+    def analyze_all(self) -> dict[tuple[str, bool, int], IdReport]:
+        """Run analysis on all (channel_id, is_extended, arbitration_id) streams with sufficient frame counts."""
+        reports: dict[tuple[str, bool, int], IdReport] = {}
+        for key in self.discovered_keys:
+            if self.get_frame_count(key) >= self.min_frames:
+                reports[key] = self.analyze_key(key)
         return reports
 
-    def approve_hypothesis(self, arb_id: int, start_bit: int, length: int) -> bool:
+    def approve_hypothesis(
+        self,
+        arb_id: int | tuple[str, bool, int],
+        start_bit: int,
+        length: int,
+        channel_id: str | None = None,
+        is_extended: bool | None = None,
+    ) -> bool:
         """Approve a specific hypothesis for DBC export."""
-        report = self.analyze_id(arb_id)
+        report = self.analyze_id(arb_id, channel_id=channel_id, is_extended=is_extended)
         for hyp in report.hypotheses:
             if hyp.start_bit == start_bit and hyp.length == length:
                 hyp.status = "approved"
                 return True
         return False
 
-    def generate_evidence_markdown(self, arb_id: int) -> str:
-        """Generate a human-readable Markdown evidence report for a CAN ID."""
-        report = self.analyze_id(arb_id)
+    def generate_evidence_markdown(
+        self,
+        arb_id: int | tuple[str, bool, int],
+        channel_id: str | None = None,
+        is_extended: bool | None = None,
+    ) -> str:
+        """Generate a human-readable Markdown evidence report for a CAN ID or stream."""
+        report = self.analyze_id(arb_id, channel_id=channel_id, is_extended=is_extended)
         lines = [
-            f"# Signal Discovery Evidence Report: CAN ID 0x{arb_id:04X}",
+            f"# Signal Discovery Evidence Report: CAN ID 0x{report.arbitration_id:04X} [{report.channel_id}]",
             f"- **Frame Count:** {report.frame_count}",
             f"- **Estimated Rate:** {report.rate_hz} Hz",
             f"- **DLC:** {report.dlc} Bytes",

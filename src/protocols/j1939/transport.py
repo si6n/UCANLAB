@@ -228,6 +228,8 @@ class TransportAnomalyMetrics:
     # REVIEW 2-H2 (HIGH): J1939-22 FD TP frames (>8 bytes) that the
     # classic J1939-21 engine must drop — surfaced, never silent.
     dropped_fd_tp_frames: int = 0
+    # T62-T1: ambiguous TP.DT frames dropped fail-closed
+    ambiguous_dt_drop: int = 0
 
     @property
     def abort_ratio(self) -> float:
@@ -266,6 +268,7 @@ class TransportAnomalyMetrics:
             "rx_unsolicited_cts": self.rx_unsolicited_cts,
             "tx_abort_emitted": self.tx_abort_emitted,
             "dropped_fd_tp_frames": self.dropped_fd_tp_frames,
+            "ambiguous_dt_drop": self.ambiguous_dt_drop,
             "abort_ratio": round(self.abort_ratio, 4),
             "is_suspect": self.is_suspect(),
         }
@@ -910,13 +913,12 @@ class J1939TransportProtocol:
         """Resolve the RX session owning a TP.DT frame.
 
         TP.DT carries no PGN, so the 4-tuple key cannot be built directly.
-        A unique match wins. T57-D / J-5: when parallel PGN sessions exist
-        for one (SA, DA, channel) prefix, the old code dropped ALL DT
-        fail-closed — a slow attacker could open a parallel session and
-        starve a legitimate reassembly (DoS). The DT's sequence number now
-        disambiguates: the session whose ``expected_sequence`` matches is the
-        owner. If the sequence is still ambiguous, the most-recently-active
-        session wins (the live one), never a blanket drop.
+        A unique match wins. When parallel PGN sessions exist for one
+        (SA, DA, channel) prefix, the DT's sequence number disambiguates:
+        the session whose ``expected_sequence`` matches is the owner.
+        If multiple active sessions still expect the same sequence, fail-closed
+        (T62-T1): drop the frame, increment ambiguous_dt_drop metric, and clean
+        the ambiguous sessions.
         """
         candidates = [
             (key, sess)
@@ -937,20 +939,22 @@ class J1939TransportProtocol:
                     return seq_matches[0]
                 if len(seq_matches) > 1:
                     candidates = seq_matches
-            # Still ambiguous: pick the most-recently-active (live) session
-            # instead of dropping every DT (J-5 fail-open-to-progress).
-            chosen = max(candidates, key=lambda ks: ks[1].last_activity_time)
+                else:
+                    return None, None
+            # Ambiguity persists: fail-closed drop (T62-T1)
+            self.anomaly_metrics.ambiguous_dt_drop += 1
             logger.warning(
-                "J1939 TP.DT ambiguous parallel sessions — routing to most-recent session",
+                "J1939 TP.DT ambiguous parallel sessions — dropping frame and cleaning ambiguous sessions",
                 extra={
                     "sa": sa,
                     "da": da,
                     "candidates": len(candidates),
-                    "chosen_pgn": hex(chosen[1].target_pgn),
                     "seq_num": seq_num,
                 },
             )
-            return chosen
+            for k, s in list(candidates):
+                self._release_session_slot(k, s)
+            return None, None
         return None, None
 
     def _handle_tp_dt(
@@ -1220,8 +1224,8 @@ class J1939TransportProtocol:
         """
         frames = self.start_tp_bam(pgn=pgn, data=data, channel_id=channel_id)
         interval = self.bam_pacing_interval_s if interval_s is None else interval_s
-        if not (0.0 <= interval <= 0.200):
-            raise ValueError(f"BAM TP.DT pacing must be 0..200 ms per SAE J1939-21, got {interval}s")
+        if not (0.050 <= interval <= 0.200):
+            raise ValueError(f"BAM TP.DT pacing must be 50..200 ms per SAE J1939-21, got {interval}s")
         now = self._get_now()
         paced: list[tuple[CanFrame, float]] = []
         next_due = now

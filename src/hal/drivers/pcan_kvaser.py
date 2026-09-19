@@ -44,7 +44,9 @@ class PythonCanBus(AbstractBus):
         # while another thread tears the driver down would hit a freed handle.
         self._lifecycle_lock = threading.Lock()
         self._active_sends = 0
+        self._active_recvs = 0
         self._send_cond = threading.Condition(self._lifecycle_lock)
+        self._drain_cond = self._send_cond
         # M-30 (P2-21): consecutive-error window — resets on any successful
         # RX so a recovered bus leaves BUS_OFF instead of staying latched.
         self._consecutive_error_frames = 0
@@ -195,21 +197,22 @@ class PythonCanBus(AbstractBus):
         """Shutdown CAN bus and release transceiver handles."""
         with self._lifecycle_lock:
             self.is_connected = False
-            # H-8 (P1-4): wait for in-flight sends with a TOTAL monotonic
+            # H-8 (P1-4): wait for in-flight sends and recvs with a TOTAL monotonic
             # deadline, not per-iteration timeouts — the old
             # `while > 0: wait(0.06)` loop spun forever if a vendor send
             # ignored its timeout and never decremented _active_sends.
             drain_deadline = time.monotonic() + self.DISCONNECT_DRAIN_TIMEOUT_S
-            while self._active_sends > 0:
+            while self._active_sends > 0 or self._active_recvs > 0:
                 remaining = drain_deadline - time.monotonic()
                 if remaining <= 0:
                     logger.error(
-                        "In-flight sends did not drain within deadline; forcing shutdown",
-                        extra={"stranded_sends": self._active_sends},
+                        "In-flight operations did not drain within deadline; forcing shutdown",
+                        extra={"stranded_sends": self._active_sends, "stranded_recvs": self._active_recvs},
                     )
                     # Forcing the counter to zero releases the drain loop;
                     # the vendor shutdown() below still runs best-effort.
                     self._active_sends = 0
+                    self._active_recvs = 0
                     break
                 self._send_cond.wait(timeout=min(0.06, remaining))
 
@@ -269,7 +272,7 @@ class PythonCanBus(AbstractBus):
         finally:
             with self._lifecycle_lock:
                 self._active_sends -= 1
-                if self._active_sends == 0:
+                if self._active_sends == 0 and self._active_recvs == 0:
                     self._send_cond.notify_all()
 
     # H7: consecutive error frames before the driver latches BUS_OFF metrics.
@@ -298,6 +301,7 @@ class PythonCanBus(AbstractBus):
             if not self.is_connected or self._bus is None:
                 raise HardwareError("Cannot receive: CAN bus is not connected")
             bus_snapshot = self._bus
+            self._active_recvs += 1
 
         try:
             msg = bus_snapshot.recv(timeout=timeout_s)
@@ -308,6 +312,11 @@ class PythonCanBus(AbstractBus):
                 code="HARDWARE_READ_ERROR",
                 cause=exc,
             ) from exc
+        finally:
+            with self._lifecycle_lock:
+                self._active_recvs -= 1
+                if self._active_sends == 0 and self._active_recvs == 0:
+                    self._send_cond.notify_all()
 
         if msg is None:
             return None

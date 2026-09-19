@@ -14,6 +14,7 @@ while classic CAN protocols use the compact 2-byte header.
 
 from __future__ import annotations
 
+import threading
 import time
 from typing import ClassVar
 
@@ -46,6 +47,7 @@ class RP1210Bus(AbstractBus):
     DEFAULT_TX_BUFFER: ClassVar[int] = 8000
     DEFAULT_RX_BUFFER: ClassVar[int] = 8000
     MAX_CLASSIC_PAYLOAD: ClassVar[int] = 8
+    DISCONNECT_DRAIN_TIMEOUT_S: ClassVar[float] = 2.0
     # Protocols that are strictly 29-bit only (SAE J1939 standard).
     _STRICT_29BIT_PROTOCOLS: ClassVar[frozenset[str]] = frozenset(
         {"j1939", "j1939t"}
@@ -86,6 +88,10 @@ class RP1210Bus(AbstractBus):
         )
         self.metrics = BusMetrics(channel_id=self.channel_id, bitrate=bitrate)
         self.metrics.state = BusState.DISCONNECTED
+        self._lifecycle_lock = threading.Lock()
+        self._active_sends = 0
+        self._active_recvs = 0
+        self._drain_cond = threading.Condition(self._lifecycle_lock)
 
     @property
     def _uses_extended_id_layout(self) -> bool:
@@ -98,42 +104,60 @@ class RP1210Bus(AbstractBus):
 
     def connect(self) -> None:
         """Establish the RP1210 client session and mark the bus ACTIVE."""
-        try:
-            self._client.connect(
-                tx_buffer_size=self.DEFAULT_TX_BUFFER, rx_buffer_size=self.DEFAULT_RX_BUFFER
+        with self._lifecycle_lock:
+            if self.is_connected:
+                logger.debug("connect() called while already connected — ignoring")
+                return
+            try:
+                self._client.connect(
+                    tx_buffer_size=self.DEFAULT_TX_BUFFER, rx_buffer_size=self.DEFAULT_RX_BUFFER
+                )
+            except HardwareError:
+                raise
+            except (OSError, RuntimeError) as exc:
+                raise HardwareError(
+                    f"RP1210 connect failed: {exc}",
+                    code="HARDWARE_CONNECT_FAILED",
+                    details={"device_id": self.device_id, "protocol": self.protocol},
+                    cause=exc,
+                ) from exc
+            self.is_connected = True
+            # P0-3: mirror the pcan/kvaser state model — a listen_only session is
+            # PASSIVE (RX-only), an explicitly armed TX session is ACTIVE.
+            self.metrics.state = BusState.PASSIVE if self.listen_only else BusState.ACTIVE
+            logger.info(
+                "RP1210 bus connected",
+                extra={
+                    "device_id": self.device_id,
+                    "protocol": self.protocol,
+                    "bitrate": self.bitrate,
+                    "listen_only": self.listen_only,
+                },
             )
-        except HardwareError:
-            raise
-        except (OSError, RuntimeError) as exc:
-            raise HardwareError(
-                f"RP1210 connect failed: {exc}",
-                code="HARDWARE_CONNECT_FAILED",
-                details={"device_id": self.device_id, "protocol": self.protocol},
-                cause=exc,
-            ) from exc
-        self.is_connected = True
-        # P0-3: mirror the pcan/kvaser state model — a listen_only session is
-        # PASSIVE (RX-only), an explicitly armed TX session is ACTIVE.
-        self.metrics.state = BusState.PASSIVE if self.listen_only else BusState.ACTIVE
-        logger.info(
-            "RP1210 bus connected",
-            extra={
-                "device_id": self.device_id,
-                "protocol": self.protocol,
-                "bitrate": self.bitrate,
-                "listen_only": self.listen_only,
-            },
-        )
 
     def disconnect(self) -> None:
         """Gracefully close the RP1210 session (idempotent)."""
-        try:
-            self._client.disconnect()
-        except (OSError, RuntimeError) as exc:
-            logger.warning("RP1210 disconnect failed", extra={"error": str(exc)})
-        finally:
+        with self._lifecycle_lock:
             self.is_connected = False
-            self.metrics.state = BusState.DISCONNECTED
+            drain_deadline = time.monotonic() + self.DISCONNECT_DRAIN_TIMEOUT_S
+            while self._active_sends > 0 or self._active_recvs > 0:
+                remaining = drain_deadline - time.monotonic()
+                if remaining <= 0:
+                    logger.error(
+                        "RP1210 in-flight operations did not drain within deadline; forcing shutdown",
+                        extra={"stranded_sends": self._active_sends, "stranded_recvs": self._active_recvs},
+                    )
+                    self._active_sends = 0
+                    self._active_recvs = 0
+                    break
+                self._drain_cond.wait(timeout=min(0.06, remaining))
+
+            try:
+                self._client.disconnect()
+            except (OSError, RuntimeError) as exc:
+                logger.warning("RP1210 disconnect failed", extra={"error": str(exc)})
+            finally:
+                self.metrics.state = BusState.DISCONNECTED
 
     def send(self, frame: CanFrame) -> None:
         """Transmit a frame via the RP1210 adapter (canonical TX, D8).
@@ -142,47 +166,56 @@ class RP1210Bus(AbstractBus):
           - extended (29-bit) IDs: ``<id:LE32><dlc:1><payload>``
           - classic (11-bit) IDs:  ``<(id<<4 | dlc):LE16><payload>``
         """
-        if not self.is_connected:
-            raise HardwareError("Cannot send: RP1210 bus is not connected")
-        # P0-3 (REVIEW C-4): listen-only sessions hard-block TX. The RP1210
-        # API has no vendor-portable listen-only connect mode, so refusing
-        # send() is the only fail-closed guarantee that the adapter never
-        # produces ACKs / transmissions against a live vehicle bus unless
-        # the operator explicitly opened a TX session (listen_only=False).
-        if self.listen_only:
-            raise HardwareError(
-                "Cannot send: RP1210 bus is opened in Listen-Only (passive) mode",
-                code="HARDWARE_LISTEN_ONLY_TX_BLOCKED",
-            )
-        if frame.is_fd:
-            raise HardwareError(
-                "RP1210 classic CAN adapters do not support CAN-FD frames",
-                code="HARDWARE_FRAME_REJECTED",
-            )
-        # L-4 (FABLE): oversized frames are REJECTED, never silently
-        # truncated — a cropped frame would corrupt the message on the wire.
-        if len(frame.data) > self.MAX_CLASSIC_PAYLOAD:
-            raise HardwareError(
-                f"Classic CAN frame payload exceeds {self.MAX_CLASSIC_PAYLOAD} bytes "
-                f"(got {len(frame.data)}) — frame rejected",
-                code="HARDWARE_FRAME_REJECTED",
-            )
+        with self._lifecycle_lock:
+            if not self.is_connected:
+                raise HardwareError("Cannot send: RP1210 bus is not connected")
+            # P0-3 (REVIEW C-4): listen-only sessions hard-block TX. The RP1210
+            # API has no vendor-portable listen-only connect mode, so refusing
+            # send() is the only fail-closed guarantee that the adapter never
+            # produces ACKs / transmissions against a live vehicle bus unless
+            # the operator explicitly opened a TX session (listen_only=False).
+            if self.listen_only:
+                raise HardwareError(
+                    "Cannot send: RP1210 bus is opened in Listen-Only (passive) mode",
+                    code="HARDWARE_LISTEN_ONLY_TX_BLOCKED",
+                )
+            if frame.is_fd:
+                raise HardwareError(
+                    "RP1210 classic CAN adapters do not support CAN-FD frames",
+                    code="HARDWARE_FRAME_REJECTED",
+                )
+            # L-4 (FABLE): oversized frames are REJECTED, never silently
+            # truncated — a cropped frame would corrupt the message on the wire.
+            if len(frame.data) > self.MAX_CLASSIC_PAYLOAD:
+                raise HardwareError(
+                    f"Classic CAN frame payload exceeds {self.MAX_CLASSIC_PAYLOAD} bytes "
+                    f"(got {len(frame.data)}) — frame rejected",
+                    code="HARDWARE_FRAME_REJECTED",
+                )
+            if not frame.is_extended and self.protocol.strip().lower() in self._STRICT_29BIT_PROTOCOLS:
+                # Strictly 29-bit J1939 stack rejects 11-bit frames (J1939-21 conformance)
+                raise HardwareError(
+                    "11-bit frame sent on a 29-bit (J1939) protocol stack",
+                    code="HARDWARE_FRAME_REJECTED",
+                )
+            self._active_sends += 1
+
         data = bytes(frame.data)
 
         if frame.is_extended:
             wire = (frame.arbitration_id & _EXT_ID_MASK).to_bytes(4, "little") + bytes([len(data)]) + data
-        elif self.protocol.strip().lower() in self._STRICT_29BIT_PROTOCOLS:
-            # Strictly 29-bit J1939 stack rejects 11-bit frames (J1939-21 conformance)
-            raise HardwareError(
-                "11-bit frame sent on a 29-bit (J1939) protocol stack",
-                code="HARDWARE_FRAME_REJECTED",
-            )
         else:
             header = (frame.arbitration_id & 0x7FF) << 4 | (len(data) & 0x0F)
             wire = header.to_bytes(2, "little") + data
 
-        self._client.send_message(wire)
-        self.metrics.tx_frames += 1
+        try:
+            self._client.send_message(wire)
+            self.metrics.tx_frames += 1
+        finally:
+            with self._lifecycle_lock:
+                self._active_sends -= 1
+                if self._active_sends == 0 and self._active_recvs == 0:
+                    self._drain_cond.notify_all()
 
     def recv(self, timeout_s: float | None = 0.1) -> CanFrame | None:
         """Poll one frame from the RP1210 RX queue within the timeout.
@@ -191,61 +224,72 @@ class RP1210Bus(AbstractBus):
         latency for burst traffic, then relax toward 10 ms so an idle bus
         no longer burns a full CPU core per channel in busy-polling.
         """
-        if not self.is_connected:
-            raise HardwareError("Cannot receive: RP1210 bus is not connected")
+        with self._lifecycle_lock:
+            if not self.is_connected:
+                raise HardwareError("Cannot receive: RP1210 bus is not connected")
+            self._active_recvs += 1
 
-        deadline = time.monotonic() + (timeout_s if timeout_s is not None else 0.1)
-        poll_interval = 0.001
-        while True:
-            try:
-                raw = self._client.read_message(block=False)
-            except HardwareError as exc:
-                # Transient RX errors are logged and polling continues until deadline (HIGH-2):
-                # one malformed vendor packet must not kill the ingest loop or truncate timeout.
-                logger.warning("RP1210 read error; retrying until deadline", extra={"error": str(exc)})
+        try:
+            deadline = time.monotonic() + (timeout_s if timeout_s is not None else 0.1)
+            poll_interval = 0.001
+            while True:
+                with self._lifecycle_lock:
+                    if not self.is_connected:
+                        return None
+                try:
+                    raw = self._client.read_message(block=False)
+                except HardwareError as exc:
+                    # Transient RX errors are logged and polling continues until deadline (HIGH-2):
+                    # one malformed vendor packet must not kill the ingest loop or truncate timeout.
+                    logger.warning("RP1210 read error; retrying until deadline", extra={"error": str(exc)})
+                    if time.monotonic() >= deadline:
+                        return None
+                    time.sleep(poll_interval)
+                    poll_interval = min(poll_interval * 2.0, 0.010)
+                    continue
+
+                if raw is not None:
+                    # P0-3/H-2: derive the admission threshold from the layout
+                    # that will actually be used. iso15765/iso_tp speak the
+                    # 29-bit 4+1 layout, so a 2-4 byte vendor packet under those
+                    # protocols must be dropped as a runt — the old
+                    # strict-29bit-only threshold let it fall through to the
+                    # 11-bit decoder and fabricated telemetry.
+                    min_len = 5 if self._uses_extended_id_layout else 2
+                    if len(raw) >= min_len:
+                        try:
+                            frame = self._decode_rp1210_packet(raw)
+                        except ValueError as exc:
+                            # H-1: a malformed DLC (9..15 on non-FD) or otherwise
+                            # invalid CanFrame input raises ValueError out of the
+                            # decoder — count and continue polling instead of
+                            # killing the whole RX session with an unhandled error.
+                            logger.warning(
+                                "RP1210 packet rejected by frame decoder; dropped",
+                                extra={"error": str(exc), "length": len(raw)},
+                            )
+                            self.metrics.dropped_frames += 1
+                            frame = None
+                        if frame is not None:
+                            self.metrics.rx_frames += 1
+                            return frame
+                    else:
+                        logger.warning(
+                            "RP1210 packet shorter than minimum header (runt packet); dropped",
+                            extra={"length": len(raw), "min_required": min_len},
+                        )
+                        self.metrics.dropped_frames += 1
+
                 if time.monotonic() >= deadline:
                     return None
                 time.sleep(poll_interval)
+                # Exponential-ish backoff capped at 10 ms while idle
                 poll_interval = min(poll_interval * 2.0, 0.010)
-                continue
-
-            if raw is not None:
-                # P0-3/H-2: derive the admission threshold from the layout
-                # that will actually be used. iso15765/iso_tp speak the
-                # 29-bit 4+1 layout, so a 2-4 byte vendor packet under those
-                # protocols must be dropped as a runt — the old
-                # strict-29bit-only threshold let it fall through to the
-                # 11-bit decoder and fabricated telemetry.
-                min_len = 5 if self._uses_extended_id_layout else 2
-                if len(raw) >= min_len:
-                    try:
-                        frame = self._decode_rp1210_packet(raw)
-                    except ValueError as exc:
-                        # H-1: a malformed DLC (9..15 on non-FD) or otherwise
-                        # invalid CanFrame input raises ValueError out of the
-                        # decoder — count and continue polling instead of
-                        # killing the whole RX session with an unhandled error.
-                        logger.warning(
-                            "RP1210 packet rejected by frame decoder; dropped",
-                            extra={"error": str(exc), "length": len(raw)},
-                        )
-                        self.metrics.dropped_frames += 1
-                        frame = None
-                    if frame is not None:
-                        self.metrics.rx_frames += 1
-                        return frame
-                else:
-                    logger.warning(
-                        "RP1210 packet shorter than minimum header (runt packet); dropped",
-                        extra={"length": len(raw), "min_required": min_len},
-                    )
-                    self.metrics.dropped_frames += 1
-
-            if time.monotonic() >= deadline:
-                return None
-            time.sleep(poll_interval)
-            # Exponential-ish backoff capped at 10 ms while idle
-            poll_interval = min(poll_interval * 2.0, 0.010)
+        finally:
+            with self._lifecycle_lock:
+                self._active_recvs -= 1
+                if self._active_sends == 0 and self._active_recvs == 0:
+                    self._drain_cond.notify_all()
 
     # ------------------------------------------------------------------
     # RP1210 wire format marshalling

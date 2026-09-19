@@ -333,21 +333,11 @@ class EmergencyStopSystem:
     def _get_secret(self) -> bytes:
         """Return the cached HMAC secret (leaf operation, safe under `_lock`).
 
-        P5 (E-2): the provider I/O happened once in __init__ (`_load_secret`);
-        `reset()` now only reads a cached bytes object while holding the lock,
-        so a slow/hung secret store can no longer delay `trigger()` /
-        `is_engaged`.
-
-        Rotation safety: if the provider advertises a changed `revision`, the
-        secret is re-read EXACTLY ONCE under the lock, so a rotated key still
-        invalidates tokens minted with the old one. In the steady state (no
-        rotation) no provider I/O happens while the lock is held.
+        P5 (E-2) / T62-M6: reads only the pre-cached secret without performing
+        provider I/O under `_lock`. Provider I/O is never allowed inside `_lock`
+        so slow/hung secret stores cannot delay `trigger()` or `is_engaged`.
         """
         secret = self._cached_secret
-        if secret is None or self._provider_version() != self._cached_secret_version:
-            secret = self._load_secret()
-            self._cached_secret = secret
-            self._cached_secret_version = self._provider_version()
         if secret is None:
             raise SafetyError(
                 "E-Stop HMAC secret is not loaded — call refresh_secret()",
@@ -521,6 +511,15 @@ class EmergencyStopSystem:
         with self._lock:
             self._abort_hooks.append(hook)
 
+    def unregister_abort_hook(self, hook: Callable[[], None]) -> bool:
+        """Unregister a driver abort/flush hook (T62-M5)."""
+        with self._lock:
+            try:
+                self._abort_hooks.remove(hook)
+                return True
+            except ValueError:
+                return False
+
     def trigger(
         self,
         trigger: EStopTriggerSource,
@@ -660,6 +659,14 @@ class EmergencyStopSystem:
 
     def reset(self, authorization_token: str | EmergencyStopToken) -> None:
         """Manual reset of E-Stop requiring a valid replay-protected challenge-response token."""
+        # T62-M6: Check provider version outside lock; if rotation needed, reload outside lock
+        current_rev = self._provider_version()
+        if current_rev != self._cached_secret_version:
+            fresh = self._load_secret()
+            with self._lock:
+                self._cached_secret = fresh
+                self._cached_secret_version = current_rev
+
         # Phase 1: verify + mutate engagement state under _lock (no tx_send_lock nesting).
         needs_fence_bump = False
         with self._lock:

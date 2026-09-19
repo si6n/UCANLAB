@@ -745,6 +745,9 @@ class ActiveDiagnosticPoller:
             if frame is None:
                 break
 
+            if frame.channel_id != self.channel_id:
+                continue
+
             rid = frame.arbitration_id
             if rid not in isotp_by_rx or len(frame.data) < 3:
                 continue
@@ -851,6 +854,8 @@ class ActiveDiagnosticPoller:
             frame = await self.rx_subscription.recv(timeout_s=remaining) if self.rx_subscription is not None else None
             if frame is None:
                 break
+            if frame.channel_id != self.channel_id:
+                continue
             rid = frame.arbitration_id
             if rid not in isotp_by_rx or len(frame.data) < 3:
                 continue

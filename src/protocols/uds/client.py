@@ -194,24 +194,51 @@ class UdsClient:
             confirmation_context=confirmation_context,
         )
 
-    def security_access_request_seed(self, level: int = 1, user_confirmed: bool = False) -> UdsResponse:
+    def security_access_request_seed(
+        self,
+        level: int = 1,
+        user_confirmed: bool = False,
+        confirmation_token: bytes | str | None = None,
+        confirmation_context: bytes | str | None = None,
+    ) -> UdsResponse:
         """Request Security Access Seed (0x27).
 
         P1-1/D2 (REVIEW M-9): security access elevates ECU privilege — the
         send-key leg especially. Both legs are critical commands whose dual
-        confirmation is not granted by default.
+        confirmation is not granted by default. T62-T7: confirmation_token carries
+        the gateway HMAC proof.
         """
         req_payload = UdsServiceBuilder.build_security_access_request_seed(level=level)
-        return self._send_and_receive(req_payload, is_critical_command=True, user_confirmed=user_confirmed)
+        return self._send_and_receive(
+            req_payload,
+            is_critical_command=True,
+            user_confirmed=user_confirmed,
+            confirmation_token=confirmation_token,
+            confirmation_context=confirmation_context,
+        )
 
-    def security_access_send_key(self, level: int, key: bytes, user_confirmed: bool = False) -> UdsResponse:
+    def security_access_send_key(
+        self,
+        level: int,
+        key: bytes,
+        user_confirmed: bool = False,
+        confirmation_token: bytes | str | None = None,
+        confirmation_context: bytes | str | None = None,
+    ) -> UdsResponse:
         """Send Security Access Key (0x27) — privilege elevation, critical.
 
         P1-1/D2: dual confirmation not granted by default; the flashing
         orchestrator forwards its session-level operator confirmation.
+        T62-T7: confirmation_token carries the gateway HMAC proof.
         """
         req_payload = UdsServiceBuilder.build_security_access_send_key(level=level, key=key)
-        return self._send_and_receive(req_payload, is_critical_command=True, user_confirmed=user_confirmed)
+        return self._send_and_receive(
+            req_payload,
+            is_critical_command=True,
+            user_confirmed=user_confirmed,
+            confirmation_token=confirmation_token,
+            confirmation_context=confirmation_context,
+        )
 
     def read_did(self, did: int) -> UdsResponse:
         """Read Data Identifier (0x22)."""
@@ -524,7 +551,12 @@ class UdsClient:
                 confirmation_context=confirmation_context,
             )
         self._send_consecutive_frames_flow_controlled(
-            frames[1:], payload, is_critical_command, user_confirmed
+            frames[1:],
+            payload,
+            is_critical_command,
+            user_confirmed,
+            confirmation_token=confirmation_token,
+            confirmation_context=confirmation_context,
         )
 
     def _tx_frame(
@@ -653,6 +685,8 @@ class UdsClient:
         payload: bytes,
         is_critical_command: bool,
         user_confirmed: bool,
+        confirmation_token: bytes | str | None = None,
+        confirmation_context: bytes | str | None = None,
     ) -> None:
         """Send CFs after FC(CTS), honouring BS windowing and STmin pacing."""
         total = len(cf_frames)
@@ -706,7 +740,16 @@ class UdsClient:
                 delay_ms = min(decode_st_min(st_min), self.FC_STMIN_CAP_MS)
                 if delay_ms > 0:
                     time.sleep(delay_ms / 1000.0)
-                self._tx_frame(cf_frames[idx], is_critical_command, user_confirmed)
+                if confirmation_token is None:
+                    self._tx_frame(cf_frames[idx], is_critical_command, user_confirmed)
+                else:
+                    self._tx_frame(
+                        cf_frames[idx],
+                        is_critical_command,
+                        user_confirmed,
+                        confirmation_token=confirmation_token,
+                        confirmation_context=confirmation_context,
+                    )
                 idx += 1
                 block_sent += 1
 

@@ -1,4 +1,4 @@
-﻿"""Cloud client configuration & authenticated HTTP transport.
+"""Cloud client configuration & authenticated HTTP transport.
 
  The desktop -> cloud session is a browser-independent HttpOnly cookie the
  operator acquires by logging into the web portal; the desktop stores the
@@ -100,6 +100,26 @@ LICENSE_TICKET_SECRET_NAME = "CLOUD_LICENSE_TICKET"
 # Retry policy: transient network/5xx failures are retried with linear backoff.
 _RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
 
+CANONICAL_CLOUD_HOSTS: tuple[str, ...] = (
+    "ucan-cloud.si6n.io",
+    "cloud.universalcan.io",
+    "ucanlab.org",
+    "api.ucanlab.org",
+    "127.0.0.1",
+    "localhost",
+    "::1",
+)
+
+
+def is_production() -> bool:
+    """True in a frozen build or when UCANLAB_ENV indicates production."""
+    import os
+    import sys
+
+    if getattr(sys, "frozen", False):
+        return True
+    return os.environ.get("UCANLAB_ENV", "").strip().lower() in ("production", "prod")
+
 
 @dataclass(slots=True)
 class CloudConfig:
@@ -116,9 +136,51 @@ class CloudConfig:
     # SEC-C-001: production builds must speak HTTPS. Loopback dev servers are
     # the only permitted plain-HTTP exception (no MITM surface on localhost).
     require_https: bool = True
+    allowed_hosts: tuple[str, ...] | None = None
+    enforce_allowlist: bool = False
 
     def __post_init__(self) -> None:
         self._validate_scheme()
+        self._validate_host()
+
+    def _validate_host(self) -> None:
+        """Enforce canonical host allowlist and reject userinfo (T62-U1 / SEC-C-002)."""
+        if not self.base_url:
+            return
+        from urllib.parse import urlsplit
+
+        try:
+            parsed = urlsplit(self.base_url)
+        except Exception as exc:
+            raise SecurityError(
+                f"Malformed base_url: {exc}",
+                code="CLOUD_MALFORMED_URL",
+                details={"base_url": self.base_url},
+            ) from exc
+
+        if parsed.username or parsed.password:
+            raise SecurityError(
+                "Userinfo in cloud base URL is forbidden",
+                code="CLOUD_USERINFO_FORBIDDEN",
+                details={"base_url": self.base_url},
+            )
+
+        hostname = (parsed.hostname or "").lower()
+        if not hostname:
+            raise SecurityError(
+                "Cloud API base_url has no valid hostname",
+                code="CLOUD_INVALID_HOSTNAME",
+                details={"base_url": self.base_url},
+            )
+
+        if self.enforce_allowlist or is_production():
+            allowed = tuple(h.lower() for h in (self.allowed_hosts or CANONICAL_CLOUD_HOSTS))
+            if hostname not in allowed:
+                raise SecurityError(
+                    f"Cloud API host {hostname!r} is not in canonical allowlist; refusing connection (fail-closed)",
+                    code="CLOUD_HOST_NOT_ALLOWED",
+                    details={"hostname": hostname, "base_url": self.base_url},
+                )
 
     def _validate_scheme(self) -> None:
         """Fail closed on insecure transport (SEC-C-001).
@@ -275,6 +337,8 @@ class CloudClient:
             max_retry_backoff_seconds=self.config.max_retry_backoff_seconds,
             user_agent=self.config.user_agent,
             require_https=self.config.require_https,
+            allowed_hosts=self.config.allowed_hosts,
+            enforce_allowlist=self.config.enforce_allowlist,
         )
         # Only swap after the constructor validated the new URL.
         self.config = new_config
@@ -339,6 +403,19 @@ class CloudClient:
         health_endpoint: bool = False,
     ) -> CloudResponse:
         url = self.config.endpoint(path, health_endpoint=health_endpoint)
+        from urllib.parse import urlsplit
+
+        parsed = urlsplit(url)
+        hostname = (parsed.hostname or "").lower()
+        if self.config.enforce_allowlist or is_production():
+            allowed = tuple(h.lower() for h in (self.config.allowed_hosts or CANONICAL_CLOUD_HOSTS))
+            if hostname not in allowed:
+                raise SecurityError(
+                    f"Cloud API host {hostname!r} is not in canonical allowlist; refusing request (fail-closed)",
+                    code="CLOUD_HOST_NOT_ALLOWED",
+                    details={"hostname": hostname, "url": url},
+                )
+        logger.debug("CloudClient request %s %s://%s%s", method, parsed.scheme, hostname, parsed.path)
         data = raw_body
         headers = {
             "User-Agent": self.config.user_agent,

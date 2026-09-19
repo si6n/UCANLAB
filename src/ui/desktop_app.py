@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import concurrent.futures
+import hashlib
 import json
 import math
 import os
@@ -23,7 +24,7 @@ from typing import Any, ClassVar
 import webview
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
-from src.core.errors import HardwareError, SafetyError
+from src.core.errors import HardwareError, SafetyError, SecurityError
 from src.core.logging import get_logger
 from src.core.models.can_frame import CanFrame, length_to_dlc
 from src.core.models.diagnostics import (
@@ -42,6 +43,7 @@ from src.engine.router import FrameRouter
 from src.hal.base import BusState
 from src.hal.drivers.pcan_kvaser import PythonCanBus
 from src.hal.replay.player import ReplayBus
+from src.hal.replay.safety_filter import ReplaySafetyFilter
 from src.protocols.j1939.diagnostics import J1939DiagnosticService
 from src.protocols.j1939.oem.registry import OemJ1939Registry
 from src.protocols.j1939.pgn import build_j1939_id, parse_j1939_id
@@ -62,7 +64,7 @@ from src.safety.multiplexer import SafeMultiplexedBus
 from src.safety.secret_provider import get_default_secret_provider
 from src.safety.state_machine import SafetyState, SafetySupervisor
 from src.safety.watchdog import TxWatchdogSupervisor
-from src.security.cloud.client import CloudClient, CloudConfig
+from src.security.cloud.client import CANONICAL_CLOUD_HOSTS, CloudClient, CloudConfig
 from src.security.cloud.license_flow import LicenseFlow
 from src.security.cloud.telemetry_uploader import TelemetryUploader, UploadProgress
 from src.security.hwid.collector import generate_hardware_fingerprint
@@ -85,6 +87,7 @@ class DiagnosticChallenge:
     action_id: str
     created_at_monotonic_ns: int
     max_age_ns: int = 30_000_000_000  # 30 seconds
+    params_hash: str = ""
 
 DEFAULT_EMBEDDED_CLOUD_PUBLIC_KEY_B64 = "eX3vJQWpo/pKrkpi5Y+f7m5ooUCRbCyY201DTnAjz/Q="
 
@@ -108,13 +111,39 @@ _DEV_CLOUD_BASE_URL = "http://127.0.0.1:8000"
 
 def _resolve_cloud_base_url() -> str:
     """Resolve the cloud base URL from the environment (build/deploy-time config)."""
-    import os
+    is_frozen = getattr(sys, "frozen", False)
+    is_prod = is_frozen or os.environ.get("UCANLAB_ENV", "").strip().lower() in ("production", "prod")
 
     dev_override = str(os.environ.get("UCANLAB_CLOUD_DEV", "")).strip().lower()
     if dev_override in ("1", "true", "yes"):
+        if is_prod:
+            raise SecurityError(
+                "UCANLAB_CLOUD_DEV dev override rejected in production/frozen mode (fail-closed)",
+                code="CLOUD_DEV_OVERRIDE_FORBIDDEN",
+            )
         return _DEV_CLOUD_BASE_URL
+
     explicit = str(os.environ.get("UCANLAB_CLOUD_BASE_URL", "")).strip()
     if explicit:
+        parsed = urllib.parse.urlsplit(explicit)
+        hostname = (parsed.hostname or "").lower()
+        if parsed.username or parsed.password:
+            raise SecurityError(
+                "Userinfo in cloud base URL is forbidden",
+                code="CLOUD_USERINFO_FORBIDDEN",
+                details={"url": explicit},
+            )
+        if is_prod and hostname not in CANONICAL_CLOUD_HOSTS:
+            raise SecurityError(
+                f"Unknown cloud host override {hostname!r} rejected in production/frozen mode (fail-closed)",
+                code="CLOUD_UNTRUSTED_HOST_OVERRIDE",
+                details={"url": explicit, "hostname": hostname},
+            )
+        if not hostname:
+            raise SecurityError(
+                f"Malformed cloud base URL {explicit!r} without hostname",
+                code="CLOUD_MALFORMED_URL",
+            )
         return explicit
     return DEFAULT_CLOUD_BASE_URL
 
@@ -540,7 +569,7 @@ class DesktopApiBridge:
         session_override: str | None = None,
     ) -> dict[str, Any]:
         # Whitelist allowed hosts for cloud connection testing to prevent credential leakage
-        allowed_domains = ("localhost", "127.0.0.1", "::1", "ucan-cloud.si6n.io", "cloud.universalcan.io")
+        allowed_domains = CANONICAL_CLOUD_HOSTS
         try:
             if url:
                 parsed = urllib.parse.urlsplit(url)
@@ -594,7 +623,7 @@ class DesktopApiBridge:
             return {"success": False, "error": str(exc)}
 
     def cloud_save_config(self, url: str, session_token: str | None = None) -> dict[str, Any]:
-        allowed_domains = ("localhost", "127.0.0.1", "::1", "ucan-cloud.si6n.io", "cloud.universalcan.io")
+        allowed_domains = CANONICAL_CLOUD_HOSTS
         try:
             if url:
                 parsed = urllib.parse.urlsplit(url)
@@ -1159,6 +1188,7 @@ class UniversalCanDesktopApp:
         self.discovery_engine = SignalDiscoveryEngine()
         self.oem_registry = OemJ1939Registry()
         self.replay_bus: ReplayBus | None = None
+        self.replay_safety_filter: ReplaySafetyFilter | None = None
         self._replay_thread: threading.Thread | None = None
         self._replay_stop_event = threading.Event()
         self.flashing_engine: EcuFlashingEngine | None = None
@@ -1810,12 +1840,34 @@ class UniversalCanDesktopApp:
                         "success": False,
                         "error": "Cannot arm TX: hardware driver did not confirm active (TX-capable) mode",
                     }
-                # P3 (G-3): the supervisor now enforces HMAC authorization.
-                # The desktop composition root mints the arm token here, in the
-                # TRUSTED process, immediately before the transition — the
-                # WebView bridge never receives a minting primitive.
-                arm_token = self._mint_arm_token()
-                self.supervisor.arm_tx(reason=reason, auth_token=arm_token)
+                try:
+                    # P3 (G-3): the supervisor now enforces HMAC authorization.
+                    # The desktop composition root mints the arm token here, in the
+                    # TRUSTED process, immediately before the transition — the
+                    # WebView bridge never receives a minting primitive.
+                    arm_token = self._mint_arm_token()
+                    self.supervisor.arm_tx(reason=reason, auth_token=arm_token)
+                    if not self.supervisor.is_tx_permitted:
+                        raise SafetyError("SafetySupervisor did not permit TX after arm")
+                except Exception as arm_exc:
+                    # T62-M1: Rollback driver to listen-only if supervisor arm fails
+                    rollback_ok = False
+                    try:
+                        rollback_ok = self._set_driver_listen_only(True)
+                    except Exception:
+                        rollback_ok = False
+                    if not rollback_ok:
+                        logger.critical("Failed to roll back driver to listen-only mode after failed arm_tx — forcing FAULT")
+                        try:
+                            self.supervisor._force_fault("TX_ARM_ROLLBACK_FAILED")
+                        except Exception:
+                            pass
+                        try:
+                            self.estop.trigger(EStopTriggerSource.UNAUTHORIZED_PAYLOAD, "TX_ARM_ROLLBACK_FAILED: driver active rollback failed")
+                        except Exception:
+                            pass
+                        return {"success": False, "error": "TX_ARM_ROLLBACK_FAILED: hardware driver stuck in active mode"}
+                    raise arm_exc
             return {"success": True, "state": self.supervisor.current_state.value}
         except Exception as exc:
             logger.error("Failed to arm TX pipeline: %s", exc, exc_info=True)
@@ -1843,7 +1895,17 @@ class UniversalCanDesktopApp:
                 # supervisor disarm — a disarmed supervisor with an active
                 # driver still ACKs onto a live bus.
                 with self._bus_lock:
-                    self._set_driver_listen_only(True)
+                    if not self._set_driver_listen_only(True):
+                        logger.critical("Driver failed to return to listen-only mode during disarm_tx")
+                        try:
+                            self.supervisor._force_fault("DISARM_DRIVER_ROLLBACK_FAILED")
+                        except Exception:
+                            pass
+                        try:
+                            self.estop.trigger(EStopTriggerSource.UNAUTHORIZED_PAYLOAD, "DISARM_DRIVER_ROLLBACK_FAILED")
+                        except Exception:
+                            pass
+                        return {"success": False, "error": "DISARM_DRIVER_ROLLBACK_FAILED: hardware driver stuck in active mode"}
             return {"success": True, "state": self.supervisor.current_state.value}
         except Exception as exc:
             logger.error("Failed to disarm TX pipeline: %s", exc, exc_info=True)
@@ -2049,11 +2111,31 @@ class UniversalCanDesktopApp:
             arbitration_id, ttl_s=30.0, context=context
         )
 
+    @staticmethod
+    def _compute_action_params_hash(action: dict[str, Any]) -> str:
+        """Compute deterministic SHA-256 digest of security-relevant action parameters (T62-M9)."""
+        params = action.get("params")
+        if isinstance(params, dict):
+            payload = params
+        else:
+            critical_keys = (
+                "routine_id", "routineId", "target_address", "targetAddress",
+                "destination_address", "destinationAddress", "group", "session_type",
+                "sessionType", "reset_type", "resetType", "memoryAddress", "blockSize",
+                "sizeBytes", "fileName", "expectedVin", "expectedSerial", "data", "id",
+            )
+            payload = {k: action[k] for k in critical_keys if k in action}
+        try:
+            canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
+        except Exception:
+            canonical = str(sorted(payload.items()))
+        return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
     def request_diagnostic_challenge(self, action: dict[str, Any]) -> dict[str, Any]:
         """Issue a short-lived (≤30s) single-use nonce challenge for a diagnostic action.
 
         R2-EN2: this renderer-reachable endpoint NEVER mints a gateway HMAC
-        token — it returns a nonce bound to (action_type, action_id) only.
+        token — it returns a nonce bound to (action_type, action_id, params_hash).
         The gateway token authorizing the TX is minted process-internally in
         `execute_diagnostic_action` after the nonce verifies, so a renderer
         script can never manufacture its own TX authorization.
@@ -2066,6 +2148,7 @@ class UniversalCanDesktopApp:
             return {"success": False, "error": "Aksiyon türü (action_type) belirtilmelidir."}
 
         action_id = str(action.get("id") or "")
+        params_hash = self._compute_action_params_hash(action)
 
         token = secrets.token_hex(16)
         now_ns = time.monotonic_ns()
@@ -2076,6 +2159,7 @@ class UniversalCanDesktopApp:
             action_id=action_id,
             created_at_monotonic_ns=now_ns,
             max_age_ns=30_000_000_000,
+            params_hash=params_hash,
         )
 
         with self._challenges_lock:
@@ -2093,8 +2177,14 @@ class UniversalCanDesktopApp:
             "action_id": action_id,
         }
 
-    def _verify_and_consume_diagnostic_token(self, token: str | None, action_type: str, action_id: str = "") -> tuple[bool, str]:
-        """Verify that a single-use nonce challenge is present, unexpired (≤30s), and matches action_type/action_id.
+    def _verify_and_consume_diagnostic_token(
+        self,
+        token: str | None,
+        action_type: str,
+        action_id: str = "",
+        action_payload: dict[str, Any] | None = None,
+    ) -> tuple[bool, str]:
+        """Verify that a single-use nonce challenge is present, unexpired (≤30s), and matches action_type/action_id/params.
 
         R2-EN2: renderer-presented tokens are nonce challenges ONLY. A
         gateway HMAC token presented from JS is rejected — gateway tokens
@@ -2121,6 +2211,11 @@ class UniversalCanDesktopApp:
 
             if action_id and challenge.action_id and challenge.action_id != action_id:
                 return False, f"Onay token'ı aksiyon kimliği ile uyuşmuyor ({challenge.action_id} != {action_id})."
+
+            if action_payload is not None and challenge.params_hash:
+                current_hash = self._compute_action_params_hash(action_payload)
+                if current_hash != challenge.params_hash:
+                    return False, "Onay token'ı aksiyon parametreleri ile uyuşmuyor (parametreler değiştirilmiş)."
 
         return True, "OK"
 
@@ -2205,7 +2300,14 @@ class UniversalCanDesktopApp:
             # "second, independent channel" invariant.
             token_candidate = confirmation_token if isinstance(confirmation_token, str) else None
 
-            valid, reason = self._verify_and_consume_diagnostic_token(token_candidate, action_type, action_id)
+            try:
+                valid, reason = self._verify_and_consume_diagnostic_token(
+                    token_candidate, action_type, action_id, action_payload=action
+                )
+            except TypeError:
+                valid, reason = self._verify_and_consume_diagnostic_token(
+                    token_candidate, action_type, action_id
+                )
             if not valid:
                 logger.warning("Diagnostic action '%s' dual confirmation failed: %s", action_type, reason)
                 return {
@@ -2521,12 +2623,12 @@ class UniversalCanDesktopApp:
         """Analyze all discovered arbitration IDs."""
         reports = self.discovery_engine.analyze_all()
         return {
-            f"0x{arb:03X}": {
+            (f"{k[0]}:{'ext' if k[1] else 'std'}:0x{k[2]:03X}" if isinstance(k, tuple) else f"0x{int(k):03X}"): {
                 "frame_count": r.frame_count,
                 "rate_hz": r.rate_hz,
                 "hypotheses_count": len(r.hypotheses),
             }
-            for arb, r in reports.items()
+            for k, r in reports.items()
         }
 
     def discovery_export_dbc(self, approved_only: bool = False) -> dict[str, Any]:
@@ -2578,11 +2680,18 @@ class UniversalCanDesktopApp:
             return {"success": False, "error": "Replay zaten çalışıyor."}
 
         self._replay_stop_event.clear()
+        safety_filter = ReplaySafetyFilter()
+        self.replay_safety_filter = safety_filter
+
+        def _safe_replay_callback(frame: CanFrame) -> None:
+            filtered = safety_filter.filter_frame(frame)
+            if filtered is not None:
+                self._ingest_live_frame(filtered)
 
         def _worker() -> None:
             assert self.replay_bus is not None
             self.replay_bus.play(
-                callback=self._ingest_live_frame,
+                callback=_safe_replay_callback,
                 speed=speed,
                 stop_event=self._replay_stop_event,
                 loop=loop,
@@ -2677,11 +2786,19 @@ class UniversalCanDesktopApp:
         # would let the caller satisfy its own independent-confirmation
         # invariant via config["confirmation_token"] / config["token"]).
         token_candidate = confirmation_token if isinstance(confirmation_token, str) else None
-        valid, reason = self._verify_and_consume_diagnostic_token(
-            token_candidate,
-            action_type=str(config.get("action_type") or "ecu_flash"),
-            action_id=str(config.get("id") or ""),
-        )
+        try:
+            valid, reason = self._verify_and_consume_diagnostic_token(
+                token_candidate,
+                action_type=str(config.get("action_type") or "ecu_flash"),
+                action_id=str(config.get("id") or ""),
+                action_payload=config,
+            )
+        except TypeError:
+            valid, reason = self._verify_and_consume_diagnostic_token(
+                token_candidate,
+                action_type=str(config.get("action_type") or "ecu_flash"),
+                action_id=str(config.get("id") or ""),
+            )
         if not valid:
             return {"success": False, "error": reason, "message": reason}
 
@@ -2841,12 +2958,47 @@ class UniversalCanDesktopApp:
                     self._flash_progress_state["error"] = str(exc)
                     self._flash_progress_state["logs"].append(f"[ERROR] {exc}")
             finally:
+                # T62-M2: Flashing exit must disarm TX and verify listen-only driver mode
+                cleanup_ok = self._safe_disarm_after_flash()
+                with self._flash_lock:
+                    if not cleanup_ok:
+                        self._flash_progress_state["status"] = "cleanup_failed"
+                        self._flash_progress_state["error"] = "TX cleanup failed after flashing"
+                        self._flash_progress_state["logs"].append("[CRITICAL] TX cleanup failed after flash!")
                 self._push_flash_progress()
 
         self._flash_thread = threading.Thread(target=_real_flash_worker, name="real_flasher", daemon=True)
         self._flash_thread.start()
         # R2-P4: the worker validates asynchronously — report ACCEPTANCE, not success.
         return {"success": True, "accepted": True, "message": "Flashing isteği kabul edildi (ön-koşullar doğrulandı, işlem sürüyor)."}
+
+    def _safe_disarm_after_flash(self) -> bool:
+        """Ensure TX is disarmed and driver is restored to listen-only after flashing (T62-M2)."""
+        cleanup_ok = True
+        try:
+            if not self._is_simulating:
+                res = self.disarm_tx(reason="Flashing finished or terminated — restoring listen-only")
+                if not res.get("success", False):
+                    cleanup_ok = False
+                with self._bus_lock:
+                    if self.bus is not None and not getattr(self.bus, "listen_only", True):
+                        if not self._set_driver_listen_only(True):
+                            cleanup_ok = False
+        except Exception as exc:
+            logger.error("Exception during post-flash TX disarm cleanup: %s", exc)
+            cleanup_ok = False
+
+        if not cleanup_ok:
+            logger.critical("Post-flash TX disarm cleanup failed — forcing FAULT and E-Stop")
+            try:
+                self.supervisor._force_fault("FLASH_TX_CLEANUP_FAILED")
+            except Exception:
+                pass
+            try:
+                self.estop.trigger(EStopTriggerSource.UNAUTHORIZED_PAYLOAD, "FLASH_TX_CLEANUP_FAILED")
+            except Exception:
+                pass
+        return cleanup_ok
 
     def _push_flash_progress(self) -> None:
         if self._window is None:
@@ -2879,6 +3031,11 @@ class UniversalCanDesktopApp:
             if self.flashing_engine is not None:
                 self.flashing_engine.cancel()
             self._flash_progress_state["logs"].append("[CANCEL] Flashing kullanıcı tarafından iptal edildi.")
+        if self._flash_thread is None or not self._flash_thread.is_alive():
+            cleanup_ok = self._safe_disarm_after_flash()
+            if not cleanup_ok:
+                with self._flash_lock:
+                    self._flash_progress_state["status"] = "cleanup_failed"
         self._push_flash_progress()
         return {"success": True, "message": "Flashing iptal edildi."}
 
@@ -3130,7 +3287,7 @@ class UniversalCanDesktopApp:
             # allowlist as cloud_save_config (fail-closed on empty hostname).
             url = settings["cloudBaseUrl"]
             parsed = urllib.parse.urlsplit(str(url))
-            allowed_domains = ("localhost", "127.0.0.1", "::1", "ucan-cloud.si6n.io", "cloud.universalcan.io")
+            allowed_domains = CANONICAL_CLOUD_HOSTS
             if (
                 not parsed.hostname
                 or parsed.scheme not in ("http", "https")
@@ -3393,18 +3550,26 @@ class UniversalCanDesktopApp:
             if isinstance(frame, CanFrame) and frame.is_extended:
                 oem_payload = self.oem_registry.decode_frame(frame)
                 if oem_payload is not None:
-                    for sig in oem_payload.signals:
-                        self._record_signal_sample(sig.name, sig.raw_value, sig.physical_value, sig.unit)
+                    for sig in oem_payload.signals.values():
+                        if not getattr(sig, "is_valid", True):
+                            continue
+                        raw_val = getattr(sig, "raw_value", None)
+                        if isinstance(raw_val, int) and raw_val in (
+                            0xFF, 0xFE, 0xFFFF, 0xFEFE, 0xFFFFFF, 0xFEFEFE, 0xFFFFFFFF, 0xFEFEFEFE
+                        ):
+                            continue
+                        phys_val = getattr(sig, "physical_value", getattr(sig, "value", None))
+                        self._record_signal_sample(sig.name, raw_val, phys_val, getattr(sig, "unit", ""))
                         sig_name_lower = sig.name.lower()
                         if "enginespeed" in sig_name_lower or "rpm" in sig_name_lower:
-                            if isinstance(sig.physical_value, (int, float)):
-                                self._current_rpm = float(sig.physical_value)
+                            if isinstance(phys_val, (int, float)):
+                                self._current_rpm = float(phys_val)
                         elif "coolant" in sig_name_lower or "enginetemp" in sig_name_lower:
-                            if isinstance(sig.physical_value, (int, float)):
-                                self._current_temp = float(sig.physical_value)
+                            if isinstance(phys_val, (int, float)):
+                                self._current_temp = float(phys_val)
                         elif "boost" in sig_name_lower:
-                            if isinstance(sig.physical_value, (int, float)):
-                                self._current_boost = float(sig.physical_value)
+                            if isinstance(phys_val, (int, float)):
+                                self._current_boost = float(phys_val)
         except (IndexError, ValueError, AttributeError) as exc:
             logger.debug("J1939 live decode failed", extra={"error": str(exc)})
 

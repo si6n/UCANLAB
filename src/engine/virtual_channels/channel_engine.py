@@ -50,6 +50,11 @@ class VirtualChannelEngine:
         if rpm < 0 or actual_torque_percent < -125 or actual_torque_percent > 125:
             return None, None, None
 
+        if nominal_torque_nm is None or not math.isfinite(nominal_torque_nm) or nominal_torque_nm <= 0:
+            raise ValueError(
+                f"nominal_torque_nm must be a finite positive number (> 0), got {nominal_torque_nm!r}"
+            )
+
         torque_nm = (actual_torque_percent / 100.0) * nominal_torque_nm
         # Negative torque represents engine braking / retarder
         power_kw = (rpm * torque_nm) / cls.TORQUE_CONSTANT

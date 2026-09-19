@@ -699,7 +699,11 @@ class EcuFlashingEngine:
                 sec_level = config.effective_programming_security_level
                 self._log(f"Adım 4/10: Güvenlik Erişimi (0x27 Level {sec_level}) doğrulanıyor...", "info")
                 self._check_cancelled()
-                seed_resp = self.uds_client.security_access_request_seed(level=sec_level, user_confirmed=config.user_confirmed)
+                seed_resp = self.uds_client.security_access_request_seed(
+                    level=sec_level,
+                    user_confirmed=config.user_confirmed,
+                    confirmation_token=self._confirmation_token(),
+                )
                 if not seed_resp.is_positive:
                     raise ProtocolError(f"Güvenlik tohumu alınamadı: {seed_resp.nrc_description_tr}")
 
@@ -741,7 +745,10 @@ class EcuFlashingEngine:
                     key_bytes = config.security_key or b""
 
                 key_resp = self.uds_client.security_access_send_key(
-                    level=sec_level, key=key_bytes, user_confirmed=config.user_confirmed
+                    level=sec_level,
+                    key=key_bytes,
+                    user_confirmed=config.user_confirmed,
+                    confirmation_token=self._confirmation_token(),
                 )
                 if not key_resp.is_positive:
                     raise ProtocolError(f"Güvenlik anahtarı reddedildi: {key_resp.nrc_description_tr}")
@@ -1005,7 +1012,10 @@ class EcuFlashingEngine:
 
         # 1. Cleanest exit: let the ECU finalize/close the transfer itself.
         try:
-            resp = self.uds_client.request_transfer_exit()
+            resp = self.uds_client.request_transfer_exit(
+                user_confirmed=config.user_confirmed,
+                confirmation_token=self._confirmation_token(),
+            )
             if resp.is_positive:
                 self._log("Kurtarma: RequestTransferExit (0x37) kabul edildi — transfer ECU tarafından kapatıldı.", "info")
                 self._log("⚠️ Yazılım YARIM KALDI! Kontağı KAPATMAYIN, yazılımı yeniden yükleyin.", "warning")

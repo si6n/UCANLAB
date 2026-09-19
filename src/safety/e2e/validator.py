@@ -78,6 +78,7 @@ class StreamRxState:
     repeated_frames: int = 0
     dropped_frames_estimated: int = 0
     last_timestamp_ns: int = 0
+    last_seen_monotonic_ns: int = 0
 
 
 class E2ESafetyValidator:
@@ -115,21 +116,25 @@ class E2ESafetyValidator:
         """Validate raw CAN payload buffer against E2E profile with state tracking."""
         stream_key = (channel_id, arbitration_id)
         ts = timestamp_ns if timestamp_ns is not None else time.time_ns()
+        now_mono_ns = time.monotonic_ns()
 
         with self._lock:
             if stream_key not in self._streams:
-                # P2-14: enforce the stream-table ceiling; evict the least
-                # recently seen stream to make room for the new one.
+                # P2-14 / T62-M7: enforce the stream-table ceiling; evict the least
+                # recently seen stream by local arrival monotonic time (untrusted frame
+                # timestamp is strictly forbidden for security state eviction decisions).
                 if len(self._streams) >= self.MAX_TRACKED_STREAMS:
-                    oldest_key = min(self._streams, key=lambda k: self._streams[k].last_timestamp_ns)
+                    oldest_key = min(self._streams, key=lambda k: self._streams[k].last_seen_monotonic_ns)
                     self._streams.pop(oldest_key, None)
                 self._streams[stream_key] = StreamRxState(
                     channel_id=channel_id,
                     arbitration_id=arbitration_id,
+                    last_seen_monotonic_ns=now_mono_ns,
                 )
             state = self._streams[stream_key]
             state.total_frames += 1
             state.last_timestamp_ns = ts
+            state.last_seen_monotonic_ns = now_mono_ns
 
             # H-3 (P1-10): a runt/short payload cannot satisfy the profile's
             # offset layout. extract_crc/extract_counter raise bare ValueError

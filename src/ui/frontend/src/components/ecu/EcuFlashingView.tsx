@@ -29,6 +29,7 @@ interface SelectedFirmware {
 export const EcuFlashingView: React.FC = () => {
  const [selectedEcu, setSelectedEcu] = useState<'ECM' | 'TCU' | 'ABS' | 'BCM'>('ECM');
  const [selectedFile, setSelectedFile] = useState<SelectedFirmware | null>(null);
+ const [rawFile, setRawFile] = useState<File | null>(null);
  const [fileError, setFileError] = useState<string | null>(null);
  const [progress, setProgress] = useState(0);
  const [isFlashing, setIsFlashing] = useState(false);
@@ -193,10 +194,19 @@ export const EcuFlashingView: React.FC = () => {
  setFileError(null);
  setProgress(0);
 
+ if (!file || file.size === 0) {
+   setSelectedFile(null);
+   setRawFile(null);
+   setFileError('Seçilen firmware dosyası boş (0 bayt). Kör flash engellendi.');
+   setStatusText('Hata: Dosya Boş (0 Bayt)');
+   return;
+ }
+
  const validation = await validateFirmwareFile(file);
 
  if (!validation.isValid) {
  setSelectedFile(null);
+ setRawFile(null);
  setFileError(validation.error || 'Geçersiz dosya formatı.');
  setStatusText('Hata: Hata: Geçersiz Firmware Formatı');
 
@@ -266,6 +276,7 @@ export const EcuFlashingView: React.FC = () => {
  const removeFile = (e?: React.MouseEvent) => {
  if (e) e.stopPropagation();
  setSelectedFile(null);
+ setRawFile(null);
  setFileError(null);
  setProgress(0);
  setIsFlashing(false);
@@ -309,8 +320,12 @@ export const EcuFlashingView: React.FC = () => {
  };
 
  const startFlashing = async () => {
- if (!selectedFile) {
- alert('Lütfen önce geçerli bir firmware dosyası seçiniz!');
+ if (!selectedFile || !rawFile) {
+ alert('Lütfen önce geçerli bir firmware dosyası seçiniz! Dosya seçimi zorunludur.');
+ return;
+ }
+ if (rawFile.size === 0) {
+ alert('Firmware dosyası 0 bayt olamaz! Kör flash güvenlik sebebiyle engellendi.');
  return;
  }
  if (isFlashing) return;
@@ -325,6 +340,23 @@ export const EcuFlashingView: React.FC = () => {
        ...prev,
        '------------------------------------------------------------',
        `[INIT] Hedef ECU: ${selectedEcu} (CAN ID: 0x7E0 / 0x7E8) Flashing Hazırlığı`,
+       '[SECURITY] Firmware içeriği okunuyor...'
+     ]);
+
+     const arrayBuffer = await rawFile.arrayBuffer();
+     const bytes = new Uint8Array(arrayBuffer);
+     if (bytes.length === 0) {
+       throw new Error('Firmware verisi boş (0 bayt). Flash işlemi iptal edildi.');
+     }
+     let hex = '';
+     const chunkSize = 0x8000;
+     for (let i = 0; i < bytes.length; i += chunkSize) {
+       const chunk = bytes.subarray(i, i + chunkSize);
+       hex += Array.from(chunk, b => b.toString(16).padStart(2, '0')).join('');
+     }
+
+     setLogs(prev => [
+       ...prev,
        '[SECURITY] Dual Confirmation onay token\'ı talep ediliyor...'
      ]);
 
@@ -350,9 +382,12 @@ export const EcuFlashingView: React.FC = () => {
          action_type: 'ecu_flash',
          ecu: selectedEcu,
          fileName: selectedFile.name,
+         filePath: (rawFile as any).path || undefined,
          sizeBytes: selectedFile.sizeBytes,
+         data: hex,
          memoryAddress: 0x80000,
          blockSize: 256,
+         expectedVin: 'WP0ZZZ99ZTS392111',
        },
        challenge.token
      );
