@@ -1,0 +1,4 @@
+# Ensure DBC files keep CRLF line endings across all platforms (Windows, Linux, macOS).
+# DBC files are automotive industry standard Vector/CANoe text files, and hashes
+# in data/dbc/catalog.json and data/dbc/manifest.json record CRLF line endings.
+*.dbc text eol=crlf
