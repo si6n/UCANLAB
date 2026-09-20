@@ -122,7 +122,14 @@ class DbcBuilder:
                 signals.append(signal)
 
             if signals:
-                is_extended = report.arbitration_id > 0x7FF
+                # REVIEW 4.1: honour the discovery engine's own `is_extended`
+                # flag. The old `> 0x7FF` heuristic mis-typed a 29-bit frame
+                # whose numeric ID is <= 0x7FF (e.g. Priority 0 / PGN 0 /
+                # SA 1 => 0x00000001) as an 11-bit standard frame, so the
+                # exported DBC never matched those messages in CANoe/Wireshark.
+                # Fall back to the heuristic only when the report predates the
+                # field (defensive getattr).
+                is_extended = getattr(report, "is_extended", False) or report.arbitration_id > 0x7FF
                 msg_name = f"MSG_0x{report.arbitration_id:04X}"
                 msg = Message(
                     frame_id=report.arbitration_id,

@@ -25,7 +25,10 @@ from src.core.logging import get_logger
 
 logger = get_logger("engine.ai_copilot")
 
-_VIN_RE = re.compile(r"\b[A-HJ-NPR-Z0-9]{17}\b")
+# REVIEW 4.2: re.IGNORECASE — a lowercase VIN (e.g. "1hgcr2f83ha123456")
+# previously slipped through unmasked and leaked into logs/session summaries/
+# exported reports, violating the P1 Data Model privacy rule.
+_VIN_RE = re.compile(r"\b[A-HJ-NPR-Z0-9]{17}\b", re.IGNORECASE)
 
 
 def mask_vin_in_text(text: str) -> str:

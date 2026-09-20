@@ -506,6 +506,18 @@ class TxSafetyGateway:
                 # T62-M4: clear global aggregate rate envelope so new channel starts clean
                 self._tx_total_timestamps.clear()
                 self._total_overload_streak = 0
+                # REVIEW 1.3: reset the per-category token buckets too. The
+                # sliding-window state above was cleared but the buckets were
+                # not — so a `protocol_burst`/`diagnostic` bucket drained on
+                # the OLD (faulty) link stayed empty on the freshly bound
+                # hardware, and the first critical burst after a reconnect
+                # was rejected with RateLimitExceededError. Recreate every
+                # bucket at its configured capacity so the new channel starts
+                # with a full burst allowance regardless of prior exhaustion.
+                self._budgets = {
+                    name: TxBudget(capacity, refill)
+                    for name, (capacity, refill) in self.BUDGETS.items()
+                }
             # Invalidate every in-flight validated frame: dispatch compares
             # its fence snapshot under tx_send_lock and rejects on mismatch.
             # estop.tx_fence getter takes the estop lock; bump via trigger-

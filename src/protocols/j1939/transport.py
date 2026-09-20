@@ -419,8 +419,47 @@ class J1939TransportProtocol:
             self._release_session_slot(key, self._rx_sessions.get(key))
         return len(expired)
 
-    def handle_rx_frame(self, frame: CanFrame) -> tuple[CompletedMessage | None, CanFrame | None]:
-        """Process incoming frame according to SAE J1939-21 PDU format rules."""
+    def handle_rx_frame(
+        self,
+        frame: CanFrame,
+        suppress_tx_responses: bool = False,
+    ) -> tuple[CompletedMessage | None, CanFrame | None]:
+        """Process incoming frame according to SAE J1939-21 PDU format rules.
+
+        ``suppress_tx_responses`` (REVIEW 2.1 defense-in-depth): replay
+        (``source == "replay"``) traces are ANALYSIS-ONLY and must never
+        actuate the physical bus. A replayed TP.CM RTS otherwise makes this
+        engine emit a real CTS onto the live network — the exact replay-to-TX
+        bridge the ReplaySafetyFilter exists to stop, but which a filter
+        configuration change (e.g. ``block_transport_tunneling=False``) would
+        re-open. When True the frame is still reassembled for telemetry, but
+        every outbound response (the single return slot AND the queued
+        ``_pending_tx_frames`` overflow) is dropped at the source, so the
+        caller has nothing to transmit even if it ignores the flag contract.
+
+        Fail-closed ordering: the flag is applied BEFORE any response is
+        returned, so a caller bug (proceeding to transmit a non-None
+        ``resp``) cannot re-introduce the frame.
+        """
+        completed, resp = self._handle_rx_frame_pdu(frame)
+        if not suppress_tx_responses:
+            return completed, resp
+        # Replay/analysis path: keep the reassembled application message,
+        # discard every outbound transport frame.
+        if resp is not None or self._pending_tx_frames:
+            logger.debug(
+                "J1939 TP TX response suppressed (replay/analysis frame)",
+                extra={
+                    "arbitration_id": getattr(frame, "arbitration_id", None),
+                    "had_direct_response": resp is not None,
+                },
+            )
+        with self._sessions_lock:
+            self._pending_tx_frames.clear()
+        return completed, None
+
+    def _handle_rx_frame_pdu(self, frame: CanFrame) -> tuple[CompletedMessage | None, CanFrame | None]:
+        """PDU-format dispatch body of :meth:`handle_rx_frame` (see there)."""
         fd_tp = frame.is_fd and (frame.dlc > 8 or len(frame.data) > 8)
         if not frame.is_extended or len(frame.data) < 8 or fd_tp:
             # M-34 (micro) -> REVIEW 2-H2 (HIGH): J1939-22/FD TP frames

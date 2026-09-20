@@ -3610,7 +3610,31 @@ class UniversalCanDesktopApp:
         self._decode_j1939_signal(frame)
 
         # J1939 transport protocol reassembly (multi-packet) (B-12 drain)
-        completed, resp = self.j1939_tp.handle_rx_frame(frame)  # type: ignore[arg-type]
+        # REVIEW 2.1 (defense-in-depth): a frame sourced from a replayed
+        # trace must NEVER elicit a physical TX response. ReplayBus frames
+        # carry source="replay" (hal/replay/parsers.py). Replayed transport
+        # frames are still reassembled for telemetry, but the TP engine is
+        # told to suppress every outbound response — so even if the
+        # ReplaySafetyFilter is mis-configured (e.g. tunneling blocking
+        # disabled), a replayed RTS/FF cannot make this tool emit a CTS/FC
+        # onto the live vehicle network.
+        _is_replay_frame = getattr(frame, "source", "") == "replay"
+        try:
+            completed, resp = self.j1939_tp.handle_rx_frame(  # type: ignore[arg-type]
+                frame, suppress_tx_responses=_is_replay_frame
+            )
+        except TypeError:
+            # Backward-compat: a lightweight handle_rx_frame double with the
+            # historical single-arg signature (test stubs, TxPort-shaped shims)
+            # cannot express the suppression contract. Fall back to the plain
+            # call and enforce suppression on the CALLER side below — the
+            # replay frame must still never reach the gateway.
+            completed, resp = self.j1939_tp.handle_rx_frame(frame)  # type: ignore[arg-type]
+            if _is_replay_frame:
+                resp = None
+        if _is_replay_frame:
+            # Fail-closed: drop any queued overflow responses as well.
+            self.j1939_tp.take_pending_tx_frames()
         if resp is not None:
             try:
                 # REVIEW HIGH-3: inbound-triggered protocol responses travel

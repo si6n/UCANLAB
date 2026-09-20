@@ -92,6 +92,34 @@ class RP1210Bus(AbstractBus):
         self._active_sends = 0
         self._active_recvs = 0
         self._drain_cond = threading.Condition(self._lifecycle_lock)
+        # REVIEW 2.2 (HIGH): RP1210 packet decode has NO hardware timestamp,
+        # and the raw `time.time_ns()` wall clock can jump BACKWARDS on NTP
+        # steps / leap seconds / hibernate. That corrupted jitter analysis,
+        # produced spurious timeout alarms, and broke rolling-blackbox
+        # ordering. Anchor wall-clock once and advance it with a monotonic
+        # delta so the emitted timestamp is strictly non-decreasing while
+        # still reading as wall-clock time.
+        self._ts_anchor_wall_ns: int = time.time_ns()
+        self._ts_anchor_mono_ns: int = time.monotonic_ns()
+        self._last_emitted_ts_ns: int = self._ts_anchor_wall_ns
+        self._ts_lock = threading.Lock()
+
+    def _monotonic_timestamp_ns(self) -> int:
+        """Wall-clock-seeded, monotonic-non-decreasing timestamp (REVIEW 2.2).
+
+        ``time.time_ns()`` alone regresses on clock steps; ``monotonic_ns()``
+        alone is not comparable to capture timestamps. Combining an anchor
+        pair yields a value that tracks wall-clock time but can never move
+        backwards — the property jitter/blackbox/ordering logic needs.
+        """
+        with self._ts_lock:
+            candidate = self._ts_anchor_wall_ns + (time.monotonic_ns() - self._ts_anchor_mono_ns)
+            if candidate <= self._last_emitted_ts_ns:
+                # Monotonic clock also enables non-decreasing output under
+                # identical reads (coarse timer resolution) — nudge by 1 ns.
+                candidate = self._last_emitted_ts_ns + 1
+            self._last_emitted_ts_ns = candidate
+            return candidate
 
     @property
     def _uses_extended_id_layout(self) -> bool:
@@ -340,7 +368,7 @@ class RP1210Bus(AbstractBus):
                 is_extended=True,
                 is_fd=False,
                 direction="rx",
-                timestamp_ns=time.time_ns(),
+                timestamp_ns=self._monotonic_timestamp_ns(),
             )
 
         # Classic 11-bit layout: 2-byte header (DLC low nibble, ID in bits 4-15).
@@ -379,5 +407,5 @@ class RP1210Bus(AbstractBus):
             is_extended=False,
             is_fd=False,
             direction="rx",
-            timestamp_ns=time.time_ns(),
+            timestamp_ns=self._monotonic_timestamp_ns(),
         )
