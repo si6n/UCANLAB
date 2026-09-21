@@ -190,17 +190,36 @@ def test_g4_capacity_eviction_is_fifo_and_bounded() -> None:
 
 
 def test_g4_expired_entries_are_pruned() -> None:
-    """G-4: expired tokens are pruned so the store cannot grow without bound."""
+    """G-4: expired tokens are pruned so the store cannot grow without bound.
+
+    Determinism note: this used to stamp the tokens with
+    ``monotonic_ns() + 1`` and then ``time.sleep(0.01)`` to "let the TTL
+    elapse". That made the test depend on the wall duration of a sleep, and
+    ``time.sleep`` is not required to block for at least the requested time —
+    on a Windows runner it can return with the clock advanced by 0 ns. When
+    that happened ``now_ns`` was still ``expiry_ns - 1``, the prune loop's
+    ``oldest_expiry <= now_ns`` was False, nothing was dropped, and the test
+    failed with ``len == 51`` (reproduced locally: 75/300 iterations on
+    CPython 3.12/win32, 50/200 on 3.13 — roughly a 1-in-4 flake, which is what
+    the CI job hit).
+
+    The expiry is now placed in the PAST by a wide margin, so
+    ``oldest_expiry <= now_ns`` holds on the very next call with no sleep
+    involved at all. Same guarantee, no timing dependency.
+    """
     bus = VirtualBus(channel_id="t57_g4_prune")
     bus.connect()
     gw = TxSafetyGateway(bus=bus, whitelist_ids={0x7E0}, confirmation_secret=b"k" * 32)
 
-    expired_suffix = (time.monotonic_ns() + 1).to_bytes(8, "big")
+    # One second in the past: unambiguously expired, no sleep required.
+    already_expired_ns = time.monotonic_ns() - 1_000_000_000
+    expired_suffix = already_expired_ns.to_bytes(8, "big")
     for i in range(50):
         payload = (0x7E0).to_bytes(4, "big") + expired_suffix + i.to_bytes(16, "big")
-        gw._consume_confirmation(payload, expiry_ns=int.from_bytes(expired_suffix, "big"))
-    # Let the TTL elapse, then force a prune via one more consumption.
-    time.sleep(0.01)
+        gw._consume_confirmation(payload, expiry_ns=already_expired_ns)
+
+    # The next consumption runs the expiry prune; the fresh token must be the
+    # only survivor.
     live_suffix = (time.monotonic_ns() + 60_000_000_000).to_bytes(8, "big")
     fresh = (0x7E0).to_bytes(4, "big") + live_suffix + b"\xff" * 16
     gw._consume_confirmation(fresh, expiry_ns=int.from_bytes(live_suffix, "big"))
