@@ -1,4 +1,6 @@
-import json, hashlib, os, sys, re
+import hashlib
+import json
+import os
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 J = os.path.join(ROOT, "data", "diagnostics", "j1939_spn_fmi_database.json")
@@ -28,13 +30,13 @@ dd = json.load(open(D, encoding="utf-8"))
 spns = jd["spns"]
 
 jf = {"symptoms": 0, "diagnostic_steps": 0, "procedures_full": 0, "causes": 0, "steps": 0, "dd_procedures": 0, "associated_pgn": 0}
-for k, v in spns.items():
+for v in spns.values():
     for f in jf:
         if isempty(v.get(f)):
             jf[f] += 1
 
 df = {}
-for k, v in dd.items():
+for v in dd.values():
     for f in ("procedures_full", "symptoms", "causes", "steps", "solutions", "related_codes", "title_tr"):
         df.setdefault(f, 0)
         if isempty(v.get(f)):

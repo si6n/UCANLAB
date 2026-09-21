@@ -1,11 +1,10 @@
 """T63 — dtcdocs.com parser."""
 from __future__ import annotations
 
-import json
+import os
 import re
 import sys
 import time
-import os
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import t63_harvest as H
@@ -137,7 +136,7 @@ def main():
         txt = H.strip_tags(t)
         try:
             r = parse(u, txt)
-        except Exception as e:
+        except Exception:
             r = None
         if r:
             recs.append(r)
@@ -174,8 +173,7 @@ def main():
                 "kind": "symptom_index",
             }
         )
-    for r in sym_recs:
-        fetched += 1
+    fetched += len(sym_recs)
     payload = H.meta(
         "dtcdocs.com",
         "/code/{brand}-{engine}-spn-{n}-fmi-{m}/ + /symptoms/",

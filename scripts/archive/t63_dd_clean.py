@@ -1,4 +1,6 @@
-import json, os, re, sys
+import json
+import os
+import re
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 P = os.path.join(ROOT, "output", "scan_t63_detroitdieselengines.info_2026-09-19.json")

@@ -8,8 +8,6 @@ import html
 import json
 import os
 import re
-import sys
-import time
 import urllib.error
 import urllib.request
 
@@ -42,7 +40,6 @@ def fetch(url: str, timeout: int = 25, use_cache: bool = True) -> tuple[int, str
         return e.code, ""
     except Exception:
         return 0, ""
-    ctype = ""
     txt = raw.decode("utf-8", "replace")
     if status == 200:
         with open(cp, "w", encoding="utf-8", errors="replace") as fh:

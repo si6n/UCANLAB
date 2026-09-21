@@ -78,8 +78,9 @@ def main() -> int:
     for rec in recs:
         key = (rec.get("key") or rec.get("code") or "").strip()
         if re.fullmatch(r"(?i)spn_\d+(_fmi_\d+)?", key):
-            # J1939: the SPN/FMI is not reliably present in the URL, keep the key.
-            urlspn = None
+            # J1939 key (spn_N / spn_N_fmi_M): the SPN/FMI is not reliably
+            # present in the URL, so the record's own key is kept as-is.
+            pass
         else:
             # DTC: the URL filename is authoritative for the code. A harvest that
             # disagrees with its own URL is corrupt — trust the URL, and if the
@@ -93,7 +94,6 @@ def main() -> int:
             elif not key:
                 stats["no_key"] += 1
                 continue
-            urlspn = None
 
         for f in ("symptoms", "causes", "steps"):
             rec[f] = clean_str_list(rec.get(f))

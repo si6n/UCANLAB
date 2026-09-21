@@ -1,11 +1,13 @@
-import json, os, re, sys
+import json
+import os
+import re
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-O = os.path.join(ROOT, "output")
+OUTPUT = os.path.join(ROOT, "output")
 log = {}
 
 # ---------- 1. obd2hub repair ----------
-p = os.path.join(O, "scan_t63_obd2hub.com_2026-09-19.json")
+p = os.path.join(OUTPUT, "scan_t63_obd2hub.com_2026-09-19.json")
 d = json.load(open(p, encoding="utf-8"))
 recs = d["records"]
 before = len(recs)
@@ -45,7 +47,7 @@ json.dump(d, open(p, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
 log["obd2hub"] = {"before": before, "dropped_nocode": nul, "after": len(kept)}
 
 # ---------- 2. autofaultcodes boilerplate cause strip ----------
-p2 = os.path.join(O, "scan_t63_autofaultcodes.com_2026-09-19.json")
+p2 = os.path.join(OUTPUT, "scan_t63_autofaultcodes.com_2026-09-19.json")
 d2 = json.load(open(p2, encoding="utf-8"))
 BOIL = re.compile(
     r"(These are diagnostic possibilities|not a statistical parts-replacement ranking|"
@@ -85,13 +87,13 @@ json.dump(d2, open(p2, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
 log["autofaultcodes"] = {"records_fixed": stripped}
 
 # ---------- 3. delete dieselenginespec ----------
-p3 = os.path.join(O, "scan_t63_dieselenginespec.com_2026-09-19.json")
+p3 = os.path.join(OUTPUT, "scan_t63_dieselenginespec.com_2026-09-19.json")
 if os.path.exists(p3):
     os.remove(p3)
     log["dieselenginespec.com"] = "DELETED (orchestrator rejected, nav-dump, 0/5 live verify)"
 
 # ---------- 4. confirm detroit cleanup ----------
-p4 = os.path.join(O, "scan_t63_detroitdieselengines.info_2026-09-19.json")
+p4 = os.path.join(OUTPUT, "scan_t63_detroitdieselengines.info_2026-09-19.json")
 d4 = json.load(open(p4, encoding="utf-8"))
 bad = [
     r

@@ -1,7 +1,9 @@
-import re, sys, os, time
+import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import t63_harvest as H
 import t63_dtc_srcs as D
+import t63_harvest as H
 
 # obd2hub: sitemap_en.xml (4.826) -> cap 700 for time budget
 o2h = [u for u in H.sitemap_urls("https://obd2hub.com/sitemap_en.xml") if u.endswith(".html")]

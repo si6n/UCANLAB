@@ -1,10 +1,9 @@
 """T63 — detroitdieselengines.info + dieselenginespec.com + j1939hub.com parsers."""
 from __future__ import annotations
 
-import json
+import os
 import re
 import sys
-import os
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))

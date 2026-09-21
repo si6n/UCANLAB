@@ -1,4 +1,6 @@
-import re, sys, os, time
+import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import t63_harvest as H
 

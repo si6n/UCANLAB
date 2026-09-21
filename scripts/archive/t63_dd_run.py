@@ -1,4 +1,7 @@
-import re, sys, os
+import os
+import re
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import t63_harvest as H
 import t63_j1939_srcs as S
