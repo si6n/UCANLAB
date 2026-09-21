@@ -1,9 +1,11 @@
 """Regression tests for the UCANLAB comprehensive-review verification pass.
 
-The review (`UCANLAB_COMPREHENSIVE_CODE_REVIEW.md`) made 16 findings. This
-verification pass confirmed 9 real, judged 2 exaggerated, and REFUTED 5. Only
-the confirmed/exaggerated-but-real items are fixed here; the refuted findings
-have NO tests by design (see `UCANLAB_BULGU_DOGRULAMA_RAPORU.md`).
+An external code review (2026-09) made 16 findings; the verification pass
+confirmed 9 real, judged 2 exaggerated, and REFUTED 5. Only the
+confirmed/exaggerated-but-real items are fixed here; the refuted findings have
+NO tests by design — implementing them would contradict verified behaviour.
+The review artifacts themselves were working documents and were not kept in
+the repository, so this docstring records the outcome rather than a file path.
 
 Findings covered (TDD: written to fail on the pre-fix code):
 

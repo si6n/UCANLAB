@@ -126,6 +126,19 @@ data/traces/marine/project_haris/raw/
 # Vault kendi bagimsiz Git reposuyla yonetilir.
 obsidian-vault/
 
+# --- Ad-hoc review / report working documents (agent output) ---
+# Review artifacts, verification reports and remediation plans are WORKING
+# DOCUMENTS: they helped land fixes but are not product deliverables and must
+# not ship in the repo. A batch of them was pushed by mistake in 2026-09 and
+# removed again; these patterns keep that from recurring. Curated, durable
+# documentation belongs in docs/ instead.
+UCANLAB_*.md
+REVIEW_REMEDIATION_REPORT.md
+*_REMEDIATION_REPORT.md
+*_BULGU_DOGRULAMA_*.md
+*_IYILESTIRME_PLANI.md
+*_CODE_REVIEW.md
+
 # --- Ad-hoc scratch / agent working files (Tur-27) ---
 # Gecici ceviri + tarama scriptleri (kalici DEGIL — repo disi tutulur)
 _tr_*.py
