@@ -35,6 +35,9 @@ exclude = [
     "arsiv_ajan_scriptleri",  # archived agent scratch scripts (not shipped)
     "spn_gap_hunter",
     "scripts/t5*",  # one-shot harvest scripts (T50-T53); shipped code lives in src/
+    "scripts/archive",  # frozen one-shot T63 probe scripts (not shipped, not maintained)
+    "scripts/t63_harden.py",  # same: one-shot T63 hardening scratch script
+    "_review_extract",  # local review-verification scratch (untracked)
 ]
 
 [tool.ruff.lint]

@@ -1,0 +1,28 @@
+# Security Advisory Exceptions — Governance Record
+#
+# S6 (REVIEW Aşama 4): `pip-audit --ignore-vuln <ID>` was applied inline in CI
+# with no expiry, no owner and no justification, so an accepted advisory could
+# be suppressed INDEFINITELY without anyone revisiting it. Every exception must
+# now be recorded here with an owner and an expiry, and CI fails when an
+# exception has expired (see `scripts/check_security_exceptions.py`).
+#
+# Schema (one entry per advisory):
+#   id:             the advisory / vulnerability identifier pip-audit reports
+#   package:        affected package
+#   owner:          GitHub/GitLab handle accountable for re-evaluating it
+#   justification:  why the risk is accepted in this deployment
+#   expires:        ISO date (YYYY-MM-DD) — CI FAILS on/after this date
+#   compensating_control: what limits the exposure in the meantime
+
+exceptions:
+  - id: PYSEC-2026-2447
+    package: nltk
+    owner: "@si6n"
+    justification: >-
+      Reachable only through a documentation/harvest tooling extra that is not
+      imported by the shipped desktop application or the CAN TX/RX path. The
+      AI layer is fully offline and does not load NLTK at runtime.
+    compensating_control: >-
+      `bandit` and CodeQL run on every pipeline; the packaged EXE is built from
+      requirements.txt only, which does not include the affected extra.
+    expires: "2026-12-31"
