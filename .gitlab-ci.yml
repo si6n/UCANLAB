@@ -73,6 +73,11 @@ pip-audit:
     # S6: every accepted advisory must be justified, owned and UNEXPIRED.
     # The checker fails the job once an entry's 'expires' date has passed.
     - python scripts/check_security_exceptions.py
+    # NOTE: this relies on POSIX word-splitting of the unquoted substitution.
+    # The runner here is Linux (sh/bash) so it behaves correctly; the GitHub
+    # Actions twin MUST pin `shell: bash` because its Windows runner defaults
+    # to pwsh, which does not word-split and passes the payload as one argv
+    # entry (see .github/workflows/ci.yml).
     - pip-audit --skip-editable $(python scripts/check_security_exceptions.py --print-flags)
   allow_failure: false  # T62-U6 / M2: dependency vulnerability check is mandatory (fail-closed)
 

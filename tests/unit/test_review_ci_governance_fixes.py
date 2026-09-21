@@ -203,6 +203,41 @@ def test_ci_files_reference_the_governance_checker() -> None:
         assert "--ignore-vuln PYSEC-2026-2447" not in text, f"{name} must not inline the exception"
 
 
+def test_pip_audit_step_forces_a_word_splitting_shell() -> None:
+    """The pip-audit step relies on word-splitting of `$(... --print-flags)`.
+
+    The PyTest & Conformance job runs on windows-latest, where `run:` defaults
+    to pwsh. PowerShell does NOT word-split a command substitution, so the
+    payload reached pip-audit as a single argv entry and the job failed with
+    "couldn't find a supported project file in --ignore-vuln PYSEC-2026-2447".
+    The step must therefore pin a POSIX shell. Regression guard: if someone
+    drops the `shell:` key (or switches it back to pwsh), this test fails.
+    """
+    import re
+
+    github = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+
+    # Isolate the pip-audit step block: from its `- name:` up to the next
+    # step at the same indentation.
+    match = re.search(
+        r"-\s*name:\s*Run pip-audit Dependency Scan\n(?P<body>(?:[ \t]+.*\n|\n)*)",
+        github,
+    )
+    assert match, "pip-audit step not found in ci.yml"
+    body = match.group("body")
+
+    assert "print-flags" in body, "pip-audit step must use --print-flags"
+    shell = re.search(r"^\s*shell:\s*(\S+)\s*$", body, re.MULTILINE)
+    assert shell, (
+        "the pip-audit step on windows-latest MUST pin `shell:` — without it "
+        "GitHub defaults to pwsh, which passes the flag payload as one argv "
+        "entry and breaks the scan"
+    )
+    assert shell.group(1) in {"bash", "sh"}, (
+        f"pip-audit needs a word-splitting shell, got {shell.group(1)!r}"
+    )
+
+
 def test_coverage_threshold_consistent_across_pipelines() -> None:
     """C4: the GitLab gate drifted to 79 while GitHub enforced 80.
 

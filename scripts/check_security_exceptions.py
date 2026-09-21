@@ -136,13 +136,23 @@ def main(argv: list[str] | None = None) -> int:
         # Emit on ONE line with no trailing space and no carriage return.
         #
         # This output is consumed by CI as `$(python ... --print-flags)` inside
-        # an unquoted command substitution. Word-splitting then turns it into
-        # separate argv entries, so the IDs must be space-separated and the
-        # result must not carry a trailing newline or a stray `\r`: bash strips
-        # `\n` but NOT `\r`, and a `\r`-terminated value makes pip-audit read
-        # `PYSEC-2026-2447\r` and abort with "couldn't find a supported project
-        # file". Writing bytes to stdout.buffer keeps the payload exactly as
-        # constructed regardless of platform text-mode translation.
+        # an unquoted command substitution, which REQUIRES the consumer shell
+        # to word-split the result:
+        #
+        #   bash   (Linux jobs, and the Windows job pinned with shell: bash)
+        #          -> ["--ignore-vuln", "PYSEC-2026-2447"]      OK
+        #   pwsh   (GitHub's Windows DEFAULT for `run:`)         BROKEN
+        #          -> ["--ignore-vuln PYSEC-2026-2447"]  (one argv entry)
+        #
+        # Under pwsh the single entry is not a valid `--ignore-vuln` value, so
+        # pip-audit aborts with "couldn't find a supported project file in
+        # --ignore-vuln PYSEC-2026-2447". That is a property of the consumer
+        # shell, not of this payload, so the workflow pins `shell: bash` for
+        # the audit step. Separately, the LAST flag must not carry a `\r`:
+        # bash strips the trailing `\n` but not a `\r`, and a `\r`-terminated
+        # value reproduces the same pip-audit error. Writing bytes to
+        # stdout.buffer keeps the payload exactly as constructed regardless of
+        # platform text-mode translation.
         flags = " ".join(f"--ignore-vuln {entry['id']}" for entry in entries)
         if flags:
             sys.stdout.buffer.write(flags.encode("utf-8"))

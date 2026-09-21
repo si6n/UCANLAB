@@ -107,6 +107,16 @@ jobs:
           python scripts/check_security_exceptions.py
 
       - name: Run pip-audit Dependency Scan
+        # shell: bash is REQUIRED, not cosmetic. This job runs on
+        # windows-latest, where `run:` defaults to pwsh — and PowerShell does
+        # NOT word-split a command substitution. `$(python ... --print-flags)`
+        # arrived as ONE argv entry, which pip-audit rejected with
+        # "couldn't find a supported project file in <flag> <id>". bash splits
+        # the payload into the two argv entries pip-audit expects. The other
+        # steps of this job already pin shell: pwsh; this one needs the
+        # opposite on purpose. Guarded by
+        # tests/unit/test_review_ci_governance_fixes.py.
+        shell: bash
         run: |
           pip-audit --skip-editable $(python scripts/check_security_exceptions.py --print-flags)
 
