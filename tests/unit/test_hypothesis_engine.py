@@ -179,7 +179,13 @@ class TestRanking:
         weak = rank_hypotheses(session, [], None, graph=graph)
         strong = rank_hypotheses(session, [_anomaly("EngineCoolantTemp")], None, graph=graph)
         assert strong[0].score >= weak[0].score
-        assert strong[0].supporting_evidence[-1].startswith("anomali kanıtı")
+        # P0-6: an honest "kanıt sınırı" (testability) note is now appended
+        # after the evidence ledger, so the anomaly entry is no longer
+        # necessarily the LAST element. Assert membership, which is what the
+        # test actually cares about.
+        assert any(
+            s.startswith("anomali kanıtı") for s in strong[0].supporting_evidence
+        )
 
     def test_synthetic_anomaly_weighs_less(self) -> None:
         graph = load_root_cause_graph()

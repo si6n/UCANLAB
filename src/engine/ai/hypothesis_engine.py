@@ -418,6 +418,16 @@ class Hypothesis:
     # calibration metric can enforce its code precondition without re-reading
     # the graph (T2-1).
     expected_dtcs: tuple[str, ...] = ()
+    # P0-6 (2026-09-21 audit, finding 6): the graph node declares at least one
+    # measurable signal, so the hypothesis can in principle be CORROBORATED or
+    # REFUTED by telemetry. Measured at HEAD: 6,167 of 8,884 nodes declare NO
+    # evidence signal and 8,882 declare NO contradicting signal — such a node
+    # can only ever match by DTC code, so its printed position in the ranking
+    # implies a diagnostic confidence the evidence base cannot support. This
+    # flag lets the report say so explicitly instead of presenting an
+    # unfalsifiable candidate as an equally-ranked finding.
+    falsifiable: bool = True          # carries at least one observable signal
+    refutable: bool = True            # carries at least one contradicting signal
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -430,6 +440,8 @@ class Hypothesis:
             "contradicting_evidence": list(self.contradicting_evidence),
             "discriminating_tests": list(self.discriminating_tests),
             "expected_dtcs": list(self.expected_dtcs),
+            "falsifiable": self.falsifiable,
+            "refutable": self.refutable,
         }
 
 
@@ -632,6 +644,9 @@ def rank_hypotheses(
         return []
 
     raw: list[tuple[float, str, Hypothesis]] = []
+    # P0-6: id -> node, so the post-sort pass can read each node's declared
+    # observable/contradicting signals without a second graph scan.
+    node_lookup = {n.id: n for n in graph}
     for node in graph:
         support: list[str] = []
         contradict: list[str] = []
@@ -745,7 +760,7 @@ def rank_hypotheses(
                 Hypothesis(
                     id=node.id,
                     fault=node.title,
-                    score=0.0,  # normalized after max pass
+                    score=0.0,  # absolute score computed below
                     supporting_evidence=tuple(support),
                     contradicting_evidence=tuple(contradict),
                     expected_dtcs=tuple(node.expected_dtcs),
@@ -755,31 +770,69 @@ def rank_hypotheses(
 
     if not raw:
         return []
-    # Normalize to [0, 1] over the best raw score, deterministic order.
-    best = max(r for r, _, _ in raw) or 1.0
     # Graph-size-independent flat prior (see DEFAULT_PRIOR_PROBABILITY).
     prior_prob = DEFAULT_PRIOR_PROBABILITY
+    import math
+
     out: list[Hypothesis] = []
     for r, nid, hyp in sorted(raw, key=lambda t: (-t[0], t[1])):
-        norm_score = r / best
+        # P0-5 (2026-09-21 audit, finding 5): this used to be `r / best`, a
+        # RELATIVE score, so the top candidate was ALWAYS exactly 1.0 (%100)
+        # no matter how little evidence it had — a single weak DTC match read
+        # as absolute certainty, and adding an unrelated competing hypothesis
+        # silently RAISED the leader's displayed confidence. The component
+        # weights (WEIGHT_DTC_MATCH + WEIGHT_SIGNAL_MATCH + WEIGHT_CASE_MATCH)
+        # sum to 1.0, so the raw score is already an ABSOLUTE [0, 1] quantity;
+        # the case term can push it marginally above 1.0, hence the clamp.
+        abs_score = min(1.0, max(0.0, r))
         n_ev = len(hyp.supporting_evidence) + len(hyp.contradicting_evidence)
-        # Wilson-like conservative confidence interval
-        import math
+        # Wilson-like conservative confidence interval. The previous `+ 0.05`
+        # was an undisclosed pseudo-count inflating the margin; use the
+        # Laplace (add-one-smoothing) form instead, which is the documented
+        # statistical basis for a small-sample proportion interval.
+        _p = abs_score
+        margin = 1.96 * math.sqrt(max(0.0, (_p * (1.0 - _p)) / (n_ev + 4)) + (1.0 / (4.0 * (n_ev + 4) ** 2)))
+        ci_lower = max(0.0, round(abs_score - margin, 3))
+        ci_upper = min(1.0, round(abs_score + margin, 3))
 
-        margin = 1.96 * math.sqrt(max(0.001, (norm_score * (1.0 - norm_score) + 0.05) / (n_ev + 4)))
-        ci_lower = max(0.0, round(norm_score - margin, 3))
-        ci_upper = min(1.0, round(norm_score + margin, 3))
+        # P0-6: record whether this node's claim can even be tested. The
+        # falsifiability is a property of the GRAPH NODE (does it declare any
+        # observable signal?), not of this particular session, so it is read
+        # from the node rather than inferred from the evidence ledger.
+        _node = node_lookup.get(nid)
+        _falsifiable = bool(_node and _node.canonical_evidence_signals(aliases))
+        _refutable = bool(_node and _node.canonical_contradicting_signals(aliases))
+        _support = list(hyp.supporting_evidence)
+        if not _falsifiable and not _refutable:
+            # Honest annotation (AGENTS.md §2.3): state the evidential limit
+            # rather than letting the ranking imply corroboration it lacks.
+            _support.append(
+                "kanıt sınırı: düğüm ölçülebilir/çürütülebilir sinyal tanımlamıyor — "
+                "yalnızca DTC kodu eşleşmesiyle sıralandı, telemetriyle doğrulanamaz"
+            )
+        elif not _refutable:
+            _support.append(
+                "kanıt sınırı: düğüm çürütücü sinyal tanımlamıyor — yanlışlanamaz, "
+                "yalnızca doğrulayıcı kanıtla desteklenebilir"
+            )
+        elif not _falsifiable:
+            _support.append(
+                "kanıt sınırı: düğüm doğrulayıcı sinyal tanımlamıyor — telemetriyle "
+                "DOĞRULANAMAZ, yalnızca çürütücü kanıtla elenebilir"
+            )
 
         out.append(
             Hypothesis(
                 id=nid,
                 fault=hyp.fault,
-                score=norm_score,
+                score=abs_score,
                 confidence_interval=(ci_lower, ci_upper),
                 prior_probability=prior_prob,
-                supporting_evidence=hyp.supporting_evidence,
+                supporting_evidence=tuple(_support),
                 contradicting_evidence=hyp.contradicting_evidence,
                 expected_dtcs=hyp.expected_dtcs,
+                falsifiable=_falsifiable,
+                refutable=_refutable,
             )
         )
     return out[:MAX_HYPOTHESES]

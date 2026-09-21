@@ -61,7 +61,7 @@ def _resolve_thresholds_path() -> Path:
 
 def _validate_threshold_payload(payload: dict[str, Any]) -> None:
     """Fail-closed shape check mirroring golden_cases.py (unknown field rejection)."""
-    allowed_top = {"schema_version", "_source_rule", "signals"}
+    allowed_top = {"schema_version", "_source_rule", "_p0_2_reconciliation", "signals"}
     extra = set(payload) - allowed_top
     if extra:
         raise ThresholdDatabaseError(f"unknown top-level field(s): {sorted(extra)}")
@@ -71,10 +71,22 @@ def _validate_threshold_payload(payload: dict[str, Any]) -> None:
     if not isinstance(signals, dict):
         raise ThresholdDatabaseError("signals must be an object")
 
+    _BAND_FIELDS = {"nominal_min", "nominal_max", "warning_max", "critical_max"}
     for name, entry in signals.items():
         if not isinstance(entry, dict):
             raise ThresholdDatabaseError(f"signals.{name} must be an object")
-        extra_s = set(entry) - {"unit", "ranges", "source_ref"}
+        # P0-2 (2026-09-21 audit): a signal may declare KB-derived bands
+        # (nominal_min/nominal_max/warning_max/critical_max) beside the
+        # hard min/max envelope. `critical_max` is what the scenario trigger
+        # and the report consistency note read, so the trigger and the
+        # guidance text cannot contradict each other. These stay OPTIONAL.
+        for _band_key in ("nominal_min", "nominal_max", "warning_max", "critical_max"):
+            _band_val = entry.get(_band_key)
+            if _band_val is not None and not isinstance(_band_val, (int, float)):
+                raise ThresholdDatabaseError(
+                    f"signals.{name}.{_band_key} must be numeric or absent"
+                )
+        extra_s = set(entry) - {"unit", "ranges", "source_ref"} - _BAND_FIELDS
         if extra_s:
             raise ThresholdDatabaseError(f"signals.{name} unknown field(s): {sorted(extra_s)}")
         if not str(entry.get("source_ref", "")).strip():

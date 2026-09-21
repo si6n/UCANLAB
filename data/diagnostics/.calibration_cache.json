@@ -1,22 +1,10 @@
 {
-  "58048ff551991d3be573d3b26902545b7ca9616e3ee452a03ca9318c4143d003": {
-    "calibration_factor": 0.7941176470588236,
-    "computed_at_utc": "2026-09-21T15:19:45Z"
+  "b829d4243156eb6f55143f702fa50474fb55748b2c2e006b81c3d30ecc562b03": {
+    "calibration_factor": 1.0,
+    "computed_at_utc": "2026-09-21T22:24:40Z"
   },
-  "bf3ac9b530baa15260dba6319c2b47f38f2e1cf8e925966753201e8c182d0388": {
-    "calibration_factor": 0.7941176470588236,
-    "computed_at_utc": "2026-09-21T15:22:57Z"
-  },
-  "9437091615cdf207858cbaa7df8c3473e8f503e5e3056d3ef8f587636befbe1d": {
-    "calibration_factor": 0.8235294117647058,
-    "computed_at_utc": "2026-09-21T16:38:02Z"
-  },
-  "07655d0f310fb1dab88cda770a7d19f25cb5e7ac911a5bfbe524e3a704f7878b": {
-    "calibration_factor": 0.8235294117647058,
-    "computed_at_utc": "2026-09-21T17:26:41Z"
-  },
-  "152a08191dc870afff3ae28eed45abe8ae1c9eb10ab1c05496d6553b3b265a25": {
-    "calibration_factor": 0.8235294117647058,
-    "computed_at_utc": "2026-09-21T17:38:48Z"
+  "8816f58de3c067a5a273d74451651a9b53750dcc331f24714456de9b5433d3b9": {
+    "calibration_factor": 1.0,
+    "computed_at_utc": "2026-09-21T22:28:36Z"
   }
 }

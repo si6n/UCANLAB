@@ -122,13 +122,38 @@ def build_technician_report(
     lines.append("## Hipotez Sıralaması")
     if hypotheses:
         lines.append("")
-        lines.append("| # | Hipotez | Ağırlıklı kanıt skoru | Destekleyen | Çelişen |")
-        lines.append("|---|---------|----------------------|-------------|---------|")
+        lines.append("| # | Hipotez | Ağırlıklı kanıt skoru | Test edilebilirlik | Destekleyen | Çelişen |")
+        lines.append("|---|---------|----------------------|--------------------|-------------|---------|")
         for i, h in enumerate(hypotheses, start=1):
             sup = "; ".join(h.supporting_evidence) or "—"
             con = "; ".join(h.contradicting_evidence) or "—"
-            lines.append(f"| {i} | {h.fault} | %{h.score * 100:.0f} | {sup} | {con} |")
+            # P0-6 (2026-09-21 audit, finding 6): state whether the hypothesis
+            # can be tested at all. A node that declares no observable and no
+            # contradicting signal can only match by DTC code; showing it in the
+            # same table without this column implies a corroboration the
+            # evidence base cannot provide.
+            falsifiable = getattr(h, "falsifiable", True)
+            refutable = getattr(h, "refutable", True)
+            if falsifiable and refutable:
+                testability = "doğrulanabilir + yanlışlanabilir"
+            elif falsifiable:
+                testability = "doğrulanabilir (yanlışlanamaz)"
+            elif refutable:
+                testability = "yanlışlanabilir (doğrulanamaz)"
+            else:
+                testability = "⚠️ yalnızca DTC — test edilemez"
+            lines.append(
+                f"| {i} | {h.fault} | %{h.score * 100:.0f} | {testability} | {sup} | {con} |"
+            )
         lines.append("")
+        # Disclose the limitation rather than hiding it in a cell.
+        if any(not (getattr(h, "falsifiable", True) and getattr(h, "refutable", True)) for h in hypotheses):
+            lines.append(
+                "*Bazı hipotezler ölçülebilir/çürütülebilir sinyal tanımlamıyor; bunlar yalnızca "
+                "DTC kodu eşleşmesiyle sıralandı ve telemetriyle doğrulanamaz "
+                "(test edilebilirlik sütununa bakın).*"
+            )
+            lines.append("")
         # T1-1: the table scores are DAMPED by the golden-set factor. Disclose
         # it, otherwise a reader cannot tell a calibrated %79 from a raw,
         # self-normalised %100 and will treat the number as a hard probability.

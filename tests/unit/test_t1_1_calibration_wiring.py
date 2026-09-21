@@ -153,10 +153,21 @@ class TestRealDiagnosticPathIsCalibrated:
         report = copilot.analyze_session(OVERCONFIDENT_DTCS, TELEMETRY, ["ECU_0"])
         label = report.root_cause_probability
 
-        assert "Yüksek" not in label, "overconfident engine input must be damped below 'Yüksek' — got " + repr(label)
-        assert label.startswith(("Düşük", "Orta", "Belirsiz")), (
-            "damped label must stay a valid probability band — got " + repr(label)
+        # P0-5 (2026-09-21 audit): with absolute scoring the engine is no longer
+        # overconfident, so the golden corpus now yields a NO-DAMPING factor of
+        # 1.0 (accuracy 51.85% vs mean confidence 0.2778 — under-confident). The
+        # old assertion pinned the "must be damped below Yüksek" behaviour that
+        # existed only to COMPENSATE for the inflated scores. The invariant that
+        # still matters is that the label is a valid, non-certain probability
+        # band and never claims a fault that the evidence cannot support.
+        assert label.startswith(("Düşük", "Orta", "Belirsiz", "Yüksek")), (
+            "label must be a valid probability band — got " + repr(label)
         )
+        assert "Yüksek (%100" not in label and "%100" not in label, (
+            "the report must never claim absolute certainty from this evidence — got " + repr(label)
+        )
+        # And the calibration stage must actually be applied (factor known).
+        assert compute_calibration_factor() is not None
 
     def test_wired_call_site_passes_a_real_factor(self) -> None:
         """The production label must equal the explicitly calibrated computation.
@@ -182,7 +193,13 @@ class TestRealDiagnosticPathIsCalibrated:
             calibration_factor=1.0,
         )
         factor = compute_calibration_factor()
-        assert factor is not None and factor < 1.0, "a real golden corpus must yield a damping factor"
+        # P0-5: the factor is now legitimately 1.0 (absolute scores are already
+        # honest). The production wiring must still APPLY it — so assert the
+        # report equals the explicitly-calibrated computation. When the factor
+        # happens to be 1.0 the two labels coincide; when it is below 1.0 they
+        # differ. Either way the call site must route through the factor.
+        assert factor is not None, "a real golden corpus must yield a factor (never an invented 1.0)"
+        assert 0.1 <= factor <= 1.0, f"factor must be clamped to the documented band, got {factor}"
         calibrated = compute_root_cause_confidence(
             dtc_count=1,
             scenario_matched=1,
@@ -190,11 +207,11 @@ class TestRealDiagnosticPathIsCalibrated:
             telemetry_correlation_count=1,
             calibration_factor=factor,
         )
-        assert undamped != calibrated, "calibration_factor must change the label"
-        assert report.root_cause_probability == calibrated
-        assert report.root_cause_probability != undamped, (
+        assert report.root_cause_probability == calibrated, (
             "RED: the production call site is not applying the calibration factor"
         )
+        if factor < 1.0:
+            assert undamped != calibrated, "a damping factor must change the label"
 
     def test_damping_direction_is_monotonic(self) -> None:
         """A lower calibration factor must never raise the reported score.
@@ -226,22 +243,30 @@ class TestRealDiagnosticPathIsCalibrated:
 # 3. The live hypothesis / technician-report path is damped too.
 # ---------------------------------------------------------------------------
 class TestSessionReportPathIsCalibrated:
-    def test_calibrated_hypotheses_damps_raw_self_normalised_scores(self) -> None:
-        """``rank_hypotheses`` self-normalises to %100; the report path must damp it.
+    def test_calibrated_hypotheses_damps_raw_scores(self) -> None:
+        """The report path must damp the raw score by the calibration factor.
 
-        BEFORE the fix, the panel and the exported report printed the raw
-        self-referential %100 score for a single weak rule hit.
+        NOTE (P0-5, 2026-09-21 audit): ``rank_hypotheses`` no longer
+        self-normalises to %100 — a single weak rule hit now scores near its
+        absolute weight (0.4) instead of the old self-referential 1.0. The
+        calibration stage is unchanged and still must damp whatever it is given.
+        This test therefore asserts the DAMPING RELATIONSHIP, not the old
+        false premise that the raw score was always %100.
         """
         session = _session_with_active_dtcs(["P0300"])
         raw = rank_hypotheses(session, [], None)
         assert raw, "fixture must produce at least one hypothesis"
-        assert raw[0].score == pytest.approx(1.0), "raw self-normalised score is %100"
+        # P0-5: the raw score is now an absolute value, never an automatic %100.
+        assert raw[0].score < 1.0, "raw score must not be self-normalised to %100"
 
         damped = calibrated_hypotheses(raw)
         factor = compute_calibration_factor()
         assert factor is not None
-        assert damped[0].score == pytest.approx(raw[0].score * factor)
-        assert damped[0].score < raw[0].score
+        # The damping RELATIONSHIP must hold; whether the factor is below 1.0
+        # depends on the measured corpus (P0-5: it is now 1.0 because the
+        # absolute scores are already honest, so no compensation is required).
+        assert damped[0].score == pytest.approx(raw[0].score * factor, abs=1e-6)
+        assert damped[0].score <= raw[0].score + 1e-9, "calibration must never raise a score"
 
     def test_damping_never_rewrites_evidence_ledgers(self) -> None:
         """Only the SCORE is calibrated; evidence stays recorded verbatim (§2.3)."""
@@ -264,7 +289,9 @@ class TestSessionReportPathIsCalibrated:
         hypotheses = calibrated_hypotheses(rank_hypotheses(session, [], None))
         report = build_technician_report(session, sufficiency, [], hypotheses, [])
         assert "kalibrasyon faktörü" in report
-        # And the displayed score must be the damped one, not %100.
+        # The displayed score must be the damped one. Since P0-5 the raw score
+        # is no longer auto-normalised to %100 either, so this is a belt-and-
+        # braces assertion that the report never claims certainty from one hit.
         assert "%100" not in report.split("## Hipotez Sıralaması")[1].split("##")[0]
 
 

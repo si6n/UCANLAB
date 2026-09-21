@@ -1,0 +1,134 @@
+{
+  "schema_version": 1,
+  "description": "Source-independent DTC severity rule table (SAE J2012 subsystem x fault-type). Derives `severity` for every DTC instead of trusting scraped source text. See docs: AGENTS.md 2.3 (no fabricated telemetry / no invented severity) and the 2026-09-21 deep-discovery finding P0-1.",
+  "_authority": "SAE J2012 diagnostic trouble code semantics. A code's severity is a function of WHICH subsystem fails and HOW it fails, not of whether a scraped page used the word 'critical'.",
+  "_severity_rungs": ["INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL_STOP", "UNKNOWN"],
+  "_unknown_policy": "No rule matches -> UNKNOWN (never INVENT a rung, never default to MEDIUM). `Severity.UNKNOWN` maps to GRAY in drive_safety_policy.decide_risk (never GREEN), so an unclassifiable fault fails safe.",
+
+  "critical_stop_allowlist": {
+    "_comment": "The ONLY code families that may be CRITICAL_STOP: faults that can destroy the engine/transmission or remove a primary safety function while driving. Everything else is capped at HIGH. This is a CLOSED list - the regression test fails if an unlisted code carries CRITICAL_STOP.",
+    "exact_codes": [
+      "P0217", "P0219", "P0234", "P0235", "P0251", "P0252", "P0253", "P0254",
+      "P0087", "P0088", "P0093", "P1093",
+      "U0100", "U0101", "U0102",
+      "P2105", "P2110", "P2104", "P2106",
+      "P0016", "P0017",
+      "P0321", "P0335", "P0336", "P0340", "P0341",
+      "P0524", "P0525", "P0521", "P0522", "P0523",
+      "P2183", "P2184", "P2185",
+      "P0700", "P0706", "P0707", "P0708", "P0715", "P0716", "P0717", "P0720", "P0721", "P0722",
+      "P0730", "P0740", "P0741", "P0742", "P0743", "P0744", "P2763", "P2764",
+      "P0299", "P2263", "P0045", "P0046", "P0047", "P0048",
+      "P1091", "P1092", "P1094", "P2002", "P2003", "P2459", "P242F", "P2463", "P244A", "P244B"
+    ],
+    "family_rules": [
+      {"code_prefix": "U01", "subsystem": "powertrain_control_module", "note": "Communication loss WITH the engine/transmission controller itself removes engine control -> stop-worthy only for the specific allowlisted U0100/U0101/U0102."},
+      {"code_prefix": "U0", "decision": "MEDIUM", "note": "Any other module communication loss degrades a function (ABS/park-brake/trailer/CAN electrical) but does not require stopping the engine -- YELLOW, not RED."}
+    ]
+  },
+
+  "subsystem_caps": {
+    "_comment": "Hard ceiling per SAE J2012 code class. A body/comfort code can NEVER be CRITICAL_STOP regardless of what a source page claimed.",
+    "P": "CRITICAL_STOP",
+    "C": "MEDIUM",
+    "B": "LOW",
+    "U": "MEDIUM"
+  },
+
+  "fault_type_penalties": {
+    "_comment": "Within a subsystem, the failure MODE scales severity. Applied AFTER subsystem cap. `heater`, `circuit_open`, `lamp`, `comfort` faults are never stop-the-engine.",
+    "overheat_protection": "CRITICAL_STOP",
+    "loss_of_sync": "CRITICAL_STOP",
+    "loss_of_lubrication": "CRITICAL_STOP",
+    "overboost_sustained": "CRITICAL_STOP",
+    "fuel_pressure_critical": "CRITICAL_STOP",
+    "shift_control_loss": "CRITICAL_STOP",
+    "aftertreatment_derate": "HIGH",
+    "sensor_circuit": "MEDIUM",
+    "actuator_circuit": "MEDIUM",
+    "heater_circuit": "LOW",
+    "lamp_circuit": "LOW",
+    "comfort_only": "INFO"
+  },
+
+  "fault_type_patterns": {
+    "_comment": "Keyword -> fault type. Matched CASE-INSENSITIVELY against the DTC title. Order matters: first match wins, so the most severe pattern must be listed first.",
+    "CRITICAL_STOP": [
+      "engine overheat", "overheat condition", "coolant temperature.*critical",
+      "crankshaft position", "camshaft position", "loss of sync", "timing.*correlation",
+      "oil pressure", "low oil pressure", "oil pump",
+      "overboost", "boost pressure.*high", "boost condition.*limit exceeded", "turbo.*overboost",
+      "fuel rail pressure.*(high|low)", "fuel pressure too low",
+      "shift solenoid", "transmission range sensor", "gear ratio",
+      "engine overspeed", "severe derate"
+    ],
+    "HIGH": [
+      "lost communication with (ecm|pcm|tcm|transmission|engine)",
+      "invalid data received.*(transmission|engine|throttle)"
+    ],
+    "MEDIUM": [
+      "circuit malfunction", "circuit range/performance", "signal",
+      "sensor", "rationality", "intermittent", "plausibility",
+      "dpf", "diesel particulate", "nox (trap|sensor|efficiency)", "scr", "def",
+      "egr flow", "turbo", "wastegate", "vgt",
+      "communication bus", "can bus", "bus (off|performance)"
+    ],
+    "LOW": [
+      "heater control circuit", "ho2s heater", "o2 sensor heater",
+      "warning lamp", "indicator", "lamp circuit",
+      "park brake", "trailer brake", "wiper", "aux heater", "seat", "comfort",
+      "fuel fired heater", "parking heater", "cabin heater",
+      "evap", "leak detection"
+    ],
+    "INFO": [
+      "service reminder", "maintenance", "mileage"
+    ]
+  },
+
+  "misfire_rule": {
+    "_comment": "Discovery finding P0-1: P0301-P0312 (single-cylinder misfire) were CRITICAL_STOP while P0300 (random/multiple misfire) was MEDIUM - inverted. A single-cylinder misfire is LESS severe than a random/multiple misfire. Both are MEDIUM (drive-on, service soon); a misfire only escalates to CRITICAL_STOP when a catalyst-damage code (P0420/P0430) or misfire-with-fuel-cutoff condition is simultaneously present, which this table does not infer.",
+    "single_cylinder": {"range": ["P0301", "P0312"], "severity": "MEDIUM"},
+    "random_multiple": {"exact": "P0300", "severity": "MEDIUM"},
+    "catalyst_damage_companion": {"codes": ["P0420", "P0430"], "severity": "HIGH"}
+  },
+
+  "structural_fault_modes": {
+    "_comment": "SAE J2012 titles follow a rigid grammar. After the explicit fault_type_patterns, these structural rules classify the remaining titles by their standard suffix. This is NOT keyword-scraping: every pattern is SAE's own title vocabulary, and the rung reflects the documented failure mode (an electrical circuit fault degrades a function; it does not stop the engine).",
+    "MEDIUM": [
+      "circuit.*(open|low|high|shorted|malfunction|range|performance)",
+      ".*stuck (open|closed)",
+      ".*performance bank",
+      ".*efficiency below threshold",
+      ".*(lean|rich)",
+      ".*sensor.*circuit",
+      ".*circuit (intermittent|erratic)",
+      ".*(deviation|plausibility|rationality)",
+      ".*control (circuit|module|solenoid|actuator)",
+      ".*(below|above).*(temperature|threshold|operating)",
+      ".*(valve|solenoid|control channel)",
+      ".*(range|performance)$",
+      ".*(correlation|mis ?match|implausible)",
+      ".*(small|large) leak",
+      ".*(detected|too (high|low|long|short))",
+      ".*current range",
+      ".*(air flow|idle position|throttle body)",
+      ".*cooling system performance",
+      "(aralık|araligi|performans|devre|sinyal|korelasyon|sapma|uyumsuzluk)",
+      "(altında|üstünde|çok (yüksek|düşük)|aşırı)",
+      "(sensör|solenoid|valf|termostat|pompa|enjektör) (devre|arıza|hatası)"
+    ],
+    "LOW": [
+      ".*(warning lamp|indicator lamp|display|tell ?tale)",
+      ".*(mirror|window|door|seat|wiper|horn|radio|climate)",
+      ".*(auxiliary|convenience|comfort)",
+      ".*iso/sae reserved"
+    ]
+  },
+
+  "provenance": {
+    "derived_from": "SAE J2012 / SAE J1979 DTC semantics",
+    "verified_against": "docs/audit/derin_kesif_analizi_2026-09-21.md findings 6 and 8",
+    "agent_authored": true,
+    "_apology": "This table encodes SAE subsystem semantics only. It contains NO vehicle-specific thresholds and NO fabricated field values; every rung is a documented SAE classification (AGENTS.md 2.3)."
+  }
+}

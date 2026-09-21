@@ -23,6 +23,15 @@ from typing import Any, Callable, cast
 
 from src.core.logging import get_logger
 from src.engine.ai.calibration import compute_calibration_factor
+from src.engine.ai.j1939_severity import (
+    normalize_spn_code as _normalize_spn_code,
+)
+from src.engine.ai.j1939_severity import (
+    resolve_fmi_severity as _resolve_fmi_severity,
+)
+from src.engine.ai.j1939_severity import (
+    resolve_spn_fault_title as _resolve_fmi_fault_title,
+)
 
 # T1-1 (calibration wiring): ``compute_calibration_factor`` above provides the
 # memoised golden-set calibration factor that damps root-cause confidence. It is
@@ -1793,7 +1802,10 @@ def _validate_dtc_entry_shape(code: str, info: Any) -> bool:
         if not isinstance(val, str) or not val.strip():
             return False
     severity = info.get("severity")
-    if severity not in ("INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL", "CRITICAL_STOP"):
+    # P0-1: UNKNOWN is a first-class rung (Severity.UNKNOWN -> GRAY, never
+    # GREEN). The severity rebuild emits it for codes the SAE J2012 rule
+    # table cannot classify, so the validator must accept it.
+    if severity not in ("INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL", "CRITICAL_STOP", "UNKNOWN"):
         return False
     steps = info.get("steps")
     if steps is not None:
@@ -1809,6 +1821,78 @@ def _validate_dtc_entry_shape(code: str, info: Any) -> bool:
         return False
     _ = code  # validated by caller (dict key, always str from JSON)
     return True
+
+
+def _derive_severity(code: str, info: dict[str, Any]) -> str | None:
+    """Derive a DTC severity rung from the SAE J2012 rule table (P0-1).
+
+    Measured at HEAD a6f7477 the scraped `severity` stamped CRITICAL_STOP on
+    single-cylinder misfires (P0301-P0312 while P0300 was MEDIUM), HO2S heater
+    circuits and wiper-relay codes; CRITICAL_STOP drives decide_risk -> RED ->
+    "stop the vehicle and switch off the engine". The rung is now DERIVED from
+    the source-independent rule table; an unclassifiable code resolves to
+    UNKNOWN (-> GRAY, never GREEN) so it fails safe (AGENTS.md 2.3).
+    """
+    try:
+        from src.engine.ai.severity_rules import load_severity_rules, resolve_severity
+
+        if not load_severity_rules():
+            return None
+        return resolve_severity(
+            code,
+            str(info.get("title") or ""),
+            str(info.get("subsystem") or ""),
+        ).value
+    except Exception as exc:  # noqa: BLE001 - a resolver fault must not kill the KB load
+        logger.warning("Severity rule resolution failed for %s: %s", code, exc)
+        return None
+
+
+def _reconcile_knowledge_base_severities() -> int:
+    """Apply the SAE J2012 rule table to every OBD-II KB entry (P0-1).
+
+    Built-in entries win over the external DB, so the reconciliation must run
+    over the merged base - otherwise the authoritative hand-crafted rungs
+    (P0300=CRITICAL_STOP, P0234=MEDIUM) keep their inconsistency. The prior
+    rung is preserved under `_source_severity` for auditability. J1939 SPN keys
+    are skipped: the table has no authority over them.
+    """
+    try:
+        from src.engine.ai.severity_rules import (
+            is_obd_code,
+            load_severity_rules,
+            resolve_severity,
+        )
+
+        if not load_severity_rules():
+            return 0
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Severity reconciliation unavailable: %s", exc)
+        return 0
+
+    changed = 0
+    for code, entry in list(EXPERT_KNOWLEDGE_BASE.items()):
+        if not isinstance(entry, dict):
+            continue
+        if not is_obd_code(code):
+            continue
+        try:
+            derived = resolve_severity(
+                code,
+                str(entry.get("title") or ""),
+                str(entry.get("subsystem") or ""),
+            ).value
+        except Exception:  # noqa: BLE001 - one bad entry must not abort the sweep
+            continue
+        current = str(entry.get("severity") or "")
+        if not current:
+            continue
+        if derived != current:
+            if "_source_severity" not in entry:
+                entry["_source_severity"] = current
+            entry["severity"] = derived
+            changed += 1
+    return changed
 
 
 def load_external_dtc_database(data_path: Path | str | None = None) -> int:
@@ -1871,10 +1955,26 @@ def load_external_dtc_database(data_path: Path | str | None = None) -> int:
                 merged = dict(info)
                 merged["symptoms"] = clean.get("symptoms", [])
                 merged["causes"] = clean.get("causes", info.get("causes", []))
+                # P0-1: the scraped `severity` is NOT trusted - it is derived
+                # from the SAE J2012 rule table (see _derive_severity).
+                derived_severity = _derive_severity(code, info)
+                if derived_severity is not None:
+                    if merged.get("severity") != derived_severity and "_source_severity" not in merged:
+                        merged["_source_severity"] = str(info.get("severity") or "")
+                    merged["severity"] = derived_severity
                 if merged["symptoms"] != info.get("symptoms") or merged["causes"] != info.get("causes"):
                     sanitized += 1
                 EXPERT_KNOWLEDGE_BASE[code] = merged
                 added += 1
+
+        # P0-1 (cont.): reconcile the WHOLE base, since built-in entries carry
+        # the same defect and would otherwise never be corrected.
+        reconciled = _reconcile_knowledge_base_severities()
+        if reconciled:
+            logger.info(
+                "P0-1 severity reconciliation: %d knowledge-base rungs derived from the SAE J2012 rule table",
+                reconciled,
+            )
 
         if rejected:
             logger.warning(
@@ -3458,6 +3558,17 @@ class CausalBayesianInferenceEngine:
         _ym = re.search(r"\b(19[89][0-9]|20[0-2][0-9])\b", user_query)
         vehicle_year = int(_ym.group(1)) if _ym else None
 
+        # P0-3 (2026-09-21 audit, finding 7): the query may name an FMI
+        # ("SPN 100 FMI 3"). The router keys off the SPN only, so the report
+        # rendered the SPN-level rung for EVERY failure mode — an unplugged
+        # sensor (FMI 3) was advised "stop the engine" exactly like a real loss
+        # of oil pressure (FMI 1). Extract the FMI once and thread it through
+        # `telemetry` (already passed to every formatter call) so the report can
+        # state the FMI-specific rung. Absent FMI leaves behaviour unchanged.
+        _fmi_match = re.search(r"\bfmi[\s:]*(\d{1,2})\b", norm_query)
+        if _fmi_match and "_query_fmi" not in telemetry:
+            telemetry = {**telemetry, "_query_fmi": int(_fmi_match.group(1))}
+
         # 0. Dedicated CAN Frame Forensics (e.g. from right-click context menu)
         frame_report = cls.analyze_can_frame(user_query, norm_query, telemetry)
         if frame_report is not None:
@@ -4055,6 +4166,75 @@ class CausalBayesianInferenceEngine:
         return attach_action_triggers(report_text, actions)
 
     @classmethod
+    def _measured_value_consistency(
+        cls,
+        code: str,
+        telemetry: dict[str, float],
+    ) -> str:
+        """Cross-check measured telemetry against the threshold database.
+
+        Returns a one-line note, or "" when the diagnosis has no thresholded
+        signal or no measurement was captured. It NEVER suppresses guidance: it
+        states whether the captured value is consistent with, above, or below
+        the KB-derived band, so an operator who asks "is the turbo pressure
+        normal?" at a nominal 2.6 bar is told the value is nominal instead of
+        being shown an unexplained overboost work-order (P0-2, finding 4).
+
+        Deterministic and offline: reads only telemetry_thresholds.json (itself
+        derived from the KB measurement text).
+        """
+        checks: list[tuple[str, str, str, str]] = []
+        if code == "P0234" or _turbo_matches({"code": code}):
+            checks.append(("BoostPressure", "TurboBoost", "Turbo basıncı", "bar"))
+        if code in {"SPN110", "P0115"}:
+            checks.append(("CoolantTemp", "EngineCoolantTemp", "Soğutma suyu sıcaklığı", "°C"))
+        if code == "SPN100":
+            checks.append(("OilPressure", "EngineOilPressure", "Yağ basıncı", "bar"))
+        if not checks:
+            return ""
+        try:
+            from src.engine.ai.anomaly_detector import load_thresholds
+
+            thresholds = load_thresholds()
+        except Exception:  # noqa: BLE001
+            return ""
+
+        lines: list[str] = []
+        for signal_key, db_key, label, unit in checks:
+            value = telemetry.get(signal_key)
+            if not isinstance(value, (int, float)):
+                continue  # not measured -> say nothing (F-02)
+            bands = thresholds.get(db_key)
+            if not isinstance(bands, dict):
+                continue
+            nominal_min = bands.get("nominal_min")
+            nominal_max = bands.get("nominal_max")
+            critical_max = bands.get("critical_max")
+            if isinstance(critical_max, (int, float)) and value > critical_max:
+                lines.append(
+                    f"  • {label}: {value:.2f} {unit} — **limit üstü** (KB limiti "
+                    f"{critical_max} {unit}); ölçüm tanıyı DESTEKLİYOR."
+                )
+            elif (
+                isinstance(nominal_min, (int, float))
+                and isinstance(nominal_max, (int, float))
+                and nominal_min <= value <= nominal_max
+            ):
+                lines.append(
+                    f"  • {label}: {value:.2f} {unit} — **nominal bantta** "
+                    f"({nominal_min}-{nominal_max} {unit}); ölçüm bu tanıyı "
+                    f"DESTEKLEMİYOR, eşik/bağlam kontrolü gerekir."
+                )
+            else:
+                lines.append(
+                    f"  • {label}: {value:.2f} {unit} — ölçülen değer kayıtlı "
+                    f"(KB nominal {nominal_min}-{nominal_max} {unit})."
+                )
+        if not lines:
+            return ""
+        return "\n📐 **Ölçüm Tutarlılığı:**\n" + "\n".join(lines) + "\n"
+
+    @classmethod
     def _format_4stage_technician_report(
         cls,
         code: str,
@@ -4245,9 +4425,32 @@ class CausalBayesianInferenceEngine:
             if _b_lines:
                 bridge_block = "\n\n🔗 **İlgili J1939 SPN Köprüsü (DTC↔SPN):**\n" + "\n".join(_b_lines)
 
+        # P0-2 (finding 4): the keyword router picks the report from the
+        # OPERATOR'S WORDS, not the measurement. This block cross-checks the
+        # captured value against the threshold DB and states the outcome
+        # honestly instead of asserting an overboost at a nominal reading.
+        consistency_block = cls._measured_value_consistency(code, telemetry)
+
+        # P0-3: when the operator named an FMI, state the FMI-SPECIFIC rung next
+        # to the SPN-level one. The per-FMI rung is the more specific evidence,
+        # so an electrical fault (FMI 3) is not shown as "stop the engine".
+        _q_fmi = telemetry.get("_query_fmi")
+        _fmi_sev = _resolve_fmi_severity(code, _q_fmi) if isinstance(_q_fmi, int) else None
+        if _fmi_sev is not None:
+            _fmi_title = _resolve_fmi_fault_title(code, _q_fmi)
+            priority_line = (
+                f"*(Öncelik: {_fmi_sev.value} — SPN düzeyi {info.get('severity', 'MEDIUM')}, "
+                f"FMI {_q_fmi} özelinde)*"
+            )
+            if _fmi_title:
+                priority_line += f"\n🔎 **FMI {_q_fmi} Arıza Modu:** {_fmi_title}"
+        else:
+            priority_line = f"*(Öncelik: {info.get('severity', 'MEDIUM')})*"
+
         report_text = (
-            f"🚨 **[{code}] — {info.get('title', code)}** *(Öncelik: {info.get('severity', 'MEDIUM')})*\n"
-            f"🏷️ **Alt Sistem:** {info.get('subsystem', 'Genel Teşhis')}{telemetry_str}\n\n"
+            f"🚨 **[{code}] — {info.get('title', code)}** {priority_line}\n"
+            f"🏷️ **Alt Sistem:** {info.get('subsystem', 'Genel Teşhis')}{telemetry_str}\n"
+            f"{consistency_block}\n"
             f"🔍 **Olası Nedenler:**\n{causes_formatted}\n\n"
             f"📋 **4-AŞAMALI USTA TEKNİSYEN SAHA ONARIM KILAVUZU:**\n"
             f"**Aşama 1: Görsel & Mekanik Kontrol:**\n{steps_formatted}\n"
@@ -4600,7 +4803,19 @@ def _oil_body(ctx: ScenarioContext) -> int:
     matched = sum(1 for d in ctx.dtcs if _oil_matches(d))
     if not any(_oil_matches(d) for d in ctx.dtcs):
         return 0
-    ctx.severity = FaultSeverity.CRITICAL_STOP
+    # P0-3 (2026-09-21 audit, finding 7): this rule unconditionally forced
+    # CRITICAL_STOP for SPN 100, regardless of FMI. An electrically-faulted
+    # sensor (FMI 3/4/5/6) then advised "Motoru kapatın" exactly like a real
+    # loss of oil pressure. The per-FMI rung recorded in the SPN database is
+    # the more specific evidence and takes precedence when present.
+    _fmi_sev = None
+    for _d in ctx.dtcs:
+        if not _oil_matches(_d):
+            continue
+        _fmi_sev = _resolve_fmi_severity("SPN 100", _d.get("fmi"))
+        if _fmi_sev is not None:
+            break
+    ctx.severity = FaultSeverity(_fmi_sev.value) if _fmi_sev is not None else FaultSeverity.CRITICAL_STOP
     ctx.affected.append("Motor Yağlama & Yatak Sistemi")
     ctx.likely_causes.append(
         "Kritik düşük yağ basıncı (Yağ pompası aşınması, karterde yağ eksilmesi veya filtre tıkanıklığı)"
@@ -4737,9 +4952,41 @@ def _turbo_matches(d: dict[str, object]) -> bool:
     return str(d.get("code", "")).upper() in {"P0234", "P0299"} or d.get("spn") == 102
 
 
+#: KB-mirrored boost limit (bar, absolute) used only when the threshold DB is
+#: unavailable. `SPN102` measurement: "Maksimum Guvenlik Limiti: 3.6 Bar".
+#: Previously this trigger was a bare 2.5 that contradicted the KB and produced
+#: a false-positive overboost on a healthy engine at 2.6 bar (P0-2, finding 4).
+_TURBO_CRITICAL_FALLBACK_BAR = 3.6
+
+
+def _turbo_boost_limit_bar() -> float:
+    """Read the overboost trigger from the threshold database (single source).
+
+    The threshold file is derived from the KB measurement text, so this keeps
+    the scenario trigger and the guidance from contradicting each other.
+    """
+    try:
+        from src.engine.ai.anomaly_detector import load_thresholds
+
+        bands = load_thresholds().get("TurboBoost") or {}
+        if isinstance(bands, dict):
+            critical = bands.get("critical_max")
+            if isinstance(critical, (int, float)):
+                return float(critical)
+            for band in bands.get("ranges") or []:
+                value = band.get("max")
+                if isinstance(value, (int, float)):
+                    return float(value)
+    except Exception:  # noqa: BLE001 - a threshold fault must not kill analysis
+        pass
+    return _TURBO_CRITICAL_FALLBACK_BAR
+
+
 def _turbo_body(ctx: ScenarioContext) -> int:
     turbo_count = sum(1 for d in ctx.dtcs if _turbo_matches(d))
-    if turbo_count == 0 and not (ctx.boost_bar > 2.5):
+    # A boost reading below the KB safety limit is NOT an overboost, even with
+    # no DTC present; at/above the limit it is.
+    if turbo_count == 0 and not (ctx.boost_bar > _turbo_boost_limit_bar()):
         return 0
     if ctx.severity != FaultSeverity.CRITICAL_STOP:
         ctx.severity = FaultSeverity.MEDIUM
@@ -4765,11 +5012,44 @@ def _overheat_matches(d: dict[str, object]) -> bool:
     return str(d.get("code", "")).upper() == "P0115" or d.get("spn") == 110
 
 
+#: KB-mirrored coolant limits (C) used when the threshold DB is unavailable.
+#: `SPN110` measurement: "Uyari (AWL): >103C | Kirmizi Lamba (RSL Derate): >108C".
+_COOLANT_WARNING_FALLBACK_C = 103.0
+_COOLANT_CRITICAL_FALLBACK_C = 108.0
+
+
+def _coolant_limits_c() -> tuple[float, float]:
+    """Return (warning_max, critical_max) from the threshold database.
+
+    Single source of truth: the DB is derived from the KB measurement text, so
+    the scenario trigger and the guidance cannot drift apart.
+    """
+    warning = _COOLANT_WARNING_FALLBACK_C
+    critical = _COOLANT_CRITICAL_FALLBACK_C
+    try:
+        from src.engine.ai.anomaly_detector import load_thresholds
+
+        bands = load_thresholds().get("EngineCoolantTemp") or {}
+        if isinstance(bands, dict):
+            w = bands.get("warning_max")
+            c = bands.get("critical_max")
+            if isinstance(w, (int, float)):
+                warning = float(w)
+            if isinstance(c, (int, float)):
+                critical = float(c)
+    except Exception:  # noqa: BLE001
+        pass
+    if warning > critical:
+        warning = critical
+    return warning, critical
+
+
 def _overheat_body(ctx: ScenarioContext) -> int:
     heat_count = sum(1 for d in ctx.dtcs if _overheat_matches(d))
-    if not (ctx.coolant_temp > 103.0 or heat_count > 0):
+    warning_c, critical_c = _coolant_limits_c()
+    if not (ctx.coolant_temp > warning_c or heat_count > 0):
         return 0
-    if ctx.coolant_temp > 108.0 or any(d.get("spn") == 110 and d.get("fmi") == 0 for d in ctx.dtcs):
+    if ctx.coolant_temp > critical_c or any(d.get("spn") == 110 and d.get("fmi") == 0 for d in ctx.dtcs):
         ctx.severity = FaultSeverity.CRITICAL_STOP
     elif ctx.severity != FaultSeverity.CRITICAL_STOP:
         ctx.severity = FaultSeverity.MEDIUM
@@ -4980,6 +5260,13 @@ class AiDiagnosticCopilot:
             code_candidate = str(d.get("code", "")).upper()
             spn_candidate = f"SPN{d.get('spn')}" if d.get("spn") else ""
             match_key = code_candidate if code_candidate in EXPERT_KNOWLEDGE_BASE else (spn_candidate if spn_candidate in EXPERT_KNOWLEDGE_BASE else None)
+            # P0-3: a DM1 code arrives as "SPN 100" (with a space) but the KB
+            # keys are "SPN100". Without this normalisation the lookup missed
+            # and a genuine oil-pressure stop degraded to a generic LOW.
+            if match_key is None:
+                _spn_norm = _normalize_spn_code(code_candidate)
+                if _spn_norm and _spn_norm in EXPERT_KNOWLEDGE_BASE:
+                    match_key = _spn_norm
             # REVIEW (Tur-27 P0, @tuner AI plan Boguluk 1): canli DM1 akisindan gelen
             # SPN'ler EXPERT_KB'de yoksa 4.253'luk J1939 DB'sine dus. Onceden bu yol
             # atlanip jenerik fallback'e gidiyordu; sorgu yolu ile oturum yolu asimetrikti.
@@ -5028,9 +5315,18 @@ class AiDiagnosticCopilot:
                         _ss = str(_s).strip()
                         if _ss:
                             steps.append(TroubleshootingStep(len(steps) + 1, _ss[:200], f"SPN {d.get('spn')}", "Orta (Alet Gerekir)"))
-                fmi_sev = str(fmi_row.get("severity", "")).upper()
-                if fmi_sev == "CRITICAL_STOP":
-                    severity = _raise_severity(severity, FaultSeverity.CRITICAL_STOP)
+                # P0-3 (2026-09-21 audit, finding 7): the per-FMI severity was
+                # READ here but only the literal "CRITICAL_STOP" was honoured, so
+                # SPN 100 FMI 3 (unplugged sensor -> HIGH in the SPN DB) was
+                # rendered identical to FMI 1 (real oil-pressure loss ->
+                # CRITICAL_STOP). Lowercase scraped rungs ("critical"/"medium")
+                # were dropped as well. Resolve the FULL rung via the J1939
+                # resolver, which normalises case and the database key form.
+                fmi_sev = _resolve_fmi_severity(str(d.get("code") or ""), d.get("fmi"))
+                if fmi_sev is None:
+                    fmi_sev = _resolve_fmi_severity(f"SPN {d.get('spn')}", d.get("fmi"))
+                if fmi_sev is not None:
+                    severity = _raise_severity(severity, FaultSeverity(fmi_sev.value))
             if match_key:
                 kb_matched_count += 1
                 info = EXPERT_KNOWLEDGE_BASE[match_key]
@@ -5046,13 +5342,23 @@ class AiDiagnosticCopilot:
                         target_comp = s[1] if len(s) > 1 else "İlgili Komponent"
                         diff = s[2] if len(s) > 2 else "Orta (Alet Gerekir)"
                         steps.append(TroubleshootingStep(len(steps) + 1, act, target_comp, diff))
-                sev_str = info.get("severity", "MEDIUM")
-                if sev_str == "CRITICAL_STOP":
-                    severity = _raise_severity(severity, FaultSeverity.CRITICAL_STOP)
-                elif sev_str == "HIGH":
-                    severity = _raise_severity(severity, FaultSeverity.HIGH)
-                elif sev_str == "MEDIUM":
-                    severity = _raise_severity(severity, FaultSeverity.MEDIUM)
+                # P0-3 (cont.): the KB stores ONE rung per SPN ("SPN100" ->
+                # CRITICAL_STOP), but the SPN database distinguishes the FMI.
+                # A per-FMI rung is the MORE SPECIFIC evidence, so it wins:
+                # SPN 100 FMI 3 (unplugged sensor -> HIGH) must not be escalated
+                # to "stop the engine" by the SPN-level rung, while FMI 1 (real
+                # pressure loss -> CRITICAL_STOP) still must be.
+                _kb_fmi_sev = _resolve_fmi_severity(match_key, d.get("fmi"))
+                if _kb_fmi_sev is not None:
+                    severity = _raise_severity(severity, FaultSeverity(_kb_fmi_sev.value))
+                else:
+                    sev_str = info.get("severity", "MEDIUM")
+                    if sev_str == "CRITICAL_STOP":
+                        severity = _raise_severity(severity, FaultSeverity.CRITICAL_STOP)
+                    elif sev_str == "HIGH":
+                        severity = _raise_severity(severity, FaultSeverity.HIGH)
+                    elif sev_str == "MEDIUM":
+                        severity = _raise_severity(severity, FaultSeverity.MEDIUM)
 
 
         # FAZ 4 wiring (AI plan Faz 3): rank graph hypotheses from the SAME

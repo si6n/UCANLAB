@@ -435,6 +435,24 @@ def _corpus_digest() -> str | None:
         if graph_path.exists():
             digest.update(b"root_cause_graph\0")
             digest.update(hashlib.sha256(graph_path.read_bytes()).digest())
+        # P0-5 (2026-09-21 audit): the scoring SOURCE is also an input. The
+        # cached factor is `accuracy / mean_confidence`, so any change to the
+        # scoring weights, the normalisation, or the graph loader changes the
+        # value WITHOUT touching a case file or the graph. A stale factor was
+        # measured serving 0.82 after the absolute-scoring fix made the true
+        # value 1.0 — the cache survived a behavioural change it depended on.
+        # Hashing the modules that shape the score closes that gap.
+        for module_path in (
+            Path(__file__).resolve(),
+            Path(__file__).resolve().parent / "hypothesis_engine.py",
+            Path(__file__).resolve().parent / "golden_similarity.py",
+        ):
+            try:
+                digest.update(module_path.name.encode("utf-8"))
+                digest.update(b"\0")
+                digest.update(hashlib.sha256(module_path.read_bytes()).digest())
+            except OSError:
+                continue
     except OSError:
         return None
     return digest.hexdigest()

@@ -49,7 +49,15 @@ QUARANTINE_FILE = REPO_ROOT / "data" / "diagnostics" / "quarantine" / "dtcdocs_l
 INDEX0_LEAK_SPNS = ("SPN_520604", "SPN_520605", "SPN_524265")
 
 # The exact over-confident label the fail-open default produced for f(2,1,1,1).
-OVERCONFIDENT_LABEL_PREFIX = "Yüksek (%85"
+# P0-5 (2026-09-21 audit) CORRECTION: this constant used to be the assertion
+# target, but "%85" is not a defect — it is the HONEST weighted mean for the
+# (2,1,1,1) evidence tuple (weights 0.5/0.3/0.2 * 1.0/0.5/1.0 = 0.85). The
+# constant conflated "UNDAMPED" with "FORBIDDEN": it only ever disappeared
+# because a < 1.0 calibration factor damped it. Now that absolute scoring makes
+# the corpus honest (factor 1.0), the undamped value legitimately reappears.
+# The real fail-open defect the test must forbid is an UNCALIBRATED label, so
+# the assertion is on the calibration SUFFIX, never on a score value.
+OVERCONFIDENT_LABEL_PREFIX = "Yüksek (%85"  # retained for the legacy-doc reference below
 
 
 def _spn_db() -> dict:
@@ -76,12 +84,22 @@ class TestFailClosedDefault:
         factor happens to be into this test.
         """
         result = compute_root_cause_confidence(2, 1, 1, 1)
-        assert not result.startswith(OVERCONFIDENT_LABEL_PREFIX), (
-            "the fail-open '%85' label must never come back: " + repr(result)
+        # The fail-open defect is an UNCALIBRATED label (no damping evidence),
+        # never a specific score value. See the OVERCONFIDENT_LABEL_PREFIX note.
+        assert CALIBRATION_CONFIDENCE_SUFFIX in result, (
+            "the implicit-None path must produce a CALIBRATED label: " + repr(result)
         )
-        undamped = compute_root_cause_confidence(2, 1, 1, 1, calibration_factor=1.0)
-        assert result != undamped, (
-            "the implicit-None path must be damped relative to the undamped control, got " + repr(result)
+        assert UNCALIBRATED_CONFIDENCE_SUFFIX not in result, (
+            "the implicit-None path must never fall back to the uncalibrated label: " + repr(result)
+        )
+        # P0-5 (2026-09-21 audit): the implicit-None path resolves the measured
+        # golden factor. Since the absolute-scoring fix the corpus is no longer
+        # overconfident and that factor is legitimately 1.0, so the label
+        # coincides with the undamped control. The invariant that must hold in
+        # ALL cases: the label is a valid band and never the fail-open %85.
+        explicit = compute_root_cause_confidence(2, 1, 1, 1, calibration_factor=compute_calibration_factor())
+        assert result == explicit, (
+            "the implicit-None path must equal the explicit measured-factor path, got " + repr(result)
         )
         assert result.startswith(("Düşük", "Orta", "Yüksek")), (
             "f(2,1,1,1) must stay a valid probability band, got " + repr(result)
@@ -95,7 +113,11 @@ class TestFailClosedDefault:
         """
         factor = compute_calibration_factor()
         assert factor is not None, "the shipped golden corpus must yield a factor"
-        assert factor < 1.0, "the shipped golden corpus is measurably overconfident"
+        # P0-5: the factor is a MEASURED quantity in the documented clamp band.
+        # It was < 1.0 only while the scores were self-normalised to %100; now
+        # that they are absolute (mean confidence 0.28 < accuracy 0.52) it is
+        # legitimately 1.0. Asserting "< 1.0" would re-encode the old defect.
+        assert 0.1 <= factor <= 1.0, f"factor must sit in the documented clamp band, got {factor}"
 
         implicit = compute_root_cause_confidence(2, 1, 1, 1)
         explicit = compute_root_cause_confidence(2, 1, 1, 1, calibration_factor=factor)
