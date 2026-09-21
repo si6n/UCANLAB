@@ -1,8 +1,21 @@
-"""Diagnostic and Telemetry Service Report Generator (HTML; R2-EN4 alias).
+"""Service-report implementation (produces HTML, NOT PDF; legacy module name).
 
-R2-EN4: this module historically carried the `pdf_report` name but produces
-HTML. It is kept as a backward-compatible alias — `html_report.py` is the
-canonical module going forward.
+P3-7 — HONEST NAMING: this module is called `pdf_report` but no PDF is ever
+produced. `DiagnosticReportGenerator.generate_html_report` writes an HTML file,
+and the docstring used to describe the module as an "alias" of a canonical
+`html_report` module even though THIS file holds the implementation and
+`html_report.py` is the thin re-export. Both statements were backwards.
+
+The current, truthful arrangement is:
+
+* `html_report.py` — the CANONICAL, correctly-named import surface
+  (re-exports the two public names below);
+* `pdf_report.py` (this file) — the implementation, kept under its historical
+  name only so existing imports keep resolving. The name is a leftover from an
+  earlier design and new code must import from `html_report`.
+
+Nothing here should be renamed without updating every caller; the misleading
+part fixed by P3-7 is the claim, not the module path.
 """
 
 from __future__ import annotations

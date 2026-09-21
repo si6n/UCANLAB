@@ -36,6 +36,15 @@ from __future__ import annotations
 #: UDS SIDs that mutate ECU state. A whitelisted ISO-TP single/first frame
 #: carrying one of these is critical on EITHER the 11-bit or the 29-bit
 #: (ISO 15765-4 / ``0x18DAxxxx``) addressing path.
+#:
+#: S-07: ``0x35`` (RequestUpload) was REMOVED — it only READS ECU memory out
+#: (a read, not a mutation), so a live, legitimately-requested upload must not
+#: be pinned to the speed interlock. It is replay-dangerous (bulk memory
+#: exfiltration) and now lives in ``REPLAY_ONLY_PROHIBITED_UDS_SIDS``.
+#: ``0x29`` (Authentication), ``0x2C`` (DynamicallyDefineDataIdentifier),
+#: ``0x3B`` (WriteDataByIdentifier at a specific address),
+#: ``0x84`` (SecuredDataTransmission) and ``0x86`` (ResponseOnEvent) ARE
+#: state-mutating and were added.
 CRITICAL_UDS_SIDS: frozenset[int] = frozenset(
     {
         0x10,  # DiagnosticSessionControl   — switches to programming session
@@ -43,16 +52,20 @@ CRITICAL_UDS_SIDS: frozenset[int] = frozenset(
         0x14,  # ClearDiagnosticInformation — wipes DTC evidence
         0x27,  # SecurityAccess             — unlocks protected services
         0x28,  # CommunicationControl       — can silence an ECU
+        0x29,  # Authentication             — establishes an authenticated session
+        0x2C,  # DynamicallyDefineDataId    — mutates the DID table
         0x2E,  # WriteDataByIdentifier      — persists a value
         0x2F,  # InputOutputControlById     — drives an actuator
         0x31,  # RoutineControl             — runs a routine (erase/self-test)
         0x34,  # RequestDownload            — starts a firmware transfer
-        0x35,  # RequestUpload              — reads ECU memory out
         0x36,  # TransferData               — firmware body
         0x37,  # RequestTransferExit        — commits the transfer
         0x38,  # RequestFileTransfer        — file-system transfer
+        0x3B,  # WriteDataByIdentifier (addr) — persists a value at an address
         0x3D,  # WriteMemoryByAddress       — raw memory write
+        0x84,  # SecuredDataTransmission    — carries a secured (mutating) payload
         0x85,  # ControlDTCSetting          — suppresses DTC reporting
+        0x86,  # ResponseOnEvent            — arms autonomous ECU reactions
         0x87,  # LinkControl                — changes bus bit rate
     }
 )
@@ -60,9 +73,10 @@ CRITICAL_UDS_SIDS: frozenset[int] = frozenset(
 #: SIDs that are blocked in REPLAY (dangerous to re-inject from a log) but
 #: are NOT TX-criticality signals: they carry no standing-state mutation by
 #: themselves, so a live frame must not be pushed onto the physical-speed
-#: interlock for them. ``0x3E`` TesterPresent is a benign session
-#: keep-alive required by every UDS flow (P2* timeout).
-REPLAY_ONLY_PROHIBITED_UDS_SIDS: frozenset[int] = frozenset({0x3E})
+#: interlock for them. ``0x3E`` TesterPresent is a benign session keep-alive
+#: required by every UDS flow (P2* timeout); ``0x35`` RequestUpload is the
+#: S-07 relocation (bulk memory read-out, replay-prohibited).
+REPLAY_ONLY_PROHIBITED_UDS_SIDS: frozenset[int] = frozenset({0x3E, 0x35})
 
 #: Full replay-prohibited set = critical mutation set + replay-only extras.
 PROHIBITED_UDS_SIDS: frozenset[int] = CRITICAL_UDS_SIDS | REPLAY_ONLY_PROHIBITED_UDS_SIDS
@@ -74,15 +88,35 @@ PROHIBITED_UDS_SIDS: frozenset[int] = CRITICAL_UDS_SIDS | REPLAY_ONLY_PROHIBITED
 
 #: J1939 PGNs whose (re)transmission directly clears / mutates diagnostic or
 #: controller state.
+#:
+#: S-03: ``65229`` (DM4) and ``65230`` (DM5) are NOT clear commands. Per SAE
+#: J1939-73 they are READ PGNs — DM4 carries freeze-frame data and DM5 carries
+#: diagnostic readiness — so a live poll of either must not be escalated to the
+#: speed interlock + dual confirmation. The previous comments ("Freeze Frame
+#: Clear" / "Diagnostic Readiness Clear") stated the opposite of the standard
+#: and were the reason for their inclusion. They stay allowed, read-only, in
+#: ``READONLY_DIAGNOSTIC_J1939_PGNS`` below.
 CRITICAL_J1939_PGNS: frozenset[int] = frozenset(
     {
         65235,  # DM11 — Clear Active DTCs
         65228,  # DM3  — Clear Previously Active DTCs
-        65229,  # DM4  — Freeze Frame Clear
-        65230,  # DM5  — Diagnostic Readiness Clear
         65240,  # Commanded Address (re-addresses an ECU, J1939-81)
         0,      # TSC1 — Torque/Speed Control 1 (direct drivetrain command)
         1024,   # XBR  — External Brake Request
+    }
+)
+
+#: S-03: J1939-73 READ-only diagnostic PGNs. They are legitimate polls an
+#: operator may issue against a live vehicle, so they must NOT force the
+#: physical-speed interlock; they remain explicitly catalogued here so no
+#: allowlist silently drops them and so the policy is auditable.
+READONLY_DIAGNOSTIC_J1939_PGNS: frozenset[int] = frozenset(
+    {
+        65226,  # DM1  — Active DTCs
+        65227,  # DM2  — Previously Active DTCs
+        65228,  # DM3  — (read form) Previously Active DTCs / clear-trigger context
+        65229,  # DM4  — Freeze Frame Parameters (READ, J1939-73)
+        65230,  # DM5  — Diagnostic Readiness 1 (READ, J1939-73)
     }
 )
 

@@ -1,0 +1,1309 @@
+{
+  "schema_version": 1,
+  "_derivation_rule": "Bu eşleme haritası, iki kaynak veritabanında (data/diagnostics/dtc_database.json ve data/diagnostics/j1939_spn_fmi_database.json) birebir gözlemlenen `subsystem` etiketleri programatik olarak sayılıp gruplanarak üretilmiştir; hiçbir etiket uydurulmamış, hiçbir etiket yeniden yazılmamış ve hiçbir etiket listelenmemiştir ki kaynakta bulunmasın. Her `source_labels` değeri, kaynak DB'lerden her çalıştırmada yeniden hesaplanan envanterle birebir (verbatim) doğrulanır ve her etiket tam olarak tek bir kanonik sisteme atanır (çok evli etiketler dahil olmak üzere, `review_flag` ile işaretlenir). `coverage` sayıları da aynı kaynaklardan taze sayımla üretilir. ETİKETLERİN BİRDEN FAZLA SİSTEME UYDUĞU durumlarda ana ev aşağıdaki deterministik kurala göre seçilmiştir: (1) birincil olarak etiket metninde geçen en belirgin sistem adı, (2) metin hiçbir sistem adı vermiyorsa (yalnızca marka/kısaltma, örn. `KNORREBS`, `Bosch`, `OGP`) kayıt gövdesindeki `name`/`description`/`sitrak_systems` alanlarından gözlemlenen baskın alan. `id` ve `domain` alanları da yalnızca gözlemlenen metne ve kayıt bağlamına dayanır; hiçbir semantik bilgi dışarıdan eklenmemiştir.",
+  "source_db_sha256": {
+    "dtc_database.json": "a7bad1781cf9e9f80ff51d2bc4ab2bdf2ef5f5576955c10ffd9454e9995d6bcd",
+    "j1939_spn_fmi_database.json": "982344cf782f6bac399f197e971752bbefbbdaf65b0441733c5a27e30e6c7a24"
+  },
+  "source_label_inventory": [
+    {
+      "label": "Motor / Aktarma Organları (Powertrain)",
+      "count_dtc": 3598,
+      "count_j1939": 0
+    },
+    {
+      "label": "Güç Aktarma Organları & Motor Yönetimi (Powertrain)",
+      "count_dtc": 2085,
+      "count_j1939": 0
+    },
+    {
+      "label": "Gövde & Konfor Elektroniği (Body)",
+      "count_dtc": 1256,
+      "count_j1939": 0
+    },
+    {
+      "label": "KNORREBS",
+      "count_dtc": 0,
+      "count_j1939": 1156
+    },
+    {
+      "label": "Bosch",
+      "count_dtc": 0,
+      "count_j1939": 654
+    },
+    {
+      "label": "Şasi, Fren & Direksiyon (Chassis)",
+      "count_dtc": 603,
+      "count_j1939": 0
+    },
+    {
+      "label": "CAN-Bus & Ağ Haberleşme / ECU İletişim Kaybı",
+      "count_dtc": 488,
+      "count_j1939": 0
+    },
+    {
+      "label": "Gövde Elektroniği, Aydınlatma & BCM",
+      "count_dtc": 395,
+      "count_j1939": 0
+    },
+    {
+      "label": "Şasi, ABS / ESP Fren Sistemi & Süspansiyon",
+      "count_dtc": 380,
+      "count_j1939": 0
+    },
+    {
+      "label": "Şasi / Fren & Süspansiyon (Chassis)",
+      "count_dtc": 379,
+      "count_j1939": 0
+    },
+    {
+      "label": "Üreticiye Özel CAN Ağı Haberleşme Hatası",
+      "count_dtc": 374,
+      "count_j1939": 0
+    },
+    {
+      "label": "Veri & Kalibrasyon",
+      "count_dtc": 340,
+      "count_j1939": 0
+    },
+    {
+      "label": "CAN-Bus & Ağ Haberleşme (Network)",
+      "count_dtc": 292,
+      "count_j1939": 0
+    },
+    {
+      "label": "Yakıt, Emisyon & SCR / AdBlue Dozaj Sistemi",
+      "count_dtc": 245,
+      "count_j1939": 0
+    },
+    {
+      "label": "Yakıt Ölçümü & Enjektör Devresi / Turboşarj",
+      "count_dtc": 231,
+      "count_j1939": 0
+    },
+    {
+      "label": "ECU / PCM Dahili İşlemci & Röle / Çıkış Devreleri",
+      "count_dtc": 214,
+      "count_j1939": 0
+    },
+    {
+      "label": "AMT",
+      "count_dtc": 0,
+      "count_j1939": 209
+    },
+    {
+      "label": "Yakıt Ölçümü & Hava Emiş / Kam Mili Zamanlaması",
+      "count_dtc": 208,
+      "count_j1939": 0
+    },
+    {
+      "label": "Ağır Vasıta J1939 (OEM tablo hasadı)",
+      "count_dtc": 0,
+      "count_j1939": 205
+    },
+    {
+      "label": "Şebeke & İletişim Katmanı (J1939)",
+      "count_dtc": 0,
+      "count_j1939": 197
+    },
+    {
+      "label": "Otomatik Şanzıman & Hidrolik Kontrol Sistemi",
+      "count_dtc": 188,
+      "count_j1939": 0
+    },
+    {
+      "label": "GM OEM",
+      "count_dtc": 186,
+      "count_j1939": 0
+    },
+    {
+      "label": "Üreticiye Özel PCM / ECU Dahili İşlemci & Haberleşme Devreleri",
+      "count_dtc": 179,
+      "count_j1939": 0
+    },
+    {
+      "label": "Yardımcı Emisyon Kontrolleri (Katalizör, EVAP, EGR)",
+      "count_dtc": 176,
+      "count_j1939": 0
+    },
+    {
+      "label": "Üreticiye Özel Araç Hızı / Rölanti & Gaz Kelebeği Kontrolü",
+      "count_dtc": 163,
+      "count_j1939": 0
+    },
+    {
+      "label": "Elektronik Gaz Kelebeği & Yakıt Enjeksiyonu",
+      "count_dtc": 153,
+      "count_j1939": 0
+    },
+    {
+      "label": "Güç Kumanda Ünitesi (PCU)",
+      "count_dtc": 0,
+      "count_j1939": 150
+    },
+    {
+      "label": "Üreticiye Özel Yakıt Enjeksiyonu & Turbo / Şarj Basıncı",
+      "count_dtc": 149,
+      "count_j1939": 0
+    },
+    {
+      "label": "OGP",
+      "count_dtc": 0,
+      "count_j1939": 148
+    },
+    {
+      "label": "Yakıt & Hava Ölçümü (MAF, MAP, O2, ECT Sensörleri)",
+      "count_dtc": 147,
+      "count_j1939": 0
+    },
+    {
+      "label": "NOx, O2 Sensörleri & Emiş Havası Kontrolü",
+      "count_dtc": 146,
+      "count_j1939": 0
+    },
+    {
+      "label": "Üreticiye Özel Emisyon Kontrolü (EGR / EVAP / İkincil Hava)",
+      "count_dtc": 144,
+      "count_j1939": 0
+    },
+    {
+      "label": "Üreticiye Özel Güç Aktarma & Sensör / Sübap Kontrolü",
+      "count_dtc": 142,
+      "count_j1939": 0
+    },
+    {
+      "label": "Üreticiye Özel Yakıt & Hava Ölçümü (MAF / Lambda / Isıtıcı)",
+      "count_dtc": 142,
+      "count_j1939": 0
+    },
+    {
+      "label": "Araç Hızı, Rölanti Kontrolü & Yardımcı Girişler",
+      "count_dtc": 140,
+      "count_j1939": 0
+    },
+    {
+      "label": "Şanzıman / Vites Seçici & Kavrama Kontrolü",
+      "count_dtc": 137,
+      "count_j1939": 0
+    },
+    {
+      "label": "Üreticiye Özel Ateşleme Sistemi & Krank/Kam Mili Zamanlaması",
+      "count_dtc": 131,
+      "count_j1939": 0
+    },
+    {
+      "label": "Motor Yönetimi & Genel Güç Aktarma (J1939)",
+      "count_dtc": 0,
+      "count_j1939": 126
+    },
+    {
+      "label": "Şanzıman & Kavrama (J1939)",
+      "count_dtc": 0,
+      "count_j1939": 125
+    },
+    {
+      "label": "Gövde / Konfor Sistemleri (Body)",
+      "count_dtc": 120,
+      "count_j1939": 0
+    },
+    {
+      "label": "Üreticiye Özel Otomatik Şanzıman & Tork Konvertörü",
+      "count_dtc": 119,
+      "count_j1939": 0
+    },
+    {
+      "label": "Motor Elektrik & Sensör Devreleri",
+      "count_dtc": 118,
+      "count_j1939": 0
+    },
+    {
+      "label": "Ateşleme Sistemi & Tekleme (Misfire) Tespiti",
+      "count_dtc": 114,
+      "count_j1939": 0
+    },
+    {
+      "label": "ZF_GearBox",
+      "count_dtc": 0,
+      "count_j1939": 114
+    },
+    {
+      "label": "Üreticiye Özel Şanzıman & Dört Çeker (4WD/AWD) Transfer Kutusu",
+      "count_dtc": 113,
+      "count_j1939": 0
+    },
+    {
+      "label": "Şanzıman Aktüatör & Hidrolik Basınç Kontrolü",
+      "count_dtc": 110,
+      "count_j1939": 0
+    },
+    {
+      "label": "Üreticiye Özel Şanzıman & Yardımcı Güç Aktarma Sistemleri",
+      "count_dtc": 103,
+      "count_j1939": 0
+    },
+    {
+      "label": "Ağ Veri Bütünlüğü & Checksum Doğrulama",
+      "count_dtc": 64,
+      "count_j1939": 0
+    },
+    {
+      "label": "BCM_HR",
+      "count_dtc": 0,
+      "count_j1939": 55
+    },
+    {
+      "label": "CAN Veri Yolu & Ağ İletişimi (Network)",
+      "count_dtc": 50,
+      "count_j1939": 0
+    },
+    {
+      "label": "EBS",
+      "count_dtc": 0,
+      "count_j1939": 49
+    },
+    {
+      "label": "KNORRABS8",
+      "count_dtc": 0,
+      "count_j1939": 45
+    },
+    {
+      "label": "HR_Radar",
+      "count_dtc": 0,
+      "count_j1939": 43
+    },
+    {
+      "label": "ECAS4PLUS",
+      "count_dtc": 0,
+      "count_j1939": 41
+    },
+    {
+      "label": "SCR / AdBlue Sıvı Yönetimi",
+      "count_dtc": 0,
+      "count_j1939": 41
+    },
+    {
+      "label": "ECAS",
+      "count_dtc": 0,
+      "count_j1939": 40
+    },
+    {
+      "label": "Egzoz & Aftertreatment Sistemi",
+      "count_dtc": 0,
+      "count_j1939": 40
+    },
+    {
+      "label": "null",
+      "count_dtc": 0,
+      "count_j1939": 37
+    },
+    {
+      "label": "BCU",
+      "count_dtc": 0,
+      "count_j1939": 35
+    },
+    {
+      "label": "KMAEBS",
+      "count_dtc": 0,
+      "count_j1939": 35
+    },
+    {
+      "label": "Hava Emiş & Turboşarj (CAC)",
+      "count_dtc": 0,
+      "count_j1939": 34
+    },
+    {
+      "label": "Egzoz & DPF Kurum Yönetimi",
+      "count_dtc": 0,
+      "count_j1939": 27
+    },
+    {
+      "label": "ECAS_KNORR",
+      "count_dtc": 0,
+      "count_j1939": 26
+    },
+    {
+      "label": "Egzoz Son İşlem (Aftertreatment)",
+      "count_dtc": 0,
+      "count_j1939": 26
+    },
+    {
+      "label": "GatewayBosch",
+      "count_dtc": 0,
+      "count_j1939": 25
+    },
+    {
+      "label": "ZF_Retarder",
+      "count_dtc": 0,
+      "count_j1939": 25
+    },
+    {
+      "label": "Yakıt Enjeksiyonu (J1939)",
+      "count_dtc": 0,
+      "count_j1939": 22
+    },
+    {
+      "label": "Şanzıman Kontrol Modülü (TCM)",
+      "count_dtc": 0,
+      "count_j1939": 22
+    },
+    {
+      "label": "Şasi, Süspansiyon & Direksiyon (J1939)",
+      "count_dtc": 0,
+      "count_j1939": 20
+    },
+    {
+      "label": "Elektrik & Kontrol Devreleri",
+      "count_dtc": 19,
+      "count_j1939": 0
+    },
+    {
+      "label": "VCU",
+      "count_dtc": 0,
+      "count_j1939": 18
+    },
+    {
+      "label": "Voith Retarder (Yavaşlatıcı)",
+      "count_dtc": 0,
+      "count_j1939": 18
+    },
+    {
+      "label": "SCR & DEF Dozaj Emisyon Sistemi",
+      "count_dtc": 0,
+      "count_j1939": 17
+    },
+    {
+      "label": "CFV/EGR",
+      "count_dtc": 0,
+      "count_j1939": 16
+    },
+    {
+      "label": "Motor Soğutma & Termal Yönetim",
+      "count_dtc": 1,
+      "count_j1939": 15
+    },
+    {
+      "label": "ADCU",
+      "count_dtc": 0,
+      "count_j1939": 14
+    },
+    {
+      "label": "Motor Yağlama Sistemi (J1939)",
+      "count_dtc": 0,
+      "count_j1939": 14
+    },
+    {
+      "label": "Yakıt Besleme Sistemi (J1939)",
+      "count_dtc": 0,
+      "count_j1939": 13
+    },
+    {
+      "label": "ABS",
+      "count_dtc": 0,
+      "count_j1939": 11
+    },
+    {
+      "label": "AMT_ZF_DTCs",
+      "count_dtc": 0,
+      "count_j1939": 11
+    },
+    {
+      "label": "Yakıt Besleme & Enjeksiyon (J1939)",
+      "count_dtc": 0,
+      "count_j1939": 11
+    },
+    {
+      "label": "AMT / Otomatik Vites Kutusu",
+      "count_dtc": 0,
+      "count_j1939": 10
+    },
+    {
+      "label": "NewBCU",
+      "count_dtc": 0,
+      "count_j1939": 10
+    },
+    {
+      "label": "OGP2",
+      "count_dtc": 0,
+      "count_j1939": 10
+    },
+    {
+      "label": "Otomatik / AMT Şanzıman Kontrolü",
+      "count_dtc": 0,
+      "count_j1939": 10
+    },
+    {
+      "label": "Pnömatik Fren Sistemi (J1939)",
+      "count_dtc": 0,
+      "count_j1939": 10
+    },
+    {
+      "label": "Bosch MC11/MC13 Motor ECU",
+      "count_dtc": 0,
+      "count_j1939": 9
+    },
+    {
+      "label": "CBCU",
+      "count_dtc": 0,
+      "count_j1939": 9
+    },
+    {
+      "label": "Egzoz & DPF Rejenerasyonu",
+      "count_dtc": 0,
+      "count_j1939": 9
+    },
+    {
+      "label": "Egzoz Gazı Sıcaklık İzleme",
+      "count_dtc": 0,
+      "count_j1939": 9
+    },
+    {
+      "label": "Gövde & Dorse/Kasa (J1939)",
+      "count_dtc": 0,
+      "count_j1939": 9
+    },
+    {
+      "label": "OEM Genişletilmiş Güç Ünitesi 2 (OGP2)",
+      "count_dtc": 0,
+      "count_j1939": 9
+    },
+    {
+      "label": "Sürücü Girişleri & Hız Kontrol (J1939)",
+      "count_dtc": 0,
+      "count_j1939": 9
+    },
+    {
+      "label": "Egzoz & DPF Termal Rejenerasyonu",
+      "count_dtc": 0,
+      "count_j1939": 8
+    },
+    {
+      "label": "Elektrik & Şarj Sistemi",
+      "count_dtc": 0,
+      "count_j1939": 8
+    },
+    {
+      "label": "FST_Retarder",
+      "count_dtc": 0,
+      "count_j1939": 8
+    },
+    {
+      "label": "PEPS",
+      "count_dtc": 0,
+      "count_j1939": 8
+    },
+    {
+      "label": "Araç Hızı & Seyir Kontrolü",
+      "count_dtc": 0,
+      "count_j1939": 7
+    },
+    {
+      "label": "EGR Sistemi (Egzoz Gazı Geri Dönüşümü)",
+      "count_dtc": 0,
+      "count_j1939": 7
+    },
+    {
+      "label": "Elektronik Gaz Kelebeği & Sürücü Talebi",
+      "count_dtc": 0,
+      "count_j1939": 7
+    },
+    {
+      "label": "HW-AMT",
+      "count_dtc": 0,
+      "count_j1939": 7
+    },
+    {
+      "label": "Motor Yönetimi & Tork Talebi",
+      "count_dtc": 0,
+      "count_j1939": 7
+    },
+    {
+      "label": "Motor Zamanlama & Ateşleme",
+      "count_dtc": 0,
+      "count_j1939": 7
+    },
+    {
+      "label": "Yakıt Ekonomisi & Telemetri",
+      "count_dtc": 0,
+      "count_j1939": 7
+    },
+    {
+      "label": "ECU Dahili Donanım & Sensör Besleme",
+      "count_dtc": 0,
+      "count_j1939": 6
+    },
+    {
+      "label": "Elektrik & ECU Beslemesi (J1939)",
+      "count_dtc": 0,
+      "count_j1939": 6
+    },
+    {
+      "label": "Elektrik Dağıtım & Alternatör",
+      "count_dtc": 0,
+      "count_j1939": 6
+    },
+    {
+      "label": "NBBM",
+      "count_dtc": 0,
+      "count_j1939": 6
+    },
+    {
+      "label": "Voith Retarder",
+      "count_dtc": 0,
+      "count_j1939": 6
+    },
+    {
+      "label": "ECU Dahili Donanım & Mikrodenetleyici",
+      "count_dtc": 0,
+      "count_j1939": 5
+    },
+    {
+      "label": "Fren & Hava Sistemi (J1939)",
+      "count_dtc": 0,
+      "count_j1939": 5
+    },
+    {
+      "label": "Gösterge & İkaz Sistemleri",
+      "count_dtc": 0,
+      "count_j1939": 4
+    },
+    {
+      "label": "Yakıt Enjeksiyon Sistemi (J1939)",
+      "count_dtc": 0,
+      "count_j1939": 4
+    },
+    {
+      "label": "Egzoz & DPF Rejenerasyon Dozajı",
+      "count_dtc": 0,
+      "count_j1939": 3
+    },
+    {
+      "label": "Fren Sistemi & Retarder",
+      "count_dtc": 0,
+      "count_j1939": 3
+    },
+    {
+      "label": "Gaz Pedalı & Sürücü Girişleri",
+      "count_dtc": 0,
+      "count_j1939": 3
+    },
+    {
+      "label": "Kia/AEBS Gelişmiş Fren Sistemi",
+      "count_dtc": 0,
+      "count_j1939": 3
+    },
+    {
+      "label": "Marş & Kalkış Kontrolü",
+      "count_dtc": 0,
+      "count_j1939": 3
+    },
+    {
+      "label": "Motor Zamanlama & Krank Sensörü",
+      "count_dtc": 0,
+      "count_j1939": 3
+    },
+    {
+      "label": "Yakıt Sistemi (J1939)",
+      "count_dtc": 0,
+      "count_j1939": 3
+    },
+    {
+      "label": "Yüksek Basınç Yakıt Enjeksiyonu",
+      "count_dtc": 0,
+      "count_j1939": 3
+    },
+    {
+      "label": "Şanzıman & Aktarma Organları",
+      "count_dtc": 0,
+      "count_j1939": 3
+    },
+    {
+      "label": "AIKL",
+      "count_dtc": 0,
+      "count_j1939": 2
+    },
+    {
+      "label": "CAN & Araç Elektroniği",
+      "count_dtc": 2,
+      "count_j1939": 0
+    },
+    {
+      "label": "EDC17/SCR",
+      "count_dtc": 0,
+      "count_j1939": 2
+    },
+    {
+      "label": "Egzoz & SCR / AdBlue Dozaj Sistemi",
+      "count_dtc": 0,
+      "count_j1939": 2
+    },
+    {
+      "label": "Elektrik & Enerji Yönetimi (J1939)",
+      "count_dtc": 0,
+      "count_j1939": 2
+    },
+    {
+      "label": "NanoBCU",
+      "count_dtc": 0,
+      "count_j1939": 2
+    },
+    {
+      "label": "Otomatik / Robotize Şanzıman (TCU)",
+      "count_dtc": 0,
+      "count_j1939": 2
+    },
+    {
+      "label": "Yakıt Ölçümü & Karışım Kontrolü",
+      "count_dtc": 2,
+      "count_j1939": 0
+    },
+    {
+      "label": "Şasi & Süspansiyon Kontrolü",
+      "count_dtc": 0,
+      "count_j1939": 2
+    },
+    {
+      "label": "Şasi, Fren Sistemi & Retarder (Allison Gen4)",
+      "count_dtc": 2,
+      "count_j1939": 0
+    },
+    {
+      "label": "Aktarma Organları & Aks (J1939)",
+      "count_dtc": 0,
+      "count_j1939": 1
+    },
+    {
+      "label": "BCM",
+      "count_dtc": 0,
+      "count_j1939": 1
+    },
+    {
+      "label": "CAN-Bus Ağ & İletişim Hattı",
+      "count_dtc": 0,
+      "count_j1939": 1
+    },
+    {
+      "label": "Common Rail Yakıt Basıncı",
+      "count_dtc": 0,
+      "count_j1939": 1
+    },
+    {
+      "label": "ESCABS",
+      "count_dtc": 0,
+      "count_j1939": 1
+    },
+    {
+      "label": "Emiş Havası & Rakım Telafisi",
+      "count_dtc": 0,
+      "count_j1939": 1
+    },
+    {
+      "label": "Hava Emiş & Turbo Basıncı",
+      "count_dtc": 0,
+      "count_j1939": 1
+    },
+    {
+      "label": "Hidrolik & Elektromanyetik Retarder",
+      "count_dtc": 0,
+      "count_j1939": 1
+    },
+    {
+      "label": "Kasa Kontrol Ünitesi (CBCU)",
+      "count_dtc": 0,
+      "count_j1939": 1
+    },
+    {
+      "label": "Motor Freni & Retarder",
+      "count_dtc": 0,
+      "count_j1939": 1
+    },
+    {
+      "label": "Motor Güç Aktarma & Tork Kontrolü",
+      "count_dtc": 0,
+      "count_j1939": 1
+    },
+    {
+      "label": "Motor Servis & Bakım Takibi",
+      "count_dtc": 0,
+      "count_j1939": 1
+    },
+    {
+      "label": "Motor Yağlama & Termal Yönetim",
+      "count_dtc": 0,
+      "count_j1939": 1
+    },
+    {
+      "label": "NanoBCUzz",
+      "count_dtc": 0,
+      "count_j1939": 1
+    },
+    {
+      "label": "Pnömatik & Basınçlı Hava Sistemi",
+      "count_dtc": 0,
+      "count_j1939": 1
+    },
+    {
+      "label": "Pnömatik & Hava Kompresörü",
+      "count_dtc": 0,
+      "count_j1939": 1
+    },
+    {
+      "label": "Pnömatik Fren Sistemi (Hava Tankı 1)",
+      "count_dtc": 0,
+      "count_j1939": 1
+    },
+    {
+      "label": "Pnömatik Fren Sistemi (Hava Tankı 2)",
+      "count_dtc": 0,
+      "count_j1939": 1
+    },
+    {
+      "label": "SCR / AdBlue Donma Koruması",
+      "count_dtc": 0,
+      "count_j1939": 1
+    },
+    {
+      "label": "SCR / AdBlue Sıvı Depolama",
+      "count_dtc": 0,
+      "count_j1939": 1
+    },
+    {
+      "label": "SCR / AdBlue Sıvı Enjeksiyonu",
+      "count_dtc": 0,
+      "count_j1939": 1
+    },
+    {
+      "label": "SCR / AdBlue Sıvı Kalitesi",
+      "count_dtc": 0,
+      "count_j1939": 1
+    },
+    {
+      "label": "SCR_DOSING",
+      "count_dtc": 0,
+      "count_j1939": 1
+    },
+    {
+      "label": "Turboşarj Aşırı Besleme & Aktüatör",
+      "count_dtc": 0,
+      "count_j1939": 1
+    },
+    {
+      "label": "WABCO_EBS31",
+      "count_dtc": 0,
+      "count_j1939": 1
+    },
+    {
+      "label": "Yakıt & Hava Ölçümü (MAF, MAP Sensörleri)",
+      "count_dtc": 1,
+      "count_j1939": 0
+    },
+    {
+      "label": "Yakıt Besleme & Ön Filtre",
+      "count_dtc": 0,
+      "count_j1939": 1
+    },
+    {
+      "label": "Yakıt Enjeksiyonu (Silindir 1)",
+      "count_dtc": 0,
+      "count_j1939": 1
+    },
+    {
+      "label": "Yakıt Enjeksiyonu (Silindir 2)",
+      "count_dtc": 0,
+      "count_j1939": 1
+    },
+    {
+      "label": "Yakıt Enjeksiyonu (Silindir 3)",
+      "count_dtc": 0,
+      "count_j1939": 1
+    },
+    {
+      "label": "Yakıt Enjeksiyonu (Silindir 4)",
+      "count_dtc": 0,
+      "count_j1939": 1
+    },
+    {
+      "label": "Yakıt Enjeksiyonu (Silindir 5)",
+      "count_dtc": 0,
+      "count_j1939": 1
+    },
+    {
+      "label": "Yakıt Enjeksiyonu (Silindir 6)",
+      "count_dtc": 0,
+      "count_j1939": 1
+    },
+    {
+      "label": "Yakıt Filtrasyonu & Ön Ayırıcı",
+      "count_dtc": 0,
+      "count_j1939": 1
+    },
+    {
+      "label": "Yakıt Seviyesi & Şamandıra",
+      "count_dtc": 0,
+      "count_j1939": 1
+    },
+    {
+      "label": "Yakıt Yönetimi & Yoğunluk Düzeltmesi",
+      "count_dtc": 0,
+      "count_j1939": 1
+    },
+    {
+      "label": "Yanma & Tekleme Denetimi",
+      "count_dtc": 0,
+      "count_j1939": 1
+    },
+    {
+      "label": "Yardımcı Emisyon Kontrolleri (EVAP Yakıt Buhar Deposu)",
+      "count_dtc": 1,
+      "count_j1939": 0
+    },
+    {
+      "label": "Yardımcı Emisyon Kontrolleri (Katalizör Sistemi)",
+      "count_dtc": 1,
+      "count_j1939": 0
+    },
+    {
+      "label": "Yardımcı Fren / Retarder",
+      "count_dtc": 0,
+      "count_j1939": 1
+    },
+    {
+      "label": "Çevre & Ortam Sensörleri",
+      "count_dtc": 0,
+      "count_j1939": 1
+    },
+    {
+      "label": "Çevre Koşulları & İklimlendirme",
+      "count_dtc": 0,
+      "count_j1939": 1
+    },
+    {
+      "label": "Üreticiye Özel Güç Aktarma & OBD İzleme Sistemleri",
+      "count_dtc": 1,
+      "count_j1939": 0
+    },
+    {
+      "label": "Şanzıman & Hız Algılama",
+      "count_dtc": 0,
+      "count_j1939": 1
+    }
+  ],
+  "canonical_systems": [
+    {
+      "id": "powertrain-engine",
+      "title_tr": "Motor ve Güç Aktarımı Çekirdeği",
+      "domain": "powertrain",
+      "source_labels": [
+        "Motor / Aktarma Organları (Powertrain)",
+        "Güç Aktarma Organları & Motor Yönetimi (Powertrain)",
+        "Motor Yönetimi & Genel Güç Aktarma (J1939)",
+        "Motor Yönetimi & Tork Talebi",
+        "Motor Güç Aktarma & Tork Kontrolü",
+        "Sürücü Girişleri & Hız Kontrol (J1939)",
+        "Gaz Pedalı & Sürücü Girişleri",
+        "Elektronik Gaz Kelebeği & Sürücü Talebi",
+        "Araç Hızı & Seyir Kontrolü",
+        "Araç Hızı, Rölanti Kontrolü & Yardımcı Girişler",
+        "Güç Kumanda Ünitesi (PCU)",
+        "VCU",
+        "Motor Servis & Bakım Takibi"
+      ],
+      "rationale": "Etiketlerin metni doğrudan motor/güç aktarım çekirdeğini ve sürücü tork talebi zincirini adlandırır: 'Motor / Aktarma Organları (Powertrain)', 'Güç Aktarma Organları & Motor Yönetimi (Powertrain)', 'Motor Yönetimi & Genel Güç Aktarma (J1939)', 'Motor Yönetimi & Tork Talebi', 'Motor Güç Aktarma & Tork Kontrolü'. Gaz pedalı/sürücü talebi, rölanti ve seyir kontrolü varyantları ('Gaz Pedalı & Sürücü Girişleri', 'Elektronik Gaz Kelebeği & Sürücü Talebi', 'Sürücü Girişleri & Hız Kontrol (J1939)', 'Araç Hızı & Seyir Kontrolü', 'Araç Hızı, Rölanti Kontrolü & Yardımcı Girişler') aynı motor tork talebi hattına bağlanır. 'Güç Kumanda Ünitesi (PCU)' ve 'VCU' araç güç aktarma kontrol birimi kısaltmalarıdır; açılımı etiket metninde verilen 'PCU' buraya, kısaltma olan 'VCU' kayıt bağlamı gerekçesiyle buraya alınmıştır. 'Motor Servis & Bakım Takibi' de motor sistemi kapsamındadır.",
+      "review_flag": "kesin"
+    },
+    {
+      "id": "engine-cooling-thermal",
+      "title_tr": "Motor Soğutma ve Termal Yönetim",
+      "domain": "powertrain",
+      "source_labels": [
+        "Motor Soğutma & Termal Yönetim",
+        "Motor Yağlama & Termal Yönetim"
+      ],
+      "rationale": "Her iki etiket de birebir 'Termal Yönetim' ifadesini taşır; 'Motor Soğutma & Termal Yönetim' soğutma devresini adlandırır, 'Motor Yağlama & Termal Yönetim' ise yağlama ile paylaşılan ısı yönetimi kesişimini belirtir. Tam metin varyantı olarak (ikinci ev) burada tutulur.",
+      "review_flag": "kesin"
+    },
+    {
+      "id": "engine-lubrication",
+      "title_tr": "Motor Yağlama Sistemi",
+      "domain": "powertrain",
+      "source_labels": [
+        "Motor Yağlama Sistemi (J1939)"
+      ],
+      "rationale": "Etiket metni birebir 'Motor Yağlama Sistemi (J1939)' ifadesini taşır; yağlama devresini doğrudan adlandırır, gözlem dışı yorum gerekmez.",
+      "review_flag": "kesin"
+    },
+    {
+      "id": "fuel-air-metering",
+      "title_tr": "Yakıt ve Hava Ölçümü",
+      "domain": "powertrain",
+      "source_labels": [
+        "Yakıt & Hava Ölçümü (MAF, MAP, O2, ECT Sensörleri)",
+        "Yakıt & Hava Ölçümü (MAF, MAP Sensörleri)",
+        "Üreticiye Özel Yakıt & Hava Ölçümü (MAF / Lambda / Isıtıcı)",
+        "Yakıt Ölçümü & Karışım Kontrolü",
+        "Yakıt Ölçümü & Hava Emiş / Kam Mili Zamanlaması",
+        "Yakıt Seviyesi & Şamandıra",
+        "Yakıt Yönetimi & Yoğunluk Düzeltmesi",
+        "Yakıt Ekonomisi & Telemetri",
+        "Hava Emiş & Turboşarj (CAC)",
+        "Hava Emiş & Turbo Basıncı",
+        "Turboşarj Aşırı Besleme & Aktüatör",
+        "Emiş Havası & Rakım Telafisi"
+      ],
+      "rationale": "Etiketler hava emiş ve yakıt ölçüm zincirini adlandırır: 'Yakıt & Hava Ölçümü (MAF, MAP, O2, ECT Sensörleri)' ile sensör listesi kısaltılmış varyantı 'Yakıt & Hava Ölçümü (MAF, MAP Sensörleri)', üreticiye özel varyantı 'Üreticiye Özel Yakıt & Hava Ölçümü (MAF / Lambda / Isıtıcı)', karışım varyantı 'Yakıt Ölçümü & Karışım Kontrolü'. Turboşarj/emiş basıncı varyantları ('Hava Emiş & Turboşarj (CAC)', 'Hava Emiş & Turbo Basıncı', 'Turboşarj Aşırı Besleme & Aktüatör', 'Emiş Havası & Rakım Telafisi') aynı hava ölçüm hattıdır.",
+      "review_flag": "kesin"
+    },
+    {
+      "id": "fuel-injection-rail",
+      "title_tr": "Yakıt Enjeksiyonu ve Common Rail",
+      "domain": "powertrain",
+      "source_labels": [
+        "Yakıt Ölçümü & Enjektör Devresi / Turboşarj",
+        "Elektronik Gaz Kelebeği & Yakıt Enjeksiyonu",
+        "Üreticiye Özel Yakıt Enjeksiyonu & Turbo / Şarj Basıncı",
+        "Yakıt Enjeksiyonu (J1939)",
+        "Yakıt Enjeksiyon Sistemi (J1939)",
+        "Yakıt Besleme & Enjeksiyon (J1939)",
+        "Yakıt Besleme Sistemi (J1939)",
+        "Yakıt Sistemi (J1939)",
+        "Yakıt Besleme & Ön Filtre",
+        "Yakıt Filtrasyonu & Ön Ayırıcı",
+        "Yakıt Enjeksiyonu (Silindir 1)",
+        "Yakıt Enjeksiyonu (Silindir 2)",
+        "Yakıt Enjeksiyonu (Silindir 3)",
+        "Yakıt Enjeksiyonu (Silindir 4)",
+        "Yakıt Enjeksiyonu (Silindir 5)",
+        "Yakıt Enjeksiyonu (Silindir 6)",
+        "Yüksek Basınç Yakıt Enjeksiyonu",
+        "Common Rail Yakıt Basıncı"
+      ],
+      "rationale": "Enjeksiyon kelimesini taşıyan tüm etiketler burada toplanır: 'Enjektör Devresi' varyantı, 'Yakıt Enjeksiyonu (J1939)' ile 'Yakıt Enjeksiyon Sistemi (J1939)' ve altı silindire kadar numaralanmış 'Yakıt Enjeksiyonu (Silindir 1..6)' varyantları, yüksek basınç varyantları ('Yüksek Basınç Yakıt Enjeksiyonu', 'Common Rail Yakıt Basıncı'). Yakıt besleme/filtrasyon etiketleri ('Yakıt Besleme & Enjeksiyon (J1939)', 'Yakıt Besleme Sistemi (J1939)', 'Yakıt Sistemi (J1939)', 'Yakıt Besleme & Ön Filtre', 'Yakıt Filtrasyonu & Ön Ayırıcı') enjeksiyon kelimesini taşır ya da enjeksiyon sisteminin besleme/filtrasyon ayağıdır; ikinci grup için karar gerekçesi kanonik dokümandadır.",
+      "review_flag": "kesin"
+    },
+    {
+      "id": "ignition-misfire",
+      "title_tr": "Ateşleme ve Tekleme (Misfire) Denetimi",
+      "domain": "powertrain",
+      "source_labels": [
+        "Ateşleme Sistemi & Tekleme (Misfire) Tespiti",
+        "Üreticiye Özel Ateşleme Sistemi & Krank/Kam Mili Zamanlaması",
+        "Motor Zamanlama & Ateşleme",
+        "Motor Zamanlama & Krank Sensörü",
+        "Yanma & Tekleme Denetimi"
+      ],
+      "rationale": "Ateşleme ve tekleme kelimeleri taşıyan etiketler ('Ateşleme Sistemi & Tekleme (Misfire) Tespiti', 'Üreticiye Özel Ateşleme Sistemi & Krank/Kam Mili Zamanlaması', 'Motor Zamanlama & Ateşleme', 'Motor Zamanlama & Krank Sensörü', 'Yanma & Tekleme Denetimi') aynı ateşleme ve yanma kalitesi alanını işaret eder; zamanlama sensörü varyantları bu alanın girdisidir.",
+      "review_flag": "kesin"
+    },
+    {
+      "id": "transmission-clutch",
+      "title_tr": "Şanzıman ve Kavrama",
+      "domain": "drivetrain",
+      "source_labels": [
+        "Şanzıman & Kavrama (J1939)",
+        "Otomatik Şanzıman & Hidrolik Kontrol Sistemi",
+        "Üreticiye Özel Otomatik Şanzıman & Tork Konvertörü",
+        "Şanzıman Aktüatör & Hidrolik Basınç Kontrolü",
+        "Şanzıman / Vites Seçici & Kavrama Kontrolü",
+        "Şanzıman Kontrol Modülü (TCM)",
+        "Otomatik / AMT Şanzıman Kontrolü",
+        "Otomatik / Robotize Şanzıman (TCU)",
+        "AMT / Otomatik Vites Kutusu",
+        "Şanzıman & Aktarma Organları",
+        "Şanzıman & Hız Algılama",
+        "ZF_GearBox",
+        "AMT",
+        "AMT_ZF_DTCs",
+        "HW-AMT"
+      ],
+      "rationale": "Şanzıman/vites kutusu/AMT/TCU/TCM kelimelerini taşıyan tüm etiketler burada toplanır: 'Şanzıman & Kavrama (J1939)', 'Şanzıman Kontrol Modülü (TCM)', 'Otomatik / AMT Şanzıman Kontrolü', 'Otomatik / Robotize Şanzıman (TCU)', 'AMT / Otomatik Vites Kutusu' ve kısaltma varyantları 'ZF_GearBox', 'AMT', 'AMT_ZF_DTCs', 'HW-AMT'. Etiket metni yalnızca 'AMT' veya 'HW-AMT' olan kayıtlar belirsizdir; gerekçesi kanonik dokümandadır.",
+      "review_flag": "kesin"
+    },
+    {
+      "id": "driveline-axle-4wd",
+      "title_tr": "Aktarma Organları, Diferansiyel ve 4WD",
+      "domain": "drivetrain",
+      "source_labels": [
+        "Üreticiye Özel Şanzıman & Dört Çeker (4WD/AWD) Transfer Kutusu",
+        "Üreticiye Özel Şanzıman & Yardımcı Güç Aktarma Sistemleri",
+        "Üreticiye Özel Güç Aktarma & Sensör / Sübap Kontrolü",
+        "Üreticiye Özel Güç Aktarma & OBD İzleme Sistemleri",
+        "Aktarma Organları & Aks (J1939)"
+      ],
+      "rationale": "Etiket metinleri 'Dört Çeker (4WD/AWD) Transfer Kutusu', 'Yardımcı Güç Aktarma Sistemleri', 'Aks' ve 'Güç Aktarma' ifadelerini taşır; tekerleğe kadar güç iletimi ve 4WD transfer kutusu aynı mekanik aktarma hattıdır. 'Sensör / Sübap Kontrolü' ve 'OBD İzleme Sistemleri' uzantıları üreticiye özel güç aktarma etiketinin alt dallarıdır.",
+      "review_flag": "kesin"
+    },
+    {
+      "id": "brakes-air-system",
+      "title_tr": "Fren ve Basınçlı Hava Sistemi",
+      "domain": "chassis",
+      "source_labels": [
+        "Şasi, Fren & Direksiyon (Chassis)",
+        "Şasi / Fren & Süspansiyon (Chassis)",
+        "Şasi, Fren Sistemi & Retarder (Allison Gen4)",
+        "Fren & Hava Sistemi (J1939)",
+        "Fren Sistemi & Retarder",
+        "Pnömatik Fren Sistemi (J1939)",
+        "Pnömatik Fren Sistemi (Hava Tankı 1)",
+        "Pnömatik Fren Sistemi (Hava Tankı 2)",
+        "Pnömatik & Basınçlı Hava Sistemi",
+        "Pnömatik & Hava Kompresörü"
+      ],
+      "rationale": "Fren ve basınçlı hava devresi etiketleri bir arada: 'Şasi, Fren & Direksiyon (Chassis)', 'Şasi / Fren & Süspansiyon (Chassis)', 'Fren & Hava Sistemi (J1939)', 'Pnömatik Fren Sistemi (J1939)' ve hava tankı numaralı varyantları '(Hava Tankı 1)'/'(Hava Tankı 2)', kompresör varyantı 'Pnömatik & Hava Kompresörü'. 'Allison Gen4' varyantı fren + retarder birlikte anıldığı için burada tutulur.",
+      "review_flag": "kesin"
+    },
+    {
+      "id": "abs-ebs-stability",
+      "title_tr": "ABS/EBS, AEBS ve Stabilite Kontrolü",
+      "domain": "chassis",
+      "source_labels": [
+        "Şasi, ABS / ESP Fren Sistemi & Süspansiyon",
+        "KNORREBS",
+        "KNORRABS8",
+        "KMAEBS",
+        "Kia/AEBS Gelişmiş Fren Sistemi",
+        "WABCO_EBS31",
+        "EBS",
+        "ABS",
+        "ESCABS",
+        "HR_Radar"
+      ],
+      "rationale": "Etiketlerin bir kısmı doğrudan kısaltmayla elektronik fren sistemini adlandırır ('EBS', 'ABS', 'ESCABS', 'KNORREBS', 'KNORRABS8', 'WABCO_EBS31', 'KMAEBS'), bir kısmı da açık yazımla ('Şasi, ABS / ESP Fren Sistemi & Süspansiyon', 'Kia/AEBS Gelişmiş Fren Sistemi'). Aynı ailenin varyantları tek sistemde toplanır; 'HR_Radar' AEBS radar sensörü olduğu için ve 'Şasi, ABS / ESP ... Süspansiyon' etiketinde süspansiyon da anıldığı için çok evli olarak işaretlenmiştir (kanonik doküman).",
+      "review_flag": "kesin"
+    },
+    {
+      "id": "retarder",
+      "title_tr": "Retarder (Yardımcı Yavaşlatıcı)",
+      "domain": "chassis",
+      "source_labels": [
+        "ZF_Retarder",
+        "FST_Retarder",
+        "Voith Retarder (Yavaşlatıcı)",
+        "Voith Retarder",
+        "Hidrolik & Elektromanyetik Retarder",
+        "Motor Freni & Retarder",
+        "Yardımcı Fren / Retarder"
+      ],
+      "rationale": "Etiketlerin tamamı 'Retarder' kelimesini taşır; marka varyantları ('ZF_Retarder', 'FST_Retarder', 'Voith Retarder', 'Voith Retarder (Yavaşlatıcı)') ile teknoloji/tanım varyantları ('Hidrolik & Elektromanyetik Retarder', 'Motor Freni & Retarder', 'Yardımcı Fren / Retarder') aynı yardımcı yavaşlatma sistemidir.",
+      "review_flag": "kesin"
+    },
+    {
+      "id": "steering",
+      "title_tr": "Direksiyon Sistemi",
+      "domain": "chassis",
+      "source_labels": [
+        "Şasi, Süspansiyon & Direksiyon (J1939)",
+        "BCM"
+      ],
+      "rationale": "'Şasi, Süspansiyon & Direksiyon (J1939)' etiketi metninde direksiyon kelimesini taşır. Yalnızca 'BCM' etiketi için metinden bir anlam çıkarılamaz; kayıt bağlamı zorunlu oldu.",
+      "review_flag": "belirsiz"
+    },
+    {
+      "id": "suspension",
+      "title_tr": "Süspansiyon ve Seviye Kontrolü",
+      "domain": "chassis",
+      "source_labels": [
+        "Şasi & Süspansiyon Kontrolü",
+        "ECAS4PLUS",
+        "ECAS_KNORR",
+        "ECAS"
+      ],
+      "rationale": "'Şasi & Süspansiyon Kontrolü' etiketi süspansiyonu adlandırır; 'ECAS', 'ECAS4PLUS' ve 'ECAS_KNORR' elektronik seviye kontrol (ELC/ECAS) varyantlarıdır ve aynı yükseklik kontrol sistemini belirtir.",
+      "review_flag": "kesin"
+    },
+    {
+      "id": "body-comfort",
+      "title_tr": "Gövde ve Konfor Sistemleri",
+      "domain": "body",
+      "source_labels": [
+        "Gövde & Konfor Elektroniği (Body)",
+        "Gövde / Konfor Sistemleri (Body)",
+        "Gövde & Dorse/Kasa (J1939)",
+        "Kasa Kontrol Ünitesi (CBCU)",
+        "CBCU",
+        "NBBM",
+        "BCU",
+        "NewBCU",
+        "NanoBCU",
+        "NanoBCUzz"
+      ],
+      "rationale": "Gövde/konfor ve kasa kontrolü etiketleri bir arada: 'Gövde & Konfor Elektroniği (Body)' ile kısaltılmış varyantı 'Gövde / Konfor Sistemleri (Body)', dorse/kasa varyantı 'Gövde & Dorse/Kasa (J1939)', merkezi gövde/kasa kontrol ünitesi varyantları 'Kasa Kontrol Ünitesi (CBCU)', 'CBCU', 'BCU', 'NewBCU', 'NanoBCU', 'NanoBCUzz'. 'NBBM' etiketi de aynı kontrol ünitesi ailesindendir; gerekçesi kanonik dokümandadır.",
+      "review_flag": "kesin"
+    },
+    {
+      "id": "lighting-bcm",
+      "title_tr": "Aydınlatma ve Gövde Elektroniği (BCM)",
+      "domain": "body",
+      "source_labels": [
+        "Gövde Elektroniği, Aydınlatma & BCM",
+        "BCM_HR"
+      ],
+      "rationale": "'Gövde Elektroniği, Aydınlatma & BCM' etiketi aydınlatma ve BCM kelimelerini açıkça taşır. 'BCM_HR' etiketi kısaltmadır; aynı blok adını paylaştığı için buraya alındı, kararı metin değil kanonik doküman gerekçelendirir.",
+      "review_flag": "kesin"
+    },
+    {
+      "id": "restraint-peps",
+      "title_tr": "Kısıtlama Sistemleri ve Pasif Giriş",
+      "domain": "body",
+      "source_labels": [
+        "PEPS"
+      ],
+      "rationale": "'PEPS' etiketi pasif giriş-pasif çalıştırma sisteminin standart kısaltmasıdır; kısaltmayı metinden çözmek mümkündür, kayıt bağlamı yalnızca doğrulama için kullanıldı.",
+      "review_flag": "kesin"
+    },
+    {
+      "id": "instrument-telematics",
+      "title_tr": "Gösterge, İkaz ve Telematik",
+      "domain": "infotainment",
+      "source_labels": [
+        "Gösterge & İkaz Sistemleri",
+        "Çevre & Ortam Sensörleri"
+      ],
+      "rationale": "'Gösterge & İkaz Sistemleri' sürücü gösterge/ikaz arayüzünü adlandırır; 'Çevre & Ortam Sensörleri' etiketi de sürücüye bilgi veren ortam sensörü katmanına bağlanmıştır. Metin yalnızca 'ortam' der, hangi sensör olduğunu söylemez; bu varyant çok evli olarak işaretlenmiştir (kanonik doküman gerekçesi).",
+      "review_flag": "kesin"
+    },
+    {
+      "id": "cabin-climate-hvac",
+      "title_tr": "Kabin İklimlendirme ve HVAC",
+      "domain": "hvac",
+      "source_labels": [
+        "Çevre Koşulları & İklimlendirme"
+      ],
+      "rationale": "Yalnızca 'Çevre Koşulları & İklimlendirme' etiketi bu sistemin birincil evidir. Etiket hem 'çevre koşulları'nı hem 'iklimlendirme'yi sayar; ikinci kelime HVAC'ı gösterir ancak ilk kelime telematik/ortam sensörüne de işaret edebilir, bu nedenle insan kararı gerekir.",
+      "review_flag": "belirsiz"
+    },
+    {
+      "id": "exhaust-aftertreatment-dpf",
+      "title_tr": "Egzoz Arıtma ve DPF/Katalizör",
+      "domain": "aftertreatment",
+      "source_labels": [
+        "Egzoz & Aftertreatment Sistemi",
+        "Egzoz Son İşlem (Aftertreatment)",
+        "Egzoz & DPF Kurum Yönetimi",
+        "Egzoz & DPF Rejenerasyonu",
+        "Egzoz & DPF Termal Rejenerasyonu",
+        "Egzoz & DPF Rejenerasyon Dozajı",
+        "Egzoz Gazı Sıcaklık İzleme",
+        "Yardımcı Emisyon Kontrolleri (Katalizör, EVAP, EGR)",
+        "Yardımcı Emisyon Kontrolleri (Katalizör Sistemi)",
+        "Yardımcı Emisyon Kontrolleri (EVAP Yakıt Buhar Deposu)",
+        "EGR Sistemi (Egzoz Gazı Geri Dönüşümü)",
+        "CFV/EGR",
+        "NOx, O2 Sensörleri & Emiş Havası Kontrolü"
+      ],
+      "rationale": "Egzoz arıtma etiketleri bir arada: 'Egzoz & Aftertreatment Sistemi' ile Türkçe varyantı 'Egzoz Son İşlem (Aftertreatment)', DPF kurum/rejenerasyon varyantları 'Egzoz & DPF Kurum Yönetimi', 'Egzoz & DPF Rejenerasyonu', 'Egzoz & DPF Termal Rejenerasyonu', 'Egzoz & DPF Rejenerasyon Dozajı' ve sıcaklık izleme varyantı 'Egzoz Gazı Sıcaklık İzleme'. Yardımcı emisyon kontrolleri ile EGR varyantları ('Katalizör, EVAP, EGR' / 'Katalizör Sistemi' / 'EVAP Yakıt Buhar Deposu' / 'EGR Sistemi (Egzoz Gazı Geri Dönüşümü)' / 'CFV/EGR') ve 'NOx, O2 Sensörleri & Emiş Havası Kontrolü' aynı arıtma hattındadır.",
+      "review_flag": "kesin"
+    },
+    {
+      "id": "scr-def-dosing",
+      "title_tr": "SCR/DEF Dozajlama ve Kalitesi",
+      "domain": "aftertreatment",
+      "source_labels": [
+        "Yakıt, Emisyon & SCR / AdBlue Dozaj Sistemi",
+        "SCR & DEF Dozaj Emisyon Sistemi",
+        "Egzoz & SCR / AdBlue Dozaj Sistemi",
+        "SCR / AdBlue Sıvı Yönetimi",
+        "SCR / AdBlue Sıvı Depolama",
+        "SCR / AdBlue Sıvı Enjeksiyonu",
+        "SCR / AdBlue Sıvı Kalitesi",
+        "SCR / AdBlue Donma Koruması",
+        "SCR_DOSING",
+        "EDC17/SCR",
+        "AIKL"
+      ],
+      "rationale": "SCR/AdBlue/DEF dozaj etiketleri bir arada: 'Yakıt, Emisyon & SCR / AdBlue Dozaj Sistemi', 'SCR & DEF Dozaj Emisyon Sistemi', 'Egzoz & SCR / AdBlue Dozaj Sistemi' ile sıvı yönetimi varyantları 'SCR / AdBlue Sıvı Yönetimi', '(Sıvı Depolama)', '(Sıvı Enjeksiyonu)', '(Sıvı Kalitesi)', '(Donma Koruması)' ve 'SCR_DOSING'/'EDC17/SCR' kısaltmaları. 'AIKL' etiketi için metin hiçbir şey söylemez; kayıt bağlamı zorunludur ve bu nedenle belirsiz işaretlidir.",
+      "review_flag": "kesin"
+    },
+    {
+      "id": "network-ecu-communication",
+      "title_tr": "CAN/Ağ ve ECU Haberleşmesi",
+      "domain": "network",
+      "source_labels": [
+        "CAN-Bus & Ağ Haberleşme / ECU İletişim Kaybı",
+        "CAN-Bus & Ağ Haberleşme (Network)",
+        "CAN Veri Yolu & Ağ İletişimi (Network)",
+        "CAN-Bus Ağ & İletişim Hattı",
+        "Şebeke & İletişim Katmanı (J1939)",
+        "Ağ Veri Bütünlüğü & Checksum Doğrulama",
+        "CAN & Araç Elektroniği",
+        "GatewayBosch",
+        "OGP",
+        "OGP2",
+        "OEM Genişletilmiş Güç Ünitesi 2 (OGP2)",
+        "ADCU",
+        "Ağır Vasıta J1939 (OEM tablo hasadı)"
+      ],
+      "rationale": "Ağ/haberleşme katmanı etiketleri bir arada: 'CAN-Bus & Ağ Haberleşme / ECU İletişim Kaybı', '(Network)' varyantları, 'Şebeke & İletişim Katmanı (J1939)', 'Ağ Veri Bütünlüğü & Checksum Doğrulama' ve 'CAN & Araç Elektroniği'. Ağ geçidi varyantları 'GatewayBosch' ile genişletilmiş güç ünitesi kısaltmaları 'OGP', 'OGP2', 'OEM Genişletilmiş Güç Ünitesi 2 (OGP2)' bu katmanın düğümleridir. 'Ağır Vasıta J1939 (OEM tablo hasadı)' bir ağ protokol havuzu etiketidir; 'ADCU' etiketi için metin belirsizdir, kararı kanonik doküman verir.",
+      "review_flag": "kesin"
+    },
+    {
+      "id": "electrical-charging",
+      "title_tr": "Elektrik Besleme ve Şarj Sistemi",
+      "domain": "electrical",
+      "source_labels": [
+        "Elektrik & Kontrol Devreleri",
+        "Elektrik & Şarj Sistemi",
+        "Elektrik Dağıtım & Alternatör",
+        "Elektrik & ECU Beslemesi (J1939)",
+        "Elektrik & Enerji Yönetimi (J1939)",
+        "Motor Elektrik & Sensör Devreleri",
+        "Marş & Kalkış Kontrolü"
+      ],
+      "rationale": "Elektrik/şarj etiketleri bir arada: 'Elektrik & Kontrol Devreleri', 'Elektrik & Şarj Sistemi', 'Elektrik Dağıtım & Alternatör', 'Elektrik & ECU Beslemesi (J1939)', 'Elektrik & Enerji Yönetimi (J1939)' ve motor elektrik tesisatı varyantı 'Motor Elektrik & Sensör Devreleri'. 'Marş & Kalkış Kontrolü' marş devresinin elektriksel kontrolüdür.",
+      "review_flag": "kesin"
+    },
+    {
+      "id": "ecu-internal-hardware",
+      "title_tr": "ECU İç Donanımı ve Bellek",
+      "domain": "electrical",
+      "source_labels": [
+        "ECU / PCM Dahili İşlemci & Röle / Çıkış Devreleri",
+        "Üreticiye Özel PCM / ECU Dahili İşlemci & Haberleşme Devreleri",
+        "ECU Dahili Donanım & Sensör Besleme",
+        "ECU Dahili Donanım & Mikrodenetleyici",
+        "Bosch",
+        "Bosch MC11/MC13 Motor ECU"
+      ],
+      "rationale": "ECU iç donanım/bellek etiketleri bir arada: 'ECU / PCM Dahili İşlemci & Röle / Çıkış Devreleri' ve üreticiye özel varyantı 'Üreticiye Özel PCM / ECU Dahili İşlemci & Haberleşme Devreleri', 'ECU Dahili Donanım & Sensör Besleme', 'ECU Dahili Donanım & Mikrodenetleyici'. 'Bosch MC11/MC13 Motor ECU' ve yalın 'Bosch' etiketleri tedarikçi/ECU ailesi adıdır; metinden araç sistemi çıkarılamaz, karar kayıt bağlamıyla verilmiştir.",
+      "review_flag": "kesin"
+    },
+    {
+      "id": "manufacturer-proprietary",
+      "title_tr": "Üreticiye Özel / Tescilli Sistemler",
+      "domain": "unknown",
+      "source_labels": [
+        "GM OEM",
+        "Üreticiye Özel CAN Ağı Haberleşme Hatası",
+        "Üreticiye Özel Araç Hızı / Rölanti & Gaz Kelebeği Kontrolü",
+        "Üreticiye Özel Emisyon Kontrolü (EGR / EVAP / İkincil Hava)"
+      ],
+      "rationale": "Etiketlerin metni doğrudan 'Üreticiye Özel' ve 'GM OEM' ifadelerini taşır; standart bir sistem adına eşlenemezler. Metin bir kez daha aynı etiketi listeliyor gibi göründüğünden bu sistemde tekrara düşmemek için elle karar gerekir.",
+      "review_flag": "belirsiz"
+    },
+    {
+      "id": "data-calibration",
+      "title_tr": "Veri ve Kalibrasyon",
+      "domain": "infotainment",
+      "source_labels": [
+        "Veri & Kalibrasyon"
+      ],
+      "rationale": "Tek etiket birebir 'Veri & Kalibrasyon' ifadesini taşır; ECU veri-kalibrasyon katmanını adlandırır ve başka bir araç sistemiyle karışmaz.",
+      "review_flag": "kesin"
+    },
+    {
+      "id": "unknown-unmapped",
+      "title_tr": "Bilinmeyen / Eşlenmemiş",
+      "domain": "unknown",
+      "source_labels": [
+        "null"
+      ],
+      "rationale": "Kaynak j1939 veritabanında `subsystem` alanı boş (None) olan 37 kayıt 'null' etiketi altında toplanmıştır; etiket metni olmadığı için hiçbir fiziksel araç sistemine güvenle bağlanamaz.",
+      "review_flag": "belirsiz"
+    }
+  ],
+  "coverage": {
+    "dtc_records_mapped": 14352,
+    "dtc_records_total": 14352,
+    "j1939_records_mapped": 4253,
+    "j1939_records_total": 4253,
+    "j1939_records_unmapped": 0
+  }
+}

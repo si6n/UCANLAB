@@ -6,6 +6,7 @@ Complies with Saha Risk Kataloğu v1.2 Sections 4, 5, 6, 37, 38 and CAN-12, CAN-
 from __future__ import annotations
 
 import hashlib
+import heapq
 import hmac
 import os
 import re
@@ -94,6 +95,7 @@ class SafetySupervisor:
         estop: Any | None = None,
         auth_secret: bytes | None = None,
         allow_unauthenticated_arm: bool = False,
+        require_arm_auth: bool = False,
     ) -> None:
         # Fail-open start guard: TX-permitting states can never be the boot state.
         if initial_state in {SafetyState.ARMED_TX, SafetyState.ACTIVE}:
@@ -126,14 +128,42 @@ class SafetySupervisor:
                 "authentication and is TEST-ONLY: set UCANLAB_TEST_MODE=1 "
                 "to acknowledge (refusing to start otherwise)"
             )
+        # S-05 (real intent): an AUTHENTICATED deployment must never be able to
+        # arm TX with no authenticator wired. `require_arm_auth=True` marks the
+        # supervisor as one the PRODUCTION composition root built, and it is
+        # then unsatisfiable without an `auth_secret` — asking for it fails
+        # LOUD HERE, at construction, instead of only when a human later hits
+        # the arm button. The flag is a deployment assertion, not a second
+        # escape hatch: a supervisor built with it can never be downgraded to
+        # "no token needed", not even by `allow_unauthenticated_arm`.
+        if require_arm_auth and allow_unauthenticated_arm:
+            raise ValueError(
+                "allow_unauthenticated_arm=True contradicts require_arm_auth=True: "
+                "an authenticated deployment cannot opt out of operator authorization"
+            )
+        if require_arm_auth and auth_secret is None:
+            raise RuntimeError(
+                "require_arm_auth=True but no auth_secret was provided: an "
+                "authenticated deployment must wire its TX operator credential "
+                "(refusing to start with an arm gate that cannot be satisfied)"
+            )
         self._auth_secret: bytes | None = bytes(auth_secret) if auth_secret is not None else None
         self._allow_unauthenticated_arm: bool = bool(allow_unauthenticated_arm)
+        self._require_arm_auth: bool = bool(require_arm_auth)
         if self._allow_unauthenticated_arm:
             logger.warning(
                 "SafetySupervisor started with allow_unauthenticated_arm=True — "
                 "TX arming is NOT operator-authenticated (test/simulation only)"
             )
-        self._consumed_arm_tokens: deque[bytes] = deque(maxlen=1024)
+        # S-01: `deque(maxlen=1024)` silently EVICTED still-unexpired consumed
+        # arm tokens, so a flood of >1024 mints inside one TTL window broke the
+        # single-use contract on the oldest token. The store is now unbounded;
+        # it is pruned by EXPIRY (monotonic-ns) before every replay check —
+        # see `_prune_consumed_arm_tokens`.
+        self._consumed_arm_tokens: deque[bytes] = deque()
+        # S-01: min-heap of (expiry_ns, payload) mirroring the deque, so the
+        # pruning front is O(log n) instead of scanning the whole deque.
+        self._consumed_arm_tokens_heap: list[tuple[int, bytes]] = []
         self._epoch: int = 0
         self._state_change_timestamp_ns: int = time.monotonic_ns()
         self._last_duration_ns: int = 0
@@ -147,6 +177,32 @@ class SafetySupervisor:
         # dropped/suppressed fault is observable rather than silent.
         self._fault_event_count: int = 0
         self._last_fault_event_ns: int = 0
+        # REGRESSION 1 (S-02/S-08): the TX watchdog (and the heartbeat token it
+        # expects) so the ARM transition can anchor the liveness lease THROUGH
+        # the H-2 token gate. None until `bind_watchdog()` is called — an
+        # unbound supervisor anchors nothing.
+        self._watchdog: Any | None = None
+        self._watchdog_heartbeat_token: str | None = None
+
+    def _anchor_watchdog_lease_for_arm(self) -> None:
+        """Anchor the watchdog lease at ARM time via the token-gated path.
+
+        Fail-closed: a refusal (no registered token / forged token) is logged
+        loudly and the arm is then blocked by the gateway's Stage 2 lease
+        check, never silently permitted. This is NOT the token-free re-anchor
+        S-02 deleted — the token is presented on every call.
+        """
+        watchdog = self._watchdog
+        if watchdog is None:
+            return
+        anchor = getattr(watchdog, "anchor_lease_for_arm", None)
+        if anchor is None:  # pragma: no cover - duck-typed/legacy watchdog
+            return
+        if not anchor(self._current_watchdog_heartbeat_token()):
+            logger.error(
+                "TX arm could not anchor the watchdog lease (missing/forged heartbeat token) — "
+                "TX will be refused fail-closed until a token-authenticated heartbeat arrives"
+            )
 
     def bind_estop(self, estop: Any) -> None:
         """Associate an EmergencyStopSystem instance to govern fault exits.
@@ -166,6 +222,45 @@ class SafetySupervisor:
                 )
             self._estop = estop
             self._estop_bound = True
+
+    def bind_watchdog(
+        self,
+        watchdog: Any,
+        heartbeat_token: str | None = None,
+    ) -> None:
+        """Associate the TX watchdog so ARMED_TX can anchor its lease — token-gated.
+
+        REGRESSION 1 (S-02/S-08): the lease must be anchored at the moment TX
+        is ARMED, and that anchor MUST go through the watchdog's H-2 token
+        gate. Binding the watchdog here gives the supervisor's own arm path
+        the identity it needs, so the anchor is never the old token-free
+        re-anchor that S-02 deleted.
+
+        `heartbeat_token` is optional: when omitted, the token registered on
+        the watchdog (``arm_heartbeat_token()``) is used at arm time, so an
+        arm can only anchor a lease the composition root had previously
+        authorised. A watchdog with NO registered token anchors nothing
+        (fail-closed), and the anchor call is refused by the H-2 gate.
+        """
+        with self._lock:
+            self._watchdog = watchdog
+            self._watchdog_heartbeat_token = heartbeat_token
+        if heartbeat_token and hasattr(watchdog, "arm_heartbeat_token"):
+            # Register (or rotate to) the supervisor-presented token so the
+            # arm-time anchor can satisfy the H-2 gate.
+            watchdog.arm_heartbeat_token(heartbeat_token)
+
+    def _current_watchdog_heartbeat_token(self) -> str | None:
+        """Resolve the heartbeat token to present at ARM time.
+
+        Prefers an explicitly bound token; otherwise reads the LIVE token off
+        the watchdog so a rotation performed after binding is honoured. This
+        never weakens the H-2 gate: whatever is returned is still compared
+        constant-time inside the watchdog.
+        """
+        if self._watchdog_heartbeat_token:
+            return self._watchdog_heartbeat_token
+        return getattr(self._watchdog, "_heartbeat_token", None) or None
 
     @property
     def current_state(self) -> SafetyState:
@@ -204,6 +299,16 @@ class SafetySupervisor:
         """Check if supervisor is currently in FAULT state."""
         with self._lock:
             return self._state == SafetyState.FAULT
+
+    @property
+    def requires_arm_auth(self) -> bool:
+        """S-05: True when this supervisor is bound to an authenticated deployment.
+
+        A True value asserts the arm gate can never be satisfied without the
+        operator credential; it is set ONLY by the composition root that also
+        wires ``auth_secret`` (see the constructor).
+        """
+        return self._require_arm_auth
 
     @property
     def fault_reason(self) -> str:
@@ -371,6 +476,10 @@ class SafetySupervisor:
         closed. Format: ``<expiry_ns>.<nonce_hex>.<mac_hex>``.
         """
         if self._auth_secret is None:
+            # S-05: unreachable for a `require_arm_auth=True` supervisor — the
+            # constructor refuses to build one without a secret — so this
+            # remains the legacy "no authenticator wired" diagnostic for the
+            # backward-compatible unconfigured supervisor (T41/Y-2).
             raise SafetyError(
                 "Arm tokens require a configured supervisor auth_secret",
                 code="ARM_AUTH_NOT_CONFIGURED",
@@ -443,37 +552,84 @@ class SafetySupervisor:
         # R2-S2: deferred burn — validate now, burn only after the transition
         # succeeds so a rejected arm does not eat the operator approval.
         with self._lock:
+            # S-01: prune EXPIRED consumed tokens first — a `maxlen`-bounded
+            # store used to evict a still-live entry under mint flood.
+            self._prune_consumed_arm_tokens()
             if payload in self._consumed_arm_tokens:
                 raise SafetyError(
                     "TX authorization rejected: auth token already consumed",
                     code="ARM_AUTH_REPLAYED",
                 )
             if consume:
-                self._consumed_arm_tokens.append(payload)
+                self._record_consumed_arm_token(payload)
                 return None
             return payload
+
+    def _record_consumed_arm_token(self, payload: bytes) -> None:
+        """S-01: record a burnt arm-token payload (deque + expiry heap).
+
+        Caller MUST hold ``self._lock``. Payloads are unique within a burn
+        store (nonce is 16 random bytes), so the (expiry, payload) heap entry
+        always maps to exactly one deque entry.
+        """
+        self._consumed_arm_tokens.append(payload)
+        expiry_ns = int.from_bytes(payload[:8], "big", signed=False)
+        heapq.heappush(self._consumed_arm_tokens_heap, (expiry_ns, payload))
+
+    def _prune_consumed_arm_tokens(self) -> None:
+        """S-01: drop EXPIRED consumed tokens before a replay check.
+
+        An arm-token payload is ``expiry_ns (8B big-endian) || nonce``; a token
+        whose expiry has passed can never verify again (`_verify_arm_token`
+        rejects it as ARM_AUTH_EXPIRED), so retaining it only grows memory.
+        Pruning by expiry — never by capacity — is what keeps the single-use
+        contract intact: a burst of mints inside one TTL window can no longer
+        evict a still-live consumed token.
+
+        Caller MUST hold ``self._lock``.
+        """
+        now_ns = time.monotonic_ns()
+        heap = self._consumed_arm_tokens_heap
+        consumed = self._consumed_arm_tokens
+        while heap and heap[0][0] < now_ns:
+            _, expired_payload = heapq.heappop(heap)
+            # `if` (not `while`): payloads are unique, so at most one entry
+            # matches. The deque is insertion-ordered by non-decreasing expiry
+            # and expiry pruning only removes from the front.
+            if consumed and consumed[0] == expired_payload:
+                consumed.popleft()
 
     def _burn_arm_token(self, payload: bytes) -> None:
         """R2-S2: burn a previously validated arm payload (no-return point)."""
         with self._lock:
+            self._prune_consumed_arm_tokens()
             if payload in self._consumed_arm_tokens:
                 raise SafetyError(
                     "TX authorization rejected: auth token already consumed",
                     code="ARM_AUTH_REPLAYED",
                 )
-            self._consumed_arm_tokens.append(payload)
+            self._record_consumed_arm_token(payload)
 
     def _require_arm_authorization(
         self, operation: str, auth_token: str | None, *, consume: bool = True
     ) -> bytes | None:
         """Enforce the TX-authorization gate for arm_tx/activate_tx (T41 / S-1).
 
-        Fail-closed policy:
+        Fail-closed policy — three states:
           * ``auth_secret`` configured -> a valid, unexpired, single-use token
-            is REQUIRED (missing/invalid => SafetyError). The legacy
+            is REQUIRED (missing/invalid => SafetyError). The test-only
             ``allow_unauthenticated_arm`` opt-in downgrades this to a WARNING.
-          * ``auth_secret`` None -> no authenticator is wired; the legacy
-            unauthenticated path is preserved with a WARNING (backward compat).
+          * ``auth_secret`` None AND ``require_arm_auth`` True -> this
+            supervisor was built by an authenticated (production) composition
+            root that FAILED to wire its operator credential. ``arm_tx`` is
+            refused with ``ARM_AUTH_NOT_CONFIGURED`` (fail-closed); no opt-in
+            can override it. (The constructor already refuses to build this
+            combination, so reaching here means the secret was removed after
+            construction — e.g. an out-of-band key rotation.)
+          * ``auth_secret`` None and ``require_arm_auth`` False -> legacy
+            unconfigured supervisor. T41/Y-2 locks this as backward
+            compatible: an unconfigured supervisor keeps working (only a
+            CONFIGURED secret without a matching token fails closed).
         """
         if self._auth_secret is not None:
             if auth_token is None:
@@ -494,11 +650,50 @@ class SafetySupervisor:
                     code="ARM_AUTH_REQUIRED",
                 )
             return self._verify_arm_token(auth_token, consume=consume)
-        logger.warning(
-            "%s without auth_secret configured (legacy unauthenticated path)",
+        if not self._require_arm_auth:
+            # LEGACY, T41/Y-2-LOCKED: a supervisor that never declared itself
+            # an authenticated deployment has no authenticator to satisfy, so a
+            # bare arm is the documented (backward-compatible) behaviour. Only
+            # a CONFIGURED secret without a matching token fails closed here.
+            logger.warning(
+                "%s without auth_secret configured — unconfigured supervisor "
+                "(no authenticated deployment declared): legacy unauthenticated arm",
+                operation,
+            )
+            return None
+        logger.critical(
+            "%s rejected: no auth_secret on an authenticated deployment — FAIL CLOSED",
             operation,
         )
-        return None
+        raise SafetyError(
+            f"{operation} rejected: this supervisor is declared as an authenticated "
+            "deployment (require_arm_auth=True) but no auth_secret is configured, so "
+            "the operator authorization gate cannot be satisfied (fail-closed). "
+            "Configure auth_secret, or build the supervisor without "
+            "require_arm_auth to keep it unauthenticated.",
+            code="ARM_AUTH_NOT_CONFIGURED",
+        )
+
+    def _assert_estop_protection_intact(self, operation: str) -> None:
+        """S-15: refuse to arm while the E-Stop protection level is downgraded.
+
+        The bound E-Stop exposes ``protection_downgraded`` (it fell back to a
+        process-local reset secret that will not survive a restart), but no arm
+        gate consumed it. This fail-closed check closes that loop: critical TX
+        authority is never granted on top of a downgraded E-Stop.
+        """
+        if self._estop is None:
+            return
+        assert_arm_permitted = getattr(self._estop, "assert_arm_permitted", None)
+        if callable(assert_arm_permitted):
+            assert_arm_permitted(operation)
+            return
+        if getattr(self._estop, "protection_downgraded", False):
+            raise SafetyError(
+                f"{operation} refused: E-Stop protection is downgraded "
+                "(process-local reset secret)",
+                code="ESTOP_PROTECTION_DOWNGRADED",
+            )
 
     def arm_tx(
         self,
@@ -513,11 +708,18 @@ class SafetySupervisor:
         the ``allow_unauthenticated_arm`` compatibility flag.
 
         R2-S2: the token burns only after the transition succeeds.
+        S-15: a downgraded E-Stop protection level refuses the arm outright.
         """
+        self._assert_estop_protection_intact("arm_tx")
         pending = self._require_arm_authorization("arm_tx", auth_token, consume=False)
         self.transition_to(SafetyState.ARMED_TX, reason=reason)
         if pending is not None:
             self._burn_arm_token(pending)
+        # REGRESSION 1 fix: TX is now armed, so the liveness lease is anchored
+        # THROUGH the watchdog's H-2 token gate (never token-free — S-02's
+        # invariant holds: `anchor_lease_for_arm` presents the registered
+        # token and is refused otherwise).
+        self._anchor_watchdog_lease_for_arm()
 
     def activate_tx(
         self,
@@ -525,10 +727,13 @@ class SafetySupervisor:
         auth_token: str | None = None,
     ) -> None:
         """Transition from ARMED_TX to ACTIVE (same authorization gate as arm_tx)."""
+        self._assert_estop_protection_intact("activate_tx")
         pending = self._require_arm_authorization("activate_tx", auth_token, consume=False)
         self.transition_to(SafetyState.ACTIVE, reason=reason)
         if pending is not None:
             self._burn_arm_token(pending)
+        # Same token-gated arm-time lease anchor as `arm_tx` (S-02 invariant).
+        self._anchor_watchdog_lease_for_arm()
 
     def _record_fault_event(self, reason: str) -> None:
         """S-1: monotonic record of every fault event, independent of state.

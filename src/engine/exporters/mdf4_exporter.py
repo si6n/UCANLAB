@@ -14,41 +14,15 @@ except Exception:  # pragma: no cover
     Signal = None  # type: ignore[assignment,misc]
 
 from src.core.logging import get_logger
-from src.engine.exporters.path_guard import resolve_export_path
+from src.engine.exporters.path_guard import (
+    commit_producer_path,
+    resolve_export_path,
+)
+from src.engine.exporters.series_validation import validate_signal_series
 
 logger = get_logger("engine.exporters.mdf4")
 
 _SIG_NAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,127}$")
-
-
-def _validate_signal_series(sig_name: str, timestamps: list[float], values: list[float]) -> None:
-    """REVIEW 3 (LOW): per-signal series validation before export.
-
-    - lengths must match (MDF4 channels are sample-aligned; mismatched
-      arrays corrupt the file or raise deep inside asammdf);
-    - NaN/Inf samples are rejected — a NaN sample is a pipeline bug, not
-      a measurement, and silently writing it poisons the whole file;
-    - timestamps must be strictly monotonically increasing (MDF4
-      requirement for time master channels; duplicates or backwards
-      time corrupt every channel alignment).
-    """
-    if len(timestamps) != len(values):
-        raise ValueError(
-            f"Signal {sig_name!r}: timestamps ({len(timestamps)}) and values "
-            f"({len(values)}) length mismatch"
-        )
-    for i, t in enumerate(timestamps):
-        if not (t == t) or t in (float("inf"), float("-inf")):  # NaN or Inf
-            raise ValueError(f"Signal {sig_name!r}: non-finite timestamp at index {i}")
-    for i, v in enumerate(values):
-        if not (v == v) or v in (float("inf"), float("-inf")):  # NaN or Inf
-            raise ValueError(f"Signal {sig_name!r}: non-finite value at index {i}")
-    for i in range(1, len(timestamps)):
-        if timestamps[i] <= timestamps[i - 1]:
-            raise ValueError(
-                f"Signal {sig_name!r}: timestamps not strictly increasing at index {i} "
-                f"({timestamps[i - 1]} -> {timestamps[i]})"
-            )
 
 
 def _resolve_export_path(output_file: str | Path, exports_root: str | Path | None) -> Path:
@@ -90,8 +64,9 @@ class Mdf4Exporter:
                 continue
 
             # REVIEW 3 (LOW): length / NaN / monotonicity validation —
-            # fail BEFORE writing anything, never mid-file.
-            _validate_signal_series(sig_name, timestamps, values)
+            # fail BEFORE writing anything, never mid-file. P1-9: the shared
+            # validator now also guards the MAT exporter.
+            validate_signal_series(sig_name, timestamps, values)
 
             t_arr = np.array(timestamps, dtype=np.float64)
             v_arr = np.array(values, dtype=np.float64)
@@ -107,14 +82,24 @@ class Mdf4Exporter:
         if signal_list:
             mdf.append(signal_list)
 
-        # REVIEW 3 (LOW): atomic write — save to a temp file in the SAME
-        # directory (same filesystem -> os.replace is atomic), then swap.
-        # A crash mid-save previously left a truncated .mf4 at the target
-        # path, which asammdf later opened as a corrupt session file.
-        # NOTE: asammdf MDF.save() rewrites non-.mf4 extensions to .mf4,
-        # so the temp file must itself end in .mf4.
-        tmp_path = path.with_name(path.stem + ".tmp-" + path.suffix)
-        mdf.save(str(tmp_path), overwrite=True)
-        tmp_path.replace(path)
+        # REVIEW 3 (LOW) / P1-8: atomic write — save to a scratch file beside
+        # the target (same filesystem -> os.replace is atomic), then publish.
+        # A crash mid-save previously left a truncated .mf4 at the target path,
+        # which asammdf later opened as a corrupt session file; and a save that
+        # raised left the `.tmp-` scratch file behind on disk forever.
+        # Scratch path: the `_atomic_replace`/`.part` suffix that
+        # `atomic_producer_path` owns is illegal on several Windows builds (a
+        # create-then-rename over an existing `.part` target hits a
+        # WindowsError 183 / Permission denied), so the scratch name is passed
+        # explicitly and only `commit_producer_path` (whose `_publish` unlinks
+        # the scratch on ANY failure) is reused.
+        scratch_path = path.with_name(path.stem + ".mf4tmp" + path.suffix)
+        final_path = path
+        try:
+            mdf.save(str(scratch_path), overwrite=True)
+        except BaseException:
+            scratch_path.unlink(missing_ok=True)
+            raise
+        commit_producer_path(scratch_path, final_path)
         logger.info("Saved ASAM MDF4 file", extra={"file": str(path), "signals": len(signal_list)})
         return path

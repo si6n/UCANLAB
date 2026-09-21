@@ -12,11 +12,12 @@ from __future__ import annotations
 import hashlib
 import hmac as _hmac
 import time
+from dataclasses import replace
 from typing import Any
 
 from src.core.models.diagnostics import VehicleSession
 from src.engine.ai.anomaly_detector import AnomalyFinding
-from src.engine.ai.diagnostic_copilot import attach_action_triggers, make_j1939_dm1_action, make_uds_clear_dtc_action
+from src.engine.ai.diagnostic_copilot import attach_action_triggers, make_j1939_dm1_action
 from src.engine.ai.evidence_gate import SufficiencyReport, active_dtc_events
 from src.engine.ai.golden_similarity import CaseMatch, similarity_confidence_label
 from src.engine.ai.hypothesis_engine import Hypothesis
@@ -24,12 +25,24 @@ from src.engine.ai.hypothesis_engine import Hypothesis
 _SIM_MARKER = "canlı veri kaydı yok — simülasyon/demo modu"
 
 
+def _seal_heading(signing_key: bytes | None) -> str:
+    """P2-9: name the seal for what it actually is.
+
+    A keyless SHA-256 digest proves only that the bytes were not corrupted in
+    transit — anyone can recompute it, so it is an INTEGRITY CHECKSUM, never a
+    cryptographic seal. Only the keyed HMAC branch may be marketed as one.
+    """
+    if signing_key:
+        return "**Rapor Kriptografik Mührü (R2-EN1):**"
+    return "**Rapor Bütünlük Sağlaması (anahtarsız, R2-EN1):**"
+
+
 def _sign_report(raw: str, signing_key: bytes | None) -> tuple[str, str]:
     """R2-EN1: keyed HMAC when a signing key is supplied, else plain SHA-256 checksum."""
     if signing_key:
         digest = _hmac.new(signing_key, raw.encode("utf-8"), hashlib.sha256).hexdigest().upper()
         return digest, "HMAC-SHA256 (keyed, tamper-evident)"
-    return hashlib.sha256(raw.encode("utf-8")).hexdigest().upper(), "SHA-256 (integrity checksum)"
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest().upper(), "SHA-256 (unkeyed integrity checksum — not a signature)"
 
 
 def build_technician_report(
@@ -61,7 +74,7 @@ def build_technician_report(
         lines.append("- Hipotez tablosu üretilmedi (kanıt yok).")
         raw_body = "\n".join(lines) + "\n"
         seal, algo = _sign_report(raw_body, signing_key)
-        return raw_body + f"\n---\n**Rapor Kriptografik Mührü (R2-EN1):** `{seal}`  \n*Algoritma:* {algo}\n"
+        return raw_body + f"\n---\n{_seal_heading(signing_key)} `{seal}`  \n*Algoritma:* {algo}\n"
     if sufficiency.anomaly_sufficient:
         lines.append("- Kanıt kalitesi yeterli (anomali analizi çalıştırılabilir).")
     else:
@@ -90,7 +103,19 @@ def build_technician_report(
             tag = " (operatör beyanı)" if a.synthetic else ""
             lines.append(f"- **{a.signal}**: {a.finding}{tag} [{a.evidence_sample_count} örnek]")
     else:
-        lines.append("- Anomali bulgusu yok (eşik DB kapsamındaki sinyaller nominal).")
+        # P0-4 (AGENTS.md §2.3): an empty anomaly list is NOT evidence of a
+        # healthy vehicle when the anomaly scan never became eligible. The old
+        # line asserted "eşik DB kapsamındaki sinyaller nominal" unconditionally,
+        # turning "we could not look" into "everything is fine".
+        if sufficiency.anomaly_sufficient:
+            lines.append(
+                "- Anomali bulgusu yok (tarama çalıştırıldı; eşik DB kapsamındaki sinyaller nominal)."
+            )
+        else:
+            lines.append(
+                "- Anomali taraması YAPILMADI — yetersiz kanıt; bu oturum için "
+                "'nominal/sağlıklı' HÜKMÜ VERİLEMEZ (bkz. Veri Kalitesi eksikleri)."
+            )
 
     # ── Hypotheses ──
     lines.append("")
@@ -104,7 +129,14 @@ def build_technician_report(
             con = "; ".join(h.contradicting_evidence) or "—"
             lines.append(f"| {i} | {h.fault} | %{h.score * 100:.0f} | {sup} | {con} |")
         lines.append("")
-        lines.append("*Skorlar ağırlıklı kanıt skorudur; kesinlik değildir.*")
+        # T1-1: the table scores are DAMPED by the golden-set factor. Disclose
+        # it, otherwise a reader cannot tell a calibrated %79 from a raw,
+        # self-normalised %100 and will treat the number as a hard probability.
+        lines.append(
+            "*Skorlar ağırlıklı kanıt skorudur; kesinlik değildir. "
+            "Ham skorlar doğrulanmış golden-set **kalibrasyon faktörü** ile söndürülmüştür "
+            "(aşırı-güven denetimi); kanıt defterleri değiştirilmemiştir.*"
+        )
     else:
         lines.append("- Hipotez üretilmedi (yetersiz DTC/kanıt).")
 
@@ -156,16 +188,68 @@ def build_technician_report(
         lines.append(f"> {technician_correction.strip()}")
         lines.append("*(Bu geri bildirim cihaz-içi öğrenme havuzuna golden case adayı olarak kaydedilmiştir.)*")
 
-    # ── Action triggers (deterministic make_* generators only) ──
-    actions = [make_uds_clear_dtc_action(), make_j1939_dm1_action()] if actives else []
+    # ── Action triggers (read-only deterministic generators only) ──
+    # P0-3: this report used to attach an automatic ``make_uds_clear_dtc_action()``
+    # whenever ACTIVE DTCs existed — a destructive UDS 0x14 write offered on a
+    # document alone, with no operator request and no repair confirmation.
+    # A technician report is a record, not a command surface: only the
+    # READ-ONLY J1939 DM1 query survives.
+    actions = [make_j1939_dm1_action()] if actives else []
     body = "\n".join(lines) + "\n"
     if actions:
         body = attach_action_triggers(body, actions)
 
-    # ── Cryptographic Seal (R2-EN1) ──
+    # ── Integrity seal / cryptographic seal (R2-EN1) ──
     seal, algo = _sign_report(body, signing_key)
-    seal_block = f"\n---\n**Rapor Kriptografik Mührü (R2-EN1):** `{seal}`  \n*Algoritma:* {algo}\n"
+    seal_block = f"\n---\n{_seal_heading(signing_key)} `{seal}`  \n*Algoritma:* {algo}\n"
     return body + seal_block
+
+
+def calibrated_hypotheses(
+    hypotheses: list[Hypothesis],
+    calibration_factor: float | None = None,
+) -> list[Hypothesis]:
+    """Damp hypothesis scores with the golden-set calibration factor (T1-1).
+
+    ``rank_hypotheses`` SELF-NORMALISES its scores to the top candidate, so the
+    leader always reads %100 regardless of how weak its absolute evidence is —
+    a self-referential number that is not a probability. The golden corpus
+    measured that overconfidence, and this function applies the damping the
+    live panel/export paths need.
+
+    Only the SCORE is rewritten. ``fault``, ``supporting_evidence``,
+    ``contradicting_evidence``, ``discriminating_tests`` and ``expected_dtcs``
+    are carried over VERBATIM: the evidence ledger is recorded fact and must
+    never be rewritten by a presentation-layer adjustment (AGENTS.md §2.3).
+
+    ``calibration_factor=None`` resolves the cached golden-set factor; a
+    resolved ``None`` (corpus unavailable) leaves the scores untouched. Offline,
+    deterministic, idempotent for a given factor.
+    """
+    from src.engine.ai.calibration import calibrate_score
+
+    factor = calibration_factor
+    if factor is None:
+        try:
+            from src.engine.ai.calibration import compute_calibration_factor
+
+            factor = compute_calibration_factor()
+        except Exception:  # noqa: BLE001 — calibration must never break the report
+            factor = None
+
+    out: list[Hypothesis] = []
+    for h in hypotheses:
+        damped_score = calibrate_score(h.score, calibration_factor=factor)
+        # Only ``score`` is rewritten. The evidence ledgers are passed through
+        # untouched — `dataclasses.replace` carries the remaining fields by
+        # reference, so the frozen ``tuple`` ledgers keep their exact type and
+        # identity. Coercing them to ``list`` here (as an earlier revision did)
+        # silently changed the declared type of a frozen field and made
+        # ``damped.supporting_evidence == raw.supporting_evidence`` fail by
+        # container type alone — a presentation adjustment must not reshape
+        # recorded evidence (AGENTS.md §2.3).
+        out.append(replace(h, score=damped_score))
+    return out
 
 
 def _session_span_s(session: VehicleSession) -> float:
@@ -191,4 +275,11 @@ def report_summary_dict(
     }
 
 
-__all__ = ["build_technician_report", "report_summary_dict", "_sign_report", "_SIM_MARKER"]
+__all__ = [
+    "build_technician_report",
+    "calibrated_hypotheses",
+    "report_summary_dict",
+    "_seal_heading",
+    "_sign_report",
+    "_SIM_MARKER",
+]

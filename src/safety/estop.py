@@ -362,6 +362,28 @@ class EmergencyStopSystem:
         """True when the E-Stop secret fell back to a process-local key (P17)."""
         return self._protection_downgraded
 
+    def assert_arm_permitted(self, operation: str = "arm_tx") -> None:
+        """S-15: FAIL-CLOSED gate — refuse to arm while protection is downgraded.
+
+        ``_protection_downgraded`` was set on a secret-persist failure and
+        exposed on the property above, but NOTHING consumed it: the operator
+        could arm and transmit with an E-Stop whose reset authority rested on a
+        process-local key that does not survive a restart. The arm path now
+        calls this and aborts.
+        """
+        if self._protection_downgraded:
+            logger.critical(
+                "%s refused: E-Stop protection level is DOWNGRADED "
+                "(reset secret is process-local, does not survive restart)",
+                operation,
+            )
+            raise SafetyError(
+                f"{operation} refused: E-Stop protection is downgraded "
+                "(process-local reset secret) — critical TX is fail-closed until "
+                "the secret store persists a durable key",
+                code="ESTOP_PROTECTION_DOWNGRADED",
+            )
+
     def reset_authority_provider(self, key_name: str = DEFAULT_ESTOP_KEY_NAME) -> SecretProvider:
         """P4 (E-1): an INDEPENDENT provider for `EStopResetAuthority`.
 

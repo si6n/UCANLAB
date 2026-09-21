@@ -12,8 +12,11 @@ import pytest
 
 from src.security.hwid.collector import (
     _INVALID_UUIDS,
+    _MIN_INDEPENDENT_COMPONENTS,
     _run_powershell,
     _wmi_query,
+    INDETERMINATE_FINGERPRINT,
+    UNKNOWN_MAC,
     collect_bios_serial,
     collect_cpu_id,
     collect_cpu_processor_id,
@@ -24,12 +27,106 @@ from src.security.hwid.collector import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _isolate_hwid_cache():
+    """Keep the process-wide ``lru_cache`` on the fingerprint out of tests.
+
+    ``generate_hardware_fingerprint`` is ``functools.lru_cache(maxsize=1)``
+    (collector.py:325) — module-global state shared with every other test file
+    running in the same pytest process. Without this fixture the FIRST test that
+    computes a fingerprint freezes that value for the rest of the run: a test
+    forcing the fail-closed sentinel would poison a later test expecting a real
+    hash (and vice versa), and the outcome would depend on file ordering.
+    Clearing before AND after each test makes every case independent of order
+    and of what other modules have already computed.
+    """
+    generate_hardware_fingerprint.cache_clear()
+    try:
+        yield
+    finally:
+        generate_hardware_fingerprint.cache_clear()
+
+
 def test_generate_hardware_fingerprint_structure() -> None:
-    """Test that HWID returns a 64-character lowercase hex string."""
-    fp = generate_hardware_fingerprint()
+    """The HWID is a 64-char lowercase hex hash when >=2 components are readable.
+
+    BASELINE TRIAGE (see docs/audit/verify/baseline_failures.md). The original
+    form of this test asserted ``len(fp) == 64`` against whatever this machine's
+    WMI happened to return. That made it a test of the *host*, not the product.
+
+    ``_compute_hardware_fingerprint`` (collector.py:278-289) deliberately
+    returns ``INDETERMINATE_FINGERPRINT`` ("INDETERMINATE_HARDWARE") when fewer
+    than ``_MIN_INDEPENDENT_COMPONENTS`` (=2) real, machine-bound components can
+    be read — SEC-01's fail-closed control, NOT a defect. This dev box's WMI
+    reads return "Access denied", so cpu/disk/bios degrade to their UNKNOWN_*
+    sentinels and the motherboard UUID to ``FALLBACK-*``; only the MAC survives,
+    giving 1 < 2 and the sentinel. Asserting 64 hex chars there would demand the
+    product invent a guessable identity — exactly the clone-shared-license
+    failure SEC-01 exists to stop.
+
+    Fix: stub the collectors with two+ REAL machine-bound components so the
+    determinate 64-hex path is exercised deterministically on every host (CI
+    included), independent of WMI permissions. The fail-closed sentinel path
+    keeps its own dedicated positive assertion in
+    ``test_generate_hardware_fingerprint_failclosed_when_components_scarce``
+    below (and in test_t58a_hwid_anti_tamper.py:62) — so neither branch is lost.
+    The autouse ``_isolate_hwid_cache`` fixture clears the LRU cache around this
+    case, so the mocked components are actually observed.
+    """
+    with (
+        patch(
+            "src.security.hwid.collector.collect_motherboard_uuid",
+            return_value="4C4C4544-0032-3910-8056-B2C04F4D3332",
+        ),
+        patch(
+            "src.security.hwid.collector.collect_cpu_processor_id",
+            return_value="BFEBFBFF000306A9",
+        ),
+        patch(
+            "src.security.hwid.collector.collect_disk_serial",
+            return_value="WD-WCC4N0123456",
+        ),
+        patch(
+            "src.security.hwid.collector.collect_bios_serial",
+            return_value="BIOS-7X21-0001",
+        ),
+    ):
+        fp = generate_hardware_fingerprint()
+
     assert isinstance(fp, str)
+    assert fp != INDETERMINATE_FINGERPRINT
     assert len(fp) == 64
     assert all(c in "0123456789abcdef" for c in fp)
+
+
+def test_generate_hardware_fingerprint_failclosed_when_components_scarce() -> None:
+    """SEC-01 lock: <2 real components MUST yield the sentinel, never a hash.
+
+    This is the fail-closed half of the contract above. All four WMI/PowerShell
+    reads are forced to their UNKNOWN_* sentinels and the MAC to a sentinel too,
+    simulating two cloned VMs that both fail every hardware read. The product
+    must refuse to mint an identity rather than converge on a shared, guessable
+    fingerprint.
+    """
+    with (
+        patch("src.security.hwid.collector.collect_motherboard_uuid",
+              return_value="FALLBACK-CLONE-MAC"),
+        patch("src.security.hwid.collector.collect_cpu_processor_id",
+              return_value="UNKNOWN_CPU"),
+        patch("src.security.hwid.collector.collect_disk_serial",
+              return_value="UNKNOWN_DISK"),
+        patch("src.security.hwid.collector.collect_bios_serial",
+              return_value="UNKNOWN_BIOS"),
+        patch("src.security.hwid.collector.collect_primary_mac",
+              return_value=UNKNOWN_MAC),
+    ):
+        fp = generate_hardware_fingerprint()
+
+    assert fp == INDETERMINATE_FINGERPRINT, (
+        "fewer than _MIN_INDEPENDENT_COMPONENTS real components (%d) must fail "
+        "closed with %r, got %r" % (_MIN_INDEPENDENT_COMPONENTS, INDETERMINATE_FINGERPRINT, fp)
+    )
+    assert len(fp) != 64
 
 
 def test_generate_hardware_fingerprint_deterministic() -> None:

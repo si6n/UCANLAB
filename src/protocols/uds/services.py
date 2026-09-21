@@ -106,6 +106,12 @@ class UdsServiceBuilder:
 
     @classmethod
     def build_clear_diagnostic_information(cls, dtc_group: int = 0xFFFFFF) -> bytes:
+        # L5 (verified OPEN): an out-of-range `dtc_group` was silently
+        # truncated by the `>>`/`& 0xFF` shifts, so e.g. 0x1FFFFFFF emitted a
+        # plausible-looking but WRONG group-of-DTC triple. Sibling builders
+        # validate (`did` above, `routine_id` below); this one now does too.
+        if not 0 <= dtc_group <= 0xFFFFFF:
+            raise ValueError(f"DTC group 0x{dtc_group:X} out of 24-bit range (0..0xFFFFFF)")
         return bytes(
             [
                 UdsServiceId.CLEAR_DIAGNOSTIC_INFORMATION,
@@ -207,20 +213,35 @@ class UdsServiceBuilder:
         dtc_mask: int | None = None,
         snapshot_record_num: int = 0xFF,
     ) -> bytes:
-        """Build 0x19 ReadDTCInformation request."""
-        sub_fn_val = int(sub_function) & 0xFF
+        """Build 0x19 ReadDTCInformation request.
+
+        M10 (verified OPEN): `int(sub_function) & 0xFF` silently TRUNCATED an
+        out-of-range sub-function, so `0x103` emitted sub-function `0x03` —
+        a different, perfectly valid request. That is fail-OPEN on malformed
+        input, and inconsistent with the 0x10 / 0x11 / 0x27 siblings, which
+        all validate. The value is now resolved through the enum and an
+        unknown sub-function raises ValueError (fail-closed).
+        """
+        try:
+            sub_fn = ReadDtcInformationType(sub_function)
+        except ValueError:
+            valid = ", ".join(f"0x{t.value:02X}" for t in ReadDtcInformationType)
+            raise ValueError(
+                f"Invalid ReadDTCInformation sub-function 0x{int(sub_function):X} (valid: {valid})"
+            ) from None
+        sub_fn_val = int(sub_fn)
         header = bytes([UdsServiceId.READ_DTC_INFORMATION, sub_fn_val])
-        if sub_fn_val in (
+        if sub_fn in (
             ReadDtcInformationType.REPORT_NUMBER_OF_DTC_BY_STATUS_MASK,
             ReadDtcInformationType.REPORT_DTC_BY_STATUS_MASK,
         ):
             return header + bytes([status_mask & 0xFF])
-        elif sub_fn_val == ReadDtcInformationType.REPORT_DTC_SNAPSHOT_RECORD:
+        elif sub_fn == ReadDtcInformationType.REPORT_DTC_SNAPSHOT_RECORD:
             mask = dtc_mask or 0x000000
             return header + bytes([(mask >> 16) & 0xFF, (mask >> 8) & 0xFF, mask & 0xFF, snapshot_record_num & 0xFF])
-        elif sub_fn_val == ReadDtcInformationType.REPORT_DTC_SNAPSHOT_IDENTIFICATION:
+        elif sub_fn == ReadDtcInformationType.REPORT_DTC_SNAPSHOT_IDENTIFICATION:
             return header
-        elif sub_fn_val in (
+        elif sub_fn in (
             ReadDtcInformationType.REPORT_SUPPORTED_DTC,
             ReadDtcInformationType.REPORT_FIRST_TEST_FAILED_DTC,
         ):

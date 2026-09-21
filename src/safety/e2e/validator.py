@@ -92,6 +92,12 @@ class E2ESafetyValidator:
     def __init__(self) -> None:
         self._lock = threading.RLock()
         self._streams: dict[tuple[str, int], StreamRxState] = {}
+        # S-14: tombstone ledger of EVICTED stream keys. Without it, the first
+        # frame of an evicted stream was re-created with `last_counter=None`
+        # and reported INITIAL — a verdict `is_valid` counts as good — so an
+        # ID-scanning flood could launder continuity gaps. A tombstoned key
+        # yields RESYNC_REQUIRED (is_valid=False) on the frame that re-opens it.
+        self._evicted_streams: set[tuple[str, int]] = set()
 
     def validate(self, frame: CanFrame, profile: E2EProfileConfig) -> E2EValidationResult:
         """Validate an incoming CanFrame against the given E2EProfileConfig."""
@@ -119,6 +125,7 @@ class E2ESafetyValidator:
         now_mono_ns = time.monotonic_ns()
 
         with self._lock:
+            tombstoned = stream_key in self._evicted_streams
             if stream_key not in self._streams:
                 # P2-14 / T62-M7: enforce the stream-table ceiling; evict the least
                 # recently seen stream by local arrival monotonic time (untrusted frame
@@ -126,6 +133,9 @@ class E2ESafetyValidator:
                 if len(self._streams) >= self.MAX_TRACKED_STREAMS:
                     oldest_key = min(self._streams, key=lambda k: self._streams[k].last_seen_monotonic_ns)
                     self._streams.pop(oldest_key, None)
+                    # S-14: record the tombstone so this ID cannot masquerade as
+                    # a brand-new (INITIAL, "valid") stream when it returns.
+                    self._evicted_streams.add(oldest_key)
                 self._streams[stream_key] = StreamRxState(
                     channel_id=channel_id,
                     arbitration_id=arbitration_id,
@@ -135,6 +145,25 @@ class E2ESafetyValidator:
             state.total_frames += 1
             state.last_timestamp_ns = ts
             state.last_seen_monotonic_ns = now_mono_ns
+
+            # S-14: an evicted stream's next frame must NOT be reported INITIAL
+            # (which `is_valid` counts as good). Continuity was lost across the
+            # eviction, so the frame is WRONG_SEQUENCE / RESYNC_REQUIRED until
+            # the caller explicitly resyncs the stream.
+            if tombstoned:
+                self._evicted_streams.discard(stream_key)
+                state.sequence_errors += 1
+                state.last_verdict = E2EStatus.WRONG_SEQUENCE
+                return E2EValidationResult(
+                    verdict=E2EStatus.WRONG_SEQUENCE,
+                    expected_crc=-1,
+                    actual_crc=-1,
+                    counter=-1,
+                    previous_counter=None,
+                    delta=-1,
+                    stream_key=stream_key,
+                    timestamp_ns=ts,
+                )
 
             # H-3 (P1-10): a runt/short payload cannot satisfy the profile's
             # offset layout. extract_crc/extract_counter raise bare ValueError
@@ -246,20 +275,29 @@ class E2ESafetyValidator:
             )
 
     def reset(self, channel_id: str | None = None, arbitration_id: int | None = None) -> None:
-        """Reset stream state(s). If no parameters given, resets all streams."""
+        """Reset stream state(s). If no parameters given, resets all streams.
+
+        S-14: an explicit reset ALSO clears the matching eviction tombstones —
+        this is the sanctioned RESYNC path, so the stream may re-establish
+        continuity (INITIAL) afterwards. A mere eviction never does.
+        """
         with self._lock:
             if channel_id is None and arbitration_id is None:
                 self._streams.clear()
+                self._evicted_streams.clear()
             elif channel_id is not None and arbitration_id is not None:
                 self._streams.pop((channel_id, arbitration_id), None)
+                self._evicted_streams.discard((channel_id, arbitration_id))
             elif channel_id is not None:
                 keys_to_remove = [k for k in self._streams if k[0] == channel_id]
                 for k in keys_to_remove:
                     self._streams.pop(k, None)
+                self._evicted_streams = {k for k in self._evicted_streams if k[0] != channel_id}
             elif arbitration_id is not None:
                 keys_to_remove = [k for k in self._streams if k[1] == arbitration_id]
                 for k in keys_to_remove:
                     self._streams.pop(k, None)
+                self._evicted_streams = {k for k in self._evicted_streams if k[1] != arbitration_id}
 
     def get_all_states(self) -> dict[tuple[str, int], StreamRxState]:
         """Retrieve copy of all active stream states."""

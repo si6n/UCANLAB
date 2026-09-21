@@ -1,0 +1,64 @@
+{
+  "_task": "T3-3 — surepheli kaynak taramasi (icerik-imzasi temelli)",
+  "_date": "2026-09-21",
+  "_role": "telemetry",
+  "_method": "src/engine/ai/junk_content_signatures.py::classify_cause (deterministik, cevrimdisi, LLM YOK)",
+  "_layer_a_source_rule": "source alani bir dirty_source_pattern ile eslesirse O kaynagin TUM nedenleri karantinaya alinir",
+  "_layer_b_cause_rule": "classify_cause(metin).is_junk ise YALNIZ o neden indeksi karantinaya alinir",
+  "_dirty_source_patterns": ["dtcdocs"],
+
+  "measured_inventory": {
+    "_note": "canli j1939_spn_fmi_database.json uzerinden olculdu; kaynak | SPN | neden | kirli neden",
+    "sitrak_ccby4": {"spn": 2845, "causes": 3878, "junk": 1, "verdict": "LISANSLI CC-BY-4.0 — DOKUNULMADI"},
+    "'' (bos source)": {"spn": 855, "causes": 1140, "junk": 37, "verdict": "layer_b, kaynak dislanmadi"},
+    "tur23_j1939hub": {"spn": 192, "causes": 1140, "junk": 66, "verdict": "layer_b"},
+    "tier_b": {"spn": 117, "causes": 509, "junk": 4, "verdict": "layer_b"},
+    "tier_c_ss_verified": {"spn": 98, "causes": 465, "junk": 9, "verdict": "layer_b"},
+    "detroitdieselengines.info": {"spn": 72, "causes": 320, "junk": 17, "verdict": "layer_b — TOPTAN KARANTINA REDDEDILDI (asagida)"},
+    "dtcdocs.com": {"spn": 39, "causes": 197, "junk": 8, "verdict": "layer_a (kaynak dislandi)"},
+    "tur23_spnfmi": {"spn": 30, "causes": 43, "junk": 0, "verdict": "temiz"},
+    "tier_a": {"spn": 3, "causes": 9, "junk": 0, "verdict": "temiz"},
+    "tur23_hub+spnfmi": {"spn": 2, "causes": 12, "junk": 1, "verdict": "layer_b"}
+  },
+  "totals": {"cause_records": 7713, "junk_causes": 142, "junk_share_pct": 1.84},
+
+  "_primary_finding": {
+    "statement": "Kartin 'SUSPECT' dedigi detroitdieselengines.info TOPTAN KIRLI DEGIL — 320 nedenin yalniz 24'u (sonra 17) kirli, diger ~296'si GERCEK Detroit Diesel servis proseduru ('Corroded or loose power supply to ...').",
+    "consequence": "Toptan karantina ~296 MESRU nedeni silmek olurdu. Kaynak DIRTY_SOURCE_PATTERNS'ten CIKARILDI; layer_b (neden-bazli) uygulandi.",
+    "evidence": "Olcum .t33scratch/impact.py; kilit tests/unit/test_t3_3_junk_content_signatures.py::TestMeasuredDatabaseBounds::test_detroit_harvest_stays_under_ten_percent"
+  },
+
+  "_impact_on_graph": {
+    "statement": "Kirli nedenler grafta HIC ULASMIYOR — 0 dugum.",
+    "measured": "GRAPH NODES derived from a junk cause: 0 (once 2 idi, asagidaki iki yanlis-pozitif duzeltilince)",
+    "why": "T3-2 zaten 91 kirli kaynakli dugumu cikarmisti; kalan kirli nedenler graf turetme kapilarindan (A/B/C) zaten gecemiyordu.",
+    "consequence": "T3-3'un degeri GRAF DEGIL, VERITABANI temizligidir: gelecekteki turetimi ve RAG/arama kullanimini korur."
+  },
+
+  "_false_positives_found_and_fixed": [
+    {
+      "class": "duyuru-ifadesi + uzun-satir (kelime sayisi karar veriyordu)",
+      "example": "SPN_4335[3] 'Electrical Circuit Fault: Damaged wiring or poor connections can disrupt signal transmission from sensors to the ECM...'",
+      "was": "junk (seo_marketing_filler)",
+      "fix": "_FAULT_NOUN_RE guard: bir ariza oznesi (sensor/wiring/circuit/...) tasiyan satir duyuru kuralini bloklar",
+      "locked_by": "TestMeasuredFalsePositivesAreLocked::test_long_announcement_line_with_a_fault_noun_is_clean"
+    },
+    {
+      "class": "gercek-neden + SEO-bolumu TEK KAYDA YAPISTIRILMIS",
+      "example": "SPN_61683[3] 'Wiring harness damage: Heat from exhaust aftertreatment system melted wire jacket near DPF. Advanced Technical Analysis The ECM monitors...'",
+      "was": "junk (tum kayit siliniyordu)",
+      "fix": "isaretcinin ONCESI kullanilabilir bir neden ise (_looks_like_a_cause) kayit TEMIZ sayilir",
+      "locked_by": "TestMeasuredFalsePositivesAreLocked::test_real_cause_prefixed_to_an_seo_section_is_clean"
+    }
+  ],
+  "_effect_of_fixes": "toplam isaretli kirli neden 190 -> 149 -> 142; grafta etkilenen dugum 2 -> 0",
+
+  "_residual_uncertainty": [
+    "EVAPPressure / MisfireCount (T2-8'den devir): grafta karsilik gelen dugum yok — bu gorevin kapsami degil.",
+    "Kalan 142 kirli nedenin TAMAMI elle incelenmedi; siniflandirici kuralina guvenildi + iki yanlis-pozitif sinifi duzeltildi.",
+    "SPN ust siniri 524287'yi asan 29 kayit var (or. SPN_526110) — J1939 standardi disi; ayri bir veri-kalite isi, bu gorevde DOKUNULMADI (belirsiz)."
+  ],
+  "_action_taken": "Bu gorevde VERI SILINMEDI. Yalniz siniflandirici + --verify kalici kontrolu + testler eklendi; graf/DB degistirilmedi (kirli neden grafta zaten yok).",
+  "_recoverable": true,
+  "_recovery_note": "Hicbir kayit silinmedigi icin geri alinacak bir sey yok. Gelecekte bir temizlik uygulanirsa bu dosya _audit_loss bloguyla genisletilmelidir (T2-5 deseni)."
+}

@@ -1,4 +1,9 @@
-"""Universal CAN-Bus Diagnostic & Telemetry Platform - Core Port Contracts."""
+"""Universal CAN-Bus Diagnostic & Telemetry Platform - Core Port Contracts.
+
+P2-8: `VirtualClock` was implemented but missing from the export surface, so
+consumers either imported the private module path or re-rolled their own
+deterministic clock.
+"""
 
 from src.core.contracts.ports import (
     ClockProvider,
@@ -9,6 +14,7 @@ from src.core.contracts.ports import (
     SecretProvider,
     SystemClockProvider,
     TxPort,
+    VirtualClock,
 )
 
 __all__ = [
@@ -20,4 +26,5 @@ __all__ = [
     "SecretProvider",
     "SystemClockProvider",
     "TxPort",
+    "VirtualClock",
 ]

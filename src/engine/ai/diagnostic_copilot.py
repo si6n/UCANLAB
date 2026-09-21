@@ -22,7 +22,14 @@ from pathlib import Path
 from typing import Any, Callable, cast
 
 from src.core.logging import get_logger
+from src.engine.ai.calibration import compute_calibration_factor
 
+# T1-1 (calibration wiring): ``compute_calibration_factor`` above provides the
+# memoised golden-set calibration factor that damps root-cause confidence. It is
+# imported from the module directly (not via ``src.engine.ai``), because the
+# package ``__init__`` re-exports THIS module — going through it would re-enter
+# ``ai/__init__`` and deadlock. ``calibration`` never imports this module, so the
+# direct edge is acyclic. Offline, deterministic, no network.
 logger = get_logger("engine.ai_copilot")
 
 # REVIEW 4.2: re.IGNORECASE — a lowercase VIN (e.g. "1hgcr2f83ha123456")
@@ -89,6 +96,10 @@ class DiagnosticAnalysisReport:
     affected_subsystems: list[str]
     raw_dtc_count: int
     telemetry_correlations: list[str]
+    # P1-1: hypothesis lines are CONCLUSIONS, not measured telemetry. They
+    # live in their own field so no consumer can mistake them for evidence
+    # (``user_report_composer`` reads only ``telemetry_correlations``).
+    hypothesis_candidates: list[str] = field(default_factory=list)
     ai_model_used: str = "Yerel Otomotiv Uzman Motoru (Çevrimdışı)"
     timestamp_ns: int = field(default_factory=time.time_ns)
 
@@ -370,47 +381,54 @@ _ROUTINE_ID_PATTERNS: tuple[str, ...] = (
 )
 
 
-def _extract_routine_id(combined_text: str) -> int:
+def _extract_routine_id(combined_text: str) -> int | None:
     """Extract the routine identifier from lowered copilot text, honestly.
 
-    Returns the OEM default 0xD001 (HVIL interlock loopback) when no
-    explicit routine identifier is stated — same legacy default the
-    desktop bridge expects.
+    P0-2 (AGENTS.md §2.3 no-fabrication): this function used to return the
+    OEM constant ``0xD001`` ("HVIL Interlock Loopback") whenever the text
+    stated NO routine identifier — i.e. it INVENTED a diagnostic routine id
+    and minted a mutating UDS 0x31 action from it. A routine that the
+    operator never named is not evidence, so the honest result is ``None``
+    and the caller skips the action entirely. A routine id is only ever
+    returned when the text states one explicitly.
     """
     for pattern in _ROUTINE_ID_PATTERNS:
         m = re.search(pattern, combined_text)
         if m:
             return int(m.group(1), 16)
-    return 0xD001
+    return None
 
 
 def extract_action_triggers(text: str, user_query: str = "") -> list[dict[str, Any]]:
-    """Scan response text and user query for actionable diagnostic recommendations."""
-    combined = f"{user_query} {text}".lower()
+    """Mint actionable diagnostic recommendations from OPERATOR input only.
+
+    AGENTS.md §2.8: ``CopilotActionTrigger`` may be minted ONLY from operator
+    input or deterministic DTC mappings. The AI layer is read-only evidence
+    with respect to the vehicle, and a stale latency window exists between
+    this scan and any executor click, so ANY protocol mention in the model's
+    own narrative (``text``) must never be promoted to an executable mutating
+    button. Only ``user_query`` — the operator's own words, captured in the
+    same turn — is scanned, and this function mints READ-ONLY triggers only
+    (VIN/DID read, J1939 DM1 query).
+
+    P0-1 remediation (no-fabrication / action-trigger provenance): mutating
+    branches were deleted (UDS 0x14 DTC clear, UDS 0x10 0x03 session
+    control, UDS 0x31 routine — including the bare ``"0x10"`` substring
+    match — and the J1939 DM11 clear). This is the whitelist decision
+    recommended by the marshal review: the engine is advisory read-only.
+
+    ``text`` is retained in the signature for bridge/API compatibility. It is
+    deliberately NOT scanned for the reasons above.
+    """
+    del text  # P0-1: model/foreign narrative is never scanned for actionable commands.
+    combined = (user_query or "").strip().lower()
     actions: list[dict[str, Any]] = []
     seen_types: set[str] = set()
-
-    if any(k in combined for k in ["0x14", "dtc temizle", "clear dtc", "hata kodlarını sil", "hafızasını sil", "hafızasını temizle", "kodlarını temizle"]):
-        actions.append(make_uds_clear_dtc_action())
-        seen_types.add("uds_clear_dtc")
 
     if any(k in combined for k in ["f190", "vin oku", "şasi no", "read vin", "chassis number"]):
         actions.append(make_uds_read_vin_action())
         seen_types.add("uds_read_did")
 
-    if any(k in combined for k in ["extended session", "genişletilmiş oturum", "0x10 0x03", "0x10"]):
-        if "uds_session_control" not in seen_types:
-            actions.append(make_uds_session_action(3))
-            seen_types.add("uds_session_control")
-
-    if "0x31" in combined or "routine" in combined or "rutin" in combined:
-        rid = _extract_routine_id(combined)
-        actions.append(make_uds_routine_action(rid))
-        seen_types.add("uds_routine")
-
-    if "dm11" in combined or "pgn 65235" in combined:
-        actions.append(make_j1939_dm11_action())
-        seen_types.add("j1939_clear_dtc")
     if "dm1" in combined or "pgn 65226" in combined:
         if "j1939_dm1_query" not in seen_types:
             actions.append(make_j1939_dm1_action())
@@ -471,6 +489,41 @@ ROOT_CAUSE_EVIDENCE_WEIGHTS: dict[str, float] = {
 }
 
 
+# T2-3 (fidelity): the confidence label carries its own calibration
+# provenance. `compute_root_cause_confidence` returns ONE string, so a caller
+# that logs/renders the label must be able to tell a calibrated score from an
+# unresolvable-calibration one. Both markers are POSTFIXES; the label itself
+# still starts with exactly one of {"Yüksek", "Orta", "Düşük", "Normal"} so the
+# first word keeps working as a machine marker.
+CALIBRATION_CONFIDENCE_SUFFIX = " · kalibre"
+UNCALIBRATED_CONFIDENCE_SUFFIX = " · KALİBRE EDİLMEDİ (kalibrasyon kanıtı yok)"
+
+
+def _resolve_calibration_factor(calibration_factor: float | None) -> float | None:
+    """Fail-closed resolution of the golden-set calibration factor.
+
+    ``None`` means "I do not know the factor" — NOT "no damping is needed".
+    It is resolved internally from the memoised golden-set evaluation, so a
+    caller that forgets the argument can no longer silently receive a
+    full-confidence score.
+
+    Returns a clamped factor, or ``None`` when no calibration evidence exists
+    (the corpus could not be evaluated). The caller must then mark the result
+    as uncalibrated instead of asserting full confidence — Tuzaklar §2: any
+    path that fails toward the UNSAFE side is a bug.
+    """
+    if calibration_factor is not None:
+        return max(0.1, min(1.0, float(calibration_factor)))
+    try:
+        resolved = compute_calibration_factor()
+    except Exception as exc:  # noqa: BLE001 — calibration must never break diagnosis
+        logger.warning("Calibration factor unresolvable (%s) — flagging confidence uncalibrated", exc)
+        return None
+    if resolved is None:
+        return None
+    return max(0.1, min(1.0, float(resolved)))
+
+
 def compute_root_cause_confidence(
     dtc_count: int,
     scenario_matched: int,
@@ -483,7 +536,16 @@ def compute_root_cause_confidence(
     Each evidence kind is normalised to 0..1, weighted, and the weighted mean
     is taken over the total weight — so a full rule+telemetry match scores
     high while an unknown DTC with no corroboration scores near zero.
-    An optional calibration_factor (from golden-set calibration) damps overconfidence.
+
+    ``calibration_factor`` (T2-3, fail-closed): ``None`` no longer means "no
+    damping". It means "resolve the golden-set factor yourself" — see
+    ``_resolve_calibration_factor``. A caller that silently forgets the
+    argument therefore gets the CALIBRATED (damped) label, never the
+    over-confident one. When no calibration evidence exists at all the label
+    is returned with ``UNCALIBRATED_CONFIDENCE_SUFFIX`` so an uncalibrated
+    score can never be mistaken for a verified one; when the factor was
+    obtained (passed in or resolved) the label carries
+    ``CALIBRATION_CONFIDENCE_SUFFIX``.
     """
     if dtc_count <= 0:
         return "Normal"
@@ -496,10 +558,14 @@ def compute_root_cause_confidence(
     total_weight = sum(ROOT_CAUSE_EVIDENCE_WEIGHTS.values())
     weighted_sum = sum(ROOT_CAUSE_EVIDENCE_WEIGHTS[kind] * value for kind, value in entries.items())
     base_score = weighted_sum / total_weight
-    cal = 1.0 if calibration_factor is None else max(0.1, min(1.0, float(calibration_factor)))
+    cal = _resolve_calibration_factor(calibration_factor)
+    if cal is None:
+        score = max(0.0, min(1.0, base_score))
+        label = "Yüksek" if score >= 0.65 else ("Orta" if score >= 0.35 else "Düşük")
+        return f"{label} (%{score * 100:.0f} ağırlıklı kanıt skoru){UNCALIBRATED_CONFIDENCE_SUFFIX}"
     score = max(0.0, min(1.0, base_score * cal))
     label = "Yüksek" if score >= 0.65 else ("Orta" if score >= 0.35 else "Düşük")
-    return f"{label} (%{score * 100:.0f} ağırlıklı kanıt skoru)"
+    return f"{label} (%{score * 100:.0f} ağırlıklı kanıt skoru){CALIBRATION_CONFIDENCE_SUFFIX}"
 
 
 def extract_hex_payload_from_query(query: str) -> list[int]:
@@ -1088,7 +1154,11 @@ EXPERT_KNOWLEDGE_BASE: dict[str, dict[str, Any]] = {
             ("Osiloskopta HVIL sinyalini gözlemleyin: 100 Hz ±5% kare dalga, %50 doluluk ve 12V/5V genlik olmalıdır.", "BMS Kontrol Ünitesi (BECM)", "İleri (Servis)"),
         ],
         "measurement": "Nominal HVIL Döngü Direnci: <5.0 Ω | PWM: 100 Hz, %50 Duty Cycle, V_high > 9.0V (12V sistem) / > 3.8V (5V sistem).",
-        "uds_routine": "UDS Routine 0x31 (ID 0xD001: HVIL Interlock Loopback & Latch Reset)",
+        # P0-2: the leading "0x31 " is the UDS service id, NOT a routine
+        # identifier. The OEM routine id (0xD001) is graph/DB-level knowledge
+        # here, not per-case evidence, so the label must not present it as the
+        # routine the operator asked for — see `_extract_routine_id`.
+        "uds_routine": "UDS Service 0x31 (Rutin Kontrol) — OEM rutin kimliği vaka başına ayrıca doğrulanmalıdır",
     },
     "P0A0D": {
         "title": "HVIL Devresi Yüksek Voltaj Kısa Devre (HVIL Circuit High)",
@@ -1662,6 +1732,51 @@ _CACHED_UDS_DID_DB: dict[str, Any] | None = None
 _CACHED_MODE06_DB: dict[str, Any] | None = None
 _CACHED_EXTENDED_PID_DB: dict[str, Any] | None = None
 
+# ---------------------------------------------------------------------------
+# T1-1: live DTC catalog size.
+#
+# The desktop KPI bridge used to hardcode the coverage denominator as
+# ``total_catalog = 14352``. That literal is a fabricated measurement: it
+# silently drifts as the DB grows/shrinks and it turns a missing catalog into
+# an impressive-looking coverage ratio. Measured live instead, memoised per
+# process because the JSON is large and read on every KPI refresh.
+#
+# Fail-closed contract: a missing/unreadable catalog returns 0, NOT a magic
+# number (AGENTS.md §2.3 — never invent a measurement). 0 is an honest
+# "unknown denominator" that callers must handle, not silently divide by.
+# ---------------------------------------------------------------------------
+_DTC_CATALOG_SIZE_LOCK = threading.Lock()
+_DTC_CATALOG_SIZE_CACHE: dict[str, int] = {}
+
+
+def catalog_size(*, force_reload: bool = False) -> int:
+    """Return the number of records in the live DTC catalog (``dtc_database.json``).
+
+    Reads ``_EXTERNAL_DATA_DIR / "dtc_database.json"`` — the same file the
+    engine merges into ``EXPERT_KNOWLEDGE_BASE`` — so the reported catalog size
+    is the real denominator, never a hardcoded literal. Returns 0 when the file
+    is absent or unparseable (fail-closed, no fabricated value).
+    """
+    if not force_reload and "value" in _DTC_CATALOG_SIZE_CACHE:
+        return _DTC_CATALOG_SIZE_CACHE["value"]
+    with _DTC_CATALOG_SIZE_LOCK:
+        if not force_reload and "value" in _DTC_CATALOG_SIZE_CACHE:
+            return _DTC_CATALOG_SIZE_CACHE["value"]
+        size = 0
+        try:
+            target = _EXTERNAL_DATA_DIR / "dtc_database.json"
+            if target.exists():
+                payload = json.loads(target.read_text(encoding="utf-8", errors="replace"))
+                if isinstance(payload, dict):
+                    size = len(payload)
+                elif isinstance(payload, list):
+                    size = len(payload)
+        except Exception as exc:  # noqa: BLE001 — unreadable catalog must not break the UI
+            logger.warning("DTC catalog size unreadable (%s) — reporting 0", exc)
+            size = 0
+        _DTC_CATALOG_SIZE_CACHE["value"] = size
+        return size
+
 
 def _validate_dtc_entry_shape(code: str, info: Any) -> bool:
     """Shape-validate one external DTC entry before merging (M-17 / P2-16).
@@ -1974,9 +2089,34 @@ def get_extended_pid_database(data_path: Path | str | None = None) -> dict[str, 
         content = target.read_text(encoding="utf-8", errors="replace")
         data = json.loads(content)
         if isinstance(data, dict):
-            # Filter out entries with empty PIDs (comment rows from CSV imports)
+            # Drop genuinely empty PID rows (comment/blank rows from CSV imports).
+            #
+            # T2-6 fix: this filter used to be `if p.get("pid")`, a TRUTHINESS
+            # test. ``0`` is a valid OBD-II PID (``0x00`` = "PIDs supported
+            # [01-20]", the mandated first query of every Mode 01 scan) and is
+            # falsy, so that record — and any other zero-valued row — was
+            # silently deleted at load time. Measured effect: the shipped catalog
+            # holds 226 records but only 223 survived, and
+            # ``get_extended_pid_info("00")`` returned ``None`` for a PID the
+            # file plainly contains. The twin audit check
+            # (`csv_twins`) counts the JSON, so the loss was invisible to it.
+            #
+            # The test is now "is there any pid identifier at all": accept
+            # ``0``/``"0"``/``"00"``, reject ``None``/``""``/missing. `pid_hex`
+            # is accepted as a fallback identifier because the two harvests that
+            # filled this file used different shapes (114 rows carry an int
+            # ``pid``, 112 carry a str).
+            def _has_pid(row: dict[str, Any]) -> bool:
+                for field in ("pid", "pid_hex"):
+                    raw = row.get(field)
+                    if raw is None:
+                        continue
+                    if str(raw).strip() != "":
+                        return True
+                return False
+
             if "pids" in data:
-                data["pids"] = [p for p in data["pids"] if p.get("pid")]
+                data["pids"] = [p for p in data["pids"] if _has_pid(p)]
                 data.setdefault("metadata", {})["total_pids"] = len(data["pids"])
             if data_path is None:
                 _CACHED_EXTENDED_PID_DB = data
@@ -2031,19 +2171,35 @@ def search_extended_pids(
 
 
 def get_extended_pid_info(pid_hex: str, manufacturer: str | None = None) -> dict[str, Any] | None:
-    """Lookup a specific extended PID by its hex code, optionally filtered by manufacturer."""
+    """Lookup a specific extended PID by its hex code, optionally filtered by manufacturer.
+
+    T2-6 fix: ``p.get("pid", "").upper()`` assumed ``pid`` was always a string.
+    In the shipped catalog it is NOT — 114 of 226 records carry an ``int``
+    (``"pid": 0``, ``"pid": 11``) while the other 112 carry a ``str``, because
+    the two harvests that filled the file used different shapes. ``.upper()``
+    on an ``int`` raises ``AttributeError``, which is NOT caught anywhere, so
+    the lookup aborted instead of returning a record: every integer-keyed PID
+    was unreachable and a caller saw a hard crash rather than a ``None``.
+
+    ``str(...)`` normalises both shapes. Verified: ``get_extended_pid_info("00")``
+    now returns the "PIDs supported [01-20]" record instead of raising, and the
+    integer-pid half of the catalog is searchable again (226 records reachable,
+    not 112).
+    """
     db = get_extended_pid_database()
     if not db:
         return None
 
-    pid_clean = pid_hex.upper().strip()
+    pid_clean = str(pid_hex).upper().strip()
     mfr_clean = manufacturer.lower().strip() if manufacturer else ""
 
     for p in db.get("pids", []):
-        p_hex = p.get("pid_hex", "").upper().strip()
-        p_pid = p.get("pid", "").upper().strip()
+        # Both fields are normalised through str(): `pid` is mixed int/str in the
+        # shipped catalog, so neither may be assumed to be a string.
+        p_hex = str(p.get("pid_hex", "")).upper().strip()
+        p_pid = str(p.get("pid", "")).upper().strip()
         if pid_clean in (p_hex, p_pid):
-            if not mfr_clean or mfr_clean in p.get("manufacturer", "").lower():
+            if not mfr_clean or mfr_clean in str(p.get("manufacturer", "")).lower():
                 return cast(dict[str, Any], p)
     return None
 
@@ -4319,8 +4475,21 @@ class CausalBayesianInferenceEngine:
         _pf = spn_entry.get("procedures_full")
         if isinstance(_pf, list) and _pf:
             _pf_lines: list[str] = []
-            for _proc in _pf[:1]:
+            # T2-3 (karantina kalanı): the reader took `procedures_full[:1]`
+            # (index 0 ONLY). For three SPNs (SPN_520604, SPN_520605,
+            # SPN_524265) index 0 WAS the quarantined block, so the
+            # `_quarantined` marker protected nothing and quarantined
+            # dtcdocs/LLM content could reach the technician report. The
+            # upstream data fix (scripts/detect_quarantine_dtcdocs_llm.py
+            # --apply) now removes quarantined blocks from the array entirely;
+            # this guard is the second, load-bearing layer: whatever the array
+            # contains, a `_quarantined` block is NEVER rendered and NEVER
+            # consumed by the `[:1]` truncation. Fail-closed: skip it and keep
+            # looking for the next clean block instead of printing it.
+            for _proc in _pf:
                 if not isinstance(_proc, dict):
+                    continue
+                if _proc.get("_quarantined"):
                     continue
                 _ec = str(_proc.get("eaton_fault_code", "") or "").strip()
                 if _ec:
@@ -4335,6 +4504,8 @@ class CausalBayesianInferenceEngine:
                     _val = str(_proc.get(_key, "") or "").strip()
                     if _val:
                         _pf_lines.append(f"  • **{_label}:** {_val[:240]}")
+                # One clean procedure block is rendered — the pre-T2-3 budget.
+                break
             if _pf_lines:
                 procedures_block = "\n\n📖 **Eaton OEM Tam Prosedürü (PIM):**\n" + "\n".join(_pf_lines)
 
@@ -5024,20 +5195,35 @@ class AiDiagnosticCopilot:
                 # Kanıt C: `hypothesis_candidates` is deliberately NOT counted —
                 # only genuine signal-derived correlations may corroborate.
                 telemetry_correlation_count=len(correlations),
+                # T1-1 (calibration wiring): the parameter existed but NO
+                # production call site ever passed it, so the engine kept
+                # reporting ~%68.5 mean confidence against a measured %44.4
+                # golden-set top-1 accuracy (overconfidence_detected=True).
+                # The factor is COMPUTED from the verified golden corpus and
+                # memoised per process (see calibration.compute_calibration_factor)
+                # — never a hardcoded magic number. T2-3: a ``None`` result is
+                # no longer "no damping"; ``_resolve_calibration_factor``
+                # resolves it internally and, when no evidence exists at all,
+                # marks the label KALİBRE EDİLMEDİ instead of granting full
+                # confidence.
+                calibration_factor=compute_calibration_factor(),
             ),
             likely_causes=likely_causes,
             troubleshooting_steps=steps,
             affected_subsystems=affected if affected else ["CAN Veri Yolu & Genel Telemetri"],
             raw_dtc_count=dtc_count,
-            telemetry_correlations=correlations + hypothesis_candidates,
+            telemetry_correlations=correlations,
+            # P1-1: a hypothesis is a conclusion, never telemetry evidence —
+            # it travels in its own field.
+            hypothesis_candidates=hypothesis_candidates,
             ai_model_used="Yerel Otomotiv Uzman Motoru (Çevrimdışı)",
         )
 
     def analyze_live_telemetry(
         self,
-        rpm: float,
-        boost_bar: float,
-        coolant_temp: float,
+        rpm: float | None,
+        boost_bar: float | None,
+        coolant_temp: float | None,
         dtc_codes: list[str],
         user_prompt: str,
         bus_metrics: dict[str, Any] | None = None,
@@ -5047,14 +5233,23 @@ class AiDiagnosticCopilot:
 
         ``user_consented`` accepted (and ignored) for bridge/API backward
         compatibility. Action triggers derive from the OPERATOR prompt only.
+
+        P0-5 (AGENTS.md §2.3): the three measurement parameters are
+        ``float | None`` and a ``None`` means "this channel was NOT measured".
+        The previous signature required ``float``, so a bridge that passed
+        ``0.0`` for an absent channel injected a FABRICATED measured zero into
+        the inference engine. Only channels that actually carry a value are
+        inserted; an unmeasured channel stays ABSENT (the engine already
+        renders absent as "veri yok", never as a reading).
         """
         # M-18 (P2-17): lazy knowledge-base load at first analysis use.
         ensure_external_dtc_database_loaded()
-        telemetry: dict[str, Any] = {
-            "EngineSpeed": rpm,
-            "BoostPressure": boost_bar,
-            "CoolantTemp": coolant_temp,
-            **(bus_metrics or {}),
-        }
+        telemetry: dict[str, Any] = dict(bus_metrics or {})
+        if rpm is not None:
+            telemetry["EngineSpeed"] = rpm
+        if boost_bar is not None:
+            telemetry["BoostPressure"] = boost_bar
+        if coolant_temp is not None:
+            telemetry["CoolantTemp"] = coolant_temp
         active_dtc_objs = [{"code": c} for c in dtc_codes]
         return CausalBayesianInferenceEngine.evaluate_diagnostic_query(user_prompt, active_dtc_objs, telemetry)

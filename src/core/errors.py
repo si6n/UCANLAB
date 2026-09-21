@@ -1,6 +1,14 @@
 """Universal CAN-Bus Diagnostic & Telemetry Platform - Core Error Hierarchy.
 
-Normative error classes matching MASTER_PLAN.md Section 11.2 and RFC 7807 problem details.
+Normative error classes matching MASTER_PLAN.md Section 11.2.
+
+P2-7: this module does NOT emit RFC 7807 "problem details". `to_dict()` is an
+internal, flat envelope (`code` / `message` / `timestamp_ns` / `details` /
+`cause`); the RFC 7807 members (`type`, `title`, `status`, `detail`,
+`instance`) are absent. The previous docstring claimed compliance that the
+code never implemented — a consumer reading it could emit a payload that no
+RFC 7807 parser accepts. Any future REST boundary must build its own problem
+document from `to_dict()`.
 """
 
 from __future__ import annotations
@@ -28,19 +36,30 @@ def _redact_details(details: dict[str, Any]) -> dict[str, Any]:
 
 
 class PlatformError(Exception):
-    """Base exception for all Universal CAN Platform errors."""
+    """Base exception for all Universal CAN Platform errors.
+
+    Subclasses declare their default machine-readable ``code`` as a
+    ``default_code`` class attribute (P3-1) — the six identical ``__init__``
+    bodies that differed only in that string are gone.
+    """
+
+    default_code: str = "PLATFORM_ERROR"
 
     def __init__(
         self,
         message: str,
-        code: str = "PLATFORM_ERROR",
+        code: str | None = None,
         details: dict[str, Any] | None = None,
         cause: Exception | None = None,
     ) -> None:
         super().__init__(message)
         self.message = message
-        self.code = code
-        self.details = details or {}
+        self.code = code if code is not None else self.default_code
+        # P1-2: never retain the caller's dict by reference. The caller keeps a
+        # handle on it, so an aliased `details` could be mutated after the
+        # error was raised and after it was serialized into a log/evidence
+        # record — retroactively rewriting the recorded error context.
+        self.details: dict[str, Any] = dict(details) if details else {}
         self.cause = cause
         # M-09: also bind Python's built-in exception chaining so the root
         # cause surfaces in tracebacks ("The above exception was the direct
@@ -48,6 +67,17 @@ class PlatformError(Exception):
         if cause is not None:
             self.__cause__ = cause
         self.timestamp_ns = time.time_ns()
+
+    @property
+    def chained_cause(self) -> BaseException | None:
+        """The effective root cause: explicit ``cause=`` wins, else ``__cause__``.
+
+        P1-2: ``raise ... from exc`` sets ``__cause__`` on the instance WITHOUT
+        going through ``cause=``, so the exception carried a populated
+        ``__cause__`` that ``to_dict``/``cause`` ignored. Falling back to
+        ``self.__cause__`` makes both entry points equivalent.
+        """
+        return self.cause if self.cause is not None else self.__cause__
 
     def to_dict(self, include_cause: bool = True) -> dict[str, Any]:
         """Serialize error to standardized dictionary representation.
@@ -64,8 +94,9 @@ class PlatformError(Exception):
             "timestamp_ns": self.timestamp_ns,
             "details": _redact_details(self.details),
         }
-        if include_cause and self.cause:
-            result["cause"] = str(self.cause)
+        chained = self.chained_cause
+        if include_cause and chained is not None:
+            result["cause"] = str(chained)
         return result
 
     def to_dict_internal(self) -> dict[str, Any]:
@@ -77,76 +108,34 @@ class PlatformError(Exception):
 class HardwareError(PlatformError):
     """Hardware, transceiver, driver or DLL level failures (Bus-off, disconnect, USB error)."""
 
-    def __init__(
-        self,
-        message: str,
-        code: str = "HARDWARE_ERROR",
-        details: dict[str, Any] | None = None,
-        cause: Exception | None = None,
-    ) -> None:
-        super().__init__(message, code=code, details=details, cause=cause)
+    default_code = "HARDWARE_ERROR"
 
 
 class TransportError(PlatformError):
     """Transport protocol failures (J1939 BAM/CMDT timeout, out-of-order frames, ISO-TP abort)."""
 
-    def __init__(
-        self,
-        message: str,
-        code: str = "TRANSPORT_ERROR",
-        details: dict[str, Any] | None = None,
-        cause: Exception | None = None,
-    ) -> None:
-        super().__init__(message, code=code, details=details, cause=cause)
+    default_code = "TRANSPORT_ERROR"
 
 
 class ProtocolError(PlatformError):
     """Protocol decoding/encoding, DBC signal extraction or sentinel parsing errors."""
 
-    def __init__(
-        self,
-        message: str,
-        code: str = "PROTOCOL_ERROR",
-        details: dict[str, Any] | None = None,
-        cause: Exception | None = None,
-    ) -> None:
-        super().__init__(message, code=code, details=details, cause=cause)
+    default_code = "PROTOCOL_ERROR"
 
 
 class SafetyError(PlatformError):
     """Active test preconditions failure or TX Gateway safety violation."""
 
-    def __init__(
-        self,
-        message: str,
-        code: str = "SAFETY_ERROR",
-        details: dict[str, Any] | None = None,
-        cause: Exception | None = None,
-    ) -> None:
-        super().__init__(message, code=code, details=details, cause=cause)
+    default_code = "SAFETY_ERROR"
 
 
 class LicenseError(PlatformError):
     """Licensing, token verification, HWID validation or clock tampering errors."""
 
-    def __init__(
-        self,
-        message: str,
-        code: str = "LICENSE_ERROR",
-        details: dict[str, Any] | None = None,
-        cause: Exception | None = None,
-    ) -> None:
-        super().__init__(message, code=code, details=details, cause=cause)
+    default_code = "LICENSE_ERROR"
 
 
 class SecurityError(PlatformError):
     """Cryptographic, signature, anti-tamper or envelope decryption errors."""
 
-    def __init__(
-        self,
-        message: str,
-        code: str = "SECURITY_ERROR",
-        details: dict[str, Any] | None = None,
-        cause: Exception | None = None,
-    ) -> None:
-        super().__init__(message, code=code, details=details, cause=cause)
+    default_code = "SECURITY_ERROR"

@@ -580,9 +580,18 @@ def test_t62_t8_calculate_torque_and_power_nominal_torque_validation() -> None:
     with pytest.raises(ValueError, match="finite positive"):
         VirtualChannelEngine.calculate_torque_and_power(1500.0, 50.0, nominal_torque_nm=math.inf)
 
-    # None nominal torque
-    with pytest.raises(ValueError, match="finite positive"):
-        VirtualChannelEngine.calculate_torque_and_power(1500.0, 50.0, nominal_torque_nm=None)  # type: ignore[arg-type]
+    # None nominal torque: P2-7 CHANGED THIS — `None` means "no nameplate rating
+    # supplied", and the function now returns (None, None, None) instead of
+    # fabricating the old 1000.0 default. Raising here would have been the
+    # fabrication-hiding behaviour, so this assertion was updated with the fix.
+    assert VirtualChannelEngine.calculate_torque_and_power(1500.0, 50.0, nominal_torque_nm=None) == (
+        None,
+        None,
+        None,
+    )
+
+    # P2-7: omitting the parameter entirely must ALSO not invent a rating.
+    assert VirtualChannelEngine.calculate_torque_and_power(1500.0, 50.0) == (None, None, None)
 
     # Valid nominal torque succeeds
     torque, power_kw, power_hp = VirtualChannelEngine.calculate_torque_and_power(1500.0, 50.0, nominal_torque_nm=1000.0)

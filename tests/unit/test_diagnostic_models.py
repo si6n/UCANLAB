@@ -14,6 +14,7 @@ import pytest
 from src.core.models.diagnostics import (
     DiagnosticDomain,
     DiagnosticEvent,
+    Severity,
     SignalSample,
     SignalSource,
     VehicleSession,
@@ -99,7 +100,7 @@ class TestDiagnosticEvent:
             timestamp_ns=42,
             code="P0201",
             domain=DiagnosticDomain.PASSENGER,
-            severity="MEDIUM",
+            severity=Severity.MEDIUM,
             status="ACTIVE",
             related_signals=("EngineSpeed",),
         )
@@ -113,7 +114,7 @@ class TestDiagnosticEvent:
                 timestamp_ns=42,
                 code="P0201",
                 domain=DiagnosticDomain.PASSENGER,
-                severity="MEDIUM",
+                severity=Severity.MEDIUM,
                 status=status,
             )
 
@@ -123,7 +124,18 @@ class TestDiagnosticEvent:
                 timestamp_ns=42,
                 code="",
                 domain=DiagnosticDomain.MARINE,
-                severity="LOW",
+                severity=Severity.LOW,
+                status="ACTIVE",
+            )
+
+    def test_unlisted_severity_string_rejected(self) -> None:
+        """P2-9: severity is an allowlisted enum, not a free string."""
+        with pytest.raises(ValueError, match="severity"):
+            DiagnosticEvent(
+                timestamp_ns=42,
+                code="P0201",
+                domain=DiagnosticDomain.PASSENGER,
+                severity="HIHG",  # type: ignore[arg-type]
                 status="ACTIVE",
             )
 
@@ -179,7 +191,7 @@ class TestVehicleSession:
             timestamp_ns=1_600,
             code="SPN 84 FMI 4",
             domain=DiagnosticDomain.MARINE,
-            severity="MEDIUM",
+            severity=Severity.MEDIUM,
             status="ACTIVE",
         )
         session.samples.append(sample)
@@ -187,3 +199,24 @@ class TestVehicleSession:
         assert session.samples[0].physical_value == 0.0
         assert math.isfinite(session.samples[0].physical_value)
         assert session.events[0].status == "ACTIVE"
+        assert session.events[0].severity is Severity.MEDIUM
+
+    def test_raw_vin_assignment_rejected_after_construction(self) -> None:
+        """P0-2: the VIN guard must hold on assignment, not only at construction."""
+        session = VehicleSession(
+            session_id="sess-1", started_at_ns=0, domain=DiagnosticDomain.PASSENGER
+        )
+        assert session.vin_masked is None
+
+        with pytest.raises(ValueError, match="RAW VIN"):
+            session.vin_masked = "WVWZZZ1KZAW123456"
+        with pytest.raises(ValueError, match="mask_vin_in_text"):
+            session.vin_masked = "123456"
+        with pytest.raises(ValueError, match="str or None"):
+            session.vin_masked = 42  # type: ignore[assignment]
+
+        # The failed assignments must not have weakened the container.
+        assert session.vin_masked is None
+
+        session.vin_masked = mask_vin_in_text("WVWZZZ1KZAW123456")
+        assert session.vin_masked == "***********123456"

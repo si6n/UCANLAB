@@ -7,14 +7,14 @@ from __future__ import annotations
 
 import threading
 import time
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Any, ClassVar
 
 import can
 
 from src.core.errors import HardwareError, TransportError
 from src.core.logging import get_logger
-from src.core.models.can_frame import CanFrame, length_to_dlc
+from src.core.models.can_frame import CanFrame, dlc_to_length, length_to_dlc
 from src.hal.base import AbstractBus, BusState
 
 logger = get_logger("hal.drivers")
@@ -33,12 +33,50 @@ class PythonCanBus(AbstractBus):
         listen_only: bool = True,
         **kwargs: Any,
     ) -> None:
+        # HAL-21 (part 1): an ALIASED canonical key (e.g. passing `bitrate=`
+        # twice via `**{"bitrate": ...}` or the common `fd=`/`interface=`
+        # spellings) is bound to the named parameter by Python itself, so it
+        # never appears in `kwargs` and the collision check below cannot see
+        # it. Python permits this silent override for ALL calls (not just
+        # dict-expansion ones), so it is rejected here or a caller could
+        # retune the already-validated bus configuration by accident.
+        aliases = {
+            "bitrate": bitrate,
+            "fd": is_fd,
+            "interface": interface,
+            "channel": channel,
+        }
+        for key, value in aliases.items():
+            if key in kwargs:
+                raise ValueError(
+                    "extra python-can kwargs must not override canonical bus "
+                    f"configuration; colliding keys: ['{key}']"
+                )
+            _ = value  # documented pairing: key -> canonical parameter
         super().__init__(channel_id=f"{interface}_{channel}", bitrate=bitrate, is_fd=is_fd)
         self.interface = interface
         self.channel = channel
         self.data_bitrate = data_bitrate
         self.listen_only = listen_only
         self.extra_kwargs = kwargs
+        # HAL-21: reject backend kwargs that would collide with the canonical
+        # configuration we already validated and log. Accepting them silently
+        # made `interface=`/`bitrate=`/`fd=` overridable behind the operator's
+        # back (e.g. a "listen-only" scan silently retuned to a live baud).
+        canonical_keys = {
+            "interface",
+            "channel",
+            "bitrate",
+            "fd",
+            "state",
+            "data_bitrate",
+        }
+        collisions = sorted(canonical_keys.intersection(kwargs))
+        if collisions:
+            raise ValueError(
+                "extra python-can kwargs must not override canonical bus configuration; "
+                f"colliding keys: {collisions}"
+            )
         self._bus: can.BusABC | None = None
         # H-H-001: send()/recv()/disconnect() race guard — a send in flight
         # while another thread tears the driver down would hit a freed handle.
@@ -50,6 +88,58 @@ class PythonCanBus(AbstractBus):
         # M-30 (P2-21): consecutive-error window — resets on any successful
         # RX so a recovered bus leaves BUS_OFF instead of staying latched.
         self._consecutive_error_frames = 0
+        # HAL-06: last fail-closed hardware verification verdict. Set by
+        # `assert_bitrate_applied` and readable by the composition root so the
+        # UI can refuse to label an unverified session as "250 kbit/s".
+        self.hardware_unverified_code: str | None = None
+
+    def _bitrate_verdict(self, bus: can.BusABC | None, connected: bool) -> tuple[bool, str | None]:
+        """HAL-06: lock-free bitrate verification core.
+
+        Split out of `assert_bitrate_applied` so `connect()` — which already
+        holds the NON-re-entrant `_lifecycle_lock` — can obtain the verdict
+        without self-deadlocking. Returns `(verified, unverified_code)`.
+
+        The pure-Python `virtual` backend has no transceiver, so there is no
+        rate to diverge from and the software configuration is authoritative;
+        it is exempt (mirroring the identical exemption in `connect`/`set_listen_only`).
+        """
+        if self.interface in ("virtual",):
+            return True, None
+        if bus is None or not connected:
+            return False, "HARDWARE_BITRATE_UNVERIFIED"
+        reported = getattr(bus, "bitrate", None)
+        if reported is None:
+            # Some backends (socketcan, vendor DLLs) expose no rate property.
+            reported = getattr(getattr(bus, "_channel_info", None), "bitrate", None)
+        if isinstance(reported, int) and not isinstance(reported, bool) and reported == self.bitrate:
+            return True, None
+        logger.warning(
+            "HARDWARE_BITRATE_UNVERIFIED: backend does not report the requested bitrate",
+            extra={"requested": self.bitrate, "reported": reported, "interface": self.interface},
+        )
+        return False, "HARDWARE_BITRATE_UNVERIFIED"
+
+    def assert_bitrate_applied(self) -> bool:
+        """HAL-06 (fail-closed): prove the requested bitrate reached hardware.
+
+        The python-can backends in this adapter accept `bitrate=` and pass it
+        to the vendor driver, but a vendor DLL that ignores it (or uses an
+        adapter-INI default) leaves the transceiver on ITS baud while the
+        session claims `self.bitrate`. Reading the rate back is the only proof
+        this HAL can obtain, and it is NOT available on every backend
+        (`can.BusABC` does not expose a bitrate property).
+
+        Contract: return True only when the backend's reported bitrate is
+        readable and equals the requested one. Otherwise set
+        `hardware_unverified_code = "HARDWARE_BITRATE_UNVERIFIED"` and return
+        False — the caller MUST treat that as fail-closed (no telemetry
+        attribution, no TX arming) rather than assuming the requested rate.
+        """
+        with self._lifecycle_lock:
+            verified, code = self._bitrate_verdict(self._bus, self.is_connected)
+        self.hardware_unverified_code = code
+        return verified
 
     def connect(self) -> None:
         """Initialize physical transceiver connection via python-can.
@@ -67,12 +157,17 @@ class PythonCanBus(AbstractBus):
                 logger.debug("connect() called while already connected — ignoring")
                 return
             try:
+                # HAL-21: `**self.extra_kwargs` is spread FIRST so a caller's
+                # stray `extra_kwargs={"bitrate": 1000000}` can never silently
+                # override the canonical interface/channel/bitrate/fd values.
+                # It used to be spread LAST, winning over the constructor
+                # arguments and retuning the already-confirmed bus config.
                 bus_kwargs: dict[str, Any] = {
+                    **self.extra_kwargs,
                     "interface": self.interface,
                     "channel": self.channel,
                     "bitrate": self.bitrate,
                     "fd": self.is_fd,
-                    **self.extra_kwargs,
                 }
 
                 if self.is_fd and self.data_bitrate:
@@ -107,6 +202,17 @@ class PythonCanBus(AbstractBus):
 
                 self.is_connected = True
                 self.metrics.state = BusState.PASSIVE if self.listen_only else BusState.ACTIVE
+                # HAL-06: record the fail-closed hardware bitrate verdict. A
+                # physical backend that cannot report the requested rate is
+                # flagged HARDWARE_BITRATE_UNVERIFIED so no telemetry is
+                # attributed to an assumed baud. Deliberately computed INLINE
+                # from the already-snapshotted handle: `connect()` holds
+                # `_lifecycle_lock`, which is a plain (NON-re-entrant)
+                # `threading.Lock`, so calling the lock-taking
+                # `assert_bitrate_applied()` here would self-deadlock.
+                _, self.hardware_unverified_code = self._bitrate_verdict(
+                    self._bus, self.is_connected
+                )
                 logger.info(
                     "Connected CAN hardware interface",
                     extra={"interface": self.interface, "channel": str(self.channel), "bitrate": self.bitrate},
@@ -158,7 +264,16 @@ class PythonCanBus(AbstractBus):
             try:
                 self._bus.state = target
                 actual_state = getattr(self._bus, "state", None)
-                if actual_state is not None and actual_state != target:
+                # HAL-01 (residual): the old condition was
+                # `actual_state is not None and actual_state != target`, so a
+                # backend that reports NO state at all (getattr -> None) fell
+                # through and the call returned True — a phantom "mode
+                # applied" for a transceiver whose state is unknowable. An
+                # unknown state now fails CLOSED, exactly like a mismatching
+                # one. The `interface == "virtual"` exemption below is what
+                # keeps a software-only backend (no transceiver to verify)
+                # from being rejected.
+                if actual_state != target:
                     logger.error(
                         "Backend did not confirm bus state change",
                         extra={"target": target, "actual": actual_state},
@@ -205,7 +320,13 @@ class PythonCanBus(AbstractBus):
         gateway's `_resolve_driver_flush` finds a registered (harmless) hook
         instead of silently running without abort coverage.
         """
-        bus = self._bus
+        # HAL-14: the handle snapshot must be read under `_lifecycle_lock`
+        # like every other accessor. Reading `self._bus` unlocked let a
+        # concurrent `disconnect()` null the attribute between the read and
+        # the call, so the flush ran against a torn/closed handle and the
+        # E-Stop abort hook silently did nothing.
+        with self._lifecycle_lock:
+            bus = self._bus
         flush = getattr(bus, "flush_tx_buffer", None)
         if callable(flush):
             try:
@@ -370,7 +491,12 @@ class PythonCanBus(AbstractBus):
                 logger.info("Bus recovered from BUS_OFF — resuming normal reception")
                 self.metrics.state = BusState.PASSIVE if self.listen_only else BusState.ACTIVE
         self.metrics.rx_frames += 1
-        ts_ns = int(msg.timestamp * 1_000_000_000) if msg.timestamp else time.time_ns()
+        # HAL-24: `if msg.timestamp` treats a legitimate 0.0 hardware timestamp
+        # (first frame of a capture, or a driver with no clock) as absent and
+        # substituted the wall clock, producing a timestamp that jumped
+        # forward-by-decades relative to the capture anchor. An explicit
+        # `is not None` test keeps the driver-supplied epoch intact.
+        ts_ns = int(msg.timestamp * 1_000_000_000) if msg.timestamp is not None else time.time_ns()
 
         # H7: reflect the controller state when the backend exposes it
         state = getattr(bus_snapshot, "state", None)
@@ -384,10 +510,19 @@ class PythonCanBus(AbstractBus):
             # requires exact length, so raw short payloads were rejected as
             # "malformed" and silently dropped, killing real-world RX traffic.
             # Pad to the declared DLC length (ISO 11898-1 wire padding).
+            # HAL-02 (cosmetic): `msg.dlc` is the raw DLC CODE, not a byte
+            # count — for FD frames DLC 9..15 must be mapped through
+            # `dlc_to_length` (12/16/20/24/32/48/64) before padding, otherwise
+            # the frame is handed on one byte short of its own declared DLC.
+            # NOTE: this is a cosmetic capture-fidelity fix, NOT the "silent
+            # corruption" the review claimed — `CanFrame` deliberately permits
+            # a short FD payload (`0 < len(data) <= capacity`), so no data was
+            # ever lost; only the trailing zero padding was missing.
             dlc = msg.dlc if msg.dlc is not None else length_to_dlc(len(msg.data))
+            expected_len = dlc_to_length(dlc)
             rx_data = bytes(msg.data)
-            if len(rx_data) < dlc:
-                rx_data = rx_data + bytes([0x00] * (dlc - len(rx_data)))
+            if len(rx_data) < expected_len:
+                rx_data = rx_data + bytes([0x00] * (expected_len - len(rx_data)))
             return CanFrame(
                 channel_id=self.channel_id,
                 arbitration_id=msg.arbitration_id,
@@ -415,17 +550,58 @@ class PythonCanBus(AbstractBus):
         channel: str | int,
         candidates: Sequence[int] = (250000, 500000, 125000, 1000000),
         listen_timeout_s: float = 0.5,
+        min_valid_frames: int = 10,
+        _bus_factory: Callable[..., Any] | None = None,
     ) -> int | None:
-        """Scan CAN line in Listen-Only mode to auto-detect valid bitrate without ACK disturbance."""
+        """Scan CAN line in Listen-Only mode to auto-detect valid bitrate without ACK disturbance.
+
+        HAL-19: a WRONG baud rate on a live bus still yields occasional
+        decodable-looking frames (bit-stuffing and error frames alias into
+        well-formed IDs). The old implementation returned on the FIRST frame
+        it could parse, which latched an incorrect rate onto the session and
+        produced confidently wrong telemetry (AGENTS.md §2.3). A candidate is
+        now only accepted when it delivers `min_valid_frames` consecutive
+        non-error frames, with ZERO error frames observed and the controller
+        not latched into BUS_OFF/ERROR.
+
+        `_bus_factory` is a test seam: it replaces `cls(...)` so the HAL-19
+        acceptance policy can be exercised without a real transceiver. It is
+        private and must never be supplied by production callers.
+        """
+        factory = _bus_factory or cls
         for rate in candidates:
             bus = None
             try:
-                bus = cls(interface=interface, channel=channel, bitrate=rate, listen_only=True)
+                bus = factory(interface=interface, channel=channel, bitrate=rate, listen_only=True)
                 bus.connect()
-                frame = bus.recv(timeout_s=listen_timeout_s)
-                if frame is not None:
-                    logger.info("Auto-detected active bitrate", extra={"bitrate": rate})
+                valid = 0
+                deadline = time.monotonic() + listen_timeout_s
+                while valid < min_valid_frames:
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        break
+                    frame = bus.recv(timeout_s=min(remaining, 0.05))
+                    if frame is None:
+                        continue
+                    valid += 1
+                metrics = bus.get_metrics()
+                bus_off = metrics.state in (BusState.BUS_OFF, BusState.ERROR)
+                if valid >= min_valid_frames and metrics.error_frames == 0 and not bus_off:
+                    logger.info(
+                        "Auto-detected active bitrate",
+                        extra={"bitrate": rate, "valid_frames": valid},
+                    )
                     return rate
+                logger.debug(
+                    "Bitrate candidate rejected (insufficient clean frames)",
+                    extra={
+                        "bitrate": rate,
+                        "valid_frames": valid,
+                        "required": min_valid_frames,
+                        "error_frames": metrics.error_frames,
+                        "state": str(metrics.state),
+                    },
+                )
             except (can.CanError, OSError, HardwareError) as exc:
                 logger.debug("Bitrate candidate failed", extra={"bitrate": rate, "error": str(exc)[:500]})
             finally:

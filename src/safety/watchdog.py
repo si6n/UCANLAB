@@ -5,10 +5,12 @@ Complies with Saha Risk Kataloğu v1.2 Sections 20, 36.5, 38.
 
 from __future__ import annotations
 
+import atexit
+import os
 import threading
 from typing import TYPE_CHECKING, ClassVar
 
-from src.core.contracts.ports import SystemClockProvider
+from src.core.contracts.ports import SystemClockProvider, VirtualClock
 from src.core.logging import get_logger
 from src.safety.estop import EStopTriggerSource
 
@@ -18,6 +20,18 @@ if TYPE_CHECKING:
     from src.safety.state_machine import SafetySupervisor
 
 logger = get_logger("safety.watchdog")
+
+#: Environment flag acknowledging a virtualized (test) clock on the watchdog.
+#: The real safety lease must run on `time.monotonic()`; a VirtualClock on the
+#: production path silently freezes the 800 ms interlock, so it is refused
+#: unless the harness explicitly opts in (S-11).
+_TEST_MODE_ENV: str = "UCANLAB_TEST_MODE"
+
+#: Fail-closed teardown message (S-17).
+_PROCESS_TEARDOWN_REASON: str = (
+    "PROCESS_TERMINATION: watchdog supervisor torn down at process exit "
+    "— TX authorization revoked fail-closed"
+)
 
 
 class TxWatchdogSupervisor:
@@ -37,9 +51,22 @@ class TxWatchdogSupervisor:
         # (VirtualClock) instead of sleeping against the real clock. The
         # default remains the platform monotonic system clock.
         resolved = clock if clock is not None else SystemClockProvider()
-        if type(resolved).__name__ == "VirtualClock":
+        # S-11: the check is isinstance-based (the old `type(...).__name__`
+        # string test missed subclasses) and FAILS CLOSED — a virtualized clock
+        # on the watchdog would freeze lease expiry, so it is only tolerated
+        # under the explicit test-mode acknowledgement.
+        if isinstance(resolved, VirtualClock) and os.environ.get(_TEST_MODE_ENV) != "1":
+            raise RuntimeError(
+                "TxWatchdogSupervisor refuses a VirtualClock clock: the 800 ms "
+                "lease must be anchored to monotonic time. Set "
+                f"{_TEST_MODE_ENV}=1 to acknowledge a test harness."
+            )
+        if type(resolved).__name__ == "VirtualClock" and not isinstance(resolved, VirtualClock):
+            # Duck-typed virtual clock (a test double that does not subclass
+            # VirtualClock): warn loudly, the type system cannot prove this one.
             logger.warning(
-                "TxWatchdogSupervisor wired with VirtualClock (test clock in prod path?)"
+                "TxWatchdogSupervisor wired with a duck-typed virtual clock "
+                "(test clock in prod path?)"
             )
         self._clock = resolved
         self.supervisor = supervisor
@@ -62,9 +89,27 @@ class TxWatchdogSupervisor:
         # second immortal monitor. This Event both breaks the loop promptly
         # and makes the sleep interruptible.
         self._stop_event = threading.Event()
+        # S-17: atexit teardown hook registration latch (idempotent).
+        self._teardown_registered = False
 
         if self.supervisor:
             self.supervisor.register_callback(self._on_safety_state_changed)
+            # REGRESSION 1 (S-02/S-08) wiring: let the supervisor's ARM path
+            # anchor this lease through the H-2 token gate. The watchdog owns
+            # the token, so it publishes itself + the SHARED TOKEN reference
+            # (not a copy: rotation must be visible) via the supervisor's
+            # `bind_watchdog`. Without this, ARM would have no token-gated way
+            # to anchor the lease and S-08's `_is_running` requirement would
+            # make every legitimate arm-then-transmit flow fail closed.
+            binder = getattr(self.supervisor, "bind_watchdog", None)
+            if binder is not None:
+                try:
+                    binder(self)
+                except Exception as exc:  # noqa: BLE001 - never break construction
+                    logger.error(
+                        "Failed to bind watchdog to supervisor (arm-time lease anchor unavailable)",
+                        extra={"error": str(exc)},
+                    )
 
     @property
     def clock(self) -> ClockProvider:
@@ -72,11 +117,30 @@ class TxWatchdogSupervisor:
         return self._clock
 
     def _on_safety_state_changed(self, old_state: object, new_state: object, reason: str) -> None:
-        """Re-anchor lease timestamp upon transitioning into an active or armed transmission state."""
+        """Fail-closed lease invalidation on FAULT entry (S-02).
+
+        The legacy body RE-ANCHORED ``_last_heartbeat_time`` whenever the
+        supervisor entered ARMED_TX/ACTIVE — a second, token-free lease-refresh
+        path that contradicted the H-2 contract enforced by :meth:`heartbeat`
+        (which requires the shared caller token). Any caller able to drive a
+        state transition could therefore hold the 800 ms liveness interlock
+        open without ever presenting a token. The re-anchor is deleted; the
+        only remaining effect of a state change is to INVALIDATE the lease on
+        entry into a non-TX-bearing state, so expiry is re-derived from the
+        real heartbeat (fail-closed), never from the transition.
+        """
         state_val = getattr(new_state, "value", str(new_state))
-        if state_val in {"ARMED_TX", "ACTIVE"}:
-            with self._lock:
-                self._last_heartbeat_time = self._clock.now_monotonic()
+        if state_val not in {"FAULT", "SAFE", "SAFE_STATE", "STARTUP", "PASSIVE"}:
+            return
+        with self._lock:
+            # Push the lease into the past: `is_lease_valid` is False until a
+            # token-authenticated heartbeat re-anchors it.
+            self._last_heartbeat_time -= self.timeout_sec + 1.0
+        logger.warning(
+            "Watchdog lease invalidated on safety state change (fail-closed)",
+            extra={"from": getattr(old_state, "value", str(old_state)), "to": state_val,
+                   "reason": reason},
+        )
 
     def arm_heartbeat_token(self, token: str) -> None:
         """Register the shared bridge<->watchdog heartbeat token (H-2).
@@ -93,6 +157,20 @@ class TxWatchdogSupervisor:
         with self._lock:
             self._heartbeat_token = cleaned
 
+    def _token_is_valid_locked(self, caller_token: str | None) -> bool:
+        """H-2 token check; caller MUST hold ``self._lock``.
+
+        Constant-time comparison against the token registered by
+        :meth:`arm_heartbeat_token`. An empty registration refuses EVERY
+        caller (fail-closed): with no token armed there is no identity that
+        may hold the lease open.
+        """
+        import hmac as _hmac
+
+        expected = self._heartbeat_token
+        presented = caller_token if isinstance(caller_token, str) else ""
+        return bool(expected) and _hmac.compare_digest(presented, expected)
+
     def heartbeat(self, caller_token: str | None = None) -> None:
         """Refresh transmission authorization lease (H-2).
 
@@ -100,15 +178,68 @@ class TxWatchdogSupervisor:
         hard :class:`PermissionError` and does NOT extend the lease. The
         watchdog no longer fails open on an identity-less stream.
         """
-        import hmac as _hmac
-
         with self._lock:
-            expected = self._heartbeat_token
-            presented = caller_token if isinstance(caller_token, str) else ""
-            if not expected or not _hmac.compare_digest(presented, expected):
+            if not self._token_is_valid_locked(caller_token):
                 logger.error("watchdog heartbeat refused: missing/forged caller token")
                 raise PermissionError("watchdog heartbeat requires the shared caller token")
             self._last_heartbeat_time = self._clock.now_monotonic()
+
+    def anchor_lease_for_arm(self, caller_token: str | None = None) -> bool:
+        """S-02/S-08 correctness: anchor the lease at the ARM instant — token-gated.
+
+        REGRESSION 1 root cause: the S-02 remediation deleted the token-free
+        re-anchor that ``_on_safety_state_changed`` performed on ARMED_TX/
+        ACTIVE. That deletion was correct (the token-free refresh WAS the
+        fail-open hole), but nothing replaced it: ``start()`` anchors the
+        lease only on the FIRST start, and a non-UI arm path (any flow that
+        never entered ``run()``) could therefore hold ``ARMED_TX`` with the
+        monitor never started — S-08's ``_is_running`` requirement then made
+        ``is_lease_valid`` False and the very first legitimate frame was
+        refused at ``gateway.py`` Stage 2 with ``WATCHDOG_LEASE_EXPIRED``.
+
+        This restores the *capability* without restoring the hole, and does so
+        with the SMALLEST possible intervention:
+
+        * The re-anchor runs THROUGH the H-2 token gate — the exact same
+          constant-time check :meth:`heartbeat` uses, and therefore the same
+          identity requirement. There is no code path into this method that
+          skips the token, so an anonymous/identity-less stream still cannot
+          hold the 800 ms interlock (the S-02 invariant).
+        * It is a NO-OP when the lease is already valid. Re-anchoring an
+          already-live lease would (a) silently extend authorization without a
+          heartbeat (S-02) and (b) perturb the timestamp an
+          ARMED_TX-transition observer is entitled to see unchanged.
+        * It NEVER starts supervision. Starting the monitor is an application
+          lifecycle decision owned by the composition root (``run()`` /
+          ``_ensure_armed``); doing it implicitly here leaked a monitor thread
+          on every arm and made lease validity depend on an unrelated side
+          effect. When the monitor is down the lease is invalid (S-08) and this
+          method reports that honestly instead of masking it.
+
+        Returns ``True`` when the lease is valid after the call (including the
+        already-valid no-op case), ``False`` when the caller presented no valid
+        token OR supervision is not running (never raises; the lease is NOT
+        extended).
+        """
+        with self._lock:
+            if not self._token_is_valid_locked(caller_token):
+                logger.error(
+                    "watchdog lease re-anchor refused: missing/forged caller token (fail-closed)"
+                )
+                return False
+            if not self._is_running:
+                # S-08: a valid lease requires a live monitor. Do not fake it.
+                logger.error(
+                    "watchdog lease re-anchor refused: monitor not running (fail-closed; "
+                    "the composition root must start supervision before arming TX)"
+                )
+                return False
+            already_valid = (
+                self._clock.now_monotonic() - self._last_heartbeat_time
+            ) <= self.timeout_sec
+            if not already_valid:
+                self._last_heartbeat_time = self._clock.now_monotonic()
+        return True
 
     @property
     def remaining_lease_sec(self) -> float:
@@ -119,8 +250,17 @@ class TxWatchdogSupervisor:
 
     @property
     def is_lease_valid(self) -> bool:
+        """True only while the monitor is RUNNING and the lease is fresh (S-08).
+
+        The lease timestamp is anchored in `__init__` so a freshly built
+        supervisor is "valid" for 800 ms even with the monitor thread never
+        started — TX authority appeared alive while nothing enforced it. The
+        monitor's running flag is therefore part of the predicate.
+        """
         with self._lock:
-            return (self._clock.now_monotonic() - self._last_heartbeat_time) <= self.timeout_sec
+            return self._is_running and (
+                self._clock.now_monotonic() - self._last_heartbeat_time
+            ) <= self.timeout_sec
 
     def start(self) -> None:
         """Start the watchdog monitor background thread.
@@ -151,9 +291,52 @@ class TxWatchdogSupervisor:
                 daemon=True,
             )
             self._thread.start()
+            # S-17: a daemon monitor is killed outright at interpreter exit —
+            # no further lease enforcement, but TX authority could still be
+            # held by a driver left in active mode. Register a one-shot,
+            # fail-closed teardown that engages the E-Stop at process exit.
+            self._register_teardown_hook()
             logger.info(
                 "TX Watchdog Supervisor started",
                 extra={"timeout_ms": self.timeout_sec * 1000.0},
+            )
+
+    def _register_teardown_hook(self) -> None:
+        """S-17: fail-closed E-Stop on process teardown (idempotent)."""
+        if self._teardown_registered:
+            return
+        atexit.register(self._on_process_teardown)
+        self._teardown_registered = True
+
+    def _on_process_teardown(self) -> None:
+        """S-17: revoke TX authority when the process tears down.
+
+        The monitor thread is a daemon: `atexit` runs before daemon threads
+        are killed, so this hook is the last guaranteed supervision step. It
+        engages the E-Stop with ``PROCESS_TERMINATION`` whenever TX may still
+        be authorized (running monitor OR a still-permitted supervisor) and
+        never raises — a teardown hook that throws would mask the exit path.
+        """
+        try:
+            with self._lock:
+                was_running = self._is_running
+            tx_permitted = bool(getattr(self.supervisor, "is_tx_permitted", False))
+            if not (was_running or tx_permitted):
+                return
+            if self.estop is not None:
+                self.estop.trigger(EStopTriggerSource.PROCESS_TERMINATION, _PROCESS_TEARDOWN_REASON)
+            if was_running:
+                try:
+                    self.supervisor.trigger_fault(_PROCESS_TEARDOWN_REASON)
+                except Exception as exc:  # noqa: BLE001
+                    logger.critical(
+                        "PROCESS_TERMINATION: supervisor fault trigger failed during teardown",
+                        extra={"error": str(exc)},
+                    )
+        except Exception as exc:  # noqa: BLE001 - teardown must never raise
+            logger.critical(
+                "PROCESS_TERMINATION: watchdog teardown hook failed",
+                extra={"error": str(exc)},
             )
 
     def stop(self) -> None:

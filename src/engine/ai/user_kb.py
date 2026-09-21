@@ -11,15 +11,23 @@ from __future__ import annotations
 
 import json
 import sys
+import threading
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from src.core.logging import get_logger
 
 logger = get_logger("engine.ai_user_kb")
 
 SCHEMA_VERSION = 1
+
+# P2-1: two technicians (or a UI retry) can record feedback concurrently.
+# Without a lock the read-modify-write below loses the earlier append silently,
+# and without an atomic replace a crash mid-write leaves a TRUNCATED JSON file
+# that the loader then treats as "no feedback" — recorded operator evidence
+# disappearing is a data-integrity defect, not a cosmetic one.
+_FEEDBACK_LOCK = threading.Lock()
 
 # Exact field set — extra fields fail closed.
 _ENTRY_FIELDS: frozenset[str] = frozenset({
@@ -133,24 +141,29 @@ def record_operator_feedback(
     clean_code = (dtc or "").strip().upper()
     masked_notes = mask_vin_in_text(notes or "")
 
-    existing: list[dict[str, Any]] = []
-    if target.is_file():
-        try:
-            existing = json.loads(target.read_text(encoding="utf-8"))
-            if not isinstance(existing, list):
-                existing = []
-        except Exception:
-            existing = []
-
     record = {
         "timestamp_ns": time.monotonic_ns(),
         "dtc": clean_code,
         "resolved": bool(resolved),
         "notes": masked_notes,
     }
-    existing.append(record)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(json.dumps(existing, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    with _FEEDBACK_LOCK:
+        existing: list[dict[str, Any]] = []
+        if target.is_file():
+            try:
+                loaded = json.loads(target.read_text(encoding="utf-8"))
+                if isinstance(loaded, list):
+                    existing = loaded
+                else:
+                    logger.warning("user_feedback payload is not a list — starting a new log")
+            except (OSError, json.JSONDecodeError) as exc:
+                # Narrowed (was bare `except Exception`): a corrupt feedback log
+                # is reported, not silently discarded.
+                logger.warning("user_feedback okunamadı, yeni kayıtla devam: %s", exc)
+        existing.append(record)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        _atomic_write_text(target, json.dumps(existing, ensure_ascii=False, indent=2))
 
     return {
         "status": "saved",
@@ -158,6 +171,41 @@ def record_operator_feedback(
         "resolved": resolved,
         "total_records": len(existing),
     }
+
+
+def _atomic_write_text(target: Path, text: str) -> None:
+    """Write ``text`` via a same-directory temp file + atomic replace (P2-1).
+
+    ``path_guard.atomic_write_text`` already implements exactly this dance but
+    lives in ``src.engine.exporters``; the AI layer imports it LAZILY so the
+    AI package keeps no top-level dependency on the exporters package.
+    """
+    try:
+        from src.engine.exporters.path_guard import atomic_write_text
+
+        write: Callable[[Path, str], Path] = atomic_write_text
+    except Exception:  # noqa: BLE001 — exporters unavailable: degrade, never fail the write
+        write = _fallback_atomic_write
+    write(target, text)
+
+
+def _fallback_atomic_write(target: Path, text: str) -> Path:
+    """Local temp-file + ``os.replace`` fallback (same filesystem, atomic)."""
+    import os
+    import tempfile
+
+    fd, tmp_name = tempfile.mkstemp(dir=str(target.parent), prefix=target.name + ".", suffix=".part")
+    tmp = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="") as handle:
+            handle.write(text)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(tmp, target)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
+    return target
 
 
 def load_operator_feedback(feedback_path: Path | None = None) -> list[dict[str, Any]]:
@@ -168,7 +216,8 @@ def load_operator_feedback(feedback_path: Path | None = None) -> list[dict[str, 
     try:
         data = json.loads(target.read_text(encoding="utf-8"))
         return data if isinstance(data, list) else []
-    except Exception:
+    except (OSError, json.JSONDecodeError) as exc:
+        logger.warning("user_feedback okunamadı: %s", exc)
         return []
 
 

@@ -22,7 +22,11 @@ from src.core.errors import HardwareError
 from src.core.logging import get_logger
 from src.core.models.can_frame import CanFrame
 from src.hal.base import AbstractBus, BusMetrics, BusState
-from src.hal.rp1210.client import RP1210Client
+from src.hal.rp1210.client import (
+    RP1210_PROTOCOL_ALLOWLIST,
+    RP1210_UNSUPPORTED_PROTOCOLS,
+    RP1210Client,
+)
 
 logger = get_logger("hal.rp1210.bus")
 
@@ -49,6 +53,9 @@ class RP1210Bus(AbstractBus):
     MAX_CLASSIC_PAYLOAD: ClassVar[int] = 8
     DISCONNECT_DRAIN_TIMEOUT_S: ClassVar[float] = 2.0
     # Protocols that are strictly 29-bit only (SAE J1939 standard).
+    # HAL-27: derived from the SHARED client allowlist so the two can never
+    # drift again. `j1939t` used to exist only here, making it an unreachable
+    # dead branch (the client rejected the name before the bus ever ran).
     _STRICT_29BIT_PROTOCOLS: ClassVar[frozenset[str]] = frozenset(
         {"j1939", "j1939t"}
     )
@@ -57,6 +64,13 @@ class RP1210Bus(AbstractBus):
     _EXTENDED_ID_PROTOCOLS: ClassVar[frozenset[str]] = frozenset(
         {"j1939", "j1939t", "iso15765", "iso_tp"}
     )
+    # HAL-18: protocols that must be REFUSED rather than decoded as CAN.
+    UNSUPPORTED_PROTOCOLS: ClassVar[frozenset[str]] = RP1210_UNSUPPORTED_PROTOCOLS
+
+    @classmethod
+    def protocol_allowlist(cls) -> frozenset[str]:
+        """HAL-27: the single shared protocol allowlist (client + bus)."""
+        return RP1210_PROTOCOL_ALLOWLIST
 
     def __init__(
         self,
@@ -103,6 +117,14 @@ class RP1210Bus(AbstractBus):
         self._ts_anchor_mono_ns: int = time.monotonic_ns()
         self._last_emitted_ts_ns: int = self._ts_anchor_wall_ns
         self._ts_lock = threading.Lock()
+        # HAL-22: RX-queue-full is a LOSSY event, not an idle queue. It is
+        # published separately from the empty-queue `None` so callers can
+        # distinguish "nothing arrived" from "the vendor stack dropped data".
+        self.last_rx_queue_full: bool = False
+        self.rx_queue_full_events: int = 0
+        # HAL-06: last fail-closed hardware-verification verdict, readable by
+        # the composition root (see `_connect_client`).
+        self.hardware_unverified_code: str | None = None
 
     def _monotonic_timestamp_ns(self) -> int:
         """Wall-clock-seeded, monotonic-non-decreasing timestamp (REVIEW 2.2).
@@ -131,20 +153,56 @@ class RP1210Bus(AbstractBus):
     # ------------------------------------------------------------------
 
     def connect(self) -> None:
-        """Establish the RP1210 client session and mark the bus ACTIVE."""
+        """Establish the RP1210 client session and mark the bus ACTIVE.
+
+        HAL-30: the exception wrapping is now SYMMETRIC with the
+        PCAN/Kvaser driver (`drivers/pcan_kvaser.py`), which catches bare
+        `Exception`. The old guard listed only `HardwareError`/`OSError`/
+        `RuntimeError`, so a ctypes `AttributeError`/`TypeError` raised by a
+        vendor DLL (or any other unexpected failure) escaped `connect()`
+        while `is_connected` was left untouched — callers persisted a stale
+        bus object that looked usable but had no live session. Every failure
+        path now marks the bus DISCONNECTED and best-effort closes the client.
+
+        HAL-18: J1708 is refused up front with `HARDWARE_PROTOCOL_UNSUPPORTED`
+        (see `UNSUPPORTED_PROTOCOLS`) — this adapter decodes EVERY packet as
+        classic CAN, so a J1708 session would emit fabricated telemetry
+        (AGENTS.md §2.3).
+        """
         with self._lifecycle_lock:
             if self.is_connected:
                 logger.debug("connect() called while already connected — ignoring")
                 return
-            try:
-                self._client.connect(
-                    tx_buffer_size=self.DEFAULT_TX_BUFFER, rx_buffer_size=self.DEFAULT_RX_BUFFER
-                )
-            except HardwareError:
-                raise
-            except (OSError, RuntimeError) as exc:
+            protocol_key = self.protocol.strip().upper()
+            if protocol_key in self.UNSUPPORTED_PROTOCOLS:
+                # Fail CLOSED before any client session is opened.
                 raise HardwareError(
-                    f"RP1210 connect failed: {exc}",
+                    f"RP1210 protocol '{self.protocol}' is not decodable by this adapter: "
+                    "J1708 framing would be decoded as classic CAN, fabricating telemetry",
+                    code="HARDWARE_PROTOCOL_UNSUPPORTED",
+                    details={
+                        "protocol": protocol_key,
+                        "supported": sorted(self.protocol_allowlist()),
+                    },
+                )
+            try:
+                self.hardware_unverified_code = self._connect_client()
+            except HardwareError:
+                self.is_connected = False
+                self.metrics.state = BusState.DISCONNECTED
+                raise
+            except Exception as exc:  # noqa: BLE001 — symmetric with PythonCanBus
+                # HAL-30: best-effort client teardown — a half-open vendor
+                # session must not survive a failed connect(), or the next
+                # connect() sees a "busy" adapter.
+                self.is_connected = False
+                self.metrics.state = BusState.DISCONNECTED
+                try:
+                    self._client.disconnect()
+                except Exception:  # noqa: BLE001 — best-effort only
+                    logger.debug("Best-effort client disconnect after failed connect", exc_info=True)
+                raise HardwareError(
+                    f"RP1210 connect failed: {type(exc).__name__}: {str(exc)[:400]}",
                     code="HARDWARE_CONNECT_FAILED",
                     details={"device_id": self.device_id, "protocol": self.protocol},
                     cause=exc,
@@ -162,6 +220,47 @@ class RP1210Bus(AbstractBus):
                     "listen_only": self.listen_only,
                 },
             )
+
+    def _bitrate_unverified_code(self) -> str | None:
+        """HAL-06: fail-closed verdict for the requested bitrate.
+
+        Returns `"HARDWARE_BITRATE_UNVERIFIED"` whenever a rate was requested
+        but the client cannot prove it reached the adapter, and None when no
+        rate was requested at all (adapter INI default, nothing to verify).
+        """
+        if not getattr(self._client, "bitrate_requested", False):
+            return None
+        if getattr(self._client, "bitrate_applied", False):
+            return None
+        return "HARDWARE_BITRATE_UNVERIFIED"
+
+    def _connect_client(self) -> str | None:
+        """Open the client session, forwarding the requested bitrate.
+
+        HAL-06: `RP1210Client.connect` now accepts a `bitrate` and forwards it
+        as a vendor `:Baud=<n>` protocol suffix. A client double that does not
+        accept the keyword (or an older signature) is retried WITHOUT it so
+        the adapter still opens; the rate is then reported UNVERIFIED rather
+        than assumed.
+        """
+        try:
+            self._client.connect(
+                tx_buffer_size=self.DEFAULT_TX_BUFFER,
+                rx_buffer_size=self.DEFAULT_RX_BUFFER,
+                bitrate=self.bitrate,
+            )
+        except TypeError:
+            logger.warning(
+                "RP1210 client does not accept a bitrate; opening without it",
+                extra={"bitrate": self.bitrate, "device_id": self.device_id},
+            )
+            self._client.connect(
+                tx_buffer_size=self.DEFAULT_TX_BUFFER, rx_buffer_size=self.DEFAULT_RX_BUFFER
+            )
+            if not hasattr(self._client, "bitrate_requested"):
+                # Nothing to verify against — surface the fail-closed code.
+                return "HARDWARE_BITRATE_UNVERIFIED"
+        return self._bitrate_unverified_code()
 
     def disconnect(self) -> None:
         """Gracefully close the RP1210 session (idempotent)."""
@@ -282,15 +381,23 @@ class RP1210Bus(AbstractBus):
                 )
             self._active_sends += 1
 
-        data = bytes(frame.data)
-
-        if frame.is_extended:
-            wire = (frame.arbitration_id & _EXT_ID_MASK).to_bytes(4, "little") + bytes([len(data)]) + data
-        else:
-            header = (frame.arbitration_id & 0x7FF) << 4 | (len(data) & 0x0F)
-            wire = header.to_bytes(2, "little") + data
-
+        # HAL-13: the encode AND the client call both live inside the `try`.
+        # `_active_sends` is incremented above (under the lock, so the
+        # disconnect() drain loop sees this send in flight), and the wire
+        # bytes used to be built OUTSIDE any `try` — an exception from
+        # `bytes(frame.data)` or `to_bytes()` therefore skipped the `finally`
+        # that decrements the counter. The stranded counter made
+        # `disconnect()` block for the full 2 s drain timeout and log a
+        # phantom "stranded send" even though nothing was ever transmitted.
         try:
+            data = bytes(frame.data)
+
+            if frame.is_extended:
+                wire = (frame.arbitration_id & _EXT_ID_MASK).to_bytes(4, "little") + bytes([len(data)]) + data
+            else:
+                header = (frame.arbitration_id & 0x7FF) << 4 | (len(data) & 0x0F)
+                wire = header.to_bytes(2, "little") + data
+
             self._client.send_message(wire)
             self.metrics.tx_frames += 1
         finally:
@@ -302,18 +409,40 @@ class RP1210Bus(AbstractBus):
     def recv(self, timeout_s: float | None = 0.1) -> CanFrame | None:
         """Poll one frame from the RP1210 RX queue within the timeout.
 
+        HAL-08 / HAL-31: the AbstractBus contract is that
+        ``timeout_s is None`` blocks INDEFINITELY and that 0 is a
+        non-blocking poll. The old body computed
+        ``time.monotonic() + (timeout_s if timeout_s is not None else 0.1)``,
+        so ``recv(None)`` returned after ~100 ms (a blocking consumer saw a
+        spurious timeout) and a negative timeout produced an already-past
+        deadline. The deadline is now ``None`` for the blocking case and the
+        range is validated up front, matching ``VirtualBus.recv``.
+
         H-H-004: adaptive backoff — the first empty polls stay at 1 ms
         latency for burst traffic, then relax toward 10 ms so an idle bus
         no longer burns a full CPU core per channel in busy-polling.
+
+        HAL-22: a vendor ``ERR_RX_QUEUE_FULL`` is surfaced distinctly (see
+        `last_rx_queue_full`) and counted in `metrics.dropped_frames` — it
+        used to be indistinguishable from an empty queue and silently lost.
         """
+        if timeout_s is not None and (
+            not isinstance(timeout_s, (int, float))
+            or isinstance(timeout_s, bool)
+            or not (0 <= timeout_s <= 60)
+        ):
+            raise ValueError(f"timeout_s must be None, 0, or in range (0, 60], got {timeout_s!r}")
+
         with self._lifecycle_lock:
             if not self.is_connected:
                 raise HardwareError("Cannot receive: RP1210 bus is not connected")
             self._active_recvs += 1
 
         try:
-            deadline = time.monotonic() + (timeout_s if timeout_s is not None else 0.1)
+            # HAL-08: None == block indefinitely; there is no wall deadline.
+            deadline = None if timeout_s is None else time.monotonic() + float(timeout_s)
             poll_interval = 0.001
+            self.last_rx_queue_full = False
             while True:
                 with self._lifecycle_lock:
                     if not self.is_connected:
@@ -324,11 +453,16 @@ class RP1210Bus(AbstractBus):
                     # Transient RX errors are logged and polling continues until deadline (HIGH-2):
                     # one malformed vendor packet must not kill the ingest loop or truncate timeout.
                     logger.warning("RP1210 read error; retrying until deadline", extra={"error": str(exc)})
-                    if time.monotonic() >= deadline:
+                    if deadline is not None and time.monotonic() >= deadline:
                         return None
                     time.sleep(poll_interval)
                     poll_interval = min(poll_interval * 2.0, 0.010)
                     continue
+
+                # HAL-22: a queue-full condition is NOT an empty queue — it
+                # means frames were LOST by the vendor stack. Surface it and
+                # account for the drop instead of reporting a clean timeout.
+                self._absorb_queue_full_flag()
 
                 if raw is not None:
                     # P0-3/H-2: derive the admission threshold from the layout
@@ -362,7 +496,7 @@ class RP1210Bus(AbstractBus):
                         )
                         self.metrics.dropped_frames += 1
 
-                if time.monotonic() >= deadline:
+                if deadline is not None and time.monotonic() >= deadline:
                     return None
                 time.sleep(poll_interval)
                 # Exponential-ish backoff capped at 10 ms while idle
@@ -372,6 +506,28 @@ class RP1210Bus(AbstractBus):
                 self._active_recvs -= 1
                 if self._active_sends == 0 and self._active_recvs == 0:
                     self._drain_cond.notify_all()
+
+    def _absorb_queue_full_flag(self) -> None:
+        """HAL-22: translate a client-side RX-queue-full into a counted drop.
+
+        `RP1210Client.read_message` deliberately keeps returning `None` for
+        `ERR_RX_QUEUE_FULL` (locked by
+        `tests/unit/test_rp1210.py::test_rp1210_read_rx_queue_full_returns_none`),
+        so the condition is published out-of-band through the client's
+        `last_read_was_queue_full` flag. Here it is surfaced on the bus
+        (`last_rx_queue_full`) and counted in `metrics.dropped_frames` —
+        previously the event vanished entirely, so a saturated adapter looked
+        identical to an idle one.
+        """
+        if not getattr(self._client, "last_read_was_queue_full", False):
+            return
+        self.last_rx_queue_full = True
+        self.rx_queue_full_events += 1
+        self.metrics.dropped_frames += 1
+        logger.warning(
+            "RP1210 RX queue full — frames lost by the vendor stack (counted as dropped)",
+            extra={"device_id": self.device_id, "rx_queue_full_events": self.rx_queue_full_events},
+        )
 
     # ------------------------------------------------------------------
     # RP1210 wire format marshalling

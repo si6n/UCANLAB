@@ -169,7 +169,14 @@ def test_checksum_detector_xor_and_crc8_autosar() -> None:
     hypotheses_xor = ChecksumDetector.detect(xor_payloads, dlc=8)
     xor_hyp = next((h for h in hypotheses_xor if h.start_bit == 56 and h.params.get("algorithm") == "XOR-8"), None)
     assert xor_hyp is not None
-    assert xor_hyp.confidence == 1.0
+    # P3-3 FIX (defect proven): XOR-8/SUM-8 are arithmetic residuals that match by
+    # coincidence at high rates, so their confidence is now capped just below the
+    # 0.85 "confirmed" threshold used by analyze_key. This test previously locked
+    # `confidence == 1.0`, i.e. it locked the false-positive behaviour. The raw
+    # 100% match ratio is still carried (and now asserted) in the evidence record.
+    assert xor_hyp.confidence == ChecksumDetector.ARITHMETIC_CHECKSUM_CONFIDENCE_CAP - 0.01
+    assert xor_hyp.evidence[0].value == 1.0
+    assert "CAPPED" in xor_hyp.evidence[0].detail
 
     # 2. Test CRC-8/AUTOSAR at Byte 0 over Bytes 1..7 (common VW/Audi layout)
     crc_payloads: list[bytes] = []

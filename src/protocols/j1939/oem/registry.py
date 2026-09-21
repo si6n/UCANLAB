@@ -13,6 +13,7 @@ from typing import Any
 from src.core.logging import get_logger
 from src.core.models.can_frame import CanFrame
 from src.engine.decoder.dbc_decoder import DecodedSignal
+from src.protocols.j1939.address_claim import _ExpiringAddressTable
 
 logger = get_logger("protocols.j1939.oem")
 
@@ -266,7 +267,15 @@ class OemJ1939Registry:
         self._pgn_to_decoders: dict[int, list[BaseOemDecoder]] = {}
         # REVIEW (HIGH-7): SA -> NAME-manufacturer-code learned from PGN
         # 60928 Address Claim frames. Feeds decoder confirmation below.
-        self._sa_name_codes: dict[int, int] = {}
+        #
+        # M8 (verified OPEN): this was a plain dict with NO expiry, so a
+        # spoofed-claim sweep pinned one entry per Source Address for the
+        # whole session (up to the 256-address space) and a stale claim kept
+        # a departed ECU's OEM authoritative forever. It now reuses
+        # `_ExpiringAddressTable` (the already-verified 60 s monotonic TTL
+        # table from j1939.address_claim) so expiry/pruning is shared, not
+        # reimplemented.
+        self._sa_name_codes: _ExpiringAddressTable = _ExpiringAddressTable()
 
         if decoders is not None:
             for dec in decoders:
@@ -297,7 +306,12 @@ class OemJ1939Registry:
             name = J1939Name.from_bytes(bytes(frame.data[:8]))
         except Exception:
             return
-        self._sa_name_codes[sa] = name.manufacturer_code
+        # M8: the table stamps its own monotonic TTL on assignment and prunes
+        # expired entries lazily — a spoofed claim can no longer pin an OEM
+        # attribution (or consume memory) for the lifetime of the process.
+        # The whole NAME is stored so the raw `(NAME, expiry)` shape matches
+        # the table's contract (`_unwrap` only recognizes a J1939Name).
+        self._sa_name_codes[sa] = name
 
     def _decoder_confirms_sa(self, decoder: BaseOemDecoder, sa: int) -> bool | None:
         """NAME/SA confirmation for a decoder match (HIGH-7).
@@ -310,10 +324,23 @@ class OemJ1939Registry:
         codes = OEM_NAME_MANUFACTURER_CODES.get(decoder.name)
         if not codes:
             return None
-        observed = self._sa_name_codes.get(sa)
-        if observed is None:
+        state = self._sa_name_codes.get(sa)
+        if state is None:
             return None
+        # M8: the table stores the claimed NAME internally (with its expiry
+        # stamp); `get()` unwraps it (and prunes) so we read the manufacturer
+        # code from the NAME — the same subfield the RX path learned.
+        observed = state.manufacturer_code
         return observed in codes
+
+    def _manufacturer_code_for_sa(self, sa: int) -> int | None:
+        """Live (TTL-checked) manufacturer code recorded for `sa`, or None.
+
+        M8: this is the raw view of the learned SA -> NAME table. `None`
+        means "no live claim on record" (unknown), never a default.
+        """
+        state = self._sa_name_codes.get(sa)
+        return None if state is None else state.manufacturer_code
 
     @staticmethod
     def _apply_attribution_confidence(decoded: OemDecodedPayload, confirmed: bool | None) -> None:

@@ -16,6 +16,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from src.core.logging import get_logger
+
+logger = get_logger("engine.ai_procedure_validator")
+
 
 class ProcedureSchemaError(ValueError):
     """Raised when a DTC procedure file violates schema or physical value bounds."""
@@ -202,11 +206,16 @@ def get_procedure(dtc: str, dir_path: Path | None = None) -> DtcProcedure | None
     if file_path.is_file():
         try:
             proc = load_procedure_file(file_path)
-            with _CACHE_LOCK:
-                _PROCEDURE_CACHE[clean] = proc
-            return proc
-        except Exception:
+        except (OSError, json.JSONDecodeError, ProcedureSchemaError) as exc:
+            # P2-2: a bare `except Exception` swallowed programming errors
+            # (AttributeError, TypeError, ...) as if the procedure were simply
+            # absent. Only a genuinely unreadable/invalid file degrades to
+            # "no procedure", and it is now REPORTED rather than silent.
+            logger.warning("DTC prosedürü yüklenemedi (%s): %s", clean, exc)
             return None
+        with _CACHE_LOCK:
+            _PROCEDURE_CACHE[clean] = proc
+        return proc
     return None
 
 
@@ -226,9 +235,11 @@ def load_all_procedures(dir_path: Path | None = None, force_reload: bool = False
     for file_path in sorted(target_dir.glob("*.json")):
         try:
             proc = load_procedure_file(file_path)
-            procedures[proc.dtc] = proc
-        except Exception:
+        except (OSError, json.JSONDecodeError, ProcedureSchemaError) as exc:
+            # P2-2: narrow + log (a broken procedure pack must be visible).
+            logger.warning("Prosedür dosyası atlandı (%s): %s", file_path.name, exc)
             continue
+        procedures[proc.dtc] = proc
 
     with _CACHE_LOCK:
         if dir_path is None:

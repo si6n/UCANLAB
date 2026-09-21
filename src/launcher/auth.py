@@ -33,7 +33,6 @@ class AuthStatus:
     is_authenticated: bool
     has_valid_license: bool
     hwid: str
-    user_email: str | None = None
     tier: str = "COMMUNITY"
     features: tuple[str, ...] = ()
     expires_at: int = 0
@@ -56,6 +55,16 @@ class LauncherAuthManager:
         # production launches sent device tokens and license refs to
         # http://127.0.0.1:8000. Resolve the production endpoint through the
         # same env-aware helper the desktop app uses.
+        #
+        # M-6 CONSTRAINT (documented, deliberately NOT fixed by moving code):
+        # the canonical implementation of `_resolve_cloud_base_url` lives in
+        # `src/ui/desktop_app.py`, so this function-local import pulls the
+        # whole UI graph into the launcher and would form an import cycle if
+        # the UI ever imported the launcher. The correct home is a small
+        # `src/security/cloud/endpoints.py`, but creating it requires editing
+        # `src/security/**` and `src/ui/**` — both OUT OF SCOPE for this batch.
+        # The import therefore stays function-local (never at module import
+        # time) with this note as the documented constraint.
         from src.ui.desktop_app import _resolve_cloud_base_url
 
         self.client = cloud_client or CloudClient(
@@ -111,7 +120,9 @@ class LauncherAuthManager:
         hwid = self.hwid
         has_session = self.client.has_session_token()
 
-        if not self.secrets.has_secret("CLOUD_LICENSE_TICKET") or not self.flow:
+        # L-3: the legacy `or not self.flow` clause was dead. The comment only
+        # mentions why; the real guard is the has_secret() check below.
+        if not self.secrets.has_secret("CLOUD_LICENSE_TICKET"):
             return AuthStatus(
                 is_authenticated=has_session,
                 has_valid_license=False,

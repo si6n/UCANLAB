@@ -93,8 +93,11 @@ class TestReport:
         assert actions, "report must embed deterministic action triggers"
         assert "ACTIONS:" not in clean
         kinds = {a["action_type"] for a in actions}
-        assert "uds_clear_dtc" in kinds
-        assert "j1939_dm1_query" in kinds
+        # P0-3 (verified defect, AGENTS.md §2.3): a technician REPORT must never
+        # offer a destructive UDS 0x14 DTC clear — only the READ-ONLY J1939 DM1
+        # query survives. This test used to lock the unsafe clear action.
+        assert "uds_clear_dtc" not in kinds
+        assert kinds == {"j1939_dm1_query"}
 
     def test_no_actions_when_no_dtcs(self) -> None:
         from src.engine.ai.diagnostic_copilot import parse_action_triggers_from_text

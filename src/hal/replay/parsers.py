@@ -321,6 +321,16 @@ class CsvParser:
         channel = (
             (row.get(col["channel"]) or "").strip() if col.get("channel") and (row.get(col["channel"]) or "").strip() else default_channel
         )
+        # HAL-17: the fallback channel is the FILE STEM, which is arbitrary
+        # user filesystem text. `CanFrame.__post_init__` enforces the narrow
+        # `_CHANNEL_ID_RE` charset (`^[A-Za-z0-9_:\-]{1,64}$`), so a stem like
+        # "My Trace (final)" raised ValueError — caught by the row handler and
+        # the row was SILENTLY DROPPED. A whole capture could therefore
+        # "load" as empty because of its filename. Sanitize to the CanFrame
+        # allowlist (mirroring `base._CHANNEL_ID_RE`) instead.
+        channel = re.sub(r"[^A-Za-z0-9_:\-]", "_", channel)[:64]
+        if not channel:
+            channel = "ch1"
 
         # Y-06 parity (REVIEW HIGH): CanFrame.__post_init__ invariants (classic
         # DLC<=8, exact DLC/payload-length match) can still reject this row —

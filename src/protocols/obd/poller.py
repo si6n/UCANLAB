@@ -76,6 +76,12 @@ class PollerJob:
     state: PollerState = PollerState.IDLE
     retry_count: int = 0
     response_deadline_s: float = 0.0
+    # H3 (verified OPEN): NRC 0x78 (responsePending) budget per transaction.
+    # `pending_wall_deadline_s` is the absolute cap on how far the P2* window
+    # may be re-armed (an ECU that emits 0x78 faster than P2* must not extend
+    # the transaction forever); `nrc_78_count` is the secondary count cap.
+    pending_wall_deadline_s: float = 0.0
+    nrc_78_count: int = 0
     # REVIEW 3-M (transaction identity): monotonically increasing id
     # assigned by step() at dispatch. A response only completes the job
     # whose transaction_id matches the dispatch that is still current —
@@ -98,6 +104,13 @@ class ActiveDiagnosticPoller:
     Schedules periodic OBD-II and UDS queries across Fast (50Hz), Medium (10Hz),
     and Slow (1Hz) telemetry bands while routing frames strictly through TxPort.
     """
+
+    # H3 (verified OPEN): ISO 14229-1 §10.3 P2* server extension. This mirrors
+    # `UdsClient.MAX_PENDING_ABS_S` / `MAX_NRC_78_COUNT` so the OBD poller and
+    # the UDS client cannot diverge on how long a slow ECU may hold a
+    # transaction open before it is declared dead.
+    MAX_PENDING_ABS_S: ClassVar[float] = 30.0
+    MAX_NRC_78_COUNT: ClassVar[int] = 200
 
     def __init__(
         self,
@@ -146,7 +159,9 @@ class ActiveDiagnosticPoller:
         }
 
         self._lock = threading.Lock()
-        self._jobs: dict[tuple[str, int], PollerJob] = {}
+        # M12: keyed by (kind, identifier, tx_id, rx_id) — the ECU
+        # conversation is part of the job identity (see `_job_key`).
+        self._jobs: dict[tuple[str, int, int, int], PollerJob] = {}
         self._last_tx_time_s: float = 0.0
 
         # REVIEW 3-M (transaction identity): monotonically increasing
@@ -171,6 +186,19 @@ class ActiveDiagnosticPoller:
         """Return True if background async polling loop is active."""
         return self._running
 
+    @staticmethod
+    def _job_key(kind: str, identifier: int, tx_id: int, rx_id: int) -> tuple[str, int, int, int]:
+        """M12 (verified OPEN): the job identity includes the ECU conversation.
+
+        The key used to be `(kind, identifier)` only, so registering the same
+        PID/DID/mode against a SECOND ECU (tx/rx pair) silently OVERWROTE the
+        first job — the operator lost one ECU's polling with no error, and
+        the surviving job's tx/rx pair decided which ECU was actually
+        addressed. Including the effective tx/rx ids makes multi-ECU polling
+        on the same identifier representable.
+        """
+        return (kind, identifier, tx_id, rx_id)
+
     @property
     def current_state(self) -> PollerState:
         """Return the current diagnostic state machine state."""
@@ -194,10 +222,11 @@ class ActiveDiagnosticPoller:
                 f"PID 0x{pid:02X} rate_hz {rate_hz} exceeds ceiling {MAX_RATE_HZ} Hz (fail-closed)"
             )
         with self._lock:
-            key = ("obd_pid", pid)
             now = self.clock.now_monotonic()
             effective_tx_id = tx_id if tx_id is not None else self.default_tx_id
             effective_rx_id = rx_id if rx_id is not None else self.default_rx_id
+            # M12: the ECU conversation is part of the job identity.
+            key = self._job_key("obd_pid", pid, effective_tx_id, effective_rx_id)
             job = PollerJob(
                 kind="obd_pid",
                 identifier=pid,
@@ -231,10 +260,11 @@ class ActiveDiagnosticPoller:
                 f"DID 0x{did:04X} rate_hz {rate_hz} exceeds ceiling {MAX_RATE_HZ} Hz (fail-closed)"
             )
         with self._lock:
-            key = ("uds_did", did)
             now = self.clock.now_monotonic()
             effective_tx_id = tx_id if tx_id is not None else 0x7E0
             effective_rx_id = rx_id if rx_id is not None else self.default_rx_id
+            # M12: the ECU conversation is part of the job identity.
+            key = self._job_key("uds_did", did, effective_tx_id, effective_rx_id)
             job = PollerJob(
                 kind="uds_did",
                 identifier=did,
@@ -271,10 +301,11 @@ class ActiveDiagnosticPoller:
                 f"DTC mode 0x{mode:02X} rate_hz {rate_hz} exceeds ceiling {MAX_RATE_HZ} Hz (fail-closed)"
             )
         with self._lock:
-            key = ("obd_dtc_mode", mode)
             now = self.clock.now_monotonic()
             effective_tx_id = tx_id if tx_id is not None else self.default_tx_id
             effective_rx_id = rx_id if rx_id is not None else self.default_rx_id
+            # M12: the ECU conversation is part of the job identity.
+            key = self._job_key("obd_dtc_mode", mode, effective_tx_id, effective_rx_id)
             job = PollerJob(
                 kind="obd_dtc_mode",
                 identifier=mode,
@@ -290,32 +321,35 @@ class ActiveDiagnosticPoller:
             self._get_transport_for(effective_tx_id, effective_rx_id)
             logger.info("Registered OBD DTC mode job", extra={"mode": hex(mode), "rate_hz": rate_hz})
 
+    @staticmethod
+    def _drop_jobs(
+        jobs: dict[tuple[str, int, int, int], PollerJob], kind: str, identifier: int
+    ) -> int:
+        """M12: drop every job matching (kind, identifier) on ANY conversation.
+
+        The jobs dict is keyed by conversation, so a plain `del` on one key
+        would leave a second ECU's job registered forever. Unregistering an
+        identifier means "stop polling this PID/DID/mode", on every ECU.
+        """
+        keys = [k for k in jobs if k[0] == kind and k[1] == identifier]
+        for key in keys:
+            del jobs[key]
+        return len(keys)
+
     def unregister_dtc_mode(self, mode: int) -> bool:
         """Unregister a DTC readback job. Returns True if job was found and removed."""
         with self._lock:
-            key = ("obd_dtc_mode", mode)
-            if key in self._jobs:
-                del self._jobs[key]
-                return True
-            return False
+            return self._drop_jobs(self._jobs, "obd_dtc_mode", mode) > 0
 
     def unregister_pid(self, pid: int) -> bool:
         """Unregister an OBD-II PID job. Returns True if job was found and removed."""
         with self._lock:
-            key = ("obd_pid", pid)
-            if key in self._jobs:
-                del self._jobs[key]
-                return True
-            return False
+            return self._drop_jobs(self._jobs, "obd_pid", pid) > 0
 
     def unregister_did(self, did: int) -> bool:
         """Unregister a UDS DID job. Returns True if job was found and removed."""
         with self._lock:
-            key = ("uds_did", did)
-            if key in self._jobs:
-                del self._jobs[key]
-                return True
-            return False
+            return self._drop_jobs(self._jobs, "uds_did", did) > 0
 
     def get_registered_jobs(self) -> list[PollerJob]:
         """Return list of all currently registered polling jobs."""
@@ -469,10 +503,44 @@ class ActiveDiagnosticPoller:
 
                 if nrc == UdsNrc.REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING:  # NRC 0x78
                     if active is not None:
+                        # H3 (verified OPEN): the poller used to arm P2* ONCE
+                        # and never re-arm it, so a slow ECU that keeps the
+                        # transaction alive with repeated 0x78 was declared
+                        # timed out mid-execution (false negative). Align with
+                        # `UdsClient`: every 0x78 re-arms the P2* window, but
+                        # clamped to an absolute wall and bounded by a count
+                        # cap (see `MAX_PENDING_ABS_S` / `MAX_NRC_78_COUNT`).
+                        if (
+                            active.nrc_78_count >= self.MAX_NRC_78_COUNT
+                            or now >= active.pending_wall_deadline_s
+                        ):
+                            # Pending budget exhausted: surface a deterministic
+                            # timeout instead of re-arming forever.
+                            logger.warning(
+                                "NRC 0x78 pending budget exhausted — declaring transaction failed",
+                                extra={
+                                    "id": hex(active.identifier),
+                                    "nrc_78_count": active.nrc_78_count,
+                                },
+                            )
+                            active.state = PollerState.FAILED
+                            active.consecutive_failures += 1
+                            self._state = PollerState.FAILED
+                            self._active_job = None
+                            return None, fc_frame
+                        active.nrc_78_count += 1
                         active.state = PollerState.WAITING_P2_STAR
-                        active.response_deadline_s = now + P2_STAR_TIMEOUT_S
+                        active.response_deadline_s = min(
+                            now + P2_STAR_TIMEOUT_S, active.pending_wall_deadline_s
+                        )
                         self._state = PollerState.WAITING_P2_STAR
-                        logger.info("Received NRC 0x78 (Response Pending) — extended P2* armed")
+                        logger.info(
+                            "Received NRC 0x78 (Response Pending) — P2* window re-armed",
+                            extra={
+                                "id": hex(active.identifier),
+                                "nrc_78_count": active.nrc_78_count,
+                            },
+                        )
                     return None, fc_frame
 
                 elif nrc == UdsNrc.BUSY_REPEAT_REQUEST:  # NRC 0x21
@@ -673,6 +741,10 @@ class ActiveDiagnosticPoller:
             selected_job.last_run_s = now
             selected_job.next_run_s = now + selected_job.interval_s
             selected_job.response_deadline_s = now + DEFAULT_P2_TIMEOUT_S
+            # H3: a new transaction gets a fresh NRC 0x78 pending budget —
+            # the absolute P2* wall and the count cap both restart here.
+            selected_job.pending_wall_deadline_s = now + self.MAX_PENDING_ABS_S
+            selected_job.nrc_78_count = 0
             self._state = PollerState.ENQUEUED
             self._last_tx_time_s = now
 
@@ -736,14 +808,36 @@ class ActiveDiagnosticPoller:
 
         start_time = self.clock.now_monotonic()
         deadline = start_time + timeout_s
+        # H3 (verified OPEN): absolute wall on the total NRC 0x78 dwell.
+        # Without it an ECU that answers faster than P2* (5 s) re-armed the
+        # deadline forever and this loop never returned. Mirrors
+        # `UdsClient.MAX_PENDING_ABS_S`; the caller's `timeout_s` is the
+        # initial P2 window, the wall is the ceiling on all extensions.
+        max_absolute_deadline = start_time + self.MAX_PENDING_ABS_S
+        nrc_78_count = 0
 
-        while self.clock.now_monotonic() < deadline:
-            remaining = deadline - self.clock.now_monotonic()
-            if remaining <= 0:
-                break
+        def _timeout_error() -> TimeoutError:
+            target_desc = "/".join(f"0x{r:03X}" for r in rx_ids)
+            return TimeoutError(
+                f"Timeout ({timeout_s}s) waiting for response to {protocol_name} request "
+                f"(tx 0x{req_frame.arbitration_id:03X} / rx {target_desc})"
+            )
+
+        while True:
+            now = self.clock.now_monotonic()
+            # Each iteration re-reads `deadline` because a 0x78 re-arms it.
+            remaining = deadline - now
+            if remaining <= 0 or now >= max_absolute_deadline:
+                raise _timeout_error()
             frame = await self.rx_subscription.recv(timeout_s=remaining)
             if frame is None:
-                break
+                # H3: an idle poll is NOT a timeout. The caller's `timeout_s`
+                # is the P2 window and a 0x78 may re-arm it, so a single
+                # empty `recv` must simply re-check the (possibly extended)
+                # deadline. Breaking out here declared a slow ECU dead after
+                # one polling interval, which is the very false negative H3
+                # is about.
+                continue
 
             if frame.channel_id != self.channel_id:
                 continue
@@ -758,15 +852,34 @@ class ActiveDiagnosticPoller:
                 await self.tx_port.send(fc)
 
             if completed is not None:
+                # H3 (verified OPEN): the P2* extension must be handled HERE,
+                # not (as before) re-arm it inside the per-protocol matchers
+                # and hope the fixed outer deadline somehow grew. A slow ECU
+                # that answers `7F <sid> 78` was silently read as a timeout.
+                if (
+                    completed[0] == 0x7F
+                    and len(completed) >= 3
+                    and completed[2] == UdsNrc.REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING
+                    and nrc_78_count < self.MAX_NRC_78_COUNT
+                    and self.clock.now_monotonic() < max_absolute_deadline
+                ):
+                    nrc_78_count += 1
+                    deadline = min(
+                        self.clock.now_monotonic() + P2_STAR_TIMEOUT_S, max_absolute_deadline
+                    )
+                    logger.info(
+                        "NRC 0x78 (Response Pending) — P2* window extended",
+                        extra={
+                            "protocol": protocol_name,
+                            "nrc_78_count": nrc_78_count,
+                        },
+                    )
+                    continue
                 result = await match_response(completed)
                 if result is not None:
                     return result
 
-        target_desc = "/".join(f"0x{r:03X}" for r in rx_ids)
-        raise TimeoutError(
-            f"Timeout ({timeout_s}s) waiting for response to {protocol_name} request "
-            f"(tx 0x{req_frame.arbitration_id:03X} / rx {target_desc})"
-        )
+        raise _timeout_error()
 
     async def poll_pid_once(
         self,
@@ -794,7 +907,9 @@ class ActiveDiagnosticPoller:
             if completed[0] == 0x7F and completed[1] == 0x01:
                 nrc = completed[2]
                 if nrc == UdsNrc.REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING:
-                    # P2* extension: keep the outer deadline; keep waiting
+                    # H3: NRC 0x78 is absorbed by _await_diagnostic_response
+                    # (which owns the P2* re-arm/absolute wall). Reaching this
+                    # branch means the pending BUDGET was exhausted there.
                     return None
                 raise ProtocolError(
                     f"OBD PID 0x{pid:02X} rejected with NRC 0x{nrc:02X}",
@@ -900,7 +1015,7 @@ class ActiveDiagnosticPoller:
             if completed[0] == 0x7F and completed[1] == 0x22:
                 nrc = completed[2]
                 if nrc == UdsNrc.REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING:
-                    # P2* extension: keep the outer deadline; keep waiting
+                    # H3: absorbed centrally by _await_diagnostic_response.
                     return None
                 raise ProtocolError(
                     f"UDS DID 0x{did:04X} rejected with NRC 0x{nrc:02X}",
@@ -967,7 +1082,8 @@ class ActiveDiagnosticPoller:
             if completed[0] == 0x7F and completed[1] == mode:
                 nrc = completed[2]
                 if nrc == UdsNrc.REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING:
-                    return None  # P2* extension: keep the outer deadline
+                    # H3: absorbed centrally by _await_diagnostic_response.
+                    return None
                 raise ProtocolError(
                     f"OBD DTC mode 0x{mode:02X} rejected with NRC 0x{nrc:02X}",
                     code="OBD_NEGATIVE_RESPONSE",

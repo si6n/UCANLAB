@@ -135,10 +135,33 @@ def _build_uds_rows() -> list[list[object]]:
     ]
 
 
+def _spn_sort_key(key: str) -> tuple[int, int, str]:
+    """Total, crash-free ordering key for SPN dictionary keys.
+
+    Keys are usually ``SPN_<decimal>``, but the catalog also contains
+    hexadecimal-style ids (``SPN_0x01`` … ``SPN_0x3E``) contributed by other
+    harvests. A bare ``int(k.split("_")[1])`` raises ``ValueError`` on those and
+    aborts the whole rebuild, so the CSV twins silently stop being regenerated
+    and ``data_integrity_audit.py`` reports csv_twins drift.
+
+    Decimal ids sort first in numeric order, then hex ids, then anything
+    unparseable by name — so the output stays deterministic.
+    """
+    suffix = key.split("_", 1)[1] if "_" in key else key
+    try:
+        return (0, int(suffix), key)
+    except ValueError:
+        pass
+    try:
+        return (1, int(suffix, 16), key)
+    except ValueError:
+        return (2, 0, key)
+
+
 def _build_j1939_rows() -> list[list[object]]:
     spns = json.loads(J1939_JSON.read_text(encoding="utf-8"))["spns"]
     rows: list[list[object]] = []
-    for key in sorted(spns, key=lambda k: int(k.split("_")[1])):
+    for key in sorted(spns, key=_spn_sort_key):
         entry = spns[key]
         pgn = entry.get("associated_pgn")
         acronym = entry.get("pgn_acronym")

@@ -111,3 +111,117 @@ F40D,F40D,DPF Regeneration Distance,Distance since last DPF regeneration,(A*256+
 D100,D100,Engine Oil Temperature,Engine oil sump temperature,A-40,°C,-40,180,7E0,22,BMW,,engine,curated_expert,high
 D10A,D10A,Charge Air Pressure,Turbocharger charge air pressure,(A*256+B)*0.01,mbar,0,3000,7E0,22,BMW,,engine,curated_expert,high
 1203,1203,HV Battery SoH,High-voltage battery state of health,A*100/255,%,0,100,79B,22,Nissan,,hv_battery,curated_expert,high
+0,00,PIDs supported [01-20],,,bitmap,,,,01,,,standard,obdex,standard
+11,0B,Intake manifold absolute pressure,,A,kPa,,,,01,,,standard,obdex,standard
+47,2F,Fuel tank level,,100/255 * A,%,,,,01,,,standard,obdex,standard
+92,5C,Engine oil temperature,,A - 40,°C,,,,01,,,standard,obdex,standard
+2,02,Freeze DTC (DTC that triggered freeze frame),,,dtc,,,,01,,,standard,obdex,standard
+8,08,Short term fuel trim — Bank 2,,100/128 * A - 100,%,,,,01,,,standard,obdex,standard
+9,09,Long term fuel trim — Bank 2,,100/128 * A - 100,%,,,,01,,,standard,obdex,standard
+10,0A,Fuel pressure (gauge pressure),,3 * A,kPa,,,,01,,,standard,obdex,standard
+18,12,Commanded secondary air status,,,encoded,,,,01,,,standard,obdex,standard
+22,16,Oxygen sensor 3 (Bank 1 Sensor 3) — voltage and short term fuel trim,,A/200 (voltage); 100/128 * B - 100 (trim),V; %,,,,01,,,standard,obdex,standard
+23,17,Oxygen sensor 4 (Bank 1 Sensor 4) — voltage and short term fuel trim,,A/200 (voltage); 100/128 * B - 100 (trim),V; %,,,,01,,,standard,obdex,standard
+24,18,Oxygen sensor 5 (Bank 2 Sensor 1) — voltage and short term fuel trim,,A/200 (voltage); 100/128 * B - 100 (trim),V; %,,,,01,,,standard,obdex,standard
+25,19,Oxygen sensor 6 (Bank 2 Sensor 2) — voltage and short term fuel trim,,A/200 (voltage); 100/128 * B - 100 (trim),V; %,,,,01,,,standard,obdex,standard
+26,1A,Oxygen sensor 7 (Bank 2 Sensor 3) — voltage and short term fuel trim,,A/200 (voltage); 100/128 * B - 100 (trim),V; %,,,,01,,,standard,obdex,standard
+27,1B,Oxygen sensor 8 (Bank 2 Sensor 4) — voltage and short term fuel trim,,A/200 (voltage); 100/128 * B - 100 (trim),V; %,,,,01,,,standard,obdex,standard
+29,1D,"Oxygen sensors present (in 4 banks, 2 bits per bank)",,,bitmap,,,,01,,,standard,obdex,standard
+30,1E,Auxiliary input status (PTO),,,bitmap,,,,01,,,standard,obdex,standard
+31,1F,Run time since engine start,,256 * A + B,s,,,,01,,,standard,obdex,standard
+32,20,PIDs supported [21-40],,,bitmap,,,,01,,,standard,obdex,standard
+34,22,Fuel rail pressure (relative to manifold vacuum),,0.079 * (256 * A + B),kPa,,,,01,,,standard,obdex,standard
+35,23,Fuel rail gauge pressure (diesel or petrol direct injection),,10 * (256 * A + B),kPa,,,,01,,,standard,obdex,standard
+36,24,Oxygen sensor 1 (Bank 1 Sensor 1) — air-fuel equivalence ratio (lambda) and voltage,,(2/65536) * (256*A + B) (lambda); (8/65536) * (256*C + D) (voltage),ratio; V,,,,01,,,standard,obdex,standard
+37,25,Oxygen sensor 2 (Bank 1 Sensor 2) — air-fuel equivalence ratio and voltage,,(2/65536) * (256*A + B) (lambda); (8/65536) * (256*C + D) (voltage),ratio; V,,,,01,,,standard,obdex,standard
+38,26,Oxygen sensor 3 (Bank 1 Sensor 3) — air-fuel equivalence ratio and voltage,,(2/65536) * (256*A + B) (lambda); (8/65536) * (256*C + D) (voltage),ratio; V,,,,01,,,standard,obdex,standard
+39,27,Oxygen sensor 4 (Bank 1 Sensor 4) — air-fuel equivalence ratio and voltage,,(2/65536) * (256*A + B) (lambda); (8/65536) * (256*C + D) (voltage),ratio; V,,,,01,,,standard,obdex,standard
+40,28,Oxygen sensor 5 (Bank 2 Sensor 1) — air-fuel equivalence ratio and voltage,,(2/65536) * (256*A + B) (lambda); (8/65536) * (256*C + D) (voltage),ratio; V,,,,01,,,standard,obdex,standard
+41,29,Oxygen sensor 6 (Bank 2 Sensor 2) — air-fuel equivalence ratio and voltage,,(2/65536) * (256*A + B) (lambda); (8/65536) * (256*C + D) (voltage),ratio; V,,,,01,,,standard,obdex,standard
+42,2A,Oxygen sensor 7 (Bank 2 Sensor 3) — air-fuel equivalence ratio and voltage,,(2/65536) * (256*A + B) (lambda); (8/65536) * (256*C + D) (voltage),ratio; V,,,,01,,,standard,obdex,standard
+43,2B,Oxygen sensor 8 (Bank 2 Sensor 4) — air-fuel equivalence ratio and voltage,,(2/65536) * (256*A + B) (lambda); (8/65536) * (256*C + D) (voltage),ratio; V,,,,01,,,standard,obdex,standard
+44,2C,Commanded EGR,,100/255 * A,%,,,,01,,,standard,obdex,standard
+45,2D,EGR Error,,100/128 * A - 100,%,,,,01,,,standard,obdex,standard
+46,2E,Commanded evaporative purge,,100/255 * A,%,,,,01,,,standard,obdex,standard
+48,30,Warm-ups since codes cleared,,A,count,,,,01,,,standard,obdex,standard
+49,31,Distance traveled since codes cleared,,256 * A + B,km,,,,01,,,standard,obdex,standard
+50,32,Evaporative system vapor pressure,,((256*A + B) / 4) - 8192,Pa,,,,01,,,standard,obdex,standard
+51,33,Absolute barometric pressure,,A,kPa,,,,01,,,standard,obdex,standard
+52,34,Oxygen sensor 1 (Bank 1 Sensor 1) — air-fuel equivalence ratio and current,,"(2/65536) * (256*A + B) (lambda); (256*C + D)/256 - 128 (current, mA)",ratio; mA,,,,01,,,standard,obdex,standard
+53,35,Oxygen sensor 2 (Bank 1 Sensor 2) — air-fuel equivalence ratio and current,,"(2/65536) * (256*A + B) (lambda); (256*C + D)/256 - 128 (current, mA)",ratio; mA,,,,01,,,standard,obdex,standard
+54,36,Oxygen sensor 3 (Bank 1 Sensor 3) — air-fuel equivalence ratio and current,,"(2/65536) * (256*A + B) (lambda); (256*C + D)/256 - 128 (current, mA)",ratio; mA,,,,01,,,standard,obdex,standard
+55,37,Oxygen sensor 4 (Bank 1 Sensor 4) — air-fuel equivalence ratio and current,,"(2/65536) * (256*A + B) (lambda); (256*C + D)/256 - 128 (current, mA)",ratio; mA,,,,01,,,standard,obdex,standard
+56,38,Oxygen sensor 5 (Bank 2 Sensor 1) — air-fuel equivalence ratio and current,,"(2/65536) * (256*A + B) (lambda); (256*C + D)/256 - 128 (current, mA)",ratio; mA,,,,01,,,standard,obdex,standard
+57,39,Oxygen sensor 6 (Bank 2 Sensor 2) — air-fuel equivalence ratio and current,,"(2/65536) * (256*A + B) (lambda); (256*C + D)/256 - 128 (current, mA)",ratio; mA,,,,01,,,standard,obdex,standard
+58,3A,Oxygen sensor 7 (Bank 2 Sensor 3) — air-fuel equivalence ratio and current,,"(2/65536) * (256*A + B) (lambda); (256*C + D)/256 - 128 (current, mA)",ratio; mA,,,,01,,,standard,obdex,standard
+59,3B,Oxygen sensor 8 (Bank 2 Sensor 4) — air-fuel equivalence ratio and current,,"(2/65536) * (256*A + B) (lambda); (256*C + D)/256 - 128 (current, mA)",ratio; mA,,,,01,,,standard,obdex,standard
+60,3C,"Catalyst temperature — Bank 1, Sensor 1",,(256*A + B) / 10 - 40,°C,,,,01,,,standard,obdex,standard
+61,3D,"Catalyst temperature — Bank 2, Sensor 1",,(256*A + B) / 10 - 40,°C,,,,01,,,standard,obdex,standard
+62,3E,"Catalyst temperature — Bank 1, Sensor 2",,(256*A + B) / 10 - 40,°C,,,,01,,,standard,obdex,standard
+63,3F,"Catalyst temperature — Bank 2, Sensor 2",,(256*A + B) / 10 - 40,°C,,,,01,,,standard,obdex,standard
+64,40,PIDs supported [41-60],,,bitmap,,,,01,,,standard,obdex,standard
+65,41,Monitor status this drive cycle,,,bitmap,,,,01,,,standard,obdex,standard
+66,42,Control module voltage,,(256*A + B) / 1000,V,,,,01,,,standard,obdex,standard
+67,43,Absolute load value,,100/255 * (256*A + B),%,,,,01,,,standard,obdex,standard
+68,44,Commanded air-fuel equivalence ratio (lambda),,(2 / 65536) * (256*A + B),ratio,,,,01,,,standard,obdex,standard
+69,45,Relative throttle position,,100/255 * A,%,,,,01,,,standard,obdex,standard
+70,46,Ambient air temperature,,A - 40,°C,,,,01,,,standard,obdex,standard
+71,47,Absolute throttle position B,,100/255 * A,%,,,,01,,,standard,obdex,standard
+72,48,Absolute throttle position C,,100/255 * A,%,,,,01,,,standard,obdex,standard
+73,49,Accelerator pedal position D,,100/255 * A,%,,,,01,,,standard,obdex,standard
+74,4A,Accelerator pedal position E,,100/255 * A,%,,,,01,,,standard,obdex,standard
+75,4B,Accelerator pedal position F,,100/255 * A,%,,,,01,,,standard,obdex,standard
+76,4C,Commanded throttle actuator,,100/255 * A,%,,,,01,,,standard,obdex,standard
+77,4D,Time run with MIL on,,256*A + B,min,,,,01,,,standard,obdex,standard
+78,4E,Time since trouble codes cleared,,256*A + B,min,,,,01,,,standard,obdex,standard
+79,4F,"Maximum value for fuel-air equivalence ratio, oxygen sensor voltage, oxygen sensor current, intake manifold absolute pressure",,,encoded,,,,01,,,standard,obdex,standard
+80,50,"Maximum value for air flow rate from mass air flow sensor (only A used; B, C, D reserved)",,A * 10,g/s,,,,01,,,standard,obdex,standard
+81,51,Fuel type,,,encoded,,,,01,,,standard,obdex,standard
+82,52,Ethanol fuel percentage,,100/255 * A,%,,,,01,,,standard,obdex,standard
+83,53,Absolute evaporative system vapor pressure,,(256*A + B) / 200,kPa,,,,01,,,standard,obdex,standard
+84,54,Evaporative system vapor pressure (signed),,(256*A + B) - 32767,Pa,,,,01,,,standard,obdex,standard
+85,55,Short term secondary oxygen sensor trim — Bank 1 (A) and Bank 3 (B),,100/128 * A - 100 (Bank 1); 100/128 * B - 100 (Bank 3),%,,,,01,,,standard,obdex,standard
+86,56,Long term secondary oxygen sensor trim — Bank 1 (A) and Bank 3 (B),,100/128 * A - 100 (Bank 1); 100/128 * B - 100 (Bank 3),%,,,,01,,,standard,obdex,standard
+87,57,Short term secondary oxygen sensor trim — Bank 2 (A) and Bank 4 (B),,100/128 * A - 100 (Bank 2); 100/128 * B - 100 (Bank 4),%,,,,01,,,standard,obdex,standard
+88,58,Long term secondary oxygen sensor trim — Bank 2 (A) and Bank 4 (B),,100/128 * A - 100 (Bank 2); 100/128 * B - 100 (Bank 4),%,,,,01,,,standard,obdex,standard
+89,59,Fuel rail absolute pressure,,10 * (256*A + B),kPa,,,,01,,,standard,obdex,standard
+90,5A,Relative accelerator pedal position,,100/255 * A,%,,,,01,,,standard,obdex,standard
+91,5B,Hybrid battery pack remaining life,,100/255 * A,%,,,,01,,,standard,obdex,standard
+93,5D,Fuel injection timing,,((256*A + B) - 26880) / 128,°,,,,01,,,standard,obdex,standard
+94,5E,Engine fuel rate,,(256*A + B) / 20,L/h,,,,01,,,standard,obdex,standard
+95,5F,Emission requirements to which vehicle is designed,,,encoded,,,,01,,,standard,obdex,standard
+96,60,PIDs supported [61-80],,,bitmap,,,,01,,,standard,obdex,standard
+97,61,Driver's demand engine percent torque,,A - 125,%,,,,01,,,standard,obdex,standard
+98,62,Actual engine percent torque,,A - 125,%,,,,01,,,standard,obdex,standard
+99,63,Engine reference torque,,256*A + B,Nm,,,,01,,,standard,obdex,standard
+100,64,"Engine percent torque at five engine points (idle, peak, reference points)",,A - 125 (idle); B - 125 (point2); C - 125 (point3); D - 125 (point4); E - 125 (point5),%,,,,01,,,standard,obdex,standard
+101,65,Auxiliary input/output supported,,,bitmap,,,,01,,,standard,obdex,standard
+102,66,Mass air flow sensor (A and B),,((256*B + C) / 32) (sensor A); ((256*D + E) / 32) (sensor B),g/s,,,,01,,,standard,obdex,standard
+103,67,Engine coolant temperature (sensor 1 and sensor 2),,B - 40 (sensor 1); C - 40 (sensor 2),°C,,,,01,,,standard,obdex,standard
+104,68,"Intake air temperature sensor (multiple, with bitfield support indicator)",,,encoded,,,,01,,,standard,obdex,standard
+120,78,"Exhaust gas temperature (EGT) — Bank 1, sensors 1-4",,((256*B + C)/10) - 40 (sensor 1); ((256*D + E)/10) - 40 (sensor 2); ((256*F + G)/10) - 40 (sensor 3); ((256*H + I)/10) - 40 (sensor 4),°C,,,,01,,,standard,obdex,standard
+121,79,"Exhaust gas temperature (EGT) — Bank 2, sensors 1-4",,((256*B + C)/10) - 40 (sensor 1); ((256*D + E)/10) - 40 (sensor 2); ((256*F + G)/10) - 40 (sensor 3); ((256*H + I)/10) - 40 (sensor 4),°C,,,,01,,,standard,obdex,standard
+124,7C,Diesel particulate filter (DPF) temperature,,,encoded,,,,01,,,standard,obdex,standard
+125,7D,NOx NTE (Not-To-Exceed) control area status,,,encoded,,,,01,,,standard,obdex,standard
+126,7E,PM NTE (Not-To-Exceed) control area status,,,encoded,,,,01,,,standard,obdex,standard
+128,80,PIDs supported [81-A0],,,bitmap,,,,01,,,standard,obdex,standard
+131,83,"NOx sensor (concentration, supported sensors)",,,encoded,,,,01,,,standard,obdex,standard
+132,84,Manifold surface temperature,,A - 40,°C,,,,01,,,standard,obdex,standard
+142,8E,Engine friction percent torque,,A - 125,%,,,,01,,,standard,obdex,standard
+157,9D,"Engine fuel rate (engine and vehicle, in g/s)",,(256*A + B) / 50 (engine fuel rate); (256*C + D) / 50 (vehicle fuel rate),g/s,,,,01,,,standard,obdex,standard
+158,9E,Engine exhaust flow rate,,(256*A + B) / 5,g/s,,,,01,,,standard,obdex,standard
+160,A0,PIDs supported [A1-C0],,,bitmap,,,,01,,,standard,obdex,standard
+162,A2,Cylinder fuel rate,,(256*A + B) / 32,mg/stroke,,,,01,,,standard,obdex,standard
+2,02,Vehicle Identification Number (VIN),,,ascii,,,,09,,,standard,obdex,standard
+4,04,Calibration ID,,,ascii,,,,09,,,standard,obdex,standard
+6,06,Calibration Verification Number (CVN),,,hex,,,,09,,,standard,obdex,standard
+10,0A,ECU name,,,ascii,,,,09,,,standard,obdex,standard
+0,00,Mode 9 PIDs supported [01-20],,,bitmap,,,,09,,,standard,obdex,standard
+1,01,VIN message count (for protocols requiring multi-message VIN),,A,count,,,,09,,,standard,obdex,standard
+3,03,Calibration ID message count,,A,count,,,,09,,,standard,obdex,standard
+5,05,Calibration verification number (CVN) message count,,A,count,,,,09,,,standard,obdex,standard
+7,07,In-use performance tracking message count,,A,count,,,,09,,,standard,obdex,standard
+8,08,In-use performance tracking for spark ignition vehicles (16 counter pairs),,,encoded,,,,09,,,standard,obdex,standard
+11,0B,In-use performance tracking for compression ignition (diesel) vehicles,,,encoded,,,,09,,,standard,obdex,standard
+13,0D,Engine serial number (ESN),,,ascii,,,,09,,,standard,obdex,standard
+14,0E,Exhaust regulation / type approval number,,,ascii,,,,09,,,standard,obdex,standard

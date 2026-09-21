@@ -110,7 +110,26 @@ class AbstractBus(ABC):
 
     @abstractmethod
     def recv(self, timeout_s: float | None = 0.1) -> CanFrame | None:
-        """Receive a single CanFrame within timeout. Returns None on timeout."""
+        """Receive a single CanFrame within timeout. Returns None on timeout.
+
+        HAL-31 — the timeout contract every driver MUST honour:
+
+        * ``timeout_s is None``  → block INDEFINITELY until a frame arrives
+          (or the bus is torn down; a driver that publishes a stop sentinel on
+          ``disconnect()`` then returns ``None``). Required by blocking
+          consumers such as ``protocols/uds/isotp.py``, which call
+          ``recv(timeout_s=None)``.
+        * ``timeout_s == 0``     → non-blocking poll; return ``None``
+          immediately when nothing is queued.
+        * ``0 < timeout_s <= 60``→ return ``None`` once the timeout elapses.
+        * anything else (negative, NaN, > 60, bool, non-numeric) → raise
+          ``ValueError`` up front rather than silently shortening the wait.
+
+        ``None`` therefore means BOTH "blocking wait" (argument) and "nothing
+        received" (return value); callers distinguish them by the argument
+        they passed. Implementations must never substitute a default timeout
+        for an explicit ``None``.
+        """
         ...
 
     def get_metrics(self) -> BusMetrics:

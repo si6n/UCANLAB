@@ -34,7 +34,7 @@ class VirtualChannelEngine:
         cls,
         rpm: float | None,
         actual_torque_percent: float | None,
-        nominal_torque_nm: float = 1000.0,
+        nominal_torque_nm: float | None = None,
     ) -> tuple[float | None, float | None, float | None]:
         """Calculate Engine Torque (Nm), Power (kW), and Metric Horsepower (HP) (B-11).
 
@@ -42,6 +42,15 @@ class VirtualChannelEngine:
             Torque (Nm) = (Actual Torque % / 100) * Nominal Torque (Nm)
             Power (kW) = (RPM * Torque) / 9549.3
             Power (HP) = Power (kW) * 1.34102
+
+        P2-7 (AGENTS.md §2.3): `nominal_torque_nm` used to DEFAULT to 1000.0.
+        An engine's rated torque is a per-engine nameplate figure; a caller that
+        omitted it was handed `1000 Nm * torque%` — a fabricated measurement
+        indistinguishable from a real one. The parameter is now OPTIONAL and
+        unevaluable without it, so the function returns `(None, None, None)`
+        rather than inventing a rating. An invalid value that the caller DID
+        supply is still rejected loudly (fail-closed, and it keeps the existing
+        ValueError contract for explicit bad input).
         """
         if rpm is None or actual_torque_percent is None:
             return None, None, None
@@ -50,7 +59,10 @@ class VirtualChannelEngine:
         if rpm < 0 or actual_torque_percent < -125 or actual_torque_percent > 125:
             return None, None, None
 
-        if nominal_torque_nm is None or not math.isfinite(nominal_torque_nm) or nominal_torque_nm <= 0:
+        # Omitted -> no nameplate rating -> not evaluable. Never fabricate one.
+        if nominal_torque_nm is None:
+            return None, None, None
+        if not math.isfinite(nominal_torque_nm) or nominal_torque_nm <= 0:
             raise ValueError(
                 f"nominal_torque_nm must be a finite positive number (> 0), got {nominal_torque_nm!r}"
             )
@@ -96,6 +108,17 @@ class VirtualChannelEngine:
             return None
         return round((fuel_rate_lph * 100.0) / vehicle_speed_kmh, 2)
 
+    #: P2-8: physically plausible bounds for propeller slip (%). A propeller
+    #: cannot drive a hull faster than its own pitch speed, so slip below
+    #: roughly -50 % means the sensed boat speed is not coming from this
+    #: propeller (operator typo, wrong unit, GPS/engine signal cross-wired),
+    #: and slip above 100 % means the boat is moving backwards or the shaft
+    #: RPM is bogus. Outside this window the value is NOT a measurement, so it
+    #: is reported as `None` rather than clamped into a plausible-looking
+    #: number (AGENTS.md §2.3 — no silent normalisation).
+    PROPELLER_SLIP_MIN_PERCENT: ClassVar[float] = -50.0
+    PROPELLER_SLIP_MAX_PERCENT: ClassVar[float] = 100.0
+
     @classmethod
     def calculate_propeller_slip(
         cls,
@@ -111,6 +134,8 @@ class VirtualChannelEngine:
             Slip % = (1.0 - (Boat Speed / Theoretical Speed)) * 100.0
 
         L-6 (P3-1): NaN fails closed (see marine efficiency).
+        P2-8: implausible slip (outside PROPELLER_SLIP_MIN/MAX) returns None
+        instead of a silently-clamped or impossible number.
         """
         if not (
             math.isfinite(engine_rpm)
@@ -129,4 +154,6 @@ class VirtualChannelEngine:
             return None
 
         slip = (1.0 - (boat_speed_knots / theoretical_speed_knots)) * 100.0
+        if not cls.PROPELLER_SLIP_MIN_PERCENT <= slip <= cls.PROPELLER_SLIP_MAX_PERCENT:
+            return None
         return round(slip, 2)

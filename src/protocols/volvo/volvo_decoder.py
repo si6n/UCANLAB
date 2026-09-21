@@ -6,11 +6,13 @@ Complies with Volvo Penta EDC1/4/7 and EVC-A..E specifications (MASTER_PLAN.md S
 from __future__ import annotations
 
 import threading
+import time
 from dataclasses import dataclass
 from typing import ClassVar
 
 from src.core.logging import get_logger
 from src.core.models.can_frame import CanFrame
+from src.protocols.j1939.pgn import parse_j1939_id
 
 logger = get_logger("protocols.volvo")
 
@@ -99,30 +101,56 @@ class VolvoPentaDecoder:
     # REVIEW 2-M4 (MEDIUM): PGN 65360/65361 are Proprietary B — every OEM
     # uses that range. The masked PGN alone never proves Volvo origin, so
     # the frame's Source Address gates attribution:
-    #   - SAs in the documented Volvo Penta set decode at HIGH confidence;
-    #   - SAs whose recorded PGN 60928 NAME claim carries a NON-Volvo
-    #     manufacturer code are FOREIGN — decode refused outright (a
-    #     third-party device's 0xFF50/0xFF51 traffic must never surface as
-    #     Volvo helm/rudder telemetry);
-    #   - unknown SAs (no static entry, no claim) still decode, flagged
-    #     attribution_confidence="LOW" so the UI can warn.
-    VOLVO_PENTA_SOURCE_ADDRESSES: ClassVar[frozenset[int]] = frozenset(
-        {
-            0x00,  # Engine 1 (SA 0) — J1939-81 preferred address, EDC primary
-            0x01,  # Engine 2 (SA 1) — J1939-81 preferred address
-        }
-    )
-    # canboat NAME Manufacturer Code for Volvo Penta — verified in BOTH
-    # go-to-truth DBC tables: 174 "AB Volvo Penta" (data/dbc/j1939_canboat.dbc)
-    # and 174 "Volvo Penta" (data/dbc/marine/n2k_canboat.dbc). NOTE: 60/61
-    # are Volvo TRUCKS, a different company branch — not Volvo Penta marine.
+    #   - SAs whose recorded PGN 60928 NAME claim carries a Volvo Penta
+    #     manufacturer code decode at HIGH confidence;
+    #   - SAs whose recorded NAME claim carries a NON-Volvo manufacturer
+    #     code are FOREIGN — decode refused outright (a third-party device's
+    #     0xFF50/0xFF51 traffic must never surface as Volvo helm/rudder
+    #     telemetry);
+    #   - SAs with no claim on record decode at LOW confidence so the UI can
+    #     warn (never silently trusted).
+    #
+    # M5 (verified OPEN): the previous static SA allowlist {0x00, 0x01}
+    # claimed "HIGH" for exactly two addresses. Volvo Penta ECUs legitimately
+    # claim many other addresses (engine 2+, EVC helm stations, DPS drives)
+    # and it is illegal for an offline allowlist to assert Volvo provenance
+    # from an address alone — J1939-81 addresses are DYNAMIC. The allowlist
+    # is intentionally removed: provenance now comes from the NAME claim
+    # (manufacturer code 174) and everything else is honestly "LOW".
     VOLVO_NAME_MANUFACTURER_CODES: ClassVar[frozenset[int]] = frozenset({174})
 
-    # REVIEW 2-M4: SA -> NAME manufacturer code learned from PGN 60928
-    # Address Claim frames. Thread-safe module-level learning table shared
-    # by the classmethod decoder (classmethods cannot hold instance state).
-    _sa_name_codes: dict[int, int] = {}
+    # M8 (verified OPEN): the SA -> manufacturer-code learning table grew
+    # WITHOUT a TTL, so a spoofed-claim sweep left one permanent entry per
+    # Source Address (up to the 256-address space) and a stale entry could
+    # outlive the ECU that made it — keeping a departed node's identity (or a
+    # spoofed one) authoritative forever. Entries now carry a monotonic TTL.
+    NAME_CLAIM_TTL_S: ClassVar[float] = 60.0
+
+    # REVIEW 2-M4: SA -> (manufacturer code, monotonic expiry) learned from
+    # PGN 60928 Address Claim frames. Thread-safe module-level learning table
+    # shared by the classmethod decoder (classmethods cannot hold instance
+    # state).
+    _sa_name_codes: dict[int, tuple[int, float]] = {}
     _name_codes_lock = threading.Lock()
+
+    @classmethod
+    def _live_name_code(cls, sa: int) -> int | None:
+        """Return the live manufacturer code for `sa`, pruning on expiry.
+
+        M8: an entry past its TTL is treated as never-seen (and dropped), so
+        a stale/spoofed claim cannot pin an attribution forever.
+        """
+        with cls._name_codes_lock:
+            entry = cls._sa_name_codes.get(sa)
+            if entry is None:
+                return None
+            if not (isinstance(entry, tuple) and len(entry) == 2):
+                return None
+            code, expiry = entry
+            if expiry <= time.monotonic():
+                cls._sa_name_codes.pop(sa, None)
+                return None
+            return int(code)
 
     @classmethod
     def record_address_claim(cls, frame: CanFrame) -> None:
@@ -135,41 +163,46 @@ class VolvoPentaDecoder:
         """
         if not frame.is_extended or len(frame.data) < 8:
             return
-        # PDU1 (PF < 0xF0): the PS octet is a destination address and must
-        # be masked out — 0x18EEFF00 is PGN 60928 (0xEE00), NOT 0xEEFF.
-        pgn_masked = (frame.arbitration_id >> 8) & 0x3FFFF
-        pf = (pgn_masked >> 8) & 0xFF
-        pgn = pgn_masked & 0x3FF00 if pf < 0xF0 else pgn_masked
+        # M7 (verified OPEN): use the SHARED J1939 ID parser instead of a
+        # hand-rolled mask. The local math (`(id >> 8) & 0x3FFFF` plus a
+        # manual PDU1 mask) dropped the EDP bit and duplicated logic that
+        # `parse_j1939_id` already owns — two implementations of the same
+        # rule is how the EDP regression came back the first time.
+        pgn, _sa, _da, _priority = parse_j1939_id(frame.arbitration_id)
         if pgn != 60928:  # 0xEE00
             return
         name = int.from_bytes(bytes(frame.data[0:8]), byteorder="little")
         manufacturer_code = (name >> 21) & 0x7FF  # NAME bits 21..31
         sa = frame.arbitration_id & 0xFF
         with cls._name_codes_lock:
-            cls._sa_name_codes[sa] = manufacturer_code
+            # M8: stamp the monotonic expiry with every learned claim.
+            cls._sa_name_codes[sa] = (manufacturer_code, time.monotonic() + cls.NAME_CLAIM_TTL_S)
 
     @classmethod
     def _source_ownership(cls, sa: int) -> str:
         """Classify the frame SA: "VOLVO_PENTA", "FOREIGN" or "UNKNOWN".
 
-        A recorded PGN 60928 NAME claim ALWAYS outranks the static SA
-        allowlist — a Cummins ECU claiming SA 0 (a perfectly legal J1939-81
-        preferred address) must be FOREIGN, not "Volvo Penta by coincidence
-        of address". The static list is only the fallback for unclaimed SAs.
+        A recorded PGN 60928 NAME claim ALWAYS decides provenance; with no
+        live claim on record the SA is UNKNOWN (M5: the static address
+        allowlist is gone — an address alone never proves a manufacturer).
         """
-        with cls._name_codes_lock:
-            code = cls._sa_name_codes.get(sa)
+        code = cls._live_name_code(sa)
         if code is not None:
             if code in cls.VOLVO_NAME_MANUFACTURER_CODES:
                 return "VOLVO_PENTA"
             return "FOREIGN"
-        if sa in cls.VOLVO_PENTA_SOURCE_ADDRESSES:
-            return "VOLVO_PENTA"
         return "UNKNOWN"
 
     @classmethod
     def parse_edc_fault_payload(cls, data: bytes) -> list[VolvoDtc]:
-        """Parse Volvo Penta MID 128 PID/SID fault code payload."""
+        """Parse Volvo Penta MID 128 PID/SID/PPID/PSID fault code payload.
+
+        M6 (verified OPEN): the code-type discriminator is defined for
+        {0=PID, 1=SID, 2=PPID, 3=PSID}. The old `else: "PPID"` branch turned
+        ANY other byte (including 0x04..0xFF and reserved values) into a
+        PPID labelled from an unrelated field — a fabricated identifier.
+        Zero-fabrication: out-of-spec code types are skipped, not labelled.
+        """
         dtcs: list[VolvoDtc] = []
         if len(data) < 3:
             return dtcs
@@ -190,12 +223,21 @@ class VolvoPentaDecoder:
             elif code_type_code == 1:
                 type_str = "SID"
                 desc = VOLVO_SIDS.get(code_id, f"SID {code_id}")
+            elif code_type_code == 2:
+                type_str = "PPID"
+                desc = f"PPID {code_id}"
             elif code_type_code == 3:
                 type_str = "PSID"
                 desc = VOLVO_PSIDS.get(code_id, f"PSID {code_id}")
             else:
-                type_str = "PPID"
-                desc = f"PPID {code_id}"
+                # M6: out-of-spec code type — no label can be established,
+                # so the record is dropped rather than mislabelled.
+                logger.warning(
+                    "Volvo EDC fault record skipped: out-of-spec code type",
+                    extra={"code_type": code_type_code, "offset": idx},
+                )
+                idx += 3
+                continue
 
             dtcs.append(
                 VolvoDtc(
@@ -240,8 +282,8 @@ class VolvoPentaDecoder:
         sa = frame.arbitration_id & 0xFF
         ownership = cls._source_ownership(sa)
         if ownership == "FOREIGN":
-            with cls._name_codes_lock:
-                mfr = cls._sa_name_codes.get(sa)
+            # M8: read the live (TTL-checked) code for the log line.
+            mfr = cls._live_name_code(sa)
             logger.warning(
                 "Volvo EVC PGN from non-Volvo NAME-claimed source — decode refused",
                 extra={"sa": sa, "pgn": pgn, "manufacturer_code": mfr},

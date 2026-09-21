@@ -18,6 +18,7 @@ from src.launcher.updater import UpdateInfo
 from src.safety.secret_provider import InMemorySecretProvider
 from src.security.cloud.client import (
     CANONICAL_CLOUD_HOSTS,
+    DEV_ONLY_CLOUD_HOSTS,
     CloudClient,
     CloudConfig,
     is_production,
@@ -31,9 +32,15 @@ from src.ui.desktop_app import _resolve_cloud_base_url
 # ==============================================================================
 class TestT62U1CloudAllowlist:
     def test_canonical_cloud_hosts_defined(self) -> None:
-        """Canonical allowlist includes official hosts and loopback addresses."""
-        for host in ("ucan-cloud.si6n.io", "cloud.universalcan.io", "ucanlab.org", "api.ucanlab.org", "127.0.0.1", "localhost", "::1"):
+        """SEC-07: the PRODUCTION allowlist holds only official hosts; loopback
+        addresses are dev-only, so a frozen build can never be pointed at the
+        local machine (the pinned-HTTPS/allowlist claim depends on this split).
+        """
+        for host in ("ucan-cloud.si6n.io", "cloud.universalcan.io", "ucanlab.org", "api.ucanlab.org"):
             assert host in CANONICAL_CLOUD_HOSTS
+        for host in ("127.0.0.1", "localhost", "::1"):
+            assert host not in CANONICAL_CLOUD_HOSTS
+            assert host in DEV_ONLY_CLOUD_HOSTS
 
     def test_cloud_config_rejects_userinfo(self) -> None:
         """Userinfo in cloud base URL must fail closed."""

@@ -93,10 +93,26 @@ class IsoTpSession:
     quota_key: str | None = None
 
 
-def decode_vin_payload(data: bytes) -> str:
-    """Decode ASCII Vehicle Identification Number (VIN) payload from J1939 PGN 65260."""
+def decode_vin_payload(data: bytes) -> str | None:
+    """Decode ASCII Vehicle Identification Number (VIN) payload from J1939 PGN 65260.
+
+    P2-10 (AGENTS.md §2.3): the old `errors="replace"` decoding FABRICATED
+    characters — any non-ASCII byte (padding, an unset byte, a truncated frame)
+    became U+FFFD and was then returned as if it were part of the VIN, so a
+    corrupted payload produced a plausible-looking identifier that an operator
+    or a report would treat as real. Decoding is now STRICT: a payload that is
+    not clean ASCII is not a VIN, and the function returns `None` so the caller
+    records "identification not available" instead of a fabricated string.
+    """
     clean = data.split(b"*")[0]
-    return clean.decode("ascii", errors="replace").strip("\x00\xff ")
+    try:
+        decoded = clean.decode("ascii", errors="strict")
+    except UnicodeDecodeError:
+        return None
+    # J1939 VIN padding is `*`-terminated and byte-padded with 0x00 / 0xFF.
+    # Stripping padding is not fabrication — those bytes are defined as absent.
+    vin = decoded.strip("\x00\xff ").strip("\x00\xff")
+    return vin or None
 
 
 # 11-bit diagnostic IDs the protocol engines legitimately transmit (physical

@@ -57,7 +57,9 @@ _VALID_STATUSES: frozenset[str] = frozenset({"ACTIVE", "HISTORY", "PENDING"})
 
 _KEBAB_CASE_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-_RAW_VIN_RE = re.compile(r"\b[A-HJ-NPR-Z0-9]{17}\b")
+# P1-10 (privacy): VINs are case-insensitive in the real world, so a
+# lowercase/Title-case 17-char VIN in a golden case must be rejected too.
+_RAW_VIN_RE = re.compile(r"\b[A-HJ-NPR-Z0-9]{17}\b", re.IGNORECASE)
 
 
 class GoldenCaseError(ValueError):

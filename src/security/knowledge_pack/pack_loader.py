@@ -21,7 +21,16 @@ logger = get_logger("security.knowledge_pack")
 
 
 def secure_zero_memory(buf: bytearray) -> None:
-    """Overwrites sensitive RAM buffers in-place with zeros to prevent memory scraping."""
+    """Overwrite a mutable RAM buffer in place with zeros (BEST-EFFORT scrub).
+
+    SEC-12 (Batch B): this is a Python-level overwrite of a ``bytearray``, NOT
+    a C-level memory wipe. It cannot reach immutable copies Python already
+    made elsewhere on the heap (``bytes(...)`` of the same key, a memoryview
+    slice handed out earlier, a relocated object), and it guarantees nothing
+    against a debugger, a core dump, or swap. It shortens the window during
+    which a plaintext/key buffer sits in a live object — nothing more. Do not
+    describe it, in code or documentation, as guaranteed erasure.
+    """
     for i in range(len(buf)):
         buf[i] = 0
 

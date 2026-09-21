@@ -91,8 +91,12 @@ def resolve_export_path(
         real_root = root.resolve()
         if not real_parent.is_relative_to(real_root):
             raise ValueError(f"Export path escapes exports root via symlink: {resolved}")
-    except OSError:
-        pass
+    except OSError as exc:
+        # P1-7 (fail-closed): the previous `pass` made a failed parent
+        # resolution silently ACCEPT the path — i.e. an unresolvable symlink
+        # parent (ELOOP / permission denied / vanished directory) exported
+        # OUTSIDE the root. An unverifiable path is rejected, not trusted.
+        raise ValueError(f"Export path symlink parent cannot be resolved: {resolved} ({exc})") from exc
 
     return resolved
 

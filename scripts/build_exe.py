@@ -2,10 +2,44 @@
 
 from __future__ import annotations
 
+import hashlib
 import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+
+def write_target_manifest(root_dir: Path, artifact: Path) -> Path:
+    """Emit ``data/target.hash`` for the D-4 frozen-target gate (H-4).
+
+    ``src/launcher/app.py::_manifest_path`` reads ``<bundle>/data/target.hash``
+    and its loader accepts a bare 64-hex digest line or sha256sum's
+    ``<digest>  <name>`` form. No build script wrote it, so every frozen
+    launcher failed the target-integrity gate and fell back to a
+    ``src/main.py`` that is not bundled into the frozen build at all.
+
+    A missing artifact raises: a release must never ship without the manifest.
+    """
+    if not artifact.is_file():
+        raise FileNotFoundError(
+            f"Build artifact not found, cannot emit the D-4 hash manifest: {artifact}"
+        )
+    digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
+    payload = f"{digest}  {artifact.name}\n"
+    manifest_path = root_dir / "data" / "target.hash"
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_path.write_text(payload, encoding="utf-8")
+
+    # Copy that must be PACKAGED into the bundle (see --add-data below). The
+    # gate only means something when the manifest is OUTSIDE the writable dist/.
+    packaging_copy = root_dir / "dist" / "data" / "target.hash"
+    try:
+        packaging_copy.parent.mkdir(parents=True, exist_ok=True)
+        packaging_copy.write_text(payload, encoding="utf-8")
+    except OSError as exc:  # pragma: no cover - packaging convenience only
+        print(f"[WARN] Could not stage the packaged manifest copy: {exc}")
+    print(f"[D-4] target.hash: {digest}  ({artifact.name}) -> {manifest_path}")
+    return manifest_path
 
 
 def _resolve_npm() -> str:
@@ -260,6 +294,14 @@ def build_exe() -> int:
     ret = subprocess.call(cmd, cwd=str(root_dir))
     if ret == 0:
         exe_path = root_dir / "dist" / "ucanlab.exe"
+        # H-4: emit data/target.hash for the launcher's D-4 gate. A build that
+        # cannot produce the manifest FAILS (never a manifest-less release).
+        try:
+            write_target_manifest(root_dir, exe_path)
+        except (FileNotFoundError, OSError) as exc:
+            print(f"[HATA] D-4 hash manifesti yazilamadi: {exc}")
+            print("[HATA] Manifest'siz surum yayinlanmaz — derleme basarisiz sayiliyor.")
+            return 1
         print("==================================================")
         print("TEBRIKLER! uCAN Lab .EXE dosyaniz basariyla olusturuldu:")
         print(f"Dosya Konumu: {exe_path}")

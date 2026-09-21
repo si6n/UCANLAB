@@ -101,7 +101,12 @@ def validate_dtc_record(record: Dict[str, Any]) -> ValidationReport:
         "causes": sanitized_causes,
         "source": clean_and_sanitize(record.get("source", "scout")),
         "source_url": str(record.get("url", "")).strip(),
-        "verified_by": "marshal_gatekeeper"
+        # P2-6: this field records what an AUTOMATED gate did (schema + junk +
+        # code-artifact screening) — it is NOT human verification. Labelling it
+        # `verified_by` let a machine stamp impersonate a technician's sign-off,
+        # so the field now names its producer. `verified_by` is RESERVED for a
+        # human approval and is never written by the gate.
+        "sanitized_by": "marshal_gatekeeper",
     }
     fp = hashlib.sha256(repr(sorted(res.items())).encode("utf-8")).hexdigest()
     return ValidationReport(True, [], warnings, res, fp)
@@ -148,7 +153,9 @@ def validate_spn_record(record: Dict[str, Any]) -> ValidationReport:
 
     res = {
         "spn": spn, "fmi": sanitized_fmi, "name": name,
-        "causes": causes, "actions": actions, "verified_by": "marshal_gatekeeper"
+        "causes": causes, "actions": actions,
+        # P2-6: automated sanitization stamp, deliberately NOT `verified_by`.
+        "sanitized_by": "marshal_gatekeeper",
     }
     fp = hashlib.sha256(repr(sorted(res.items())).encode("utf-8")).hexdigest()
     return ValidationReport(True, [], warnings, res, fp)

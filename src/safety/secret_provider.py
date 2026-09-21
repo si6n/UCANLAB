@@ -79,28 +79,73 @@ def _check_secret_bounds(name: str, secret: bytes, count: int) -> None:
         )
 
 
-def derive_machine_dpapi_entropy(base_entropy: bytes = DEFAULT_DPAPI_ENTROPY) -> bytes:
-    """Derive hardware-tied DPAPI secondary entropy binding (F-06 / SEC-SP-001).
+_MACHINE_GUID_REG_PATH: str = r"SOFTWARE\Microsoft\Cryptography"
+_MACHINE_GUID_VALUE: str = "MachineGuid"
 
-    Mixes machine node, platform identity, and base entropy through SHA-256
-    to prevent cross-device credential transfer attacks while maintaining
-    deterministic local recovery.
 
-    REVIEW2 #9 (known trade-off, deliberate): the binding includes
-    ``platform.node()`` — renaming the machine (domain rejoin, corporate
-    re-image, VM clone/rename) permanently invalidates DPAPI-sealed secrets
-    (CLOUD_LICENSE_TICKET, API keys) with a misleading "EXPIRED" tier on
-    the license side. Switching to a stable MachineGuid-based identity is
-    migration-breaking for every already-sealed secret on every deployed
-    host, so the current binding is kept. Operators hitting an unexplained
-    EXPIRED status right after a machine rename should re-activate rather
-    than renew the license; a future format bump (with an explicit
-    re-sealing migration) can move this to MachineGuid.
+def read_windows_machine_guid() -> str | None:
+    """S-10: read the machine-stable ``MachineGuid`` from the registry.
+
+    ``HKLM\\SOFTWARE\\Microsoft\\Cryptography\\MachineGuid`` survives a machine
+    RENAME (unlike ``platform.node()``/COMPUTERNAME), so binding DPAPI entropy
+    to it removes the false "EXPIRED" lock-out an operator used to hit after a
+    domain rejoin / corporate re-image. Returns ``None`` on every non-Windows
+    platform and on any read failure, so callers fall back to the legacy
+    identity. Read-only (`winreg.KEY_READ`); never raises.
+    """
+    if os.name != "nt":
+        return None
+    try:
+        import winreg
+
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, _MACHINE_GUID_REG_PATH, 0, winreg.KEY_READ) as key:
+            value, _ = winreg.QueryValueEx(key, _MACHINE_GUID_VALUE)
+        guid = str(value).strip()
+        return guid or None
+    except Exception:  # noqa: BLE001 - availability fallback, never fail the caller
+        return None
+
+
+def derive_legacy_machine_dpapi_entropy(
+    base_entropy: bytes = DEFAULT_DPAPI_ENTROPY,
+) -> bytes:
+    """S-10 legacy identity binding (``platform.node()`` based).
+
+    Kept ONLY as the decryption fallback for stores sealed before the S-10
+    MachineGuid migration, so an existing deployment keeps opening its own
+    ``secrets.dpapi`` instead of failing closed and demanding re-activation.
     """
     import hashlib
     import platform
 
     ident = f"{platform.node()}-{platform.machine()}-{os.environ.get('COMPUTERNAME', '')}".encode("utf-8")
+    return hashlib.sha256(base_entropy + b":" + ident).digest()
+
+
+def derive_machine_dpapi_entropy(base_entropy: bytes = DEFAULT_DPAPI_ENTROPY) -> bytes:
+    """Derive hardware-tied DPAPI secondary entropy binding (F-06 / SEC-SP-001).
+
+    Mixes a machine identity and base entropy through SHA-256 to prevent
+    cross-device credential transfer attacks while maintaining deterministic
+    local recovery.
+
+    S-10: the identity is the machine-STABLE
+    ``HKLM\\SOFTWARE\\Microsoft\\Cryptography\\MachineGuid`` on Windows (see
+    :func:`read_windows_machine_guid`); the legacy
+    ``platform.node()``/``COMPUTERNAME`` identity is used only as the fallback
+    when the registry is unreadable or on non-Windows platforms. A stable
+    identity stops a machine rename from permanently invalidating every
+    DPAPI-sealed secret (which surfaced as a misleading "EXPIRED" license tier).
+    Stores sealed under the legacy identity are still opened through
+    ``derive_legacy_machine_dpapi_entropy`` in the unprotect fallback chain.
+    """
+    import hashlib
+
+    machine_guid = read_windows_machine_guid()
+    if machine_guid:
+        ident = f"machineguid:{machine_guid}".encode("utf-8")
+    else:
+        return derive_legacy_machine_dpapi_entropy(base_entropy)
     return hashlib.sha256(base_entropy + b":" + ident).digest()
 
 
@@ -716,16 +761,30 @@ class WindowsDPAPISecretBackend(SecretProvider):
             kernel32.LocalFree(blob_out.pbData)
 
     def _dpapi_unprotect(self, encrypted_data: bytes) -> bytes:
-        """Unprotect DPAPI data with primary entropy and fallback to legacy base entropy (F-06)."""
-        try:
-            return self._dpapi_unprotect_single(encrypted_data, self.entropy)
-        except Exception as primary_exc:
-            if self.entropy != DEFAULT_DPAPI_ENTROPY:
-                try:
-                    return self._dpapi_unprotect_single(encrypted_data, DEFAULT_DPAPI_ENTROPY)
-                except Exception:
-                    pass
-            raise primary_exc
+        """Unprotect DPAPI data with the primary entropy and the fallback chain (F-06 / S-10).
+
+        Order: (1) the live MachineGuid-bound entropy, (2) the LEGACY
+        ``platform.node()``-bound entropy for stores sealed before the S-10
+        migration, (3) the bare base entropy for the oldest format. A store
+        that predates the migration therefore still opens in place — it is never
+        spuriously declared unreadable (which surfaced as a false "EXPIRED"
+        licence and a blocked re-save).
+        """
+        candidates: list[bytes] = [self.entropy]
+        legacy = derive_legacy_machine_dpapi_entropy()
+        if legacy not in candidates:
+            candidates.append(legacy)
+        if DEFAULT_DPAPI_ENTROPY not in candidates:
+            candidates.append(DEFAULT_DPAPI_ENTROPY)
+
+        last_exc: Exception | None = None
+        for candidate in candidates:
+            try:
+                return self._dpapi_unprotect_single(encrypted_data, candidate)
+            except Exception as exc:  # noqa: BLE001 - try the next candidate
+                last_exc = exc
+        assert last_exc is not None  # candidates is never empty
+        raise last_exc
 
     def _get_fallback(self) -> SecretProvider:
         """Get or initialize fallback encrypted file provider."""

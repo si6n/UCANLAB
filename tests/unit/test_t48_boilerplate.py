@@ -21,7 +21,7 @@ Invariants locked here (task body — violation = task rejection):
   2. The nested-parenthesis record (B0001) is cleaned correctly.
   3. The Turkish fields are untouched — a byte-level diff of everything that is
      not a ``*_en`` string proves the strip only ever writes English fields.
-  4. The record count stays frozen at 14,352.
+  4. The record count stays frozen at 14,469.
   5. Idempotent: a second run over the same DB changes nothing.
 
 The tests exercise a synthetic minimal DB (fast, hermetic) plus read-only
@@ -39,7 +39,12 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 PROD_DB_PATH = REPO_ROOT / "data" / "diagnostics" / "dtc_database.json"
 
 BOILERPLATE = "The most common cause of"
-EXPECTED_RECORDS = 14352
+# Rebased 14,352 -> 14,469: the sourced, additive OBDex generic ingest
+# (tools/data_ingest/merge_staging_into_data.py::merge_obdex, CC0-1.0, commit
+# bc58b0eb7273226a1aabae98e956b70b8362bda1) added 117 previously-absent B/C/U
+# body+chassis codes. Each new record carries title/description and
+# _source_license/_source_ref, so it is a real record — not a fabricated shell.
+EXPECTED_RECORDS = 14469
 
 # The nested-parenthesis specimen called out in the task body.
 B0001_RAW = (

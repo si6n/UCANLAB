@@ -39,7 +39,9 @@ def _session(dtcs=None):
 
 
 def _anomaly(signal: str, synthetic: bool = False) -> AnomalyFinding:
-    return AnomalyFinding(signal=signal, finding="test finding", ratio=1.0, evidence_sample_count=5, synthetic=synthetic)
+    return AnomalyFinding(
+        signal=signal, finding="test finding", ratio=1.0, evidence_sample_count=5, synthetic=synthetic
+    )
 
 
 class TestGraphLoading:
@@ -243,8 +245,7 @@ class TestRanking:
         # Every ranked node must carry at least one independent-evidence line.
         for h in matched:
             assert any(
-                s.startswith("beklenen DTC eşleşmesi") or s.startswith("anomali kanıtı")
-                for s in h.supporting_evidence
+                s.startswith("beklenen DTC eşleşmesi") or s.startswith("anomali kanıtı") for s in h.supporting_evidence
             ), f"{h.id} ranked with case similarity only: {h.supporting_evidence}"
         # Nodes that match neither the DTC nor any anomaly must be absent,
         # even though the case corpus is non-empty. `norm_dtcs` is the
@@ -269,9 +270,7 @@ class TestRanking:
         graph = load_root_cause_graph()
         session = _session(["SPN 100 FMI 1"])
         hyps = rank_hypotheses(session, [], [CaseMatch("case-x", 0.8, ["DTC"])], graph=graph)
-        assert any(
-            "benzer doğrulanmış vaka" in s for h in hyps for s in h.supporting_evidence
-        )
+        assert any("benzer doğrulanmış vaka" in s for h in hyps for s in h.supporting_evidence)
 
     def test_scores_normalized_and_sorted(self) -> None:
         graph = load_root_cause_graph()
@@ -280,3 +279,83 @@ class TestRanking:
         assert len(hyps) >= 2
         assert hyps[0].score >= hyps[-1].score
         assert all(0.0 <= h.score <= 1.0 for h in hyps)
+
+    def test_hypotheses_carry_their_claimed_codes(self) -> None:
+        """Each hypothesis must expose the codes its graph node claims.
+
+        The calibration metric enforces a code precondition (a hypothesis that
+        does not name the case's own code cannot be a top-1 hit for it), so the
+        codes must travel with the hypothesis instead of being re-read from the
+        graph.
+        """
+        graph = load_root_cause_graph()
+        hyps = rank_hypotheses(_session(["SPN 100 FMI 1"]), [], None, graph=graph)
+        assert hyps
+        assert all(isinstance(h.expected_dtcs, tuple) for h in hyps)
+        assert any("SPN 100" in h.expected_dtcs for h in hyps)
+        node_codes = {n.id: set(n.expected_dtcs) for n in graph}
+        for h in hyps:
+            assert set(h.expected_dtcs) == node_codes[h.id]
+        # to_dict must round-trip the new field for report consumers.
+        assert hyps[0].to_dict()["expected_dtcs"] == list(hyps[0].expected_dtcs)
+
+
+class TestPriorProbability:
+    """T2-1: the prior must NOT depend on how large the graph happens to be.
+
+    Deriving it as ``1.0 / len(graph)`` meant that every coverage improvement
+    (growing the graph) silently crushed reported confidence — punishing the
+    very work that fixes golden-set accuracy. A flat prior removes the coupling.
+    """
+
+    def _graph_with_n_nodes(self, n: int) -> list:
+        """A synthetic graph of exactly ``n`` nodes that always fires on SPN 100.
+
+        Node ``oil-pump-wear`` (which claims SPN 100) is pinned at the head so a
+        matched session exists at every size; the remaining slots are inert
+        padding claiming a code that is never active in the test session.
+        """
+        graph = load_root_cause_graph()
+        head = next(node for node in graph if "SPN 100" in node.expected_dtcs)
+        target = [head]
+        i = 0
+        while len(target) < n:
+            source = graph[i % len(graph)]
+            target.append(
+                type(source)(
+                    id=f"pad-{i:06d}-{source.id}",
+                    title=source.title,
+                    evidence_signals=(),
+                    expected_dtcs=("ZZPAD 0000",),
+                    contradicting_signals=(),
+                    source_ref=source.source_ref,
+                )
+            )
+            i += 1
+        return target[:n]
+
+    @pytest.mark.parametrize("size", [53, 500, 2000])
+    def test_prior_is_graph_size_independent(self, size: int) -> None:
+        graph = self._graph_with_n_nodes(size)
+        session = _session(["SPN 100 FMI 1"])
+        hyps = rank_hypotheses(session, [], None, graph=graph)
+        assert hyps, "the SPN 100 node must fire at every graph size"
+        assert any("SPN 100" in h.expected_dtcs for h in hyps), "a node claiming SPN 100 must rank"
+        for h in hyps:
+            assert h.prior_probability == 0.5, f"prior moved with graph size {size}: {h.prior_probability}"
+
+    def test_scores_identical_across_graph_sizes(self) -> None:
+        """The reported score/confidence must be identical across graph sizes.
+
+        This is the regression lock: before the fix a 53->2000 node growth
+        shifted ``prior_probability`` from 0.019 to 0.001 and therefore every
+        reported confidence. Now the matched hypothesis is unchanged.
+        """
+        session = _session(["SPN 100 FMI 1"])
+        small = rank_hypotheses(session, [], None, graph=self._graph_with_n_nodes(53))
+        large = rank_hypotheses(session, [], None, graph=self._graph_with_n_nodes(2000))
+        small_top = next(h for h in small if h.id == "oil-pump-wear")
+        large_top = next(h for h in large if h.id == "oil-pump-wear")
+        assert small_top.score == large_top.score
+        assert small_top.prior_probability == large_top.prior_probability
+        assert small_top.confidence_interval == large_top.confidence_interval

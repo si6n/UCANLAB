@@ -19,6 +19,7 @@ from src.engine.exporters.path_guard import (
     commit_producer_path,
     resolve_export_path,
 )
+from src.engine.exporters.series_validation import validate_signal_series
 
 logger = get_logger("engine.exporters.mat")
 
@@ -54,6 +55,12 @@ class MatExporter:
         for sig_name, (timestamps, values, unit) in signals_data.items():
             if not isinstance(sig_name, str) or not _SIG_NAME_RE.fullmatch(sig_name):
                 raise ValueError(f"Invalid signal name: {sig_name!r}")
+            if not timestamps or not values:
+                continue
+            # P1-9: same length / NaN-Inf / monotonicity gate the MDF4 exporter
+            # always had. Without it a NaN sample or a backwards time master was
+            # silently persisted into the .mat artefact.
+            validate_signal_series(sig_name, timestamps, values)
             clean_name = sig_name
             mat_dict[f"{clean_name}_time"] = np.array(timestamps, dtype=np.float64)
             mat_dict[f"{clean_name}_val"] = np.array(values, dtype=np.float64)

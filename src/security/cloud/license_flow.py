@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import base64
 import hashlib
-import json
 import math
 import os
 import secrets as pysecrets
@@ -30,6 +29,18 @@ from src.core.errors import LicenseError
 from src.core.logging import get_logger
 from src.security.cloud.client import CloudClient
 from src.security.hwid.collector import generate_hardware_fingerprint
+from src.security.hwm_format import (
+    HWM_INITIALIZED_MARKER,
+    HWM_SECRET_NAME,
+    LEGACY_HWM_SECRET_NAMES,
+    parse_hwm_text,
+    seal_hwm,
+)
+from src.security.license.claims import (
+    parse_license_claims,
+    parse_license_json,
+    reject_non_finite_json_constant,
+)
 
 logger = get_logger("security.cloud.license_flow")
 
@@ -42,16 +53,11 @@ _MAX_TICKET_STRING_CHARS: int = 256
 #: Maximum number of entries accepted in the `features` list.
 _MAX_TICKET_FEATURES: int = 128
 
-
-def _reject_non_finite_json_constant(value: str) -> Any:
-    """`json.loads(parse_constant=...)` hook rejecting NaN/Infinity/-Infinity.
-
-    Python's JSON decoder accepts these non-standard literals by default. A
-    non-finite timestamp inside a signed ticket is a security-relevant input:
-    every comparison with NaN is False, so expiry and offline-grace checks
-    silently pass. Raising here converts them into a controlled parse error.
-    """
-    raise ValueError(f"non-finite JSON constant '{value}' is not permitted in a cloud ticket")
+# SEC-03 (Batch B): the NaN/Infinity parse hook used to live here; it moved to
+# `src/security/license/claims.py` (shared with LicenseValidator) so the two
+# verifiers cannot drift. Re-exported under the historical name because
+# `tests/unit/test_review_phase2to6_fixes.py` imports it from this module.
+_reject_non_finite_json_constant = reject_non_finite_json_constant
 
 DEFAULT_EMBEDDED_CLOUD_PUBLIC_KEY_B64 = "eX3vJQWpo/pKrkpi5Y+f7m5ooUCRbCyY201DTnAjz/Q="
 
@@ -131,7 +137,6 @@ class LicenseFlow:
         # ticket's `kid`; the constructor key remains the default/fallback
         # so existing wiring keeps working.
         self._trusted_keys: dict[str, ed25519.Ed25519PublicKey] = dict(trusted_keys) if trusted_keys else {"v1": public_key}
-        import time
         self.boot_realtime: float = boot_realtime if boot_realtime is not None else time.time()
         self.boot_monotonic: float = boot_monotonic if boot_monotonic is not None else time.monotonic()
         # M-19 (P2-13): persistent anti-rollback high-water mark. The old
@@ -167,6 +172,14 @@ class LicenseFlow:
         machine-seed AES-GCM) — tampering with the HWM file requires
         compromising the vault itself.
 
+        SEC-02 (Batch B): the canonical vault name is
+        ``HWM_SECRET_NAME`` ("LICENSE_HWM_HMAC_KEY"), owned by
+        ``src/security/hwm_format.py`` and shared with ``LicenseValidator``.
+        This method used to use "LICENSE_HWM_KEY", so a file sealed here could
+        never be verified by the validator (and vice versa) — the two classes
+        quarantined each other's HWM as a "lost vault key". The legacy name is
+        still *read* by the validator as a compatibility fallback.
+
         T57-B / L-3 (fail-closed): the old code swallowed a `store_secret`
         failure and returned a fresh random key on EVERY process. A HWM sealed
         under process A could then never be verified by process B, so the
@@ -179,8 +192,8 @@ class LicenseFlow:
         secrets = getattr(self.client, "_secrets", None)
         if secrets is not None:
             try:
-                if secrets.has_secret("LICENSE_HWM_KEY"):
-                    return secrets.get_secret("LICENSE_HWM_KEY")
+                if secrets.has_secret(HWM_SECRET_NAME):
+                    return secrets.get_secret(HWM_SECRET_NAME)
             except KeyError:
                 pass
 
@@ -195,7 +208,7 @@ class LicenseFlow:
                 code="HWM_KEY_UNAVAILABLE",
             )
         try:
-            secrets.store_secret("LICENSE_HWM_KEY", derived)
+            secrets.store_secret(HWM_SECRET_NAME, derived)
         except Exception as exc:  # noqa: BLE001 — any vault failure means the key is not durable
             logger.critical(
                 "License HWM integrity key could not be persisted — a new key "
@@ -211,7 +224,7 @@ class LicenseFlow:
         # Confirm the key actually round-trips; some backends accept a write
         # but drop it (or transform it), which would break the next seal.
         try:
-            stored = secrets.get_secret("LICENSE_HWM_KEY")
+            stored = secrets.get_secret(HWM_SECRET_NAME)
         except Exception as exc:  # noqa: BLE001 — key vanished right after storing
             raise LicenseError(
                 "License HWM integrity key unavailable; refusing to treat HWM as trustworthy.",
@@ -225,12 +238,38 @@ class LicenseFlow:
             )
         return stored
 
+    def _hwm_read_keys(self) -> list[bytes]:
+        """Every vault key an HWM file may verify under (SEC-02).
+
+        The canonical key is required; the legacy ``LICENSE_HWM_KEY`` name is
+        consulted read-only when present. Without this a file written by an
+        older build (under the legacy name) would fail the integrity check and
+        raise ``HWM_UNAVAILABLE``, locking the user out of the license.
+        """
+        keys = [self._hmac_key()]
+        secrets = getattr(self.client, "_secrets", None)
+        if secrets is not None:
+            for legacy_name in LEGACY_HWM_SECRET_NAMES:
+                if legacy_name == HWM_SECRET_NAME:
+                    continue
+                try:
+                    if secrets.has_secret(legacy_name):
+                        keys.append(secrets.get_secret(legacy_name))
+                except Exception:  # noqa: BLE001 — unreadable legacy key is simply not tried
+                    continue
+        return keys
+
     def _load_persistent_hwm(self, fallback: float) -> float:
         """Load the last persisted wall-clock HWM (T62-U3 / fail-closed anti-rollback).
 
         If the HWM was previously initialized, a missing, unreadable, or
         corrupted HWM file must fail closed with HWM_UNAVAILABLE / LicenseError
         instead of quietly resetting rollback detection to boot time.
+
+        SEC-02: the on-disk format is parsed by the shared
+        ``src.security.hwm_format`` helper, so this class and
+        ``LicenseValidator`` agree on the layout (canonical two-field, with
+        legacy single-field accepted read-only).
         """
         if self._hwm_path is None:
             return fallback
@@ -239,7 +278,7 @@ class LicenseFlow:
         was_initialized = False
         if secrets is not None:
             try:
-                was_initialized = secrets.has_secret("LICENSE_HWM_INITIALIZED")
+                was_initialized = secrets.has_secret(HWM_INITIALIZED_MARKER)
             except Exception:
                 was_initialized = False
 
@@ -256,25 +295,36 @@ class LicenseFlow:
             return fallback
 
         try:
-            import hashlib
-            import hmac as _hmac
-
-            text = self._hwm_path.read_text(encoding="utf-8").strip()
-            ts_part, _, mac = text.rpartition(".")
-            if not ts_part or not mac:
-                logger.critical("License HWM file malformed — fail-closed")
-                raise LicenseError("License HWM file malformed", code="HWM_UNAVAILABLE")
-            expected = _hmac.new(self._hmac_key(), ts_part.encode("utf-8"), hashlib.sha256).hexdigest()
-            if not _hmac.compare_digest(expected, mac):
-                logger.critical("License HWM file failed integrity check — refusing to reset to boot time (fail-closed)")
-                raise LicenseError("License HWM file integrity check failed", code="HWM_UNAVAILABLE")
-            hwm_ts = float(ts_part.split(":", 1)[0])
+            # Read as BYTES and decode strictly: the same defect the validator
+            # had (SEC-04b). Opening with `encoding="utf-8"` let a binary or
+            # corrupted HWM raise UnicodeDecodeError out of `_load_persistent_hwm`
+            # as an uncaught traceback instead of the fail-closed
+            # `HWM_UNAVAILABLE` this method promises.
+            try:
+                content = self._hwm_path.read_bytes().decode("utf-8")
+            except UnicodeDecodeError as exc:
+                logger.critical("License HWM file is not valid UTF-8 — fail-closed")
+                raise LicenseError(
+                    "License HWM file is not valid UTF-8 (fail-closed)",
+                    code="HWM_UNAVAILABLE",
+                    cause=exc,
+                ) from exc
+            record = parse_hwm_text(content, self._hwm_read_keys())
+            hwm_ts = float(record.hwm_ts)
             if not math.isfinite(hwm_ts) or hwm_ts <= 0:
                 logger.critical("License HWM timestamp invalid — fail-closed")
                 raise LicenseError("License HWM timestamp invalid", code="HWM_UNAVAILABLE")
             return max(fallback, hwm_ts)
-        except LicenseError:
-            raise
+        except LicenseError as exc:
+            logger.critical(
+                "License HWM file failed integrity/format check — refusing to reset to boot time (fail-closed)",
+                extra={"reason": exc.code},
+            )
+            raise LicenseError(
+                "License HWM file integrity check failed",
+                code="HWM_UNAVAILABLE",
+                cause=exc,
+            ) from exc
         except (OSError, ValueError) as exc:
             if was_initialized or self._hwm_path.exists():
                 logger.critical("License HWM file read/parse failed — fail-closed", extra={"error": str(exc)})
@@ -286,32 +336,29 @@ class LicenseFlow:
             return fallback
 
     def _persist_hwm(self, ts: float) -> None:
-        """Persist the HWM atomically with an HMAC integrity tag."""
+        """Persist the HWM atomically with an HMAC integrity tag.
+
+        SEC-16 / SEC-02 (Batch B): delegated to the shared
+        ``src.security.hwm_format.seal_hwm`` writer, which creates the temp
+        file with owner-only permissions (0o600), ``os.fsync``-es it before the
+        atomic replace, and writes the canonical two-field
+        ``"<hwm_ts>:<sync_ts>.<mac>"`` body that ``LicenseValidator`` reads.
+        """
         if self._hwm_path is None:
             return
-        try:
-            import hashlib
-            import hmac as _hmac
+        key = self._hmac_key()
+        sync_ts = int(self.last_known_clock_ts)
+        seal_hwm(self._hwm_path, int(ts), sync_ts, key)
 
-            self._hwm_path.parent.mkdir(parents=True, exist_ok=True)
-            key = self._hmac_key()
-            ts_part = f"{ts}"
-            mac = _hmac.new(key, ts_part.encode("utf-8"), hashlib.sha256).hexdigest()
-            tmp = self._hwm_path.with_suffix(
-                self._hwm_path.suffix + f".tmp-{os.getpid()}-{time.monotonic_ns()}"
-            )
-            tmp.write_text(f"{ts_part}.{mac}", encoding="utf-8")
-            os.replace(tmp, self._hwm_path)
-
-            secrets = getattr(self.client, "_secrets", None)
-            if secrets is not None:
-                try:
-                    secrets.store_secret("LICENSE_HWM_INITIALIZED", b"1")
-                except Exception as exc:
-                    logger.warning("Failed to store HWM initialized marker in secret provider", extra={"error": str(exc)})
-        except OSError as exc:
-            logger.error("Failed to persist license HWM — fail-closed", extra={"error": str(exc)})
-            raise LicenseError("Failed to persist license HWM (fail-closed)", code="HWM_UNAVAILABLE", cause=exc) from exc
+        secrets = getattr(self.client, "_secrets", None)
+        if secrets is not None:
+            try:
+                secrets.store_secret(HWM_INITIALIZED_MARKER, b"1")
+            except Exception as exc:  # noqa: BLE001 — marker write is best-effort bookkeeping
+                logger.warning(
+                    "Failed to store HWM initialized marker in secret provider",
+                    extra={"error": str(exc)},
+                )
 
     # ------------------------------------------------------------------
     # POST /api/v1/devices/register
@@ -440,10 +487,12 @@ class LicenseFlow:
             # `"exp": Infinity` produced an eternally-valid license. The
             # non-standard constants are rejected at parse time so no
             # non-finite value can reach a security decision.
-            data: dict[str, Any] = json.loads(
-                payload_bytes.decode("utf-8"),
-                parse_constant=_reject_non_finite_json_constant,
-            )
+            #
+            # SEC-14 (Batch B): the schema validation is no longer inlined
+            # here — `parse_license_claims` is the single implementation shared
+            # with `LicenseValidator`, so a ticket that one verifier accepts
+            # cannot be silently malformed for the other.
+            data: dict[str, Any] = parse_license_json(payload_bytes, origin="ticket payload")
         except (ValueError, UnicodeDecodeError) as exc:
             raise LicenseError("Malformed ticket payload", code="MALFORMED_PAYLOAD", cause=exc) from exc
         if not isinstance(data, dict):
@@ -460,6 +509,20 @@ class LicenseFlow:
         }
         if not required.issubset(data.keys()):
             raise LicenseError("Incomplete cloud ticket schema", code="INCOMPLETE_SCHEMA")
+
+        # SEC-14 (Batch B): the shared `parse_license_claims` validator — the
+        # SAME implementation `LicenseValidator` uses — now runs on the ticket
+        # body. The two verifiers used to disagree completely: the validator
+        # checked key presence only (so `features: "abc"` became a char tuple)
+        # while this method did full type validation. Any schema fix must now
+        # land in exactly one place.
+        parse_license_claims(
+            payload_bytes,
+            origin="cloud ticket payload",
+            required_strings=("license_id", "organization_id", "device_id", "tier"),
+            issue_field="iat",
+            expiry_field="exp",
+        )
         if data["iss"] != "universal-can-cloud" or data["aud"] != "diagnostic-desktop-app":
             raise LicenseError("Ticket issuer/audience mismatch", code="ISSUER_MISMATCH")
         # F4: the schema version must be an explicitly supported revision.
@@ -565,7 +628,6 @@ class LicenseFlow:
                 code="DEVICE_MISMATCH",
             )
 
-        import time
 
         now = time.time()
         # Anti-Clock Rollback and monotonic drift cross-check (HIGH-4)
@@ -592,11 +654,22 @@ class LicenseFlow:
                 code="CLOCK_MONOTONIC_MISMATCH",
             )
 
-        self.last_known_clock_ts = max(self.last_known_clock_ts, now)
-        self._persist_hwm(self.last_known_clock_ts)
+        # SEC-04 (Batch B): persist FIRST, then advance the in-memory anchor.
+        # The old order (`last_known_clock_ts = max(...)` then `_persist_hwm`)
+        # left the anchor rolled forward even when the write failed, so a
+        # subsequent restart read a stale (or absent) file and the failed
+        # persist was invisible — exactly the SEC-C-005 hazard. `_persist_hwm`
+        # raises HWM_UNAVAILABLE on any I/O failure, so nothing is advanced on
+        # that path.
+        next_hwm = max(self.last_known_clock_ts, now)
+        self._persist_hwm(next_hwm)
+        self.last_known_clock_ts = next_hwm
 
-        # Check strict schema types
-        if not isinstance(data.get("features"), (list, tuple, set)):
+        # SEC-14 (Batch B): `features` / `iat` / `exp` were already validated
+        # by the shared `parse_license_claims` above (same payload bytes, same
+        # parser). These residual shape checks stay local because they guard
+        # the ticket-specific constructor call below.
+        if not isinstance(data.get("features"), (list, tuple)):
             raise LicenseError("Malformed features field in ticket", code="MALFORMED_SCHEMA")
         if not isinstance(data.get("iat"), (int, float)) or not isinstance(data.get("exp"), (int, float)):
             raise LicenseError("Malformed timestamp field in ticket", code="MALFORMED_SCHEMA")

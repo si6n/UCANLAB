@@ -4,6 +4,112 @@ Bu klasördeki teşhis bilgi tabanlarının kaynak zinciri, doğrulama yöntemi 
 güncelleme geçmişi burada tutulur. `data/dbc/LICENSES.md` ile aynı disiplini
 izler: içerik üretilmez, kamuya açık kaynaklar ve resmî belgeler referans alınır.
 
+## T2-4 — Dış veri kaynakları (licence-verified vendor merge)
+
+> Kardeş dosyalar: `data/PROVENANCE.md` (merge tarafı, artefakt sha256'ları),
+> `data/licenses/` (atıf + NOTICE metinleri), `tools/data_ingest/PROVENANCE.md`
+> (ingest tarafı). Aşağıdaki tablo bu klasördeki kaynak zincirinin özetidir.
+
+### Kaynak tablosu — 5 kayıt, her biri LICENSE dosyasından okunarak doğrulandı
+
+| # | Kaynak | Lisans | Atıf zorunlu | Kaynak URL | Pinlenmiş commit SHA | sha256 (artefakt) |
+|---|---|---|---|---|---|---|
+| 1 | **OBDex** (generic DTC + Mode 01/09 PID) | **CC0-1.0** | Hayır | https://github.com/foerbsnavi/OBDex | `bc58b0eb7273226a1aabae98e956b70b8362bda1` | `a765cade770ffe756a5d4ea91c61fc128d5508f06f38552cd803dd726fecef63` (P0xxx) |
+| 2 | **canboat** (`docs/canboat.json`, NMEA-2000 PGN) | **Apache-2.0** | **Evet** (NOTICE) | https://github.com/canboat/canboat | `f7f088b49d58f5b4a0feb9b29c288b0ae18a7880` | `b5a2c0c84b59af33caef583a372f9e763deb54ef4caf187825eff33d068735ba` |
+| 3 | **dtc-database** (Wal33D, OEM katmanı) | **MIT** | **Evet** (telif) | https://github.com/Wal33D/dtc-database | `04c43d72e7db7197658b6f72fe582c5076d9eee8` | `099a4ffd60398112a0540b0bbc93a5929e05e7f4e6d4988ca2a50858af01b743` |
+| 4 | **SITRAK error codes** (SPN/FMI ailesi) | **CC-BY-4.0** | **Evet** (atıf) | https://github.com/STAS63-bit/sitrak-error-codes | `fdb0c0d9daf0643975b0ff62e0ff69ef9c07f742` | `69d726d69d5612eb890de0aa2579beef2220a2f2b371b8cbcd560e75f12840d3` |
+| 5 | **canboat J1939 DM1** (`database/j1939/pgns/065226-activeTroubleCodes.yaml`) | **Apache-2.0** | **Evet** (NOTICE) | https://github.com/canboat/canboat | `f7f088b49d58f5b4a0feb9b29c288b0ae18a7880` | `2c821042983bd5c751794dba388f1a8121c57ecacd5d0ab5a9ec95b03ec197c9` |
+
+Tüm staging artefaktlarının tam sha256 listesi: `data/PROVENANCE.md` §2.
+Bağımsız decode doğrulaması (5 pass / 0 fail): `tools/data_ingest/verification.json`.
+
+### SITRAK — CC BY 4.0 atıfı (YASAL ZORUNLULUK)
+
+`j1939_spn_fmi_database.json` içinde SITRAK katmanı **3.399 SPN** kaydında
+(lisans/shell fail-closed sonrası) şu atıf alanlarıyla işaretlidir:
+
+| Alan | Değer |
+|---|---|
+| `sitrak_attribution` | `Источник: МегаДата / megadata.pro — CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)` |
+| `_source_license_sitrak` | `CC-BY-4.0` |
+| `_source_ref_sitrak` | `https://github.com/STAS63-bit/sitrak-error-codes/blob/fdb0c0d9daf0643975b0ff62e0ff69ef9c07f742/error-codes.json` |
+| `sitrak_fmi_family` | SPN başına FMI ailesi (7.981 FMI satırı) |
+| `metadata.sitrak_layer.attribution` | `© МегаДата / megadata.pro (https://megadata.pro) — CC BY 4.0` |
+
+**Atıf metni:** `МегаДата / megadata.pro` · **Kaynak:** https://megadata.pro
+· **Lisans:** CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+
+**Atıfın erişilebilir olduğu yerler (ürün about/licenses yüzeyi):**
+
+| # | Konum | Biçim |
+|---|---|---|
+| 1 | `data/licenses/ATTRIBUTION.sitrak.md` | Kanonik, ürünle dağıtılan atıf dosyası (tam metin + kaynak + commit) |
+| 2 | `data/licenses/NOTICE.canboat` | canboat Apache-2.0 NOTICE koruması |
+| 3 | `data/licenses/ATTRIBUTION.obdex-and-dtcdb.md` | OBDex (CC0, yükümlülük yok) + Wal33D MIT telif metni |
+| 4 | `data/PROVENANCE.md` | Merge tarafı kaynak tablosu (sha256 + url + lisans + commit) |
+| 5 | `data/diagnostics/j1939_spn_fmi_database.json` | Her SITRAK kaydında makine-okur atıf alanları |
+| 6 | Bu dosya, §T2-4 | Kaynak tablosu + atıf metni |
+
+> **Dürüstlük notu (kapatılması gereken boşluk):** React/pywebview arayüzü
+> (`src/ui/**`) başka bir ajan tarafından aktif düzenlenmektedir ve T2-4 görev
+> kartı oraya yazmayı yasaklar. Ölçülerek doğrulandı: depoda hâlihazırda
+> **veri kaynağı atıfı taşıyan bir about/licenses UI yüzeyi YOK** (`src/ui/**`
+> içinde `megadata|SITRAK|canboat|OBDex|Apache` araması = 0 eşleşme; yalnız
+> Ed25519 *bulut lisansı* kartı var). Bu nedenle atıf, **dağıtım-içeriği
+> düzeyinde** zorunluluğu karşılar ve ürünle birlikte sevk edilir; ancak
+> **render edilen bir UI panelinde** gösterilmesi `cockpit` sahipliğinde bir
+> değişikliktir ve bu turda yapılmamıştır. Orchestrator'a yönlendirilmiştir.
+
+## T2-4 merge kaydı — 2026-09-21 (katmanlı dış-veri merge + fail-closed düzeltme)
+
+`tools/data_ingest/merge_staging_into_data.py` (idempotent, katmanlı, `.bak` alır)
++ `tools/data_ingest/rebuild_extended_pid_csv.py` (extended PID CSV ikizi).
+
+**Ölçülen sonuçlar (iddia değil):**
+
+| Hedef | Öncesi | Sonrası | Kaynak | Lisans |
+|---|---|---|---|---|
+| `dtc_database.json` | 14.352 | **14.469** | OBDex 9.533 generic (9.416 zaten vardı) | CC0-1.0 |
+| `extended_pid_database.json` | 112 | **226** | OBDex Mode 01/09 (132; 18 zaten vardı) | CC0-1.0 |
+| `j1939_spn_fmi_database.json` | 4.253 SPN | **4.253 SPN** / **3.399 sitrak etiketli** / 7.981 FMI | SITRAK 8.042 kayıt | CC-BY-4.0 |
+| `dtc_database_oem_layer.json` | (yok) | **YENİ** 12.128 kod / 9.390 OEM / 33 üretici | Wal33D 18.805 satır | MIT |
+| `canboat_pgn_reference.json` | (yok) | **YENİ** 628 N2K PGN + DM1 (65226) | canboat | Apache-2.0 |
+
+**Katmanlılık kanıtı:** `--verify-idempotent` → "hicbir mevcut deger silinmedi/degismedi".
+Byte-düzeyi idempotency: merge iki kez koşuldu, ikinci koşuda `added=0`,
+`unchanged=true`, dosya hash'leri aynı. j1939 `db_keys_unchanged=true`.
+
+**⚠️ Yakalanan uydurma ihlali (AGENTS.md §2.3) — araç fail-closed yapıldı.**
+İlk taslak, SITRAK kaynağında DB'de karşılığı olmayan SPN'ler için
+**13 uydurma (shell) kayıt** açıyordu (`{"spn": N}` + atıf alanları; `name`,
+`title_tr`, `fault_matrix` YOK). Bu, "kaynak alan boşsa boş kalır, uydurma yok"
+kuralının ihlaliydi. Araç düzeltildi:
+
+- `assert_no_shell_rows()` — merge ÖNCESİ koşul: DB'de shell satır varsa **durur**.
+- `canonical_spn_key()` — hex/uydurma SPN anahtarı reddeder (kaynakta
+  `0x01`, `0x03` gibi 10 bozuk SPN + DB'de olmayan `SPN_139/140/141`).
+- Gerçek kayıt yoksa **kayıt AÇILMAZ**; atlanır ve raporlanır
+  (`skipped_no_real_record`, `skipped_detail`).
+- Karantina kanıtı: `data/diagnostics/quarantine/t2_4_sitrak_shell_rows.json`
+  (13 satır, `root_cause`, `recoverable_from`, `rows_removed=13`,
+  `db_keys_before=4266 → after=4253`).
+
+Sonuç: SPN anahtar sayısı merge boyunca **değişmedi** (4.253 → 4.253);
+yalnız mevcut gerçek kayıtlara alter anahtar eklendi.
+
+**Bilinen ve kabul edilen tek üst-veri farkı:** `extended_pid_database.json`
+`metadata.total_pids` 112 → 226. Veri değil türev sayaçtır ve gerçek kayıt
+sayısına eşitlenmek zorundadır, aksi halde `scripts/data_integrity_audit.py`
+`metadata_totals` denetimi FAIL verir.
+
+**Açık bulgu (bu turun ürünü DEĞİL, düzeltilmedi):**
+`diagnostic_copilot.py:2079` falsy `pid` değerli PID kayıtlarını eler; bu
+yan etki olarak **PID `0x00`** ("PIDs supported [01-20]", OBDex'te gerçek ve
+standart) Mode 01 ve Mode 09 kayıtlarını da düşürür → yükleyici 226 yerine
+223 PID görür. Filtrenin amacı CSV import'undan gelen yorum satırlarını
+(`pid=""`) temizlemekti. `src/engine/ai/**` başka ajanın aktif alanı olduğu
+ve görev kartı oraya yazmayı yasakladığı için dokunulmadı.
+
 ## CSV ikizleri (tüm tablolar) — bütünlük kaydı
 
 ### v-R1 — 2026-09-19 (CSV veri satırları geri yüklendi — sessiz veri kaybı onarımı)

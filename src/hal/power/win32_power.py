@@ -135,9 +135,18 @@ class WindowsPowerManager:
 
     @classmethod
     def reset_for_testing(cls) -> None:
-        """Clear reference state between tests."""
+        """Clear reference state between tests.
+
+        HAL-23: `_display_required` must be cleared too. It was left behind,
+        so a test that called `prevent_sleep(keep_display_on=True)` and then
+        FAILED (the rollback paths at the `prev_state != 0` / except branches
+        restore `_leases[tid]` but never the display flag) leaked
+        `_display_required[tid] = True` into every later test on the same
+        thread — silently making `ES_DISPLAY_REQUIRED` sticky.
+        """
         with cls._lock:
             cls._leases.clear()
+            cls._display_required.clear()
             cls._is_active = False
 
 

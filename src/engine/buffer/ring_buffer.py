@@ -21,25 +21,78 @@ logger = get_logger("engine.buffer.ring_buffer")
 # REVIEW (provenance round-trip): the record used to drop source and
 # error_state entirely — a replay/bus-off frame re-emerged as
 # physical/active and the reconstructed `sequence` was the buffer write
-# index, not the original. flags bits 5/6/7 now carry
-# source (2 bits: physical/replay/virtual/injected|synthetic map below)
-# and bit 7 error_state (0 active, 1 bus_off); sequence stays a buffer
-# write index (documented) because the original per-frame sequence is not
-# recoverable without widening the 80-byte record — the reconstruction
-# now marks `source` and `error_state` faithfully.
-_SOURCE_TO_FLAG_BITS = {"physical": 0, "replay": 1, "virtual": 2, "injected": 3, "synthetic": 3}
-_FLAG_BITS_TO_SOURCE = {0: "physical", 1: "replay", 2: "virtual", 3: "injected"}
+# index, not the original. flags bit 7 now carries error_state (0 active,
+# 1 bus_off) and the dedicated `source_code` byte carries provenance.
+#
+# P1-6 (format v2): provenance used to ride 2 flag bits with only four codes,
+# so `synthetic` was stored as `injected` and came back mislabelled. That is a
+# silent re-labelling of a synthetic measurement as a non-synthetic one
+# (AGENTS.md §2.3). `source_code` is a full byte, so all five values round-trip.
+# Backward compatibility: a buffer written by v1 has a zero `source_code` for
+# every record and a valid (non-zero) legacy 2-bit field, so decoding falls
+# through to the legacy map — see `_decode_source`. MIGRATION: copy any v1
+# buffer through `BinaryRingBuffer.append` (or re-record) to upgrade it; there
+# is no in-place format rewrite, and a v1 record whose source was really
+# `physical` is indistinguishable from a v2 record only by its zero code,
+# which decodes to `physical` either way — so the fallback is lossless for
+# every v1 value.
+#
+# `sequence` stays a buffer write index (documented) because the original
+# per-frame sequence is not recoverable without widening the record further;
+# the reconstruction marks `source` and `error_state` faithfully.
+#: Format version of the on-disk/in-memory record layout. v1 packed the
+#: provenance `source` into 2 flag bits with only FOUR codes, so `synthetic`
+#: was written as the same code as `injected` and read back as `injected` —
+#: a lossy round-trip on a provenance field (AGENTS.md §2.3: a synthetic
+#: measurement must never be re-labelled as a non-synthetic one).
+#: v2 widens the encoding with a dedicated `source_code: uint8` column, so
+#: every :class:`CanFrame` source value round-trips exactly.
+RECORD_FORMAT_VERSION: int = 2
+
+_SOURCE_TO_CODE = {
+    "physical": 0,
+    "replay": 1,
+    "virtual": 2,
+    "injected": 3,
+    "synthetic": 4,
+}
+_CODE_TO_SOURCE = {code: name for name, code in _SOURCE_TO_CODE.items()}
+
+#: Legacy (v1) flag-bit encoding, kept ONLY so buffers written by an older
+#: build — where bits 5-6 carried a 2-bit code — can still be decoded. New
+#: writes never use this map; `is_legacy_record()` distinguishes the two.
+_LEGACY_FLAG_BITS_TO_SOURCE = {0: "physical", 1: "replay", 2: "virtual", 3: "injected"}
+
 _CAN_RECORD_DTYPE_FIELDS = [
     ("timestamp_ns", np.uint64),
     ("arbitration_id", np.uint32),
     ("dlc", np.uint8),
-    ("flags", np.uint8),  # bit0: is_extended, bit1: is_fd, bit2: brs, bit3: esi, bit4: is_tx, bit5-6: source, bit7: bus_off
+    ("flags", np.uint8),  # bit0: is_extended, bit1: is_fd, bit2: brs, bit3: esi, bit4: is_tx, bit5-6: legacy source, bit7: bus_off
     ("data_len", np.uint8),
     ("reserved", np.uint8),
     ("channel_id_int", np.uint16),
+    # v2: explicit provenance code. `reserved` is a per-record trailing pad
+    # byte, so headers stay 16-byte aligned for vectorised access.
+    ("source_code", np.uint8),
+    ("reserved2", np.uint8),
     ("data", np.uint8, (64,)),
 ]
 CAN_RECORD_DTYPE = np.dtype(_CAN_RECORD_DTYPE_FIELDS, align=True)
+
+#: v1 layout (no `source_code`), kept so pre-v2 buffers stay readable.
+CAN_RECORD_DTYPE_V1 = np.dtype(
+    [
+        ("timestamp_ns", np.uint64),
+        ("arbitration_id", np.uint32),
+        ("dlc", np.uint8),
+        ("flags", np.uint8),
+        ("data_len", np.uint8),
+        ("reserved", np.uint8),
+        ("channel_id_int", np.uint16),
+        ("data", np.uint8, (64,)),
+    ],
+    align=True,
+)
 
 
 class BinaryRingBuffer:
@@ -82,6 +135,22 @@ class BinaryRingBuffer:
         """
         return self._rev_channel_map.get(channel_int, f"ch_{channel_int}")
 
+    @staticmethod
+    def _decode_source(source_code: int, flags: int) -> str:
+        """Resolve the provenance of a record (P1-6 format v2).
+
+        A v2 record always carries a non-zero `source_code` for every source
+        except `physical` (code 0). A v1 record — written before the widening —
+        has `source_code == 0` on every row while bits 5-6 still hold the old
+        2-bit code, so a non-zero legacy field is the migration marker and the
+        legacy map is used. The v1 map never produced `synthetic` (it could not
+        express it), so this fallback cannot invent one.
+        """
+        legacy_bits = (flags >> 5) & 0x03
+        if source_code == 0 and legacy_bits != 0:
+            return _LEGACY_FLAG_BITS_TO_SOURCE.get(legacy_bits, "physical")
+        return _CODE_TO_SOURCE.get(source_code, "physical")
+
     def _store_frame_unlocked(self, frame: CanFrame) -> int:
         """Write one frame record at the head position and advance.
 
@@ -101,15 +170,17 @@ class BinaryRingBuffer:
         frame `ch_<n>`.
         """
         idx = self._head
+        source_code = _SOURCE_TO_CODE.get(frame.source, 0)
         flags = (
             (1 if frame.is_extended else 0)
             | ((1 if frame.is_fd else 0) << 1)
             | ((1 if frame.brs else 0) << 2)
             | ((1 if frame.esi else 0) << 3)
             | ((1 if frame.direction == "tx" else 0) << 4)
-            # REVIEW (provenance): source + bus_off survive the round-trip
-            # (physical/replay/virtual/injected; bus_off vs active).
-            | (_SOURCE_TO_FLAG_BITS.get(frame.source, 0) << 5)
+            # P1-6: the legacy 2-bit source field is kept written for a
+            # downgrade-safe read by older builds (it can only express 0..3,
+            # so `synthetic` collapses to `injected` there — documented).
+            | (min(source_code, 3) << 5)
             | ((1 if frame.error_state == "bus_off" else 0) << 7)
         )
 
@@ -136,6 +207,8 @@ class BinaryRingBuffer:
             data_len,
             0,
             ch_int,
+            source_code,
+            0,
             np.frombuffer(padded, dtype=np.uint8),
         )
 
@@ -293,16 +366,53 @@ class BinaryRingBuffer:
                 esi=bool(flags & 0x08),
                 direction="tx" if bool(flags & 0x10) else "rx",
                 # REVIEW (provenance): source + error_state are restored
-                # from the flag bits instead of falling back to the
-                # physical/active defaults.
+                # from the record instead of falling back to the
+                # physical/active defaults. P1-6: `synthetic` is no longer
+                # aliased onto `injected`.
                 error_state="bus_off" if bool(flags & 0x80) else "active",
-                source=_FLAG_BITS_TO_SOURCE.get((flags >> 5) & 0x03, "physical"),
+                source=self._decode_source(int(rec["source_code"]), flags),
                 timestamp_ns=int(rec["timestamp_ns"]),
                 sequence=base_seq + offset,
             )
             frames.append(frame)
 
         return frames
+
+    @property
+    def format_version(self) -> int:
+        """P1-6: record-format version this buffer writes (2 = lossless source)."""
+        return RECORD_FORMAT_VERSION
+
+    @classmethod
+    def is_legacy_record_array(cls, records: np.ndarray) -> bool:
+        """True when ``records`` was produced by a pre-v2 (narrow-flag) writer.
+
+        Migration helper: such an array has no ``source_code`` column, so its
+        `synthetic` rows are already indistinguishable from `injected` — the
+        caller must treat any `injected` row as "possibly synthetic" until the
+        source is re-recorded. Pass the array through
+        :meth:`upgrade_legacy_records` to obtain a v2-layout copy.
+        """
+        return "source_code" not in (records.dtype.names or ())
+
+    @classmethod
+    def upgrade_legacy_records(cls, records: np.ndarray) -> np.ndarray:
+        """Convert a v1 record array into the v2 layout (in memory).
+
+        The `synthetic`/`injected` distinction was LOST in v1 storage, so the
+        upgraded copy carries `injected` (the widest legacy code) rather than
+        guessing — re-recording the original stream is the only lossless
+        migration and this helper never fabricates a `synthetic` label.
+        """
+        if not cls.is_legacy_record_array(records):
+            return records
+        upgraded = np.zeros(records.shape, dtype=CAN_RECORD_DTYPE)
+        for name in CAN_RECORD_DTYPE_V1.names or ():
+            if name in (upgraded.dtype.names or ()):  # pragma: no branch - stable layout
+                upgraded[name] = records[name]
+        legacy_bits = (records["flags"].astype(np.uint8) >> 5) & 0x03
+        upgraded["source_code"] = legacy_bits
+        return upgraded
 
     def clear(self) -> None:
         """Reset ring buffer pointers and channel mappings."""

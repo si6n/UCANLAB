@@ -196,21 +196,57 @@ def _pgn_le(pgn: int) -> bytes:
     [
         (65235, "DM11 Clear Active DTCs"),
         (65228, "DM3 Clear Previously Active DTCs"),
-        (65229, "DM4 Freeze Frame Clear"),
-        (65230, "DM5 Readiness Clear"),
         (65240, "Commanded Address"),
         (0, "TSC1"),
         (1024, "XBR"),
     ],
 )
 def test_j1939_request_for_writable_pgn_is_critical(pgn: int, label: str) -> None:
-    """S1-P1-2: requesting a writable/actuation PGN is a remote command."""
+    """S1-P1-2: requesting a writable/actuation PGN is a remote command.
+
+    S-03 (remediation round 2): the DM4/DM5 parameters that used to sit in this
+    list were REMOVED. Per SAE J1939-73, DM4 (65229) = Freeze Frame Parameters
+    and DM5 (65230) = Diagnostic Readiness 1 are READ PGNs — they were never
+    "clear" commands, so gating them on the speed interlock + dual confirmation
+    was a FALSE over-block, not a safety control. The old assertion locked a
+    mislabelled catalogue entry.
+
+    The genuinely writable/actuation PGNs above (DM11/DM3 clear, Commanded
+    Address, TSC1/XBR) ARE real remote commands and stay critical.
+    """
     gateway = _armed_gateway()
     arbitration_id = 0x18EA0000 | 0xF9  # PGN 59904 (Request), SA=0xF9
     assert _is_whitelisted(gateway, arbitration_id), "Request address must be reachable"
 
     frame = _frame(arbitration_id, _pgn_le(pgn), extended=True)
     assert gateway._frame_is_critical(frame) is True, f"Request for {label} must be critical"
+
+
+@pytest.mark.parametrize(
+    ("pgn", "label"),
+    [
+        (65229, "DM4 Freeze Frame Parameters (READ, SAE J1939-73)"),
+        (65230, "DM5 Diagnostic Readiness 1 (READ, SAE J1939-73)"),
+    ],
+)
+def test_j1939_readonly_dm4_dm5_request_is_not_critical(pgn: int, label: str) -> None:
+    """S-03: DM4/DM5 are J1939-73 READ PGNs, so a Request for them is NOT critical.
+
+    They remain catalogue-tracked in ``READONLY_DIAGNOSTIC_J1939_PGNS`` (they are
+    never silently dropped), but they must not force the physical-speed interlock
+    on a legitimate, operator-issued freeze-frame / readiness poll.
+    """
+    from src.safety.criticality import (
+        CRITICAL_J1939_PGNS,
+        READONLY_DIAGNOSTIC_J1939_PGNS,
+    )
+
+    assert pgn in READONLY_DIAGNOSTIC_J1939_PGNS, f"{label} must stay tracked (read-only set)"
+    assert pgn not in CRITICAL_J1939_PGNS
+
+    gateway = _armed_gateway()
+    frame = _frame(0x18EA0000 | 0xF9, _pgn_le(pgn), extended=True)
+    assert gateway._frame_is_critical(frame) is False, f"Request for {label} must not be critical"
 
 
 @pytest.mark.parametrize("pgn", [65226, 65227, 65265])
@@ -229,13 +265,34 @@ def test_j1939_request_short_payload_fails_closed() -> None:
 
 
 def test_j1939_direct_write_pgns_are_critical() -> None:
-    """Direct DM11/DM3/TSC1/XBR transmissions stay critical."""
+    """Direct DM11/DM3/Commanded-Address/TSC1/XBR transmissions stay critical.
+
+    S-03: DM4 (65229) and DM5 (65230) were REMOVED from this list. Per SAE
+    J1939-73 they are READ PGNs (Freeze Frame Parameters / Diagnostic Readiness
+    1), not clear commands; treating a direct poll of them as a state-mutating
+    write was a false positive. They stay tracked in
+    ``READONLY_DIAGNOSTIC_J1939_PGNS``.
+    """
     gateway = _armed_gateway()
-    for pgn in (65235, 65228, 65229, 65230, 65240, 0, 1024):
+    for pgn in (65235, 65228, 65240, 0, 1024):
         arbitration_id = 0x18000000 | (pgn << 8) | 0xF9
         assert gateway._frame_is_critical(
             _frame(arbitration_id, bytes([0x01, 0x02, 0x03]), extended=True)
         ), f"PGN {pgn} must be critical"
+
+    # S-03: the J1939-73 READ PGNs must NOT be escalated, but must remain tracked.
+    from src.safety.criticality import (
+        CRITICAL_J1939_PGNS,
+        READONLY_DIAGNOSTIC_J1939_PGNS,
+    )
+
+    for read_pgn in (65229, 65230):
+        assert read_pgn in READONLY_DIAGNOSTIC_J1939_PGNS
+        assert read_pgn not in CRITICAL_J1939_PGNS
+        arbitration_id = 0x18000000 | (read_pgn << 8) | 0xF9
+        assert gateway._frame_is_critical(
+            _frame(arbitration_id, bytes([0x01, 0x02, 0x03]), extended=True)
+        ) is False, f"READ PGN {read_pgn} must not be critical"
 
 
 # ---------------------------------------------------------------------------
@@ -244,22 +301,38 @@ def test_j1939_direct_write_pgns_are_critical() -> None:
 
 
 def test_gateway_and_replay_sid_policies_do_not_diverge() -> None:
-    """S1-P1-3: live-TX criticality must cover the replay-prohibited SIDs.
+    """S1-P1-3 / S-07: live-TX criticality and the replay policy must not diverge.
 
-    The only legitimate difference is 0x3E (TesterPresent), which is
-    dangerous to replay but is a benign session keep-alive that must not be
-    pinned to the physical-speed interlock.
+    The legitimate differences are the REPLAY_ONLY extras:
+      * 0x3E TesterPresent — a benign session keep-alive (P2* timeout) that must
+        not be pinned to the physical-speed interlock.
+      * 0x35 RequestUpload (S-07) — an ISO 14229 READ service. It is dangerous
+        to RE-INJECT from a log (bulk ECU memory exfiltration), so it stays
+        PROHIBITED for replay, but it is not a state mutation, so it must not be
+        interlock-gated on live TX. It was NOT dropped: it moved from
+        CRITICAL_UDS_SIDS to REPLAY_ONLY_PROHIBITED_UDS_SIDS, and it is not
+        live-writable in any sense (it only reads).
+
+    Direction check (unchanged): replay must never be STRICTER than live TX
+    outside those extras, and every live-critical SID must be replay-prohibited.
     """
     gateway_sids = set(TxSafetyGateway.CRITICAL_UDS_SIDS)
     replay_sids = set(ReplaySafetyFilter.PROHIBITED_UDS_SIDS)
 
-    assert replay_sids - gateway_sids == {0x3E}, (
-        "replay must not be stricter than live TX apart from TesterPresent; "
+    assert replay_sids - gateway_sids == {0x3E, 0x35}, (
+        "replay must not be stricter than live TX apart from the documented "
+        "replay-only SIDs (0x3E TesterPresent, 0x35 RequestUpload); "
         f"extra={sorted(hex(s) for s in replay_sids - gateway_sids)}"
     )
     assert gateway_sids - replay_sids == set(), (
         f"gateway-critical SIDs missing from replay policy: {sorted(hex(s) for s in gateway_sids - replay_sids)}"
     )
+    # S-07: RequestUpload is prohibited for replay (not silently dropped) ...
+    assert 0x35 in replay_sids
+    assert 0x35 not in gateway_sids
+    # ... and the real write/actuation services are STILL live-critical.
+    for write_sid in (0x38, 0x3D, 0x87):
+        assert write_sid in gateway_sids, f"write SID {hex(write_sid)} lost its criticality"
 
 
 @pytest.mark.parametrize("sid", [0x38, 0x3D, 0x87])

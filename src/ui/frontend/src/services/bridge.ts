@@ -30,6 +30,52 @@ export interface CloudUploadProgress {
   error?: string;
 }
 
+// T2-7: vendored third-party data licence + attribution payload. Backed by the
+// read-only bridge method `get_data_attributions()`, whose single source of
+// truth is `src/ui/data_attribution_catalog.py`. Nothing here is duplicated in
+// TypeScript on purpose — a second copy could silently drift from the vendored
+// `data/licenses/*` files. The `attributionText` field is the legally-required
+// credit verbatim (e.g. the SITRAK CC-BY-4.0 `МегаДата / megadata.pro` line).
+export interface DataSourceAttribution {
+  id: string;
+  name: string;
+  /** SPDX id, e.g. "CC-BY-4.0" / "Apache-2.0" / "MIT" / "CC0-1.0". */
+  license: string;
+  licenseName: string;
+  licenseUrl: string;
+  sourceUrl: string;
+  /** Pinned upstream commit SHA; empty string when the source has none. */
+  pinnedCommit: string;
+  /** Required (or recorded) attribution text, verbatim from the vendored file. */
+  attributionText: string;
+  /** "required" when the licence legally obliges us to display the credit. */
+  obligation: 'required' | 'recorded';
+  /** Vendored file that is the canonical proof for this entry. */
+  canonicalFile: string;
+  /** Same as canonicalFile; kept for an explicit "read from here" call site. */
+  sourcePath: string;
+  /** Verbatim text of the canonical licence file (may be empty if unreadable). */
+  sourceText: string;
+  sourceTextTruncated?: boolean;
+  /** Turkish explanation of what the obligation means. */
+  noteTr: string;
+  /** Data artefacts covered by this attribution. */
+  artifacts: string[];
+}
+
+export interface DataAttributionsPayload {
+  success: boolean;
+  schemaVersion: number;
+  obligationRequiredCount: number;
+  sources: DataSourceAttribution[];
+  /** Canonical files that could not be read — a compliance gap, surfaced loudly. */
+  errors: string[];
+  /** Runtime guarantee: this surface is fully offline. */
+  offline: boolean;
+  networkAccess: boolean;
+  error?: string;
+}
+
 // User decision-card payload shape (doküman §46) — deterministic card
 // composed in Python; TS renders only. Card carries risk band + headline
 // + summary + source only (budama planı 2026-09-12).
@@ -103,6 +149,8 @@ declare global {
         get_diagnostic_kpi_metrics?: () => Promise<Record<string, any>>;
         record_technician_feedback?: (dtc: string, resolved: boolean, notes?: string) => Promise<Record<string, any>>;
         export_session_report?: () => Promise<{ success: boolean; path?: string; report_length?: number; error?: string }>;
+        // T2-7: read-only vendored data licence / attribution surface.
+        get_data_attributions?: () => Promise<DataAttributionsPayload>;
         window_minimize?: () => void;
         window_maximize?: () => void;
         window_close?: () => void;
@@ -663,8 +711,35 @@ export class DesktopBridge {
     return { success: false, error: 'native bridge unavailable', execution_mode: 'mock' };
   }
 
-  public static minimizeWindow(): void {
-    if (this.isNative() && window.pywebview?.api?.window_minimize) {
+  /**
+   * T2-7: fetch the vendored third-party data licences + attribution texts.
+   *
+   * READ-ONLY. The backend method takes no arguments, writes nothing, touches
+   * no bus / TX path / E-Stop authority / license state, and performs no
+   * network I/O. A missing capability is a hard failure (never a fabricated
+   * licence list) — the panel must not render an empty list as if the product
+   * were compliant.
+   */
+  public static async getDataAttributions(): Promise<DataAttributionsPayload> {
+    const m = this.apiMethod('get_data_attributions');
+    if (this.isNative() && m) {
+      return await m();
+    }
+    this.requireCapability('get_data_attributions', 'data attributions');
+    this.requireNativeOrDev();
+    return {
+      success: false,
+      schemaVersion: 1,
+      obligationRequiredCount: 0,
+      sources: [],
+      errors: [],
+      offline: true,
+      networkAccess: false,
+      error: 'NATIVE_BRIDGE_MISSING',
+    };
+  }
+
+  public static minimizeWindow(): void {    if (this.isNative() && window.pywebview?.api?.window_minimize) {
       window.pywebview.api.window_minimize();
     }
   }

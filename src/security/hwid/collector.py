@@ -84,16 +84,18 @@ def _run_powershell(command: str) -> str:
     """
     if sys.platform != "win32":
         return ""
-    # MED-1: Strict PowerShell command validation.
-    # WMI/CIM property access like `(Get-CimInstance -ClassName Win32_X).Field` requires
-    # letters, numbers, parentheses, hyphen, space, comma, single quote, pipe, and property dot.
+    # MED-1 / SEC-10: strict PowerShell command validation. The allow-list
+    # permits WMI/CIM property access (``(Get-CimInstance -ClassName X).F``)
+    # plus the pipeline/sort constructs the hardened MAC query needs:
+    # braces, brackets, ``$``, ``;`` and ``@``. Dot-sourcing and quoting are
+    # still rejected below, and no external input ever reaches this function.
     # Disallow leading dot or ./ or .\ to prevent dot-sourcing or relative script execution.
     trimmed = command.strip()
     if trimmed.startswith(".") or "/." in trimmed or "\\." in trimmed or ".." in trimmed:
         logger.warning("Rejected potential dot-sourcing PowerShell command", extra={"command": command[:80]})
         return ""
 
-    if not re.fullmatch(r"[A-Za-z0-9_().|,'= \-]+", command) or "\n" in command or '"' in command:
+    if not re.fullmatch(r"[A-Za-z0-9_().|,'= \-{}\[\]$;@]+", command) or "\n" in command or '"' in command:
         logger.warning("Rejected non-conforming PowerShell command", extra={"command": command[:80]})
         return ""
     try:
@@ -115,13 +117,17 @@ def _run_powershell(command: str) -> str:
             return ""
         # GetSystemDirectoryW already returns "<root>\System32"; the classic
         # PowerShell 5.1 binary lives under its WindowsPowerShell\v1.0 subtree.
-        ps_executable = str(
-            Path(system_dir, "WindowsPowerShell", "v1.0", "powershell.exe").resolve()
-        )
-        # Belt & braces: the resolved binary must live inside the real system
-        # directory tree (no symlink/substitution escape).
-        resolved_system_dir = str(Path(system_dir).resolve())
-        if not ps_executable.startswith(resolved_system_dir) or not Path(ps_executable).is_file():
+        ps_path = Path(system_dir, "WindowsPowerShell", "v1.0", "powershell.exe").resolve()
+        ps_executable = str(ps_path)
+        # Belt & braces: the resolved binary must live DIRECTLY inside the real
+        # system directory tree (no symlink/substitution escape).
+        # SEC-15 (Batch B): this used `str.startswith(resolved_system_dir)`,
+        # which also accepts a sibling directory that merely shares the prefix
+        # (``<root>\System32evil\...``). Compare resolved PARENTS for equality
+        # instead, so only the genuine ``<system dir>/WindowsPowerShell/v1.0``
+        # location is accepted.
+        expected_parent = (Path(system_dir).resolve() / "WindowsPowerShell" / "v1.0").resolve()
+        if ps_path.parent != expected_parent or not ps_path.is_file():
             logger.warning("PowerShell not found inside the system directory; refusing fallback")
             return ""
 
@@ -209,6 +215,13 @@ def collect_bios_serial() -> str:
 def collect_primary_mac() -> str:
     """Collect primary network adapter MAC address.
 
+    SEC-10 (Batch B): the query used to select whichever adapter CIM happened
+    to enumerate first (an unordered ``-First 1`` select), so plugging in a USB
+    Ethernet or VPN adapter reordered that enumeration, silently changing the
+    fingerprint and locking a valid license out. The adapter set is now sorted
+    by MAC address with physical adapters preferred, so the choice is
+    deterministic for a given machine.
+
     B-1: when WMI yields no MAC, ``uuid.getnode()`` is consulted — but if it
     cannot read a real interface it returns a *random* 48-bit node with the
     multicast/random bit (``0x02`` of the first octet) set. That value
@@ -216,7 +229,10 @@ def collect_primary_mac() -> str:
     detect the random bit and fail closed with ``UNKNOWN_MAC`` instead.
     """
     mac = _run_powershell(
-        "(Get-CimInstance -ClassName Win32_NetworkAdapterConfiguration -Filter 'IPEnabled=True' | Select-Object -First 1).MACAddress"
+        "(Get-CimInstance -ClassName Win32_NetworkAdapterConfiguration -Filter 'IPEnabled=True' "
+        "| Where-Object { $_.MACAddress } "
+        "| Sort-Object -Property @{Expression={[int]$_.PhysicalAdapter}; Descending=$true}, MACAddress "
+        "| Select-Object -First 1).MACAddress"
     )
     if mac:
         return mac.strip()

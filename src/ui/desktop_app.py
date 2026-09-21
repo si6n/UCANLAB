@@ -103,6 +103,19 @@ _GATEWAY_CONFIRM_SECRET_BYTES = 32
 # is used and the real per-frame ID is enforced by the gateway whitelist.
 _DIAGNOSTIC_CONFIRM_ARB_ID = 0x7E0
 
+# T2-7 (lisans/atıf yüzeyi): the vendored third-party data licences. These are
+# the ONLY files the "Açık Kaynak ve Veri Kaynakları" settings panel may read,
+# and they are read READ-ONLY from the resource root — no TX, no E-Stop, no
+# license minting, no network (AGENTS.md §2.5 / §2.8 surfaces are untouched).
+# A positive allowlist (not a denylist) keeps a future refactor from turning
+# this into an arbitrary-file-read primitive for the renderer.
+ATTRIBUTION_ALLOWED_FILES: tuple[str, ...] = (
+    "data/licenses/ATTRIBUTION.sitrak.md",
+    "data/licenses/NOTICE.canboat",
+    "data/licenses/ATTRIBUTION.obdex-and-dtcdb.md",
+    "data/diagnostics/PROVENANCE.md",
+)
+
 # B7 (REVIEW): production cloud endpoint. Override with UCANLAB_CLOUD_BASE_URL
 # (any HTTPS URL) or switch to the local dev server with UCANLAB_CLOUD_DEV=1.
 DEFAULT_CLOUD_BASE_URL = "https://ucan-cloud.si6n.io"
@@ -313,6 +326,7 @@ class DesktopApiBridge:
         "discovery_get_summary": "read",
         "get_action_triggers": "read",
         "get_bus_traffic_status": "read",
+        "get_data_attributions": "read",
         "get_diagnostic_analysis": "read",
         "get_diagnostic_db_metrics": "read",
         "get_diagnostic_kpi_metrics": "read",
@@ -634,6 +648,28 @@ class DesktopApiBridge:
         """Export current session logs / telemetry frames to disk (LOW-4)."""
         return self.app.export_logs(fmt)
 
+    def get_data_attributions(self) -> dict[str, Any]:
+        """Return the vendored third-party data licences + attribution texts (T2-7).
+
+        STRICTLY READ-ONLY. This method takes no arguments, writes nothing,
+        touches no bus, no E-Stop authority and no license state, and performs
+        NO network I/O: it reads the small allowlisted licence files that ship
+        inside the bundle and returns their text verbatim so the renderer can
+        display the CC BY 4.0 / Apache-2.0 / MIT obligations.
+
+        The panel behind this method is the "rendered surface" half of the
+        CC-BY-4.0 compliance answer: `data/licenses/ATTRIBUTION.sitrak.md`
+        requires that the SITRAK credit
+        (``Источник: МегаДата / megadata.pro — CC BY 4.0``) stays reachable from
+        the product's about/licenses surface. The text is passed through
+        UNMODIFIED — no summarising, no re-typing, no fabrication.
+
+        Risk class: "read" (see BRIDGE_RISK_MANIFEST).
+        """
+        from src.ui.data_attribution_catalog import build_attribution_payload
+
+        return build_attribution_payload(_resource_root())
+
     def save_settings(self, settings: dict[str, Any]) -> None:
         self.app.update_settings(settings)
 
@@ -642,6 +678,10 @@ class DesktopApiBridge:
 
         H-2: the pulse must carry the shared bridge<->watchdog token so the
         lease is extended by an identified caller, not an anonymous stream.
+
+        Supervision is started once at composition time (app __init__), not
+        here: the heartbeat runs frequently and starting a thread from it would
+        leak a monitor into every test/consumer that pulses without a teardown.
         """
         self.app.watchdog.heartbeat(self._heartbeat_token)
         return True
@@ -1209,6 +1249,14 @@ class UniversalCanDesktopApp:
             initial_state=SafetyState.STARTUP,
             estop=self.estop,
             auth_secret=self._arm_auth_secret,
+            # S-05: this is the PRODUCTION composition root, so the arm gate is
+            # declared authoritative, not optional. `_derive_secret` above
+            # either returned the persisted ARM_AUTH_SECRET or raised (it
+            # refuses to boot with an unpersisted key), so this assertion can
+            # only fail if the credential plumbing itself broke — in which case
+            # the app MUST refuse to start rather than boot with a supervisor
+            # that could later arm TX unauthenticated.
+            require_arm_auth=True,
         )
         self.watchdog = TxWatchdogSupervisor(supervisor=self.supervisor, estop=self.estop, timeout_ms=800.0)
         # H-2: arm the shared heartbeat token here so an in-process caller
@@ -1217,6 +1265,15 @@ class UniversalCanDesktopApp:
         # the WebView bridge is created, re-arming the watchdog with it.
         self._heartbeat_token = secrets.token_hex(32)
         self.watchdog.arm_heartbeat_token(self._heartbeat_token)
+        # S-08: a valid lease requires the monitor thread to be RUNNING, so the
+        # composition root starts supervision here rather than relying on the
+        # constructor-anchored lease timestamp. This is the single lifecycle
+        # owner (run()'s later start() is idempotent), and it keeps every
+        # in-process TX path — including bridge actions and headless/scripted
+        # use that never enters run() — behind a live monitor instead of the
+        # pre-S-08 fail-open state where TX authority appeared alive while
+        # nothing enforced it.
+        self.watchdog.start()
         # REVIEW.md 1.1: the gateway previously started with NO whitelist,
         # so the fail-closed Stage 3 rejected every single frame — the app
         # could never transmit at all. Seed it with the legitimate diagnostic
@@ -1506,12 +1563,25 @@ class UniversalCanDesktopApp:
         """Turn parsed DM1 SPN/FMI records into DiagnosticEvents (FAZ 1, Bulgu 1).
 
         Severity maps from the KB / SPN DB record; an unknown SPN gets
-        "UNKNOWN" — the AI layer never invents severity. SPN 0 / 0xFF
+        ``Severity.UNKNOWN`` — the AI layer never invents severity. SPN 0 / 0xFF
         (no-active-DTC placeholders) produce no event (Bulgu 4).
+
+        T2-6: this used to pass the bare strings ``"UNKNOWN"`` and
+        ``str(fmi_rec["severity"])``. P2-9 allowlisted ``DiagnosticEvent.severity``
+        and the ``except ValueError`` below left only a DEBUG log, so an
+        unclassifiable (or KB-mislabelled) DTC made the event DISAPPEAR —
+        "we cannot classify it" silently became "it did not happen".
+
+        Both paths are now resolved against the allowlist explicitly:
+        ``Severity.UNKNOWN`` for a stated absence, and the KB value only when it
+        IS a real member. A KB value outside the allowlist is reported at
+        WARNING and recorded as ``Severity.UNKNOWN`` rather than dropped — an
+        unknown-urgency fault must stay visible, never vanish.
         """
         session = self._diag_session
         if session is None or self._is_simulating or not dtcs:
             return
+        from src.core.models.diagnostics import Severity
         from src.engine.ai.diagnostic_copilot import get_j1939_spn_database
 
         spn_db = get_j1939_spn_database().get("spns", {})
@@ -1521,13 +1591,20 @@ class UniversalCanDesktopApp:
                 spn, fmi = getattr(dtc, "spn", 0), getattr(dtc, "fmi", 0)
                 if spn in (0, 0xFF):
                     continue
-                severity = "UNKNOWN"
+                severity = Severity.UNKNOWN
                 rec = spn_db.get(f"SPN_{spn}")
                 if rec:
                     fm = rec.get("fault_matrix", {})
                     fmi_rec = fm.get(str(fmi)) if isinstance(fm, dict) else None
                     if isinstance(fmi_rec, dict) and fmi_rec.get("severity"):
-                        severity = str(fmi_rec["severity"])
+                        try:
+                            severity = Severity(str(fmi_rec["severity"]))
+                        except ValueError:
+                            logger.warning(
+                                "KB severity outside the allowlist — recording as UNKNOWN",
+                                extra={"spn": spn, "fmi": fmi, "kb_severity": str(fmi_rec["severity"])},
+                            )
+                            severity = Severity.UNKNOWN
                 try:
                     session.events.append(
                         DiagnosticEvent(
@@ -1665,6 +1742,7 @@ class UniversalCanDesktopApp:
     def get_diagnostic_kpi_metrics(self) -> dict[str, Any]:
         """Compute live AI diagnostic quality KPIs and calibration metrics (FAZ 0 & FAZ 3)."""
         from src.engine.ai.calibration import evaluate_calibration
+        from src.engine.ai.diagnostic_copilot import catalog_size
         from src.engine.ai.golden_cases import load_all_cases
         from src.engine.ai.metrics import compute_metrics_dashboard
         from src.engine.ai.procedure_validator import load_all_procedures
@@ -1674,7 +1752,13 @@ class UniversalCanDesktopApp:
             all_cases = load_all_cases()
             cal = evaluate_calibration(all_cases)
             covered_count = len(all_procs)
-            total_catalog = 14352
+            # T1-1: the denominator was hardcoded as `total_catalog = 14352`. A
+            # frozen literal silently drifts from the real catalog and turns a
+            # missing DB into an invented coverage ratio (§2.3). Read the live
+            # DTC catalog instead; `catalog_size()` is fail-closed to 0 when the
+            # file is absent, so the ratio is never computed against a magic
+            # number.
+            total_catalog = catalog_size()
             total_q = len(self._dialogue_session.answers) if self._dialogue_session else 0
 
             metrics = compute_metrics_dashboard(
@@ -1690,6 +1774,10 @@ class UniversalCanDesktopApp:
             out["calibration_factor"] = cal.calibration_factor
             out["verified_golden_cases"] = cal.verified_cases
             out["total_procedures_count"] = covered_count
+            # T1-1: expose the LIVE denominator alongside the measured coverage
+            # so the KPI panel (and its tests) can verify `kb_coverage_pct` was
+            # computed against the real catalog rather than a frozen literal.
+            out["total_catalog_count"] = total_catalog
             return {"success": True, "metrics": out}
         except Exception as exc:
             return {"success": False, "error": str(exc)}
@@ -1706,7 +1794,7 @@ class UniversalCanDesktopApp:
         from src.engine.ai.evidence_gate import evaluate_sufficiency
         from src.engine.ai.golden_similarity import find_similar_cases
         from src.engine.ai.hypothesis_engine import rank_hypotheses
-        from src.engine.ai.session_report import report_summary_dict
+        from src.engine.ai.session_report import calibrated_hypotheses, report_summary_dict
         from src.engine.ai.user_report_composer import compose_user_card
 
         session = self._diag_session
@@ -1725,7 +1813,11 @@ class UniversalCanDesktopApp:
             anomalies = detect_anomalies(session, thresholds) if thresholds else []
             similar = find_similar_cases(session, k=3)
         if sufficiency.dtc_sufficient:
-            hypotheses = rank_hypotheses(session, anomalies, similar)
+            # T1-1: `rank_hypotheses` self-normalises to %100 for the top
+            # candidate, which is not a probability. Damp with the measured
+            # golden-set factor before it reaches the panel (evidence ledgers
+            # are preserved verbatim by `calibrated_hypotheses`, §2.3).
+            hypotheses = calibrated_hypotheses(rank_hypotheses(session, anomalies, similar))
 
         # Engineering report feeds the deterministic user decision card.
         # T56-B / A3-1: the bridge used to hardcode spn/fmi to None, so the
@@ -1821,7 +1913,7 @@ class UniversalCanDesktopApp:
         from src.engine.ai.evidence_gate import evaluate_sufficiency
         from src.engine.ai.golden_similarity import find_similar_cases
         from src.engine.ai.hypothesis_engine import rank_hypotheses
-        from src.engine.ai.session_report import build_technician_report
+        from src.engine.ai.session_report import build_technician_report, calibrated_hypotheses
 
         session = self._diag_session
         if session is None:
@@ -1836,7 +1928,13 @@ class UniversalCanDesktopApp:
                 thresholds = {}
             anomalies = detect_anomalies(session, thresholds) if thresholds else []
             similar = find_similar_cases(session, k=3)
-        hypotheses = rank_hypotheses(session, anomalies, similar) if sufficiency.dtc_sufficient else []
+        # T1-1: damp the self-normalised %100 top score with the measured
+        # golden-set factor so the EXPORTED report agrees with the live panel.
+        hypotheses = (
+            calibrated_hypotheses(rank_hypotheses(session, anomalies, similar))
+            if sufficiency.dtc_sufficient
+            else []
+        )
         active_codes = [e.code for e in session.events if e.status == "ACTIVE"]
         tests = propose_discriminating_tests(hypotheses, active_codes)
 
@@ -2519,6 +2617,13 @@ class UniversalCanDesktopApp:
 
         # Helper to ensure TX pipeline is armed safely in real physical mode
         def _ensure_armed(reason_str: str) -> dict[str, Any] | None:
+            # S-08/S-02: a valid watchdog lease requires the monitor thread to be
+            # RUNNING. Starting supervision is a composition-root/lifecycle
+            # responsibility (normally done by run()); a bridge action that
+            # reaches TX without entering run() must ensure it here, otherwise
+            # the very first legitimate frame is refused fail-closed at the
+            # gateway with WATCHDOG_LEASE_EXPIRED. start() is idempotent.
+            self.watchdog.start()
             if self.supervisor.current_state == SafetyState.PASSIVE:
                 arm_res = self.arm_tx(reason=reason_str)
                 if not arm_res.get("success", False):

@@ -276,14 +276,28 @@ class ReplaySafetyFilter:
         Recording (SID, remaining payload length) here makes every following
         CF/FC on the same arbitration ID answer for its FF's session.
         """
-        ff_dl = ((frame.data[0] & 0x0F) << 8) | frame.data[1]
-        # Classic FF carries 6 payload bytes; the FD escape form carries 10.
-        # Same is_fd gate as _extract_uds_sid so both agree on the layout.
-        carried = (
-            10
-            if (frame.is_fd and frame.data[0] == 0x10 and frame.data[1] == 0x00 and len(frame.data) >= 6)
-            else 6
+        # HAL-05: the 12-bit FF_DL formula is only valid for the CLASSIC
+        # First-Frame form. For a CAN-FD escape First Frame (0x10 0x00 +
+        # 32-bit FF_DL) `((data[0] & 0x0F) << 8) | data[1]` evaluates to 0,
+        # so the ledger opened with `remaining = max(0, 0 - 10) = 0` and was
+        # exhausted immediately — every following Consecutive Frame of an FD
+        # ISO-TP session fell outside the ledger and escaped the
+        # prohibited-SID accounting entirely. Same is_fd gate as
+        # `_extract_uds_sid` so both agree on the layout.
+        is_fd_escape = (
+            frame.is_fd
+            and frame.data[0] == 0x10
+            and frame.data[1] == 0x00
+            and len(frame.data) >= 6
         )
+        if is_fd_escape:
+            ff_dl = int.from_bytes(frame.data[2:6], byteorder="big")
+            # FD escape FF carries 10 payload bytes (6 header + 4 length).
+            carried = 10
+        else:
+            ff_dl = ((frame.data[0] & 0x0F) << 8) | frame.data[1]
+            # Classic FF carries 6 payload bytes.
+            carried = 6
         self._iso_tp_pending[frame.arbitration_id] = (sid, max(0, ff_dl - carried))
 
     def _prohibited_sid(self, sid: int) -> bool:
@@ -376,8 +390,16 @@ class ReplaySafetyFilter:
 
             # P1-2: TSC1/XBR physically command the vehicle — gated by the
             # (formerly dead) block_actuator_routines flag, default ON.
+            # HAL-12: the address-claim (above) and diagnostic-write branches
+            # already test the EDP-masked PGN forms; these two sets did not,
+            # so an EDP=1 TSC1/XBR (actuation) or TP.CM/TP.DT (tunnel) frame
+            # escaped the block outright — the exact evasive construction the
+            # masking exists to close.
             if self.block_actuator_routines and (
-                pgn in self.ACTUATION_PGNS or masked_pgn in self.ACTUATION_PGNS
+                pgn in self.ACTUATION_PGNS
+                or masked_pgn in self.ACTUATION_PGNS
+                or edp_masked_pgn in self.ACTUATION_PGNS
+                or edp_masked_norm in self.ACTUATION_PGNS
             ):
                 return False, f"BLOCKED_ACTUATION_PGN: {pgn} (0x{pgn:05X})"
 
@@ -385,12 +407,24 @@ class ReplaySafetyFilter:
             # every blocked diagnostic command) in 7-byte slices and can
             # command peer-side session behaviour — block by default.
             if self.block_transport_tunneling and (
-                pgn in self.TRANSPORT_TUNNEL_PGNS or masked_pgn in self.TRANSPORT_TUNNEL_PGNS
+                pgn in self.TRANSPORT_TUNNEL_PGNS
+                or masked_pgn in self.TRANSPORT_TUNNEL_PGNS
+                or edp_masked_pgn in self.TRANSPORT_TUNNEL_PGNS
+                or edp_masked_norm in self.TRANSPORT_TUNNEL_PGNS
             ):
                 return False, f"BLOCKED_TP_TUNNEL: {pgn} (0x{pgn:05X})"
 
-            # ISO-TP / UDS over 29-bit (e.g. 0x18DAxxF1)
-            if self.block_diagnostic_write and pdu_format in {0xDA, 0xDB}:
+            # ISO-TP / UDS over 29-bit (0x18DAxxxx physical, 0x18DBxxxx global
+            # functional). A1-F2-gateway: BOTH PFs share the diagnostic-ID gate
+            # (the old set omitted 0xDB, so a whole broadcast family skipped
+            # every ISO-TP check here). A1-F2-filter: a sub-2-byte payload can
+            # carry no verifiable SID and is now blocked fail-closed instead of
+            # silently passing — mirroring the live-TX gateway verdict. The
+            # EDP-masked PF is checked too so an EDP=1 0xDA/0xDB cannot evade
+            # the diagnostic gate the way TSC1/TP already could not.
+            if self.block_diagnostic_write and (
+                pdu_format in {0xDA, 0xDB} or edp_masked_pf in {0xDA, 0xDB}
+            ):
                 safe, reason = self._check_iso_tp_cf_fc(frame, is_diagnostic=True)
                 if not safe:
                     return False, reason
@@ -405,6 +439,8 @@ class ReplaySafetyFilter:
                             self._register_first_frame(frame, sid)
                         if self._prohibited_sid(sid):
                             return False, f"PROHIBITED_29BIT_UDS_SID: 0x{sid:02X}"
+                else:
+                    return False, "TRUNCATED_29BIT_DIAGNOSTIC_PAYLOAD"
 
         # 11-bit Standard Frame Evaluation (OBD-II / UDS)
         else:

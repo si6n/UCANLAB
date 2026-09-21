@@ -7,6 +7,7 @@ import hashlib
 import sys
 import time
 from collections.abc import Callable
+from ctypes import wintypes
 from typing import ClassVar
 
 from src.core.errors import SecurityError
@@ -33,7 +34,15 @@ class AntiTamperGuard:
             raise SecurityError("Anti-tamper unable to probe IsDebuggerPresent", code="ANTI_TAMPER_VIOLATION")
 
         try:
-            return bool(windll.kernel32.IsDebuggerPresent())
+            fn = windll.kernel32.IsDebuggerPresent
+            # SEC-05 (Batch B): the prototype was never declared, so ctypes
+            # assumed the default (c_int) return. Win32 BOOL is a 4-byte int
+            # and the value is zero/non-zero, so the bool() below is correct —
+            # but declaring the real prototype keeps the ABI honest and makes
+            # the call fail loudly if the symbol is ever a different shape.
+            fn.argtypes = []
+            fn.restype = wintypes.BOOL
+            return bool(fn())
         except (AttributeError, OSError, RuntimeError) as exc:
             raise SecurityError(
                 "Anti-tamper IsDebuggerPresent probe failed",
@@ -53,10 +62,24 @@ class AntiTamperGuard:
 
         try:
             fn = windll.kernel32.CheckRemoteDebuggerPresent
-            fn.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_bool)]
-            fn.restype = ctypes.c_int
-            is_present = ctypes.c_bool(False)
-            current_proc = windll.kernel32.GetCurrentProcess()
+            # SEC-05 (Batch B): the prototypes were wrong in three ways and
+            # made the probe unreliable on x64:
+            #   * the out-parameter was declared as `POINTER(c_bool)` — c_bool
+            #     is ONE byte while Win32 `BOOL` is a 4-byte int, so the API
+            #     wrote 4 bytes into a 1-byte buffer (handing 3 bytes of
+            #     adjacent stack memory a value derived from the result);
+            #   * `restype` was c_int instead of BOOL (harmless in practice
+            #     but not the declared ABI);
+            #   * `wintypes` was never imported and `GetCurrentProcess` had no
+            #     restype, so its 64-bit pseudo-handle was truncated to a
+            #     32-bit int before being handed back to the API.
+            fn.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.BOOL)]
+            fn.restype = wintypes.BOOL
+            get_current_process = windll.kernel32.GetCurrentProcess
+            get_current_process.argtypes = []
+            get_current_process.restype = wintypes.HANDLE
+            is_present = wintypes.BOOL(False)
+            current_proc = get_current_process()
             res = fn(current_proc, ctypes.byref(is_present))
             if res == 0:
                 raise SecurityError(
@@ -118,8 +141,20 @@ class AntiTamperGuard:
         cls,
         on_violation: Callable[[str], None] | None = None,
         timing_threshold_ms: float | None = None,
+        *,
+        observe_only: bool = False,
     ) -> None:
-        """Run all tamper probes; on violation invoke the injected action or fail closed."""
+        """Run all tamper probes and fail closed on any violation.
+
+        SEC-06 (Batch B): the `raise` used to live in the `else` branch of
+        ``if on_violation is not None``, so passing a *log-only* callback
+        silenced the violation entirely — the F-10 anti-tamper contract was
+        defeated by a parameter. A violation now ALWAYS raises; the callback,
+        when supplied, is invoked first as a notification/telemetry hook.
+        Observe-only behaviour is preserved as an EXPLICIT opt-in
+        (``observe_only=True``, e.g. a diagnostics sweep that must not abort),
+        never as an accidental side effect of passing a callback.
+        """
         violations: list[str] = []
         if cls.is_debugger_present():
             violations.append("debugger")
@@ -133,5 +168,10 @@ class AntiTamperGuard:
             logger.critical(reason)
             if on_violation is not None:
                 on_violation(reason)
-            else:
-                raise SecurityError(reason, code="ANTI_TAMPER_VIOLATION")
+            if observe_only:
+                logger.warning(
+                    "Anti-tamper violation observed in observe-only mode; not raising",
+                    extra={"reason": reason},
+                )
+                return
+            raise SecurityError(reason, code="ANTI_TAMPER_VIOLATION")

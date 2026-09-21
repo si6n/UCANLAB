@@ -1,0 +1,101 @@
+{
+  "_task": "T2-8 — golden sinyal adi → dugum evidence_signals alias haritasi",
+  "_criterion": "Yalnizca IKI GERCEK sinyal adi arasinda kurulmus, olculebilir es-anlamlilik. Uydurma alias YOK (AGENTS.md §2.3). Her kayit source_side + node_side + gerekce tasir.",
+  "_evidence": "Olculdu: 22 golden sinyal adindan yalniz 3'u grafta normalize-ortusuyor (%14). case-spn110'da golden 'CoolantTemp' ama dugumler 'EngineCoolantTemp' bekliyor -> samples=[] -> iki dugum de 1.0 -> alfabetik tie-break yanlis dugumu secer.",
+  "aliases": [
+    {
+      "canonical": "CoolantTemp",
+      "source_forms": ["CoolantTemp", "CoolantTemperature", "EngineCoolantTemp", "coolant_temp", "engine_coolant_temp", "EngineCoolantTemperature"],
+      "node_side": ["EngineCoolantTemp", "coolant_temp", "engine_coolant_temp"],
+      "rationale": "J1939 SPN 110 = Engine Coolant Temperature; OBD-II Mode 01 PID 0x05 = Engine coolant temperature. Ayni fiziksel buyukluk, iki protokolun farkli adlandirmasi. case-spn110 golden 'CoolantTemp' kullanir, SPN110 dugumleri 'EngineCoolantTemp'."
+    },
+    {
+      "canonical": "EngineSpeed",
+      "source_forms": ["EngineSpeed", "RPM", "engine_speed", "EngineSpeedRPM"],
+      "node_side": ["EngineSpeed"],
+      "rationale": "case-spn190 golden 'EngineSpeed' kullanir; dugum zaten 'EngineSpeed' — bu kayit REGRESYON KILIDI icin (alias zaten calisiyor, bozulmasin)."
+    },
+    {
+      "canonical": "FuelPressure",
+      "source_forms": ["FuelPressure", "FuelRailPressure", "RailPressure", "fuel_pressure"],
+      "node_side": ["FuelRailPressure", "EngineFuelPressure"],
+      "rationale": "case-p0087 (HPFP) golden 'FuelPressure'; SPN 157/SPN 94 ailesi 'FuelRailPressure' adini kullanir. J1939 SPN 157 = Engine Fuel Rail 1 Pressure."
+    },
+    {
+      "canonical": "BoostPressure",
+      "source_forms": ["BoostPressure", "IntakeManifoldPressure", "MAP", "boost_pressure"],
+      "node_side": ["BoostPressure", "IntakeManifoldPressure"],
+      "rationale": "case-spn102 turbo vakasi golden 'BoostPressure'; SPN 102 = Boost Pressure (J1939), OBD PID 0x0B = Intake manifold absolute pressure. Ayni buyukluk."
+    },
+    {
+      "canonical": "DPFDiffPressure",
+      "source_forms": ["DPFDiffPressure", "DPF Differential Pressure", "DPFPressure", "dpf_diff_pressure"],
+      "node_side": ["DPF Differential Pressure", "DPFDiffPressure"],
+      "rationale": "case-p2002/SPN3251 golden 'DPFDiffPressure'; SPN 3251 = DPF Differential Pressure. Ayirici (space) farki normalize'i geciyor ama kayit altinda tutuluyor."
+    },
+    {
+      "canonical": "EGRPosition",
+      "source_forms": ["EGRPosition", "EGR Valve Position", "EGRPositionPercent", "egr_position"],
+      "node_side": ["EGRPosition", "EGR Valve Position"],
+      "rationale": "case-p0401 EGR golden 'EGRPosition'; SPN 412 = EGR Valve Position."
+    },
+    {
+      "canonical": "BatteryVoltage",
+      "source_forms": ["BatteryVoltage", "SystemVoltage", "battery_voltage", "Battery Voltage"],
+      "node_side": ["BatteryVoltage"],
+      "rationale": "case-p0562 golden 'BatteryVoltage'; U0100/U0126 CAN besleme vakalari da ayni buyuklugu kullanir. Kayit regresyon kilidi."
+    },
+    {
+      "canonical": "CamPhaseAngle",
+      "source_forms": ["CamPhaseAngle", "CamshaftPosition", "CamPhase", "cam_phase_angle"],
+      "node_side": ["CamPhaseAngle", "CamshaftPosition"],
+      "rationale": "case-p0340 (camshaft) golden 'CamPhaseAngle'; SPN 190.2 / P0340 ailesi kam faz acisi."
+    },
+    {
+      "canonical": "KnockRetard",
+      "source_forms": ["KnockRetard", "KnockRetardation", "knock_retard"],
+      "node_side": ["KnockRetard", "KnockSensor"],
+      "rationale": "case-p0325 (vuruntu sensoru) golden 'KnockRetard'; SPN 731/SPN 1352 vuruntu ailesi."
+    },
+    {
+      "canonical": "InjectorPulseWidth",
+      "source_forms": ["InjectorPulseWidth", "InjectionTiming", "injector_pulse_width"],
+      "node_side": ["InjectorPulseWidth", "InjectionTiming"],
+      "rationale": "case-p0201 (enjektör) golden 'InjectorPulseWidth'; SPN 651/SPN 655 enjektor devresi ailesi."
+    },
+    {
+      "canonical": "AirPressureCircuit2",
+      "source_forms": ["AirPressureCircuit2", "BrakeCircuit2Pressure", "air_pressure_circuit_2"],
+      "node_side": ["AirPressureCircuit2", "ServiceBrakeAirPressure2"],
+      "rationale": "case-spn1087 (fren devresi 2) golden 'AirPressureCircuit2'; SPN 1087 = Brake Primary Pressure."
+    },
+    {
+      "canonical": "LTFT",
+      "source_forms": ["LTFT", "LongTermFuelTrim", "LTFTBank1", "LTFT-Bank2", "ltft"],
+      "node_side": ["LongTermFuelTrim", "LTFT"],
+      "rationale": "case-p0171/p0174 (fakir karisim) golden 'LTFT'/'LTFT-Bank2'; OBD Mode 06 long term fuel trim."
+    },
+    {
+      "canonical": "VehicleSpeed",
+      "source_forms": ["VehicleSpeed", "VSS", "vehicle_speed"],
+      "node_side": ["VehicleSpeed"],
+      "rationale": "case-p0500 golden 'VehicleSpeed'; SPN 84 = Wheel-Based Vehicle Speed. Kayit REGRESYON KILIDI icin (alias zaten calisiyor, bozulmasin)."
+    },
+    {
+      "canonical": "O2SensorVoltage",
+      "source_forms": ["O2SensorVoltage", "O2 Voltage", "OxygenSensorVoltage", "o2_sensor_voltage"],
+      "node_side": ["O2SensorVoltage"],
+      "rationale": "case-p0135 (O2 isitici) golden 'O2SensorVoltage'; SPN 3226/OBD PID 0x14 = O2 sensor voltage. Ayni buyukluk, iki protokolun farkli adlandirmasi."
+    },
+    {
+      "canonical": "RailPressure",
+      "source_forms": ["RailPressure", "FuelRailPressure", "RailPressureSensor", "rail_pressure"],
+      "node_side": ["FuelRailPressure"],
+      "rationale": "case-spn-157 golden 'RailPressure'; SPN 157 = Engine Fuel Rail 1 Pressure. FuelPressure ile AYNI hedefe cozulmez: SPN 157 ray BASINCIDIR, SPN 94 besleme pompa basinicidir."
+    }
+  ],
+  "_unresolved": [
+    "EVAPPressure — golden 22 adindan biri; grafta EVAP evidence sinyali olan dugum bulunamadi. Uydurma alias YAZILMADI; T2-8 kapsaminda raporlanacak.",
+    "misfirecount — golden'da var; grafta 'MisfireCount' dugum sinyali yok. Ayni sekilde belirsiz birakildi."
+  ]
+}

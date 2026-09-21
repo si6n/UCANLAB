@@ -1,11 +1,16 @@
 """Pre-flight prerequisites and hardware driver checker for Universal CAN Launcher.
 
-Inspects Windows environment for Edge WebView2, Visual C++ Redistributable,
-and CAN interface hardware drivers (PCAN, Kvaser, RP1210, Vector).
+Inspects Windows environment for Edge WebView2 (GUI mode only),
+Visual C++ Redistributable, and CAN interface hardware drivers (PCAN, Kvaser,
+RP1210). Vector support is provided by ``python-can``'s ``vector`` backend at
+runtime and is deliberately NOT probed here (L-1: the previous docstring named
+Vector although no check existed) — that backend stays optional and
+hardware-untested, and ``python-can`` reports its absence at connect time.
 """
 
 from __future__ import annotations
 
+import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -28,10 +33,33 @@ class PrereqChecker:
     WEBVIEW2_URL = "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
     VCREDIST_URL = "https://aka.ms/vs/17/release/vc_redist.x64.exe"
     PEAK_CAN_URL = "https://www.peak-system.com/quick/DrvSetup"
+    #: Runtime DLLs that prove the MSVC x64 C runtime is present. Checked as
+    #: files (System32/SysWOW64) rather than by a single registry key — the
+    #: redistributable can be side-loaded by another product, installed by an
+    #: installer that omits the VS "Runtimes" key, or live in WinSxS.
+    VCRUNTIME_DLLS = ("msvcp140.dll", "vcruntime140.dll")
+
+    # ------------------------------------------------------------------
+    # M-1 (verify/launcher.md:62,74,88): WebView2 is only needed for the
+    # pywebview GUI. In `--cli` (headless sniffer/analyzer) mode, a missing
+    # WebView2 runtime used to fold into `has_critical_failures` and refuse to
+    # run at all — for the one mode that loads no browser engine.
+    # ------------------------------------------------------------------
+    @classmethod
+    def is_cli_mode(cls, argv: list[str] | None = None) -> bool:
+        """True when the operator asked for the headless CLI front-end."""
+        tokens = sys.argv[1:] if argv is None else list(argv)
+        if os.environ.get("UCANLAB_CLI_MODE", "").strip() == "1":
+            return True
+        return any(str(tok).split("=", 1)[0] in ("--cli", "-c") for tok in tokens)
 
     @classmethod
-    def check_webview2(cls) -> PrereqStatus:
-        """Verify Microsoft Edge WebView2 runtime availability."""
+    def check_webview2(cls, *, cli_mode: bool = False) -> PrereqStatus:
+        """Verify Microsoft Edge WebView2 runtime availability.
+
+        Non-critical in CLI mode (M-1): the headless front-end never loads a
+        browser engine, so its absence must not block the launch.
+        """
         if sys.platform != "win32":
             return PrereqStatus("Microsoft Edge WebView2", True, "Non-Windows OS (mock/native fallback)", is_critical=False)
 
@@ -48,12 +76,25 @@ class PrereqChecker:
                         with winreg.OpenKey(hkey, sub) as key:
                             val, _ = winreg.QueryValueEx(key, "pv")
                             if val:
-                                return PrereqStatus("Microsoft Edge WebView2", True, f"Installed (Version {val})", is_critical=True)
+                                return PrereqStatus(
+                                    "Microsoft Edge WebView2",
+                                    True,
+                                    f"Installed (Version {val})",
+                                    is_critical=not cli_mode,
+                                )
                     except OSError:
                         continue
         except Exception:
             pass
 
+        if cli_mode:
+            return PrereqStatus(
+                "Microsoft Edge WebView2",
+                False,
+                "WebView2 Runtime not detected (not required in --cli mode).",
+                download_url=cls.WEBVIEW2_URL,
+                is_critical=False,
+            )
         return PrereqStatus(
             "Microsoft Edge WebView2",
             False,
@@ -63,11 +104,15 @@ class PrereqChecker:
         )
 
     @classmethod
-    def check_vcredist(cls) -> PrereqStatus:
-        """Verify Microsoft Visual C++ 2015-2022 Redistributable availability."""
-        if sys.platform != "win32":
-            return PrereqStatus("Visual C++ Redistributable", True, "Non-Windows OS", is_critical=False)
+    def _vcredist_evidence(cls) -> str | None:
+        """Return evidence that the MSVC x64 runtime is installed, else None.
 
+        Three independent probes, any one sufficient (M-1):
+
+        1. the canonical x64 Runtimes registry key;
+        2. ``System32``/``SysWOW64`` runtime DLLs;
+        3. the WinSxS side-by-side component store.
+        """
         try:
             import winreg
 
@@ -76,9 +121,34 @@ class PrereqChecker:
                 installed, _ = winreg.QueryValueEx(key, "Installed")
                 val, _ = winreg.QueryValueEx(key, "Version")
                 if installed == 1:
-                    return PrereqStatus("Visual C++ Redistributable", True, f"Installed (Version {val})", is_critical=True)
+                    return f"Installed (Version {val})"
         except Exception:
             pass
+
+        root = cls._system_root()
+        for directory in (root / "System32", root / "SysWOW64"):
+            for dll in cls.VCRUNTIME_DLLS:
+                if (directory / dll).is_file():
+                    return f"Runtime DLL present ({directory.name}\\{dll})"
+
+        try:
+            import winreg
+
+            winners = r"SOFTWARE\Microsoft\Windows\CurrentVersion\SideBySide\Winners"
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, winners):
+                return "WinSxS side-by-side component store present"
+        except Exception:
+            return None
+
+    @classmethod
+    def check_vcredist(cls) -> PrereqStatus:
+        """Verify Microsoft Visual C++ 2015-2022 Redistributable availability."""
+        if sys.platform != "win32":
+            return PrereqStatus("Visual C++ Redistributable", True, "Non-Windows OS", is_critical=False)
+
+        evidence = cls._vcredist_evidence()
+        if evidence is not None:
+            return PrereqStatus("Visual C++ Redistributable", True, evidence, is_critical=True)
 
         return PrereqStatus(
             "Visual C++ Redistributable",
@@ -161,10 +231,16 @@ class PrereqChecker:
         return drivers
 
     @classmethod
-    def run_all_checks(cls) -> list[PrereqStatus]:
-        """Run all pre-flight prerequisite checks."""
+    def run_all_checks(cls, *, cli_mode: bool | None = None) -> list[PrereqStatus]:
+        """Run all pre-flight prerequisite checks.
+
+        ``cli_mode`` defaults to auto-detection from ``sys.argv`` (M-1) so the
+        existing zero-argument call sites stay correct.
+        """
+        if cli_mode is None:
+            cli_mode = cls.is_cli_mode()
         results: list[PrereqStatus] = [
-            cls.check_webview2(),
+            cls.check_webview2(cli_mode=cli_mode),
             cls.check_vcredist(),
         ]
         results.extend(cls.check_can_drivers())

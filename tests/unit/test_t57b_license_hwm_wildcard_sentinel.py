@@ -131,7 +131,9 @@ class _UnstorableVault(InMemorySecretProvider):
     """Vault that refuses to persist the HWM key (simulates an unwritable DPAPI)."""
 
     def store_secret(self, name: str, value: bytes) -> None:  # type: ignore[override]
-        if name == "LICENSE_HWM_KEY":
+        from src.security.hwm_format import HWM_SECRET_NAME
+
+        if name == HWM_SECRET_NAME:
             raise OSError("vault is read-only")
         super().store_secret(name, value)
 

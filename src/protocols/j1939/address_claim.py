@@ -7,9 +7,10 @@ from __future__ import annotations
 
 import threading
 import time
+from collections import UserDict
 from dataclasses import dataclass
 from enum import Enum
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from src.core.logging import get_logger
 from src.core.models.can_frame import CanFrame
@@ -34,6 +35,24 @@ class AddressClaimState(Enum):
     CANNOT_CLAIM = "CANNOT_CLAIM"
 
 
+# L3 (verified OPEN): J1939Name silently TRUNCATED out-of-range fields on
+# encode (`industry_group=99` was masked to 3 bits and became 3), so a
+# caller with a typo'd 10-bit manufacturer code silently transmitted a claim
+# for a DIFFERENT manufacturer — a spoofing-shaped defect, not a cosmetic
+# one. Each 64-bit NAME subfield is now range-checked at construction.
+NAME_FIELD_WIDTHS: dict[str, int] = {
+    "industry_group": 3,
+    "vehicle_system_instance": 4,
+    "vehicle_system": 7,
+    "reserved": 1,
+    "function": 8,
+    "function_instance": 5,
+    "ecu_instance": 3,
+    "manufacturer_code": 11,
+    "identity_number": 21,
+}
+
+
 @dataclass(slots=True, frozen=True)
 class J1939Name:
     """SAE J1939-81 64-bit NAME composed of all 10 standard subfields."""
@@ -48,6 +67,30 @@ class J1939Name:
     ecu_instance: int = 0  # 3 bits (Bits 34..32)
     manufacturer_code: int = 0  # 11 bits (Bits 31..21)
     identity_number: int = 0  # 21 bits (Bits 20..0)
+
+    def __post_init__(self) -> None:
+        """L3 (verified OPEN): validate every subfield's bit width.
+
+        Fail closed rather than mask: `to_int64()` used to drop the high bits
+        of an out-of-range field, so a bad NAME was encoded as a plausible
+        but WRONG one. `arbitrary_address_capable` is typed `bool`, so any
+        truthy/falsy value is already unambiguous and needs no range check.
+        """
+        if not isinstance(self.arbitrary_address_capable, bool):
+            raise ValueError(
+                "J1939Name.arbitrary_address_capable must be a bool, "
+                f"got {type(self.arbitrary_address_capable).__name__}"
+            )
+        for field_name, width in NAME_FIELD_WIDTHS.items():
+            value = getattr(self, field_name)
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise ValueError(f"J1939Name.{field_name} must be an int, got {type(value).__name__}")
+            max_value = (1 << width) - 1
+            if not 0 <= value <= max_value:
+                raise ValueError(
+                    f"J1939Name.{field_name} {value} out of range for its {width}-bit field "
+                    f"(0..{max_value}) — refusing to truncate"
+                )
 
     def to_int64(self) -> int:
         """Encode 10 subfields into a single 64-bit unsigned integer."""
@@ -93,7 +136,7 @@ class J1939Name:
         return cls.from_int64(val)
 
 
-class _ExpiringAddressTable(dict):
+class _ExpiringAddressTable(UserDict[int, J1939Name]):
     """SA -> (NAME, expiry) table with a NAME-shaped read view.
 
     REVIEW hardening: entries carry a 60 s monotonic TTL. Internal code
@@ -102,6 +145,17 @@ class _ExpiringAddressTable(dict):
     `table[sa] = name` writes stamp a fresh TTL — so existing tests and
     callers keep working while expiry/rate-limit stay enforced on the RX
     path. Expired entries are pruned lazily on read.
+
+    L1 (verified OPEN): this class used to extend `dict` directly while only
+    overriding `__contains__`/`__getitem__`/`get`/`__setitem__`/`items`/
+    `values`. Every OTHER dict API — `keys()`, `__iter__`, `pop()`,
+    `clear()`, `update()`, `setdefault()`, `len()` — leaked the raw
+    `(NAME, expiry)` tuples to the caller, so an external reader iterating
+    the table saw tuples where a `J1939Name` was documented. Deriving from
+    `UserDict` puts the whole Mapping surface behind the overridable
+    `__getitem__`/`__setitem__`/`__contains__`/`__delitem__` hooks and makes
+    the remaining unoverridden methods (`setdefault`, `pop`, `update`,
+    `popitem`, `copy`) go through them too.
     """
 
     def _prune(self) -> None:
@@ -109,12 +163,12 @@ class _ExpiringAddressTable(dict):
             now = time.monotonic()
         except Exception:
             return
-        for sa, entry in list(dict.items(self)):
+        for sa, entry in list(self.data.items()):
             if isinstance(entry, tuple) and len(entry) == 2:
                 _name, expiry = entry
                 try:
                     if float(expiry) <= now:
-                        dict.pop(self, sa, None)
+                        self.data.pop(sa, None)
                 except Exception:
                     continue
 
@@ -128,39 +182,50 @@ class _ExpiringAddressTable(dict):
 
     def __contains__(self, key: object) -> bool:
         self._prune()
-        entry = dict.get(self, key)
-        return self._unwrap(entry) is not None
+        return self._unwrap(self.data.get(key)) is not None
 
     def __getitem__(self, key: int) -> J1939Name:
         self._prune()
-        entry = dict.get(self, key)
-        name = self._unwrap(entry)
+        name = self._unwrap(self.data.get(key))
         if name is None:
             raise KeyError(key)
         return name
 
     def get(self, key: int, default: J1939Name | None = None) -> J1939Name | None:  # type: ignore[override]
         self._prune()
-        entry = dict.get(self, key)
-        name = self._unwrap(entry)
+        name = self._unwrap(self.data.get(key))
         return name if name is not None else default
 
     def __setitem__(self, key: int, value: J1939Name | tuple[J1939Name, float]) -> None:
         if isinstance(value, J1939Name):
-            dict.__setitem__(self, key, (value, time.monotonic() + AddressClaimEngine.ADDRESS_TABLE_TTL_S))
+            self.data[key] = (value, time.monotonic() + AddressClaimEngine.ADDRESS_TABLE_TTL_S)
         else:
-            dict.__setitem__(self, key, value)
+            self.data[key] = value
 
-    def items(self):  # type: ignore[override]
+    def __iter__(self) -> Any:
+        """L1: iterate ONLY over live (pruned) SAs — never over raw tuples."""
         self._prune()
-        for sa, entry in dict.items(self):
+        return iter(list(self.data.keys()))
+
+    def __len__(self) -> int:
+        """L1: count only live entries, not expired-but-unpruned ones."""
+        self._prune()
+        return len(self.data)
+
+    def keys(self) -> Any:  # type: ignore[override]
+        self._prune()
+        return list(self.data.keys())
+
+    def items(self) -> Any:  # type: ignore[override]
+        self._prune()
+        for sa, entry in list(self.data.items()):
             name = self._unwrap(entry)
             if name is not None:
                 yield sa, name
 
-    def values(self):  # type: ignore[override]
+    def values(self) -> Any:  # type: ignore[override]
         self._prune()
-        for _sa, entry in dict.items(self):
+        for _sa, entry in list(self.data.items()):
             name = self._unwrap(entry)
             if name is not None:
                 yield name
@@ -317,13 +382,50 @@ class AddressClaimEngine:
         # re-broadcasting the claim. Without this, bridges/dataloggers that
         # dictionary-scan the network never learn we exist and may suggest
         # our address to another node.
+        #
+        # H2 (verified OPEN): the request's DESTINATION ADDRESS (PS octet,
+        # exposed as `_da` by the shared parser) was discarded, so every
+        # Request-for-Address-Claimed on the bus was answered — including
+        # point-to-point requests addressed to OTHER nodes. On a real bus
+        # that is a spurious claim broadcast per request, and it can hand
+        # our NAME to a node that never asked. A PDU1 request is answered
+        # only when it is addressed to us, broadcast (0xFF) or
+        # globally-addressed (None for a PDU2-parsed id).
         if pgn == PGN_REQUEST_PGN and len(frame.data) >= 3:
             requested_pgn = int.from_bytes(bytes(frame.data[0:3]), byteorder="little")
-            if requested_pgn == PGN_ADDRESS_CLAIM and self.state == AddressClaimState.CLAIMED:
+            if requested_pgn != PGN_ADDRESS_CLAIM:
+                return None
+            # H2: drop requests for another node's address claim outright.
+            if _da not in (None, GLOBAL_ADDRESS, self.current_address):
+                logger.debug(
+                    "Ignoring Request PGN for Address Claimed addressed to another node",
+                    extra={"requester": source_address, "da": _da, "sa": self.current_address},
+                )
+                return None
+            if self.state == AddressClaimState.CLAIMED:
                 can_id = 0x18EEFF00 | (self.current_address & 0xFF)
                 logger.debug(
                     "Answering Request PGN for Address Claimed",
                     extra={"requester": source_address, "sa": self.current_address},
+                )
+                return CanFrame.create(
+                    channel_id=self.channel_id,
+                    arbitration_id=can_id,
+                    data=self.name.to_bytes(),
+                    is_extended=True,
+                    direction="tx",
+                )
+            if self.state == AddressClaimState.CANNOT_CLAIM:
+                # H2 (verified OPEN): J1939-81 §4 — a node that holds no
+                # address MUST answer a Request for Address Claimed with the
+                # Cannot-Claim broadcast (SA 0xFE, i.e. the Null Address), so
+                # the requester learns the address is free. The old handler
+                # only ever answered from CLAIMED, so this reply was never
+                # emitted and address-arbitration peers were left blind.
+                can_id = 0x18EEFF00 | NULL_ADDRESS
+                logger.info(
+                    "Answering Request PGN with Cannot-Claim (Null Address 0xFE)",
+                    extra={"requester": source_address},
                 )
                 return CanFrame.create(
                     channel_id=self.channel_id,
@@ -382,23 +484,45 @@ class AddressClaimEngine:
                 )
                 return None
             self._prune_address_table(now)
-            dict.__setitem__(
-                self._address_table, source_address, (other_name, now + self.ADDRESS_TABLE_TTL_S)
-            )
+            # L1: write the raw (NAME, expiry) tuple through the internal
+            # `data` mapping — `__setitem__` would re-stamp the TTL and the
+            # write-through-`__setitem__` path is the legacy convenience API.
+            self._address_table.data[source_address] = (other_name, now + self.ADDRESS_TABLE_TTL_S)
             return self._handle_contention_locked(source_address, other_name)
 
     def _prune_address_table(self, now: float) -> None:
-        """Drop expired (SA -> NAME) entries. Caller holds _engine_lock."""
+        """Drop expired (SA -> NAME) entries and stale claim-rate buckets.
+
+        L2 (verified OPEN): `_claim_rate` buckets were never pruned, so a
+        spoofed-claim sweep left one entry per SA forever. The table is
+        bounded by the SA space (<=256) so this is hygiene rather than a
+        hole, but it is unbounded in *time* and the prune path already runs
+        on every RX. Caller holds _engine_lock.
+        """
         expired = [
             sa
-            for sa, entry in dict.items(self._address_table)
+            for sa, entry in list(self._address_table.data.items())
             if isinstance(entry, tuple)
             and len(entry) == 2
             and isinstance(entry[1], (int, float))
             and float(entry[1]) <= now
         ]
         for sa in expired:
-            dict.pop(self._address_table, sa, None)
+            self._address_table.data.pop(sa, None)
+
+        # L2: rate buckets older than 2x the window can never influence a
+        # future decision (the window already reset them), so drop them.
+        stale_after = 2.0 * self.CLAIM_RATE_WINDOW_S
+        stale_sas = [
+            sa
+            for sa, bucket in self._claim_rate.items()
+            if isinstance(bucket, list)
+            and len(bucket) == 2
+            and isinstance(bucket[0], (int, float))
+            and (now - float(bucket[0])) > stale_after
+        ]
+        for sa in stale_sas:
+            self._claim_rate.pop(sa, None)
 
     def _check_claim_rate_limit(self, sa: int, now: float) -> bool:
         """Per-SA claim rate gate. Caller holds _engine_lock.
@@ -425,6 +549,7 @@ class AddressClaimEngine:
         """Pruned SA -> NAME snapshot for fallback scans. Holds the lock."""
         now = time.monotonic()
         self._prune_address_table(now)
+        # L2: keep the claim-rate window fresh for the fallback scan too.
         return dict(self._address_table.items())
 
     def _handle_contention_locked(

@@ -134,6 +134,15 @@ class SafetyWiringHarness:
         # the privileged bridge role and registers a shared caller token.
         self.heartbeat_token = "harness-heartbeat-token"
         self.watchdog.arm_heartbeat_token(self.heartbeat_token)
+        # S-08: `is_lease_valid` is True only while the monitor actually RUNS.
+        # This harness used to arm TX and assert `is_lease_valid` WITHOUT ever
+        # starting supervision, so the lease only looked alive because the
+        # pre-S-08 predicate ignored `_is_running` (fail-open: TX authority
+        # with no monitor enforcing expiry). A real composition root starts
+        # the monitor, so the harness must too — `start()` is anchored to the
+        # VERY FIRST start only, so this does NOT silently extend the lease
+        # that the expiration test later relies on.
+        self.watchdog.start()
 
         effective_whitelist = whitelist_ids if whitelist_ids is not None else {0x7DF, 0x7E0, 0x18DA00F9}
         self.gateway = TxSafetyGateway(
@@ -156,6 +165,25 @@ class SafetyWiringHarness:
 
     def stop_watchdog(self) -> None:
         self.watchdog.stop()
+
+    def close(self) -> None:
+        """Reap everything this harness started (P0-4: no leaked monitors).
+
+        The harness now STARTS supervision in `__init__` (S-08), so it must
+        also own the teardown: a live "tx_watchdog_supervisor" thread left
+        behind by a test makes the process-wide monitor-count invariant in
+        `tests/unit/test_tx_watchdog.py` meaningless. Idempotent and
+        best-effort so it is safe in a `finally` on every path.
+        """
+        try:
+            self.watchdog.stop()
+        except Exception:  # noqa: BLE001 - teardown must never mask the test result
+            pass
+        try:
+            if self.bus.is_connected:
+                self.bus.disconnect()
+        except Exception:  # noqa: BLE001
+            pass
 
 
 # ==============================================================================
@@ -214,7 +242,14 @@ def test_composition_root_wiring_with_mock_bus_and_webview2() -> None:
         patch("webview.create_window", return_value=mock_window),
         patch("webview.start", side_effect=lambda **kwargs: None),
     ):
-        app.run()
+        try:
+            app.run()
+        finally:
+            # P0-4: `run()` starts the monitor; `_exit()` normally reaps it,
+            # but a failure earlier in run() would leave a live
+            # "tx_watchdog_supervisor" thread that breaks the process-wide
+            # monitor-count invariant in tests/unit/test_tx_watchdog.py.
+            app.watchdog.stop()
 
     # L-13 (P3-9): the exit path now releases the physical bus FIRST —
     # after run() returns, the driver handle must be CLOSED (the old exit
@@ -230,12 +265,35 @@ def test_composition_root_wiring_with_mock_bus_and_webview2() -> None:
 # ==============================================================================
 
 
-def test_safety_wiring_nominal_transmission_allowed() -> None:
+@pytest.fixture
+def harness_factory():
+    """Build `SafetyWiringHarness` instances and reap every one of them.
+
+    P0-4: the harness starts a real monitor thread (S-08), so each test MUST
+    tear it down — otherwise `tests/unit/test_tx_watchdog.py`'s live-monitor
+    count (which is process-wide by design) sees a foreign thread and fails in
+    a full-suite ordering. Teardown is unconditional, so this holds on the
+    success, failure and exception paths alike.
+    """
+    created: list[SafetyWiringHarness] = []
+
+    def _make(**kwargs: Any) -> SafetyWiringHarness:
+        h = SafetyWiringHarness(**kwargs)
+        created.append(h)
+        return h
+
+    yield _make
+
+    for h in created:
+        h.close()
+
+
+def test_safety_wiring_nominal_transmission_allowed(harness_factory) -> None:
     """Verify that under nominal conditions (ARMED_TX, active heartbeat, valid whitelist),
 
     SafeMultiplexedBus transmits successfully to the physical bus.
     """
-    harness = SafetyWiringHarness(whitelist_ids={0x7E0})
+    harness = harness_factory(whitelist_ids={0x7E0})
     # T47-B (P2/G-2): `02 10 01` is a DiagnosticSessionControl request, which the
     # gateway now classifies as critical from the frame itself. A fresh,
     # stationary PHYSICAL sample is therefore required (and is what a real bus
@@ -254,12 +312,12 @@ def test_safety_wiring_nominal_transmission_allowed() -> None:
     assert bytes(harness.bus.sent_frames[0].data) == bytes(frame.data)
 
 
-def test_safety_wiring_estop_trigger_blocks_gateway_and_cuts_off_tx() -> None:
+def test_safety_wiring_estop_trigger_blocks_gateway_and_cuts_off_tx(harness_factory) -> None:
     """Verify that triggering E-Stop immediately transitions supervisor to FAULT,
 
     blocks TxSafetyGateway, and cuts off SafeMultiplexedBus transmissions.
     """
-    harness = SafetyWiringHarness(whitelist_ids={0x7E0})
+    harness = harness_factory(whitelist_ids={0x7E0})
     # T47-B (P2/G-2): frame-derived criticality — feed a fresh stationary sample
     # so the baseline frame passes and the assertion below still isolates the
     # E-Stop cut-off rather than the speed interlock.
@@ -293,9 +351,9 @@ def test_safety_wiring_estop_trigger_blocks_gateway_and_cuts_off_tx() -> None:
 
 
 @pytest.mark.asyncio
-async def test_safety_wiring_async_send_blocked_by_estop() -> None:
+async def test_safety_wiring_async_send_blocked_by_estop(harness_factory) -> None:
     """Verify asynchronous send_async on SafeMultiplexedBus is cut off when E-Stop is triggered."""
-    harness = SafetyWiringHarness(whitelist_ids={0x7E0})
+    harness = harness_factory(whitelist_ids={0x7E0})
     # T47-B (P2/G-2): fresh stationary physical sample for the frame-derived
     # critical `02 10 01` baseline.
     harness.gateway.update_physical_speed(0.0)
@@ -314,7 +372,7 @@ async def test_safety_wiring_async_send_blocked_by_estop() -> None:
     assert len(harness.bus.sent_frames) == 1
 
 
-def test_safety_wiring_watchdog_expiration_cascade() -> None:
+def test_safety_wiring_watchdog_expiration_cascade(harness_factory) -> None:
     """Verify complete cascade:
 
     Watchdog lease expiration -> Supervisor FAULT -> E-Stop triggered -> Gateway blocks -> TX cutoff.
@@ -322,7 +380,7 @@ def test_safety_wiring_watchdog_expiration_cascade() -> None:
     Deterministic: the lease runs on an injected VirtualClock â€” no real sleeps.
     """
     # Fast 80ms watchdog timeout for test responsiveness
-    harness = SafetyWiringHarness(watchdog_timeout_ms=80.0, whitelist_ids={0x7E0})
+    harness = harness_factory(watchdog_timeout_ms=80.0, whitelist_ids={0x7E0})
     # T47-B (P2/G-2): frame-derived criticality — fresh stationary sample so the
     # frame passes before the watchdog is expired.
     harness.gateway.update_physical_speed(0.0)
@@ -369,13 +427,13 @@ def test_safety_wiring_watchdog_expiration_cascade() -> None:
         harness.stop_watchdog()
 
 
-def test_safety_wiring_rx_continues_during_tx_cutoff() -> None:
+def test_safety_wiring_rx_continues_during_tx_cutoff(harness_factory) -> None:
     """Verify Fail-Closed & Listen-Only principle:
 
     Even after E-Stop and Watchdog expiration have cut off TX,
     RX frames distributed via FrameRouter to SafeMultiplexedBus.recv() are NOT lost.
     """
-    harness = SafetyWiringHarness(watchdog_timeout_ms=60.0, whitelist_ids={0x7E0})
+    harness = harness_factory(watchdog_timeout_ms=60.0, whitelist_ids={0x7E0})
 
     try:
         # Advance virtual time past the lease and run one monitor iteration â€”
@@ -492,7 +550,7 @@ def test_safety_wiring_desktop_api_bridge_estop_and_recovery_flow() -> None:
     assert len(mock_bus.sent_frames) == 2
 
 
-def test_safety_wiring_non_whitelisted_id_trips_estop_and_cuts_off_tx() -> None:
+def test_safety_wiring_non_whitelisted_id_trips_estop_and_cuts_off_tx(harness_factory) -> None:
     """Verify that transmitting a non-whitelisted frame through SafeMultiplexedBus
 
     triggers WhitelistViolation, trips E-Stop on a sustained violation
@@ -503,7 +561,7 @@ def test_safety_wiring_non_whitelisted_id_trips_estop_and_cuts_off_tx() -> None:
     TxSafetyGateway.WHITELIST_ESTOP_AFTER consecutive violations (sustained
     abuse), not on the first frame.
     """
-    harness = SafetyWiringHarness(whitelist_ids={0x7E0})  # 0x123 is not whitelisted
+    harness = harness_factory(whitelist_ids={0x7E0})  # 0x123 is not whitelisted
 
     bad_frame = CanFrame.create(channel_id="vcan_test", arbitration_id=0x123, data=b"\xDE\xAD\xBE\xEF")
     good_frame = CanFrame.create(channel_id="vcan_test", arbitration_id=0x7E0, data=b"\x02\x10\x01")

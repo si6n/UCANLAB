@@ -15,9 +15,20 @@ from src.core.errors import SafetyError
 from src.safety.state_machine import SafetyState, SafetySupervisor, StateTransitionRecord
 
 
+def _supervisor(**kwargs: object) -> SafetySupervisor:
+    """S-05: ``arm_tx`` now fails CLOSED without an ``auth_secret``.
+
+    These tests exercise state-machine lifecycle semantics, not TX
+    authorization, so they use the explicit, test-mode-gated opt-in (never set
+    by a production composition root).
+    """
+    kwargs.setdefault("allow_unauthenticated_arm", True)
+    return SafetySupervisor(**kwargs)  # type: ignore[arg-type]
+
+
 def test_safety_state_machine_initial_state_and_safe_transitions() -> None:
     """Verify normal lifecycle state transitions and permission flags."""
-    supervisor = SafetySupervisor(initial_state=SafetyState.STARTUP)
+    supervisor = _supervisor(initial_state=SafetyState.STARTUP)
     assert supervisor.get_state() == SafetyState.STARTUP
     assert supervisor.epoch == 0
     assert supervisor.get_epoch() == 0
@@ -69,7 +80,7 @@ def test_safety_state_machine_initial_state_and_safe_transitions() -> None:
 
 def test_safety_state_machine_transition_to_same_state_is_noop() -> None:
     """Transitioning to the current state should be a no-op and not increment epoch."""
-    supervisor = SafetySupervisor(initial_state=SafetyState.PASSIVE)
+    supervisor = _supervisor(initial_state=SafetyState.PASSIVE)
     assert supervisor.epoch == 0
 
     supervisor.transition_to(SafetyState.PASSIVE, "No change")
@@ -80,7 +91,7 @@ def test_safety_state_machine_transition_to_same_state_is_noop() -> None:
 
 def test_safety_state_machine_illegal_transition_triggers_emergency_fault() -> None:
     """Illegal transition must transition to FAULT, increment epoch, and raise SafetyError."""
-    supervisor = SafetySupervisor(initial_state=SafetyState.STARTUP)
+    supervisor = _supervisor(initial_state=SafetyState.STARTUP)
 
     with pytest.raises(SafetyError, match="Illegal Safety State transition") as exc_info:
         supervisor.transition_to(SafetyState.ACTIVE, "Direct jump attempt")
@@ -94,7 +105,7 @@ def test_safety_state_machine_illegal_transition_triggers_emergency_fault() -> N
 
 def test_safety_state_machine_cannot_jump_from_fault_to_active() -> None:
     """Direct transition from FAULT to ACTIVE/ARMED_TX is prohibited."""
-    supervisor = SafetySupervisor(initial_state=SafetyState.FAULT)
+    supervisor = _supervisor(initial_state=SafetyState.FAULT)
     assert supervisor.current_state == SafetyState.FAULT
     assert supervisor.epoch == 0
 
@@ -113,7 +124,7 @@ def test_safety_state_machine_direct_force_fault() -> None:
     def _cb(old: SafetyState, new: SafetyState, reason: str) -> None:
         events.append((old, new, reason))
 
-    supervisor = SafetySupervisor(initial_state=SafetyState.STARTUP)
+    supervisor = _supervisor(initial_state=SafetyState.STARTUP)
     supervisor.register_callback(_cb)
 
     supervisor._force_fault("Emergency hardware line tripped")
@@ -134,7 +145,7 @@ def test_safety_state_machine_reentrant_callback_deadlock_free() -> None:
     reentrant_state_observed: list[SafetyState] = []
     reentrant_epoch_observed: list[int] = []
 
-    supervisor = SafetySupervisor(initial_state=SafetyState.STARTUP)
+    supervisor = _supervisor(initial_state=SafetyState.STARTUP)
 
     def reentrant_observer_cb(old: SafetyState, new: SafetyState, reason: str) -> None:
         # Reentrantly query state, epoch, and flags while inside callback
@@ -161,7 +172,7 @@ def test_safety_state_machine_reentrant_state_transition_in_callback() -> None:
     """CAN-12: A callback triggering another valid state transition must not deadlock."""
     transition_trail: list[SafetyState] = []
 
-    supervisor = SafetySupervisor(initial_state=SafetyState.STARTUP)
+    supervisor = _supervisor(initial_state=SafetyState.STARTUP)
 
     def cascading_cb(old: SafetyState, new: SafetyState, reason: str) -> None:
         transition_trail.append(new)
@@ -194,7 +205,7 @@ def test_safety_state_machine_callback_exception_isolation() -> None:
     def healthy_callback(old: SafetyState, new: SafetyState, reason: str) -> None:
         executed_callbacks.append("healthy_cb")
 
-    supervisor = SafetySupervisor(initial_state=SafetyState.STARTUP)
+    supervisor = _supervisor(initial_state=SafetyState.STARTUP)
     supervisor.register_callback(buggy_callback_1)
     supervisor.register_callback(healthy_callback)
     supervisor.register_callback(buggy_callback_2)
@@ -220,7 +231,7 @@ def test_safety_state_machine_unregister_callback() -> None:
     def my_cb(old: SafetyState, new: SafetyState, reason: str) -> None:
         events.append(f"{old.value}->{new.value}")
 
-    supervisor = SafetySupervisor(initial_state=SafetyState.STARTUP)
+    supervisor = _supervisor(initial_state=SafetyState.STARTUP)
     supervisor.register_callback(my_cb)
     supervisor.transition_to(SafetyState.SAFE, "init")
     assert len(events) == 1
@@ -232,7 +243,7 @@ def test_safety_state_machine_unregister_callback() -> None:
 
 def test_safety_state_machine_epoch_monotonicity() -> None:
     """CAN-12: Epoch counter must strictly monotonically increase on every state change."""
-    supervisor = SafetySupervisor(initial_state=SafetyState.STARTUP)
+    supervisor = _supervisor(initial_state=SafetyState.STARTUP)
     epochs: list[int] = [supervisor.epoch]
 
     supervisor.transition_to(SafetyState.SAFE, "1")
@@ -261,7 +272,7 @@ def test_safety_state_machine_epoch_monotonicity() -> None:
 
 def test_safety_state_machine_monotonic_time_duration_accuracy() -> None:
     """CAN-25: Duration calculations must use monotonic time accurately."""
-    supervisor = SafetySupervisor(initial_state=SafetyState.STARTUP)
+    supervisor = _supervisor(initial_state=SafetyState.STARTUP)
 
     t0_mono = supervisor.state_change_timestamp_ns
     assert t0_mono > 0
@@ -285,7 +296,7 @@ def test_safety_state_machine_monotonic_time_duration_accuracy() -> None:
 
 def test_safety_state_machine_history_and_utc_audit_log() -> None:
     """CAN-25: History records must store monotonic duration and UTC timestamp."""
-    supervisor = SafetySupervisor(initial_state=SafetyState.STARTUP)
+    supervisor = _supervisor(initial_state=SafetyState.STARTUP)
 
     before_utc = datetime.now(timezone.utc)
     time.sleep(0.05)
@@ -322,7 +333,7 @@ def test_safety_state_machine_history_and_utc_audit_log() -> None:
 
 def test_safety_state_machine_multithreaded_stress() -> None:
     """Multi-threaded stress test ensuring no deadlocks and consistent epoch progression."""
-    supervisor = SafetySupervisor(initial_state=SafetyState.PASSIVE)
+    supervisor = _supervisor(initial_state=SafetyState.PASSIVE)
     num_threads = 8
     iterations_per_thread = 50
 

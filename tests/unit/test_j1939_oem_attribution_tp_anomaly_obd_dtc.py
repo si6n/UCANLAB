@@ -63,10 +63,16 @@ def _scania_claim_frame(sa: int = 0x33) -> CanFrame:
 
 
 def test_record_address_claim_learns_manufacturer_code() -> None:
-    """A PGN 60928 claim records the SA -> manufacturer code mapping."""
+    """A PGN 60928 claim records the SA -> manufacturer code mapping.
+
+    REVIEW M8 (round 2): `_sa_name_codes` is now an `_ExpiringAddressTable`
+    with a 60 s monotonic TTL instead of a plain dict, so the learned entry
+    is a NAME (with an internal expiry) rather than a bare int. The
+    manufacturer code is read through the public accessor.
+    """
     registry = OemJ1939Registry()
     registry.record_address_claim(_cummins_claim_frame(sa=0x00))
-    assert registry._sa_name_codes[0x00] == 10
+    assert registry._manufacturer_code_for_sa(0x00) == 10
 
     # Non-claim PGNs and malformed claims are ignored (fail-closed)
     registry.record_address_claim(

@@ -6,11 +6,12 @@ import threading
 import time
 from collections.abc import Callable, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 from src.core.logging import get_logger
 from src.core.models.can_frame import CanFrame
 from src.hal.replay.parsers import CsvParser, VectorAscParser, VectorBlfParser
+from src.hal.replay.safety_filter import ReplaySafetyFilter
 
 logger = get_logger("hal.replay")
 
@@ -18,7 +19,23 @@ logger = get_logger("hal.replay")
 class ReplayBus:
     """Deterministic in-memory and file-based CAN traffic replay engine."""
 
-    def __init__(self, frames: Sequence[CanFrame] | None = None) -> None:
+    # HAL-11: callback attributes that mark a consumer as a LIVE-TX path.
+    # `play(callback=bus.send)` (or any bound driver `send`/`privileged_send`/
+    # `_send_raw`/`transmit` method) used to replay trace frames straight onto
+    # a real bus with NO ReplaySafetyFilter in between — a replayed DM11 /
+    # Address Claim / ECU Reset reached the wire unchecked, bypassing the
+    # AGENTS.md §2.1 choke-point. Such a callback now requires an explicit
+    # `allow_unfiltered_tx=True` opt-in AND is refused outright unless a
+    # safety filter is supplied.
+    _TX_CALLBACK_NAMES: ClassVar[frozenset[str]] = frozenset(
+        {"send", "privileged_send", "_send_raw", "transmit", "send_message", "write"}
+    )
+
+    def __init__(
+        self,
+        frames: Sequence[CanFrame] | None = None,
+        safety_filter: ReplaySafetyFilter | None = None,
+    ) -> None:
         self._frames: list[CanFrame] = list(frames) if frames is not None else []
         self._index: int = 0
         # REVIEW 3: play()/step()/load_frames() are reached from both the
@@ -31,6 +48,28 @@ class ReplayBus:
         # of silently killing the replay worker thread.
         self.callback_errors: int = 0
         self.dropped_frames: int = 0
+        # HAL-11: optional ReplaySafetyFilter. When provided, `play()` routes
+        # EVERY frame through it and drops whatever it blocks, so the replay
+        # path cannot deliver an unsafe frame regardless of the callback.
+        self.safety_filter: ReplaySafetyFilter | None = safety_filter
+        self.filtered_frames: int = 0
+
+    @classmethod
+    def _is_tx_callback(cls, callback: object) -> bool:
+        """HAL-11: heuristically detect a callback bound to a driver TX method.
+
+        Matches a BOUND method whose name is one of the canonical HAL TX
+        entry points (``AbstractBus.send`` / ``privileged_send`` / the legacy
+        ``_send_raw`` shim). A module-level function or a lambda that merely
+        forwards somewhere is not detectable this way — that residual gap is
+        why the documented recommendation is to pass an explicit
+        `safety_filter` rather than rely on this heuristic alone.
+        """
+        if not callable(callback):
+            return False
+        if getattr(callback, "__self__", None) is None:
+            return False
+        return getattr(callback, "__name__", "") in cls._TX_CALLBACK_NAMES
 
     @classmethod
     def from_asc_file(cls, file_path: str | Path) -> ReplayBus:
@@ -106,12 +145,31 @@ class ReplayBus:
         speed: float = 1.0,
         stop_event: Any | None = None,
         loop: bool = False,
+        allow_unfiltered_tx: bool = False,
     ) -> None:
         """Play through frames with accurate inter-frame timing delta.
 
         Supports looping playback with timestamp re-anchoring on rewind (H4).
         REVIEW 3: shared state is only touched under ``_lock`` (never while
         sleeping) and callback exceptions are counted, never propagated.
+
+        HAL-11 — LIVE-TX RISK, EXPLICIT CONTRACT:
+        ``callback`` receives the replay frames VERBATIM. If the callback
+        transmits (``callback=bus.send`` is the canonical example), replay
+        traffic reaches a real bus with no safety policy in between. Two
+        (and only two) ways to do that safely are supported:
+
+        1. Pass a `safety_filter` (to ``__init__`` or the ``safety_filter``
+           keyword here). Every frame is then routed through
+           ``filter_frame`` and anything the filter blocks is DROPPED —
+           the callback never sees it. This is the recommended path.
+        2. Pass ``allow_unfiltered_tx=True`` to acknowledge that you are
+           deliberately issuing raw, unfiltered frames (e.g. a privileged
+           bench harness). This is an auditable opt-in, never a default.
+
+        A TX-looking callback without either one raises ``ValueError``
+        (fail-closed) instead of silently opening a bypass around the
+        `TxSafetyGateway` choke-point (AGENTS.md §2.1).
         """
         if not self._frames:
             return
@@ -124,6 +182,15 @@ class ReplayBus:
             raise ValueError(f"Replay speed must be positive and in range 0.01..100, got {speed!r}")
         speed = float(speed)
 
+        effective_filter = self.safety_filter
+        if self._is_tx_callback(callback) and effective_filter is None and not allow_unfiltered_tx:
+            raise ValueError(
+                "play() was given a callback that looks like a live-TX driver method "
+                f"({getattr(callback, '__name__', callback)!r}) but no ReplaySafetyFilter: "
+                "that would transmit replay frames unfiltered. Pass a ReplaySafetyFilter "
+                "or set allow_unfiltered_tx=True to acknowledge the risk explicitly."
+            )
+
         while True:
             with self._lock:
                 self.reset()
@@ -132,13 +199,29 @@ class ReplayBus:
                 t_base_ns = self._frames[0].timestamp_ns
             t_base = time.perf_counter()
 
-            while self.has_next:
+            # HAL-20: the burst is ATOMIC — `step()` alone advances the
+            # playhead and reports end-of-trace, so the old
+            # `while self.has_next: ... frame = self.step()` pair (three
+            # separate lock acquisitions per frame) could observe a
+            # concurrent `load_frames()` between the `has_next` check and the
+            # `step()` call and hand out a frame from the NEW trace while
+            # `t_base_ns` still described the OLD one.
+            while True:
                 if stop_event and hasattr(stop_event, "is_set") and stop_event.is_set():
                     return
 
                 frame = self.step()
                 if frame is None:
                     break
+
+                if effective_filter is not None:
+                    filtered = effective_filter.filter_frame(frame)
+                    if filtered is None:
+                        with self._lock:
+                            self.filtered_frames += 1
+                            self.dropped_frames += 1
+                        continue
+                    frame = filtered
 
                 # REVIEW3 #17: replay deltas are clamped to >= 0 — a
                 # wall-clock backward jump in a capture (NTP step, hibernate

@@ -209,11 +209,15 @@ class TestSessionHypothesisWiring:
             {"EngineSpeed": 1500.0},
             ["ECU_0"],
         )
-        assert any("Kök neden adayı" in c for c in report.telemetry_correlations)
+        # P1-1: hypothesis candidates must not masquerade as telemetry evidence —
+        # they are read from their own field, never from telemetry_correlations.
+        assert any("Kök neden adayı" in c for c in report.hypothesis_candidates)
+        assert not any("Kök neden adayı" in c for c in report.telemetry_correlations)
 
     def test_no_hypothesis_line_without_evidence(self) -> None:
         copilot = AiDiagnosticCopilot()
         report = copilot.analyze_session([], {}, [])
+        assert not any("Kök neden adayı" in c for c in report.hypothesis_candidates)
         assert not any("Kök neden adayı" in c for c in report.telemetry_correlations)
 
     def test_hypothesis_line_does_not_touch_likely_causes_budget(self) -> None:

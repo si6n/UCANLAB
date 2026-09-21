@@ -60,37 +60,61 @@ def test_j1939_multi_dtc_parsing() -> None:
 
 
 def test_clear_diagnostic_requests() -> None:
+    """REVIEW M1 (round 2): Request PGN payloads are the canonical 8-byte
+    J1939-21 frame — 3 meaningful PGN bytes then 0xFF fill. The previous
+    bare 3-byte payload was legal but an interop risk (several gateways key
+    their request matchers off the DLC).
+    """
     dm11_req = J1939DiagnosticService.create_dm11_clear_active_request()
-    assert dm11_req == b"\xd3\xfe\x00"
+    assert dm11_req == b"\xd3\xfe\x00" + b"\xff" * 5
+    assert dm11_req[:3] == b"\xd3\xfe\x00"  # payload semantics unchanged
+    assert len(dm11_req) == 8
 
     dm3_req = J1939DiagnosticService.create_dm3_clear_previously_active_request()
-    assert dm3_req == b"\xcc\xfe\x00"
+    assert dm3_req == b"\xcc\xfe\x00" + b"\xff" * 5
+    assert dm3_req[:3] == b"\xcc\xfe\x00"
 
 
 def test_clear_diagnostic_frames_are_valid_can_frames() -> None:
     """Positive: DM11/DM3 frame constructors build transmittable extended frames (P1 NameError regression)."""
     dm11 = J1939DiagnosticService.create_dm11_frame()
     assert dm11.arbitration_id == 0x18EA00F9
-    assert dm11.data == b"\xd3\xfe\x00"
+    assert dm11.data == b"\xd3\xfe\x00" + b"\xff" * 5
     assert dm11.is_extended is True
     assert dm11.direction == "tx"
 
     dm3 = J1939DiagnosticService.create_dm3_frame()
     assert dm3.arbitration_id == 0x18EA00F9
-    assert dm3.data == b"\xcc\xfe\x00"
+    assert dm3.data == b"\xcc\xfe\x00" + b"\xff" * 5
 
 
 def test_dm4_dm5_dm6_request_frames() -> None:
     """Positive: DM4/DM5/DM6 request frames use the canonical 0x18EA layout with correct PGN payloads."""
     dm4 = J1939DiagnosticService.create_dm4_request_frame()
     assert dm4.arbitration_id == 0x18EA00F9
-    assert dm4.data == b"\xcd\xfe\x00"  # PGN 65229 little-endian
+    assert dm4.data[:3] == b"\xcd\xfe\x00"  # PGN 65229 little-endian
+    assert dm4.data == b"\xcd\xfe\x00" + b"\xff" * 5  # M1: 8-byte frame
 
     dm5 = J1939DiagnosticService.create_dm5_request_frame()
-    assert dm5.data == b"\xce\xfe\x00"  # PGN 65230
+    assert dm5.data[:3] == b"\xce\xfe\x00"  # PGN 65230
 
     dm6 = J1939DiagnosticService.create_dm6_request_frame()
-    assert dm6.data == b"\xcf\xfe\x00"  # PGN 65231
+    assert dm6.data[:3] == b"\xcf\xfe\x00"  # PGN 65231
+
+
+def test_request_frames_are_padded_to_eight_bytes_m1() -> None:
+    """REVIEW M1: every Request PGN frame carries the full 8-byte DLC pad."""
+    for frame in (
+        J1939DiagnosticService.create_dm3_frame(),
+        J1939DiagnosticService.create_dm11_frame(),
+        J1939DiagnosticService.create_dm4_request_frame(),
+        J1939DiagnosticService.create_dm5_request_frame(),
+        J1939DiagnosticService.create_dm6_request_frame(),
+        J1939DiagnosticService.create_request_frame(65235),
+    ):
+        assert len(frame.data) == 8
+        assert frame.data[3:] == b"\xff" * 5
+        assert frame.dlc == 8
 
 
 def test_create_request_frame_rejects_out_of_range_pgn() -> None:

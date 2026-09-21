@@ -48,7 +48,7 @@ class IdReport:
     rate_hz: float
     dlc: int
     entropy: dict[int, float] = field(default_factory=dict)  # byte_index -> Shannon entropy
-    # LSB0 bit index -> "CONST" | "INC" | "TOGGLE" | "NOISY" (per-bit flip-rate classification)
+    # LSB0 bit index -> "CONST" | "SPARSE" | "TOGGLE" | "NOISY" (per-bit flip-rate classification)
     bit_classes: list[str] = field(default_factory=list)
     hypotheses: list[Hypothesis] = field(default_factory=list)
     channel_id: str = "can0"

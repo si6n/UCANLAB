@@ -175,16 +175,28 @@ class TestEvaluateDiagnosticQueryCoverage:
             assert expect_substr.lower() in answer.lower()
 
     def test_action_metadata_roundtrip_in_query(self) -> None:
-        """Operator asking for a DTC clear inside a query still yields trigger markup."""
+        """An operator READ request still yields trigger markup.
+
+        P0-1 (verified defect, AGENTS.md §2.8): the operator's explicit DTC-clear
+        request used to mint a destructive ``uds_clear_dtc`` button. Triggers now
+        come exclusively from operator input AND are read-only, so the roundtrip
+        is exercised through the read-only VIN read.
+        """
         from src.engine.ai.diagnostic_copilot import (
             attach_action_triggers,
             extract_action_triggers,
         )
 
-        actions = extract_action_triggers("", "0x14 DTC temizle")
-        assert any(a["action_type"] == "uds_clear_dtc" for a in actions)
-        text = attach_action_triggers("Temizlik komutu hazir.", actions)
+        actions = extract_action_triggers("", "VIN oku")
+        assert any(a["action_type"] == "uds_read_did" for a in actions)
+        text = attach_action_triggers("VIN okunabilir.", actions)
         assert "ACTIONS:" in text
+
+    def test_mutating_action_never_minted_from_operator_text(self) -> None:
+        """P0-1: even an explicit operator DTC-clear request mints NOTHING."""
+        from src.engine.ai.diagnostic_copilot import extract_action_triggers
+
+        assert extract_action_triggers("", "0x14 DTC temizle") == []
 
 
 class TestCanPacketExplainerCoverage:

@@ -82,7 +82,7 @@ class N2KCompletedMessage:
 
 
 class Nmea2000FastPacketDecoder:
-    """Fast Packet stream reassembler using (Source_Address, PGN, Sequence_ID, Channel_ID) indexing (B-04)."""
+    """Fast Packet stream reassembler using (SA, DA, PGN, Sequence_ID, Channel_ID) indexing (B-04)."""
 
     TIMEOUT_SEC: ClassVar[float] = 0.500  # 500 ms maximum inter-frame timeout
     # REVIEW hardening: bounded session table + per-SA quota + fake
@@ -94,7 +94,12 @@ class Nmea2000FastPacketDecoder:
     RESTART_BURST: ClassVar[int] = 4  # ...after this many fast restarts, drop
 
     def __init__(self) -> None:
-        self._sessions: dict[tuple[int, int, int, str], FastPacketSession] = {}
+        # M3 (verified OPEN): the annotation declared a 4-tuple (no
+        # destination address) while the session key is built as a 5-tuple
+        # with the effective DA at :177. A type-lie only (`tuple` is not
+        # subscript-checked at runtime), but it misled every reader and
+        # static checker. The annotation now matches the runtime shape.
+        self._sessions: dict[tuple[int, int, int, int, str], FastPacketSession] = {}
         self._sessions_lock = threading.RLock()  # F-24: concurrent dict access
         # (sa, pgn, seq) -> [window_start_monotonic, restart_count]
         self._restart_marks: dict[tuple[int, int, int], list[float]] = {}
@@ -109,7 +114,14 @@ class Nmea2000FastPacketDecoder:
         - DLC/data-length coherence is validated (dlc == len(data) == 8
           for first/intermediate frames).
         - Reserved bits in the Fast Packet header and instance byte
-          validity are checked (see _validate_fp_header).
+          validity are checked inline during reassembly (see the FF
+          total-bytes/DLC checks and the CF DLC/index-sequence checks in
+          `_handle_locked`).
+
+        M4 (verified OPEN): this docstring previously promised a named
+        `_validate_fp_header` helper that does not exist in this module. The
+        three checks it referred to ARE performed (inline), so only the
+        phantom name is removed — no behaviour change.
         """
         if not frame.is_extended or len(frame.data) < 2:
             return None

@@ -79,7 +79,11 @@ def test_technician_report_with_dialogue_transcript_and_eliminations() -> None:
     assert "Sensör tesisatı kopuk" in report
     assert "## Teknisyen Düzeltme Notu (\"Yanıldım\" Geri Bildirimi)" in report
     assert "Karter süzgeci tıkalıydı" in report
-    assert "Rapor Kriptografik Mührü (R2-EN1):" in report
+    # P2-9 (verified defect): this report is built with NO signing key, so the
+    # SHA-256 digest is an unkeyed INTEGER CHECKSUM. Labelling it a
+    # "Kriptografik Mührü" marketed a non-cryptographic seal as cryptographic.
+    assert "Rapor Bütünlük Sağlaması (anahtarsız, R2-EN1):" in report
+    assert "Kriptografik Mührü" not in report
 
 
 def test_r2_en1_cryptographic_seal_varieties() -> None:

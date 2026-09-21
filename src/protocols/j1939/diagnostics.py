@@ -77,6 +77,25 @@ class DiagnosticTroubleCode:
     occurrence_count: int
     conversion_method: int = 0
     source_address: int = 0
+    # M2 (verified OPEN): SAE J1939-73 §5.7.3 defines TWO SPN layouts, selected
+    # by the Conversion Method (CM) bit. This decoder implements CM=0 ONLY —
+    # the CM=1 layout is not applied, so a CM=1 record would decode to a
+    # plausible but WRONG SPN. Rather than fabricate a number, the record is
+    # flagged `is_supported=False` and its `spn` is left as the raw CM=0
+    # interpretation with `conversion_method_supported=False` so callers can
+    # skip/annotate it instead of trusting it.
+    conversion_method_supported: bool = True
+
+    @property
+    def is_supported(self) -> bool:
+        """False when this DTC uses a layout this decoder does not implement.
+
+        M2: zero-fabrication — never present an unapplied layout's bytes as a
+        trusted SPN. Consumers MUST treat `is_supported=False` as
+        "value not established" (report as unknown / malformed), not as a
+        decoded fault.
+        """
+        return self.conversion_method_supported
 
     @property
     def fmi_description_en(self) -> str:
@@ -92,7 +111,19 @@ class DiagnosticTroubleCode:
 
     @classmethod
     def from_bytes(cls, dtc_bytes: bytes, source_address: int = 0) -> DiagnosticTroubleCode:
-        """Decode 4-byte binary DTC according to SAE J1939-73 formula."""
+        """Decode 4-byte binary DTC according to SAE J1939-73 formula.
+
+        CM=0 (the only layout implemented here):
+            SPN = Byte0 | (Byte1 << 8) | ((Byte2 & 0xE0) << 11)
+            FMI = Byte2 & 0x1F, OC = Byte3 & 0x7F, CM = Byte3 >> 7
+
+        M2 (verified OPEN): `conversion_method` was read at Byte3 bit 7 and
+        EXPOSED on the record but never branched on, so the CM=1 layout (a
+        19-bit SPN split differently across Bytes 0..2) silently produced a
+        wrong SPN from a correct frame. Implementing CM=1 requires an
+        ECU-specific source of truth we do not have offline, so it is
+        explicitly documented as UNSUPPORTED and flagged on the record.
+        """
         if len(dtc_bytes) < 4:
             raise ValueError(f"DTC requires 4 bytes, got {len(dtc_bytes)}")
 
@@ -110,6 +141,9 @@ class DiagnosticTroubleCode:
             occurrence_count=occurrence_count,
             conversion_method=conversion_method,
             source_address=source_address,
+            # M2: only CM=0 is implemented — flag anything else as unsupported
+            # instead of returning a silently-wrong SPN.
+            conversion_method_supported=(conversion_method == 0),
         )
 
 
@@ -141,6 +175,23 @@ class DMReadiness:
     completed_systems: int
     source_address: int
     timestamp_ns: int
+
+
+def _pad_request_payload(payload: bytes) -> bytes:
+    """Pad a PGN 59904 (Request) payload to the full 8-byte CAN frame.
+
+    M1 (verified OPEN): SAE J1939-21 §5.4 allows an unused/undefined byte in
+    a Request payload to be filled with 0xFF, and every mainstream ECU
+    transmits the Request PGN as a full 8-byte frame (3 meaningful bytes +
+    5 x 0xFF). The tool emitted a bare 3-byte frame, which is legal but
+    unusual — several gateways/analysers key their request matchers off the
+    DLC, and a 3-byte classic frame is an interop risk. The payload
+    SEMANTICS are unchanged: the first three bytes still carry the requested
+    PGN little-endian, and the padding is inserted only after them.
+    """
+    if len(payload) >= 8:
+        return payload
+    return payload + b"\xff" * (8 - len(payload))
 
 
 class J1939DiagnosticService:
@@ -208,13 +259,19 @@ class J1939DiagnosticService:
 
     @classmethod
     def dm11_request_payload(cls) -> bytes:
-        """Construct PGN 59904 (Request PGN) payload targeting DM11 (PGN 65235 / 0xFED3)."""
-        return b"\xd3\xfe\x00"
+        """Construct PGN 59904 (Request PGN) payload targeting DM11 (PGN 65235 / 0xFED3).
+
+        M1: padded to the canonical 8-byte J1939-21 Request frame with 0xFF.
+        """
+        return _pad_request_payload(b"\xd3\xfe\x00")
 
     @classmethod
     def dm3_request_payload(cls) -> bytes:
-        """Construct PGN 59904 (Request PGN) payload targeting DM3 (PGN 65228 / 0xFECC)."""
-        return b"\xcc\xfe\x00"
+        """Construct PGN 59904 (Request PGN) payload targeting DM3 (PGN 65228 / 0xFECC).
+
+        M1: padded to the canonical 8-byte J1939-21 Request frame with 0xFF.
+        """
+        return _pad_request_payload(b"\xcc\xfe\x00")
 
     @classmethod
     def create_dm11_clear_active_request(cls, target_address: int = 0, source_address: int = 0xF9) -> bytes:
@@ -261,7 +318,8 @@ class J1939DiagnosticService:
         if not (0 <= pgn <= 0x1FFFF):
             raise ValueError(f"PGN out of range: {pgn}")
         can_id = 0x18EA0000 | ((target_address & 0xFF) << 8) | (source_address & 0xFF)
-        payload = bytes((pgn & 0xFF, (pgn >> 8) & 0xFF, (pgn >> 16) & 0xFF))
+        # M1: first three bytes = requested PGN little-endian, then 0xFF pad.
+        payload = _pad_request_payload(bytes((pgn & 0xFF, (pgn >> 8) & 0xFF, (pgn >> 16) & 0xFF)))
         return CanFrame.create(
             channel_id="j1939",
             arbitration_id=can_id,

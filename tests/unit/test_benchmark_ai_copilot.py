@@ -33,7 +33,11 @@ DTC_DB = DATA_DIR / "dtc_database.json"
 SPN_DB = DATA_DIR / "j1939_spn_fmi_database.json"
 
 # Expected production catalog sizes (task contract).
-EXPECTED_DTCS = 14352
+# Rebasing 14,352 -> 14,469 is the sourced OBDex additive ingest
+# (tools/data_ingest/merge_staging_into_data.py::merge_obdex, CC0-1.0, commit
+# bc58b0eb7273226a1aabae98e956b70b8362bda1): 117 real B/C/U records, each with
+# title/description + _source_license/_source_ref (no fabricated shell rows).
+EXPECTED_DTCS = 14469
 EXPECTED_SPNS = 4_253
 
 

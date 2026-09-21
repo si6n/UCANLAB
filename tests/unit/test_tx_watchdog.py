@@ -18,23 +18,40 @@ def _armed_watchdog(watchdog: TxWatchdogSupervisor) -> TxWatchdogSupervisor:
     return watchdog
 
 
+def _supervisor() -> SafetySupervisor:
+    """S-05: arming fails CLOSED without an auth_secret.
+
+    These tests exercise lease enforcement / monitor lifecycle, not TX
+    authorization, so they use the explicit test-mode-gated opt-in (a
+    production composition root never sets it).
+    """
+    return SafetySupervisor(initial_state=SafetyState.SAFE, allow_unauthenticated_arm=True)
+
+
 def test_tx_watchdog_lease_and_heartbeat() -> None:
-    supervisor = SafetySupervisor(initial_state=SafetyState.SAFE)
+    supervisor = _supervisor()
     supervisor.transition_to(SafetyState.PASSIVE)
     supervisor.arm_tx()
 
     watchdog = _armed_watchdog(TxWatchdogSupervisor(supervisor=supervisor, timeout_ms=200.0))
-    assert watchdog.is_lease_valid is True
-    assert watchdog.remaining_lease_sec > 0.1
+    # S-08: the lease is only valid while the monitor actually runs.
+    watchdog.start()
+    try:
+        assert watchdog.is_lease_valid is True
+        assert watchdog.remaining_lease_sec > 0.1
 
-    # Keep lease alive with heartbeat
-    time.sleep(0.05)
-    watchdog.heartbeat(_HEARTBEAT_TOKEN)
-    assert watchdog.is_lease_valid is True
+        # Keep lease alive with heartbeat
+        time.sleep(0.05)
+        watchdog.heartbeat(_HEARTBEAT_TOKEN)
+        assert watchdog.is_lease_valid is True
+    finally:
+        # Always reap the monitor: a leaked "tx_watchdog_supervisor" thread
+        # breaks the thread-count assertions in the lifecycle tests below.
+        watchdog.stop()
 
 
 def test_tx_watchdog_timeout_revokes_tx_and_triggers_estop() -> None:
-    supervisor = SafetySupervisor(initial_state=SafetyState.SAFE)
+    supervisor = _supervisor()
     supervisor.transition_to(SafetyState.PASSIVE)
     supervisor.arm_tx()
     assert supervisor.is_tx_permitted is True
@@ -73,7 +90,7 @@ def test_tx_watchdog_timeout_revokes_tx_and_triggers_estop() -> None:
 
 def test_ui_freeze_expires_watchdog_and_triggers_estop() -> None:
     """F-16 DoD: main-thread freeze of 900ms (>800ms timeout) expires the lease."""
-    supervisor = SafetySupervisor(initial_state=SafetyState.SAFE)
+    supervisor = _supervisor()
     supervisor.transition_to(SafetyState.PASSIVE)
     supervisor.arm_tx()
 
@@ -106,7 +123,7 @@ def test_ui_freeze_expires_watchdog_and_triggers_estop() -> None:
 
 def test_live_ui_pulse_never_expires_watchdog() -> None:
     """F-16 DoD counterpart: a UI pulsing at 250ms holds the lease indefinitely."""
-    supervisor = SafetySupervisor(initial_state=SafetyState.SAFE)
+    supervisor = _supervisor()
     supervisor.transition_to(SafetyState.PASSIVE)
     supervisor.arm_tx()
 
@@ -134,7 +151,7 @@ def test_live_ui_pulse_never_expires_watchdog() -> None:
 
 
 def test_stop_actually_terminates_monitor_thread() -> None:
-    supervisor = SafetySupervisor(initial_state=SafetyState.SAFE)
+    supervisor = _supervisor()
     supervisor.transition_to(SafetyState.PASSIVE)
 
     watchdog = TxWatchdogSupervisor(supervisor=supervisor, timeout_ms=800.0)
@@ -148,19 +165,44 @@ def test_stop_actually_terminates_monitor_thread() -> None:
 
 
 def test_stop_start_cycle_leaves_exactly_one_monitor() -> None:
-    supervisor = SafetySupervisor(initial_state=SafetyState.SAFE)
+    """P0-4: the stop()/start() cycle must not leave TWO monitors for ONE watchdog.
+
+    The invariant is *per watchdog instance*, which is why this asserts on the
+    thread THIS cycle created (`watchdog._thread`) instead of counting every
+    live thread named "tx_watchdog_supervisor" in the process. The process-wide
+    count conflated unrelated supervisors: any other test module that builds a
+    live app/harness monitor (a normal, S-08-satisfying state) made this fail
+    depending on collection ORDER, not on this cycle leaking anything. The
+    thread identity check is strictly STRONGER than a count — it pins down that
+    the pre-cycle thread (a leaked immortal monitor, the actual P0-4 defect)
+    is dead and that the post-cycle supervisor runs exactly the one thread it
+    owns, which `start()`'s own "refusing to start a second monitor" guard
+    would otherwise mask.
+    """
+    import threading
+
+    supervisor = _supervisor()
     supervisor.transition_to(SafetyState.PASSIVE)
 
     watchdog = TxWatchdogSupervisor(supervisor=supervisor, timeout_ms=800.0)
     watchdog.start()
+    first_thread = watchdog._thread
+    assert first_thread is not None and first_thread.is_alive()
     watchdog.stop()
-    watchdog.start()
+    # The pre-cycle monitor must be DEAD — not merely superseded.
+    assert not first_thread.is_alive(), "stop() left the first monitor alive (P0-4)"
 
+    watchdog.start()
     try:
-        # Exactly one live monitor thread after the cycle — no leaked
-        # immortal pre-P0-4 monitor supervising alongside the new one.
-        live = [t for t in __import__("threading").enumerate() if t.name == "tx_watchdog_supervisor"]
-        assert len(live) == 1
+        # Exactly one live monitor — and it is the one this watchdog owns, so
+        # no immortal pre-P0-4 monitor is supervising alongside it.
+        second_thread = watchdog._thread
+        assert second_thread is not None and second_thread.is_alive()
+        assert second_thread is not first_thread
+        assert watchdog._thread is second_thread
+        live = [t for t in threading.enumerate() if t.name == "tx_watchdog_supervisor"]
+        assert live.count(first_thread) == 0
+        assert live.count(second_thread) == 1
     finally:
         watchdog.stop()
 
@@ -169,7 +211,7 @@ def test_orderly_stop_does_not_fire_monitor_died_fault() -> None:
     """stop() is an orderly teardown — it must not trigger the
     WATCHDOG_MONITOR_DIED last-resort fault that used to fire on every
     shutdown because the thread could never exit before the join timeout."""
-    supervisor = SafetySupervisor(initial_state=SafetyState.SAFE)
+    supervisor = _supervisor()
     supervisor.transition_to(SafetyState.PASSIVE)
     supervisor.arm_tx()
 

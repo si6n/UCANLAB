@@ -105,7 +105,15 @@ def propose_actionable_discriminating_tests(
         info = EXPERT_KNOWLEDGE_BASE.get(clean) or EXPERT_KNOWLEDGE_BASE.get(clean.replace(" ", ""))
         if not info:
             continue
-        meas_text = str(info.get("measurement", "Nominal fabrika çalışma aralığı"))
+        # P1-4 (AGENTS.md §2.3): a KB entry without a `measurement` field used
+        # to be published to the technician as the expected value
+        # "Nominal fabrika çalışma aralığı" — an invented tolerance for a step
+        # the KB never documented. No measurement text ⇒ no proposed test.
+        # Mirrors the read-only sibling `_kb_measurements` above.
+        meas_text = info.get("measurement")
+        if not isinstance(meas_text, str) or not meas_text.strip():
+            continue
+        meas_text = meas_text.strip()
         steps = info.get("steps", [])
         for step in steps:
             if isinstance(step, (tuple, list)) and len(step) >= 2:

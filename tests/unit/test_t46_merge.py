@@ -254,7 +254,11 @@ class TestProductionDatabase:
         assert PROD_DB_PATH.exists(), "production DTC database is missing"
         with PROD_DB_PATH.open(encoding="utf-8") as fh:
             db = json.load(fh)
-        assert len(db) == 14352
+        # 14,469 (was 14,352): +117 sourced, additive OBDex generic records
+        # (tools/data_ingest/merge_staging_into_data.py::merge_obdex, CC0-1.0,
+        # commit bc58b0eb7273226a1aabae98e956b70b8362bda1). Every added B/C/U
+        # record carries title/description + _source_license/_source_ref.
+        assert len(db) == 14469
 
     def test_english_fields_are_parallel_and_sourced(self) -> None:
         with PROD_DB_PATH.open(encoding="utf-8") as fh:

@@ -20,7 +20,21 @@ from src.hal.rp1210.types import RP1210ErrorCode
 logger = get_logger("hal.rp1210")
 
 _RP1210_DLL_ALLOWLIST_RE = re.compile(r"(?i)^RP1210(32|64)\.DLL$")
-_RP1210_PROTOCOL_ALLOWLIST: frozenset[str] = frozenset({"J1939", "CAN", "J1708", "ISO15765"})
+# HAL-27: ONE canonical protocol allowlist shared by the client AND
+# `RP1210Bus`. The bus carried `j1939t`/`iso_tp` in its layout sets while the
+# client rejected everything outside the four uppercase names — those entries
+# were unreachable dead branches (a `protocol="j1939t"` bus could never even
+# connect). Both now derive from this single frozenset.
+# `J1708` is deliberately ABSENT: the adapter decodes every RP1210 packet as
+# classic CAN, so accepting j1708 fabricated CAN telemetry out of J1708 bytes
+# (AGENTS.md §2.3) rather than reporting a capability gap.
+RP1210_PROTOCOL_ALLOWLIST: frozenset[str] = frozenset(
+    {"J1939", "J1939T", "CAN", "ISO15765", "ISO_TP"}
+)
+# HAL-18: protocols this adapter REFUSES to open, reported with a dedicated
+# fail-closed code so a deliberate refusal is distinguishable from a typo.
+RP1210_UNSUPPORTED_PROTOCOLS: frozenset[str] = frozenset({"J1708"})
+_RP1210_PROTOCOL_ALLOWLIST: frozenset[str] = RP1210_PROTOCOL_ALLOWLIST
 
 
 def _validate_dll_name(dll_name: str) -> str:
@@ -31,13 +45,89 @@ def _validate_dll_name(dll_name: str) -> str:
     base = os.path.basename(dll_name)
     if base != dll_name:
         raise ValueError(f"dll_name must be a bare filename, got {dll_name!r}")
-    if not _RP1210_DLL_ALLOWLIST_RE.match(base):
+    # HAL-07: the regex below only admits the TMC-standard entry points
+    # (RP121032.DLL / RP121064.DLL). Real vendor stacks ship their OWN
+    # basename — Nexiq (`NEXIQRP121064.DLL`), Noregon/DPA5
+    # (`DGDPA5DLL64.dll`), Cummins INLINE — and are legitimately usable
+    # through this client. Restricting to the standard names alone rejected a
+    # correctly configured vendor installation outright. A vendor basename is
+    # admitted only when it is actually DECLARED by the vendor's own
+    # RP1210xx.ini `[VendorDIL]` section (never by pattern/prefix guessing),
+    # so an attacker-planted DLL still cannot be named past the gate.
+    if not _RP1210_DLL_ALLOWLIST_RE.match(base) and not _is_vendor_declared_dll(base):
         raise HardwareError(
-            f"RP1210 DLL '{base}' is not in the allowlist (RP121032.DLL / RP121064.DLL)",
+            f"RP1210 DLL '{base}' is not in the allowlist (RP121032.DLL / RP121064.DLL or a "
+            "vendor basename declared in the RP1210xx.ini [VendorDIL] section)",
             code="HARDWARE_DLL_NOT_FOUND",
             details={"dll_name": base},
         )
     return base
+
+
+def _rp1210_ini_candidates() -> list[str]:
+    """HAL-07: locate the vendor RP1210 INI files without trusting the env block.
+
+    `D7/L-20` resolves system directories through the Win32 API rather than
+    `%WINDIR%`, so an attacker-controlled environment cannot redirect DLL
+    loading. The INI discovery follows the same rule.
+    """
+    dirs: list[str] = []
+    try:
+        for func_name in ("GetSystemDirectoryW", "GetWindowsDirectoryW"):
+            if sys.platform != "win32":
+                break
+            buf = ctypes.create_unicode_buffer(260)
+            func = getattr(ctypes.windll.kernel32, func_name, None)
+            if func is None:
+                continue
+            res = func(buf, 260)
+            if res and 0 < res < 260:
+                dirs.append(buf.value)
+    except Exception:  # noqa: BLE001 — API unavailable: fall back to hard defaults
+        pass
+    if not dirs:
+        dirs = ["C:\\Windows\\System32", "C:\\Windows"]
+    out: list[str] = []
+    for d in dirs:
+        for ini in ("RP121032.ini", "RP121064.ini", "RP1210.ini"):
+            out.append(os.path.join(d, ini))
+        out.append(os.path.join(d, "SysWOW64", "RP121032.ini"))
+    return out
+
+
+def _declared_vendor_dlls() -> frozenset[str]:
+    """HAL-07: basenames declared in every reachable `[VendorDIL]` INI section."""
+    declared: set[str] = set()
+    in_section = False
+    for ini_path in _rp1210_ini_candidates():
+        try:
+            with open(ini_path, "r", encoding="utf-8", errors="ignore") as fh:
+                for line in fh:
+                    stripped = line.strip()
+                    if stripped.startswith("["):
+                        in_section = stripped.lower() == "[vendordil]"
+                        continue
+                    if not in_section or not stripped or stripped.startswith(("#", ";")):
+                        continue
+                    # Entries are typically `1=filename.dll` or a bare name.
+                    _, _, value = stripped.partition("=")
+                    candidate = (value or stripped).strip().strip('"')
+                    base = os.path.basename(candidate)
+                    if base.lower().endswith(".dll"):
+                        declared.add(base)
+        except OSError:
+            continue
+    return frozenset(declared)
+
+
+def _is_vendor_declared_dll(base: str) -> bool:
+    """HAL-07: True only when a vendor INI explicitly declares this basename."""
+    if sys.platform != "win32":
+        return False
+    try:
+        return base in _declared_vendor_dlls()
+    except Exception:  # noqa: BLE001 — discovery must never crash construction
+        return False
 
 
 def _validate_device_id(device_id: int) -> int:
@@ -49,9 +139,22 @@ def _validate_device_id(device_id: int) -> int:
 def _validate_protocol(protocol: str) -> str:
     if not isinstance(protocol, str) or not protocol:
         raise ValueError(f"protocol must be a non-empty string, got {protocol!r}")
-    if protocol.upper() not in _RP1210_PROTOCOL_ALLOWLIST:
+    upper = protocol.upper()
+    # HAL-18 (fail-closed, AGENTS.md §2.3): J1708 is an RS-485 protocol with
+    # completely different framing. `RP1210Bus` decodes EVERY packet as
+    # classic CAN, so opening a j1708 session turns J1708 bytes into
+    # plausible-looking CAN IDs/data — fabricated telemetry. Refuse it with a
+    # dedicated code instead of the generic allowlist ValueError.
+    if upper in RP1210_UNSUPPORTED_PROTOCOLS:
+        raise HardwareError(
+            f"RP1210 protocol '{protocol}' is not decodable by this adapter: J1708 frames "
+            "would be decoded as classic CAN and produce fabricated telemetry",
+            code="HARDWARE_PROTOCOL_UNSUPPORTED",
+            details={"protocol": upper, "supported": sorted(RP1210_PROTOCOL_ALLOWLIST)},
+        )
+    if upper not in RP1210_PROTOCOL_ALLOWLIST:
         raise ValueError(
-            f"protocol must be one of {sorted(_RP1210_PROTOCOL_ALLOWLIST)}, got {protocol!r}"
+            f"protocol must be one of {sorted(RP1210_PROTOCOL_ALLOWLIST)}, got {protocol!r}"
         )
     return protocol
 
@@ -65,7 +168,8 @@ def _validate_buffer_size(value: int, field_name: str) -> int:
 class RP1210Client:
     """Standard-compliant TMC RP1210 client wrapper supporting NEXIQ, DPA5, Noregon adapters."""
 
-    PROTOCOL_ALLOWLIST: ClassVar[frozenset[str]] = _RP1210_PROTOCOL_ALLOWLIST
+    PROTOCOL_ALLOWLIST: ClassVar[frozenset[str]] = RP1210_PROTOCOL_ALLOWLIST
+    UNSUPPORTED_PROTOCOLS: ClassVar[frozenset[str]] = RP1210_UNSUPPORTED_PROTOCOLS
 
     def __init__(self, dll_name: str, device_id: int = 1, protocol: str = "J1939") -> None:
         self.dll_name = _validate_dll_name(dll_name)
@@ -81,6 +185,19 @@ class RP1210Client:
         # the allocator. Single-consumer under _lifecycle_lock.
         self._rx_scratch = ctypes.create_string_buffer(4096)
         self._rx_scratch_size = 4096
+        # HAL-22: out-of-band signal for the LOSSY `ERR_RX_QUEUE_FULL`
+        # condition, which can only be reported as `None` (locked behaviour)
+        # and is therefore otherwise indistinguishable from an empty queue.
+        self.last_read_was_queue_full: bool = False
+        self.rx_queue_full_count: int = 0
+        # HAL-06: RP1210_ClientConnect carries no baud parameter. `bitrate`
+        # is forwarded as a vendor `:Baud=` protocol suffix, but the syntax is
+        # vendor-specific and unprovable without the adapter, so the rate is
+        # reported as UNVERIFIED (`bitrate_applied` stays False).
+        self.bitrate: int | None = None
+        self.bitrate_requested: bool = False
+        self.bitrate_applied: bool = False
+        self._protocol_wire_string: str = self.protocol
 
         self._load_dll()
 
@@ -227,7 +344,12 @@ class RP1210Client:
             self._dll.RP1210_GetErrorMsg.argtypes = [ctypes.c_short, ctypes.c_char_p]
             self._dll.RP1210_GetErrorMsg.restype = ctypes.c_short
 
-    def connect(self, tx_buffer_size: int = 8000, rx_buffer_size: int = 8000) -> int:
+    def connect(
+        self,
+        tx_buffer_size: int = 8000,
+        rx_buffer_size: int = 8000,
+        bitrate: int | None = None,
+    ) -> int:
         """Establish client connection to the RP1210 adapter.
 
         B11 (REVIEW): `ctypes.create_string_buffer` already guarantees a
@@ -235,6 +357,16 @@ class RP1210Client:
         appended a second trailing NUL byte. Healthy vendor DLLs stop at
         the first NUL, but strict RP1210 implementations can reject strings
         with embedded/trailing NULs — pass the protocol bytes exactly once.
+
+        HAL-06: the TMC RP1210 `RP1210_ClientConnect` ABI has NO bitrate
+        parameter — the adapter's baud comes from its own INI/driver defaults.
+        The per-vendor way to override it is a `protocol:BAUD=<rate>` suffix
+        in the `fpchProtocol` string (E.g. `J1939:Baud=250000`), so when a
+        `bitrate` is supplied it is appended to the protocol string.
+        Because the accepted syntax is VENDOR-specific and cannot be proven
+        without the adapter present, `bitrate_applied` stays False and the
+        caller must treat the rate as UNVERIFIED (`HARDWARE_BITRATE_UNVERIFIED`)
+        rather than assuming the requested baud reached the hardware.
         """
         _validate_buffer_size(tx_buffer_size, "tx_buffer_size")
         _validate_buffer_size(rx_buffer_size, "rx_buffer_size")
@@ -243,13 +375,27 @@ class RP1210Client:
         if not self._dll:
             raise HardwareError("DLL not loaded")
 
+        if bitrate is not None:
+            if (
+                not isinstance(bitrate, int)
+                or isinstance(bitrate, bool)
+                or not (1_000 <= bitrate <= 8_000_000)
+            ):
+                raise ValueError(f"bitrate must be None or in range 1000..8000000, got {bitrate!r}")
+            self.bitrate = bitrate
+            self.bitrate_requested = True
+            self.bitrate_applied = False  # cannot be verified without the adapter
+            self._protocol_wire_string = f"{self.protocol}:Baud={bitrate}"
+        else:
+            self._protocol_wire_string = self.protocol
+
         try:
-            proto_buf = ctypes.create_string_buffer(self.protocol.encode("ascii"))
+            proto_buf = ctypes.create_string_buffer(self._protocol_wire_string.encode("ascii"))
         except UnicodeEncodeError as exc:
             raise HardwareError(
-                f"RP1210 protocol is not ASCII-encodable: {self.protocol!r}",
+                f"RP1210 protocol is not ASCII-encodable: {self._protocol_wire_string!r}",
                 code="HARDWARE_CONFIG_INVALID",
-                details={"protocol": self.protocol[:64]},
+                details={"protocol": self._protocol_wire_string[:64]},
                 cause=exc,
             ) from exc
         with self._lifecycle_lock:
@@ -342,6 +488,10 @@ class RP1210Client:
             if self.client_id is None or not self._dll:
                 raise HardwareError("RP1210 client is not connected")
             client_id = self.client_id
+            # HAL-22: cleared on every call so the flag always describes the
+            # MOST RECENT read; the caller (RP1210Bus.recv) reads it right after.
+            # (Also lazily created — `_new`-built test doubles skip __init__.)
+            self.last_read_was_queue_full = False
             if buffer_size <= self._rx_scratch_size:
                 rx_buffer = self._rx_scratch
             else:
@@ -369,6 +519,16 @@ class RP1210Client:
                 # L-20 (P2-27): RP1210Client owns no metrics object (the
                 # counters live on RP1210Bus) — the old hasattr guard was
                 # dead code that never counted anything.
+                #
+                # HAL-22: the `None` return is LOCKED by
+                # `tests/unit/test_rp1210.py::test_rp1210_read_rx_queue_full_returns_none`
+                # (error codes must never be returned as data), so the
+                # lossy-queue condition is published out-of-band on
+                # `last_read_was_queue_full` for the bus to surface and count.
+                self.last_read_was_queue_full = True
+                # `_new`-constructed test doubles never run __init__, so the
+                # counter is created lazily rather than assumed present.
+                self.rx_queue_full_count = getattr(self, "rx_queue_full_count", 0) + 1
                 logger.warning("RP1210 RX Queue is full; frame drops may occur")
                 return None
 

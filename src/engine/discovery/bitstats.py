@@ -53,13 +53,22 @@ class BitStats:
 
     @classmethod
     def classify_bits(cls, flip_rates: Sequence[float]) -> list[str]:
-        """Classify each bit based on its transition profile."""
+        """Classify each bit based on its transition profile.
+
+        P3-2: the low-transition bucket used to be labelled `"INC"`, which
+        reads as "incrementing counter". A flip rate <= 0.20 says nothing
+        about direction — a sparse counter, a slowly-varying analogue value
+        and a mostly-static status bit all land here, and several of them
+        decrement or are not counters at all. The label is now `"SPARSE"`
+        (low activity, direction unknown) so the discovery report does not
+        assert a mechanism the evidence does not support.
+        """
         classifications: list[str] = []
         for rate in flip_rates:
             if rate == 0.0:
                 classifications.append("CONST")
             elif rate <= 0.20:
-                classifications.append("INC")
+                classifications.append("SPARSE")
             elif rate <= 0.70:
                 classifications.append("TOGGLE")
             else:

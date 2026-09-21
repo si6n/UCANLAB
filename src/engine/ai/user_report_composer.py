@@ -12,10 +12,12 @@ ustaya not / güven katmanı kaldırıldı.
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
 from typing import Any
 
+from src.core.logging import get_logger
 from src.core.models.diagnostics import VehicleSession
 from src.engine.ai.diagnostic_copilot import (
     DiagnosticAnalysisReport,
@@ -29,6 +31,8 @@ from src.engine.ai.drive_safety_policy import (
     is_ev_hv_code,
 )
 from src.engine.ai.user_kb import UserKbEntry, get_entry, load_user_kb
+
+logger = get_logger("engine.ai_user_report_composer")
 
 CARD_VERSION = 1
 
@@ -150,7 +154,12 @@ def compose_user_card(
                 if spn_num is not None and f"SPN_{spn_num}" in spns:
                     spn_info = spns[f"SPN_{spn_num}"]
                     break
-        except Exception:
+        except (OSError, json.JSONDecodeError, KeyError, TypeError) as exc:
+            # P2-5 (residual): the bare `except Exception` here hid every
+            # failure of the SPN bridge. The card still degrades to the honest
+            # generic template below, but the reason is now recorded instead of
+            # being discarded.
+            logger.warning("J1939 SPN köprüsü kullanılamadı: %s", exc)
             spn_info = None
 
     ev_codes = [c for c in dtc_codes if is_ev_hv_code(c)]

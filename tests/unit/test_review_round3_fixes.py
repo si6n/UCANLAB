@@ -172,7 +172,11 @@ def _make_gateway_fixture(monkeypatch: pytest.MonkeyPatch):
     from src.safety.state_machine import SafetyState, SafetySupervisor
 
     monkeypatch.setenv("UCANLAB_TEST_MODE", "1")
-    supervisor = SafetySupervisor(initial_state=SafetyState.SAFE)
+    monkeypatch.setenv("UCANLAB_TEST_MODE", "1")
+    # S-05 fail-closed: arm_tx now REFUSES a supervisor with no auth_secret.
+    # This fixture exercises the gateway, not TX authorization, so it uses the
+    # explicit test-only opt-in (never set by a production composition root).
+    supervisor = SafetySupervisor(initial_state=SafetyState.SAFE, allow_unauthenticated_arm=True)
     supervisor.transition_to(SafetyState.PASSIVE)
     supervisor.arm_tx()
     estop = EmergencyStopSystem()
@@ -368,7 +372,11 @@ def test_watchdog_stop_with_wedged_monitor_revokes_tx(monkeypatch: pytest.Monkey
     from src.safety.state_machine import SafetyState, SafetySupervisor
     from src.safety.watchdog import TxWatchdogSupervisor
 
-    supervisor = SafetySupervisor(initial_state=SafetyState.SAFE)
+    monkeypatch.setenv("UCANLAB_TEST_MODE", "1")
+    # S-05 fail-closed: arm_tx now REFUSES a supervisor with no auth_secret.
+    # This fixture exercises the gateway, not TX authorization, so it uses the
+    # explicit test-only opt-in (never set by a production composition root).
+    supervisor = SafetySupervisor(initial_state=SafetyState.SAFE, allow_unauthenticated_arm=True)
     supervisor.transition_to(SafetyState.PASSIVE)
     supervisor.arm_tx()
     estop = EmergencyStopSystem()

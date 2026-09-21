@@ -50,6 +50,49 @@ def ensure_frontend_built(frontend_dir: Path) -> None:
     print(f"Frontend bundle verified: {dist_index}")
 
 
+def write_target_manifest(root_dir: Path, artifact: Path) -> Path:
+    """Emit ``data/target.hash`` for the D-4 frozen-target gate (H-4).
+
+    The launcher resolves its manifest from ``<bundle>/data/target.hash``
+    (``src/launcher/app.py::_manifest_path``) and its loader accepts either a
+    bare 64-hex line or sha256sum's ``<digest>  <name>`` form. Nothing in the
+    repository wrote that file — this script only produced
+    ``dist/SHA256SUMS``, the wrong name in the wrong location — so EVERY
+    frozen artifact failed the gate and the launcher fell back to a
+    ``src/main.py`` that a frozen build does not bundle.
+
+    A missing artifact raises: a manifest-less release must fail the build.
+    """
+    if not artifact.is_file():
+        raise FileNotFoundError(
+            f"Build artifact not found, cannot emit the D-4 hash manifest: {artifact}"
+        )
+    digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
+    payload = f"{digest}  {artifact.name}\n"
+    manifest_path = root_dir / "data" / "target.hash"
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_path.write_text(payload, encoding="utf-8")
+
+    # The copy that must be PACKAGED inside the bundle: the gate is only
+    # meaningful when the manifest lives outside the writable dist/ tree.
+    packaging_copy = root_dir / "dist" / "data" / "target.hash"
+    try:
+        packaging_copy.parent.mkdir(parents=True, exist_ok=True)
+        packaging_copy.write_text(payload, encoding="utf-8")
+    except OSError as exc:  # pragma: no cover - packaging convenience only
+        print(f"[WARN] Could not stage the packaged manifest copy: {exc}")
+
+    try:
+        import os as _os
+
+        if _os.name == "posix":
+            _os.chmod(manifest_path, 0o644)
+    except OSError as _exc:  # pragma: no cover - POSIX-only best effort
+        print(f"[WARN] Could not chmod target.hash: {_exc}")
+    print(f"[D-4] target.hash: {digest}  ({artifact.name}) -> {manifest_path}")
+    return manifest_path
+
+
 def run_nuitka_build(onefile: bool = False, console: bool = False) -> int:
     """Execute Nuitka native C++ compilation command."""
     root_dir = Path(__file__).parent.parent.resolve()
@@ -122,8 +165,9 @@ def run_nuitka_build(onefile: bool = False, console: bool = False) -> int:
 
     exit_code = subprocess.call(cmd)
 
-    # Emit a SHA-256 manifest next to the artifact for tamper-evident
-    # distribution (also covers the PyInstaller path via dist/ contents).
+    # H-4: emit BOTH the human-facing dist/ checksums AND the manifest the
+    # launcher's D-4 gate actually reads (data/target.hash). A build that
+    # cannot produce the manifest is a FAILED build.
     try:
         exe_path = output_dir / "ucanlab.exe"
         if exe_path.is_file():
@@ -139,8 +183,17 @@ def run_nuitka_build(onefile: bool = False, console: bool = False) -> int:
             except OSError as _exc:
                 print(f"[WARN] Could not chmod SHA256SUMS: {_exc}")
             print(f"SHA-256: {digest}  ({exe_path.name})")
+        if exit_code == 0:
+            write_target_manifest(root_dir, exe_path)
+        else:
+            print("[D-4] Build failed — no target.hash emitted.")
+    except FileNotFoundError as exc:
+        print(f"[ERROR] {exc}")
+        print("[D-4] Refusing to finish a release build without data/target.hash.")
+        return 1
     except OSError as exc:
-        print(f"[WARN] Could not write SHA256SUMS: {exc}")
+        print(f"[ERROR] Could not write the D-4 hash manifest: {exc}")
+        return 1
 
     try:
         import shutil

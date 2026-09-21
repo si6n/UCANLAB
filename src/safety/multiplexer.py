@@ -108,7 +108,11 @@ class SafeMultiplexedBus(AbstractBus):
     @property
     def is_connected(self) -> bool:
         """Live connection state reflected directly from the underlying physical bus."""
-        return bool(self._bus_provider() and self._bus_provider().is_connected)
+        # S-13: resolve the provider ONCE — the double call could return two
+        # different objects (provider factories / reconnect races) and made
+        # `bool(bus_a and bus_b.is_connected)` an incoherent read.
+        bus = self._bus_provider()
+        return bus is not None and bool(bus.is_connected)
 
     @is_connected.setter
     def is_connected(self, value: bool) -> None:

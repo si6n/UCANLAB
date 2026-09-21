@@ -304,7 +304,18 @@ class IntelHexParser:
                     f"Line {line_num}: unsupported Intel HEX record type 0x{record_type:02X}"
                 )
 
-        if not raw_chunks and not seen_eof:
+        # M14 (verified OPEN — highest real risk in the protocols review): the
+        # previous guard only fired when BOTH the data set and the EOF flag
+        # were empty, so a TRUNCATED image (data records, no `:00000001FF`
+        # terminator) was silently accepted as a complete, flashable
+        # container — a partial transfer would then be programmed into the
+        # ECU. Intel HEX is only complete with its EOF record, so the EOF
+        # record is now mandatory (fail-closed).
+        if not seen_eof:
+            raise ProtocolError(
+                "Intel HEX missing EOF record (0x01) — truncated image rejected"
+            )
+        if not raw_chunks:
             raise ProtocolError("Empty Intel HEX file or no data records found")
 
         merged_segments = cls._merge_and_validate_chunks(raw_chunks, lim)
@@ -459,9 +470,19 @@ class SRecordParser:
                 raw_chunks.append((addr, data))
                 data_record_count += 1
             elif rec_type == "0":
-                # Header record: no address/payload semantics for flashing.
-                if count != 3 + max(0, count - 3):
-                    raise ProtocolError(f"Line {line_num}: malformed S0 header record")
+                # L7 (verified OPEN): the previous check was the tautology
+                # `count != 3 + max(0, count - 3)`, which is False for every
+                # count >= 3 and True for count < 3 — i.e. it validated
+                # nothing and the "malformed S0 header record" branch was
+                # dead code. An S0 header carries a 2-byte address plus at
+                # least one data byte, so `count >= 3` is the real structural
+                # requirement (the count/checksum coherence is already
+                # enforced above at the `len(raw_bytes) != count + 1` gate).
+                if count < 3:
+                    raise ProtocolError(
+                        f"Line {line_num}: malformed S0 header record "
+                        f"(byte count {count} < 3: needs a 2-byte address and >= 1 data byte)"
+                    )
             elif rec_type in ("5", "6"):
                 # F3: S5 (16-bit) / S6 (24-bit) count records must match the
                 # actual number of preceding data records.

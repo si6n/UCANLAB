@@ -1,7 +1,16 @@
 """ReplayBus and trace simulation tools with Replay Safety Filter."""
 
-from src.hal.replay.parsers import VectorAscParser
+from src.hal.replay.parsers import CsvParser, VectorAscParser, VectorBlfParser
 from src.hal.replay.player import ReplayBus
 from src.hal.replay.safety_filter import ReplaySafetyFilter
 
-__all__ = ["ReplayBus", "ReplaySafetyFilter", "VectorAscParser"]
+# HAL-28: CsvParser and VectorBlfParser were importable from `.parsers` (and
+# used by `ReplayBus.from_csv_file` / `from_blf_file`) but were missing from
+# this package's public surface, so callers had to reach into the submodule.
+__all__ = [
+    "CsvParser",
+    "ReplayBus",
+    "ReplaySafetyFilter",
+    "VectorAscParser",
+    "VectorBlfParser",
+]

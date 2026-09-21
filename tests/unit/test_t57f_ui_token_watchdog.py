@@ -42,6 +42,18 @@ from src.safety.watchdog import TxWatchdogSupervisor
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
+def _running_watchdog(supervisor: Any, *, timeout_ms: float = 800.0) -> TxWatchdogSupervisor:
+    """S-08: a lease is valid only while the monitor actually runs.
+
+    The T57-F/H-2 contract under test is the TOKEN check, not monitor
+    lifecycle, so the monitor is started here to make `is_lease_valid`
+    observable (and is reaped by each test's finally block).
+    """
+    watchdog = TxWatchdogSupervisor(supervisor=supervisor, timeout_ms=timeout_ms)
+    watchdog.start()
+    return watchdog
+
+
 # ---------------------------------------------------------------------------
 # H-2 / H-2b: token-authenticated watchdog heartbeats
 # ---------------------------------------------------------------------------
@@ -90,11 +102,13 @@ def test_watchdog_accepts_heartbeat_with_correct_caller_token() -> None:
     supervisor = SafetySupervisor(initial_state=SafetyState.SAFE)
     supervisor.transition_to(SafetyState.PASSIVE)
 
-    watchdog = TxWatchdogSupervisor(supervisor=supervisor, timeout_ms=800.0)
-    watchdog.arm_heartbeat_token("shared-token")
-    watchdog.heartbeat("shared-token")
-
-    assert watchdog.is_lease_valid is True
+    watchdog = _running_watchdog(supervisor)
+    try:
+        watchdog.arm_heartbeat_token("shared-token")
+        watchdog.heartbeat("shared-token")
+        assert watchdog.is_lease_valid is True
+    finally:
+        watchdog.stop()
 
 
 def test_bridge_heartbeat_passes_shared_token_to_watchdog() -> None:
@@ -113,6 +127,7 @@ def test_bridge_heartbeat_passes_shared_token_to_watchdog() -> None:
     class _FakeApp:
         def __init__(self) -> None:
             self.watchdog = TxWatchdogSupervisor(supervisor=supervisor, timeout_ms=800.0)
+            self.watchdog.start()
 
     app = _FakeApp()
     bridge = DesktopApiBridge(app)  # type: ignore[arg-type]
@@ -126,10 +141,13 @@ def test_bridge_heartbeat_passes_shared_token_to_watchdog() -> None:
 
     app.watchdog.heartbeat = _spy  # type: ignore[method-assign]
 
-    assert bridge.heartbeat() is True
-    assert calls and calls[0] is not None, "bridge heartbeat still anonymous (H-2)"
-    # The forwarded token must actually satisfy the watchdog.
-    assert app.watchdog.is_lease_valid is True
+    try:
+        assert bridge.heartbeat() is True
+        assert calls and calls[0] is not None, "bridge heartbeat still anonymous (H-2)"
+        # The forwarded token must actually satisfy the watchdog.
+        assert app.watchdog.is_lease_valid is True
+    finally:
+        app.watchdog.stop()
 
 
 def test_bridge_heartbeat_token_is_actually_accepted_by_watchdog() -> None:
@@ -147,16 +165,20 @@ def test_bridge_heartbeat_token_is_actually_accepted_by_watchdog() -> None:
     class _FakeApp:
         def __init__(self) -> None:
             self.watchdog = TxWatchdogSupervisor(supervisor=supervisor, timeout_ms=800.0)
+            self.watchdog.start()
 
     app = _FakeApp()
     bridge = DesktopApiBridge(app)  # type: ignore[arg-type]
 
-    # The bridge mints + arms a token; the first pulse succeeds.
-    assert bridge.heartbeat() is True
-    assert app.watchdog.is_lease_valid is True
-    # Second pulse reuses the same token.
-    assert bridge.heartbeat() is True
-    assert app.watchdog.is_lease_valid is True
+    try:
+        # The bridge mints + arms a token; the first pulse succeeds.
+        assert bridge.heartbeat() is True
+        assert app.watchdog.is_lease_valid is True
+        # Second pulse reuses the same token.
+        assert bridge.heartbeat() is True
+        assert app.watchdog.is_lease_valid is True
+    finally:
+        app.watchdog.stop()
 
 
 def test_arm_tx_refreshes_lease_before_driver_transition() -> None:

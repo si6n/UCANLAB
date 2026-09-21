@@ -147,6 +147,26 @@ class ChecksumDetector:
         ("NIBBLE_SUM-8", lambda data: (sum((b & 0x0F) + (b >> 4) for b in data)) & 0xFF),
     )
 
+    #: P3-3: confidence ceiling for the XOR-8 / SUM-8 family.
+    #:
+    #: A pure XOR-8 is its own inverse and a SUM-8 (and its one's-complement
+    #: and nibble-sum variants) is a single byte of arithmetic. Both are the
+    #: degenerate "checksum" of a payload whose residual byte happens to be
+    #: derived from the rest, so they match by chance far more often than a
+    #: CRC does — at a 90% match ratio a 4-byte payload can only take 2**8
+    #: distinct residuals, and a byte constant across the capture matches
+    #: XOR-8 trivially. The catalogue CRCs keep their raw match ratio (a real
+    #: CRC-8/16/32 hit at 100% is strong evidence), but an arithmetic residual
+    #: is capped strictly BELOW the 0.85 "confirmed hypothesis" threshold that
+    #: `SignalDiscoveryEngine.analyze_key` uses to mark a bit span occupied —
+    #: so a coincidence can never carve a real signal out of the payload.
+    ARITHMETIC_CHECKSUM_CONFIDENCE_CAP: ClassVar[float] = 0.85
+
+    #: Algorithms whose reported confidence is capped (see above).
+    CAPPED_ALGORITHMS: ClassVar[frozenset[str]] = frozenset(
+        {"XOR-8", "SUM-8", "ONES_COMP_SUM-8", "NIBBLE_SUM-8"}
+    )
+
     @classmethod
     def detect(cls, payloads: Sequence[bytes], dlc: int) -> list[Hypothesis]:
         """Detect checksums / CRCs across candidate byte positions.
@@ -326,24 +346,39 @@ class ChecksumDetector:
 
         match_ratio = matches / total
 
-        # Match ratio >= 90% indicates a strong checksum/CRC candidate
+        # Match ratio >= 90% indicates a strong CRC candidate
         if match_ratio >= 0.90:
             start_bit = target_byte * 8
+            # P3-3: an arithmetic residual (XOR-8/SUM-8 family) can match by
+            # coincidence; its confidence is capped below the "confirmed"
+            # threshold so it cannot claim a bit span as occupied. The raw
+            # ratio is still reported in the evidence detail.
+            confidence = round(match_ratio, 4)
+            capped = False
+            if name in cls.CAPPED_ALGORITHMS and confidence >= cls.ARITHMETIC_CHECKSUM_CONFIDENCE_CAP:
+                confidence = round(cls.ARITHMETIC_CHECKSUM_CONFIDENCE_CAP - 0.01, 4)
+                capped = True
+            detail = (
+                f"Byte {target_byte} matches {name} over bytes {covered_indices} "
+                f"in {matches}/{total} frames ({match_ratio:.1%})."
+            )
+            if capped:
+                detail += (
+                    f" CONFIDENCE CAPPED to {confidence} — {name} is an arithmetic residual "
+                    "whose coincidental match rate is high; treat as a lead, not a confirmation."
+                )
             hypotheses.append(
                 Hypothesis(
                     htype="CHECKSUM",
                     start_bit=start_bit,
                     length=8,
                     params=params,
-                    confidence=round(match_ratio, 4),
+                    confidence=confidence,
                     evidence=[
                         Evidence(
                             kind="crc_match_ratio",
                             value=match_ratio,
-                            detail=(
-                                f"Byte {target_byte} matches {name} over bytes {covered_indices} "
-                                f"in {matches}/{total} frames ({match_ratio:.1%})."
-                            ),
+                            detail=detail,
                         )
                     ],
                     name=f"CHECKSUM_B{target_byte}_{name.replace('/', '_').replace('-', '_')}",

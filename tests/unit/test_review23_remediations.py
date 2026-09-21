@@ -201,9 +201,25 @@ def _clean_volvo_name_table():
 
 
 def test_volvo_known_engine_sa_decodes_high_confidence() -> None:
+    """REVIEW M5 (round 2): the static SA allowlist {0x00, 0x01} is GONE.
+
+    A bare J1939-81 address can never prove a manufacturer (addresses are
+    dynamic and any node may legally claim SA 0). Attribution now comes from
+    the PGN 60928 NAME claim only, so an unclaimed SA decodes at LOW
+    confidence — the payload still decodes (zero information loss) but the
+    Volvo provenance is not fabricated.
+    """
     state = VolvoPentaDecoder.decode_evc_can_frame(_evc_frame(sa=0x00))
     assert state is not None
     assert state.lever_position_percent == 50.0
+    assert state.attribution_confidence == "LOW"
+
+
+def test_volvo_name_claimed_engine_sa_decodes_high_confidence() -> None:
+    """A recorded VOLVO PENTA NAME claim (manufacturer 174) is what yields HIGH."""
+    VolvoPentaDecoder.record_address_claim(_claim_frame(sa=0x00, manufacturer_code=174))
+    state = VolvoPentaDecoder.decode_evc_can_frame(_evc_frame(sa=0x00))
+    assert state is not None
     assert state.attribution_confidence == "HIGH"
 
 

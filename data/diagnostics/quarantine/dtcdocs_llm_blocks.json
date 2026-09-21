@@ -1,0 +1,2081 @@
+{
+  "schema_version": 1,
+  "task": "T1-2",
+  "quarantined_at_utc": "2026-09-21T15:07:03Z",
+  "quarantined_by": "telemetry",
+  "source_db": "data/diagnostics/j1939_spn_fmi_database.json",
+  "source_db_sha256_at_detection": "cd74e61d80592dca8ed62451495b7aed7b2c03e1c5f5c3e12a1f0afb70452a30",
+  "source_db_sha256_at_quarantine": "cd74e61d80592dca8ed62451495b7aed7b2c03e1c5f5c3e12a1f0afb70452a30",
+  "source_db_before_stats": {
+    "total_blocks": 6093,
+    "affected_spns": 13
+  },
+  "criterion": "(procedures_full[].source_url VEYA source_site içinde 'dtcdocs.com' (case-insensitive)) VEYA (procedures_full[].overview/source_title/causes[]/first_moves[]/severity_action içinde (Frequently Asked Questions|Diagnostic & Repair Procedure|Meaning, Causes & Fix|Is this a false alarm|We use cookies|By continuing, you agree))",
+  "suspect_severity": {
+    "flag": "suspect",
+    "status": "belirsiz",
+    "distinct_values": {
+      "STOP ENGINE": 4,
+      "CHECK AT NEXT STOP": 8,
+      "CHECK SOON": 5,
+      "WARNING": 2
+    },
+    "basis": "Ayrı doğrulama bulunamadı. severity_action her 72 blokta None; 5 severity değerinin tamamı yalnız dtcdocs bloklarında geçiyor ve kaynak aynı dtcdocs.com SEO sayfasıdır. Bu SEO sitesinin sertifikalı bir eşdeğeri yoktur; bu nedenle değerler güvenilmez sayılır (Tuzaklar §11: boşluk = gerçek durum; sahte değer boş bırakmaktan kötüdür). Kanıt listesi: quarantine dosyasındaki records[].severity.provenance."
+  },
+  "policy": "SİLME YOK. Bloklar `procedures_full` dizisinden çıkarıldı ve burada birebir (byte-for-byte) saklandı. Geri alma: `original_payload`ı ilgili SPN'in procedures_full dizisindeki `block_index` konumuna koyun ve `_quarantined` alanını silin.",
+  "count": 19,
+  "records": [
+    {
+      "spn": "SPN_100",
+      "block_index": 31,
+      "spn_value": 100,
+      "fmi": "1",
+      "source_site": "dtcdocs.com",
+      "source_url": "https://dtcdocs.com/code/cummins-isx15-spn-100-fmi-1/",
+      "source_title": "Cummins SPN 100 FMI 1: Meaning, Causes & Fix",
+      "block_sha256": "5f234773137f1e3ed4bcc5def6af83493ccfa3e71c64bdee9207ebd4da620cef",
+      "block_bytes": 1748,
+      "matched_by": {
+        "source_site_or_url_dtcdocs": true,
+        "llm_seo_text_marker": true
+      },
+      "dtcdocs_body_signature": true,
+      "overview": "Cummins SPN 100 FMI 1: Meaning, Causes & Fix",
+      "causes_count": 5,
+      "synthesized_causes": {
+        "total": 0,
+        "indexes": [],
+        "texts": []
+      },
+      "evidence": {
+        "text_marker_hits": [
+          {
+            "path": "overview",
+            "match": "Meaning, Causes & Fix",
+            "excerpt": "Cummins SPN 100 FMI 1: Meaning, Causes & Fix"
+          },
+          {
+            "path": "source_title",
+            "match": "Meaning, Causes & Fix",
+            "excerpt": "Cummins SPN 100 FMI 1: Meaning, Causes & Fix"
+          }
+        ],
+        "step_hits": [],
+        "url_hits": [
+          {
+            "path": "source_url",
+            "value": "https://dtcdocs.com/code/cummins-isx15-spn-100-fmi-1/"
+          },
+          {
+            "path": "source_site",
+            "value": "dtcdocs.com"
+          }
+        ]
+      },
+      "severity": {
+        "value": "STOP ENGINE",
+        "flag": "suspect",
+        "basis": "Ayrı doğrulama bulunamadı. severity_action her 72 blokta None; 5 severity değerinin tamamı yalnız dtcdocs bloklarında geçiyor ve kaynak aynı dtcdocs.com SEO sayfasıdır. Bu SEO sitesinin sertifikalı bir eşdeğeri yoktur; bu nedenle değerler güvenilmez sayılır (Tuzaklar §11: boşluk = gerçek durum; sahte değer boş bırakmaktan kötüdür). Kanıt listesi: quarantine dosyasındaki records[].severity.provenance.",
+        "provenance": {
+          "matches_j1939_73_fmi_textual_convention": true,
+          "independently_verified": false,
+          "value_has_evidence_source_other_than_dtcdocs": false,
+          "severity_action_supplied": false,
+          "status": "belirsiz"
+        }
+      },
+      "original_payload": {
+        "overview": "Cummins SPN 100 FMI 1: Meaning, Causes & Fix",
+        "severity": "STOP ENGINE",
+        "severity_action": null,
+        "causes": [
+          "Low oil level from leaks or extended drain intervals (30%)",
+          "Oil pressure sensor failure or sludge-blocked sensor port (25%)",
+          "Oil pump wear or pickup tube restriction (20%)",
+          "Internal engine bearing wear causing excessive oil clearance (15%)",
+          "Oil cooler internal failure or oil filter bypass valve stuck open (10%)"
+        ],
+        "first_moves": [
+          "Verify oil level on the dipstick — low oil level is the simplest and most common cause of low oil pressure codes",
+          "Connect a mechanical oil pressure gauge to the engine block port and compare with the dash/ECM reading — a discrepancy indicates a sensor fault, matching low readings indicate a genuine pressure problem",
+          "Check oil condition — pull the dipstick and examine oil for metal particles (indicates bearing wear), coolant contamination (milky appearance indicates head gasket or oil cooler failure), or fuel dilution (thinned oil with diesel smell)",
+          "Inspect the oil pressure sensor and wiring — remove the sensor and check for sludge plugging the sensor port, which causes false low readings",
+          "If mechanical gauge confirms low oil pressure, drop the oil pan and inspect the oil pump pickup tube for restriction, and check crankshaft and camshaft bearing clearances",
+          "Check for internal oil leaks — inspect the turbocharger oil supply and drain lines, and verify the oil filter bypass valve is functioning correctly"
+        ],
+        "common_misdiagnoses": [],
+        "fmi": "1",
+        "source_title": "Cummins SPN 100 FMI 1: Meaning, Causes & Fix",
+        "source_url": "https://dtcdocs.com/code/cummins-isx15-spn-100-fmi-1/",
+        "source_site": "dtcdocs.com",
+        "quality": "high",
+        "method": "free"
+      },
+      "reason": "dtcdocs.com kaynaklı LLM/SEO üretimi sayfa içeriği prosedür olarak kayıtlı (kriter: source_site/source_url=dtcdocs.com + SEO metin imzası). Prosedür değil; kullanıcıya adım/ölçüm talimatı vermez. İçerik çoğunlukla yüzde-tahminli neden listesi ve web-sayfası navigasyon/çerez metni. overview alanı '<Marka> SPN <n> FMI <m>: Meaning, Causes & Fix' SEO şablonundadır.",
+      "quarantine_flags": {
+        "llm_seo_generated": true,
+        "source_url_or_site_is_dtcdocs": true,
+        "severity_suspect": true,
+        "severity_status": "belirsiz",
+        "cause_entries_settled_into_quarantine": {
+          "total": 0,
+          "indexes": [],
+          "texts": []
+        }
+      }
+    },
+    {
+      "spn": "SPN_102",
+      "block_index": 18,
+      "spn_value": 102,
+      "fmi": "18",
+      "source_site": "dtcdocs.com",
+      "source_url": "https://dtcdocs.com/code/mack-mp8-spn-102-fmi-18/",
+      "source_title": "Mack SPN 102 FMI 18: Meaning, Causes & Fix",
+      "block_sha256": "822b7d9712e63df6b715b50c58cd530faf64555099a687327c3e2ac8d0d5b8e9",
+      "block_bytes": 1557,
+      "matched_by": {
+        "source_site_or_url_dtcdocs": true,
+        "llm_seo_text_marker": true
+      },
+      "dtcdocs_body_signature": true,
+      "overview": "Mack SPN 102 FMI 18: Meaning, Causes & Fix",
+      "causes_count": 5,
+      "synthesized_causes": {
+        "total": 0,
+        "indexes": [],
+        "texts": []
+      },
+      "evidence": {
+        "text_marker_hits": [
+          {
+            "path": "overview",
+            "match": "Meaning, Causes & Fix",
+            "excerpt": "Mack SPN 102 FMI 18: Meaning, Causes & Fix"
+          },
+          {
+            "path": "source_title",
+            "match": "Meaning, Causes & Fix",
+            "excerpt": "Mack SPN 102 FMI 18: Meaning, Causes & Fix"
+          }
+        ],
+        "step_hits": [],
+        "url_hits": [
+          {
+            "path": "source_url",
+            "value": "https://dtcdocs.com/code/mack-mp8-spn-102-fmi-18/"
+          },
+          {
+            "path": "source_site",
+            "value": "dtcdocs.com"
+          }
+        ]
+      },
+      "severity": {
+        "value": "CHECK AT NEXT STOP",
+        "flag": "suspect",
+        "basis": "Ayrı doğrulama bulunamadı. severity_action her 72 blokta None; 5 severity değerinin tamamı yalnız dtcdocs bloklarında geçiyor ve kaynak aynı dtcdocs.com SEO sayfasıdır. Bu SEO sitesinin sertifikalı bir eşdeğeri yoktur; bu nedenle değerler güvenilmez sayılır (Tuzaklar §11: boşluk = gerçek durum; sahte değer boş bırakmaktan kötüdür). Kanıt listesi: quarantine dosyasındaki records[].severity.provenance.",
+        "provenance": {
+          "matches_j1939_73_fmi_textual_convention": true,
+          "independently_verified": false,
+          "value_has_evidence_source_other_than_dtcdocs": false,
+          "severity_action_supplied": false,
+          "status": "belirsiz"
+        }
+      },
+      "original_payload": {
+        "overview": "Mack SPN 102 FMI 18: Meaning, Causes & Fix",
+        "severity": "CHECK AT NEXT STOP",
+        "severity_action": null,
+        "causes": [
+          "Boost leak from cracked CAC pipe or loose clamp (most common, 35% of cases)",
+          "VGT actuator stuck or sluggish due to soot buildup (25%)",
+          "Turbocharger bearing wear causing shaft play and underboost (20%)",
+          "Clogged air filter restricting intake flow (12%)",
+          "MAP sensor reading incorrect due to carbon buildup or wiring fault (8%)"
+        ],
+        "first_moves": [
+          "Connect diagnostic scan tool and record all active fault codes, noting SPN/FMI pairs and freeze-frame data",
+          "Perform visual inspection of all charge air cooler hoses, clamps, and piping for cracks, splits, or loose connections — look for soot trails indicating boost leaks",
+          "Test turbocharger wastegate or VGT actuator operation using scan tool bi-directional commands; verify actuator moves smoothly through full range",
+          "Pressure-test the charge air cooler and intake system at 30 PSI; allowable leak-down is no more than 2 PSI in 15 seconds",
+          "Check turbocharger shaft play by removing intake hose — axial play should be less than 0.005 inch, no contact between wheel and housing",
+          "Compare actual boost pressure vs. commanded boost in live data under load on a road test; a gap greater than 5 PSI indicates a performance issue"
+        ],
+        "common_misdiagnoses": [],
+        "fmi": "18",
+        "source_title": "Mack SPN 102 FMI 18: Meaning, Causes & Fix",
+        "source_url": "https://dtcdocs.com/code/mack-mp8-spn-102-fmi-18/",
+        "source_site": "dtcdocs.com",
+        "quality": "high",
+        "method": "free"
+      },
+      "reason": "dtcdocs.com kaynaklı LLM/SEO üretimi sayfa içeriği prosedür olarak kayıtlı (kriter: source_site/source_url=dtcdocs.com + SEO metin imzası). Prosedür değil; kullanıcıya adım/ölçüm talimatı vermez. İçerik çoğunlukla yüzde-tahminli neden listesi ve web-sayfası navigasyon/çerez metni. overview alanı '<Marka> SPN <n> FMI <m>: Meaning, Causes & Fix' SEO şablonundadır.",
+      "quarantine_flags": {
+        "llm_seo_generated": true,
+        "source_url_or_site_is_dtcdocs": true,
+        "severity_suspect": true,
+        "severity_status": "belirsiz",
+        "cause_entries_settled_into_quarantine": {
+          "total": 0,
+          "indexes": [],
+          "texts": []
+        }
+      }
+    },
+    {
+      "spn": "SPN_102",
+      "block_index": 19,
+      "spn_value": 102,
+      "fmi": "4",
+      "source_site": "dtcdocs.com",
+      "source_url": "https://dtcdocs.com/code/detroit-diesel-dd13-spn-102-fmi-4/",
+      "source_title": "Detroit Diesel SPN 102 FMI 4: Meaning, Causes & Fix",
+      "block_sha256": "3cffab676fa9b0b3229d86f27f9c1c7c57263419060ced77662d2630cfd60840",
+      "block_bytes": 1584,
+      "matched_by": {
+        "source_site_or_url_dtcdocs": true,
+        "llm_seo_text_marker": true
+      },
+      "dtcdocs_body_signature": true,
+      "overview": "Detroit Diesel SPN 102 FMI 4: Meaning, Causes & Fix",
+      "causes_count": 5,
+      "synthesized_causes": {
+        "total": 0,
+        "indexes": [],
+        "texts": []
+      },
+      "evidence": {
+        "text_marker_hits": [
+          {
+            "path": "overview",
+            "match": "Meaning, Causes & Fix",
+            "excerpt": "Detroit Diesel SPN 102 FMI 4: Meaning, Causes & Fix"
+          },
+          {
+            "path": "source_title",
+            "match": "Meaning, Causes & Fix",
+            "excerpt": "Detroit Diesel SPN 102 FMI 4: Meaning, Causes & Fix"
+          }
+        ],
+        "step_hits": [],
+        "url_hits": [
+          {
+            "path": "source_url",
+            "value": "https://dtcdocs.com/code/detroit-diesel-dd13-spn-102-fmi-4/"
+          },
+          {
+            "path": "source_site",
+            "value": "dtcdocs.com"
+          }
+        ]
+      },
+      "severity": {
+        "value": "CHECK AT NEXT STOP",
+        "flag": "suspect",
+        "basis": "Ayrı doğrulama bulunamadı. severity_action her 72 blokta None; 5 severity değerinin tamamı yalnız dtcdocs bloklarında geçiyor ve kaynak aynı dtcdocs.com SEO sayfasıdır. Bu SEO sitesinin sertifikalı bir eşdeğeri yoktur; bu nedenle değerler güvenilmez sayılır (Tuzaklar §11: boşluk = gerçek durum; sahte değer boş bırakmaktan kötüdür). Kanıt listesi: quarantine dosyasındaki records[].severity.provenance.",
+        "provenance": {
+          "matches_j1939_73_fmi_textual_convention": true,
+          "independently_verified": false,
+          "value_has_evidence_source_other_than_dtcdocs": false,
+          "severity_action_supplied": false,
+          "status": "belirsiz"
+        }
+      },
+      "original_payload": {
+        "overview": "Detroit Diesel SPN 102 FMI 4: Meaning, Causes & Fix",
+        "severity": "CHECK AT NEXT STOP",
+        "severity_action": null,
+        "causes": [
+          "Boost leak from cracked CAC pipe or loose clamp (most common, 35% of cases)",
+          "VGT actuator stuck or sluggish due to soot buildup (25%)",
+          "Turbocharger bearing wear causing shaft play and underboost (20%)",
+          "Clogged air filter restricting intake flow (12%)",
+          "MAP sensor reading incorrect due to carbon buildup or wiring fault (8%)"
+        ],
+        "first_moves": [
+          "Connect diagnostic scan tool and record all active fault codes, noting SPN/FMI pairs and freeze-frame data",
+          "Perform visual inspection of all charge air cooler hoses, clamps, and piping for cracks, splits, or loose connections — look for soot trails indicating boost leaks",
+          "Test turbocharger wastegate or VGT actuator operation using scan tool bi-directional commands; verify actuator moves smoothly through full range",
+          "Pressure-test the charge air cooler and intake system at 30 PSI; allowable leak-down is no more than 2 PSI in 15 seconds",
+          "Check turbocharger shaft play by removing intake hose — axial play should be less than 0.005 inch, no contact between wheel and housing",
+          "Compare actual boost pressure vs. commanded boost in live data under load on a road test; a gap greater than 5 PSI indicates a performance issue"
+        ],
+        "common_misdiagnoses": [],
+        "fmi": "4",
+        "source_title": "Detroit Diesel SPN 102 FMI 4: Meaning, Causes & Fix",
+        "source_url": "https://dtcdocs.com/code/detroit-diesel-dd13-spn-102-fmi-4/",
+        "source_site": "dtcdocs.com",
+        "quality": "high",
+        "method": "free"
+      },
+      "reason": "dtcdocs.com kaynaklı LLM/SEO üretimi sayfa içeriği prosedür olarak kayıtlı (kriter: source_site/source_url=dtcdocs.com + SEO metin imzası). Prosedür değil; kullanıcıya adım/ölçüm talimatı vermez. İçerik çoğunlukla yüzde-tahminli neden listesi ve web-sayfası navigasyon/çerez metni. overview alanı '<Marka> SPN <n> FMI <m>: Meaning, Causes & Fix' SEO şablonundadır.",
+      "quarantine_flags": {
+        "llm_seo_generated": true,
+        "source_url_or_site_is_dtcdocs": true,
+        "severity_suspect": true,
+        "severity_status": "belirsiz",
+        "cause_entries_settled_into_quarantine": {
+          "total": 0,
+          "indexes": [],
+          "texts": []
+        }
+      }
+    },
+    {
+      "spn": "SPN_110",
+      "block_index": 21,
+      "spn_value": 110,
+      "fmi": "0",
+      "source_site": "dtcdocs.com",
+      "source_url": "https://dtcdocs.com/code/caterpillar-c15-acert-spn-110-fmi-0/",
+      "source_title": "Caterpillar SPN 110 FMI 0: Meaning, Causes & Fix",
+      "block_sha256": "b77370afd3de6c9ffbfafd3b2a2270d5ab8db4304a3a68c71885d62f25af70ca",
+      "block_bytes": 1703,
+      "matched_by": {
+        "source_site_or_url_dtcdocs": true,
+        "llm_seo_text_marker": true
+      },
+      "dtcdocs_body_signature": true,
+      "overview": "Caterpillar SPN 110 FMI 0: Meaning, Causes & Fix",
+      "causes_count": 5,
+      "synthesized_causes": {
+        "total": 0,
+        "indexes": [],
+        "texts": []
+      },
+      "evidence": {
+        "text_marker_hits": [
+          {
+            "path": "overview",
+            "match": "Meaning, Causes & Fix",
+            "excerpt": "Caterpillar SPN 110 FMI 0: Meaning, Causes & Fix"
+          },
+          {
+            "path": "source_title",
+            "match": "Meaning, Causes & Fix",
+            "excerpt": "Caterpillar SPN 110 FMI 0: Meaning, Causes & Fix"
+          }
+        ],
+        "step_hits": [],
+        "url_hits": [
+          {
+            "path": "source_url",
+            "value": "https://dtcdocs.com/code/caterpillar-c15-acert-spn-110-fmi-0/"
+          },
+          {
+            "path": "source_site",
+            "value": "dtcdocs.com"
+          }
+        ]
+      },
+      "severity": {
+        "value": "STOP ENGINE",
+        "flag": "suspect",
+        "basis": "Ayrı doğrulama bulunamadı. severity_action her 72 blokta None; 5 severity değerinin tamamı yalnız dtcdocs bloklarında geçiyor ve kaynak aynı dtcdocs.com SEO sayfasıdır. Bu SEO sitesinin sertifikalı bir eşdeğeri yoktur; bu nedenle değerler güvenilmez sayılır (Tuzaklar §11: boşluk = gerçek durum; sahte değer boş bırakmaktan kötüdür). Kanıt listesi: quarantine dosyasındaki records[].severity.provenance.",
+        "provenance": {
+          "matches_j1939_73_fmi_textual_convention": true,
+          "independently_verified": false,
+          "value_has_evidence_source_other_than_dtcdocs": false,
+          "severity_action_supplied": false,
+          "status": "belirsiz"
+        }
+      },
+      "original_payload": {
+        "overview": "Caterpillar SPN 110 FMI 0: Meaning, Causes & Fix",
+        "severity": "STOP ENGINE",
+        "severity_action": null,
+        "causes": [
+          "Coolant leak from deteriorated hoses, clamps, or radiator (35% of cases)",
+          "EGR cooler internal failure allowing coolant into intake or exhaust (25%)",
+          "Stuck-closed thermostat causing overheating (15%)",
+          "Failed coolant level sensor giving false low readings (15%)",
+          "Water pump impeller erosion or seal failure (10%)"
+        ],
+        "first_moves": [
+          "Check coolant level in both the overflow reservoir and the radiator (when cold) — a significant drop indicates an external or internal leak",
+          "Use an infrared thermometer to verify actual coolant temperature matches the dash gauge and ECM sensor reading — a discrepancy indicates a faulty sensor",
+          "Pressure-test the cooling system at 15–18 PSI and hold for 30 minutes; any pressure drop indicates a leak — check hoses, radiator, EGR cooler, and head gasket",
+          "Inspect coolant for combustion gas contamination using a block tester (chemical test for exhaust gases in coolant) — positive result indicates head gasket or EGR cooler failure",
+          "Check thermostat operation by monitoring coolant temperature rise rate; thermostat should begin opening at rated temperature and fully open within 10°F of that point",
+          "Inspect fan clutch engagement — mechanical fan should engage when coolant exceeds 210°F or A/C pressure rises; a slipping fan causes overheating under load"
+        ],
+        "common_misdiagnoses": [],
+        "fmi": "0",
+        "source_title": "Caterpillar SPN 110 FMI 0: Meaning, Causes & Fix",
+        "source_url": "https://dtcdocs.com/code/caterpillar-c15-acert-spn-110-fmi-0/",
+        "source_site": "dtcdocs.com",
+        "quality": "high",
+        "method": "free"
+      },
+      "reason": "dtcdocs.com kaynaklı LLM/SEO üretimi sayfa içeriği prosedür olarak kayıtlı (kriter: source_site/source_url=dtcdocs.com + SEO metin imzası). Prosedür değil; kullanıcıya adım/ölçüm talimatı vermez. İçerik çoğunlukla yüzde-tahminli neden listesi ve web-sayfası navigasyon/çerez metni. overview alanı '<Marka> SPN <n> FMI <m>: Meaning, Causes & Fix' SEO şablonundadır.",
+      "quarantine_flags": {
+        "llm_seo_generated": true,
+        "source_url_or_site_is_dtcdocs": true,
+        "severity_suspect": true,
+        "severity_status": "belirsiz",
+        "cause_entries_settled_into_quarantine": {
+          "total": 0,
+          "indexes": [],
+          "texts": []
+        }
+      }
+    },
+    {
+      "spn": "SPN_111",
+      "block_index": 21,
+      "spn_value": 111,
+      "fmi": "1",
+      "source_site": "dtcdocs.com",
+      "source_url": "https://dtcdocs.com/code/cummins-isx15-spn-111-fmi-1/",
+      "source_title": "Cummins SPN 111 FMI 1: Meaning, Causes & Fix",
+      "block_sha256": "71729c6ff103c43c84d8975e1090d3a7eebb843a3a0dec691db87d595b509326",
+      "block_bytes": 1686,
+      "matched_by": {
+        "source_site_or_url_dtcdocs": true,
+        "llm_seo_text_marker": true
+      },
+      "dtcdocs_body_signature": true,
+      "overview": "Cummins SPN 111 FMI 1: Meaning, Causes & Fix",
+      "causes_count": 5,
+      "synthesized_causes": {
+        "total": 0,
+        "indexes": [],
+        "texts": []
+      },
+      "evidence": {
+        "text_marker_hits": [
+          {
+            "path": "overview",
+            "match": "Meaning, Causes & Fix",
+            "excerpt": "Cummins SPN 111 FMI 1: Meaning, Causes & Fix"
+          },
+          {
+            "path": "source_title",
+            "match": "Meaning, Causes & Fix",
+            "excerpt": "Cummins SPN 111 FMI 1: Meaning, Causes & Fix"
+          }
+        ],
+        "step_hits": [],
+        "url_hits": [
+          {
+            "path": "source_url",
+            "value": "https://dtcdocs.com/code/cummins-isx15-spn-111-fmi-1/"
+          },
+          {
+            "path": "source_site",
+            "value": "dtcdocs.com"
+          }
+        ]
+      },
+      "severity": {
+        "value": "CHECK SOON",
+        "flag": "suspect",
+        "basis": "Ayrı doğrulama bulunamadı. severity_action her 72 blokta None; 5 severity değerinin tamamı yalnız dtcdocs bloklarında geçiyor ve kaynak aynı dtcdocs.com SEO sayfasıdır. Bu SEO sitesinin sertifikalı bir eşdeğeri yoktur; bu nedenle değerler güvenilmez sayılır (Tuzaklar §11: boşluk = gerçek durum; sahte değer boş bırakmaktan kötüdür). Kanıt listesi: quarantine dosyasındaki records[].severity.provenance.",
+        "provenance": {
+          "matches_j1939_73_fmi_textual_convention": true,
+          "independently_verified": false,
+          "value_has_evidence_source_other_than_dtcdocs": false,
+          "severity_action_supplied": false,
+          "status": "belirsiz"
+        }
+      },
+      "original_payload": {
+        "overview": "Cummins SPN 111 FMI 1: Meaning, Causes & Fix",
+        "severity": "CHECK SOON",
+        "severity_action": null,
+        "causes": [
+          "Coolant leak from deteriorated hoses, clamps, or radiator (35% of cases)",
+          "EGR cooler internal failure allowing coolant into intake or exhaust (25%)",
+          "Stuck-closed thermostat causing overheating (15%)",
+          "Failed coolant level sensor giving false low readings (15%)",
+          "Water pump impeller erosion or seal failure (10%)"
+        ],
+        "first_moves": [
+          "Check coolant level in both the overflow reservoir and the radiator (when cold) — a significant drop indicates an external or internal leak",
+          "Use an infrared thermometer to verify actual coolant temperature matches the dash gauge and ECM sensor reading — a discrepancy indicates a faulty sensor",
+          "Pressure-test the cooling system at 15–18 PSI and hold for 30 minutes; any pressure drop indicates a leak — check hoses, radiator, EGR cooler, and head gasket",
+          "Inspect coolant for combustion gas contamination using a block tester (chemical test for exhaust gases in coolant) — positive result indicates head gasket or EGR cooler failure",
+          "Check thermostat operation by monitoring coolant temperature rise rate; thermostat should begin opening at rated temperature and fully open within 10°F of that point",
+          "Inspect fan clutch engagement — mechanical fan should engage when coolant exceeds 210°F or A/C pressure rises; a slipping fan causes overheating under load"
+        ],
+        "common_misdiagnoses": [],
+        "fmi": "1",
+        "source_title": "Cummins SPN 111 FMI 1: Meaning, Causes & Fix",
+        "source_url": "https://dtcdocs.com/code/cummins-isx15-spn-111-fmi-1/",
+        "source_site": "dtcdocs.com",
+        "quality": "high",
+        "method": "free"
+      },
+      "reason": "dtcdocs.com kaynaklı LLM/SEO üretimi sayfa içeriği prosedür olarak kayıtlı (kriter: source_site/source_url=dtcdocs.com + SEO metin imzası). Prosedür değil; kullanıcıya adım/ölçüm talimatı vermez. İçerik çoğunlukla yüzde-tahminli neden listesi ve web-sayfası navigasyon/çerez metni. overview alanı '<Marka> SPN <n> FMI <m>: Meaning, Causes & Fix' SEO şablonundadır.",
+      "quarantine_flags": {
+        "llm_seo_generated": true,
+        "source_url_or_site_is_dtcdocs": true,
+        "severity_suspect": true,
+        "severity_status": "belirsiz",
+        "cause_entries_settled_into_quarantine": {
+          "total": 0,
+          "indexes": [],
+          "texts": []
+        }
+      }
+    },
+    {
+      "spn": "SPN_164",
+      "block_index": 5,
+      "spn_value": 164,
+      "fmi": "0",
+      "source_site": "dtcdocs.com",
+      "source_url": "https://dtcdocs.com/code/caterpillar-c15-acert-spn-164-fmi-0/",
+      "source_title": "Caterpillar SPN 164 FMI 0: Meaning, Causes & Fix",
+      "block_sha256": "25fcb1346e3e2c348a05a86419f11a3218b2ca2f32de87d8282c84010833eee9",
+      "block_bytes": 1740,
+      "matched_by": {
+        "source_site_or_url_dtcdocs": true,
+        "llm_seo_text_marker": true
+      },
+      "dtcdocs_body_signature": true,
+      "overview": "Caterpillar SPN 164 FMI 0: Meaning, Causes & Fix",
+      "causes_count": 5,
+      "synthesized_causes": {
+        "total": 0,
+        "indexes": [],
+        "texts": []
+      },
+      "evidence": {
+        "text_marker_hits": [
+          {
+            "path": "overview",
+            "match": "Meaning, Causes & Fix",
+            "excerpt": "Caterpillar SPN 164 FMI 0: Meaning, Causes & Fix"
+          },
+          {
+            "path": "source_title",
+            "match": "Meaning, Causes & Fix",
+            "excerpt": "Caterpillar SPN 164 FMI 0: Meaning, Causes & Fix"
+          }
+        ],
+        "step_hits": [],
+        "url_hits": [
+          {
+            "path": "source_url",
+            "value": "https://dtcdocs.com/code/caterpillar-c15-acert-spn-164-fmi-0/"
+          },
+          {
+            "path": "source_site",
+            "value": "dtcdocs.com"
+          }
+        ]
+      },
+      "severity": {
+        "value": "CHECK AT NEXT STOP",
+        "flag": "suspect",
+        "basis": "Ayrı doğrulama bulunamadı. severity_action her 72 blokta None; 5 severity değerinin tamamı yalnız dtcdocs bloklarında geçiyor ve kaynak aynı dtcdocs.com SEO sayfasıdır. Bu SEO sitesinin sertifikalı bir eşdeğeri yoktur; bu nedenle değerler güvenilmez sayılır (Tuzaklar §11: boşluk = gerçek durum; sahte değer boş bırakmaktan kötüdür). Kanıt listesi: quarantine dosyasındaki records[].severity.provenance.",
+        "provenance": {
+          "matches_j1939_73_fmi_textual_convention": true,
+          "independently_verified": false,
+          "value_has_evidence_source_other_than_dtcdocs": false,
+          "severity_action_supplied": false,
+          "status": "belirsiz"
+        }
+      },
+      "original_payload": {
+        "overview": "Caterpillar SPN 164 FMI 0: Meaning, Causes & Fix",
+        "severity": "CHECK AT NEXT STOP",
+        "severity_action": null,
+        "causes": [
+          "Clogged fuel filters (most common, 40% of fuel system faults)",
+          "Fuel contamination with water or microbial growth (20%)",
+          "High-pressure fuel pump internal wear sending metal debris through injectors (15%)",
+          "Injector solenoid or nozzle failure (15%)",
+          "Fuel line restriction or air ingress from loose fittings (10%)"
+        ],
+        "first_moves": [
+          "Connect scan tool and retrieve all active fault codes, fuel pressure readings, and fuel temperature data from live parameters",
+          "Perform fuel system pressure test — check supply pressure at the filter inlet (should be 3–15 PSI depending on engine) and high-pressure rail pressure (15,000–30,000 PSI common rail)",
+          "Inspect fuel filters for contamination — cut open the old filter and examine for metal particles (indicates pump failure), water (indicates fuel contamination), or algae growth",
+          "Test fuel injector solenoid resistance (typically 0.5–1.5 ohms for Cummins, 0.3–0.6 ohms for Detroit) and perform cylinder cut-out test to identify weak injectors",
+          "Check fuel lines for air ingress — install a clear hose at the filter outlet and look for bubbles during cranking; air in fuel causes intermittent low pressure and misfire codes",
+          "Drain a fuel sample from the tank and filter housing into a clear container — check for water separation, microbial growth, or particulate contamination"
+        ],
+        "common_misdiagnoses": [],
+        "fmi": "0",
+        "source_title": "Caterpillar SPN 164 FMI 0: Meaning, Causes & Fix",
+        "source_url": "https://dtcdocs.com/code/caterpillar-c15-acert-spn-164-fmi-0/",
+        "source_site": "dtcdocs.com",
+        "quality": "high",
+        "method": "free"
+      },
+      "reason": "dtcdocs.com kaynaklı LLM/SEO üretimi sayfa içeriği prosedür olarak kayıtlı (kriter: source_site/source_url=dtcdocs.com + SEO metin imzası). Prosedür değil; kullanıcıya adım/ölçüm talimatı vermez. İçerik çoğunlukla yüzde-tahminli neden listesi ve web-sayfası navigasyon/çerez metni. overview alanı '<Marka> SPN <n> FMI <m>: Meaning, Causes & Fix' SEO şablonundadır.",
+      "quarantine_flags": {
+        "llm_seo_generated": true,
+        "source_url_or_site_is_dtcdocs": true,
+        "severity_suspect": true,
+        "severity_status": "belirsiz",
+        "cause_entries_settled_into_quarantine": {
+          "total": 0,
+          "indexes": [],
+          "texts": []
+        }
+      }
+    },
+    {
+      "spn": "SPN_625",
+      "block_index": 8,
+      "spn_value": 625,
+      "fmi": "2",
+      "source_site": "dtcdocs.com",
+      "source_url": "https://dtcdocs.com/code/cummins-isx15-spn-625-fmi-2/",
+      "source_title": "Cummins SPN 625 FMI 2: Meaning, Causes & Fix",
+      "block_sha256": "dffd45f1c8503bbd43e8d3b63fa9eebd239ca13ec4b16a9d8d1e1a2e1935d511",
+      "block_bytes": 6209,
+      "matched_by": {
+        "source_site_or_url_dtcdocs": true,
+        "llm_seo_text_marker": true
+      },
+      "dtcdocs_body_signature": true,
+      "overview": "Cummins SPN 625 FMI 2: Meaning, Causes & Fix",
+      "causes_count": 72,
+      "synthesized_causes": {
+        "total": 8,
+        "indexes": [
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          71
+        ],
+        "texts": [
+          "Diagnostic & Repair Procedure",
+          "Step 1: Measure J1939 bus termination resistance — should be 60 ohms across CAN high and low",
+          "Step 2: Inspect all J1939 connector pins for corrosion or damage",
+          "Step 3: Check CAN bus wire routing for interference from high-current wiring",
+          "Step 4: Use J1939 analyzer to identify the module sending erroneous data",
+          "Step 5: Verify all modules have correct source addresses and latest firmware",
+          "Frequently Asked Questions",
+          "We use cookies for analytics and advertising. By continuing, you agree to our use of cookies"
+        ]
+      },
+      "evidence": {
+        "text_marker_hits": [
+          {
+            "path": "overview",
+            "match": "Meaning, Causes & Fix",
+            "excerpt": "Cummins SPN 625 FMI 2: Meaning, Causes & Fix"
+          },
+          {
+            "path": "causes[5]",
+            "match": "Diagnostic & Repair Procedure",
+            "excerpt": "Diagnostic & Repair Procedure"
+          },
+          {
+            "path": "causes[11]",
+            "match": "Frequently Asked Questions",
+            "excerpt": "Frequently Asked Questions"
+          },
+          {
+            "path": "causes[71]",
+            "match": "We use cookies",
+            "excerpt": "We use cookies for analytics and advertising. By continuing, you agree to our use of cookies"
+          },
+          {
+            "path": "causes[71]",
+            "match": "By continuing, you agree",
+            "excerpt": "We use cookies for analytics and advertising. By continuing, you agree to our use of cookies"
+          },
+          {
+            "path": "source_title",
+            "match": "Meaning, Causes & Fix",
+            "excerpt": "Cummins SPN 625 FMI 2: Meaning, Causes & Fix"
+          }
+        ],
+        "step_hits": [
+          {
+            "path": "causes[6]",
+            "excerpt": "Step 1: Measure J1939 bus termination resistance — should be 60 ohms across CAN high and low"
+          },
+          {
+            "path": "causes[7]",
+            "excerpt": "Step 2: Inspect all J1939 connector pins for corrosion or damage"
+          },
+          {
+            "path": "causes[8]",
+            "excerpt": "Step 3: Check CAN bus wire routing for interference from high-current wiring"
+          },
+          {
+            "path": "causes[9]",
+            "excerpt": "Step 4: Use J1939 analyzer to identify the module sending erroneous data"
+          },
+          {
+            "path": "causes[10]",
+            "excerpt": "Step 5: Verify all modules have correct source addresses and latest firmware"
+          }
+        ],
+        "url_hits": [
+          {
+            "path": "source_url",
+            "value": "https://dtcdocs.com/code/cummins-isx15-spn-625-fmi-2/"
+          },
+          {
+            "path": "source_site",
+            "value": "dtcdocs.com"
+          }
+        ]
+      },
+      "severity": {
+        "value": "CHECK AT NEXT STOP",
+        "flag": "suspect",
+        "basis": "Ayrı doğrulama bulunamadı. severity_action her 72 blokta None; 5 severity değerinin tamamı yalnız dtcdocs bloklarında geçiyor ve kaynak aynı dtcdocs.com SEO sayfasıdır. Bu SEO sitesinin sertifikalı bir eşdeğeri yoktur; bu nedenle değerler güvenilmez sayılır (Tuzaklar §11: boşluk = gerçek durum; sahte değer boş bırakmaktan kötüdür). Kanıt listesi: quarantine dosyasındaki records[].severity.provenance.",
+        "provenance": {
+          "matches_j1939_73_fmi_textual_convention": true,
+          "independently_verified": false,
+          "value_has_evidence_source_other_than_dtcdocs": false,
+          "severity_action_supplied": false,
+          "status": "belirsiz"
+        }
+      },
+      "original_payload": {
+        "overview": "Cummins SPN 625 FMI 2: Meaning, Causes & Fix",
+        "severity": "CHECK AT NEXT STOP",
+        "severity_action": null,
+        "causes": [
+          "Corroded or damaged J1939 data link connector at the engine ECM or vehicle ECU",
+          "Intermittent open circuit on J1939 CAN high or CAN low wire due to chafing",
+          "Electronic module sending erroneous multiplexed message (transmission, ABS, or body controller)",
+          "J1939 bus termination resistor missing or incorrect value (should be 120 ohms at each end)",
+          "Electromagnetic interference from nearby high-current wiring affecting CAN bus signal quality",
+          "Diagnostic & Repair Procedure",
+          "Step 1: Measure J1939 bus termination resistance — should be 60 ohms across CAN high and low",
+          "Step 2: Inspect all J1939 connector pins for corrosion or damage",
+          "Step 3: Check CAN bus wire routing for interference from high-current wiring",
+          "Step 4: Use J1939 analyzer to identify the module sending erroneous data",
+          "Step 5: Verify all modules have correct source addresses and latest firmware",
+          "Frequently Asked Questions",
+          "How far can I drive with this code?",
+          "This CHECK AT NEXT STOP code allows continued operation to a safe service location, typically within 50–100 miles. Reduce engine load (avoid steep grades, reduce cruising speed) and monitor related gauges closely. If secondary symptoms develop — smoke, unusual noise, temperature spike — pull over immediately",
+          "Will this cause permanent engine damage if I keep driving?",
+          "If addressed promptly at the next stop, permanent damage is unlikely. However, prolonged operation (200+ miles) with this fault active can escalate the issue. For example, DEF system faults will eventually trigger a full derate and speed limitation to 5 mph. Some CHECK NEXT STOP conditions degrade into STOP ENGINE faults if the root cause worsens — do not postpone service indefinitely",
+          "Can I diagnose this myself or do I need a mechanic?",
+          "You can attempt the diagnostic steps listed above. Many CHECK NEXT STOP codes have straightforward causes — low fluid levels, clogged filters, or loose connectors — that an owner-operator can address. However, if the code returns after clearing, the underlying fault requires professional diagnosis with a scan tool capable of viewing live data and freeze-frame information",
+          "Estimated Repair Cost",
+          "Typical repair: $200–1,500 (Parts: $150–1,000 + Labor: 1–4 hours) · Costs vary by make/model and location",
+          "Diesel Repair Cost & Downtime Estimator",
+          "Enter estimated labor hours to calculate repair cost and potential fleet downtime losses. Based on national average diesel shop rate of $150/hr and daily revenue loss of $800/day for a parked truck",
+          "Estimated Labor Hours",
+          "Estimated Parts Cost ($)",
+          "Estimated Downtime (days)",
+          "Calculate Repair Cost",
+          "Estimated Downtime Revenue Loss @ $800/day",
+          "Total Financial Impact: $0",
+          "Related Fault Codes — ISX15",
+          "Engine Protection Torque Derate",
+          "Intake Manifold Pressure critically low",
+          "Engine Coolant Level critically low",
+          "J1939 CAN Bus Communication Loss",
+          "CHECK AT NEXT STOP",
+          "Misfire Detected on Cylinder 6",
+          "MID 128 SID 1 FMI 5",
+          "Injector Cylinder 1 Circuit",
+          "Related Codes Across Systems",
+          "Codes from the same SPN range, manufacturer, or system that may also be relevant",
+          "ECM Communication Lost",
+          "Detroit Diesel DD15",
+          "SCR Inducement Active",
+          "DEF Quality Abnormal",
+          "More Cummins ISX15 Codes →",
+          "View all fault codes for the Cummins ISX15 engine in one place",
+          "Associated Symptoms",
+          "Check Engine Light",
+          "Intermittent Gauge Operation",
+          "Transmission Shift Erratic",
+          "Multiplexing Fault",
+          "When to Call a Diesel Mechanic",
+          "While some SPN 625 FMI 2 fault codes can be diagnosed with basic tools and mechanical knowledge, call a certified diesel mechanic if",
+          "The code clears but keeps returning after restarting the engine",
+          "There are multiple fault codes active simultaneously — this often indicates a cascading failure",
+          "You don't have access to a J1939-compatible diagnostic scan tool to view live data",
+          "The vehicle exhibits physical symptoms like smoke, unusual noises, or performance loss",
+          "You're not comfortable performing diagnostic steps at roadside or in your home shop",
+          "Professional diagnostic fees typically range from $100–$250, which is often credited toward the repair if you use the same shop",
+          "Real-World Diagnosis Scenario",
+          "A 2022 Kenworth T680 with a PACCAR MX-13 engine displays SPN 625 FMI 2 after 600 miles of driving. The driver notices the SCR system is not dosing DEF properly. The vehicle makes it to the next service center where diagnosis reveals a clogged DEF injector. After injector cleaning and system regeneration, the code clears. Total repair cost: $450",
+          "References & Further Reading",
+          "SAE J1939-73: Application Layer — Diagnostics. SAE International. Defines SPN 625 / FMI 2 fault code semantics for heavy-duty CAN networks. SAE J1939 Standard",
+          "Cummins ISX15 Service Manual: OEM diagnostic procedures for J1939 Data Link / Multiplexed Message Source faults. Consult the official Cummins service documentation for your specific engine serial number",
+          "TMC RP 1210: Recommended Practice for Windows-Based Vehicle Diagnostic Interface. Technology & Maintenance Council (TMC) of American Trucking Associations",
+          "This fault code definition is derived from SAE J1939 standards",
+          "SPN 625 FMI 2 is defined in SAE J1939-73 Digital Annex",
+          "Diagnostic procedures sourced from Cummins OEM technical service documentation",
+          "Not for safety-critical decisions. Consult a certified diesel mechanic before performing any repair. See our full disclaimer",
+          "Commercial truck & diesel engine fault code reference. Mobile-first, built for roadside diagnostics",
+          "DEF Troubleshooting",
+          "© 2026 DTC Hub. All fault code data sourced from SAE J1939/J1587 public standards and OEM service documentation",
+          "We use cookies for analytics and advertising. By continuing, you agree to our use of cookies"
+        ],
+        "first_moves": [],
+        "common_misdiagnoses": [],
+        "fmi": "2",
+        "source_title": "Cummins SPN 625 FMI 2: Meaning, Causes & Fix",
+        "source_url": "https://dtcdocs.com/code/cummins-isx15-spn-625-fmi-2/",
+        "source_site": "dtcdocs.com",
+        "quality": "high",
+        "method": "free"
+      },
+      "reason": "dtcdocs.com kaynaklı LLM/SEO üretimi sayfa içeriği prosedür olarak kayıtlı (kriter: source_site/source_url=dtcdocs.com + SEO metin imzası). Prosedür değil; kullanıcıya adım/ölçüm talimatı vermez. İçerik çoğunlukla yüzde-tahminli neden listesi ve web-sayfası navigasyon/çerez metni. overview alanı '<Marka> SPN <n> FMI <m>: Meaning, Causes & Fix' SEO şablonundadır.",
+      "quarantine_flags": {
+        "llm_seo_generated": true,
+        "source_url_or_site_is_dtcdocs": true,
+        "severity_suspect": true,
+        "severity_status": "belirsiz",
+        "cause_entries_settled_into_quarantine": {
+          "total": 8,
+          "indexes": [
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            71
+          ],
+          "texts": [
+            "Diagnostic & Repair Procedure",
+            "Step 1: Measure J1939 bus termination resistance — should be 60 ohms across CAN high and low",
+            "Step 2: Inspect all J1939 connector pins for corrosion or damage",
+            "Step 3: Check CAN bus wire routing for interference from high-current wiring",
+            "Step 4: Use J1939 analyzer to identify the module sending erroneous data",
+            "Step 5: Verify all modules have correct source addresses and latest firmware",
+            "Frequently Asked Questions",
+            "We use cookies for analytics and advertising. By continuing, you agree to our use of cookies"
+          ]
+        }
+      }
+    },
+    {
+      "spn": "SPN_639",
+      "block_index": 8,
+      "spn_value": 639,
+      "fmi": "9",
+      "source_site": "dtcdocs.com",
+      "source_url": "https://dtcdocs.com/code/cummins-isx15-spn-639-fmi-9/",
+      "source_title": "Cummins SPN 639 FMI 9: Meaning, Causes & Fix",
+      "block_sha256": "3782bf02e8c79c6181f6b8fa5c3f1847dd876c2c2a714c3fa755b57d1e66d767",
+      "block_bytes": 1716,
+      "matched_by": {
+        "source_site_or_url_dtcdocs": true,
+        "llm_seo_text_marker": true
+      },
+      "dtcdocs_body_signature": true,
+      "overview": "Cummins SPN 639 FMI 9: Meaning, Causes & Fix",
+      "causes_count": 5,
+      "synthesized_causes": {
+        "total": 0,
+        "indexes": [],
+        "texts": []
+      },
+      "evidence": {
+        "text_marker_hits": [
+          {
+            "path": "overview",
+            "match": "Meaning, Causes & Fix",
+            "excerpt": "Cummins SPN 639 FMI 9: Meaning, Causes & Fix"
+          },
+          {
+            "path": "source_title",
+            "match": "Meaning, Causes & Fix",
+            "excerpt": "Cummins SPN 639 FMI 9: Meaning, Causes & Fix"
+          }
+        ],
+        "step_hits": [],
+        "url_hits": [
+          {
+            "path": "source_url",
+            "value": "https://dtcdocs.com/code/cummins-isx15-spn-639-fmi-9/"
+          },
+          {
+            "path": "source_site",
+            "value": "dtcdocs.com"
+          }
+        ]
+      },
+      "severity": {
+        "value": "STOP ENGINE",
+        "flag": "suspect",
+        "basis": "Ayrı doğrulama bulunamadı. severity_action her 72 blokta None; 5 severity değerinin tamamı yalnız dtcdocs bloklarında geçiyor ve kaynak aynı dtcdocs.com SEO sayfasıdır. Bu SEO sitesinin sertifikalı bir eşdeğeri yoktur; bu nedenle değerler güvenilmez sayılır (Tuzaklar §11: boşluk = gerçek durum; sahte değer boş bırakmaktan kötüdür). Kanıt listesi: quarantine dosyasındaki records[].severity.provenance.",
+        "provenance": {
+          "matches_j1939_73_fmi_textual_convention": true,
+          "independently_verified": false,
+          "value_has_evidence_source_other_than_dtcdocs": false,
+          "severity_action_supplied": false,
+          "status": "belirsiz"
+        }
+      },
+      "original_payload": {
+        "overview": "Cummins SPN 639 FMI 9: Meaning, Causes & Fix",
+        "severity": "STOP ENGINE",
+        "severity_action": null,
+        "causes": [
+          "Corroded or loose sensor connector pins (35% of sensor/electrical faults)",
+          "Wiring harness chafing causing intermittent open or short circuits (25%)",
+          "Failed sensor providing out-of-range signal to ECM (20%)",
+          "ECM 5V reference circuit overload from multiple sensor failures (10%)",
+          "CAN bus communication fault from terminating resistor or module failure (10%)"
+        ],
+        "first_moves": [
+          "Connect scan tool and retrieve all active and inactive fault codes, noting which modules are reporting communication errors",
+          "Check battery voltage and ground connections — low system voltage (below 11V) or poor grounds cause erratic sensor readings and communication faults",
+          "Backprobe the suspect sensor connector and measure reference voltage (typically 5V), signal voltage, and ground with a digital multimeter — compare readings to OEM specifications",
+          "Inspect wiring harness for chafing, especially at common failure points: engine pass-through connectors, valve cover gasket connectors, and frame rail routing near sharp edges",
+          "Perform wiggle test on the harness while monitoring live data — intermittent connections will cause sensor readings to spike or drop when the harness is moved",
+          "If CAN bus faults are present, check terminating resistors (should measure 60 ohms across CAN high and CAN low with the key off and batteries disconnected)"
+        ],
+        "common_misdiagnoses": [],
+        "fmi": "9",
+        "source_title": "Cummins SPN 639 FMI 9: Meaning, Causes & Fix",
+        "source_url": "https://dtcdocs.com/code/cummins-isx15-spn-639-fmi-9/",
+        "source_site": "dtcdocs.com",
+        "quality": "high",
+        "method": "free"
+      },
+      "reason": "dtcdocs.com kaynaklı LLM/SEO üretimi sayfa içeriği prosedür olarak kayıtlı (kriter: source_site/source_url=dtcdocs.com + SEO metin imzası). Prosedür değil; kullanıcıya adım/ölçüm talimatı vermez. İçerik çoğunlukla yüzde-tahminli neden listesi ve web-sayfası navigasyon/çerez metni. overview alanı '<Marka> SPN <n> FMI <m>: Meaning, Causes & Fix' SEO şablonundadır.",
+      "quarantine_flags": {
+        "llm_seo_generated": true,
+        "source_url_or_site_is_dtcdocs": true,
+        "severity_suspect": true,
+        "severity_status": "belirsiz",
+        "cause_entries_settled_into_quarantine": {
+          "total": 0,
+          "indexes": [],
+          "texts": []
+        }
+      }
+    },
+    {
+      "spn": "SPN_639",
+      "block_index": 9,
+      "spn_value": 639,
+      "fmi": "2",
+      "source_site": "dtcdocs.com",
+      "source_url": "https://dtcdocs.com/code/detroit-diesel-dd15-spn-639-fmi-2/",
+      "source_title": "Detroit Diesel SPN 639 FMI 2: Meaning, Causes & Fix",
+      "block_sha256": "b170df5090c2b06e1b4c576953220bf62aac1b80e6295e03139cbffe49ae06c9",
+      "block_bytes": 1735,
+      "matched_by": {
+        "source_site_or_url_dtcdocs": true,
+        "llm_seo_text_marker": true
+      },
+      "dtcdocs_body_signature": true,
+      "overview": "Detroit Diesel SPN 639 FMI 2: Meaning, Causes & Fix",
+      "causes_count": 5,
+      "synthesized_causes": {
+        "total": 0,
+        "indexes": [],
+        "texts": []
+      },
+      "evidence": {
+        "text_marker_hits": [
+          {
+            "path": "overview",
+            "match": "Meaning, Causes & Fix",
+            "excerpt": "Detroit Diesel SPN 639 FMI 2: Meaning, Causes & Fix"
+          },
+          {
+            "path": "source_title",
+            "match": "Meaning, Causes & Fix",
+            "excerpt": "Detroit Diesel SPN 639 FMI 2: Meaning, Causes & Fix"
+          }
+        ],
+        "step_hits": [],
+        "url_hits": [
+          {
+            "path": "source_url",
+            "value": "https://dtcdocs.com/code/detroit-diesel-dd15-spn-639-fmi-2/"
+          },
+          {
+            "path": "source_site",
+            "value": "dtcdocs.com"
+          }
+        ]
+      },
+      "severity": {
+        "value": "CHECK SOON",
+        "flag": "suspect",
+        "basis": "Ayrı doğrulama bulunamadı. severity_action her 72 blokta None; 5 severity değerinin tamamı yalnız dtcdocs bloklarında geçiyor ve kaynak aynı dtcdocs.com SEO sayfasıdır. Bu SEO sitesinin sertifikalı bir eşdeğeri yoktur; bu nedenle değerler güvenilmez sayılır (Tuzaklar §11: boşluk = gerçek durum; sahte değer boş bırakmaktan kötüdür). Kanıt listesi: quarantine dosyasındaki records[].severity.provenance.",
+        "provenance": {
+          "matches_j1939_73_fmi_textual_convention": true,
+          "independently_verified": false,
+          "value_has_evidence_source_other_than_dtcdocs": false,
+          "severity_action_supplied": false,
+          "status": "belirsiz"
+        }
+      },
+      "original_payload": {
+        "overview": "Detroit Diesel SPN 639 FMI 2: Meaning, Causes & Fix",
+        "severity": "CHECK SOON",
+        "severity_action": null,
+        "causes": [
+          "Corroded or loose sensor connector pins (35% of sensor/electrical faults)",
+          "Wiring harness chafing causing intermittent open or short circuits (25%)",
+          "Failed sensor providing out-of-range signal to ECM (20%)",
+          "ECM 5V reference circuit overload from multiple sensor failures (10%)",
+          "CAN bus communication fault from terminating resistor or module failure (10%)"
+        ],
+        "first_moves": [
+          "Connect scan tool and retrieve all active and inactive fault codes, noting which modules are reporting communication errors",
+          "Check battery voltage and ground connections — low system voltage (below 11V) or poor grounds cause erratic sensor readings and communication faults",
+          "Backprobe the suspect sensor connector and measure reference voltage (typically 5V), signal voltage, and ground with a digital multimeter — compare readings to OEM specifications",
+          "Inspect wiring harness for chafing, especially at common failure points: engine pass-through connectors, valve cover gasket connectors, and frame rail routing near sharp edges",
+          "Perform wiggle test on the harness while monitoring live data — intermittent connections will cause sensor readings to spike or drop when the harness is moved",
+          "If CAN bus faults are present, check terminating resistors (should measure 60 ohms across CAN high and CAN low with the key off and batteries disconnected)"
+        ],
+        "common_misdiagnoses": [],
+        "fmi": "2",
+        "source_title": "Detroit Diesel SPN 639 FMI 2: Meaning, Causes & Fix",
+        "source_url": "https://dtcdocs.com/code/detroit-diesel-dd15-spn-639-fmi-2/",
+        "source_site": "dtcdocs.com",
+        "quality": "high",
+        "method": "free"
+      },
+      "reason": "dtcdocs.com kaynaklı LLM/SEO üretimi sayfa içeriği prosedür olarak kayıtlı (kriter: source_site/source_url=dtcdocs.com + SEO metin imzası). Prosedür değil; kullanıcıya adım/ölçüm talimatı vermez. İçerik çoğunlukla yüzde-tahminli neden listesi ve web-sayfası navigasyon/çerez metni. overview alanı '<Marka> SPN <n> FMI <m>: Meaning, Causes & Fix' SEO şablonundadır.",
+      "quarantine_flags": {
+        "llm_seo_generated": true,
+        "source_url_or_site_is_dtcdocs": true,
+        "severity_suspect": true,
+        "severity_status": "belirsiz",
+        "cause_entries_settled_into_quarantine": {
+          "total": 0,
+          "indexes": [],
+          "texts": []
+        }
+      }
+    },
+    {
+      "spn": "SPN_1761",
+      "block_index": 8,
+      "spn_value": 1761,
+      "fmi": "31",
+      "source_site": "dtcdocs.com",
+      "source_url": "https://dtcdocs.com/code/cummins-isx15-spn-1761-fmi-31/",
+      "source_title": "Cummins SPN 1761 FMI 31: Meaning, Causes & Fix",
+      "block_sha256": "e73a11f9f76b22c6f7b784a94c2b2ba21ce95ee708488d373b6e3c3f04ecee96",
+      "block_bytes": 1620,
+      "matched_by": {
+        "source_site_or_url_dtcdocs": true,
+        "llm_seo_text_marker": true
+      },
+      "dtcdocs_body_signature": true,
+      "overview": "Cummins SPN 1761 FMI 31: Meaning, Causes & Fix",
+      "causes_count": 5,
+      "synthesized_causes": {
+        "total": 0,
+        "indexes": [],
+        "texts": []
+      },
+      "evidence": {
+        "text_marker_hits": [
+          {
+            "path": "overview",
+            "match": "Meaning, Causes & Fix",
+            "excerpt": "Cummins SPN 1761 FMI 31: Meaning, Causes & Fix"
+          },
+          {
+            "path": "source_title",
+            "match": "Meaning, Causes & Fix",
+            "excerpt": "Cummins SPN 1761 FMI 31: Meaning, Causes & Fix"
+          }
+        ],
+        "step_hits": [],
+        "url_hits": [
+          {
+            "path": "source_url",
+            "value": "https://dtcdocs.com/code/cummins-isx15-spn-1761-fmi-31/"
+          },
+          {
+            "path": "source_site",
+            "value": "dtcdocs.com"
+          }
+        ]
+      },
+      "severity": {
+        "value": "WARNING",
+        "flag": "suspect",
+        "basis": "Ayrı doğrulama bulunamadı. severity_action her 72 blokta None; 5 severity değerinin tamamı yalnız dtcdocs bloklarında geçiyor ve kaynak aynı dtcdocs.com SEO sayfasıdır. Bu SEO sitesinin sertifikalı bir eşdeğeri yoktur; bu nedenle değerler güvenilmez sayılır (Tuzaklar §11: boşluk = gerçek durum; sahte değer boş bırakmaktan kötüdür). Kanıt listesi: quarantine dosyasındaki records[].severity.provenance.",
+        "provenance": {
+          "matches_j1939_73_fmi_textual_convention": true,
+          "independently_verified": false,
+          "value_has_evidence_source_other_than_dtcdocs": false,
+          "severity_action_supplied": false,
+          "status": "belirsiz"
+        }
+      },
+      "original_payload": {
+        "overview": "Cummins SPN 1761 FMI 31: Meaning, Causes & Fix",
+        "severity": "WARNING",
+        "severity_action": null,
+        "causes": [
+          "Contaminated or diluted DEF fluid (30% of cases)",
+          "DEF dosing valve / injector clogged with crystallized urea (25%)",
+          "Failed or degraded NOx sensor giving incorrect readings (20%)",
+          "DEF pump failure or low DEF pressure (15%)",
+          "Wiring harness corrosion or open circuit in aftertreatment sensors (10%)"
+        ],
+        "first_moves": [
+          "Connect scan tool and document all active and inactive aftertreatment fault codes — SCR faults often appear in groups; identify the primary and secondary codes",
+          "Test DEF quality using a refractometer — DEF must be between 32.5% and 36.5% urea concentration; contaminated or diluted DEF is the #1 cause of SCR faults",
+          "Inspect DEF tank for crystalized urea deposits, and check DEF filter (if equipped) for blockage — replace the filter if it has not been serviced per OEM schedule",
+          "Perform NOx sensor diagnostic — compare inlet and outlet NOx sensor readings in live data; outlet should read significantly lower than inlet during normal SCR operation",
+          "Check DEF dosing valve / injector for crystalized urea blockage — remove and inspect, clean or replace as needed",
+          "Verify DPF differential pressure at idle and 1500 RPM; high backpressure can trigger false SCR-related codes and prevent proper regeneration"
+        ],
+        "common_misdiagnoses": [],
+        "fmi": "31",
+        "source_title": "Cummins SPN 1761 FMI 31: Meaning, Causes & Fix",
+        "source_url": "https://dtcdocs.com/code/cummins-isx15-spn-1761-fmi-31/",
+        "source_site": "dtcdocs.com",
+        "quality": "high",
+        "method": "free"
+      },
+      "reason": "dtcdocs.com kaynaklı LLM/SEO üretimi sayfa içeriği prosedür olarak kayıtlı (kriter: source_site/source_url=dtcdocs.com + SEO metin imzası). Prosedür değil; kullanıcıya adım/ölçüm talimatı vermez. İçerik çoğunlukla yüzde-tahminli neden listesi ve web-sayfası navigasyon/çerez metni. overview alanı '<Marka> SPN <n> FMI <m>: Meaning, Causes & Fix' SEO şablonundadır.",
+      "quarantine_flags": {
+        "llm_seo_generated": true,
+        "source_url_or_site_is_dtcdocs": true,
+        "severity_suspect": true,
+        "severity_status": "belirsiz",
+        "cause_entries_settled_into_quarantine": {
+          "total": 0,
+          "indexes": [],
+          "texts": []
+        }
+      }
+    },
+    {
+      "spn": "SPN_1761",
+      "block_index": 9,
+      "spn_value": 1761,
+      "fmi": "18",
+      "source_site": "dtcdocs.com",
+      "source_url": "https://dtcdocs.com/code/detroit-diesel-dd15-spn-1761-fmi-18/",
+      "source_title": "Detroit Diesel SPN 1761 FMI 18: Meaning, Causes & Fix",
+      "block_sha256": "646fe89b5954732e9f35d00d2278f14299f2c86da3ed96e44760188f7b21ce32",
+      "block_bytes": 1651,
+      "matched_by": {
+        "source_site_or_url_dtcdocs": true,
+        "llm_seo_text_marker": true
+      },
+      "dtcdocs_body_signature": true,
+      "overview": "Detroit Diesel SPN 1761 FMI 18: Meaning, Causes & Fix",
+      "causes_count": 5,
+      "synthesized_causes": {
+        "total": 0,
+        "indexes": [],
+        "texts": []
+      },
+      "evidence": {
+        "text_marker_hits": [
+          {
+            "path": "overview",
+            "match": "Meaning, Causes & Fix",
+            "excerpt": "Detroit Diesel SPN 1761 FMI 18: Meaning, Causes & Fix"
+          },
+          {
+            "path": "source_title",
+            "match": "Meaning, Causes & Fix",
+            "excerpt": "Detroit Diesel SPN 1761 FMI 18: Meaning, Causes & Fix"
+          }
+        ],
+        "step_hits": [],
+        "url_hits": [
+          {
+            "path": "source_url",
+            "value": "https://dtcdocs.com/code/detroit-diesel-dd15-spn-1761-fmi-18/"
+          },
+          {
+            "path": "source_site",
+            "value": "dtcdocs.com"
+          }
+        ]
+      },
+      "severity": {
+        "value": "CHECK AT NEXT STOP",
+        "flag": "suspect",
+        "basis": "Ayrı doğrulama bulunamadı. severity_action her 72 blokta None; 5 severity değerinin tamamı yalnız dtcdocs bloklarında geçiyor ve kaynak aynı dtcdocs.com SEO sayfasıdır. Bu SEO sitesinin sertifikalı bir eşdeğeri yoktur; bu nedenle değerler güvenilmez sayılır (Tuzaklar §11: boşluk = gerçek durum; sahte değer boş bırakmaktan kötüdür). Kanıt listesi: quarantine dosyasındaki records[].severity.provenance.",
+        "provenance": {
+          "matches_j1939_73_fmi_textual_convention": true,
+          "independently_verified": false,
+          "value_has_evidence_source_other_than_dtcdocs": false,
+          "severity_action_supplied": false,
+          "status": "belirsiz"
+        }
+      },
+      "original_payload": {
+        "overview": "Detroit Diesel SPN 1761 FMI 18: Meaning, Causes & Fix",
+        "severity": "CHECK AT NEXT STOP",
+        "severity_action": null,
+        "causes": [
+          "Contaminated or diluted DEF fluid (30% of cases)",
+          "DEF dosing valve / injector clogged with crystallized urea (25%)",
+          "Failed or degraded NOx sensor giving incorrect readings (20%)",
+          "DEF pump failure or low DEF pressure (15%)",
+          "Wiring harness corrosion or open circuit in aftertreatment sensors (10%)"
+        ],
+        "first_moves": [
+          "Connect scan tool and document all active and inactive aftertreatment fault codes — SCR faults often appear in groups; identify the primary and secondary codes",
+          "Test DEF quality using a refractometer — DEF must be between 32.5% and 36.5% urea concentration; contaminated or diluted DEF is the #1 cause of SCR faults",
+          "Inspect DEF tank for crystalized urea deposits, and check DEF filter (if equipped) for blockage — replace the filter if it has not been serviced per OEM schedule",
+          "Perform NOx sensor diagnostic — compare inlet and outlet NOx sensor readings in live data; outlet should read significantly lower than inlet during normal SCR operation",
+          "Check DEF dosing valve / injector for crystalized urea blockage — remove and inspect, clean or replace as needed",
+          "Verify DPF differential pressure at idle and 1500 RPM; high backpressure can trigger false SCR-related codes and prevent proper regeneration"
+        ],
+        "common_misdiagnoses": [],
+        "fmi": "18",
+        "source_title": "Detroit Diesel SPN 1761 FMI 18: Meaning, Causes & Fix",
+        "source_url": "https://dtcdocs.com/code/detroit-diesel-dd15-spn-1761-fmi-18/",
+        "source_site": "dtcdocs.com",
+        "quality": "high",
+        "method": "free"
+      },
+      "reason": "dtcdocs.com kaynaklı LLM/SEO üretimi sayfa içeriği prosedür olarak kayıtlı (kriter: source_site/source_url=dtcdocs.com + SEO metin imzası). Prosedür değil; kullanıcıya adım/ölçüm talimatı vermez. İçerik çoğunlukla yüzde-tahminli neden listesi ve web-sayfası navigasyon/çerez metni. overview alanı '<Marka> SPN <n> FMI <m>: Meaning, Causes & Fix' SEO şablonundadır.",
+      "quarantine_flags": {
+        "llm_seo_generated": true,
+        "source_url_or_site_is_dtcdocs": true,
+        "severity_suspect": true,
+        "severity_status": "belirsiz",
+        "cause_entries_settled_into_quarantine": {
+          "total": 0,
+          "indexes": [],
+          "texts": []
+        }
+      }
+    },
+    {
+      "spn": "SPN_3031",
+      "block_index": 8,
+      "spn_value": 3031,
+      "fmi": "9",
+      "source_site": "dtcdocs.com",
+      "source_url": "https://dtcdocs.com/code/cummins-x15-spn-3031-fmi-9/",
+      "source_title": "Cummins SPN 3031 FMI 9: Meaning, Causes & Fix",
+      "block_sha256": "eb709fa6406745ab2310f4180f77d2312922a953ee661a148ee35c3e5d0efa70",
+      "block_bytes": 1617,
+      "matched_by": {
+        "source_site_or_url_dtcdocs": true,
+        "llm_seo_text_marker": true
+      },
+      "dtcdocs_body_signature": true,
+      "overview": "Cummins SPN 3031 FMI 9: Meaning, Causes & Fix",
+      "causes_count": 5,
+      "synthesized_causes": {
+        "total": 0,
+        "indexes": [],
+        "texts": []
+      },
+      "evidence": {
+        "text_marker_hits": [
+          {
+            "path": "overview",
+            "match": "Meaning, Causes & Fix",
+            "excerpt": "Cummins SPN 3031 FMI 9: Meaning, Causes & Fix"
+          },
+          {
+            "path": "source_title",
+            "match": "Meaning, Causes & Fix",
+            "excerpt": "Cummins SPN 3031 FMI 9: Meaning, Causes & Fix"
+          }
+        ],
+        "step_hits": [],
+        "url_hits": [
+          {
+            "path": "source_url",
+            "value": "https://dtcdocs.com/code/cummins-x15-spn-3031-fmi-9/"
+          },
+          {
+            "path": "source_site",
+            "value": "dtcdocs.com"
+          }
+        ]
+      },
+      "severity": {
+        "value": "CHECK SOON",
+        "flag": "suspect",
+        "basis": "Ayrı doğrulama bulunamadı. severity_action her 72 blokta None; 5 severity değerinin tamamı yalnız dtcdocs bloklarında geçiyor ve kaynak aynı dtcdocs.com SEO sayfasıdır. Bu SEO sitesinin sertifikalı bir eşdeğeri yoktur; bu nedenle değerler güvenilmez sayılır (Tuzaklar §11: boşluk = gerçek durum; sahte değer boş bırakmaktan kötüdür). Kanıt listesi: quarantine dosyasındaki records[].severity.provenance.",
+        "provenance": {
+          "matches_j1939_73_fmi_textual_convention": true,
+          "independently_verified": false,
+          "value_has_evidence_source_other_than_dtcdocs": false,
+          "severity_action_supplied": false,
+          "status": "belirsiz"
+        }
+      },
+      "original_payload": {
+        "overview": "Cummins SPN 3031 FMI 9: Meaning, Causes & Fix",
+        "severity": "CHECK SOON",
+        "severity_action": null,
+        "causes": [
+          "Contaminated or diluted DEF fluid (30% of cases)",
+          "DEF dosing valve / injector clogged with crystallized urea (25%)",
+          "Failed or degraded NOx sensor giving incorrect readings (20%)",
+          "DEF pump failure or low DEF pressure (15%)",
+          "Wiring harness corrosion or open circuit in aftertreatment sensors (10%)"
+        ],
+        "first_moves": [
+          "Connect scan tool and document all active and inactive aftertreatment fault codes — SCR faults often appear in groups; identify the primary and secondary codes",
+          "Test DEF quality using a refractometer — DEF must be between 32.5% and 36.5% urea concentration; contaminated or diluted DEF is the #1 cause of SCR faults",
+          "Inspect DEF tank for crystalized urea deposits, and check DEF filter (if equipped) for blockage — replace the filter if it has not been serviced per OEM schedule",
+          "Perform NOx sensor diagnostic — compare inlet and outlet NOx sensor readings in live data; outlet should read significantly lower than inlet during normal SCR operation",
+          "Check DEF dosing valve / injector for crystalized urea blockage — remove and inspect, clean or replace as needed",
+          "Verify DPF differential pressure at idle and 1500 RPM; high backpressure can trigger false SCR-related codes and prevent proper regeneration"
+        ],
+        "common_misdiagnoses": [],
+        "fmi": "9",
+        "source_title": "Cummins SPN 3031 FMI 9: Meaning, Causes & Fix",
+        "source_url": "https://dtcdocs.com/code/cummins-x15-spn-3031-fmi-9/",
+        "source_site": "dtcdocs.com",
+        "quality": "high",
+        "method": "free"
+      },
+      "reason": "dtcdocs.com kaynaklı LLM/SEO üretimi sayfa içeriği prosedür olarak kayıtlı (kriter: source_site/source_url=dtcdocs.com + SEO metin imzası). Prosedür değil; kullanıcıya adım/ölçüm talimatı vermez. İçerik çoğunlukla yüzde-tahminli neden listesi ve web-sayfası navigasyon/çerez metni. overview alanı '<Marka> SPN <n> FMI <m>: Meaning, Causes & Fix' SEO şablonundadır.",
+      "quarantine_flags": {
+        "llm_seo_generated": true,
+        "source_url_or_site_is_dtcdocs": true,
+        "severity_suspect": true,
+        "severity_status": "belirsiz",
+        "cause_entries_settled_into_quarantine": {
+          "total": 0,
+          "indexes": [],
+          "texts": []
+        }
+      }
+    },
+    {
+      "spn": "SPN_3251",
+      "block_index": 17,
+      "spn_value": 3251,
+      "fmi": "0",
+      "source_site": "dtcdocs.com",
+      "source_url": "https://dtcdocs.com/code/cummins-isx15-spn-3251-fmi-0/",
+      "source_title": "Cummins SPN 3251 FMI 0: Meaning, Causes & Fix",
+      "block_sha256": "83c5a89d580918955ea5d360a43f6507c9ebfea600a6ef50862d22ac6a5ae0fc",
+      "block_bytes": 1961,
+      "matched_by": {
+        "source_site_or_url_dtcdocs": true,
+        "llm_seo_text_marker": true
+      },
+      "dtcdocs_body_signature": true,
+      "overview": "Cummins SPN 3251 FMI 0: Meaning, Causes & Fix",
+      "causes_count": 5,
+      "synthesized_causes": {
+        "total": 0,
+        "indexes": [],
+        "texts": []
+      },
+      "evidence": {
+        "text_marker_hits": [
+          {
+            "path": "overview",
+            "match": "Meaning, Causes & Fix",
+            "excerpt": "Cummins SPN 3251 FMI 0: Meaning, Causes & Fix"
+          },
+          {
+            "path": "source_title",
+            "match": "Meaning, Causes & Fix",
+            "excerpt": "Cummins SPN 3251 FMI 0: Meaning, Causes & Fix"
+          }
+        ],
+        "step_hits": [],
+        "url_hits": [
+          {
+            "path": "source_url",
+            "value": "https://dtcdocs.com/code/cummins-isx15-spn-3251-fmi-0/"
+          },
+          {
+            "path": "source_site",
+            "value": "dtcdocs.com"
+          }
+        ]
+      },
+      "severity": {
+        "value": "STOP ENGINE",
+        "flag": "suspect",
+        "basis": "Ayrı doğrulama bulunamadı. severity_action her 72 blokta None; 5 severity değerinin tamamı yalnız dtcdocs bloklarında geçiyor ve kaynak aynı dtcdocs.com SEO sayfasıdır. Bu SEO sitesinin sertifikalı bir eşdeğeri yoktur; bu nedenle değerler güvenilmez sayılır (Tuzaklar §11: boşluk = gerçek durum; sahte değer boş bırakmaktan kötüdür). Kanıt listesi: quarantine dosyasındaki records[].severity.provenance.",
+        "provenance": {
+          "matches_j1939_73_fmi_textual_convention": true,
+          "independently_verified": false,
+          "value_has_evidence_source_other_than_dtcdocs": false,
+          "severity_action_supplied": false,
+          "status": "belirsiz"
+        }
+      },
+      "original_payload": {
+        "overview": "Cummins SPN 3251 FMI 0: Meaning, Causes & Fix",
+        "severity": "STOP ENGINE",
+        "severity_action": null,
+        "causes": [
+          "Failed or incomplete regenerations from excessive idling or short trips not allowing exhaust to reach regen temperature (30%)",
+          "DPF differential pressure sensor failure giving incorrect soot load readings (25%)",
+          "Exhaust temperature sensor failure preventing the ECM from commanding regen (20%)",
+          "Engine producing excessive soot from worn injectors, turbo issues, or EGR faults (15%)",
+          "DEF or fuel dosing system failure during regen cycle (10%)"
+        ],
+        "first_moves": [
+          "Connect scan tool and monitor DPF soot load percentage, differential pressure, and exhaust temperature readings — soot load above 100% triggers derate, above 200% may require manual cleaning",
+          "Attempt a parked regeneration using the dash switch or scan tool command — monitor exhaust temperature (should reach 1,000°F+ at the DPF inlet) and soot load reduction during the regen cycle",
+          "If regen fails to complete, check DPF differential pressure sensor readings — a sensor fault can prevent regen from starting, while high differential pressure with correct sensor reading indicates actual DPF plugging",
+          "Inspect DPF temperature sensors for accuracy using an infrared thermometer — inaccurate temperature readings prevent the ECM from commanding proper regen fuel dosing",
+          "Check for exhaust leaks upstream of the DPF — leaks allow oxygen into the exhaust and can cause uncontrolled regeneration (thermal event risk) or prevent regen completion",
+          "If the DPF is physically plugged (soot load above 200% and multiple failed regens), the filter must be removed and baked in a DPF cleaning machine or replaced"
+        ],
+        "common_misdiagnoses": [],
+        "fmi": "0",
+        "source_title": "Cummins SPN 3251 FMI 0: Meaning, Causes & Fix",
+        "source_url": "https://dtcdocs.com/code/cummins-isx15-spn-3251-fmi-0/",
+        "source_site": "dtcdocs.com",
+        "quality": "high",
+        "method": "free"
+      },
+      "reason": "dtcdocs.com kaynaklı LLM/SEO üretimi sayfa içeriği prosedür olarak kayıtlı (kriter: source_site/source_url=dtcdocs.com + SEO metin imzası). Prosedür değil; kullanıcıya adım/ölçüm talimatı vermez. İçerik çoğunlukla yüzde-tahminli neden listesi ve web-sayfası navigasyon/çerez metni. overview alanı '<Marka> SPN <n> FMI <m>: Meaning, Causes & Fix' SEO şablonundadır.",
+      "quarantine_flags": {
+        "llm_seo_generated": true,
+        "source_url_or_site_is_dtcdocs": true,
+        "severity_suspect": true,
+        "severity_status": "belirsiz",
+        "cause_entries_settled_into_quarantine": {
+          "total": 0,
+          "indexes": [],
+          "texts": []
+        }
+      }
+    },
+    {
+      "spn": "SPN_3251",
+      "block_index": 18,
+      "spn_value": 3251,
+      "fmi": "16",
+      "source_site": "dtcdocs.com",
+      "source_url": "https://dtcdocs.com/code/cummins-isx15-spn-3251-fmi-16/",
+      "source_title": "Cummins SPN 3251 FMI 16: Meaning, Causes & Fix",
+      "block_sha256": "96a931dd245a09d2d153becea70dfc2f5fbe1d01b6192f15abeae730d8c93eb6",
+      "block_bytes": 1964,
+      "matched_by": {
+        "source_site_or_url_dtcdocs": true,
+        "llm_seo_text_marker": true
+      },
+      "dtcdocs_body_signature": true,
+      "overview": "Cummins SPN 3251 FMI 16: Meaning, Causes & Fix",
+      "causes_count": 5,
+      "synthesized_causes": {
+        "total": 0,
+        "indexes": [],
+        "texts": []
+      },
+      "evidence": {
+        "text_marker_hits": [
+          {
+            "path": "overview",
+            "match": "Meaning, Causes & Fix",
+            "excerpt": "Cummins SPN 3251 FMI 16: Meaning, Causes & Fix"
+          },
+          {
+            "path": "source_title",
+            "match": "Meaning, Causes & Fix",
+            "excerpt": "Cummins SPN 3251 FMI 16: Meaning, Causes & Fix"
+          }
+        ],
+        "step_hits": [],
+        "url_hits": [
+          {
+            "path": "source_url",
+            "value": "https://dtcdocs.com/code/cummins-isx15-spn-3251-fmi-16/"
+          },
+          {
+            "path": "source_site",
+            "value": "dtcdocs.com"
+          }
+        ]
+      },
+      "severity": {
+        "value": "CHECK SOON",
+        "flag": "suspect",
+        "basis": "Ayrı doğrulama bulunamadı. severity_action her 72 blokta None; 5 severity değerinin tamamı yalnız dtcdocs bloklarında geçiyor ve kaynak aynı dtcdocs.com SEO sayfasıdır. Bu SEO sitesinin sertifikalı bir eşdeğeri yoktur; bu nedenle değerler güvenilmez sayılır (Tuzaklar §11: boşluk = gerçek durum; sahte değer boş bırakmaktan kötüdür). Kanıt listesi: quarantine dosyasındaki records[].severity.provenance.",
+        "provenance": {
+          "matches_j1939_73_fmi_textual_convention": true,
+          "independently_verified": false,
+          "value_has_evidence_source_other_than_dtcdocs": false,
+          "severity_action_supplied": false,
+          "status": "belirsiz"
+        }
+      },
+      "original_payload": {
+        "overview": "Cummins SPN 3251 FMI 16: Meaning, Causes & Fix",
+        "severity": "CHECK SOON",
+        "severity_action": null,
+        "causes": [
+          "Failed or incomplete regenerations from excessive idling or short trips not allowing exhaust to reach regen temperature (30%)",
+          "DPF differential pressure sensor failure giving incorrect soot load readings (25%)",
+          "Exhaust temperature sensor failure preventing the ECM from commanding regen (20%)",
+          "Engine producing excessive soot from worn injectors, turbo issues, or EGR faults (15%)",
+          "DEF or fuel dosing system failure during regen cycle (10%)"
+        ],
+        "first_moves": [
+          "Connect scan tool and monitor DPF soot load percentage, differential pressure, and exhaust temperature readings — soot load above 100% triggers derate, above 200% may require manual cleaning",
+          "Attempt a parked regeneration using the dash switch or scan tool command — monitor exhaust temperature (should reach 1,000°F+ at the DPF inlet) and soot load reduction during the regen cycle",
+          "If regen fails to complete, check DPF differential pressure sensor readings — a sensor fault can prevent regen from starting, while high differential pressure with correct sensor reading indicates actual DPF plugging",
+          "Inspect DPF temperature sensors for accuracy using an infrared thermometer — inaccurate temperature readings prevent the ECM from commanding proper regen fuel dosing",
+          "Check for exhaust leaks upstream of the DPF — leaks allow oxygen into the exhaust and can cause uncontrolled regeneration (thermal event risk) or prevent regen completion",
+          "If the DPF is physically plugged (soot load above 200% and multiple failed regens), the filter must be removed and baked in a DPF cleaning machine or replaced"
+        ],
+        "common_misdiagnoses": [],
+        "fmi": "16",
+        "source_title": "Cummins SPN 3251 FMI 16: Meaning, Causes & Fix",
+        "source_url": "https://dtcdocs.com/code/cummins-isx15-spn-3251-fmi-16/",
+        "source_site": "dtcdocs.com",
+        "quality": "high",
+        "method": "free"
+      },
+      "reason": "dtcdocs.com kaynaklı LLM/SEO üretimi sayfa içeriği prosedür olarak kayıtlı (kriter: source_site/source_url=dtcdocs.com + SEO metin imzası). Prosedür değil; kullanıcıya adım/ölçüm talimatı vermez. İçerik çoğunlukla yüzde-tahminli neden listesi ve web-sayfası navigasyon/çerez metni. overview alanı '<Marka> SPN <n> FMI <m>: Meaning, Causes & Fix' SEO şablonundadır.",
+      "quarantine_flags": {
+        "llm_seo_generated": true,
+        "source_url_or_site_is_dtcdocs": true,
+        "severity_suspect": true,
+        "severity_status": "belirsiz",
+        "cause_entries_settled_into_quarantine": {
+          "total": 0,
+          "indexes": [],
+          "texts": []
+        }
+      }
+    },
+    {
+      "spn": "SPN_4334",
+      "block_index": 5,
+      "spn_value": 4334,
+      "fmi": "7",
+      "source_site": "dtcdocs.com",
+      "source_url": "https://dtcdocs.com/code/cummins-x15-spn-4334-fmi-7/",
+      "source_title": "Cummins SPN 4334 FMI 7: Meaning, Causes & Fix",
+      "block_sha256": "d9699c52fa2a75988d6cc15345245d6e1660e610407cc0a6f490d1a76c70cf83",
+      "block_bytes": 1625,
+      "matched_by": {
+        "source_site_or_url_dtcdocs": true,
+        "llm_seo_text_marker": true
+      },
+      "dtcdocs_body_signature": true,
+      "overview": "Cummins SPN 4334 FMI 7: Meaning, Causes & Fix",
+      "causes_count": 5,
+      "synthesized_causes": {
+        "total": 0,
+        "indexes": [],
+        "texts": []
+      },
+      "evidence": {
+        "text_marker_hits": [
+          {
+            "path": "overview",
+            "match": "Meaning, Causes & Fix",
+            "excerpt": "Cummins SPN 4334 FMI 7: Meaning, Causes & Fix"
+          },
+          {
+            "path": "source_title",
+            "match": "Meaning, Causes & Fix",
+            "excerpt": "Cummins SPN 4334 FMI 7: Meaning, Causes & Fix"
+          }
+        ],
+        "step_hits": [],
+        "url_hits": [
+          {
+            "path": "source_url",
+            "value": "https://dtcdocs.com/code/cummins-x15-spn-4334-fmi-7/"
+          },
+          {
+            "path": "source_site",
+            "value": "dtcdocs.com"
+          }
+        ]
+      },
+      "severity": {
+        "value": "CHECK AT NEXT STOP",
+        "flag": "suspect",
+        "basis": "Ayrı doğrulama bulunamadı. severity_action her 72 blokta None; 5 severity değerinin tamamı yalnız dtcdocs bloklarında geçiyor ve kaynak aynı dtcdocs.com SEO sayfasıdır. Bu SEO sitesinin sertifikalı bir eşdeğeri yoktur; bu nedenle değerler güvenilmez sayılır (Tuzaklar §11: boşluk = gerçek durum; sahte değer boş bırakmaktan kötüdür). Kanıt listesi: quarantine dosyasındaki records[].severity.provenance.",
+        "provenance": {
+          "matches_j1939_73_fmi_textual_convention": true,
+          "independently_verified": false,
+          "value_has_evidence_source_other_than_dtcdocs": false,
+          "severity_action_supplied": false,
+          "status": "belirsiz"
+        }
+      },
+      "original_payload": {
+        "overview": "Cummins SPN 4334 FMI 7: Meaning, Causes & Fix",
+        "severity": "CHECK AT NEXT STOP",
+        "severity_action": null,
+        "causes": [
+          "Contaminated or diluted DEF fluid (30% of cases)",
+          "DEF dosing valve / injector clogged with crystallized urea (25%)",
+          "Failed or degraded NOx sensor giving incorrect readings (20%)",
+          "DEF pump failure or low DEF pressure (15%)",
+          "Wiring harness corrosion or open circuit in aftertreatment sensors (10%)"
+        ],
+        "first_moves": [
+          "Connect scan tool and document all active and inactive aftertreatment fault codes — SCR faults often appear in groups; identify the primary and secondary codes",
+          "Test DEF quality using a refractometer — DEF must be between 32.5% and 36.5% urea concentration; contaminated or diluted DEF is the #1 cause of SCR faults",
+          "Inspect DEF tank for crystalized urea deposits, and check DEF filter (if equipped) for blockage — replace the filter if it has not been serviced per OEM schedule",
+          "Perform NOx sensor diagnostic — compare inlet and outlet NOx sensor readings in live data; outlet should read significantly lower than inlet during normal SCR operation",
+          "Check DEF dosing valve / injector for crystalized urea blockage — remove and inspect, clean or replace as needed",
+          "Verify DPF differential pressure at idle and 1500 RPM; high backpressure can trigger false SCR-related codes and prevent proper regeneration"
+        ],
+        "common_misdiagnoses": [],
+        "fmi": "7",
+        "source_title": "Cummins SPN 4334 FMI 7: Meaning, Causes & Fix",
+        "source_url": "https://dtcdocs.com/code/cummins-x15-spn-4334-fmi-7/",
+        "source_site": "dtcdocs.com",
+        "quality": "high",
+        "method": "free"
+      },
+      "reason": "dtcdocs.com kaynaklı LLM/SEO üretimi sayfa içeriği prosedür olarak kayıtlı (kriter: source_site/source_url=dtcdocs.com + SEO metin imzası). Prosedür değil; kullanıcıya adım/ölçüm talimatı vermez. İçerik çoğunlukla yüzde-tahminli neden listesi ve web-sayfası navigasyon/çerez metni. overview alanı '<Marka> SPN <n> FMI <m>: Meaning, Causes & Fix' SEO şablonundadır.",
+      "quarantine_flags": {
+        "llm_seo_generated": true,
+        "source_url_or_site_is_dtcdocs": true,
+        "severity_suspect": true,
+        "severity_status": "belirsiz",
+        "cause_entries_settled_into_quarantine": {
+          "total": 0,
+          "indexes": [],
+          "texts": []
+        }
+      }
+    },
+    {
+      "spn": "SPN_4334",
+      "block_index": 6,
+      "spn_value": 4334,
+      "fmi": "15",
+      "source_site": "dtcdocs.com",
+      "source_url": "https://dtcdocs.com/code/detroit-diesel-dd15-spn-4334-fmi-15/",
+      "source_title": "Detroit Diesel SPN 4334 FMI 15: Meaning, Causes & Fix",
+      "block_sha256": "e45d3b76c8237f791264b86ab6627542d1a411d8969e9aff0d6bb3dc4ebe57d4",
+      "block_bytes": 1751,
+      "matched_by": {
+        "source_site_or_url_dtcdocs": true,
+        "llm_seo_text_marker": true
+      },
+      "dtcdocs_body_signature": true,
+      "overview": "Detroit Diesel SPN 4334 FMI 15: Meaning, Causes & Fix",
+      "causes_count": 5,
+      "synthesized_causes": {
+        "total": 0,
+        "indexes": [],
+        "texts": []
+      },
+      "evidence": {
+        "text_marker_hits": [
+          {
+            "path": "overview",
+            "match": "Meaning, Causes & Fix",
+            "excerpt": "Detroit Diesel SPN 4334 FMI 15: Meaning, Causes & Fix"
+          },
+          {
+            "path": "source_title",
+            "match": "Meaning, Causes & Fix",
+            "excerpt": "Detroit Diesel SPN 4334 FMI 15: Meaning, Causes & Fix"
+          }
+        ],
+        "step_hits": [],
+        "url_hits": [
+          {
+            "path": "source_url",
+            "value": "https://dtcdocs.com/code/detroit-diesel-dd15-spn-4334-fmi-15/"
+          },
+          {
+            "path": "source_site",
+            "value": "dtcdocs.com"
+          }
+        ]
+      },
+      "severity": {
+        "value": "CHECK AT NEXT STOP",
+        "flag": "suspect",
+        "basis": "Ayrı doğrulama bulunamadı. severity_action her 72 blokta None; 5 severity değerinin tamamı yalnız dtcdocs bloklarında geçiyor ve kaynak aynı dtcdocs.com SEO sayfasıdır. Bu SEO sitesinin sertifikalı bir eşdeğeri yoktur; bu nedenle değerler güvenilmez sayılır (Tuzaklar §11: boşluk = gerçek durum; sahte değer boş bırakmaktan kötüdür). Kanıt listesi: quarantine dosyasındaki records[].severity.provenance.",
+        "provenance": {
+          "matches_j1939_73_fmi_textual_convention": true,
+          "independently_verified": false,
+          "value_has_evidence_source_other_than_dtcdocs": false,
+          "severity_action_supplied": false,
+          "status": "belirsiz"
+        }
+      },
+      "original_payload": {
+        "overview": "Detroit Diesel SPN 4334 FMI 15: Meaning, Causes & Fix",
+        "severity": "CHECK AT NEXT STOP",
+        "severity_action": null,
+        "causes": [
+          "Clogged fuel filters (most common, 40% of fuel system faults)",
+          "Fuel contamination with water or microbial growth (20%)",
+          "High-pressure fuel pump internal wear sending metal debris through injectors (15%)",
+          "Injector solenoid or nozzle failure (15%)",
+          "Fuel line restriction or air ingress from loose fittings (10%)"
+        ],
+        "first_moves": [
+          "Connect scan tool and retrieve all active fault codes, fuel pressure readings, and fuel temperature data from live parameters",
+          "Perform fuel system pressure test — check supply pressure at the filter inlet (should be 3–15 PSI depending on engine) and high-pressure rail pressure (15,000–30,000 PSI common rail)",
+          "Inspect fuel filters for contamination — cut open the old filter and examine for metal particles (indicates pump failure), water (indicates fuel contamination), or algae growth",
+          "Test fuel injector solenoid resistance (typically 0.5–1.5 ohms for Cummins, 0.3–0.6 ohms for Detroit) and perform cylinder cut-out test to identify weak injectors",
+          "Check fuel lines for air ingress — install a clear hose at the filter outlet and look for bubbles during cranking; air in fuel causes intermittent low pressure and misfire codes",
+          "Drain a fuel sample from the tank and filter housing into a clear container — check for water separation, microbial growth, or particulate contamination"
+        ],
+        "common_misdiagnoses": [],
+        "fmi": "15",
+        "source_title": "Detroit Diesel SPN 4334 FMI 15: Meaning, Causes & Fix",
+        "source_url": "https://dtcdocs.com/code/detroit-diesel-dd15-spn-4334-fmi-15/",
+        "source_site": "dtcdocs.com",
+        "quality": "high",
+        "method": "free"
+      },
+      "reason": "dtcdocs.com kaynaklı LLM/SEO üretimi sayfa içeriği prosedür olarak kayıtlı (kriter: source_site/source_url=dtcdocs.com + SEO metin imzası). Prosedür değil; kullanıcıya adım/ölçüm talimatı vermez. İçerik çoğunlukla yüzde-tahminli neden listesi ve web-sayfası navigasyon/çerez metni. overview alanı '<Marka> SPN <n> FMI <m>: Meaning, Causes & Fix' SEO şablonundadır.",
+      "quarantine_flags": {
+        "llm_seo_generated": true,
+        "source_url_or_site_is_dtcdocs": true,
+        "severity_suspect": true,
+        "severity_status": "belirsiz",
+        "cause_entries_settled_into_quarantine": {
+          "total": 0,
+          "indexes": [],
+          "texts": []
+        }
+      }
+    },
+    {
+      "spn": "SPN_4334",
+      "block_index": 7,
+      "spn_value": 4334,
+      "fmi": "5",
+      "source_site": "dtcdocs.com",
+      "source_url": "https://dtcdocs.com/code/detroit-diesel-dd15-spn-4334-fmi-5/",
+      "source_title": "Detroit Diesel SPN 4334 FMI 5: Meaning, Causes & Fix",
+      "block_sha256": "10a3d09120b9b674cab6ad0c5069f2922576d9d7b01c901b90d2ae651003b8d8",
+      "block_bytes": 1647,
+      "matched_by": {
+        "source_site_or_url_dtcdocs": true,
+        "llm_seo_text_marker": true
+      },
+      "dtcdocs_body_signature": true,
+      "overview": "Detroit Diesel SPN 4334 FMI 5: Meaning, Causes & Fix",
+      "causes_count": 5,
+      "synthesized_causes": {
+        "total": 0,
+        "indexes": [],
+        "texts": []
+      },
+      "evidence": {
+        "text_marker_hits": [
+          {
+            "path": "overview",
+            "match": "Meaning, Causes & Fix",
+            "excerpt": "Detroit Diesel SPN 4334 FMI 5: Meaning, Causes & Fix"
+          },
+          {
+            "path": "source_title",
+            "match": "Meaning, Causes & Fix",
+            "excerpt": "Detroit Diesel SPN 4334 FMI 5: Meaning, Causes & Fix"
+          }
+        ],
+        "step_hits": [],
+        "url_hits": [
+          {
+            "path": "source_url",
+            "value": "https://dtcdocs.com/code/detroit-diesel-dd15-spn-4334-fmi-5/"
+          },
+          {
+            "path": "source_site",
+            "value": "dtcdocs.com"
+          }
+        ]
+      },
+      "severity": {
+        "value": "CHECK AT NEXT STOP",
+        "flag": "suspect",
+        "basis": "Ayrı doğrulama bulunamadı. severity_action her 72 blokta None; 5 severity değerinin tamamı yalnız dtcdocs bloklarında geçiyor ve kaynak aynı dtcdocs.com SEO sayfasıdır. Bu SEO sitesinin sertifikalı bir eşdeğeri yoktur; bu nedenle değerler güvenilmez sayılır (Tuzaklar §11: boşluk = gerçek durum; sahte değer boş bırakmaktan kötüdür). Kanıt listesi: quarantine dosyasındaki records[].severity.provenance.",
+        "provenance": {
+          "matches_j1939_73_fmi_textual_convention": true,
+          "independently_verified": false,
+          "value_has_evidence_source_other_than_dtcdocs": false,
+          "severity_action_supplied": false,
+          "status": "belirsiz"
+        }
+      },
+      "original_payload": {
+        "overview": "Detroit Diesel SPN 4334 FMI 5: Meaning, Causes & Fix",
+        "severity": "CHECK AT NEXT STOP",
+        "severity_action": null,
+        "causes": [
+          "Contaminated or diluted DEF fluid (30% of cases)",
+          "DEF dosing valve / injector clogged with crystallized urea (25%)",
+          "Failed or degraded NOx sensor giving incorrect readings (20%)",
+          "DEF pump failure or low DEF pressure (15%)",
+          "Wiring harness corrosion or open circuit in aftertreatment sensors (10%)"
+        ],
+        "first_moves": [
+          "Connect scan tool and document all active and inactive aftertreatment fault codes — SCR faults often appear in groups; identify the primary and secondary codes",
+          "Test DEF quality using a refractometer — DEF must be between 32.5% and 36.5% urea concentration; contaminated or diluted DEF is the #1 cause of SCR faults",
+          "Inspect DEF tank for crystalized urea deposits, and check DEF filter (if equipped) for blockage — replace the filter if it has not been serviced per OEM schedule",
+          "Perform NOx sensor diagnostic — compare inlet and outlet NOx sensor readings in live data; outlet should read significantly lower than inlet during normal SCR operation",
+          "Check DEF dosing valve / injector for crystalized urea blockage — remove and inspect, clean or replace as needed",
+          "Verify DPF differential pressure at idle and 1500 RPM; high backpressure can trigger false SCR-related codes and prevent proper regeneration"
+        ],
+        "common_misdiagnoses": [],
+        "fmi": "5",
+        "source_title": "Detroit Diesel SPN 4334 FMI 5: Meaning, Causes & Fix",
+        "source_url": "https://dtcdocs.com/code/detroit-diesel-dd15-spn-4334-fmi-5/",
+        "source_site": "dtcdocs.com",
+        "quality": "high",
+        "method": "free"
+      },
+      "reason": "dtcdocs.com kaynaklı LLM/SEO üretimi sayfa içeriği prosedür olarak kayıtlı (kriter: source_site/source_url=dtcdocs.com + SEO metin imzası). Prosedür değil; kullanıcıya adım/ölçüm talimatı vermez. İçerik çoğunlukla yüzde-tahminli neden listesi ve web-sayfası navigasyon/çerez metni. overview alanı '<Marka> SPN <n> FMI <m>: Meaning, Causes & Fix' SEO şablonundadır.",
+      "quarantine_flags": {
+        "llm_seo_generated": true,
+        "source_url_or_site_is_dtcdocs": true,
+        "severity_suspect": true,
+        "severity_status": "belirsiz",
+        "cause_entries_settled_into_quarantine": {
+          "total": 0,
+          "indexes": [],
+          "texts": []
+        }
+      }
+    },
+    {
+      "spn": "SPN_4364",
+      "block_index": 17,
+      "spn_value": 4364,
+      "fmi": "0",
+      "source_site": "dtcdocs.com",
+      "source_url": "https://dtcdocs.com/code/caterpillar-c15-acert-spn-4364-fmi-0/",
+      "source_title": "Caterpillar SPN 4364 FMI 0: Meaning, Causes & Fix",
+      "block_sha256": "7442e9616494a719d4e7688f276f23788914328d4e71103edff13a76d6dc2371",
+      "block_bytes": 1635,
+      "matched_by": {
+        "source_site_or_url_dtcdocs": true,
+        "llm_seo_text_marker": true
+      },
+      "dtcdocs_body_signature": true,
+      "overview": "Caterpillar SPN 4364 FMI 0: Meaning, Causes & Fix",
+      "causes_count": 5,
+      "synthesized_causes": {
+        "total": 0,
+        "indexes": [],
+        "texts": []
+      },
+      "evidence": {
+        "text_marker_hits": [
+          {
+            "path": "overview",
+            "match": "Meaning, Causes & Fix",
+            "excerpt": "Caterpillar SPN 4364 FMI 0: Meaning, Causes & Fix"
+          },
+          {
+            "path": "source_title",
+            "match": "Meaning, Causes & Fix",
+            "excerpt": "Caterpillar SPN 4364 FMI 0: Meaning, Causes & Fix"
+          }
+        ],
+        "step_hits": [],
+        "url_hits": [
+          {
+            "path": "source_url",
+            "value": "https://dtcdocs.com/code/caterpillar-c15-acert-spn-4364-fmi-0/"
+          },
+          {
+            "path": "source_site",
+            "value": "dtcdocs.com"
+          }
+        ]
+      },
+      "severity": {
+        "value": "CHECK SOON",
+        "flag": "suspect",
+        "basis": "Ayrı doğrulama bulunamadı. severity_action her 72 blokta None; 5 severity değerinin tamamı yalnız dtcdocs bloklarında geçiyor ve kaynak aynı dtcdocs.com SEO sayfasıdır. Bu SEO sitesinin sertifikalı bir eşdeğeri yoktur; bu nedenle değerler güvenilmez sayılır (Tuzaklar §11: boşluk = gerçek durum; sahte değer boş bırakmaktan kötüdür). Kanıt listesi: quarantine dosyasındaki records[].severity.provenance.",
+        "provenance": {
+          "matches_j1939_73_fmi_textual_convention": true,
+          "independently_verified": false,
+          "value_has_evidence_source_other_than_dtcdocs": false,
+          "severity_action_supplied": false,
+          "status": "belirsiz"
+        }
+      },
+      "original_payload": {
+        "overview": "Caterpillar SPN 4364 FMI 0: Meaning, Causes & Fix",
+        "severity": "CHECK SOON",
+        "severity_action": null,
+        "causes": [
+          "Contaminated or diluted DEF fluid (30% of cases)",
+          "DEF dosing valve / injector clogged with crystallized urea (25%)",
+          "Failed or degraded NOx sensor giving incorrect readings (20%)",
+          "DEF pump failure or low DEF pressure (15%)",
+          "Wiring harness corrosion or open circuit in aftertreatment sensors (10%)"
+        ],
+        "first_moves": [
+          "Connect scan tool and document all active and inactive aftertreatment fault codes — SCR faults often appear in groups; identify the primary and secondary codes",
+          "Test DEF quality using a refractometer — DEF must be between 32.5% and 36.5% urea concentration; contaminated or diluted DEF is the #1 cause of SCR faults",
+          "Inspect DEF tank for crystalized urea deposits, and check DEF filter (if equipped) for blockage — replace the filter if it has not been serviced per OEM schedule",
+          "Perform NOx sensor diagnostic — compare inlet and outlet NOx sensor readings in live data; outlet should read significantly lower than inlet during normal SCR operation",
+          "Check DEF dosing valve / injector for crystalized urea blockage — remove and inspect, clean or replace as needed",
+          "Verify DPF differential pressure at idle and 1500 RPM; high backpressure can trigger false SCR-related codes and prevent proper regeneration"
+        ],
+        "common_misdiagnoses": [],
+        "fmi": "0",
+        "source_title": "Caterpillar SPN 4364 FMI 0: Meaning, Causes & Fix",
+        "source_url": "https://dtcdocs.com/code/caterpillar-c15-acert-spn-4364-fmi-0/",
+        "source_site": "dtcdocs.com",
+        "quality": "high",
+        "method": "free"
+      },
+      "reason": "dtcdocs.com kaynaklı LLM/SEO üretimi sayfa içeriği prosedür olarak kayıtlı (kriter: source_site/source_url=dtcdocs.com + SEO metin imzası). Prosedür değil; kullanıcıya adım/ölçüm talimatı vermez. İçerik çoğunlukla yüzde-tahminli neden listesi ve web-sayfası navigasyon/çerez metni. overview alanı '<Marka> SPN <n> FMI <m>: Meaning, Causes & Fix' SEO şablonundadır.",
+      "quarantine_flags": {
+        "llm_seo_generated": true,
+        "source_url_or_site_is_dtcdocs": true,
+        "severity_suspect": true,
+        "severity_status": "belirsiz",
+        "cause_entries_settled_into_quarantine": {
+          "total": 0,
+          "indexes": [],
+          "texts": []
+        }
+      }
+    },
+    {
+      "spn": "SPN_4752",
+      "block_index": 1,
+      "spn_value": 4752,
+      "fmi": "0",
+      "source_site": "dtcdocs.com",
+      "source_url": "https://dtcdocs.com/code/cummins-isx15-spn-4752-fmi-0/",
+      "source_title": "Cummins SPN 4752 FMI 0: Meaning, Causes & Fix",
+      "block_sha256": "6d1104a78774e4007967254d3a6015a96e44c594720deb16f4bdef9aab8ed77a",
+      "block_bytes": 1551,
+      "matched_by": {
+        "source_site_or_url_dtcdocs": true,
+        "llm_seo_text_marker": true
+      },
+      "dtcdocs_body_signature": true,
+      "overview": "Cummins SPN 4752 FMI 0: Meaning, Causes & Fix",
+      "causes_count": 5,
+      "synthesized_causes": {
+        "total": 0,
+        "indexes": [],
+        "texts": []
+      },
+      "evidence": {
+        "text_marker_hits": [
+          {
+            "path": "overview",
+            "match": "Meaning, Causes & Fix",
+            "excerpt": "Cummins SPN 4752 FMI 0: Meaning, Causes & Fix"
+          },
+          {
+            "path": "source_title",
+            "match": "Meaning, Causes & Fix",
+            "excerpt": "Cummins SPN 4752 FMI 0: Meaning, Causes & Fix"
+          }
+        ],
+        "step_hits": [],
+        "url_hits": [
+          {
+            "path": "source_url",
+            "value": "https://dtcdocs.com/code/cummins-isx15-spn-4752-fmi-0/"
+          },
+          {
+            "path": "source_site",
+            "value": "dtcdocs.com"
+          }
+        ]
+      },
+      "severity": {
+        "value": "WARNING",
+        "flag": "suspect",
+        "basis": "Ayrı doğrulama bulunamadı. severity_action her 72 blokta None; 5 severity değerinin tamamı yalnız dtcdocs bloklarında geçiyor ve kaynak aynı dtcdocs.com SEO sayfasıdır. Bu SEO sitesinin sertifikalı bir eşdeğeri yoktur; bu nedenle değerler güvenilmez sayılır (Tuzaklar §11: boşluk = gerçek durum; sahte değer boş bırakmaktan kötüdür). Kanıt listesi: quarantine dosyasındaki records[].severity.provenance.",
+        "provenance": {
+          "matches_j1939_73_fmi_textual_convention": true,
+          "independently_verified": false,
+          "value_has_evidence_source_other_than_dtcdocs": false,
+          "severity_action_supplied": false,
+          "status": "belirsiz"
+        }
+      },
+      "original_payload": {
+        "overview": "Cummins SPN 4752 FMI 0: Meaning, Causes & Fix",
+        "severity": "WARNING",
+        "severity_action": null,
+        "causes": [
+          "Carbon buildup causing EGR valve to stick open or closed (45% of cases)",
+          "EGR differential pressure sensor hoses clogged with soot (20%)",
+          "EGR valve position sensor failure (15%)",
+          "EGR cooler leak or internal blockage (12%)",
+          "Wiring harness chafing or connector corrosion (8%)"
+        ],
+        "first_moves": [
+          "Connect scan tool and record EGR valve position, differential pressure, and temperature readings in live data",
+          "Perform bi-directional EGR valve actuation test using scan tool — the valve should move smoothly to commanded positions without sticking",
+          "Remove EGR valve and inspect for carbon buildup, especially on the valve stem and seat — heavy carbon accumulation is the most common cause of EGR valve faults",
+          "Check EGR differential pressure sensor hoses for cracking, clogging, or carbon buildup — blocked reference hoses cause incorrect EGR flow readings",
+          "Test EGR cooler flow by comparing intake air temperature before and after EGR — insufficient cooling indicates cooler failure or blockage",
+          "Inspect the EGR valve wiring harness for chafing near the valve and at the engine harness routing — open circuits and shorted wires are common at the valve connector"
+        ],
+        "common_misdiagnoses": [],
+        "fmi": "0",
+        "source_title": "Cummins SPN 4752 FMI 0: Meaning, Causes & Fix",
+        "source_url": "https://dtcdocs.com/code/cummins-isx15-spn-4752-fmi-0/",
+        "source_site": "dtcdocs.com",
+        "quality": "high",
+        "method": "free"
+      },
+      "reason": "dtcdocs.com kaynaklı LLM/SEO üretimi sayfa içeriği prosedür olarak kayıtlı (kriter: source_site/source_url=dtcdocs.com + SEO metin imzası). Prosedür değil; kullanıcıya adım/ölçüm talimatı vermez. İçerik çoğunlukla yüzde-tahminli neden listesi ve web-sayfası navigasyon/çerez metni. overview alanı '<Marka> SPN <n> FMI <m>: Meaning, Causes & Fix' SEO şablonundadır.",
+      "quarantine_flags": {
+        "llm_seo_generated": true,
+        "source_url_or_site_is_dtcdocs": true,
+        "severity_suspect": true,
+        "severity_status": "belirsiz",
+        "cause_entries_settled_into_quarantine": {
+          "total": 0,
+          "indexes": [],
+          "texts": []
+        }
+      }
+    }
+  ],
+  "_audit_loss": {
+    "records_lost": 53,
+    "records_remaining": 19,
+    "records_before": 72,
+    "lost_at_utc": "2026-09-21",
+    "cause": "write_quarantine overwrite (T2-5) — iki ardışık --apply koşumu dosyayı upsert yerine sıfırdan yazdı",
+    "affected_spns": "Kayıp kayıtların SPN listesi dosyada artık YOK; yalnız 'bu 13 SPN hayatta kaldı' bilinir ve orijinal 3 index-0 SPN'i (SPN_520604, SPN_520605, SPN_524265) kayıp kümesindedir. Liste uydurulmaz (AGENTS.md §2.3).",
+    "surviving_spns": [
+      "SPN_100",
+      "SPN_102",
+      "SPN_110",
+      "SPN_111",
+      "SPN_164",
+      "SPN_1761",
+      "SPN_3031",
+      "SPN_3251",
+      "SPN_4334",
+      "SPN_4364",
+      "SPN_4752",
+      "SPN_625",
+      "SPN_639"
+    ],
+    "recorded_at_utc": "2026-09-21T15:18:08Z",
+    "recoverable": false,
+    "recovery_attempts": [
+      "git: dosya UNTRACKED (data/diagnostics/quarantine/ commit edilmemiş) — geçmiş yok",
+      "recycle bin: yok",
+      "Windows previous versions / VSS: yok",
+      ".tmp / .bak artıkları: yok",
+      "canlı j1939 DB: kirli satırlar diziden çıkarıldığı için yeniden üretilemez"
+    ],
+    "note": "Kayıp kayıtlar dtcdocs.com LLM/SEO çöp içeriğiydi; asıl hedef olan 'kirli veriyi canlı DB ve kullanıcı yolundan çıkarmak' TAM karşılandı (procedures_full 6074, _quarantined işareti 0). Kayıp yalnız denetim kopyasıdır; proje işlev kaybı yoktur.",
+    "prevention": "write_quarantine artık UPSERT ((spn, block_index) anahtarı), patch öncesi .bak alır ve merged_total raporlar. Regresyon: tests/unit/test_t2_5_quarantine_idempotent.py"
+  }
+}

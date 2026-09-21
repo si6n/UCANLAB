@@ -19,6 +19,25 @@ from src.safety.e2e.profiles import (
 
 logger = get_logger("safety.e2e.packager")
 
+#: S-04: canonical E2E pad byte. Both package() and package_payload() must pad
+#: to the profile's minimum length with the SAME byte — the legacy code used
+#: 0xCC in one path and 0x00 in the other, so an RX-side checksum computed over
+#: a zero-padded payload did not match its own packager's canonical output.
+E2E_PAD_BYTE: int = 0xCC
+
+
+def ensure_min_len(payload: bytearray, min_len: int) -> int:
+    """S-04: pad ``payload`` with the canonical 0xCC byte up to ``min_len``.
+
+    Returns the (possibly padded) payload length. This is the SINGLE padding
+    helper shared by :meth:`E2ESafetyPackager.package` and
+    :meth:`E2ESafetyPackager.package_payload`
+    (``can_frame.pad_payload`` semantics).
+    """
+    if len(payload) < min_len:
+        payload.extend(bytes([E2E_PAD_BYTE]) * (min_len - len(payload)))
+    return len(payload)
+
 
 class E2ESafetyPackager:
     """Thread-safe stateful frame packager that applies E2E protection to outgoing CAN frames."""
@@ -107,11 +126,10 @@ class E2ESafetyPackager:
 
             payload = bytearray(frame.data)
 
-            # Ensure payload has sufficient length to hold counter and CRC offsets
-            # R2-G6: pad with the canonical 0xCC (can_frame.pad_payload), not 0x00.
+            # Ensure payload has sufficient length to hold counter and CRC
+            # offsets. S-04: one shared helper, canonical 0xCC padding.
             min_len = max(profile.crc_byte_offset, profile.counter_byte_offset) + 1
-            if len(payload) < min_len:
-                payload.extend(b"\xCC" * (min_len - len(payload)))
+            ensure_min_len(payload, min_len)
 
             # Inject rolling counter
             inject_counter(payload, counter_to_use, profile)
@@ -160,9 +178,9 @@ class E2ESafetyPackager:
             counter_to_use = self._resolve_counter(stream_key, profile, counter)
 
             payload = bytearray(data)
+            # S-04: same canonical 0xCC pad as package() (was 0x00 here).
             min_len = max(profile.crc_byte_offset, profile.counter_byte_offset) + 1
-            if len(payload) < min_len:
-                payload.extend(b"\x00" * (min_len - len(payload)))
+            ensure_min_len(payload, min_len)
 
             inject_counter(payload, counter_to_use, profile)
 

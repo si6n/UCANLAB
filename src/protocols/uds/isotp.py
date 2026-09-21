@@ -190,7 +190,14 @@ class IsoTpTransport:
         pad_byte: int | None = 0xCC,
         rx_block_size: int = 0,
         rx_st_min: int = 0,
-        max_buffer_size: int = 67_108_864,
+        # M9 (verified OPEN): the bare-constructor default was 64 MiB while
+        # every live RX session is separately capped at MAX_UDS_PAYLOAD_FD
+        # (1 MiB) by the callers at :310/:316 and :1000/:1006. Two different
+        # "ceilings" for the same resource is a documentation/consistency
+        # defect — the constructor default now matches MAX_UDS_PAYLOAD_FD.
+        # Lab/replay paths that genuinely need a larger reassembly buffer can
+        # still pass `max_buffer_size` explicitly.
+        max_buffer_size: int = MAX_UDS_PAYLOAD_FD,
         addressing_mode: AddressingMode = AddressingMode.NORMAL,
         address_byte: int | None = None,
         brs: bool = False,
@@ -202,8 +209,9 @@ class IsoTpTransport:
         self.rx_block_size = rx_block_size
         self.rx_st_min = rx_st_min
         # REVIEW 2-H1 (HIGH): 1 MB default rejected large UDS reads/flashing
-        # transfers with FS_OVERFLOW — 64 MB covers modern ECU flash images
-        # while remaining a bounded fail-closed guard.
+        # transfers with FS_OVERFLOW — the ceiling is now MAX_UDS_PAYLOAD_FD
+        # (1 MiB), the SAME bound every live RX session is created with, so a
+        # bare transport and a session-bounded one behave identically.
         self.max_buffer_size = max_buffer_size
         # REVIEW 3-4 (MEDIUM): Bit Rate Switch — the HAL/replay layers carry
         # brs end-to-end, but the ISO-TP engine always emitted brs=False,

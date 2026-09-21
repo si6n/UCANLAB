@@ -161,9 +161,12 @@ class FlashingConfig:
                 f"Must be {self.MIN_BLOCK_SIZE}..{self.MAX_BLOCK_LENGTH_CAP} bytes (fail-closed cap)."
             )
         if self.block_size not in self.ALLOWED_BLOCK_SIZES:
-            import logging as _logging
-
-            _logging.getLogger("universal_can.protocols.uds.flasher").warning(
+            # L6 (verified OPEN): this used `logging.getLogger("universal_can.
+            # protocols.uds.flasher")` — a DIFFERENT logger name from the
+            # module logger (`protocols.uds.flasher`) that the rest of the
+            # codebase configures, so the warning was silently swallowed by
+            # the logging setup. Emit it through the module logger.
+            logger.warning(
                 "Non-standard block_size %d (standard: %s)",
                 self.block_size,
                 sorted(self.ALLOWED_BLOCK_SIZES),
@@ -296,13 +299,43 @@ class EcuFlashingEngine:
             return self._issuer_factory(arb_id)
         if config is not None and config.confirmation_token_factory is not None:
             return config.confirmation_token_factory(arb_id)
-        gateway = self.gateway
-        if getattr(gateway, "_confirmation_secret", None) is None:
-            return None
-        issuer = getattr(gateway, "issue_confirmation_token", None)
+        issuer = getattr(self.gateway, "issue_confirmation_token", None)
         if issuer is None:
             return None
+        if not self._gateway_has_confirmation_secret():
+            return None
         return issuer(arb_id, ttl_s=30.0)
+
+    def _gateway_has_confirmation_secret(self) -> bool:
+        """M13 (verified OPEN): ask the gateway whether it has a secret.
+
+        The legacy fallback used to read the gateway's PRIVATE
+        `_confirmation_secret` attribute directly, which couples the flasher
+        to the safety subsystem's internals (a rename silently disabled the
+        token path). Resolution order:
+
+          1. `gateway.has_confirmation_secret()` — the public accessor. NOTE:
+             `src/safety/**` is owned by another workstream, so if that
+             accessor is not present yet this branch is simply skipped and
+             step 2 keeps legacy composition roots working.
+          2. Defensive fallback: the private attribute, read only through
+             `getattr` with a `None` default (never an AttributeError).
+
+        NEVER fabricates "has a secret": an unknown shape returns False, so
+        the caller omits the token and the gateway's own confirmation gate
+        still decides (fail-closed on the gateway side).
+        """
+        has_secret = getattr(self.gateway, "has_confirmation_secret", None)
+        if callable(has_secret):
+            try:
+                return bool(has_secret())
+            except Exception as exc:  # accessor must never break the flash path
+                logger.warning(
+                    "gateway.has_confirmation_secret() raised — treating as no secret",
+                    extra={"error": str(exc)},
+                )
+                return False
+        return getattr(self.gateway, "_confirmation_secret", None) is not None
 
     @staticmethod
     def _parse_ecu_version(response: Any) -> int | None:

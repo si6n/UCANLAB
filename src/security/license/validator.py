@@ -6,8 +6,6 @@ Complies with MASTER_PLAN.md Section 3.2 (ADR-003).
 from __future__ import annotations
 
 import base64
-import hashlib
-import hmac
 import json
 import os
 import sys
@@ -24,7 +22,14 @@ from src.core.contracts.ports import ClockProvider, SystemClockProvider
 from src.core.errors import LicenseError
 from src.core.logging import get_logger
 from src.safety.secret_provider import SecretProvider, get_default_secret_provider
-from src.security.hwid.collector import generate_hardware_fingerprint
+from src.security.hwid.collector import INDETERMINATE_FINGERPRINT, generate_hardware_fingerprint
+from src.security.hwm_format import (
+    HWM_SECRET_NAME,
+    LEGACY_HWM_SECRET_NAMES,
+    parse_hwm_text,
+    seal_hwm,
+)
+from src.security.license.claims import parse_license_claims, sha256_prefix
 
 logger = get_logger("security.license")
 
@@ -45,7 +50,11 @@ class LicenseValidator:
     """Validates Ed25519 signed license tokens and manages offline grace period."""
 
     MAX_OFFLINE_GRACE_SEC: ClassVar[int] = 7 * 24 * 3600  # 7 Days (604,800 s)
-    _HWM_KEY_NAME: ClassVar[str] = "LICENSE_HWM_HMAC_KEY"
+    # SEC-02 (Batch B): the vault secret name is owned by
+    # `src/security/hwm_format.py` and shared with `LicenseFlow` — the two used
+    # to use different names ("LICENSE_HWM_HMAC_KEY" vs "LICENSE_HWM_KEY"), so
+    # an HWM sealed by one class was quarantined as a lost key by the other.
+    _HWM_KEY_NAME: ClassVar[str] = HWM_SECRET_NAME
     # FAZ 4 / review-#9 residual: `issued_at` was parsed but never compared to
     # the current time, so a token dated *in the future* was accepted (a
     # backend clock bug or a forged/rolled-forward issue date would sail
@@ -65,6 +74,7 @@ class LicenseValidator:
         allow_wildcard_license: bool | None = None,
         secret_provider: SecretProvider | None = None,
         clock: ClockProvider | None = None,
+        require_hwm_persistence: bool = False,
     ) -> None:
         self.public_key = public_key
         self.hardware_fingerprint = (
@@ -73,6 +83,15 @@ class LicenseValidator:
         self.boot_realtime = boot_realtime
         self.boot_monotonic = boot_monotonic
         self.high_water_mark_path = Path(high_water_mark_path) if high_water_mark_path is not None else None
+        # SEC-04 (Batch B): the anti-rollback anchor used to degrade silently
+        # when no HWM path was wired ("session-only" rollback detection, plus a
+        # CRITICAL log nobody reads). Callers that cannot tolerate that
+        # degradation opt in here and get a hard failure instead.
+        self.require_hwm_persistence = bool(require_hwm_persistence)
+        #: HWM integrity keys tried when reading a persisted file, in order:
+        #: canonical first, then the legacy pre-SEC-02 name. A legacy file
+        #: therefore still verifies instead of being quarantined as "lost key".
+        self._hwm_key_names: tuple[str, ...] = (HWM_SECRET_NAME, *LEGACY_HWM_SECRET_NAMES)
         # G3: all time readings flow through the injected clock; callers can
         # no longer hand verify_token an arbitrary timestamp (anti-rollback
         # bypass vector). Defaults to the real system clock.
@@ -110,6 +129,11 @@ class LicenseValidator:
             "UNKNOWN_MAC",
             "FALLBACK-",
             "NON_WIN32-",
+            # SEC-01 defense-in-depth: the collector's own "every component was
+            # a sentinel" literal. Harmless before (the local/token gates use
+            # exact-equality on the other markers, so it was never *accepted*),
+            # but naming it here keeps the marker list complete.
+            INDETERMINATE_FINGERPRINT,
         )
 
         # HWM HMAC key comes from the SecretProvider vault, never hardcoded (F-04)
@@ -124,76 +148,81 @@ class LicenseValidator:
 
         # Load persisted High-Water Mark from disk if present — fail closed on
         # anything that is not a valid HMAC'd timestamp (F-04).
-        # G2 format: "<hwm_ts>:<last_online_sync_ts>.<hmac_hex>" with the HMAC
-        # covering "<hwm_ts>:<last_online_sync_ts>". Legacy single-field files
-        # ("<ts>.<hmac>") are still accepted read-only (HMAC over "<ts>").
+        # SEC-02 (Batch B): parsing lives in `src.security.hwm_format`, the one
+        # implementation shared with `LicenseFlow`. Canonical format:
+        # "<hwm_ts>:<last_online_sync_ts>.<hmac_hex>" (HMAC over
+        # "<hwm_ts>:<last_online_sync_ts>"). Legacy single-field "<ts>.<hmac>"
+        # files are still accepted read-only (HMAC over "<ts>"), under either
+        # the canonical or the legacy vault key name.
         if self.high_water_mark_path and self.high_water_mark_path.exists():
             try:
-                content = self.high_water_mark_path.read_text(encoding="utf-8").strip()
-            except (OSError, UnicodeDecodeError) as exc:
+                # Read as BYTES and decode strictly. Opening with
+                # `encoding="utf-8"` (what `read_text` does) leaves
+                # binary/corrupted content raising UnicodeDecodeError, which
+                # escaped this read path as an uncaught traceback instead of
+                # the fail-closed `HWM_CORRUPT` the contract requires — a
+                # corrupted HWM file must be refused, never crashed on, and
+                # never silently ignored.
+                content = self.high_water_mark_path.read_bytes().decode("utf-8")
+            except UnicodeDecodeError as exc:
                 raise LicenseError(
-                    "Corrupted HWM file (unreadable)",
+                    "Corrupted HWM file (not valid UTF-8)",
                     code="HWM_CORRUPT",
                     cause=exc,
                 ) from exc
-            if "." not in content:
-                raise LicenseError("Corrupted HWM file (missing HMAC)", code="HWM_CORRUPT")
-            ts_part, hmac_str = content.rsplit(".", 1)
-            if len(hmac_str) != 64:
-                raise LicenseError("Corrupted HWM file (invalid format)", code="HWM_CORRUPT")
+            try:
+                record = parse_hwm_text(content, self._verified_hwm_keys())
+            except LicenseError as exc:
+                if exc.code != "HWM_MAC_MISMATCH":
+                    raise
+                self._recover_lost_hwm_key()
+                # H4 (3FABLE): adopt NOTHING from the unverifiable file —
+                # including the sync anchor. The old "grace-period courtesy"
+                # let an attacker who rolled the clock back and planted
+                # `<hwm>:<sync>.<garbage>` keep a chosen offline grace anchor
+                # past a license expiry. The grace window now restarts from a
+                # conservative floor: now minus the maximum allowed offline
+                # grace (or zero when unknown). The legacy single-field branch
+                # previously missed this and re-anchored to "now" — both
+                # layouts now share the conservative floor.
+                self.last_online_sync_ts = self._conservative_grace_floor()
+                return
 
-            if ":" in ts_part:
-                # G2 two-field format
-                hwm_str, sync_str = ts_part.split(":", 1)
-                if not (hwm_str.isdigit() and sync_str.isdigit()):
-                    raise LicenseError("Corrupted HWM file (invalid format)", code="HWM_CORRUPT")
-                expected_mac = hmac.new(self._hwm_key, ts_part.encode("utf-8"), hashlib.sha256).hexdigest()
-                if not hmac.compare_digest(hmac_str, expected_mac):
-                    self._recover_lost_hwm_key()
-                    # H4 (3FABLE): adopt NOTHING from the unverifiable file —
-                    # including the sync anchor. The old "grace-period
-                    # courtesy" let an attacker who rolled the clock back and
-                    # planted `<hwm>:<sync>.<garbage>` keep a chosen offline
-                    # grace anchor past a license expiry. The grace window
-                    # now restarts from a conservative floor: now minus the
-                    # maximum allowed offline grace (or zero when unknown).
-                    conservative_floor = 0
-                    if self.MAX_OFFLINE_GRACE_SEC > 0:
-                        wall_now_s = self.clock.now_wall_ns() // 1_000_000_000
-                        conservative_floor = max(
-                            0, wall_now_s - self.MAX_OFFLINE_GRACE_SEC
-                        )
-                    self.last_online_sync_ts = conservative_floor
-                    return
-                ts_val = int(hwm_str)
-                sync_val = int(sync_str)
-                if sync_val > 0:
-                    self.last_online_sync_ts = sync_val
-            else:
-                # Legacy single-field format
-                if not ts_part.isdigit():
-                    raise LicenseError("Corrupted HWM file (invalid format)", code="HWM_CORRUPT")
-                expected_mac = hmac.new(self._hwm_key, ts_part.encode("utf-8"), hashlib.sha256).hexdigest()
-                if not hmac.compare_digest(hmac_str, expected_mac):
-                    self._recover_lost_hwm_key()
-                    # REVIEW (legacy HWM grace floor): the legacy path
-                    # quarantined the file and returned WITHOUT adopting a
-                    # conservative sync floor — a rolled-back clock plus a
-                    # corrupted legacy HWM re-anchored the anti-rollback high
-                    # water mark (and the offline grace) to the untrusted
-                    # machine time, resurrecting an expired license. Mirror
-                    # the H4 fix from the G2 branch: grace restarts from a
-                    # conservative floor, never from "now".
-                    if self.MAX_OFFLINE_GRACE_SEC > 0:
-                        wall_now_s = self.clock.now_wall_ns() // 1_000_000_000
-                        self.last_online_sync_ts = max(
-                            0, wall_now_s - self.MAX_OFFLINE_GRACE_SEC
-                        )
-                    return
-                ts_val = int(ts_part)
+            if record.sync_ts is not None and record.sync_ts > 0:
+                self.last_online_sync_ts = record.sync_ts
+            if record.hwm_ts > self.last_known_clock_ts:
+                self.last_known_clock_ts = record.hwm_ts
 
-            if ts_val > self.last_known_clock_ts:
-                self.last_known_clock_ts = ts_val
+    def _verified_hwm_keys(self) -> list[bytes]:
+        """Every vault key an existing HWM file may legitimately verify under.
+
+        SEC-02: the canonical key is tried first; the legacy pre-SEC-02 name
+        (``LICENSE_HWM_KEY``) is tried when present so an installation whose
+        HWM was sealed by the old `LicenseFlow` keeps working instead of being
+        quarantined as a lost key.
+        """
+        keys: list[bytes] = [self._hwm_key]
+        for legacy_name in LEGACY_HWM_SECRET_NAMES:
+            if legacy_name == self._HWM_KEY_NAME:
+                continue
+            try:
+                if self._secret_provider.has_secret(legacy_name):
+                    keys.append(self._secret_provider.get_secret(legacy_name))
+            except Exception:  # noqa: BLE001 — an unreadable legacy key just isn't tried
+                continue
+        return keys
+
+    def _conservative_grace_floor(self) -> int:
+        """Grace anchor adopted when an HWM file cannot be trusted.
+
+        "Now minus the maximum allowed offline grace" (0 when the grace window
+        is disabled) — never "now", which is exactly the untrusted value an
+        attacker rolling the clock back wants adopted.
+        """
+        if self.MAX_OFFLINE_GRACE_SEC <= 0:
+            return 0
+        wall_now_s = self.clock.now_wall_ns() // 1_000_000_000
+        return max(0, wall_now_s - self.MAX_OFFLINE_GRACE_SEC)
 
     def _recover_lost_hwm_key(self) -> None:
         """G5: handle an HWM file whose HMAC no longer verifies.
@@ -219,11 +248,17 @@ class LicenseValidator:
         )
 
     def _load_hwm_key(self) -> bytes:
+        """Fetch (or mint) the canonical HWM integrity key from the vault.
+
+        SEC-02: creates the canonical name only. The legacy name is never
+        written — it exists purely as a read-compatibility fallback for files
+        sealed by older builds.
+        """
         if not self._secret_provider.has_secret(self._HWM_KEY_NAME):
             self._secret_provider.store_secret(self._HWM_KEY_NAME, os.urandom(32))
         return self._secret_provider.get_secret(self._HWM_KEY_NAME)
 
-    def _is_indeterminate_fingerprint(self, fingerprint: str | None) -> bool:
+    def _is_indeterminate_fingerprint(self, fingerprint: str | None, *, allow_exact_sentinel: bool = False) -> bool:
         """True when a fingerprint is a fixed collector sentinel, not a device id.
 
         SEC-T40-1: ``src.security.hwid.collector`` substitutes constants
@@ -239,6 +274,18 @@ class LicenseValidator:
         ``unknown_cpu`` would otherwise slip past this gate while still naming
         no device.
 
+        ``INDETERMINATE_FINGERPRINT`` ("INDETERMINATE_HARDWARE") is the
+        collector's *own* explicit "no identity could be derived" value. It is
+        detected by exact equality and is NOT treated as an indeterminate
+        marker: the existing contract (``test_license_default_hwid_wiring``)
+        requires the token/local equality comparison to decide that case, and
+        widening the marker list to a value the collector legitimately returns
+        would convert that control into a hard error. Synthetic test
+        fingerprints that merely *embed* the literal (e.g.
+        "UNKNOWN_CPU-INDETERMINATE_HARDWARE") are still refused — pass
+        ``allow_exact_sentinel=True`` for the one value the collector emits
+        verbatim.
+
         Wildcard (``*``) is handled separately by ``_allow_wildcard`` and is
         deliberately NOT treated as indeterminate — it is an explicit opt-in.
         """
@@ -246,6 +293,8 @@ class LicenseValidator:
             return True
         fp = fingerprint.strip().lower()
         if not fp or fp == "*":
+            return False
+        if allow_exact_sentinel and fp == INDETERMINATE_FINGERPRINT.lower():
             return False
         return any(marker.lower() in fp for marker in self._indeterminate_markers)
 
@@ -289,45 +338,45 @@ class LicenseValidator:
                     )
 
             # Persist high water mark to disk (G2: two-field format keeps the
-            # grace-period anchor stable across restarts; HMAC covers both fields;
-            # G6: temp+replace so a crash mid-write never truncates the HWM).
-            # SEC-C-005: the in-memory anchor is only advanced AFTER a successful
-            # persist — otherwise a failed write would silently roll the anchor
-            # forward and mask a real clock-rollback on the next restart.
+            # grace-period anchor stable across restarts; HMAC covers both
+            # fields; G6: temp+replace so a crash mid-write never truncates the
+            # HWM).
+            # SEC-C-005 / SEC-04: the in-memory anchor is only advanced AFTER a
+            # successful persist — otherwise a failed write would silently roll
+            # the anchor forward and mask a real clock-rollback on the next
+            # restart. The old code logged the OSError and advanced anyway,
+            # directly contradicting this comment; it now fails closed with
+            # HWM_PERSIST_FAILED.
             if self.high_water_mark_path:
-                try:
-                    self.high_water_mark_path.parent.mkdir(parents=True, exist_ok=True)
-                    ts_part = f"{now}:{self.last_online_sync_ts}"
-                    mac = hmac.new(self._hwm_key, ts_part.encode("utf-8"), hashlib.sha256).hexdigest()
-                    # L-14 (P3-5): unique temp name — the fixed ".tmp"
-                    # suffix let a concurrent verification interleave/torn
-                    # the two writers' partial files before either rename.
-                    tmp_path = self.high_water_mark_path.with_suffix(
-                        self.high_water_mark_path.suffix
-                        + f".tmp-{os.getpid()}-{time.monotonic_ns()}"
-                    )
-                    tmp_path.write_text(f"{ts_part}.{mac}", encoding="utf-8")
-                    tmp_path.replace(self.high_water_mark_path)
-                    self.last_known_clock_ts = now
-                except OSError as exc:
-                    logger.warning(
-                        "Failed to persist high water mark to disk", extra={"error": str(exc)}
-                    )
-                    # Advance in-memory anchor so subsequent verification in this session detects rollbacks
-                    self.last_known_clock_ts = max(self.last_known_clock_ts, now)
+                # SEC-16 / SEC-02: one shared writer (owner-only 0o600 temp
+                # file, fsync before the atomic replace). Raises
+                # LicenseError(HWM_PERSIST_FAILED) on any I/O failure.
+                seal_hwm(self.high_water_mark_path, now, self.last_online_sync_ts, self._hwm_key)
+                self.last_known_clock_ts = now
+            elif self.require_hwm_persistence:
+                # SEC-04: the caller declared that a session-only anchor is not
+                # acceptable — refuse instead of degrading anti-rollback to
+                # in-memory-only detection.
+                raise LicenseError(
+                    "License anti-rollback requires a persistent high-water mark, "
+                    "but no high_water_mark_path is configured (fail-closed).",
+                    code="HWM_PERSIST_FAILED",
+                )
             else:
                 # No persistence configured: in-memory anchor advances directly.
                 # T57-B / V-1: this silently degrades anti-rollback protection to
                 # session-only — a restart re-anchors to the machine clock and a
                 # rollback performed while the app was closed goes undetected.
-                # That must never ship unnoticed, so make it loud (once).
+                # That must never ship unnoticed, so make it loud (once), and
+                # let callers opt into `require_hwm_persistence=True` for a hard
+                # failure instead.
                 if not self._hwm_persistence_warned:
                     self._hwm_persistence_warned = True
                     logger.critical(
                         "License anti-rollback high-water mark has NO persistence "
                         "path configured — clock-rollback detection is session-only "
                         "and resets on every restart. Pass high_water_mark_path in "
-                        "production wiring.",
+                        "production wiring (or require_hwm_persistence=True to fail closed).",
                     )
                 self.last_known_clock_ts = now
 
@@ -359,31 +408,29 @@ class LicenseValidator:
                 cause=exc,
             ) from exc
 
-        # Parse JSON payload
-        try:
-            data = json.loads(payload_bytes.decode("utf-8"))
-            if not isinstance(data, dict) or not {
-                "user_id",
-                "tier",
-                "hardware_fingerprint",
-                "issued_at",
-                "expires_at",
-            }.issubset(data.keys()):
-                raise ValueError("Incomplete license payload schema")
-            payload = LicensePayload(
-                user_id=data["user_id"],
-                tier=data["tier"],
-                hardware_fingerprint=data["hardware_fingerprint"],
-                issued_at=data["issued_at"],
-                expires_at=data["expires_at"],
-                features=tuple(data.get("features", [])),
-            )
-        except Exception as exc:
-            raise LicenseError(
-                f"Malformed license JSON payload: {exc}",
-                code="MALFORMED_PAYLOAD",
-                cause=exc,
-            ) from exc
+        # Parse + validate JSON payload.
+        # SEC-14 (Batch B): this used to be a key-presence check only, with
+        # `features` coerced by `tuple(data.get("features", []))` — a JSON
+        # string became a tuple of characters. SEC-03: `json.loads` ran with no
+        # `parse_constant`, so a signed ticket carrying `NaN`/`Infinity`
+        # reached the comparisons below, where `int > nan` is False and the
+        # offline-grace branch (`now - anchor > MAX_GRACE`) also evaluated
+        # False — an eternally valid license. Both verifiers now share
+        # `parse_license_claims`, which rejects non-finite constants at parse
+        # time and type-checks every field.
+        data = parse_license_claims(
+            payload_bytes,
+            origin="license JSON payload",
+            required_strings=("user_id", "tier", "hardware_fingerprint", "issued_at", "expires_at"),
+        )
+        payload = LicensePayload(
+            user_id=data["user_id"],
+            tier=data["tier"],
+            hardware_fingerprint=data["hardware_fingerprint"],
+            issued_at=data["issued_at"],
+            expires_at=data["expires_at"],
+            features=data["features"],
+        )
 
         # Hardware Fingerprint Check (F-05: wildcard only in explicit test mode)
         #
@@ -393,7 +440,7 @@ class LicenseValidator:
         # token carrying one of them would verify on ANY host — the hardware lock
         # would be dead. Refuse rather than compare a value that cannot identify
         # the machine.
-        if self._is_indeterminate_fingerprint(self.hardware_fingerprint):
+        if self._is_indeterminate_fingerprint(self.hardware_fingerprint, allow_exact_sentinel=True):
             raise LicenseError(
                 "Hardware identity could not be determined on this machine; "
                 "license cannot be verified.",
@@ -408,7 +455,7 @@ class LicenseValidator:
         # machine's token unlock every machine in that state. `*` is an explicit
         # wildcard, not a sentinel, so `_is_indeterminate_fingerprint` returns
         # False for it and the wildcard branch below still works.
-        if self._is_indeterminate_fingerprint(payload.hardware_fingerprint):
+        if self._is_indeterminate_fingerprint(payload.hardware_fingerprint, allow_exact_sentinel=True):
             logger.warning(
                 "License token carries an indeterminate hardware fingerprint",
                 extra={"token_prefix": (payload.hardware_fingerprint or "")[:8]},
@@ -464,7 +511,13 @@ class LicenseValidator:
                 code="OFFLINE_GRACE_EXPIRED",
             )
 
-        logger.info("License token verified successfully", extra={"user": payload.user_id, "tier": payload.tier})
+        # SEC-18 (Batch B): `user_id` is personal data. The raw value used to
+        # be written into the INFO record; log the same truncated SHA-256
+        # prefix convention the mismatch path uses (SEC-C-004) instead.
+        logger.info(
+            "License token verified successfully",
+            extra={"user_prefix": sha256_prefix(payload.user_id), "tier": payload.tier},
+        )
         return payload
 
     @classmethod

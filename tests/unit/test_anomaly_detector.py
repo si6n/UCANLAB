@@ -10,6 +10,7 @@ import pytest
 from src.core.models.diagnostics import (
     DiagnosticDomain,
     DiagnosticEvent,
+    Severity,
     SignalSample,
     SignalSource,
     VehicleSession,
@@ -47,7 +48,7 @@ def _session_with_dtc(codes):
                 timestamp_ns=1,
                 code=code,
                 domain=DiagnosticDomain.HEAVY_DUTY,
-                severity="UNKNOWN",
+                severity=Severity.UNKNOWN,
                 status="ACTIVE",
             )
         )

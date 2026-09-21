@@ -168,7 +168,7 @@ class TestDm1BridgeSpnFmi:
         parsed. An arbitrary ACTIVE code must stay (None, None) — the bridge
         must never fabricate an SPN from unrelated text (wrong KB entry is
         worse than no enrichment)."""
-        from src.core.models.diagnostics import DiagnosticDomain, DiagnosticEvent
+        from src.core.models.diagnostics import DiagnosticDomain, DiagnosticEvent, Severity
 
         app = _app()
         app._diag_session.events.append(
@@ -176,7 +176,7 @@ class TestDm1BridgeSpnFmi:
                 timestamp_ns=1,
                 code="P0217 Motor aşırı ısındı",
                 domain=DiagnosticDomain.HEAVY_DUTY,
-                severity="UNKNOWN",
+                severity=Severity.UNKNOWN,
                 status="ACTIVE",
             )
         )

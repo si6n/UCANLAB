@@ -1,0 +1,200 @@
+{
+  "checks": {
+    "dtcdb.sqlite": {
+      "status": "PASS",
+      "file": "tools/data_ingest/staging/dtcdb/dtc_codes.db",
+      "tables": [
+        "dtc_definitions",
+        "statistics"
+      ],
+      "row_counts": {
+        "dtc_definitions": 18805,
+        "statistics": 34
+      },
+      "code_table": "dtc_definitions",
+      "code_column": "code",
+      "distinct_codes": 12128,
+      "p0420_probe_rows": 2,
+      "sample_row": [
+        [
+          "P1106",
+          "ACURA",
+          "BARO Circuit Range Performance Malfunction",
+          "P",
+          "en"
+        ],
+        [
+          "P1107",
+          "ACURA",
+          "BARO Circuit Low Input",
+          "P",
+          "en"
+        ],
+        [
+          "P1108",
+          "ACURA",
+          "BARO Circuit High Input",
+          "P",
+          "en"
+        ]
+      ]
+    },
+    "canboat.json": {
+      "status": "PASS",
+      "file": "tools/data_ingest/staging/canboat/canboat.json",
+      "total_pgns": 628,
+      "declared_license": "Apache License Version 2.0",
+      "version": "8.1.0",
+      "schema_version": "2.6.0",
+      "pgn_number_range": [
+        59392,
+        131012
+      ],
+      "contains_dm1_pgn_65226": false,
+      "pgns_with_spn_or_fmi_field": 0,
+      "pgns_typed_j1939": 0,
+      "coverage_note": "NMEA-2000 ONLY. No J1939/DM1 in this generated file — J1939 is vendored separately as j1939_065226-activeTroubleCodes.yaml"
+    },
+    "sitrak.json": {
+      "status": "PASS",
+      "file": "tools/data_ingest/staging/sitrak/sitrak_error-codes.json",
+      "records": 8042,
+      "fields": [
+        "description_ru",
+        "dtc",
+        "fmi",
+        "spn",
+        "system"
+      ],
+      "with_spn_and_fmi": 8042,
+      "description_ru": 7635,
+      "description_en": 2441,
+      "distinct_systems": 44,
+      "sample": {
+        "spn": "1045",
+        "fmi": "3",
+        "dtc": "7+7",
+        "system": "ABS",
+        "description_ru": "Переключатель тормозных ламп 1"
+      }
+    },
+    "obdex.yaml": {
+      "status": "PASS",
+      "dir": "tools/data_ingest/staging/obdex/data/generic",
+      "codes_per_file": {
+        "B0xxx_enriched.yaml": 323,
+        "C0xxx_enriched.yaml": 626,
+        "P0xxx_enriched.yaml": 3705,
+        "P2xxx_enriched.yaml": 3495,
+        "P3xxx_enriched.yaml": 155,
+        "U0xxx_enriched.yaml": 1055,
+        "U3xxx_enriched.yaml": 174
+      },
+      "total_codes": 9533,
+      "pid_counts": {
+        "mode01.yaml": 119,
+        "mode09.yaml": 13
+      },
+      "sample_record": {
+        "code": "B0001",
+        "category": "body",
+        "title": {
+          "en": "Driver Frontal Stage 1 Deployment Control",
+          "de": "Fahrerseite Frontairbag Stufe 1 Auslösekreis"
+        },
+        "description": {
+          "en": "The supplemental restraint system (SRS) module has detected a fault in the deployment control circuit for the first stage of the driver frontal airbag. The SRS warning lamp illuminates and airbag deployment may be impaired in a crash event.",
+          "de": "Das Airbag-Steuergerät (SRS) hat einen Fehler im Auslösekreis der ersten Stufe des Fahrer-Frontairbags erkannt. Die Airbag-Warnleuchte leuchtet und die Auslösung im Crashfall kann beeinträchtigt sein."
+        },
+        "affected_components": [
+          "driver_airbag_module",
+          "srs_control_module",
+          "srs_wiring",
+          "clock_spring"
+        ],
+        "common_causes": [
+          {
+            "id": "clock_spring_failure",
+            "likelihood": "high",
+            "label": {
+              "en": "Clock spring (spiral cable) damaged in steering column",
+              "de": "Wickelfeder in der Lenksäule defekt"
+            }
+          },
+          {
+            "id": "airbag_connector_loose",
+            "likelihood": "medium",
+            "label": {
+              "en": "Loose or corroded airbag connector under steering wheel",
+              "de": "Loser oder korrodierter Airbag-Stecker unter dem Lenkrad"
+            }
+          },
+          {
+            "id": "srs_module_fault",
+            "likelihood": "low",
+            "label": {
+              "en": "SRS control module internal fault",
+              "de": "Interner Fehler im SRS-Steuergerät"
+            }
+          }
+        ],
+        "symptoms": [
+          {
+            "en": "Warning light or symbol related to the affected system",
+            "de": "Warnleuchte oder Symbol zum betroffenen System"
+          },
+          {
+            "en": "Comfort or safety function impaired",
+            "de": "Komfort- oder Sicherheitsfunktion beeinträchtigt"
+          }
+        ],
+        "repair": {
+          "difficulty": "hard",
+          "diy_possible": false,
+          "estimated_cost_eur": [
+            200,
+            1500
+          ],
+          "estimated_hours": [
+            1.0,
+            4.0
+          ]
+        },
+        "flags": {
+          "mil": false,
+          "emissions_relevant": false
+        },
+        "references": [
+          "sae:J2012"
+        ],
+        "sources": [
+          "https://en.wikipedia.org/wiki/Airbag",
+          "https://en.wikipedia.org/wiki/Body_control_module"
+        ]
+      }
+    },
+    "canboat.dm1": {
+      "status": "PASS",
+      "pgn": 65226,
+      "id": "activeTroubleCodes",
+      "description": "Active Trouble Codes",
+      "field_names": [
+        "Malfunction Lamp Status",
+        "Red Stop Lamp Status",
+        "Amber Warning Lamp Status",
+        "Protect Lamp Status",
+        "Reserved",
+        null
+      ],
+      "lamp_fields": [
+        "Malfunction Lamp Status",
+        "Red Stop Lamp Status",
+        "Amber Warning Lamp Status",
+        "Protect Lamp Status"
+      ],
+      "schema_note": "lowercase keys (pgn/fields/id) — differs from canboat.json"
+    }
+  },
+  "pass": 5,
+  "fail": 0
+}

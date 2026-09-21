@@ -14,8 +14,10 @@ import {
   Cloud,
   Copy,
   Check,
+  Scale,
 } from 'lucide-react';
 import { DesktopBridge, CloudStatus } from '../../services/bridge';
+import { SettingsAttributionPanel } from './SettingsAttributionPanel';
 
 interface SettingsViewProps {
   channel: string;
@@ -35,7 +37,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   });
   const [cloudStatus, setCloudStatus] = useState<CloudStatus | null>(null);
   const [savedSuccess, setSavedSuccess] = useState(false);
-  const [activeSection, setActiveSection] = useState<'hardware' | 'license' | 'safety' | 'storage'>('hardware');
+  const [activeSection, setActiveSection] = useState<'hardware' | 'license' | 'safety' | 'storage' | 'attribution'>('hardware');
 
   const [licenseKeyInput, setLicenseKeyInput] = useState('');
   const [isActionLoading, setIsActionLoading] = useState(false);
@@ -212,6 +214,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             { id: 'license', label: 'Bulut & Lisans', icon: Key, desc: 'Giriş & Aktivasyon' },
             { id: 'safety', label: 'Güvenlik & ASIL-D', icon: ShieldCheck, desc: 'Watchdog & Chokepoint' },
             { id: 'storage', label: 'Kayıt & Bellek', icon: HardDrive, desc: 'NumPy & Zstandard' },
+            // T2-7: CC BY 4.0 / Apache-2.0 / MIT obligation surface. Must stay
+            // reachable — removing this entry removes the rendered attribution
+            // surface and makes the distribution non-compliant.
+            { id: 'attribution', label: 'Lisanslar & Atıflar', icon: Scale, desc: 'Veri Kaynakları' },
           ].map((sec) => {
             const Icon = sec.icon;
             const isCurrent = activeSection === sec.id;
@@ -532,6 +538,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
             </div>
           )}
+          {/* TAB 5: AÇIK KAYNAK & VERİ KAYNAKLARI ATIFLARI (T2-7) */}
+          {activeSection === 'attribution' && <SettingsAttributionPanel />}
         </main>
       </div>
     </div>

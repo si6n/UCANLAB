@@ -1,0 +1,374 @@
+{
+  "generated_by": "tools/data_ingest/fetch_sources.py",
+  "generated_at": "2026-09-21T14:15:42+00:00",
+  "purpose": "build-time vendor data for a FULLY OFFLINE product; runtime reads from disk",
+  "hard_constraints": [
+    "no LLM / no cloud call in the product",
+    "ingest scripts live under tools/data_ingest/, never src/engine/ai/",
+    "nothing merged into data/ by this script (Tur-2 job)"
+  ],
+  "sources": {
+    "obdex": {
+      "repo": "foerbsnavi/OBDex",
+      "commit_sha": "bc58b0eb7273226a1aabae98e956b70b8362bda1",
+      "license_spdx": "CC0-1.0",
+      "license_scope": "data files only (LICENSE-DATA); code is MIT (LICENSE-CODE)",
+      "attribution_required": false,
+      "attribution_text": null
+    },
+    "canboat": {
+      "repo": "canboat/canboat",
+      "commit_sha": "f7f088b49d58f5b4a0feb9b29c288b0ae18a7880",
+      "license_spdx": "Apache-2.0",
+      "license_scope": "whole repository (LICENSE file); NOTICE must be preserved",
+      "attribution_required": true,
+      "attribution_text": null
+    },
+    "dtcdb": {
+      "repo": "Wal33D/dtc-database",
+      "commit_sha": "04c43d72e7db7197658b6f72fe582c5076d9eee8",
+      "license_spdx": "MIT",
+      "license_scope": "whole repository (LICENSE file)",
+      "attribution_required": true,
+      "attribution_text": null
+    },
+    "sitrak": {
+      "repo": "STAS63-bit/sitrak-error-codes",
+      "commit_sha": "fdb0c0d9daf0643975b0ff62e0ff69ef9c07f742",
+      "license_spdx": "CC-BY-4.0",
+      "license_scope": "error-codes data (LICENSE file, Russian CC BY 4.0 deed)",
+      "attribution_required": true,
+      "attribution_text": "Источник: МегаДата / megadata.pro — CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)"
+    }
+  },
+  "rejected": [
+    {
+      "name": "SAE J2012 / J1979 / J1939-71 / J1939-73 standard texts",
+      "reason": "Paid copyrighted works; redistribution not licensed even if bought. The FACTS (code id, bit widths, formulas) are not copyrightable — OBDex re-authors descriptions independently. Do the same."
+    },
+    {
+      "name": "ISO 14229-1 (UDS) / ISO 15031-5 (Mode 06) / ISO 15765-2",
+      "reason": "Paid copyrighted ISO standards; same as SAE. Implement from protocol structure."
+    },
+    {
+      "name": "OEM TSB bodies (Cummins/CAT/Scania/Volvo/Detroit/Mercedes/PACCAR)",
+      "reason": "Copyrighted OEM service literature; public visibility != redistribution license. Many are dealer-login-gated (CFAA exposure)."
+    },
+    {
+      "name": "AllData / Mitchell 1 / Identifix / Snap-on / Autodata",
+      "reason": "Commercial subscription services; ToS forbid scraping + redistribution."
+    },
+    {
+      "name": "iATN + public forums (TruckersReport, Reddit, brand boards)",
+      "reason": "Members-only / user-authored copyright; ToS forbid scraping + republication."
+    },
+    {
+      "name": "Wikipedia OBD-II PID + DTC tables",
+      "reason": "CC BY-SA 4.0 is viral — a derivative DB arguably must also be CC BY-SA, which is unacceptable for this proprietary repo. OBDex (CC0) covers the same ground with zero obligations."
+    },
+    {
+      "name": "alperunlu/DTCparser, f-steff/J1939_Reserved_SPN_Convention, digitalyacht/NMEA2000-Simulator-App, linux-can/can-utils",
+      "reason": "No license declared = all rights reserved by default. Reference-only."
+    },
+    {
+      "name": "NMEA 2000 / NMEA 0183 standard documents",
+      "reason": "Paid copyrighted NMEA documents. CANboat already did the RE work and is Apache-2.0."
+    },
+    {
+      "name": "UDS DID dictionary / Mode 06 data tables",
+      "reason": "No open redistributable source exists (exhaustive GitHub search = 0). This is a genuine capability gap — hand-author in-repo, do not fabricate."
+    },
+    {
+      "name": "NHTSA complaints / recalls / vPIC bulk data",
+      "reason": "Public domain and clean, but OUT OF SCOPE for T1-3 (PHASE 1 vendor set), and complaint free-text carries PII/VINs that must be masked before any data/ entry. Deferred to a later turn with a PII-masking gate."
+    }
+  ],
+  "artifacts": [
+    {
+      "artifact": "LICENSE-DATA.obdex",
+      "staged_path": "tools/data_ingest/licenses/LICENSE-DATA.obdex",
+      "source_url": "https://raw.githubusercontent.com/foerbsnavi/OBDex/bc58b0eb7273226a1aabae98e956b70b8362bda1/LICENSE-DATA",
+      "fetched_at": "2026-09-21T14:15:31+00:00",
+      "bytes": 709,
+      "sha256": "2f0d80d2bf20d5637b0077983b503efec8ed943222d8ca14cc1b1295f9eaab3c",
+      "status": "cached",
+      "source": "obdex",
+      "kind": "license",
+      "license_claim": "CC0-1.0",
+      "commit_sha": "bc58b0eb7273226a1aabae98e956b70b8362bda1"
+    },
+    {
+      "artifact": "LICENSE-CODE.obdex",
+      "staged_path": "tools/data_ingest/licenses/LICENSE-CODE.obdex",
+      "source_url": "https://raw.githubusercontent.com/foerbsnavi/OBDex/bc58b0eb7273226a1aabae98e956b70b8362bda1/LICENSE-CODE",
+      "fetched_at": "2026-09-21T14:15:31+00:00",
+      "bytes": 1238,
+      "sha256": "183f37a19873eb8965f59d3d956549e32663d5d50e79fcaeb80650149c10e377",
+      "status": "cached",
+      "source": "obdex",
+      "kind": "license",
+      "license_claim": "CC0-1.0",
+      "commit_sha": "bc58b0eb7273226a1aabae98e956b70b8362bda1"
+    },
+    {
+      "artifact": "P0xxx_enriched.yaml",
+      "staged_path": "tools/data_ingest/staging/obdex/data/generic/P0xxx_enriched.yaml",
+      "source_url": "https://raw.githubusercontent.com/foerbsnavi/OBDex/bc58b0eb7273226a1aabae98e956b70b8362bda1/data/generic/P0xxx_enriched.yaml",
+      "fetched_at": "2026-09-21T14:15:32+00:00",
+      "bytes": 6206241,
+      "sha256": "a765cade770ffe756a5d4ea91c61fc128d5508f06f38552cd803dd726fecef63",
+      "status": "downloaded",
+      "source": "obdex",
+      "kind": "data",
+      "license": "CC0-1.0",
+      "license_scope": "data files only (LICENSE-DATA); code is MIT (LICENSE-CODE)",
+      "attribution_required": false,
+      "attribution_text": null,
+      "commit_sha": "bc58b0eb7273226a1aabae98e956b70b8362bda1",
+      "repo": "foerbsnavi/OBDex"
+    },
+    {
+      "artifact": "P2xxx_enriched.yaml",
+      "staged_path": "tools/data_ingest/staging/obdex/data/generic/P2xxx_enriched.yaml",
+      "source_url": "https://raw.githubusercontent.com/foerbsnavi/OBDex/bc58b0eb7273226a1aabae98e956b70b8362bda1/data/generic/P2xxx_enriched.yaml",
+      "fetched_at": "2026-09-21T14:15:34+00:00",
+      "bytes": 5750928,
+      "sha256": "eda26317419f7e897c13eb254f74a01d905f180c7006174298d08d665b42dc4a",
+      "status": "downloaded",
+      "source": "obdex",
+      "kind": "data",
+      "license": "CC0-1.0",
+      "license_scope": "data files only (LICENSE-DATA); code is MIT (LICENSE-CODE)",
+      "attribution_required": false,
+      "attribution_text": null,
+      "commit_sha": "bc58b0eb7273226a1aabae98e956b70b8362bda1",
+      "repo": "foerbsnavi/OBDex"
+    },
+    {
+      "artifact": "P3xxx_enriched.yaml",
+      "staged_path": "tools/data_ingest/staging/obdex/data/generic/P3xxx_enriched.yaml",
+      "source_url": "https://raw.githubusercontent.com/foerbsnavi/OBDex/bc58b0eb7273226a1aabae98e956b70b8362bda1/data/generic/P3xxx_enriched.yaml",
+      "fetched_at": "2026-09-21T14:15:34+00:00",
+      "bytes": 255238,
+      "sha256": "bba19fe7dddb757866632ae939e4ace7dbbbe639816d3a46ce3a6936053708a3",
+      "status": "downloaded",
+      "source": "obdex",
+      "kind": "data",
+      "license": "CC0-1.0",
+      "license_scope": "data files only (LICENSE-DATA); code is MIT (LICENSE-CODE)",
+      "attribution_required": false,
+      "attribution_text": null,
+      "commit_sha": "bc58b0eb7273226a1aabae98e956b70b8362bda1",
+      "repo": "foerbsnavi/OBDex"
+    },
+    {
+      "artifact": "B0xxx_enriched.yaml",
+      "staged_path": "tools/data_ingest/staging/obdex/data/generic/B0xxx_enriched.yaml",
+      "source_url": "https://raw.githubusercontent.com/foerbsnavi/OBDex/bc58b0eb7273226a1aabae98e956b70b8362bda1/data/generic/B0xxx_enriched.yaml",
+      "fetched_at": "2026-09-21T14:15:35+00:00",
+      "bytes": 445985,
+      "sha256": "73d317fb49b01a369ee29126bb0bb4f31c4775a5fe0a7e7fae1456aa980d3bc4",
+      "status": "downloaded",
+      "source": "obdex",
+      "kind": "data",
+      "license": "CC0-1.0",
+      "license_scope": "data files only (LICENSE-DATA); code is MIT (LICENSE-CODE)",
+      "attribution_required": false,
+      "attribution_text": null,
+      "commit_sha": "bc58b0eb7273226a1aabae98e956b70b8362bda1",
+      "repo": "foerbsnavi/OBDex"
+    },
+    {
+      "artifact": "C0xxx_enriched.yaml",
+      "staged_path": "tools/data_ingest/staging/obdex/data/generic/C0xxx_enriched.yaml",
+      "source_url": "https://raw.githubusercontent.com/foerbsnavi/OBDex/bc58b0eb7273226a1aabae98e956b70b8362bda1/data/generic/C0xxx_enriched.yaml",
+      "fetched_at": "2026-09-21T14:15:35+00:00",
+      "bytes": 1041438,
+      "sha256": "1d60a394ff9cfde96b6e7a738420ac05dd48b85ebfe798001c38310aba7073e6",
+      "status": "downloaded",
+      "source": "obdex",
+      "kind": "data",
+      "license": "CC0-1.0",
+      "license_scope": "data files only (LICENSE-DATA); code is MIT (LICENSE-CODE)",
+      "attribution_required": false,
+      "attribution_text": null,
+      "commit_sha": "bc58b0eb7273226a1aabae98e956b70b8362bda1",
+      "repo": "foerbsnavi/OBDex"
+    },
+    {
+      "artifact": "U0xxx_enriched.yaml",
+      "staged_path": "tools/data_ingest/staging/obdex/data/generic/U0xxx_enriched.yaml",
+      "source_url": "https://raw.githubusercontent.com/foerbsnavi/OBDex/bc58b0eb7273226a1aabae98e956b70b8362bda1/data/generic/U0xxx_enriched.yaml",
+      "fetched_at": "2026-09-21T14:15:36+00:00",
+      "bytes": 2228894,
+      "sha256": "60aebde267b4bae53902e0abfeb7b489e314cd9e2ecdf0eb62384ea6b5a56afc",
+      "status": "downloaded",
+      "source": "obdex",
+      "kind": "data",
+      "license": "CC0-1.0",
+      "license_scope": "data files only (LICENSE-DATA); code is MIT (LICENSE-CODE)",
+      "attribution_required": false,
+      "attribution_text": null,
+      "commit_sha": "bc58b0eb7273226a1aabae98e956b70b8362bda1",
+      "repo": "foerbsnavi/OBDex"
+    },
+    {
+      "artifact": "U3xxx_enriched.yaml",
+      "staged_path": "tools/data_ingest/staging/obdex/data/generic/U3xxx_enriched.yaml",
+      "source_url": "https://raw.githubusercontent.com/foerbsnavi/OBDex/bc58b0eb7273226a1aabae98e956b70b8362bda1/data/generic/U3xxx_enriched.yaml",
+      "fetched_at": "2026-09-21T14:15:37+00:00",
+      "bytes": 370022,
+      "sha256": "f8a4b3723140b059216bad1d5fd450ce067c9c6bb8361f4120bbd422ecc769b7",
+      "status": "downloaded",
+      "source": "obdex",
+      "kind": "data",
+      "license": "CC0-1.0",
+      "license_scope": "data files only (LICENSE-DATA); code is MIT (LICENSE-CODE)",
+      "attribution_required": false,
+      "attribution_text": null,
+      "commit_sha": "bc58b0eb7273226a1aabae98e956b70b8362bda1",
+      "repo": "foerbsnavi/OBDex"
+    },
+    {
+      "artifact": "mode01.yaml",
+      "staged_path": "tools/data_ingest/staging/obdex/data/pids/mode01.yaml",
+      "source_url": "https://raw.githubusercontent.com/foerbsnavi/OBDex/bc58b0eb7273226a1aabae98e956b70b8362bda1/data/pids/mode01.yaml",
+      "fetched_at": "2026-09-21T14:15:37+00:00",
+      "bytes": 32408,
+      "sha256": "cc4c435fe5ce8af2ff5b9b084dd9a96c32c8257d2ac8116e819281cb06fa367a",
+      "status": "downloaded",
+      "source": "obdex",
+      "kind": "data",
+      "license": "CC0-1.0",
+      "license_scope": "data files only (LICENSE-DATA); code is MIT (LICENSE-CODE)",
+      "attribution_required": false,
+      "attribution_text": null,
+      "commit_sha": "bc58b0eb7273226a1aabae98e956b70b8362bda1",
+      "repo": "foerbsnavi/OBDex"
+    },
+    {
+      "artifact": "mode09.yaml",
+      "staged_path": "tools/data_ingest/staging/obdex/data/pids/mode09.yaml",
+      "source_url": "https://raw.githubusercontent.com/foerbsnavi/OBDex/bc58b0eb7273226a1aabae98e956b70b8362bda1/data/pids/mode09.yaml",
+      "fetched_at": "2026-09-21T14:15:38+00:00",
+      "bytes": 2893,
+      "sha256": "aaf0aa7041f8f1f81cfc0a7dfd1c3dab62dda68ca43c64d46357a44a04726233",
+      "status": "downloaded",
+      "source": "obdex",
+      "kind": "data",
+      "license": "CC0-1.0",
+      "license_scope": "data files only (LICENSE-DATA); code is MIT (LICENSE-CODE)",
+      "attribution_required": false,
+      "attribution_text": null,
+      "commit_sha": "bc58b0eb7273226a1aabae98e956b70b8362bda1",
+      "repo": "foerbsnavi/OBDex"
+    },
+    {
+      "artifact": "LICENSE.canboat",
+      "staged_path": "tools/data_ingest/licenses/LICENSE.canboat",
+      "source_url": "https://raw.githubusercontent.com/canboat/canboat/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/LICENSE",
+      "fetched_at": "2026-09-21T14:15:38+00:00",
+      "bytes": 614,
+      "sha256": "ec0704d2efcacadb11d846ed2c353c57625756647a2dd735094682a3f7bf7721",
+      "status": "downloaded",
+      "source": "canboat",
+      "kind": "license",
+      "license_claim": "Apache-2.0",
+      "commit_sha": "f7f088b49d58f5b4a0feb9b29c288b0ae18a7880"
+    },
+    {
+      "artifact": "canboat.json",
+      "staged_path": "tools/data_ingest/staging/canboat/canboat.json",
+      "source_url": "https://raw.githubusercontent.com/canboat/canboat/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/docs/canboat.json",
+      "fetched_at": "2026-09-21T14:15:39+00:00",
+      "bytes": 2664633,
+      "sha256": "b5a2c0c84b59af33caef583a372f9e763deb54ef4caf187825eff33d068735ba",
+      "status": "downloaded",
+      "source": "canboat",
+      "kind": "data",
+      "license": "Apache-2.0",
+      "license_scope": "whole repository (LICENSE file); NOTICE must be preserved",
+      "attribution_required": true,
+      "attribution_text": null,
+      "commit_sha": "f7f088b49d58f5b4a0feb9b29c288b0ae18a7880",
+      "repo": "canboat/canboat"
+    },
+    {
+      "artifact": "j1939_065226-activeTroubleCodes.yaml",
+      "staged_path": "tools/data_ingest/staging/canboat/j1939_065226-activeTroubleCodes.yaml",
+      "source_url": "https://raw.githubusercontent.com/canboat/canboat/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/065226-activeTroubleCodes.yaml",
+      "fetched_at": "2026-09-21T14:15:39+00:00",
+      "bytes": 1421,
+      "sha256": "2c821042983bd5c751794dba388f1a8121c57ecacd5d0ab5a9ec95b03ec197c9",
+      "status": "downloaded",
+      "source": "canboat",
+      "kind": "data",
+      "license": "Apache-2.0",
+      "license_scope": "whole repository (LICENSE file); NOTICE must be preserved",
+      "attribution_required": true,
+      "attribution_text": null,
+      "commit_sha": "f7f088b49d58f5b4a0feb9b29c288b0ae18a7880",
+      "repo": "canboat/canboat"
+    },
+    {
+      "artifact": "LICENSE.dtc-database",
+      "staged_path": "tools/data_ingest/licenses/LICENSE.dtc-database",
+      "source_url": "https://raw.githubusercontent.com/Wal33D/dtc-database/04c43d72e7db7197658b6f72fe582c5076d9eee8/LICENSE",
+      "fetched_at": "2026-09-21T14:15:40+00:00",
+      "bytes": 1078,
+      "sha256": "5106ad327a989f9f864f55f9111d055530af80c3109e9f26026bc2cd486087f5",
+      "status": "downloaded",
+      "source": "dtcdb",
+      "kind": "license",
+      "license_claim": "MIT",
+      "commit_sha": "04c43d72e7db7197658b6f72fe582c5076d9eee8"
+    },
+    {
+      "artifact": "dtc_codes.db",
+      "staged_path": "tools/data_ingest/staging/dtcdb/dtc_codes.db",
+      "source_url": "https://raw.githubusercontent.com/Wal33D/dtc-database/04c43d72e7db7197658b6f72fe582c5076d9eee8/data/dtc_codes.db",
+      "fetched_at": "2026-09-21T14:15:40+00:00",
+      "bytes": 3256320,
+      "sha256": "099a4ffd60398112a0540b0bbc93a5929e05e7f4e6d4988ca2a50858af01b743",
+      "status": "downloaded",
+      "source": "dtcdb",
+      "kind": "data",
+      "license": "MIT",
+      "license_scope": "whole repository (LICENSE file)",
+      "attribution_required": true,
+      "attribution_text": null,
+      "commit_sha": "04c43d72e7db7197658b6f72fe582c5076d9eee8",
+      "repo": "Wal33D/dtc-database"
+    },
+    {
+      "artifact": "LICENSE.sitrak",
+      "staged_path": "tools/data_ingest/licenses/LICENSE.sitrak",
+      "source_url": "https://raw.githubusercontent.com/STAS63-bit/sitrak-error-codes/fdb0c0d9daf0643975b0ff62e0ff69ef9c07f742/LICENSE",
+      "fetched_at": "2026-09-21T14:15:41+00:00",
+      "bytes": 881,
+      "sha256": "49ba32b704a635b18f06457a07bcc8e6c7aa57909b233b1ec66a030cb1575d45",
+      "status": "downloaded",
+      "source": "sitrak",
+      "kind": "license",
+      "license_claim": "CC-BY-4.0",
+      "commit_sha": "fdb0c0d9daf0643975b0ff62e0ff69ef9c07f742"
+    },
+    {
+      "artifact": "sitrak_error-codes.json",
+      "staged_path": "tools/data_ingest/staging/sitrak/sitrak_error-codes.json",
+      "source_url": "https://raw.githubusercontent.com/STAS63-bit/sitrak-error-codes/fdb0c0d9daf0643975b0ff62e0ff69ef9c07f742/error-codes.json",
+      "fetched_at": "2026-09-21T14:15:42+00:00",
+      "bytes": 1962001,
+      "sha256": "69d726d69d5612eb890de0aa2579beef2220a2f2b371b8cbcd560e75f12840d3",
+      "status": "downloaded",
+      "source": "sitrak",
+      "kind": "data",
+      "license": "CC-BY-4.0",
+      "license_scope": "error-codes data (LICENSE file, Russian CC BY 4.0 deed)",
+      "attribution_required": true,
+      "attribution_text": "Источник: МегаДата / megadata.pro — CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)",
+      "commit_sha": "fdb0c0d9daf0643975b0ff62e0ff69ef9c07f742",
+      "repo": "STAS63-bit/sitrak-error-codes"
+    }
+  ]
+}

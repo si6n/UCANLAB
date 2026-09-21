@@ -1,0 +1,361 @@
+{
+  "schema_version": "1.0.0",
+  "task": "T2-4 shell-row defect (data_ingest merge)",
+  "quarantined_at_utc": "2026-09-21T15:31:05Z",
+  "quarantined_by": "data-ingest-batch (T2-4)",
+  "source_db": "data/diagnostics/j1939_spn_fmi_database.json",
+  "source_db_sha256_at_quarantine": "911fe51e4d12fd57751ca3093ea78d153ce841dcc81512fe8c91dce0ec2aa713",
+  "criterion": "Rows whose dict key was the raw (hex-formatted) source spn value (SPN_0x*) or which carried no `name`/`title_tr` — i.e. the fabricated shell rows created by tools/data_ingest/merge_staging_into_data.py merge_sitrak() (AGENTS.md 2.3 no-fabrication violation).",
+  "root_cause": "tools/data_ingest/merge_staging_into_data.py:493-503 (pre-fix) built key=f\"SPN_{spn}\" from the raw source value and, when no DB record existed, CREATED a shell {'spn': ...} with only `spn` set.",
+  "rows_removed": 13,
+  "db_keys_before": 4266,
+  "db_keys_after": 4253,
+  "recoverable_from": "tools/data_ingest/staging/sitrak/sitrak_error-codes.json (vendored SITRAK source, CC-BY-4.0) — the sitrak_fmi_family payload of the numeric rows (SPN_139/140/141) is byte-recoverable there. The hex rows are the same source file's 12 hex-formatted records; the corrected merge tool now skips hex spn values (fail-closed) and only tags real records, so no fabricated record can be re-created.",
+  "records": {
+    "SPN_0x01": {
+      "removed_entry": {
+        "spn": "0x01",
+        "sitrak_fmi_family": [
+          {
+            "spn": "0x01",
+            "fmi": "0x05",
+            "dtc": "",
+            "system": "ECAS",
+            "description_ru": "Электромагнитный клапан 2/2 передней оси ПРАВЫЙ — ток низкий или обрыв",
+            "description_en": "",
+            "_source_license": "CC-BY-4.0",
+            "_source_ref": "https://github.com/STAS63-bit/sitrak-error-codes/blob/fdb0c0d9daf0643975b0ff62e0ff69ef9c07f742/error-codes.json"
+          }
+        ],
+        "sitrak_systems": [
+          "ECAS"
+        ],
+        "_source_license_sitrak": "CC-BY-4.0",
+        "_source_ref_sitrak": "https://github.com/STAS63-bit/sitrak-error-codes/blob/fdb0c0d9daf0643975b0ff62e0ff69ef9c07f742/error-codes.json",
+        "sitrak_attribution": "Северные данные: МегаДата / megadata.pro — CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)"
+      },
+      "had_name": false,
+      "had_title_tr": false
+    },
+    "SPN_0x03": {
+      "removed_entry": {
+        "spn": "0x03",
+        "sitrak_fmi_family": [
+          {
+            "spn": "0x03",
+            "fmi": "0x05",
+            "dtc": "",
+            "system": "ECAS",
+            "description_ru": "Электромагнитный клапан 2/2 задней оси ПРАВЫЙ — ток низкий или обрыв",
+            "description_en": "",
+            "_source_license": "CC-BY-4.0",
+            "_source_ref": "https://github.com/STAS63-bit/sitrak-error-codes/blob/fdb0c0d9daf0643975b0ff62e0ff69ef9c07f742/error-codes.json"
+          }
+        ],
+        "sitrak_systems": [
+          "ECAS"
+        ],
+        "_source_license_sitrak": "CC-BY-4.0",
+        "_source_ref_sitrak": "https://github.com/STAS63-bit/sitrak-error-codes/blob/fdb0c0d9daf0643975b0ff62e0ff69ef9c07f742/error-codes.json",
+        "sitrak_attribution": "Северные данные: МегаДата / megadata.pro — CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)"
+      },
+      "had_name": false,
+      "had_title_tr": false
+    },
+    "SPN_0x10": {
+      "removed_entry": {
+        "spn": "0x10",
+        "sitrak_fmi_family": [
+          {
+            "spn": "0x10",
+            "fmi": "0x05",
+            "dtc": "",
+            "system": "ECAS",
+            "description_ru": "Датчик высоты передней оси ПРАВЫЙ — ток низкий или обрыв",
+            "description_en": "",
+            "_source_license": "CC-BY-4.0",
+            "_source_ref": "https://github.com/STAS63-bit/sitrak-error-codes/blob/fdb0c0d9daf0643975b0ff62e0ff69ef9c07f742/error-codes.json"
+          }
+        ],
+        "sitrak_systems": [
+          "ECAS"
+        ],
+        "_source_license_sitrak": "CC-BY-4.0",
+        "_source_ref_sitrak": "https://github.com/STAS63-bit/sitrak-error-codes/blob/fdb0c0d9daf0643975b0ff62e0ff69ef9c07f742/error-codes.json",
+        "sitrak_attribution": "Северные данные: МегаДата / megadata.pro — CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)"
+      },
+      "had_name": false,
+      "had_title_tr": false
+    },
+    "SPN_0x12": {
+      "removed_entry": {
+        "spn": "0x12",
+        "sitrak_fmi_family": [
+          {
+            "spn": "0x12",
+            "fmi": "0x02",
+            "dtc": "",
+            "system": "ECAS",
+            "description_ru": "Датчик высоты задней оси ПРАВЫЙ — данные нестабильны/прерывисты",
+            "description_en": "",
+            "_source_license": "CC-BY-4.0",
+            "_source_ref": "https://github.com/STAS63-bit/sitrak-error-codes/blob/fdb0c0d9daf0643975b0ff62e0ff69ef9c07f742/error-codes.json"
+          },
+          {
+            "spn": "0x12",
+            "fmi": "0x05",
+            "dtc": "",
+            "system": "ECAS",
+            "description_ru": "Датчик высоты задней оси ПРАВЫЙ — ток низкий или обрыв",
+            "description_en": "",
+            "_source_license": "CC-BY-4.0",
+            "_source_ref": "https://github.com/STAS63-bit/sitrak-error-codes/blob/fdb0c0d9daf0643975b0ff62e0ff69ef9c07f742/error-codes.json"
+          }
+        ],
+        "sitrak_systems": [
+          "ECAS"
+        ],
+        "_source_license_sitrak": "CC-BY-4.0",
+        "_source_ref_sitrak": "https://github.com/STAS63-bit/sitrak-error-codes/blob/fdb0c0d9daf0643975b0ff62e0ff69ef9c07f742/error-codes.json",
+        "sitrak_attribution": "Северные данные: МегаДата / megadata.pro — CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)"
+      },
+      "had_name": false,
+      "had_title_tr": false
+    },
+    "SPN_0x13": {
+      "removed_entry": {
+        "spn": "0x13",
+        "sitrak_fmi_family": [
+          {
+            "spn": "0x13",
+            "fmi": "0x02",
+            "dtc": "",
+            "system": "ECAS",
+            "description_ru": "Датчик высоты задней оси ЛЕВЫЙ — данные нестабильны/прерывисты",
+            "description_en": "",
+            "_source_license": "CC-BY-4.0",
+            "_source_ref": "https://github.com/STAS63-bit/sitrak-error-codes/blob/fdb0c0d9daf0643975b0ff62e0ff69ef9c07f742/error-codes.json"
+          },
+          {
+            "spn": "0x13",
+            "fmi": "0x05",
+            "dtc": "",
+            "system": "ECAS",
+            "description_ru": "Датчик высоты задней оси ЛЕВЫЙ — ток низкий или обрыв",
+            "description_en": "",
+            "_source_license": "CC-BY-4.0",
+            "_source_ref": "https://github.com/STAS63-bit/sitrak-error-codes/blob/fdb0c0d9daf0643975b0ff62e0ff69ef9c07f742/error-codes.json"
+          }
+        ],
+        "sitrak_systems": [
+          "ECAS"
+        ],
+        "_source_license_sitrak": "CC-BY-4.0",
+        "_source_ref_sitrak": "https://github.com/STAS63-bit/sitrak-error-codes/blob/fdb0c0d9daf0643975b0ff62e0ff69ef9c07f742/error-codes.json",
+        "sitrak_attribution": "Северные данные: МегаДата / megadata.pro — CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)"
+      },
+      "had_name": false,
+      "had_title_tr": false
+    },
+    "SPN_0x21": {
+      "removed_entry": {
+        "spn": "0x21",
+        "sitrak_fmi_family": [
+          {
+            "spn": "0x21",
+            "fmi": "0x0B",
+            "dtc": "",
+            "system": "ECAS",
+            "description_ru": "Пульт ДУ — режим неисправности не определён",
+            "description_en": "",
+            "_source_license": "CC-BY-4.0",
+            "_source_ref": "https://github.com/STAS63-bit/sitrak-error-codes/blob/fdb0c0d9daf0643975b0ff62e0ff69ef9c07f742/error-codes.json"
+          }
+        ],
+        "sitrak_systems": [
+          "ECAS"
+        ],
+        "_source_license_sitrak": "CC-BY-4.0",
+        "_source_ref_sitrak": "https://github.com/STAS63-bit/sitrak-error-codes/blob/fdb0c0d9daf0643975b0ff62e0ff69ef9c07f742/error-codes.json",
+        "sitrak_attribution": "Северные данные: МегаДата / megadata.pro — CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)"
+      },
+      "had_name": false,
+      "had_title_tr": false
+    },
+    "SPN_0x22": {
+      "removed_entry": {
+        "spn": "0x22",
+        "sitrak_fmi_family": [
+          {
+            "spn": "0x22",
+            "fmi": "0x05",
+            "dtc": "",
+            "system": "ECAS",
+            "description_ru": "Питание электромагнитного клапана (центральный релейный клапан) — ток низкий или обрыв",
+            "description_en": "",
+            "_source_license": "CC-BY-4.0",
+            "_source_ref": "https://github.com/STAS63-bit/sitrak-error-codes/blob/fdb0c0d9daf0643975b0ff62e0ff69ef9c07f742/error-codes.json"
+          }
+        ],
+        "sitrak_systems": [
+          "ECAS"
+        ],
+        "_source_license_sitrak": "CC-BY-4.0",
+        "_source_ref_sitrak": "https://github.com/STAS63-bit/sitrak-error-codes/blob/fdb0c0d9daf0643975b0ff62e0ff69ef9c07f742/error-codes.json",
+        "sitrak_attribution": "Северные данные: МегаДата / megadata.pro — CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)"
+      },
+      "had_name": false,
+      "had_title_tr": false
+    },
+    "SPN_0x28": {
+      "removed_entry": {
+        "spn": "0x28",
+        "sitrak_fmi_family": [
+          {
+            "spn": "0x28",
+            "fmi": "0x02",
+            "dtc": "",
+            "system": "ECAS",
+            "description_ru": "Контрольная сумма калибровки датчиков высоты — данные нестабильны/прерывисты/ошибочны",
+            "description_en": "",
+            "_source_license": "CC-BY-4.0",
+            "_source_ref": "https://github.com/STAS63-bit/sitrak-error-codes/blob/fdb0c0d9daf0643975b0ff62e0ff69ef9c07f742/error-codes.json"
+          }
+        ],
+        "sitrak_systems": [
+          "ECAS"
+        ],
+        "_source_license_sitrak": "CC-BY-4.0",
+        "_source_ref_sitrak": "https://github.com/STAS63-bit/sitrak-error-codes/blob/fdb0c0d9daf0643975b0ff62e0ff69ef9c07f742/error-codes.json",
+        "sitrak_attribution": "Северные данные: МегаДата / megadata.pro — CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)"
+      },
+      "had_name": false,
+      "had_title_tr": false
+    },
+    "SPN_0x3D": {
+      "removed_entry": {
+        "spn": "0x3D",
+        "sitrak_fmi_family": [
+          {
+            "spn": "0x3D",
+            "fmi": "0x09",
+            "dtc": "",
+            "system": "ECAS",
+            "description_ru": "CAN-сообщение VSC1 (CCVS) — аномальная частота обновления",
+            "description_en": "",
+            "_source_license": "CC-BY-4.0",
+            "_source_ref": "https://github.com/STAS63-bit/sitrak-error-codes/blob/fdb0c0d9daf0643975b0ff62e0ff69ef9c07f742/error-codes.json"
+          }
+        ],
+        "sitrak_systems": [
+          "ECAS"
+        ],
+        "_source_license_sitrak": "CC-BY-4.0",
+        "_source_ref_sitrak": "https://github.com/STAS63-bit/sitrak-error-codes/blob/fdb0c0d9daf0643975b0ff62e0ff69ef9c07f742/error-codes.json",
+        "sitrak_attribution": "Северные данные: МегаДата / megadata.pro — CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)"
+      },
+      "had_name": false,
+      "had_title_tr": false
+    },
+    "SPN_0x3E": {
+      "removed_entry": {
+        "spn": "0x3E",
+        "sitrak_fmi_family": [
+          {
+            "spn": "0x3E",
+            "fmi": "0x09",
+            "dtc": "",
+            "system": "ECAS",
+            "description_ru": "CAN-сообщение EEC1 — аномальная частота обновления",
+            "description_en": "",
+            "_source_license": "CC-BY-4.0",
+            "_source_ref": "https://github.com/STAS63-bit/sitrak-error-codes/blob/fdb0c0d9daf0643975b0ff62e0ff69ef9c07f742/error-codes.json"
+          }
+        ],
+        "sitrak_systems": [
+          "ECAS"
+        ],
+        "_source_license_sitrak": "CC-BY-4.0",
+        "_source_ref_sitrak": "https://github.com/STAS63-bit/sitrak-error-codes/blob/fdb0c0d9daf0643975b0ff62e0ff69ef9c07f742/error-codes.json",
+        "sitrak_attribution": "Северные данные: МегаДата / megadata.pro — CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)"
+      },
+      "had_name": false,
+      "had_title_tr": false
+    },
+    "SPN_139": {
+      "removed_entry": {
+        "spn": 139,
+        "sitrak_fmi_family": [
+          {
+            "spn": "139",
+            "fmi": "",
+            "dtc": "",
+            "system": "ZF_GearBox",
+            "description_ru": "",
+            "description_en": "(1) Проблема с шиной CAN (2)ABS/EBS (3)TCU",
+            "_source_license": "CC-BY-4.0",
+            "_source_ref": "https://github.com/STAS63-bit/sitrak-error-codes/blob/fdb0c0d9daf0643975b0ff62e0ff69ef9c07f742/error-codes.json"
+          }
+        ],
+        "sitrak_systems": [
+          "ZF_GearBox"
+        ],
+        "_source_license_sitrak": "CC-BY-4.0",
+        "_source_ref_sitrak": "https://github.com/STAS63-bit/sitrak-error-codes/blob/fdb0c0d9daf0643975b0ff62e0ff69ef9c07f742/error-codes.json",
+        "sitrak_attribution": "Северные данные: МегаДата / megadata.pro — CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)"
+      },
+      "had_name": false,
+      "had_title_tr": false
+    },
+    "SPN_140": {
+      "removed_entry": {
+        "spn": 140,
+        "sitrak_fmi_family": [
+          {
+            "spn": "140",
+            "fmi": "",
+            "dtc": "",
+            "system": "ZF_GearBox",
+            "description_ru": "",
+            "description_en": "(1) Проблема с шиной CAN (2)ABS/EBS (3)TCU",
+            "_source_license": "CC-BY-4.0",
+            "_source_ref": "https://github.com/STAS63-bit/sitrak-error-codes/blob/fdb0c0d9daf0643975b0ff62e0ff69ef9c07f742/error-codes.json"
+          }
+        ],
+        "sitrak_systems": [
+          "ZF_GearBox"
+        ],
+        "_source_license_sitrak": "CC-BY-4.0",
+        "_source_ref_sitrak": "https://github.com/STAS63-bit/sitrak-error-codes/blob/fdb0c0d9daf0643975b0ff62e0ff69ef9c07f742/error-codes.json",
+        "sitrak_attribution": "Северные данные: МегаДата / megadata.pro — CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)"
+      },
+      "had_name": false,
+      "had_title_tr": false
+    },
+    "SPN_141": {
+      "removed_entry": {
+        "spn": 141,
+        "sitrak_fmi_family": [
+          {
+            "spn": "141",
+            "fmi": "",
+            "dtc": "",
+            "system": "ZF_GearBox",
+            "description_ru": "",
+            "description_en": "(1) Проблема с шиной CAN (2)ABS/EBS (3)TCU",
+            "_source_license": "CC-BY-4.0",
+            "_source_ref": "https://github.com/STAS63-bit/sitrak-error-codes/blob/fdb0c0d9daf0643975b0ff62e0ff69ef9c07f742/error-codes.json"
+          }
+        ],
+        "sitrak_systems": [
+          "ZF_GearBox"
+        ],
+        "_source_license_sitrak": "CC-BY-4.0",
+        "_source_ref_sitrak": "https://github.com/STAS63-bit/sitrak-error-codes/blob/fdb0c0d9daf0643975b0ff62e0ff69ef9c07f742/error-codes.json",
+        "sitrak_attribution": "Северные данные: МегаДата / megadata.pro — CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)"
+      },
+      "had_name": false,
+      "had_title_tr": false
+    }
+  }
+}

@@ -495,11 +495,13 @@ class TestExceptionArgumentHandlingAndSerialization:
     """Stress test positional vs keyword arguments, boundary parameters, and serialization."""
 
     def test_isotp_timeout_error_variations(self) -> None:
-        # 1. Defaults
+        # 1. Defaults. P2-5 (Batch G): `elapsed_ms`/`limit_ms` no longer default
+        #    to the fabricated-looking 1000.0 — an unmeasured duration is
+        #    reported as None ("not observed"), never as a plausible number.
         e_def = IsoTpTimeoutError()
         assert e_def.timeout_type == "N_Bs"
-        assert e_def.elapsed_ms == 1000.0
-        assert e_def.limit_ms == 1000.0
+        assert e_def.elapsed_ms is None
+        assert e_def.limit_ms is None
         assert e_def.code == "ISOTP_TIMEOUT_N_Bs"
 
         # 2. Positional
@@ -521,12 +523,18 @@ class TestExceptionArgumentHandlingAndSerialization:
         assert e_kw.timeout_type == "N_As"
         assert e_kw.elapsed_ms == 50.0
 
-        # 4. Extreme/Boundary values
-        e_bound = IsoTpTimeoutError("Boundary", timeout_type="", elapsed_ms=-10.0, limit_ms=0.0)
-        assert e_bound.timeout_type == ""
+        # 4. Boundary measurements are still reported verbatim. P2-5 (Batch G):
+        #    `timeout_type` is now validated against the ISO 15765-2 timer set
+        #    (N_As/N_Ar/N_Bs/N_Br/N_Cs/N_Cr) because it is interpolated into the
+        #    machine-readable `code`; the old `timeout_type=""` case — which
+        #    produced the truncated code "ISOTP_TIMEOUT_" — is rejected.
+        e_bound = IsoTpTimeoutError("Boundary", timeout_type="N_Cr", elapsed_ms=-10.0, limit_ms=0.0)
+        assert e_bound.timeout_type == "N_Cr"
         assert e_bound.elapsed_ms == -10.0
         assert e_bound.limit_ms == 0.0
-        assert e_bound.code == "ISOTP_TIMEOUT_"
+        assert e_bound.code == "ISOTP_TIMEOUT_N_Cr"
+        with pytest.raises(ValueError, match="Unknown ISO-TP timer"):
+            IsoTpTimeoutError("Boundary", timeout_type="")
 
         # 5. Serialization & JSON compatibility
         d = e_pos.to_dict()
@@ -583,10 +591,19 @@ class TestExceptionArgumentHandlingAndSerialization:
         assert e2.expected_sn == 3
         assert e2.actual_sn == 5
 
-        # Custom message + positional
-        e3 = IsoTpSequenceError("Custom SN error", 2, details={"wrap": True})
+        # Custom message + positional. P2-6 (Batch G): the string form no longer
+        # silently defaults `expected_sn` to 0 (0 is a legal CF index, so the
+        # fabricated value was indistinguishable from a real report) — an
+        # explicit `expected_sn=` is now mandatory.
+        with pytest.raises(TypeError, match="expected_sn"):
+            IsoTpSequenceError("Custom SN error", 2, details={"wrap": True})
+
+        e3 = IsoTpSequenceError(
+            "Custom SN error", 2, details={"wrap": True}, expected_sn=1
+        )
         assert e3.message == "Custom SN error"
         assert e3.actual_sn == 2
+        assert e3.expected_sn == 1
         assert e3.details["wrap"] is True
 
         # Custom message + explicit expected_sn kwarg
@@ -666,11 +683,12 @@ class TestExceptionArgumentHandlingAndSerialization:
         assert json.dumps(e_pos.to_dict())
 
     def test_j1939_tp_timeout_error_variations(self) -> None:
-        # Defaults
+        # Defaults. P2-5 (Batch G): `elapsed_ms`/`limit_ms` no longer default to
+        # the fabricated-looking 750.0 — an unmeasured duration is None.
         e_def = J1939TpTimeoutError()
         assert e_def.timeout_type == "T1"
-        assert e_def.elapsed_ms == 750.0
-        assert e_def.limit_ms == 750.0
+        assert e_def.elapsed_ms is None
+        assert e_def.limit_ms is None
         assert e_def.code == "J1939_TIMEOUT_T1"
 
         # Positional with SA, DA, target_pgn

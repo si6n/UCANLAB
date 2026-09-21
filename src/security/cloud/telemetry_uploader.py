@@ -27,6 +27,13 @@ logger = get_logger("security.cloud.telemetry_uploader")
 
 DEFAULT_CHUNK_SIZE = 5 * 1024 * 1024  # 5 MB — matches backend minimum window
 
+#: SEC-13 (Batch B): fail-closed bounds for the chunk size. `chunk_size=0`
+#: divided by zero in `math.ceil(file_size / self.chunk_size)`, and a
+#: multi-gigabyte chunk size would make the client attempt a single unbounded
+#: PUT (and announce a session shape the backend cannot honour).
+MIN_CHUNK_SIZE = 64 * 1024  # 64 KiB
+MAX_CHUNK_SIZE = 8 * 1024 * 1024  # 8 MiB
+
 # Server-controlled session id must never shape a URL path unchecked.
 # Allowlist is [A-Za-z0-9-_]; underscore is kept because backend session
 # ids use it (e.g. "ses_...") and it is path-safe once quoted with safe="".
@@ -75,6 +82,23 @@ class TelemetryUploader:
         chunk_size: int = DEFAULT_CHUNK_SIZE,
         progress_callback: Callable[[UploadProgress], None] | None = None,
     ) -> None:
+        # SEC-13 (Batch B): validate the chunk size up front and fail closed.
+        # Previously `chunk_size=0` reached `math.ceil(file_size / chunk_size)`
+        # in `upload_file` and raised an uncaught ZeroDivisionError, and a
+        # negative/huge value produced a nonsense chunk count (or a single
+        # unbounded PUT). Reject anything outside [MIN_CHUNK_SIZE,
+        # MAX_CHUNK_SIZE] with a typed error instead of failing later mid-upload.
+        if isinstance(chunk_size, bool) or not isinstance(chunk_size, int):
+            raise LicenseError(
+                f"chunk_size must be an integer, got {type(chunk_size).__name__}",
+                code="INVALID_CHUNK_SIZE",
+            )
+        if not (MIN_CHUNK_SIZE <= chunk_size <= MAX_CHUNK_SIZE):
+            raise LicenseError(
+                f"chunk_size {chunk_size} is outside the permitted range "
+                f"[{MIN_CHUNK_SIZE}, {MAX_CHUNK_SIZE}] bytes (fail-closed)",
+                code="INVALID_CHUNK_SIZE",
+            )
         self.client = client
         self.chunk_size = chunk_size
         self._progress_cb = progress_callback

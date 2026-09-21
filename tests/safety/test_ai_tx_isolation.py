@@ -188,10 +188,36 @@ class TestTriggerSourceIsolation:
         reset_leak = [a for a in actions if a.get("action_type") == "uds_ecu_reset"]
         assert not reset_leak, "[[ACTION:]] pattern in foreign text minted an ECU-reset trigger"
 
-    def test_operator_query_still_mints_triggers(self) -> None:
-        """Positive control: operator typing 'DTC temizle' still gets the clear-DTC button."""
-        actions = extract_action_triggers("", "DTC temizle")
-        assert any(a["action_type"] == "uds_clear_dtc" for a in actions)
+    def test_operator_query_never_mints_mutating_triggers(self) -> None:
+        """P0-1 lock: an operator typing 'DTC temizle' gets NO clear-DTC button.
+
+        This test REPLACES the earlier ``test_operator_query_still_mints_triggers``
+        positive control, which asserted ``uds_clear_dtc`` was minted from the
+        operator string "DTC temizle". That assertion encoded the PRE-remediation
+        behaviour and became stale once the marshal-recommended P0-1 remediation
+        deleted every mutating branch from ``extract_action_triggers`` (see its
+        docstring: "mutating branches were deleted (UDS 0x14 DTC clear, UDS 0x10
+        0x03 session control, UDS 0x31 routine ... and the J1939 DM11 clear)").
+
+        The engine is advisory read-only, so this is a REGRESSION LOCK ON THE
+        REMEDIATION, not a weakened test: it fails if anyone re-adds a mutating
+        trigger path. Read-only operator triggers (VIN/DID read, DM1 query) are
+        still asserted to work by the tests below.
+        """
+        for phrase in ("DTC temizle", "DTC sil", "0x14", "clear dtc", "ariza kodlarini temizle"):
+            actions = extract_action_triggers("", phrase)
+            mutating = {"uds_clear_dtc", "j1939_clear_dtc", "uds_ecu_reset", "uds_session_control", "uds_routine"}
+            leaked = [a for a in actions if a.get("action_type") in mutating]
+            assert not leaked, f"P0-1 regression: mutating trigger minted from {phrase!r}: {leaked}"
+
+    def test_only_read_only_operator_triggers_are_minted(self) -> None:
+        """P0-1 positive control: the read-only paths still work."""
+        vin = extract_action_triggers("", "VIN oku")
+        assert any(a["action_type"] == "uds_read_did" for a in vin)
+        dm1 = extract_action_triggers("", "DM1 sorgula")
+        assert any(a["action_type"] == "j1939_dm1_query" for a in dm1)
+        allowed = {"uds_read_did", "j1939_dm1_query"}
+        assert all(a["action_type"] in allowed for a in vin + dm1)
 
     def test_attach_parse_roundtrip_only_from_operator_input(self) -> None:
         """Triggers attached from operator intent round-trip through the parser unchanged."""

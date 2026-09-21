@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Literal
 
+from src.core.logging import get_logger
 from src.core.models.diagnostics import (
     DiagnosticDomain,
     DiagnosticEvent,
@@ -30,15 +31,18 @@ from src.core.models.diagnostics import (
     SignalSource,
     VehicleSession,
 )
+from src.engine.ai.anomaly_detector import AnomalyFinding, detect_anomalies
 from src.engine.ai.diagnostic_copilot import EXPERT_KNOWLEDGE_BASE
 from src.engine.ai.discriminating_tests import propose_discriminating_tests
 from src.engine.ai.drive_safety_policy import validate_ai_dialogue_action
-from src.engine.ai.evidence_gate import evaluate_sufficiency
+from src.engine.ai.evidence_gate import SufficiencyReport, evaluate_sufficiency
 from src.engine.ai.hypothesis_engine import (
     Hypothesis,
     load_root_cause_graph,
     rank_hypotheses,
 )
+
+logger = get_logger("engine.ai_dialogue")
 
 
 class DialogueState(str, Enum):
@@ -186,6 +190,34 @@ class DialogueSession:
         self.concluded_confidence: float = 0.0
         self.proposed_actions: list[dict[str, Any]] = []
 
+    def _gated_anomalies(
+        self,
+        session: VehicleSession,
+        sufficiency: SufficiencyReport | None = None,
+    ) -> list[AnomalyFinding]:
+        """Run the anomaly scan ONLY when the evidence gate allows it (P1-5).
+
+        Returns ``[]`` when the session is not anomaly-sufficient: the gate's
+        verdict is authoritative and an unscannable session must never receive
+        invented findings. The detector itself derives thresholds from the
+        recorded samples (AGENTS.md §2.3 — a missing signal is "veri yok",
+        never zero).
+        """
+        report = sufficiency if sufficiency is not None else evaluate_sufficiency(session)
+        if not report.anomaly_sufficient:
+            return []
+        try:
+            from src.engine.ai.anomaly_detector import load_thresholds
+
+            # The threshold DB is the ONLY source of anomaly bounds; without it
+            # the scan cannot run and no finding is invented (fail-closed —
+            # AGENTS.md §2.3: "not evaluated" never masquerades as "no anomaly").
+            thresholds = load_thresholds()
+            return list(detect_anomalies(session, thresholds))
+        except Exception as exc:  # noqa: BLE001 — triage must survive a scan failure
+            logger.warning("Anomali taraması atlandı (triage)", extra={"error": str(exc)})
+            return []
+
     def check_watchdog_staleness(self) -> bool:
         """Fail-closed watchdog compliance: revoke pending actions if dialogue stalls."""
         now = time.monotonic_ns()
@@ -212,8 +244,16 @@ class DialogueSession:
         sufficiency = evaluate_sufficiency(session)
         self.state = DialogueState.TRIAGE
 
+        # P1-5: `anomalies=[]` meant the dialogue ranked hypotheses from DTCs
+        # only, so an operator-entered out-of-range measurement could never
+        # corroborate anything. The scan is now run — but ONLY when the
+        # evidence gate says the session is scannable (tier 1). With
+        # insufficient evidence the list stays empty, exactly as the gate
+        # decided, and no anomaly is invented.
+        anomalies = self._gated_anomalies(session, sufficiency)
+
         # Check if we should directly ask clarifying questions or interrogate hypotheses
-        hypotheses = rank_hypotheses(session, anomalies=[])
+        hypotheses = rank_hypotheses(session, anomalies=anomalies)
 
         if not sufficiency.dtc_sufficient and not dtc_codes:
             # Need clarifying triage (no active DTCs or insufficient data)
@@ -268,7 +308,7 @@ class DialogueSession:
             return None
 
         # Sort by expected information gain
-        hypotheses = rank_hypotheses(session, anomalies=[])
+        hypotheses = rank_hypotheses(session, anomalies=self._gated_anomalies(session))
         scores = [h.score for h in hypotheses]
         current_entropy = compute_entropy(scores)
 
@@ -332,7 +372,7 @@ class DialogueSession:
             )
 
         # Re-rank and update eliminated hypotheses
-        hypotheses = rank_hypotheses(session, anomalies=[])
+        hypotheses = rank_hypotheses(session, anomalies=self._gated_anomalies(session))
         self._update_eliminations(hypotheses, answer)
 
         # Check if diagnosis has converged
@@ -390,7 +430,7 @@ class DialogueSession:
 
     def _conclude_session(self, session: VehicleSession) -> None:
         """Transition session to CONCLUDE then ACTION_PROPOSE."""
-        hypotheses = rank_hypotheses(session, anomalies=[])
+        hypotheses = rank_hypotheses(session, anomalies=self._gated_anomalies(session))
         if hypotheses:
             self.concluded_fault = hypotheses[0].fault
             self.concluded_confidence = hypotheses[0].score
@@ -456,7 +496,7 @@ class DialogueSession:
                 )
 
         # 2. From discriminating tests between top hypotheses
-        hypotheses = rank_hypotheses(session, anomalies=[])
+        hypotheses = rank_hypotheses(session, anomalies=self._gated_anomalies(session))
         disc_tests = propose_discriminating_tests(hypotheses, dtc_codes)
         for idx, test_text in enumerate(disc_tests):
             candidates.append(

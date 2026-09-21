@@ -82,7 +82,10 @@ def test_spn_validation_accepts_valid_payload():
     assert rep.is_valid
     assert rep.sanitized["spn"] == 190
     assert rep.sanitized["fmi"] == 0
-    assert rep.sanitized["verified_by"] == "marshal_gatekeeper"
+    assert rep.sanitized["sanitized_by"] == "marshal_gatekeeper"
+    # P2-6: `verified_by` is reserved for HUMAN approval; the automated gate
+    # must never write it (a machine stamp was impersonating a sign-off).
+    assert "verified_by" not in rep.sanitized
 
 def test_quarantine_gatekeeper_batch():
     dtcs = [

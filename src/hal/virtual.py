@@ -47,6 +47,17 @@ class VirtualBus(AbstractBus):
         # "flag must already match" fallback and could never arm a virtual
         # session, even though there is nothing to verify.
         self.listen_only: bool = False
+        # HAL-29: explicit, documented loopback contract. When True, `send()`
+        # also delivers the frame back into THIS bus's RX queue (a modelled
+        # single-channel echo). Default OFF: the virtual bus is a test double
+        # for a real adapter, and silently echoing every TX would fabricate RX
+        # traffic that no peer ever produced (AGENTS.md §2.3) and hide
+        # missing `inject_rx` wiring in tests.
+        self.loopback: bool = bool(kwargs.get("loopback", False))
+        # HAL-10: disconnect() must be able to WAKE a blocked recv(None).
+        # A sentinel object (never a CanFrame) is published onto the RX
+        # queue; recv() returns None when it observes it.
+        self._rx_stop_sentinel: object = object()
 
     def set_listen_only(self, listen_only: bool) -> bool:
         """Set the virtual bus TX gate (always verifiable — no hardware).
@@ -63,17 +74,56 @@ class VirtualBus(AbstractBus):
         return True
 
     def connect(self) -> None:
-        """Connect the virtual CAN bus."""
+        """Connect the virtual CAN bus.
+
+        HAL-09: the reported state must honour the listen-only flag. The old
+        body always set ACTIVE, so a passive virtual session advertised
+        itself as ACTIVE — the composition root's TX-arming preconditions and
+        every metrics consumer read a state the bus would immediately refuse
+        to transmit under.
+        """
         self.is_connected = True
-        self.metrics.state = BusState.ACTIVE
+        self.metrics.state = BusState.PASSIVE if self.listen_only else BusState.ACTIVE
 
     def disconnect(self) -> None:
-        """Disconnect the virtual CAN bus."""
+        """Disconnect the virtual CAN bus.
+
+        HAL-10: the queue is drained and a STOP sentinel published so a
+        thread blocked in `recv(timeout_s=None)` wakes up and returns None
+        instead of hanging forever on a torn-down bus.
+        """
         self.is_connected = False
         self.metrics.state = BusState.DISCONNECTED
+        self._publish_stop_sentinel()
+
+    def _publish_stop_sentinel(self) -> None:
+        """Wake every blocked `recv(None)` consumer with the STOP sentinel.
+
+        The queue is drained first (the frames belong to a dead session) and
+        then as many sentinels as there is room are queued, so each blocked
+        consumer finds one. `inject_rx` drops its own frames once the sentinel
+        is queued, so no stale data can masquerade as post-disconnect traffic.
+        """
+        while True:
+            try:
+                self._rx_queue.get_nowait()
+            except queue.Empty:
+                break
+        for _ in range(self.MAX_RX_QUEUE):
+            try:
+                self._rx_queue.put_nowait(self._rx_stop_sentinel)  # type: ignore[arg-type]
+            except queue.Full:
+                break
 
     def send(self, frame: CanFrame) -> None:
-        """Transmit frame onto the virtual bus (canonical TX entry point, D8)."""
+        """Transmit frame onto the virtual bus (canonical TX entry point, D8).
+
+        HAL-29 loopback contract: when `self.loopback` is True the frame is
+        ALSO appended to this bus's RX queue (via `inject_rx`) so a
+        single-object test can exercise the full TX→RX round trip. Default
+        is False — no echo — so RX traffic is only ever what a caller
+        explicitly injected or what a real peer sent.
+        """
         if not self.is_connected:
             raise HardwareError("Cannot send: Virtual CAN bus is not connected")
         if self.listen_only:
@@ -87,19 +137,27 @@ class VirtualBus(AbstractBus):
             )
         self.sent_frames.append(frame)
         self.metrics.tx_frames += 1
+        if self.loopback:
+            self.inject_rx(frame)
 
     def recv(self, timeout_s: float | None = 0.1) -> CanFrame | None:
         """Receive next available CAN frame from the virtual queue.
 
         REVIEW LOW-1 / REVIEW3 #16: per the RxSubscription/AbstractBus
-        contract, ``timeout_s=None`` waits INDEFINITELY (the old 0.1 s
-        clamp broke blocking consumers) and ``timeout_s=0`` is a
+        contract (HAL-31), ``timeout_s=None`` waits INDEFINITELY (the old
+        0.1 s clamp broke blocking consumers) and ``timeout_s=0`` is a
         non-blocking poll (get_nowait).
+
+        HAL-10: a `disconnect()` publishes a STOP sentinel that wakes a
+        blocked ``timeout_s=None`` call so it returns None instead of
+        hanging forever on a torn-down bus.
         """
         if not self.is_connected:
             raise HardwareError("Cannot receive: Virtual CAN bus is not connected")
         if timeout_s is None:
             frame = self._rx_queue.get()  # block indefinitely
+            if frame is self._rx_stop_sentinel:
+                return None  # HAL-10: woken by disconnect()
             self.metrics.rx_frames += 1
             return frame
         if not isinstance(timeout_s, (int, float)) or isinstance(timeout_s, bool) or not (0 <= timeout_s <= 60):
@@ -109,17 +167,30 @@ class VirtualBus(AbstractBus):
                 frame = self._rx_queue.get_nowait()
             except queue.Empty:
                 return None
+            if frame is self._rx_stop_sentinel:
+                return None
             self.metrics.rx_frames += 1
             return frame
         try:
             frame = self._rx_queue.get(timeout=timeout_s)
-            self.metrics.rx_frames += 1
-            return frame
         except queue.Empty:
             return None
+        if frame is self._rx_stop_sentinel:
+            return None
+        self.metrics.rx_frames += 1
+        return frame
 
     def inject_rx(self, frame: CanFrame) -> None:
-        """Inject a CAN frame into the receive queue."""
+        """Inject a CAN frame into the receive queue.
+
+        HAL-10: once the STOP sentinel is queued the bus is being torn down,
+        so newly injected frames are counted as dropped rather than queued
+        behind the sentinel where a woken consumer would never see them.
+        """
+        if self._rx_stop_sentinel in tuple(self._rx_queue.queue):
+            self.dropped_rx_frames += 1
+            self.metrics.dropped_frames += 1
+            return
         try:
             self._rx_queue.put_nowait(frame)
         except queue.Full:
@@ -252,7 +323,19 @@ class UdsServerEcu:
         elif sid == UdsServiceId.WRITE_DATA_BY_IDENTIFIER:
             if len(payload) < 4:
                 return self._make_negative_response(sid, UdsNrc.INCORRECT_MESSAGE_LENGTH_OR_INVALID_FORMAT)
+            # HAL-16: 0x2E is a PERSISTENT write. The simulator used to accept
+            # it in the DEFAULT session with security LOCKED, so any request
+            # could overwrite any DID. Real ISO 14229 servers gate writes on
+            # an extended/programming session plus an unlocked security level;
+            # the simulator now models the same contract so a client tested
+            # against this ECU cannot ship believing lock-free writes work.
+            if self.session == DiagnosticSessionType.DEFAULT_SESSION:
+                return self._make_negative_response(sid, UdsNrc.SERVICE_NOT_SUPPORTED_IN_ACTIVE_SESSION)
+            if self.security_level == 0:
+                return self._make_negative_response(sid, UdsNrc.SECURITY_ACCESS_DENIED)
             did = (payload[1] << 8) | payload[2]
+            if did not in self.dids:
+                return self._make_negative_response(sid, UdsNrc.REQUEST_OUT_OF_RANGE)
             val = payload[3:]
             self.dids[did] = val
             return bytes([0x6E, (did >> 8) & 0xFF, did & 0xFF])
@@ -264,6 +347,8 @@ class UdsServerEcu:
             alfi = payload[1]
             size_width = (alfi >> 4) & 0x0F
             addr_width = alfi & 0x0F
+            if size_width == 0 or addr_width == 0:
+                return self._make_negative_response(sid, UdsNrc.REQUEST_OUT_OF_RANGE)
             if len(payload) < 2 + addr_width + size_width:
                 return self._make_negative_response(sid, UdsNrc.INCORRECT_MESSAGE_LENGTH_OR_INVALID_FORMAT)
             addr = int.from_bytes(payload[2 : 2 + addr_width], byteorder="big")
@@ -271,8 +356,13 @@ class UdsServerEcu:
             offset = addr - self.base_address
             if 0 <= offset < len(self.memory) and offset + size <= len(self.memory):
                 return bytes([0x63]) + self.memory[offset : offset + size]
-            # If not in simulated range, return dummy bytes
-            return bytes([0x63]) + bytes([0xAA] * size)
+            # HAL-15: the old fallback returned a FAKE positive response of
+            # `bytes([0xAA] * size)` for ANY out-of-range address — with
+            # size_width == 4 that was a 4 GiB allocation from a single ~7-byte
+            # request (a trivial memory-exhaustion primitive) and it told the
+            # client it had read real data that never existed (AGENTS.md §2.3).
+            # Out-of-range now fails closed with NRC REQUEST_OUT_OF_RANGE.
+            return self._make_negative_response(sid, UdsNrc.REQUEST_OUT_OF_RANGE)
 
         # 0x27 Security Access
         elif sid == UdsServiceId.SECURITY_ACCESS:
@@ -287,8 +377,14 @@ class UdsServerEcu:
                 if level != expected_key_level:
                     return self._make_negative_response(sid, UdsNrc.REQUEST_SEQUENCE_ERROR)
                 sent_key = payload[2:]
-                # Default validation: key == seed or key != empty
-                if sent_key:
+                # HAL-16: the deterministic simulator contract — the key is
+                # DERIVED from the seed that was just handed out, so only a
+                # tester that actually consumed the challenge can unlock. The
+                # old check was `if sent_key:` (ANY non-empty key, e.g. b"\x00")
+                # which granted the security level to every caller and made
+                # every "security-gated" flashing test vacuous.
+                expected_key = bytes(b ^ 0xFF for b in self.seed_challenge)
+                if sent_key == expected_key:
                     self.security_level = self.last_requested_seed_level
                     return bytes([0x67, level])
                 return self._make_negative_response(sid, UdsNrc.INVALID_KEY)
@@ -297,11 +393,19 @@ class UdsServerEcu:
         elif sid == UdsServiceId.REQUEST_DOWNLOAD:
             if self.session not in (DiagnosticSessionType.PROGRAMMING_SESSION, DiagnosticSessionType.EXTENDED_DIAGNOSTIC_SESSION):
                 return self._make_negative_response(sid, UdsNrc.SERVICE_NOT_SUPPORTED_IN_ACTIVE_SESSION)
+            # HAL-16: 0x34 opened a flash-download session with security still
+            # LOCKED (only the session type was checked), so the full
+            # 0x34→0x36→0x37 flashing sequence ran unauthenticated against the
+            # simulator. Security level is now a precondition, matching 0x2E.
+            if self.security_level == 0:
+                return self._make_negative_response(sid, UdsNrc.SECURITY_ACCESS_DENIED)
             if len(payload) < 4:
                 return self._make_negative_response(sid, UdsNrc.INCORRECT_MESSAGE_LENGTH_OR_INVALID_FORMAT)
             alfi = payload[2]
             size_width = (alfi >> 4) & 0x0F
             addr_width = alfi & 0x0F
+            if size_width == 0 or addr_width == 0:
+                return self._make_negative_response(sid, UdsNrc.REQUEST_OUT_OF_RANGE)
             if len(payload) < 3 + addr_width + size_width:
                 return self._make_negative_response(sid, UdsNrc.INCORRECT_MESSAGE_LENGTH_OR_INVALID_FORMAT)
             self.download_address = int.from_bytes(payload[3 : 3 + addr_width], byteorder="big")

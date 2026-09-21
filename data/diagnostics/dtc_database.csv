@@ -284,8 +284,8 @@ U0105,Lost Communication with Fuel Injector Control Module (FICM),CAN-Bus & Ağ 
 U0106,Lost Communication with Glow Plug Control Module (GPCM),CAN-Bus & Ağ Haberleşme / ECU İletişim Kaybı,MEDIUM,5,3
 P2030,Fuel Fired Heater Performance,"Yakıt, Emisyon & SCR / AdBlue Dozaj Sistemi",CRITICAL_STOP,5,3
 P2031,Exhaust Gas Temperature EGT Sensor Circuit Bank 1 Sensor 2,"Yakıt, Emisyon & SCR / AdBlue Dozaj Sistemi",MEDIUM,6,4
-P2032,Exhaust Gas Temperature EGT Sensor Circuit Low Bank 1 Sensor 2,"Yakıt, Emisyon & SCR / AdBlue Dozaj Sistemi",MEDIUM,14,4
-P2033,Exhaust Gas Temperature EGT Sensor Circuit High Bank 1 Sensor 2,"Yakıt, Emisyon & SCR / AdBlue Dozaj Sistemi",MEDIUM,14,4
+P2032,Exhaust Gas Temperature EGT Sensor Circuit Low Bank 1 Sensor 2,"Yakıt, Emisyon & SCR / AdBlue Dozaj Sistemi",MEDIUM,13,4
+P2033,Exhaust Gas Temperature EGT Sensor Circuit High Bank 1 Sensor 2,"Yakıt, Emisyon & SCR / AdBlue Dozaj Sistemi",MEDIUM,13,4
 P2034,Exhaust Gas Temperature EGT Sensor Circuit Low Bank 2 Sensor 2,"Yakıt, Emisyon & SCR / AdBlue Dozaj Sistemi",MEDIUM,6,4
 P2035,Exhaust Gas Temperature EGT Sensor Circuit Low Bank 2 Sensor 2,"Yakıt, Emisyon & SCR / AdBlue Dozaj Sistemi",MEDIUM,6,4
 P2036,Exhaust Gas Temperature EGT Sensor Circuit High Bank 2 Sensor 2,"Yakıt, Emisyon & SCR / AdBlue Dozaj Sistemi",MEDIUM,6,4
@@ -329,9 +329,9 @@ P2073,OBD Code,"Yakıt, Emisyon & SCR / AdBlue Dozaj Sistemi",MEDIUM,3,3
 P2074,OBD Code,"Yakıt, Emisyon & SCR / AdBlue Dozaj Sistemi",MEDIUM,3,3
 P2075,OBD Code,"Yakıt, Emisyon & SCR / AdBlue Dozaj Sistemi",MEDIUM,4,3
 P2076,OBD Code,"Yakıt, Emisyon & SCR / AdBlue Dozaj Sistemi",MEDIUM,4,3
-P2077,OBD Code,"Yakıt, Emisyon & SCR / AdBlue Dozaj Sistemi",MEDIUM,11,3
-P2078,OBD Code,"Yakıt, Emisyon & SCR / AdBlue Dozaj Sistemi",MEDIUM,11,3
-P2079,OBD Code,"Yakıt, Emisyon & SCR / AdBlue Dozaj Sistemi",MEDIUM,11,3
+P2077,OBD Code,"Yakıt, Emisyon & SCR / AdBlue Dozaj Sistemi",MEDIUM,10,3
+P2078,OBD Code,"Yakıt, Emisyon & SCR / AdBlue Dozaj Sistemi",MEDIUM,10,3
+P2079,OBD Code,"Yakıt, Emisyon & SCR / AdBlue Dozaj Sistemi",MEDIUM,10,3
 P2080,EGT Sensor Circ Performance Bank 1 Sensor 1,"Yakıt, Emisyon & SCR / AdBlue Dozaj Sistemi",MEDIUM,6,4
 P2081,Exhaust Gas Temperature EGT Sensor Circuit Intermittent Bank 1 Sensor 1,"Yakıt, Emisyon & SCR / AdBlue Dozaj Sistemi",MEDIUM,5,4
 P2082,EGT Sensor Circ Performance Bank 2 Sensor 1,"Yakıt, Emisyon & SCR / AdBlue Dozaj Sistemi",MEDIUM,6,4
@@ -14351,3 +14351,120 @@ U1647,State Flag = INACTIVE Disable Conditions: MIL Illuminated for DTC U0073 Tr
 U1659,State Flag = INACTIVE Disable Conditions: MIL Illuminated for DTC U0073 Transmission Control Module,GM OEM,MEDIUM,3,3
 P2950,Starter/Generator Output Shaft - Crankshaft Speed Correlation,GM OEM,MEDIUM,2,1
 P2951,Starter/Generator Voltage Performance,GM OEM,MEDIUM,2,1
+B0312,Driver Seat Forward/Back Switch Circuit,body,MEDIUM,2,0
+B0320,Passenger Seat Position Sensor Circuit,body,MEDIUM,2,0
+B0322,Driver Seat Tilt Position Sensor,body,MEDIUM,2,0
+B0325,Driver Seat Memory Set Switch,body,MEDIUM,3,0
+B0327,Passenger Seat Position Memory,body,MEDIUM,3,0
+B0330,HVAC Rear Blower Motor Circuit,body,MEDIUM,2,0
+B0335,Driver Seat Heater Circuit,body,MEDIUM,2,0
+B0337,Passenger Seat Heater Circuit,body,MEDIUM,2,0
+B0339,Rear Seat Heater Circuit,body,MEDIUM,2,0
+B0341,HVAC Heated Seat Driver Circuit,body,MEDIUM,3,0
+B0342,HVAC Heated Seat Passenger Circuit,body,MEDIUM,2,0
+B0420,Audio System Internal Failure,body,MEDIUM,2,0
+B0425,Audio Amplifier Internal Failure,body,MEDIUM,2,0
+B0440,Bluetooth Module Fault,body,MEDIUM,2,0
+B0445,USB Hub Fault,body,MEDIUM,2,0
+B0450,Microphone Circuit,body,MEDIUM,2,0
+B0455,Display Module Internal Failure,body,MEDIUM,2,0
+B0460,Bluetooth Antenna Circuit,body,MEDIUM,2,0
+B0490,Display Backlight Circuit,body,MEDIUM,2,0
+B0501,Passenger Power Window Circuit Malfunction,body,MEDIUM,2,0
+B0502,Left Rear Power Window Circuit Malfunction,body,MEDIUM,1,0
+B0503,Right Rear Power Window Circuit Malfunction,body,MEDIUM,1,0
+B0510,Driver Door Open Switch,body,MEDIUM,2,0
+B0520,Passenger Door Open Switch,body,MEDIUM,2,0
+B0530,Driver Door Lock Actuator Circuit,body,MEDIUM,3,0
+B0531,Passenger Door Lock Actuator Circuit,body,MEDIUM,2,0
+B0532,Left Rear Door Lock Actuator Circuit,body,MEDIUM,1,0
+B0533,Right Rear Door Lock Actuator Circuit,body,MEDIUM,1,0
+B0540,Driver Door Ajar Switch Circuit,body,MEDIUM,2,0
+B0541,Passenger Door Ajar Switch Circuit,body,MEDIUM,1,0
+B0560,Driver Power Seat Forward/Back Circuit,body,MEDIUM,2,0
+B0561,Driver Power Seat Up/Down Circuit,body,MEDIUM,1,0
+B0562,Driver Power Seat Recline Circuit,body,MEDIUM,1,0
+B0570,Passenger Power Seat Forward/Back Circuit,body,MEDIUM,1,0
+B0580,Driver Seat Memory Module Malfunction,body,MEDIUM,3,0
+B0601,Mirror Adjustment Passenger Side Circuit,body,MEDIUM,1,0
+B0610,Mirror Heater Circuit,body,MEDIUM,2,0
+B0710,Sunroof Position Sensor Circuit,body,MEDIUM,2,0
+B0810,Left Headlamp Low Beam Circuit,body,MEDIUM,2,0
+B0811,Right Headlamp Low Beam Circuit,body,MEDIUM,1,0
+B0820,Left Headlamp High Beam Circuit,body,MEDIUM,1,0
+B0830,Left Front Turn Signal Circuit,body,MEDIUM,1,0
+B0831,Right Front Turn Signal Circuit,body,MEDIUM,1,0
+B0840,Left Rear Turn Signal Circuit,body,MEDIUM,1,0
+B0841,Right Rear Turn Signal Circuit,body,MEDIUM,1,0
+B0850,Left Brake Lamp Circuit,body,MEDIUM,2,0
+B0851,Right Brake Lamp Circuit,body,MEDIUM,1,0
+B0860,License Plate Lamp Circuit,body,MEDIUM,2,0
+B0900,Wiper Motor Front Circuit,body,MEDIUM,3,0
+B0910,Wiper Motor Rear Circuit,body,MEDIUM,1,0
+B0920,Washer Pump Circuit,body,MEDIUM,2,0
+B0950,Heated Rear Window Circuit,body,MEDIUM,2,0
+B0960,Horn Relay Circuit,body,MEDIUM,3,0
+B0970,Interior Light Circuit,body,MEDIUM,2,0
+B0980,Ignition Switch Run/Start Position Circuit,body,MEDIUM,2,0
+B0990,Body Control Module Internal Fault,body,MEDIUM,3,0
+C0374,4WD Drive Coupling,chassis,MEDIUM,3,0
+C0376,Front Axle Disconnect,chassis,MEDIUM,3,0
+C0387,Transfer Case Position Sensor,chassis,MEDIUM,3,0
+C0388,Transfer Case High Range Switch Circuit Malfunction,chassis,MEDIUM,2,0
+C0389,Transfer Case Low Range Switch Circuit Malfunction,chassis,MEDIUM,2,0
+C0399,4WD Mode Switch Circuit Malfunction,chassis,MEDIUM,2,0
+C0402,Traction Control Lamp Circuit,chassis,MEDIUM,2,0
+C0405,Traction Control Active Too Long,chassis,MEDIUM,2,0
+C0410,Adaptive Cruise Control Sensor Circuit Malfunction,chassis,MEDIUM,3,0
+C0420,Adaptive Cruise Control Module Internal Performance,chassis,MEDIUM,3,0
+C0440,Steering Wheel Position Sensor Circuit,chassis,MEDIUM,2,0
+C0445,Steering Wheel Position Sensor Calibration,chassis,MEDIUM,1,0
+C0450,Rear Wheel Steering Position Sensor Circuit,chassis,MEDIUM,2,0
+C0496,Yaw Rate Sensor Circuit,chassis,MEDIUM,2,0
+C0497,Yaw Rate Sensor Range/Performance,chassis,MEDIUM,3,0
+C0498,Lateral Acceleration Sensor Circuit,chassis,MEDIUM,2,0
+C0499,Lateral Acceleration Sensor Range/Performance,chassis,MEDIUM,3,0
+C0670,Electric Park Brake Actuator Left Circuit,chassis,MEDIUM,2,0
+C0671,Electric Park Brake Actuator Right Circuit,chassis,MEDIUM,2,0
+C0680,Electric Park Brake Module Internal Fault,chassis,MEDIUM,1,0
+C0712,Power Steering Position Sensor Range/Performance,chassis,MEDIUM,3,0
+C0715,Power Steering Pressure Sensor Range/Performance,chassis,MEDIUM,3,0
+C0720,Electric Power Steering Torque Sensor Circuit,chassis,MEDIUM,2,0
+C0725,Electric Power Steering Motor Circuit,chassis,MEDIUM,2,0
+C0727,Trailer Connector Circuit Malfunction,chassis,MEDIUM,2,0
+C0730,Electric Power Steering Motor Position Sensor Circuit,chassis,MEDIUM,2,0
+C0735,Electric Power Steering Module Internal Fault,chassis,MEDIUM,2,0
+C0740,Electric Power Steering Voltage Supply,chassis,MEDIUM,2,0
+C0745,Electric Power Steering Overtemperature Protection,chassis,MEDIUM,2,0
+C0750,Cruise Control Brake Switch,chassis,MEDIUM,3,0
+C0784,Trailer Brake Force Sensor Circuit Malfunction,chassis,MEDIUM,2,0
+C0805,Steering Angle Sensor Calibration,chassis,MEDIUM,3,0
+C0810,Air Suspension Compressor Circuit,chassis,MEDIUM,2,0
+C0815,Air Suspension Compressor Overtemperature,chassis,MEDIUM,2,0
+C0820,Air Suspension Height Sensor Front Left,chassis,MEDIUM,2,0
+C0821,Air Suspension Height Sensor Front Right,chassis,MEDIUM,2,0
+C0822,Air Suspension Height Sensor Rear Left,chassis,MEDIUM,2,0
+C0823,Air Suspension Height Sensor Rear Right,chassis,MEDIUM,2,0
+C0825,Steering Effort Sensor Range/Performance,chassis,MEDIUM,3,0
+C0827,Steering Effort Sensor Stuck,chassis,MEDIUM,2,0
+C0830,Steering Wheel Angle Sensor Center Position Not Learned,chassis,MEDIUM,2,0
+C0840,Air Suspension Solenoid Valve Circuit,chassis,MEDIUM,2,0
+C0850,Active Damping Control Front Left,chassis,MEDIUM,2,0
+C0851,Active Damping Control Front Right,chassis,MEDIUM,2,0
+C0852,Active Damping Control Rear Left,chassis,MEDIUM,2,0
+C0853,Active Damping Control Rear Right,chassis,MEDIUM,2,0
+C0860,Trailer Stability Assist Performance,chassis,MEDIUM,2,0
+C0901,TPMS Sensor 1 Position Performance,chassis,MEDIUM,2,0
+C0902,TPMS Sensor 2 Battery,chassis,MEDIUM,2,0
+C0905,TPMS Sensor 3 Battery Low,chassis,MEDIUM,2,0
+C0907,TPMS Sensor 4 Battery Low,chassis,MEDIUM,2,0
+C0910,TPMS Receiver Circuit Malfunction,chassis,MEDIUM,2,0
+C0912,TPMS Initiator Front Circuit Malfunction,chassis,MEDIUM,2,0
+C0915,Active Roll Stabilisation Front Actuator Circuit,chassis,MEDIUM,2,0
+C0920,Suspension Control Module Internal Fault,chassis,MEDIUM,1,0
+C0950,Tire Pressure Monitoring Sensor Front Left,chassis,MEDIUM,2,0
+C0951,Tire Pressure Monitoring Sensor Front Right,chassis,MEDIUM,2,0
+C0952,Tire Pressure Monitoring Sensor Rear Left,chassis,MEDIUM,2,0
+C0953,Tire Pressure Monitoring Sensor Rear Right,chassis,MEDIUM,2,0
+C0960,Tire Pressure Monitoring Module Internal Fault,chassis,MEDIUM,1,0
+U0500,Invalid Data Received from Communication Module,network,MEDIUM,3,0

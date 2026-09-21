@@ -98,7 +98,14 @@ def length_to_dlc(length: int) -> int:
 
 
 def pad_payload(data: bytes, dlc: int, pad_byte: int = 0xCC) -> bytes:
-    """Pad payload data up to the full expected DLC length with the standard padding byte."""
+    """Pad payload data up to the full expected DLC length with the standard padding byte.
+
+    ``pad_byte`` is a single octet; an out-of-range value is rejected explicitly
+    (P3-2) instead of surfacing as an incidental ``ValueError`` from
+    ``bytes([...])`` with no mention of the offending parameter.
+    """
+    if not isinstance(pad_byte, int) or isinstance(pad_byte, bool) or not 0 <= pad_byte <= 0xFF:
+        raise ValueError(f"pad_byte must be an int in 0..255, got {pad_byte!r}")
     expected_len = dlc_to_length(dlc)
     data_len = len(data)
     if data_len > expected_len:
@@ -133,23 +140,46 @@ class CanFrame:
     brs: bool = False
     esi: bool = False
     direction: str = "rx"  # "rx" | "tx"
-    timestamp_ns: int = field(default_factory=time.time_ns)
+    # P1-6: MONOTONIC by default. Every consumer of this field (E2E rolling
+    # counters, protocol state-machine timers N_As..N_Cr / T1..T4, the 800 ms
+    # watchdog lease and `ClockProvider.now_monotonic_ns`) is monotonic-domain
+    # math: mixing in a wall clock makes the comparison subject to NTP/DST
+    # steps. Deriving the default from `time.time_ns()` produced frames whose
+    # timestamps could jump backwards mid-session.
+    # Absolute (since-epoch) time still has a dedicated home:
+    # `hardware_timestamp_ns` (bus appliance) and `host_timestamp_ns` (capture
+    # host) — pass `timestamp_ns=` explicitly when a wall-clock stamp is
+    # genuinely required (e.g. license/HWM comparisons).
+    timestamp_ns: int = field(default_factory=time.monotonic_ns)
     hardware_timestamp_ns: int | None = None
     host_timestamp_ns: int | None = None
     sequence: int = 0
     error_state: str = "active"  # "active" | "passive" | "bus_off"
-    source: str = "physical"  # "physical" | "replay" | "virtual" | "injected"
+    source: str = "physical"  # "physical" | "replay" | "virtual" | "injected" | "synthetic"
 
     VALID_DIRECTIONS: ClassVar[frozenset[str]] = frozenset({"rx", "tx"})
     VALID_ERROR_STATES: ClassVar[frozenset[str]] = frozenset({"active", "passive", "bus_off"})
-    VALID_SOURCES: ClassVar[frozenset[str]] = frozenset({"physical", "replay", "virtual", "injected", "synthetic"})
-    CHANNEL_ID_PATTERN: ClassVar[str] = r"^[A-Za-z0-9_:\-]{1,64}$"
+    VALID_SOURCES: ClassVar[frozenset[str]] = frozenset(
+        {"physical", "replay", "virtual", "injected", "synthetic"}
+    )
+    CHANNEL_ID_PATTERN: ClassVar[str] = r"[A-Za-z0-9_:\-]{1,64}"
 
     def __post_init__(self) -> None:
         """Validate all invariant invariants at instantiation time."""
+        # P0-1: the frozen-model contract requires `data` to be an immutable
+        # `bytes` snapshot. A `bytearray`/`memoryview` argument aliases the
+        # caller's buffer, so the payload of an "immutable" CanFrame could be
+        # mutated after construction (and after it was hashed / recorded as
+        # telemetry evidence). Coerce first, before ANY length inspection.
+        object.__setattr__(self, "data", bytes(self.data))
         # channel_id: bounded length + charset allowlist (fail-closed,
         # prevents dict-key table bloat / log injection via E2E streams).
-        if not isinstance(self.channel_id, str) or not re.match(self.CHANNEL_ID_PATTERN, self.channel_id):
+        # P0-4: `fullmatch`, not `match` — the pattern is anchored with a
+        # trailing `$`, which `re.match` treats as "before a trailing newline",
+        # so "can0\n" used to pass the allowlist.
+        if not isinstance(self.channel_id, str) or not re.fullmatch(
+            self.CHANNEL_ID_PATTERN, self.channel_id
+        ):
             raise ValueError(
                 f"Invalid channel_id {self.channel_id!r}: must match {self.CHANNEL_ID_PATTERN}"
             )
@@ -168,10 +198,22 @@ class CanFrame:
         if not self.is_fd and self.dlc > 8:
             raise ValueError(f"Classic CAN DLC cannot exceed 8, got {self.dlc}")
 
+        # P1-3: BRS (Bit Rate Switch) and ESI (Error State Indicator) are
+        # CAN-FD-only control bits of the FD frame format. They do not exist in
+        # a Classic CAN frame, so accepting them would silently label a classic
+        # frame as "bit-rate switched" and hand the E2E/telemetry layer a flag
+        # the wire format cannot carry. Fail closed.
+        if not self.is_fd and (self.brs or self.esi):
+            raise ValueError(
+                "brs/esi are CAN-FD-only flags and cannot be set on a Classic CAN frame "
+                f"(is_fd=False, brs={self.brs}, esi={self.esi}); pass is_fd=True"
+            )
+
         # Validate data byte length against DLC (CORE-C-001: exact invariant).
         # Classic CAN (DLC 0..8): len(data) must equal the DLC exactly — a
         # frame claiming DLC=8 with 2 payload bytes is ambiguous downstream
-        # (len(data) vs dlc disagree; pad via CanFrame.create()/padded_data).
+        # (len(data) vs dlc disagree; pad via `CanFrame.create()` only for a
+        # full-capacity payload, or use `padded_data` directly).
         #
         # CAN-FD DLC 9..15 (capacity 12..64) is DELIBERATELY a RANGE check, not
         # an equality check (FAZ 3 / review #3 — behaviour documented and
@@ -189,9 +231,11 @@ class CanFrame:
         #     The lower bound (non-empty) still rejects an unusable frame, and
         #     the upper bound rejects over-capacity padding bugs.
         #
-        # Canonical CONSTRUCTION still pads: use `CanFrame.create()` /
-        # `padded_data` when a full-capacity payload is required. Do NOT add an
-        # equality floor here without re-opening the sniffer/replay decision.
+        # Canonical CONSTRUCTION does NOT pad: `CanFrame.create()` encodes the
+        # minimal DLC for the payload it is given (P2-1), and `padded_data`
+        # remains the explicit opt-in when a full-capacity payload is required.
+        # Do NOT add an equality floor here without re-opening the
+        # sniffer/replay decision.
         expected_len = DLC_TO_LENGTH[self.dlc]
         if self.is_fd and self.dlc >= 9:
             if not (0 < len(self.data) <= expected_len):
@@ -219,8 +263,19 @@ class CanFrame:
 
     @property
     def crc_type(self) -> str:
-        """Return the hardware CRC type for this frame."""
-        return get_hardware_crc_type(self.is_fd, len(self.data))
+        """Return the hardware CRC type for this frame.
+
+        P0-3: the CRC polynomial is selected by the DLC *capacity*, not by the
+        number of application bytes carried. A sub-capacity FD payload (a
+        replay/`.asc` capture with a 1-byte payload behind DLC=15) is still
+        framed at 64 bytes on the wire and therefore protected by CRC-21 —
+        `len(self.data)` would have labelled it CRC-17.
+
+        Scope (do not over-claim): this property is descriptive metadata. In
+        the current tree it is consumed by tests only — it feeds no E2E
+        validator and no TX path, so it cannot steer a transmission.
+        """
+        return get_hardware_crc_type(self.is_fd, DLC_TO_LENGTH[self.dlc])
 
     @property
     def padded_data(self) -> bytes:
@@ -236,10 +291,12 @@ class CanFrame:
         is_extended: bool | None = None,
         is_fd: bool = False,
         brs: bool = False,
+        esi: bool = False,
         dlc: int | None = None,
         direction: str = "rx",
         timestamp_ns: int | None = None,
         source: str = "physical",
+        error_state: str = "active",
     ) -> CanFrame:
         """Convenience factory method with automatic parameter derivation.
 
@@ -248,6 +305,14 @@ class CanFrame:
         cryptic "Classic CAN DLC cannot exceed 8" from __post_init__ — an
         accidental is_fd omission must never silently produce a valid-looking
         classic frame either.
+
+        P2-1: `esi` (Error State Indicator) is accepted alongside `brs`, so the
+        full CAN-FD control-bit set is reachable through the canonical
+        constructor. This factory does NOT pad: `dlc` defaults to the minimal
+        DLC that can carry ``data`` (sub-capacity payloads are the documented
+        ingest shape for RAW captures). Use `padded_data` when a
+        full-capacity payload is required.
+        `error_state` is forwarded verbatim and validated by __post_init__.
         """
         if is_extended is None:
             is_extended = arbitration_id > 0x7FF
@@ -261,7 +326,7 @@ class CanFrame:
         if dlc is None:
             dlc = length_to_dlc(len(data))
 
-        ts = timestamp_ns if timestamp_ns is not None else time.time_ns()
+        ts = timestamp_ns if timestamp_ns is not None else time.monotonic_ns()
 
         return cls(
             channel_id=channel_id,
@@ -271,7 +336,9 @@ class CanFrame:
             is_extended=is_extended,
             is_fd=is_fd,
             brs=brs,
+            esi=esi,
             direction=direction,
             timestamp_ns=ts,
+            error_state=error_state,
             source=source,
         )

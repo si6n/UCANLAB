@@ -32,6 +32,14 @@ def _impl():
     from here would re-enter the package __init__ while it is still
     initializing. The registry only depends on plain constants, so the
     deferred import is cheap after the first call.
+
+    L8 (verified OPEN — COSMETIC, DELIBERATELY UNCHANGED): the review
+    suggested caching the resolved callables in module globals or switching
+    to `functools.cache`. Both are micro-optimizations against a deliberate
+    design — the deferred import IS the cycle break described above, and
+    after the first call `sys.modules` resolution is already a dict lookup.
+    A module-level cache would add a global write and an invalidation
+    question for no measurable gain, so this stays as-is on purpose.
     """
     from src.protocols.j1939.oem.registry import build_j1939_id, parse_j1939_id
 

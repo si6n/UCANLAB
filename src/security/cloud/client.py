@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -202,10 +203,28 @@ CANONICAL_CLOUD_HOSTS: tuple[str, ...] = (
     "cloud.universalcan.io",
     "ucanlab.org",
     "api.ucanlab.org",
+)
+
+# SEC-07 (Batch B): loopback hosts USED to sit inside `CANONICAL_CLOUD_HOSTS`,
+# which contradicted the "production speaks HTTPS to a cloud host" claim: a
+# frozen (production) build would happily send the DPAPI-stored session cookie
+# to 127.0.0.1 / localhost / ::1 — i.e. to any local process that manages to
+# bind the port first. The production allowlist above is now cloud-only;
+# loopback lives in this explicitly dev-only list, consulted only when the
+# build is NOT production (see `_allowed_hosts`).
+DEV_ONLY_CLOUD_HOSTS: tuple[str, ...] = (
     "127.0.0.1",
     "localhost",
     "::1",
 )
+
+#: Hardened session-token grammar (SEC-08). The token arrives from the web
+#: portal (or a WebView bridge call) and is replayed verbatim as the value of
+#: an HTTP `Cookie` header, so it must never be able to carry `;`, whitespace,
+#: or CRLF — a `\r\n` in a header value is request splitting, and `;` would
+#: inject extra cookie attributes. Deliberately conservative:
+#: base64url/hex-ish tokens only.
+_SESSION_TOKEN_RE = re.compile(r"^[A-Za-z0-9._~+/=-]{8,512}$")
 
 
 def is_production() -> bool:
@@ -216,6 +235,49 @@ def is_production() -> bool:
     if getattr(sys, "frozen", False):
         return True
     return os.environ.get("UCANLAB_ENV", "").strip().lower() in ("production", "prod")
+
+
+def _allowed_hosts(configured: tuple[str, ...] | None) -> tuple[str, ...]:
+    """The effective host allowlist (SEC-07).
+
+    An explicit `allowed_hosts` always wins. Otherwise a production build gets
+    the cloud-only canonical list, while a non-production run additionally
+    accepts the dev-only loopback list so `python src/main.py` against a local
+    backend keeps working.
+    """
+    if configured:
+        return tuple(h.lower() for h in configured)
+    if is_production():
+        return CANONICAL_CLOUD_HOSTS
+    return CANONICAL_CLOUD_HOSTS + DEV_ONLY_CLOUD_HOSTS
+
+
+def validate_session_token(token: object) -> str:
+    """Return a validated session token, or raise SecurityError (SEC-08).
+
+    A blank or mistyped token used to be stored and later replayed as
+    ``Cookie: ucan_session=<token>`` with no format check at all, and a token
+    containing CRLF would have been injected straight into the header block.
+    Fail closed with a typed error instead.
+    """
+    if not isinstance(token, str):
+        raise SecurityError(
+            f"Session token must be a string, got {type(token).__name__}",
+            code="BAD_SESSION_TOKEN",
+        )
+    if "\r" in token or "\n" in token or "\x00" in token:
+        raise SecurityError(
+            "Session token contains control characters (CRLF/NUL); refusing it",
+            code="BAD_SESSION_TOKEN",
+        )
+    stripped = token.strip()
+    if not _SESSION_TOKEN_RE.fullmatch(stripped):
+        raise SecurityError(
+            "Session token does not match the expected format "
+            "(8-512 chars of [A-Za-z0-9._~+/=-])",
+            code="BAD_SESSION_TOKEN",
+        )
+    return stripped
 
 
 @dataclass(slots=True)
@@ -301,7 +363,7 @@ class CloudConfig:
             )
 
         if self.enforce_allowlist or is_production():
-            allowed = tuple(h.lower() for h in (self.allowed_hosts or CANONICAL_CLOUD_HOSTS))
+            allowed = _allowed_hosts(self.allowed_hosts)
             if hostname not in allowed:
                 raise SecurityError(
                     f"Cloud API host {hostname!r} is not in canonical allowlist; refusing connection (fail-closed)",
@@ -529,7 +591,9 @@ class CloudClient:
     # Credential storage (DPAPI-backed)
     # ------------------------------------------------------------------
     def store_session_token(self, token: str) -> None:
-        self._secrets.store_secret(_SESSION_SECRET_NAME, token.encode("utf-8"))
+        """Persist the operator's web session token, format-checked (SEC-08)."""
+        validated = validate_session_token(token)
+        self._secrets.store_secret(_SESSION_SECRET_NAME, validated.encode("utf-8"))
         logger.info("Cloud session token stored (DPAPI)")
 
     def has_session_token(self) -> bool:
@@ -602,7 +666,7 @@ class CloudClient:
         parsed = urlsplit(url)
         hostname = (parsed.hostname or "").lower()
         if self.config.enforce_allowlist or is_production():
-            allowed = tuple(h.lower() for h in (self.config.allowed_hosts or CANONICAL_CLOUD_HOSTS))
+            allowed = _allowed_hosts(self.config.allowed_hosts)
             if hostname not in allowed:
                 raise SecurityError(
                     f"Cloud API host {hostname!r} is not in canonical allowlist; refusing request (fail-closed)",
@@ -627,6 +691,12 @@ class CloudClient:
         if session is None and self._secrets.has_secret(_SESSION_SECRET_NAME):
             session = self._secrets.get_secret(_SESSION_SECRET_NAME).decode("utf-8")
         if session:
+            # SEC-08 (Batch B): re-validate immediately before the header is
+            # built. `store_session_token` now validates on write, but the
+            # value here can also come from a pre-existing vault entry (written
+            # by an older build) or from a request-scoped override supplied by
+            # a bridge call — neither has passed this gate yet.
+            session = validate_session_token(session)
             headers["Cookie"] = f"ucan_session={session}"
         # B4: sanitized AFTER the session cookie is applied â€” extra headers
         # can neither replace nor strip it.

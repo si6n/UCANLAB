@@ -107,11 +107,16 @@ class TxSafetyGateway:
     # at/above this streak latches the E-Stop (fail-closed on abuse).
     # Threshold mirrors RATE_ESTOP_AFTER-style escalation: isolated misses
     # (fuzz/misconfig) stay reject+alarm, sustained abuse latches.
-    # P9 (G-9): the streak is reset by ANY whitelisted frame
-    # (`if id_allowed: self._whitelist_miss_streak = 0`), so an
-    # N-miss-then-hit pattern NEVER latches — the value is an
-    # ESCALATION THRESHOLD, not a per-window miss ratio.
+    # P9 (G-9): the streak is an ESCALATION THRESHOLD, not a per-window miss
+    # ratio. S-09: it is no longer cleared by a whitelisted hit (that let an
+    # N-miss-then-hit pattern probe the bus forever); it decays only after
+    # WHITELIST_MISS_STREAK_WINDOW_NS of silence, or on a genuine session reset.
     WHITELIST_ESTOP_AFTER: ClassVar[int] = 5
+    # S-09: time window (nanoseconds) after which an IDLE whitelist-miss streak
+    # is considered stale and reset. Misses now decay ONLY by elapsed time —
+    # never by a whitelisted hit — so N-miss-then-hit patterns still latch.
+    # Kept identical to RATE_LIMIT_WINDOW_NS (1 s) for policy symmetry.
+    WHITELIST_MISS_STREAK_WINDOW_NS: ClassVar[int] = 1_000_000_000
     # P7 (G-5): hard ceiling on the aggregate TX rate across EVERY lane. Must
     # stay below `sum(BUDGETS.values())` so it is a real envelope rather than
     # a rubber stamp; a runaway producer cannot exceed it by rotating
@@ -135,6 +140,10 @@ class TxSafetyGateway:
     # 29-bit IDs (0x18DAxxxx). S1-P1-1: this path previously had NO UDS
     # criticality derivation at all.
     ISOTP_29BIT_PF: ClassVar[int] = 0xDA
+    # A1-F1: ISO 15765-4 global functional requests use PF=0xDB (0x18DBxxxx,
+    # destination 0xFF broadcast). Same ISO-TP framing, same criticality —
+    # kept as a separate constant so the two families stay greppable.
+    ISOTP_29BIT_FUNCTIONAL_PF: ClassVar[int] = 0xDB
     # P0 (perf): backpressure WARN output is rate-limited to one summary per
     # second — a throttled sender hammering the window used to emit one
     # log record per rejected frame, flooding stdout I/O and slowing the
@@ -322,6 +331,9 @@ class TxSafetyGateway:
         # Whitelist single-miss streak: first miss = reject+alarm, persistent
         # pattern (>= WHITELIST_ESTOP_AFTER) = latch E-Stop.
         self._whitelist_miss_streak: int = 0
+        # S-09: arrival time (monotonic ns) of the LAST miss; drives the
+        # time-window decay that replaced the hit-based streak reset.
+        self._whitelist_last_miss_ns: int = 0
         # LINK-FAULT edge latches: each kind engages the E-Stop at most once
         # per E-Stop epoch — a persistent bus-off must not re-bump the fence
         # + re-log CRITICAL on every 50 ms telemetry tick. The set is keyed
@@ -383,6 +395,29 @@ class TxSafetyGateway:
 
         if self.supervisor:
             self.supervisor.register_callback(self._on_safety_state_changed)
+
+    def _decay_whitelist_miss_streak(self, now_ns: int) -> None:
+        """S-09: reset the whitelist-miss streak only after an idle window.
+
+        Caller MUST hold ``self._lock``. A whitelisted HIT must NOT clear the
+        streak (that is the S-09 fail-open: N misses then one legal frame left
+        the latch disarmed). Only elapsed time with no further miss — the
+        sender went quiet — returns the counter to zero.
+
+        NOTE (G-10 companion): callers that increment the streak must ensure
+        ``_whitelist_last_miss_ns`` is a real observation, not the
+        "never recorded" sentinel ``0``. ``now_ns`` is a monotonic value far
+        beyond 0, so a naive comparison would treat "no recorded miss time" as
+        "decades of silence" and silently wipe the streak — the latch then
+        never reached ``WHITELIST_ESTOP_AFTER``. That guard lives at the
+        increment site (`_validate_and_transmit_locked`), which is the only
+        place a miss can occur, so this helper keeps its literal meaning for
+        every other caller (including unit tests asserting pure time decay).
+        """
+        if self._whitelist_miss_streak == 0:
+            return
+        if (now_ns - self._whitelist_last_miss_ns) > self.WHITELIST_MISS_STREAK_WINDOW_NS:
+            self._whitelist_miss_streak = 0
 
     def _request_estop(
         self,
@@ -526,6 +561,7 @@ class TxSafetyGateway:
                 self._tx_timestamps.clear()
                 self._rate_overload_streak = 0
                 self._whitelist_miss_streak = 0
+                self._whitelist_last_miss_ns = 0
                 # T62-M4: clear global aggregate rate envelope so new channel starts clean
                 self._tx_total_timestamps.clear()
                 self._total_overload_streak = 0
@@ -586,6 +622,7 @@ class TxSafetyGateway:
                 # A whitelist change is a policy change: reset the miss streak
                 # so the new policy starts from a clean slate.
                 self._whitelist_miss_streak = 0
+                self._whitelist_last_miss_ns = 0
                 snapshot_ids = self.whitelist_ids
                 snapshot_masks = self.whitelist_masks
             # Re-check in-flight validated frames against the new policy.
@@ -617,6 +654,16 @@ class TxSafetyGateway:
             return b"\x00" * 8
         raw = context.encode("utf-8") if isinstance(context, str) else bytes(context)
         return hashlib.sha256(raw).digest()[:8]
+
+    def has_confirmation_secret(self) -> bool:
+        """True when a confirmation secret is configured (public accessor).
+
+        M13: callers (e.g. ``protocols.uds.flasher``) must be able to decide
+        whether the HMAC dual-confirmation gate is armed WITHOUT reaching into
+        ``_confirmation_secret`` via ``getattr``. This exposes presence only —
+        the secret itself is never readable through this accessor.
+        """
+        return self._confirmation_secret is not None
 
     def issue_confirmation_token(
         self,
@@ -833,6 +880,7 @@ class TxSafetyGateway:
             # un-clearable without a process restart.
             self._rate_overload_streak = 0
             self._whitelist_miss_streak = 0
+            self._whitelist_last_miss_ns = 0
 
     def _on_safety_state_changed(self, old_state: object, new_state: object, reason: str) -> None:
         if getattr(new_state, "value", str(new_state)) == "FAULT":
@@ -1087,6 +1135,14 @@ class TxSafetyGateway:
         Note: a J1939 extended frame is ALSO a valid address for ISO-TP
         (0x18DAxxxx) — the two namespaces are distinguished by PF, so the
         ISO-TP check runs first and the J1939 PGN check second.
+
+        REVIEW Aşama 1 — Faz 1B (A1-F1/A1-F2): the 29-bit ISO-TP family is
+        BOTH ``0xDA`` (physical) and ``0xDB`` (global functional / broadcast,
+        0x18DBxxxx) per ISO 15765-4. The old single-PF test let the whole
+        ``0xDB`` family fall through to the raw-J1939 classification, whose
+        PGN extraction then mis-read the destination byte — so DM11 clears,
+        writable-Requests and UDS SIDs on ``0xDB`` all skipped Stage 4/5.
+        Both PFs share the same ISO-TP criticality derivation.
         """
         try:
             data = frame.data
@@ -1106,11 +1162,37 @@ class TxSafetyGateway:
                 return False
 
             pf = (frame.arbitration_id >> 16) & 0xFF
-            if pf == self.ISOTP_29BIT_PF:
-                # S1-P1-1: 29-bit physical/functional ISO-TP to an ECU.
+            if pf in (self.ISOTP_29BIT_PF, self.ISOTP_29BIT_FUNCTIONAL_PF):
+                # S1-P1-1 + A1-F1: 29-bit physical (0xDA) AND global
+                # functional (0xDB) ISO-TP to an ECU share one derivation.
                 sid = self._iso_tp_service_byte(data)
-                return sid is not None and sid in self.CRITICAL_UDS_SIDS
+                if sid is None:
+                    # A1-F2, narrowed: ONLY a truncated SF/FF header (lone
+                    # [0x02]/[0x10], short escape header — the PCI claims MORE
+                    # bytes than the wire carries) is fail-closed critical.
+                    # ConsecutiveFrame (0x2) / FlowControl (0x3) carry no SID
+                    # BY DESIGN — the pre-A1 contract (locked by
+                    # test_29bit_consecutive_frame_is_not_escalated_by_itself)
+                    # is that a CF never self-escalates: on the live bus the
+                    # CF belongs to an already-gated session, and in replay
+                    # the tunneling + session-ledger gates own the CF verdict.
+                    # Collapsing CF into critical would re-pin every benign
+                    # multi-frame read behind the interlock + dual confirm.
+                    pci = data[0] >> 4
+                    if pci in (0x0, 0x1):
+                        return True
+                    return False
+                return sid in self.CRITICAL_UDS_SIDS
 
+            # J1939 doprav, not UDS" fallthrough: J1939 PGNs embed the destination
+            # address byte. A1-F1 supplementary note: a global-destination
+            # 0x18DBxxxx frame NEVER reaches the J1939 branch below (it is
+            # claimed by the ISO-TP 0xDA/0xDB gate above), so a DM11-clear
+            # payload on 0xDB is judged by its ISO-TP SID here — never by the
+            # raw-PGN branch. J1939 clears travel on their own diagnostic
+            # PGNs (e.g. PGN 65235 on a J1939-framed 0x18FExxxx address),
+            # which the branch below still classifies as critical. Keep the
+            # two namespaces disjoint.
             pgn = (frame.arbitration_id >> 8) & 0x3FFFF
             if pgn in self.CRITICAL_J1939_PGNS:
                 return True
@@ -1300,19 +1382,28 @@ class TxSafetyGateway:
                     mask != 0 and (frame.arbitration_id & mask) == value
                     for value, mask in self.whitelist_masks
                 )
-                if id_allowed:
-                    # Allowed frame resets the single-miss streak.
-                    self._whitelist_miss_streak = 0
                 if not id_allowed:
                     # Reject + alarm on every miss; latch E-Stop when the
                     # persistent-violation streak reaches WHITELIST_ESTOP_AFTER.
-                    # P9 (G-9): the earlier comment claimed "threshold currently
-                    # 1" while the constant is 5, and a single miss does NOT
-                    # latch — the streak resets on any allowed frame. The
-                    # escalation is real but only for an unbroken run of misses.
-                    # RLock is re-entrant: trigger() -> gateway callback
-                    # re-acquires the same lock on this thread without deadlock.
+                    # S-09: a whitelisted HIT no longer resets the streak — that
+                    # reset meant an N-miss-then-hit pattern never latched, so a
+                    # sender alternating a legal ID with an illegal one could
+                    # probe the bus forever. The streak now decays only by TIME
+                    # WINDOW (`_decay_whitelist_miss_streak`) and is cleared ONLY
+                    # on a genuine session reset (rebind_bus / rebind_whitelist /
+                    # E-Stop engagement).
+                    # G-10 companion (fail-closed): `_whitelist_last_miss_ns == 0`
+                    # is the "never recorded" sentinel, not a real observation.
+                    # Seed it BEFORE decaying so a pre-set streak (e.g. restored
+                    # from persisted state, or a test that only primes the
+                    # counter) is never mistaken for "decades of silence" and
+                    # silently wiped — that wipe is what let the latch never
+                    # reach WHITELIST_ESTOP_AFTER on the very first violation.
+                    if self._whitelist_last_miss_ns == 0:
+                        self._whitelist_last_miss_ns = now_ns
+                    self._decay_whitelist_miss_streak(now_ns)
                     self._whitelist_miss_streak += 1
+                    self._whitelist_last_miss_ns = now_ns
                     logger.warning(
                         "TX Frame rejected by Whitelist filter",
                         extra={
