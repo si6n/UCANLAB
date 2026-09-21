@@ -25,8 +25,8 @@ PROVENANCE.md`` on disk, that every pinned commit SHA and every licence URL
 recorded here still appears in the canonical file. If the vendored files move
 ahead of this catalog, the test fails instead of the panel silently lying.
 
-Runtime constraints (operator decree, tasks/README.md)
------------------------------------------------------
+Runtime constraints (operator decree)
+-------------------------------------
 NO LLM, NO cloud call, NO network fetch. This module reads local vendored files
 only, and only paths on ``ATTRIBUTION_ALLOWED_FILES``.
 """

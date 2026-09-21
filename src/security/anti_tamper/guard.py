@@ -112,7 +112,7 @@ class AntiTamperGuard:
     def detect_timing_anomaly(cls, threshold_ms: float | None = None) -> bool:
         """Measure SHA-256 probe timing to detect single-stepping instrumentation.
 
-        REVIEW.md 5.1 / SEC-2: requires TWO consecutive threshold breaches —
+        REVIEW 5.1 / SEC-2: requires TWO consecutive threshold breaches —
         a one-off GC pause, antivirus scan burst, or scheduler hiccup must
         not trip the anti-tamper path.
         """

@@ -503,7 +503,7 @@ class RP1210Client:
                 1 if block else 0,
             )
 
-            # REVIEW.md 2.1: per TMC RP1210C, a POSITIVE return value is the
+            # REVIEW 2.1: per TMC RP1210C, a POSITIVE return value is the
             # number of bytes read (up to the buffer size); errors are
             # NEGATIVE RP1210 error codes. The old `0 < ret < 128` guard
             # misread any packet >= 128 bytes (J1939 TP / ISO-TP responses)

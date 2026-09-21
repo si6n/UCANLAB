@@ -1,4 +1,4 @@
-"""Regression tests for REVIEW.md verification round-2 fixes.
+"""Regression tests for REVIEW round-2 verification fixes.
 
 Covers the confirmed findings from the second audit pass:
   B1  SafeMultiplexedBus stale physical bus after app._reconnect_bus

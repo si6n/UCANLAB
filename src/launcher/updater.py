@@ -2,7 +2,7 @@
 
 Provides Ed25519+SHA-256 verified package download and semver comparison.
 
-C-2 (verify/launcher.md:415): this module is a **download/staging** pipeline,
+C-2: this module is a **download/staging** pipeline,
 NOT an installer. It verifies a package and pins it under
 ``dist/updates/<version>/``; replacing the live executable is a separate,
 explicitly gated operator step (:meth:`UpdateManager.install_update`, which
@@ -45,7 +45,7 @@ logger = get_logger("launcher.updater")
 # names a download_url; a compromised manifest response must not be able to
 # pivot the launcher's fetch onto an attacker-controlled origin.
 #
-# M-2 (verify/launcher.md:33-36): this list had drifted from the canonical
+# M-2: this list had drifted from the canonical
 # cloud host set (``ucanlab.org`` / ``api.ucanlab.org`` were missing, so a
 # legitimate CDN host was rejected while the two lists could diverge further
 # on the next edit). The allowlist is now DERIVED from the single canonical
@@ -154,7 +154,7 @@ class UpdateManager:
         silent (0, 0, 0) fallback made a corrupted manifest compare as
         "current" (mandatory security updates silently skipped).
 
-        L-7 (verify/launcher.md:101-105): the parser used to PAD missing
+        L-7: the parser used to PAD missing
         components with 0, so ``"13.2"`` silently became ``(13, 2, 0)`` and a
         truncated manifest compared as a valid (older) release. Exactly three
         numeric components are now required; anything else is UNKNOWN (None).
@@ -303,7 +303,7 @@ class UpdateManager:
     def verify_file_sha256(cls, file_path: Path | str, expected_hash: str) -> bool:
         """Verify SHA-256 hash of a downloaded file against the manifest digest.
 
-        M-9 (verify/launcher.md:230): two real defects, both fixed here.
+        M-9: two real defects, both fixed here.
 
         * the expected digest was never format-validated, so a truncated or
           garbage value was compared leniently against a well-formed digest;
@@ -655,7 +655,7 @@ class UpdateManager:
     ) -> bool:
         """Explicitly install a previously VERIFIED staged update artifact.
 
-        C-2 (verify/launcher.md:415): the module had no install path at all
+        C-2: the module had no install path at all
         while its docstring claimed "atomic file replacement". This method
         makes the step real, and gates it — there is deliberately no way for a
         download, a UI timer or a manifest flag to reach it unattended:

@@ -1,8 +1,7 @@
 """T47-B regression tests for the ASAMA-1 TX security review findings.
 
 Each test here was written BEFORE the corresponding fix (TDD red -> green) and
-pins the invariant from the T47-A remediation plan
-(`spn_gap_hunter/output/t47a_tx_review_verification.md`):
+pins the invariant from the T47-A remediation plan:
 
   * P1  / G-1  synthetic speed must never authorise a critical command
   * P2  / G-2  gateway derives command criticality from the frame itself

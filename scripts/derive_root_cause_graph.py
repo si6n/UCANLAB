@@ -7,8 +7,8 @@ resolves to a REAL entry in the source DB, and the derivation ABORTS (exit 1)
 if any node fails resolution — a graph with a fabricated reference is never
 written.
 
-Derivation gates (see ``tasks/T2-0-graph-derivation-feasibility.md``)
--------------------------------------------------------------------
+Derivation gates
+----------------
 Gate A — code -> root cause. Two verified sources:
 
 1. ``dtc_database.json[code].causes[]``. 47.748 entries total, but 24.298

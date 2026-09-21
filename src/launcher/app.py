@@ -411,7 +411,7 @@ class UniversalCanLauncher:
     _OBLIGATION_ARMED_KEY_NAME = "LAUNCHER_OBLIGATION_ARMED"
     #: Non-version sentinels returned by the loader; both mean "tampered".
     _TAMPERED_OBLIGATION_SENTINELS = frozenset({"TAMPERED", "IO_ERROR", "MISSING_WHILE_ARMED"})
-    # M-7 (verify/launcher.md:294 + README.md:72-73): the documented flags are
+    # M-7 (README.md:72-73): the documented flags are
     # forwarded to the child. `-i/-c/-b` are the short forms of
     # --interface/--channel/--bitrate and `--log-level` is documented too — a
     # non-allowlisted flag was silently DROPPED, so a documented invocation
@@ -672,7 +672,7 @@ class UniversalCanLauncher:
     def launch_main_app(self, extra_args: list[str] | None = None) -> int:
         """Spawn the core application executable with integrity checks.
 
-        M-3 (verify/launcher.md:433-448): this method is a public API and a
+        M-3: this method is a public API and a
         second entry point. It used to check only "file exists + hash matches",
         so an in-process caller (a bridge method, a plugin, a future UI wiring)
         reached the payload with no license / no prerequisite check at all.
@@ -735,7 +735,7 @@ class UniversalCanLauncher:
             return 1
 
         logger.info("Launching Universal CAN Platform", extra={"target": str(target), "cli_args": args})
-        # C-1 (verify/launcher.md:473): NO timeout. The launcher is the PARENT
+        # C-1: NO timeout. The launcher is the PARENT
         # of the platform process; `timeout=300` made subprocess.call() kill a
         # perfectly healthy diagnostic session after five minutes and returned
         # a negative exit code to an operator who only saw the app vanish. The

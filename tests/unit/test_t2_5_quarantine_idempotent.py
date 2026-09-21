@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 """T2-5 regression lock: `write_quarantine` must never lose quarantine records.
 
-The defect this file locks
-(docs/agents task cards ``tasks/T2-5-URGENT-restore-lost-work.md``):
+The defect this file locks (task card T2-5):
 
 ``scripts/detect_quarantine_dtcdocs_llm.py::write_quarantine`` wrote the
 quarantine document from scratch (``QUARANTINE.write_text(...)``). Because

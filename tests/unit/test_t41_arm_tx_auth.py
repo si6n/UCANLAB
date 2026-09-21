@@ -1,6 +1,6 @@
 """T41 / S-1 regression tests — arm_tx/activate_tx operator authorization.
 
-Independent review finding (t41_claude_review.md, KRITIK): the ARMED_TX gate
+Independent review finding (KRITIK): the ARMED_TX gate
 is the single functional authorization point for TX, yet ``arm_tx`` /
 ``activate_tx`` accepted an ``auth_token`` that was NEVER verified — only a
 WARNING was logged when it was None. ``supervisor.arm_tx(auth_token="garbage")``

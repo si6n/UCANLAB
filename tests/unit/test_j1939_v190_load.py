@@ -41,7 +41,7 @@ EXPECTED_SPNS = 4_253
 # a raw "0x01"-style value). Those carried no information (AGENTS.md §2.3: no
 # fabricated records); the data-ingest batch removed them and the count is back
 # to 4253. Raising this constant would launder a data-integrity defect into the
-# test — see docs/audit/verify/baseline_failures.md.
+# test — see the baseline-failures triage.
 # J1939 FMI 12 = "Bad intelligent device or component" içeren referans DTC.
 REF_SPN = 629
 REF_FMI = 12
@@ -176,7 +176,7 @@ class TestCopilotSession:
         assert rep is not None
 
     def test_analysis_latency_under_50ms(self, copilot: AiDiagnosticCopilot) -> None:
-        # BASELINE TRIAGE (docs/audit/verify/baseline_failures.md). This assertion
+        # BASELINE TRIAGE. This assertion
         # was failing when the test ran in isolation (deterministic, ~51-180 ms).
         # Two independent causes, both since addressed:
         #

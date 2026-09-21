@@ -1,4 +1,4 @@
-"""Regression tests for the third-party review findings (REVIEW.md, REVIEW 2, REVIEW 3).
+"""Regression tests for the third-party review findings (REVIEW 2, REVIEW 3).
 
 Covers the fixes applied in this remediation round:
 - CSV parser: a CanFrame invariant violation in one row never aborts the load.
@@ -31,7 +31,7 @@ from src.hal.replay.parsers import CsvParser
 from src.hal.virtual import VirtualBus
 
 # ============================================================================
-# REVIEW.md HIGH-1: CSV parser resilience (Y-06 parity)
+# REVIEW HIGH-1: CSV parser resilience (Y-06 parity)
 # ============================================================================
 
 
@@ -89,7 +89,7 @@ def test_csv_parser_invalid_canframe_invariant_never_aborts_load() -> None:
 
 
 # ============================================================================
-# REVIEW.md MEDIUM-1: ring buffer sequence coherence (TOCTOU)
+# REVIEW MEDIUM-1: ring buffer sequence coherence (TOCTOU)
 # ============================================================================
 
 
@@ -132,7 +132,7 @@ def test_ring_buffer_sequence_labels_survive_concurrent_append() -> None:
 
 
 # ============================================================================
-# REVIEW.md MEDIUM-2 / REVIEW 2 #5: rolling disk close-vs-append race
+# REVIEW MEDIUM-2 / REVIEW 2 #5: rolling disk close-vs-append race
 # ============================================================================
 
 
@@ -160,7 +160,7 @@ def test_rolling_disk_close_is_idempotent_and_worker_exits() -> None:
 
 
 # ============================================================================
-# REVIEW.md HIGH-3: gateway inbound-triggered rate escalation
+# REVIEW HIGH-3: gateway inbound-triggered rate escalation
 # ============================================================================
 
 
@@ -280,7 +280,7 @@ def test_router_in_budget_callback_never_trips() -> None:
 
 
 # ============================================================================
-# REVIEW.md LOW-7: ISO-TP _rx_session setter scope
+# REVIEW LOW-7: ISO-TP _rx_session setter scope
 # ============================================================================
 
 
@@ -323,7 +323,7 @@ def test_updater_unparseable_manifest_version_fails_check() -> None:
 
 
 # ============================================================================
-# REVIEW.md LOW-1 / REVIEW 3 #16: VirtualBus.recv contract
+# REVIEW LOW-1 / REVIEW 3 #16: VirtualBus.recv contract
 # ============================================================================
 
 

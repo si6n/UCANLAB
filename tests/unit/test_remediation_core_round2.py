@@ -1,6 +1,6 @@
 """Batch G regression tests — ``src/core/**`` remediation round 2 (2026-09-22).
 
-One test per finding from ``docs/audit/verify/core.md`` (corrected severities:
+One test per finding from the core audit (corrected severities:
 no real P0 in this batch — P0-1/P0-2 are P1, P0-3/P0-4 are P2, and P1-4/P2-1
 were partly wrong in the review).
 

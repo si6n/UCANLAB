@@ -1,6 +1,6 @@
 """T2-1 regression tests: the golden-set match rule must not be overfit-able.
 
-Two coupled defects were found and fixed in T2-1 (see ``tasks/T2-1-blokaj-raporu.md``):
+Two coupled defects were found and fixed in T2-1:
 
 1. ``evaluate_calibration`` accepted a hit when the top hypothesis title shared
    ONE word (>4 chars) with ``actual_fault``. Combined with nodes whose

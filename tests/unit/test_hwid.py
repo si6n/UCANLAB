@@ -13,10 +13,10 @@ import pytest
 from src.security.hwid.collector import (
     _INVALID_UUIDS,
     _MIN_INDEPENDENT_COMPONENTS,
-    _run_powershell,
-    _wmi_query,
     INDETERMINATE_FINGERPRINT,
     UNKNOWN_MAC,
+    _run_powershell,
+    _wmi_query,
     collect_bios_serial,
     collect_cpu_id,
     collect_cpu_processor_id,
@@ -50,7 +50,7 @@ def _isolate_hwid_cache():
 def test_generate_hardware_fingerprint_structure() -> None:
     """The HWID is a 64-char lowercase hex hash when >=2 components are readable.
 
-    BASELINE TRIAGE (see docs/audit/verify/baseline_failures.md). The original
+    BASELINE TRIAGE (see the baseline-failures triage). The original
     form of this test asserted ``len(fp) == 64`` against whatever this machine's
     WMI happened to return. That made it a test of the *host*, not the product.
 

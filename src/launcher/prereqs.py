@@ -40,7 +40,7 @@ class PrereqChecker:
     VCRUNTIME_DLLS = ("msvcp140.dll", "vcruntime140.dll")
 
     # ------------------------------------------------------------------
-    # M-1 (verify/launcher.md:62,74,88): WebView2 is only needed for the
+    # M-1: WebView2 is only needed for the
     # pywebview GUI. In `--cli` (headless sniffer/analyzer) mode, a missing
     # WebView2 runtime used to fold into `has_critical_failures` and refuse to
     # run at all — for the one mode that loads no browser engine.

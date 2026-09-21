@@ -1,7 +1,7 @@
 """T41 regression tests — P1 data-usage upgrades of the offline AI engine.
 
 Task t_c8f07ce0: wire the DOLU-but-unread database fields identified by the
-T40 audit (spn_gap_hunter/output/t40_ai_engine_audit.md) into the engine.
+T40 audit into the engine.
 
 Locked invariants (T41 task rules):
   1. AI layer stays offline — tests/safety/test_ai_tx_isolation.py stays green.
@@ -237,12 +237,20 @@ class TestSessionHypothesisWiring:
 
 
 class TestHighSeverityRung:
-    """379 external-DB DTC records carry severity HIGH — it must survive the
-    engine instead of falling back to MEDIUM (silent demotion)."""
+    """A knowledge-base record stamped HIGH must survive the engine instead of
+    falling back to MEDIUM (silent demotion).
+
+    NOTE (P0-1, 2026-09-21 audit): this test previously used ``C003F``
+    ("Wheel Speed Sensors Rotation Direction Correlation") as its HIGH example.
+    The severity audit reclassified chassis/ABS wheel-speed correlation faults
+    to MEDIUM — HIGH maps to RED -> "stop the vehicle", which is wrong for a
+    wheel-speed plausibility fault. ``P0011`` (camshaft timing over-advanced)
+    is a genuine HIGH record and preserves the original invariant.
+    """
 
     def test_high_dtc_raises_report_to_high(self) -> None:
         copilot = AiDiagnosticCopilot()
-        report = copilot.analyze_session([{"code": "C003F"}], {}, [])
+        report = copilot.analyze_session([{"code": "P0011"}], {}, [])
         from src.engine.ai.diagnostic_copilot import FaultSeverity
 
         assert report.severity in (FaultSeverity.HIGH, FaultSeverity.CRITICAL_STOP)

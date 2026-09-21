@@ -1,7 +1,7 @@
 """Ed25519 signature over the ``/updates/latest`` manifest body (H-1).
 
-H-1 (verify/launcher.md:179-207)
-================================
+H-1
+====
 ``mandatory`` and ``version`` were read straight out of the cloud response and
 acted on (a ``mandatory`` flag blocks the whole platform) while the Ed25519
 signature was only ever checked against the *binary* at download time. A

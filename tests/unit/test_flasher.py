@@ -370,13 +370,13 @@ def test_flash_negative_transfer_data_triggers_recovery_and_raises() -> None:
     ]
     with pytest.raises(ProtocolError, match="Blok"):
         _run(client, _config())
-    # REVIEW.md 3.2: 0x37-first ladder, never an automatic hard reset
+    # REVIEW 3.2: 0x37-first ladder, never an automatic hard reset
     assert any(c[0] == "request_transfer_exit" for c in client.calls)
     assert not any(c[0] == "ecu_reset" for c in client.calls)
 
 
 def test_flash_recovery_propagates_operator_confirmation_k08() -> None:
-    """K-08 + REVIEW.md 3.2: recovery follows the 0x37 -> default-session
+    """K-08 + REVIEW 3.2: recovery follows the 0x37 -> default-session
     ladder and NEVER issues an operator-confirmed hard reset."""
     client = _RecordingUdsClient()
     client.replies["transfer_data"] = [

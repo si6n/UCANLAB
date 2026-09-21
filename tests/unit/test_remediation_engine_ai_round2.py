@@ -1,6 +1,6 @@
 """Round-2 remediation regression locks for ``src/engine/ai/**`` (Batch C1).
 
-Every test pins ONE verified defect from ``docs/audit/verify/engine.md`` (plus
+Every test pins ONE verified defect from the engine audit (plus
 the round-2 intel) so a future refactor that reintroduces the old behaviour
 fails HERE rather than silently shipping fabricated evidence.
 

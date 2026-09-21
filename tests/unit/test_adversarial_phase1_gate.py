@@ -797,7 +797,7 @@ class TestJ1939CollisionStormsAndEdgeCases:
     def test_j1939_extreme_payload_lengths_roundtrip(self, payload_len: int) -> None:
         """Verify segmentation and reassembly for 1B, 7B, 8B, and max 1785B payloads.
 
-        REVIEW.md 3.5: start_tp_cm_dt returns ONLY the RTS (SAE J1939-21
+        REVIEW 3.5: start_tp_cm_dt returns ONLY the RTS (SAE J1939-21
         forbids DTs before CTS); the roundtrip drives the windowed
         start_cmdt_transfer + handle_rx_frame(CTS) flow.
         """

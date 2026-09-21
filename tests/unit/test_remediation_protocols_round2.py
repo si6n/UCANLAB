@@ -1,7 +1,7 @@
 """Batch D (round 2) protocol remediations — regression suite.
 
-Findings verified OPEN in ``docs/audit/verify/protocols.md`` and assigned to
-Batch D of ``docs/audit/IMPROVEMENT_PLAN.md``:
+Findings verified OPEN in the protocols audit and assigned to
+Batch D of the improvement plan:
 
     M14  Intel HEX EOF record is mandatory (truncated image rejected)
     L7   S-Record S0 header "validation" was a tautology

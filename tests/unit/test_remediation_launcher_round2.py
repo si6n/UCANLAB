@@ -1,6 +1,6 @@
 """Batch F (TUR-2 round 2) — launcher remediation regression suite.
 
-Covers the verified-OPEN findings from ``docs/audit/verify/launcher.md``:
+Covers the verified-OPEN findings from the launcher audit:
 
   C-1  launcher must not kill the child after 300 s
   C-2  the updater is a staging pipeline + an explicit gated install step

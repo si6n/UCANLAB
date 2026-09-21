@@ -391,14 +391,39 @@ def test_tier1_whitelist_unauthorized_id_violation_triggers_estop() -> None:
     assert estop.last_event.trigger == EStopTriggerSource.UNAUTHORIZED_PAYLOAD
 
 
+#: ISO-TP SID 0x22 ReadDataByIdentifier — a NON-critical UDS read service
+#: (see `src.safety.criticality.CRITICAL_UDS_SIDS`; 0x22 is deliberately not a
+#: member). Payload shape ``[0x03][0x22][DID_HI][DID_LO]`` is a classic-CAN
+#: ISO-TP SingleFrame carrying exactly 3 data bytes.
+_ISOTP_BENIGN_READ_PAYLOAD = b"\x03\x22\xF1\x90"
+
+
 def test_tier1_whitelist_explicit_test_ids_permitted() -> None:
-    """Tier 1.3.3: Verify explicit test whitelist allows intended testing IDs."""
+    """Tier 1.3.3: Verify explicit test whitelist allows intended testing IDs.
+
+    REVIEW A1-F2 expectation: this test asserts a Stage-3 property — an
+    explicitly whitelisted ID is PERMITTED — not that a malformed payload is.
+    Payloads are therefore matched to each ID's frame category:
+
+      * 11-bit IDs get ``b"\\x00"``: they are not ISO-TP targets here (the
+        11-bit criticality derivation only escalates frames whose SID is in
+        ``CRITICAL_UDS_SIDS``, and ``0x00`` is not), so the frame stays benign.
+      * ``0x18DAF110`` is a 29-bit ISO-TP (DoCAN) physical address (PF=0xDA).
+        A 1-byte ``b"\\x00"`` there is a SingleFrame header whose claimed
+        payload is TRUNCATED, so it yields no SID — the A1-F2 fail-closed rule
+        (gateway.py, 29-bit branch) correctly declares it CRITICAL, which then
+        requires the Stage 4 speed interlock. Feeding a WELL-FORMED frame
+        removes the ambiguity: a SingleFrame whose SID is 0x22
+        (ReadDataByIdentifier, a non-critical read) is neither malformed nor
+        critical, so the assertion holds for the RIGHT reason.
+    """
     bus = MockMemoryBus()
     test_whitelist = {0x000, 0x100, 0x7E0, 0x7E8, 0x18DAF110, 0x1FFFFFFF}
     gateway = TxSafetyGateway(bus=bus, whitelist_ids=test_whitelist)
 
     for can_id in test_whitelist:
-        frame = CanFrame.create(channel_id="c0", arbitration_id=can_id, data=b"\x00")
+        payload = _ISOTP_BENIGN_READ_PAYLOAD if (can_id >> 16) & 0xFF in (0xDA, 0xDB) else b"\x00"
+        frame = CanFrame.create(channel_id="c0", arbitration_id=can_id, data=payload)
         assert gateway.validate_and_transmit(frame) is True
 
 
@@ -778,13 +803,23 @@ def test_tier2_r3_single_id_whitelist_exact_match() -> None:
 
 
 def test_tier2_r3_full_range_boundary_whitelist() -> None:
-    """Tier 2.3.2: Verify boundary mix containing standard and extended CAN IDs."""
+    """Tier 2.3.2: Verify boundary mix containing standard and extended CAN IDs.
+
+    REVIEW A1-F2 expectation: the boundary IDs must be ACCEPTED, so the payload
+    is chosen per frame category (see `_ISOTP_BENIGN_READ_PAYLOAD`). The
+    29-bit ``0x18DAF110`` entry is an ISO-TP (PF=0xDA) address: a truncated
+    1-byte payload there is correctly treated as critical by the A1-F2
+    fail-closed rule and would be blocked by the Stage 4 speed interlock, which
+    is not what this test asserts. A well-formed, non-critical SingleFrame
+    (SID 0x22, a read) keeps the assertion about the whitelist boundary itself.
+    """
     bus = MockMemoryBus()
     whitelist = {0x000, 0x7FF, 0x18DAF110, 0x1FFFFFFF}
     gateway = TxSafetyGateway(bus=bus, whitelist_ids=whitelist)
 
     for cid in whitelist:
-        assert gateway.validate_and_transmit(CanFrame.create(channel_id="c0", arbitration_id=cid, data=b"\x00")) is True
+        payload = _ISOTP_BENIGN_READ_PAYLOAD if (cid >> 16) & 0xFF in (0xDA, 0xDB) else b"\x00"
+        assert gateway.validate_and_transmit(CanFrame.create(channel_id="c0", arbitration_id=cid, data=payload)) is True
 
 
 def test_tier2_r3_whitelist_large_capacity_1000_ids() -> None:

@@ -1,6 +1,6 @@
 """T1-1 regression lock: golden-set calibration must reach the REAL diagnostic path.
 
-The defect this file locks (docs/agents task card ``tasks/T1-1-tuner-calibration-wiring.md``):
+The defect this file locks (task card T1-1):
 
 - ``compute_root_cause_confidence(..., calibration_factor=None)`` accepted a
   calibration parameter, but NO production call site ever passed it. The engine

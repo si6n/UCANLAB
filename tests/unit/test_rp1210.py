@@ -90,7 +90,7 @@ def _make_client_with_fake_dll(read_return_value: int) -> RP1210Client:
 
 
 def test_rp1210_read_error_code_is_not_returned_as_data() -> None:
-    # D2 / REVIEW.md 2.1 regression: RP1210 error codes are NEGATIVE return
+    # D2 / REVIEW 2.1 regression: RP1210 error codes are NEGATIVE return
     # values. ret=-129 (INVALID_CLIENT_ID) must raise HardwareError, never
     # be mistaken for received data.
     client = _make_client_with_fake_dll(-129)
@@ -119,7 +119,7 @@ def test_rp1210_read_positive_byte_count_returns_data() -> None:
 
 
 def test_rp1210_read_large_packet_128_plus_bytes_returns_data() -> None:
-    """REVIEW.md 2.1 regression: a 200-byte J1939 TP / ISO-TP response packet
+    """REVIEW 2.1 regression: a 200-byte J1939 TP / ISO-TP response packet
     must be RETURNED AS DATA — the old `0 < ret < 128` guard misread any
     byte count >= 128 as an error code and crashed the diagnostic session."""
     client = _make_client_with_fake_dll(200)

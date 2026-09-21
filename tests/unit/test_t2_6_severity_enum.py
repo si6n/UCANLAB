@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """T2-6 regression lock — the `Severity` allowlist and its `UNKNOWN` member.
 
-Context (task card ``tasks/T2-6-tuner-severity-enum-migration.md``): P2-9 made
+Context (task card T2-6): P2-9 made
 ``DiagnosticEvent.severity`` an allowlisted ``Severity`` enum instead of a free
 string, which is the CORRECT hardening. But four call sites kept passing the
 bare literal ``"UNKNOWN"`` for a DTC whose severity the knowledge base does not

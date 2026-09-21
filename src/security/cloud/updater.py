@@ -11,7 +11,7 @@ Security rationale (do not "fix" this by implementing it here):
 
 * The cloud updater is NOT enabled by design. Enabling a network-fetching
   update path requires signed manifests, an install path, and an explicit
-  operator decision — see ``docs/audit/IMPROVEMENT_PLAN.md`` §4 and the
+  operator decision — see §4 of the improvement plan and the
   launcher's own signature-checked ``src/launcher/updater.py``.
 * Nothing under ``src/`` imports this module, and it must stay that way.
 """

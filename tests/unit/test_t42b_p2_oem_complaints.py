@@ -1,7 +1,6 @@
 """T42(b) regression tests — P2-2 (OEM-filtered selection) + P2-3 (complaints fusion).
 
-Task t_b5e29627: the remaining two P2 items from the T40 audit
-(spn_gap_hunter/output/t40_ai_engine_audit.md, section (e)):
+Task t_b5e29627: the remaining two P2 items from the T40 audit (section (e)):
 
   P2-2  OEM bazlı filtreli seçim: `oem_variants` (DTC, 2.911 kayıt) and J1939
         `oem_engine_families` (64 SPN) / `oem_field_evidence` (400 SPN) were

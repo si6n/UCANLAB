@@ -534,7 +534,7 @@ class EcuFlashingEngine:
         if self.on_progress:
             self.on_progress(progress)
 
-    # REVIEW.md 3.3: S3 tester-present cadence. ISO 14229 S3 is 5 s; send at
+    # REVIEW 3.3: S3 tester-present cadence. ISO 14229 S3 is 5 s; send at
     # 2 s so one lost/deferred TesterPresent never drops the session during
     # long erase/key-computation gaps.
     TESTER_PRESENT_INTERVAL_S: ClassVar[float] = 2.0
@@ -542,7 +542,7 @@ class EcuFlashingEngine:
     def _tester_present_loop(self, stop_event: threading.Event, config: FlashingConfig) -> None:
         """Background keep-alive: TesterPresent 0x3E (suppress) while flashing.
 
-        REVIEW.md 3.3: in extended/programming sessions the ECU runs the S3
+        REVIEW 3.3: in extended/programming sessions the ECU runs the S3
         timer (2-5 s). A 0x36 block whose erase cycle stalls the bus for a
         few seconds otherwise returns the ECU to the default session, and
         the NEXT TransferData gets rejected with NRC 0x7E — a half-written
@@ -658,7 +658,7 @@ class EcuFlashingEngine:
                 "warning",
             )
 
-        # REVIEW.md 3.3: start the S3 keep-alive before the first session
+        # REVIEW 3.3: start the S3 keep-alive before the first session
         # control frame; stop it on completion, failure, or cancellation.
         keepalive_stop = threading.Event()
         keepalive_thread = threading.Thread(
@@ -1095,7 +1095,7 @@ class EcuFlashingEngine:
     def _best_effort_recovery(self, config: FlashingConfig) -> None:
         """Attempt to return the ECU to a safe state after a failed flash.
 
-        REVIEW.md 3.2 (bricking): a Hard Reset (0x11 0x01) after a partial
+        REVIEW 3.2 (bricking): a Hard Reset (0x11 0x01) after a partial
         0x36 transfer can leave the microcontroller booting into an
         application image with a truncated/absent signature or vector
         table — a PERMANENTLY bricked ECU with no bootloader access. The

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """T2-4: vendored staging verisini `data/` altina KATMANLI olarak merge eder.
 
-Prensipler (AGENTS.md §2.3, tasks/README "PAYLASILAN AGAC GUVENLIK KURALLARI"):
+Prensipler (AGENTS.md §2.3, "PAYLASILAN AGAC GUVENLIK KURALLARI"):
     * YALNIZ EKLEME (additive). Hicbir mevcut deger EZILMEZ.
     * Idempotent: iki kez kosmak ayni sonucu verir (ikinci kosuda 0 yeni alan).
     * Her yeni kayit/alan `_source_license` + `_source_ref` tasir.

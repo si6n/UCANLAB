@@ -1,7 +1,6 @@
 """T42 regression tests — P2 upgrades of the offline AI engine.
 
-Task t_7832dc63: two P2 items from the T40 audit
-(spn_gap_hunter/output/t40_ai_engine_audit.md, section (e)):
+Task t_7832dc63: two P2 items from the T40 audit (section (e)):
 
   P2-1  Çoklu-DTC birleşik analiz: the query path used to handle only
         ``active_dtcs[0]``. Now every active DTC is evaluated together and

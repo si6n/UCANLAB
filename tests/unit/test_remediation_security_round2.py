@@ -2,7 +2,7 @@
 
 One focused test per applied fix. Every test is written to FAIL against the
 pre-fix source and PASS after the hardening, per the repo's TDD acceptance
-criterion. Companion to `docs/audit/verify/security.md`.
+criterion. Companion to the security audit.
 """
 
 from __future__ import annotations

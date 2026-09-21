@@ -1,7 +1,7 @@
 """Regression tests for the verified ``src/safety/**`` remediation round 2.
 
 One test class per review finding (S-01 .. S-17 as implemented). Evidence for
-every finding is in ``docs/audit/verify/safety.md``. All timing is driven by a
+every finding is in the safety audit. All timing is driven by a
 ``VirtualClock`` — no test sleeps against the real clock.
 
 Coverage (finding -> class):
@@ -697,7 +697,7 @@ class TestRound2FailClosedInvariants:
 class TestS05ProductionDeploymentCannotArmUnauthenticated:
     """Acceptance: the production composition root fails closed.
 
-    ``docs/audit/verify/safety.md`` row S-05 recorded that the real defect
+    Safety audit row S-05 recorded that the real defect
     "needs composition-root omission" to be exploitable — i.e. the defect was
     never inside the state machine, it was the production root failing to
     configure an operator credential. ``SafetySupervisor(require_arm_auth=True)``
@@ -792,3 +792,83 @@ class TestS05ProductionDeploymentCannotArmUnauthenticated:
         assert app.supervisor.current_state == SafetyState.PASSIVE
         app.supervisor.arm_tx(reason="operator", auth_token=app._mint_arm_token())
         assert app.supervisor.is_tx_permitted is True
+
+
+# ---------------------------------------------------------------------------
+# A1-F2 — a truncated 29-bit ISO-TP SF/FF header stays FAIL-CLOSED critical
+# ---------------------------------------------------------------------------
+
+
+class TestA1F2TruncatedIsotpFailClosed:
+    """REVIEW Aşama 1 — Faz 1B (A1-F2), pinned.
+
+    A 29-bit ISO-TP frame (``0x18DAxxxx`` physical / ``0x18DBxxxx`` functional)
+    whose PCI claims a SingleFrame (0x0) or FirstFrame (0x1) but whose service
+    byte CANNOT be parsed (the declared length exceeds the wire payload) is
+    FAIL-CLOSED critical. Otherwise an attacker could truncate the header so
+    the SID never materialises and slip a mutating command past Stage 4/5.
+
+    These tests fix the *derived criticality* (``_frame_is_critical``), so they
+    hold regardless of whether a speed source is wired: a regression that
+    narrows A1-F2 back to "benign" turns the first two assertions red.
+    """
+
+    _SWEEP = (
+        0x18DAF110,  # 29-bit physical ISO-TP (PF=0xDA)
+        0x18DB33F1,  # 29-bit global functional ISO-TP (PF=0xDB)
+    )
+    _TRUNCATED = (
+        b"\x00",  # SF claiming 0 data bytes -> no SID
+        b"\x02",  # SF claiming 2 data bytes, but only the PCI byte is present
+        b"\x10",  # FF header byte alone (no 2nd length byte, no SID)
+        b"\x10\x0D",  # FF claiming 13 bytes, payload truncated before the SID
+    )
+
+    @staticmethod
+    def _frame(arb_id: int, data: bytes) -> Any:
+        from src.core.models.can_frame import CanFrame
+
+        return CanFrame.create(
+            channel_id="round2_a1f2",
+            arbitration_id=arb_id,
+            data=data,
+            is_extended=True,
+        )
+
+    @staticmethod
+    def _gateway() -> TxSafetyGateway:
+        return TxSafetyGateway(bus=VirtualBus(channel_id="round2_a1f2"), whitelist_ids=None)
+
+    @pytest.mark.parametrize("arb_id", _SWEEP)
+    @pytest.mark.parametrize("payload", _TRUNCATED)
+    def test_a1f2_truncated_sf_ff_is_critical_fail_closed(self, arb_id: int, payload: bytes) -> None:
+        gw = self._gateway()
+        gw.rebind_whitelist({arb_id})
+        assert gw._frame_is_critical(self._frame(arb_id, payload)) is True, (
+            f"A1-F2 regression: {payload.hex()} on 0x{arb_id:X} was judged NOT "
+            "critical — a truncated SF/FF header now dodges Stage 4/5"
+        )
+
+    def test_a1f2_benign_wellformed_read_is_not_escalated(self) -> None:
+        """Control: a WELL-FORMED, non-critical read SingleFrame must NOT escalate.
+
+        This is what the e2e whitelist tests now transmit on ``0x18DAF110``
+        (SID 0x22 ReadDataByIdentifier). It proves the fix is not a blanket
+        exemption and that the truncated cases above are the ONLY fail-closed
+        triggers in this branch.
+        """
+        gw = self._gateway()
+        gw.rebind_whitelist({0x18DAF110})
+        benign = self._frame(0x18DAF110, b"\x03\x22\xF1\x90")
+        assert gw._frame_is_critical(benign) is False
+
+    def test_a1f2_consecutive_frame_still_does_not_self_escalate(self) -> None:
+        """Control: the CF/FC carve-out (pre-A1 contract) is preserved.
+
+        A ConsecutiveFrame (0x2) carries no SID by design and must not
+        self-escalate — collapsing it into critical would re-pin every benign
+        multi-frame read behind the interlock.
+        """
+        gw = self._gateway()
+        gw.rebind_whitelist({0x18DAF110})
+        assert gw._frame_is_critical(self._frame(0x18DAF110, b"\x21\xEE\xFF\x11")) is False

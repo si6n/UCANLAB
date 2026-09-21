@@ -504,7 +504,7 @@ def test_j1939_start_tp_bam_and_start_tp_cm_dt_segmentation() -> None:
     assert completed_bam.data == payload
 
     # 2. CMDT Point-to-Point roundtrip
-    # REVIEW.md 3.5: start_tp_cm_dt now returns ONLY the RTS — SAE J1939-21
+    # REVIEW 3.5: start_tp_cm_dt now returns ONLY the RTS — SAE J1939-21
     # §5.10.1 forbids sending TP.DT packets before the receiver's CTS grant.
     cmdt_frames = tp_tx.start_tp_cm_dt(target_address=0xF9, pgn=65227, data=payload, channel_id="ch0")
     assert len(cmdt_frames) == 1

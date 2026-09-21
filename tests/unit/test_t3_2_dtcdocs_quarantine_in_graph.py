@@ -72,9 +72,8 @@ def test_no_graph_node_has_seo_harvest_signature(graph_nodes: list[dict]) -> Non
 
     Note this checks only the *dtcdocs* signature. A broader junk-source sweep
     (``detroitdieselengines.info`` and similar low-quality aggregators) is a
-    separate, larger remediation tracked as T3-3 — see
-    ``tasks/T3-3-junk-source-sweep.md``. This test must not be loosened to hide
-    T3-3's findings, and T3-3 must not be "fixed" by deleting this test.
+    separate, larger remediation tracked as T3-3. This test must not be loosened
+    to hide T3-3's findings, and T3-3 must not be "fixed" by deleting this test.
     """
     dtcdocs_markers = (
         "advanced-technical-analysis",

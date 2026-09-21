@@ -1277,7 +1277,7 @@ class J1939TransportProtocol:
     def start_tp_cm_dt(
         self, target_address: int, pgn: int, data: bytes, channel_id: str | None = None
     ) -> list[CanFrame]:
-        """DEPRECATED (REVIEW.md 3.5): returns ONLY the TP.CM_RTS frame.
+        """DEPRECATED (REVIEW 3.5): returns ONLY the TP.CM_RTS frame.
 
         SAE J1939-21 §5.10.1 forbids sending TP.DT packets before the
         receiver's TP.CM_CTS grant. The old behaviour emitted RTS + ALL DTs

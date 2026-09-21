@@ -147,7 +147,7 @@ class PythonCanBus(AbstractBus):
         H5: runs under the lifecycle lock and is idempotent — a second
         connect() returns instead of leaking the first open handle (a
         "busy" PCAN/Kvaser channel).
-        REVIEW.md 2.2: when listen_only is requested, the backend's actual
+        REVIEW 2.2: when listen_only is requested, the backend's actual
         state is VERIFIED after opening; backends that silently ignore the
         PASSIVE kwarg (slcan, some serial adapters) would ACK onto a live
         vehicle bus during bitrate scans — fail closed instead.
@@ -181,7 +181,7 @@ class PythonCanBus(AbstractBus):
 
                 self._bus = can.Bus(**bus_kwargs)
 
-                # REVIEW.md 2.2: prove the backend honoured listen-only.
+                # REVIEW 2.2: prove the backend honoured listen-only.
                 # The pure-Python virtual bus never ACKs onto hardware, so
                 # it is exempt from the fail-closed verification; physical
                 # backends must prove PASSIVE state or refuse to open.
@@ -431,7 +431,7 @@ class PythonCanBus(AbstractBus):
         full timeout); only the handle snapshot is taken under the lock so
         a concurrent disconnect cannot free the bus mid-call.
 
-        REVIEW.md 2.3: the vendor C layer can raise OSError/RuntimeError
+        REVIEW 2.3: the vendor C layer can raise OSError/RuntimeError
         (not just can.CanError) on a wedged/removed handle — catch them so
         one driver hiccup never kills the RX loop.
         H3: remote frames carry data=b'' with DLC>0, which violates the

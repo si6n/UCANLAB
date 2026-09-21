@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 """T2-3 regression lock — fail-closed confidence default + quarantine leak.
 
-Two separate defects are locked here (task card
-``tasks/T2-3-tuner-failclosed-and-quarantine.md``):
+Two separate defects are locked here (task card T2-3):
 
 (A) FAIL-OPEN DEFAULT.  ``compute_root_cause_confidence(..., calibration_factor=None)``
     treated ``None`` as "apply no damping" (``cal = 1.0``). A caller that forgot

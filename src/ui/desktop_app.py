@@ -1274,7 +1274,7 @@ class UniversalCanDesktopApp:
         # pre-S-08 fail-open state where TX authority appeared alive while
         # nothing enforced it.
         self.watchdog.start()
-        # REVIEW.md 1.1: the gateway previously started with NO whitelist,
+        # REVIEW 1.1: the gateway previously started with NO whitelist,
         # so the fail-closed Stage 3 rejected every single frame — the app
         # could never transmit at all. Seed it with the legitimate diagnostic
         # surface: the OBD functional broadcast, the physical UDS REQUEST
@@ -1282,7 +1282,7 @@ class UniversalCanDesktopApp:
         # families 0x7E8..0x7EF belong to the ECU side, not this tool), and
         # our J1939 response masks (TP.CM/TP.DT/ISO-TP frames sourced from
         # our tool address 0xF9).
-        # REVIEW.md LOW-8: the response range (0x7E8..0x7EF) is no longer
+        # REVIEW LOW-8: the response range (0x7E8..0x7EF) is no longer
         # statically whitelisted — a whitelisted ECU-reply family let any
         # bug that reached the gateway impersonate ECU responses on the
         # physical bus. If an ECU-simulation mode ever needs to transmit
@@ -1325,7 +1325,7 @@ class UniversalCanDesktopApp:
         self._cloud_config = CloudConfig(base_url=_resolve_cloud_base_url())
         self.cloud_client = CloudClient(config=self._cloud_config, secret_provider=self._secret_provider)
 
-        # REVIEW.md MEDIUM-6 / REVIEW2 #6: the HWID computation spawns 4-5
+        # REVIEW MEDIUM-6 / REVIEW 2 #6: the HWID computation spawns 4-5
         # PowerShell/WMI subprocesses with 10 s timeouts EACH — a corrupted
         # WMI repository made the FIRST generate_hardware_fingerprint()
         # call block a pywebview JsApi thread for up to ~50 s (frozen
@@ -1984,7 +1984,7 @@ class UniversalCanDesktopApp:
     def _warm_hwid_cache() -> None:
         """Pre-compute the hardware fingerprint off the UI/bridge threads.
 
-        REVIEW.md MEDIUM-6 / REVIEW2 #6: the cold HWID collection runs 4-5
+        REVIEW MEDIUM-6 / REVIEW 2 #6: the cold HWID collection runs 4-5
         PowerShell/WMI subprocesses with individual 10 s timeouts; on a
         broken WMI repository that is ~50 s of blocking on the FIRST call.
         Warming the lru_cache here (daemon thread, started in __init__)
@@ -2000,7 +2000,7 @@ class UniversalCanDesktopApp:
     def create_uds_client(self, tx_id: int = 0x7E0, rx_id: int = 0x7E8) -> UdsClient:
         """Create a UDS client that cannot steal frames from the telemetry loop.
 
-        REVIEW.md 3.1: the synchronous UDSClient path used to be handed the
+        REVIEW 3.1: the synchronous UDSClient path used to be handed the
         raw physical bus, racing the telemetry thread's `bus.recv()` for the
         same hardware queue — responses were randomly lost to timeouts. This
         factory wires the client through a SafeMultiplexedBus instead: RX
@@ -4042,7 +4042,7 @@ class UniversalCanDesktopApp:
                     dlc=length_to_dlc(len(synth_data)),
                     data=synth_data,
                     is_extended=True,
-                    # REVIEW.md 4.2: reassembled J1939 payloads (VIN, DM1,
+                    # REVIEW 4.2: reassembled J1939 payloads (VIN, DM1,
                     # component ID...) are 9-1785 bytes; without is_fd the
                     # classic-CAN DLC cap rejected every one of them and
                     # the telemetry thread silently dropped the message.
