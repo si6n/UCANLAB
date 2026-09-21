@@ -33,6 +33,26 @@ from src.security.hwid.collector import generate_hardware_fingerprint
 
 logger = get_logger("security.cloud.license_flow")
 
+# F4 (REVIEW Aşama 3): cloud ticket schema hardening bounds.
+#: Ticket schema revisions this client understands. A ticket naming any other
+#: revision is refused rather than interpreted with unknown semantics.
+_SUPPORTED_TICKET_SCHEMA_VERSIONS: frozenset[int] = frozenset({1})
+#: Maximum length for ticket identity / opaque string fields.
+_MAX_TICKET_STRING_CHARS: int = 256
+#: Maximum number of entries accepted in the `features` list.
+_MAX_TICKET_FEATURES: int = 128
+
+
+def _reject_non_finite_json_constant(value: str) -> Any:
+    """`json.loads(parse_constant=...)` hook rejecting NaN/Infinity/-Infinity.
+
+    Python's JSON decoder accepts these non-standard literals by default. A
+    non-finite timestamp inside a signed ticket is a security-relevant input:
+    every comparison with NaN is False, so expiry and offline-grace checks
+    silently pass. Raising here converts them into a controlled parse error.
+    """
+    raise ValueError(f"non-finite JSON constant '{value}' is not permitted in a cloud ticket")
+
 DEFAULT_EMBEDDED_CLOUD_PUBLIC_KEY_B64 = "eX3vJQWpo/pKrkpi5Y+f7m5ooUCRbCyY201DTnAjz/Q="
 
 # SEC-C-006: trusted key ring — the ticket's `kid` selects the verification
@@ -316,7 +336,7 @@ class LicenseFlow:
                 code="REGISTRATION_FAILED",
             )
 
-        data = resp.json()
+        data = resp.json_object()
         registration = DeviceRegistration(
             device_id=data["device_id"],
             device_token=data["device_token"],
@@ -361,7 +381,7 @@ class LicenseFlow:
         if resp.status != 200:
             raise LicenseError(f"License activation failed (HTTP {resp.status})", code="ACTIVATION_FAILED")
 
-        data = resp.json()
+        data = resp.json_object()
         claims = self.verify_cloud_ticket(data["license_token"])
         if claims.nonce and claims.nonce != sent_nonce:
             raise LicenseError(
@@ -412,9 +432,27 @@ class LicenseFlow:
         try:
             # SEC-C-006: verify with the key the ticket names (kid), not
             # blindly with whatever single key was wired at construction.
-            data: dict[str, Any] = json.loads(payload_bytes.decode("utf-8"))
+            # F4 (REVIEW Aşama 3): `json.loads` accepts the bare literals
+            # NaN / Infinity / -Infinity by default. `float('nan')` satisfies
+            # `isinstance(x, float)`, and every comparison against NaN is
+            # False — so a signed ticket with `"exp": NaN` sailed through BOTH
+            # the expiry and offline-grace checks (`now > nan` is False), and
+            # `"exp": Infinity` produced an eternally-valid license. The
+            # non-standard constants are rejected at parse time so no
+            # non-finite value can reach a security decision.
+            data: dict[str, Any] = json.loads(
+                payload_bytes.decode("utf-8"),
+                parse_constant=_reject_non_finite_json_constant,
+            )
         except (ValueError, UnicodeDecodeError) as exc:
             raise LicenseError("Malformed ticket payload", code="MALFORMED_PAYLOAD", cause=exc) from exc
+        if not isinstance(data, dict):
+            # A JSON array/string/number payload would otherwise raise a raw
+            # AttributeError on `.keys()` — convert to a controlled error.
+            raise LicenseError(
+                f"Cloud ticket payload must be a JSON object, got {type(data).__name__}",
+                code="MALFORMED_SCHEMA",
+            )
 
         required = {
             "iss", "aud", "kid", "license_id", "organization_id", "device_id",
@@ -424,6 +462,65 @@ class LicenseFlow:
             raise LicenseError("Incomplete cloud ticket schema", code="INCOMPLETE_SCHEMA")
         if data["iss"] != "universal-can-cloud" or data["aud"] != "diagnostic-desktop-app":
             raise LicenseError("Ticket issuer/audience mismatch", code="ISSUER_MISMATCH")
+        # F4: the schema version must be an explicitly supported revision.
+        if data["schema_version"] not in _SUPPORTED_TICKET_SCHEMA_VERSIONS:
+            raise LicenseError(
+                f"Unsupported cloud ticket schema_version {data['schema_version']!r}",
+                code="UNSUPPORTED_SCHEMA_VERSION",
+            )
+        # F4: identity/opaque fields must be non-empty bounded strings.
+        for field_name in ("license_id", "organization_id", "device_id", "tier"):
+            value = data.get(field_name)
+            if not isinstance(value, str) or not value.strip():
+                raise LicenseError(
+                    f"Cloud ticket field '{field_name}' must be a non-empty string",
+                    code="MALFORMED_SCHEMA",
+                )
+            if len(value) > _MAX_TICKET_STRING_CHARS:
+                raise LicenseError(
+                    f"Cloud ticket field '{field_name}' exceeds {_MAX_TICKET_STRING_CHARS} characters",
+                    code="MALFORMED_SCHEMA",
+                )
+        if not isinstance(data.get("kid"), str) or not data["kid"]:
+            raise LicenseError("Cloud ticket 'kid' must be a non-empty string", code="MALFORMED_SCHEMA")
+        # F4: `features` must be a bounded list of short strings.
+        features = data.get("features")
+        if not isinstance(features, list):
+            raise LicenseError("Cloud ticket 'features' must be a list", code="MALFORMED_SCHEMA")
+        if len(features) > _MAX_TICKET_FEATURES:
+            raise LicenseError(
+                f"Cloud ticket declares {len(features)} features (max {_MAX_TICKET_FEATURES})",
+                code="MALFORMED_SCHEMA",
+            )
+        for item in features:
+            if not isinstance(item, str) or len(item) > _MAX_TICKET_STRING_CHARS:
+                raise LicenseError(
+                    "Cloud ticket 'features' entries must be bounded strings",
+                    code="MALFORMED_SCHEMA",
+                )
+        # F4: numeric timestamps must be finite non-negative numbers.
+        # Deliberately NO cross-field ordering constraints: `offline_until`
+        # may precede `iat` (grace already closed) or exceed `exp` (grace
+        # longer than the license), and `exp` may precede `iat` (an already
+        # expired ticket). All of those are well-formed payloads that must
+        # produce the normal LICENSE_EXPIRED / OFFLINE_GRACE_EXPIRED
+        # outcome — expressing them as MALFORMED_SCHEMA would both break
+        # legitimate issuers and mask the real reason from the operator.
+        # The security property that matters is that no NON-FINITE value can
+        # reach the deadline arithmetic below (NaN/Infinity parse rejection
+        # plus this isfinite check).
+        for field_name in ("iat", "exp", "offline_until"):
+            value = data.get(field_name)
+            if type(value) not in (int, float) or isinstance(value, bool) or not math.isfinite(float(value)):
+                raise LicenseError(
+                    f"Cloud ticket '{field_name}' must be a finite number",
+                    code="MALFORMED_SCHEMA",
+                )
+            if float(value) < 0:
+                raise LicenseError(
+                    f"Cloud ticket '{field_name}' must be non-negative",
+                    code="MALFORMED_SCHEMA",
+                )
         # P1-6 (REVIEW H-5): an empty nonce skips the anti-replay comparison
         # downstream (`if claims.nonce and ...` is falsy) — require a
         # non-empty string here so a ticket issued without a nonce is

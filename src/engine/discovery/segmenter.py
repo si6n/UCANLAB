@@ -1,4 +1,4 @@
-﻿"""Signal segmentation, multi-byte boundary detection, endianness and signedness analysis."""
+"""Signal segmentation, multi-byte boundary detection, endianness and signedness analysis."""
 
 from __future__ import annotations
 

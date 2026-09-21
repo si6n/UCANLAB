@@ -1,4 +1,4 @@
-﻿"""Universal CAN-Bus Platform - Desktop Launcher & Bootstrap Subsystem."""
+"""Universal CAN-Bus Platform - Desktop Launcher & Bootstrap Subsystem."""
 
 from src.launcher.app import LauncherPreflightReport, UniversalCanLauncher
 from src.launcher.auth import AuthStatus, LauncherAuthManager

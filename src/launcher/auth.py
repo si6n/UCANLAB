@@ -169,7 +169,17 @@ class LauncherAuthManager:
             )
 
     def login_web_session(self, session_token: str) -> bool:
-        """Store session token from web login."""
+        """Store session token from web login.
+
+        A5-1 (REVIEW Aşama 5): an empty or whitespace-only value used to be
+        accepted and stored as ``b""``. Because `has_session_token()` only
+        checks for the secret's presence, `AuthStatus.is_authenticated` then
+        reported True for a session with no credential. Reject blank input at
+        the boundary so a "logged in" state always implies a real token.
+        """
+        if not isinstance(session_token, str) or not session_token.strip():
+            logger.warning("Rejected web session login with an empty token")
+            return False
         try:
             self.client.store_session_token(session_token.strip())
             return True

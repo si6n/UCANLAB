@@ -1,4 +1,4 @@
-﻿"""Rolling counter detection in CAN message payloads."""
+"""Rolling counter detection in CAN message payloads."""
 
 from __future__ import annotations
 

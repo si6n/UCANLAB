@@ -283,7 +283,16 @@ class SignalDiscoveryEngine:
         reports = self.analyze_all()
         return DbcBuilder.build_database(reports, approved_only=approved_only)
 
-    def export_dbc(self, file_path: str | Path, approved_only: bool = False) -> None:
-        """Export discovered signals to a .dbc file."""
+    def export_dbc(
+        self,
+        file_path: str | Path,
+        approved_only: bool = False,
+        exports_root: str | Path | None = None,
+    ) -> None:
+        """Export discovered signals to a .dbc file.
+
+        F7: `exports_root` is threaded through to the shared, fail-closed
+        path guard so the target is confined to an explicit root.
+        """
         db = self.build_dbc(approved_only=approved_only)
-        DbcBuilder.export_dbc_file(db, file_path)
+        DbcBuilder.export_dbc_file(db, file_path, exports_root=exports_root)

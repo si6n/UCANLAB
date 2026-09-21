@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import re
-import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +14,11 @@ except ImportError:  # pragma: no cover
     savemat = None  # type: ignore[assignment]
 
 from src.core.logging import get_logger
+from src.engine.exporters.path_guard import (
+    atomic_producer_path,
+    commit_producer_path,
+    resolve_export_path,
+)
 
 logger = get_logger("engine.exporters.mat")
 
@@ -22,22 +26,9 @@ _SIG_NAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,127}$")
 
 
 def _resolve_export_path(output_file: str | Path, exports_root: str | Path | None) -> Path:
-    explicit = exports_root is not None
-    root = Path(exports_root) if explicit else (Path.cwd() / "exports")
-    resolved = Path(output_file).resolve()
-    try:
-        is_inside = resolved.is_relative_to(root.resolve())
-    except Exception as exc:
-        raise ValueError(f"Export path validation failed: {exc}") from exc
-    if not is_inside:
-        if not explicit:
-            try:
-                if resolved.is_relative_to(Path(tempfile.gettempdir()).resolve()):
-                    return resolved
-            except Exception:
-                pass
-        raise ValueError(f"Export path escapes exports root: {resolved}")
-    return resolved
+    # F7: shared, fail-closed confinement (see path_guard). The former local
+    # copy exempted the system temp dir when `exports_root` was omitted.
+    return resolve_export_path(output_file, exports_root, allow_cwd_fallback=True)
 
 
 class MatExporter:
@@ -68,6 +59,15 @@ class MatExporter:
             mat_dict[f"{clean_name}_val"] = np.array(values, dtype=np.float64)
             mat_dict[f"{clean_name}_unit"] = unit
 
-        savemat(str(path), mat_dict)
+        # Residual item #2: scipy.io.savemat() opens the path itself, so give it
+        # a scratch path and publish it atomically on success. A failed or
+        # interrupted export must not leave a truncated .mat that looks valid.
+        scratch_path, final_path = atomic_producer_path(path)
+        try:
+            savemat(str(scratch_path), mat_dict)
+        except Exception:
+            scratch_path.unlink(missing_ok=True)
+            raise
+        commit_producer_path(scratch_path, final_path)
         logger.info("Saved MATLAB .mat file", extra={"file": str(path), "signals": len(signals_data)})
         return path

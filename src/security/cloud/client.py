@@ -15,7 +15,7 @@ import urllib.request
 from dataclasses import dataclass, field
 from typing import Any, ClassVar
 
-from src.core.errors import LicenseError, SecurityError, TransportError
+from src.core.errors import LicenseError, ProtocolError, SecurityError, TransportError
 from src.core.logging import get_logger
 from src.safety.secret_provider import SecretProvider, get_default_secret_provider
 
@@ -243,6 +243,39 @@ class CloudResponse:
     def json(self) -> Any:
         return json.loads(self.body.decode("utf-8")) if self.body else None
 
+    def json_object(self) -> dict[str, Any]:
+        """F5 (REVIEW Aşama 6): parse the body as a JSON OBJECT, fail-closed.
+
+        `json()` raised a raw `json.JSONDecodeError` for a malformed body and
+        returned a bare `AttributeError` when the body was valid JSON but not
+        an object (e.g. a list or a string), both of which escaped as
+        unhandled exceptions instead of a typed error. Callers that expect an
+        object should use this accessor, which raises
+        `ProtocolError(code="CLOUD_MALFORMED_RESPONSE")`.
+        """
+        if not self.body:
+            raise ProtocolError(
+                "Cloud response body is empty but a JSON object was expected",
+                code="CLOUD_MALFORMED_RESPONSE",
+                details={"status": self.status},
+            )
+        try:
+            parsed = json.loads(self.body.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ProtocolError(
+                f"Cloud response body is not valid JSON: {exc}",
+                code="CLOUD_MALFORMED_RESPONSE",
+                details={"status": self.status},
+                cause=exc,
+            ) from exc
+        if not isinstance(parsed, dict):
+            raise ProtocolError(
+                f"Cloud response body is JSON {type(parsed).__name__}, expected an object",
+                code="CLOUD_MALFORMED_RESPONSE",
+                details={"status": self.status, "type": type(parsed).__name__},
+            )
+        return parsed
+
 
 class CloudClient:
     """Minimal authenticated HTTP client for the cloud REST API.
@@ -401,7 +434,19 @@ class CloudClient:
         content_type: str | None = None,
         extra_headers: dict[str, str] | None = None,
         health_endpoint: bool = False,
+        session_token: str | None = None,
     ) -> CloudResponse:
+        """Perform a cloud request.
+
+        D2 (REVIEW Aşama 2): ``session_token`` is a REQUEST-SCOPED credential
+        override. Previously the only way to make a call with a different
+        session was to save the caller's token into the shared secret vault,
+        fire the request, then restore the previous value — a save/fire/restore
+        window during which a concurrent request would use the WRONG session,
+        and a crash inside the window left the vault holding the wrong token.
+        Passing the token here keeps the override local to this call and never
+        mutates shared state; the vault is read only when no override is given.
+        """
         url = self.config.endpoint(path, health_endpoint=health_endpoint)
         from urllib.parse import urlsplit
 
@@ -428,8 +473,9 @@ class CloudClient:
         elif content_type:
             headers["Content-Type"] = content_type
 
-        session = None
-        if self._secrets.has_secret(_SESSION_SECRET_NAME):
+        # D2: an explicit override wins and never touches the shared vault.
+        session = session_token
+        if session is None and self._secrets.has_secret(_SESSION_SECRET_NAME):
             session = self._secrets.get_secret(_SESSION_SECRET_NAME).decode("utf-8")
         if session:
             headers["Cookie"] = f"ucan_session={session}"

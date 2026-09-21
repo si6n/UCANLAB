@@ -1,4 +1,4 @@
-﻿"""Pre-flight prerequisites and hardware driver checker for Universal CAN Launcher.
+"""Pre-flight prerequisites and hardware driver checker for Universal CAN Launcher.
 
 Inspects Windows environment for Edge WebView2, Visual C++ Redistributable,
 and CAN interface hardware drivers (PCAN, Kvaser, RP1210, Vector).

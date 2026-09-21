@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import re
-import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -15,6 +14,7 @@ except Exception:  # pragma: no cover
     Signal = None  # type: ignore[assignment,misc]
 
 from src.core.logging import get_logger
+from src.engine.exporters.path_guard import resolve_export_path
 
 logger = get_logger("engine.exporters.mdf4")
 
@@ -52,22 +52,9 @@ def _validate_signal_series(sig_name: str, timestamps: list[float], values: list
 
 
 def _resolve_export_path(output_file: str | Path, exports_root: str | Path | None) -> Path:
-    explicit = exports_root is not None
-    root = Path(exports_root) if explicit else (Path.cwd() / "exports")
-    resolved = Path(output_file).resolve()
-    try:
-        is_inside = resolved.is_relative_to(root.resolve())
-    except Exception as exc:
-        raise ValueError(f"Export path validation failed: {exc}") from exc
-    if not is_inside:
-        if not explicit:
-            try:
-                if resolved.is_relative_to(Path(tempfile.gettempdir()).resolve()):
-                    return resolved
-            except Exception:
-                pass
-        raise ValueError(f"Export path escapes exports root: {resolved}")
-    return resolved
+    # F7: shared, fail-closed confinement (see path_guard). The former local
+    # copy exempted the system temp dir when `exports_root` was omitted.
+    return resolve_export_path(output_file, exports_root, allow_cwd_fallback=True)
 
 
 class Mdf4Exporter:

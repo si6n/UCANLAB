@@ -166,7 +166,7 @@ class TelemetryUploader:
                     f"Session not found for resume (HTTP {resp.status})",
                     code="SESSION_NOT_FOUND",
                 )
-            session = resp.json()
+            session = resp.json_object()
             session_id = clean_session_id
         else:
             resp = self.client.request(
@@ -185,7 +185,7 @@ class TelemetryUploader:
                     code="SESSION_ANNOUNCE_FAILED",
                 )
 
-            session = resp.json()
+            session = resp.json_object()
             if not isinstance(session, dict) or not session.get("id"):
                 raise LicenseError("Session announce returned no id", code="SESSION_ANNOUNCE_FAILED")
             session_id = _sanitize_session_id(session.get("id"))
@@ -239,7 +239,7 @@ class TelemetryUploader:
             self._emit(progress)
             raise LicenseError(progress.error, code="COMPLETE_FAILED")
 
-        result_data = done.json()
+        result_data = done.json_object()
         progress.status = result_data.get("status", "processing")
         self._emit(progress)
 
@@ -260,7 +260,7 @@ class TelemetryUploader:
         resp = self.client.request("GET", f"/telematics/sessions/{session_id}")
         if resp.status != 200:
             raise LicenseError(f"Session not found: {session_id}", code="SESSION_NOT_FOUND")
-        data = resp.json()
+        data = resp.json_object()
         total_chunks = data.get("total_chunks", 0)
         received_chunks = self._parse_received_chunks(data, total_chunks)
         uploaded_count = len(received_chunks) if received_chunks else (

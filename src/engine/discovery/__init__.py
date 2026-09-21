@@ -1,4 +1,4 @@
-﻿"""Evidence-Based Signal Discovery & Reverse Engineering Engine.
+"""Evidence-Based Signal Discovery & Reverse Engineering Engine.
 
 Complies with MASTER_PLAN.md Section 7 and docs/specs/signal_discovery_spec.md.
 """

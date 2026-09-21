@@ -10,12 +10,12 @@ from __future__ import annotations
 import hashlib
 import hmac as _hmac
 import html as html_mod
-import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
 
 from src.core.logging import get_logger
+from src.engine.exporters.path_guard import atomic_write_text, resolve_export_path
 from src.protocols.j1939.diagnostics import DMMessage
 
 logger = get_logger("engine.exporters.report")
@@ -35,22 +35,9 @@ def _sign_canonical(raw: str, signing_key: bytes | None) -> tuple[str, str]:
 
 
 def _resolve_export_path(output_file: str | Path, exports_root: str | Path | None) -> Path:
-    explicit = exports_root is not None
-    root = Path(exports_root) if explicit else (Path.cwd() / "exports")
-    resolved = Path(output_file).resolve()
-    try:
-        is_inside = resolved.is_relative_to(root.resolve())
-    except Exception as exc:
-        raise ValueError(f"Export path validation failed: {exc}") from exc
-    if not is_inside:
-        if not explicit:
-            try:
-                if resolved.is_relative_to(Path(tempfile.gettempdir()).resolve()):
-                    return resolved
-            except Exception:
-                pass
-        raise ValueError(f"Export path escapes exports root: {resolved}")
-    return resolved
+    # F7: shared, fail-closed confinement (see path_guard). The former local
+    # copy exempted the system temp dir when `exports_root` was omitted.
+    return resolve_export_path(output_file, exports_root, allow_cwd_fallback=True)
 
 
 @dataclass(slots=True)
@@ -203,8 +190,9 @@ class DiagnosticReportGenerator:
 </body>
 </html>
 """
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(html_content)
+        # Residual item #2: atomic write — a report carrying a session seal must
+        # never be observed truncated (the hash must match complete contents).
+        atomic_write_text(path, html_content)
 
         logger.info("Generated Diagnostic Service HTML Report", extra={"file": str(path), "hash": report_sha256})
         return path

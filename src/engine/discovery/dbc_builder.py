@@ -171,27 +171,10 @@ class DbcBuilder:
         cls, db: Database, file_path: str | Path, exports_root: str | Path | None = None
     ) -> None:
         """Save database to a .dbc file."""
-        import tempfile
+        # F7: shared, fail-closed confinement (see exporters.path_guard). The
+        # former inline copy waived the root check for the system temp dir.
+        from src.engine.exporters.path_guard import resolve_export_path
 
-        explicit = exports_root is not None
-        root = Path(exports_root) if explicit else (Path.cwd() / "exports")
-        path = Path(file_path).resolve()
-        try:
-            is_inside = path.is_relative_to(root.resolve())
-        except Exception as exc:
-            raise ValueError(f"Export path validation failed: {exc}") from exc
-        if not is_inside:
-            if not explicit:
-                try:
-                    if path.is_relative_to(Path(tempfile.gettempdir()).resolve()):
-                        pass
-                    else:
-                        raise ValueError(f"Export path escapes exports root: {path}")
-                except ValueError:
-                    raise
-                except Exception as exc:
-                    raise ValueError(f"Export path validation failed: {exc}") from exc
-            else:
-                raise ValueError(f"Export path escapes exports root: {path}")
+        path = resolve_export_path(file_path, exports_root, allow_cwd_fallback=True)
         path.parent.mkdir(parents=True, exist_ok=True)
         cantools.database.dump_file(db, str(path))

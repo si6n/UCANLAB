@@ -9,6 +9,7 @@ from pathlib import Path
 from xml.sax.saxutils import escape as xml_escape
 
 from src.core.logging import get_logger
+from src.engine.exporters.path_guard import atomic_write_text, resolve_export_path
 
 logger = get_logger("engine.exporters.kml")
 
@@ -16,28 +17,10 @@ _TRACK_NAME_RE = re.compile(r"^[A-Za-z0-9 _.\-]{1,128}$")
 
 
 def _resolve_export_path(output_file: str | Path, exports_root: str | Path | None) -> Path:
-    import tempfile as _tempfile
-
-    explicit = exports_root is not None
-    root = Path(exports_root) if explicit else (Path.cwd() / "exports")
-    resolved = Path(output_file).resolve()
-    root_resolved = root.resolve()
-    try:
-        is_inside = resolved.is_relative_to(root_resolved)
-    except Exception as exc:
-        raise ValueError(f"Export path validation failed: {exc}") from exc
-    if not is_inside:
-        # Backward-compat for tests/tooling: an omitted exports_root still
-        # permits system-temp staging. Production callers pass an explicit
-        # exports_root and get a strict fail-closed check.
-        if not explicit:
-            try:
-                if resolved.is_relative_to(Path(_tempfile.gettempdir()).resolve()):
-                    return resolved
-            except Exception:
-                pass
-        raise ValueError(f"Export path escapes exports root: {resolved}")
-    return resolved
+    # F7: shared, fail-closed confinement. The previous local copy waived the
+    # root check for anything under the system temp dir when `exports_root`
+    # was omitted — a write-outside-the-tree primitive.
+    return resolve_export_path(output_file, exports_root, allow_cwd_fallback=True)
 
 
 @dataclass(slots=True)
@@ -111,8 +94,9 @@ class KmlExporter:
   </Document>
 </kml>
 """
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(kml_content)
+        # Residual item #2: atomic write — a KML file must never be observed
+        # half-written (see path_guard.atomic_write_text).
+        atomic_write_text(path, kml_content)
 
         logger.info("Saved Google Earth KML track", extra={"file": str(path), "points": len(points)})
         return path

@@ -1,4 +1,4 @@
-﻿"""Automated delta and full update manager for Universal CAN Platform.
+"""Automated delta and full update manager for Universal CAN Platform.
 
 Provides cryptographic SHA-256 verified package download, semver comparison,
 and atomic file replacement to keep the desktop client updated seamlessly.
@@ -173,7 +173,10 @@ class UpdateManager:
                     check_succeeded=False,
                 )
 
-            data = resp.json()
+            # F5: parse as a JSON object; a malformed body raises a typed
+            # ProtocolError(CLOUD_MALFORMED_RESPONSE) instead of a raw
+            # JSONDecodeError/AttributeError escaping the update check.
+            data = resp.json_object()
             latest_v = data.get("version", self.current_version)
             # REVIEW2 #8: an unparseable manifest version is a FAILED check
             # (check_succeeded=False), never a silent "no update" verdict —

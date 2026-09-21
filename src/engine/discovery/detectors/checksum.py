@@ -1,4 +1,4 @@
-﻿"""Checksum and CRC-8/16/32 detection in CAN message payloads.
+"""Checksum and CRC-8/16/32 detection in CAN message payloads.
 
 Implements standard CRC-8 catalogue models (AUTOSAR, SAE-J1850, SMBus, Maxim, Hitag)
 and 16/32-bit variants referenced in MASTER_PLAN §7 and docs/specs/signal_discovery_spec.md.

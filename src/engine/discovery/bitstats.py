@@ -1,4 +1,4 @@
-﻿"""Statistical bit-level and entropy analysis for CAN message payloads."""
+"""Statistical bit-level and entropy analysis for CAN message payloads."""
 
 from __future__ import annotations
 
