@@ -247,6 +247,14 @@ def test_machine_seed_read_failure_fails_closed(tmp_path: Path, monkeypatch: pyt
     storage_file = tmp_path / "secrets.bin"
     seed_file = tmp_path / "machine_seed.bin"
     seed_file.write_bytes(b"preexisting_seed_material_32_bytes_pad!!")
+    # _get_machine_seed refuses a group/world-accessible seed before it ever
+    # attempts the read, so an inherited umask (0o644 on CI) would mask the
+    # OSError path this test is about. Pin owner-only mode first; chmod is a
+    # no-op on Windows, where the POSIX permission gate does not run.
+    try:
+        seed_file.chmod(0o600)
+    except (OSError, NotImplementedError):  # pragma: no cover - non-POSIX
+        pass
 
     backend = LinuxSecretBackend(storage_path=storage_file)
 

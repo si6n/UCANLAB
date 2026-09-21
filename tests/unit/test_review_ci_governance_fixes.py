@@ -8,8 +8,10 @@ and fails closed once an entry expires.
 
 from __future__ import annotations
 
+import contextlib
 import datetime as dt
 import importlib.util
+import io
 import sys
 from pathlib import Path
 
@@ -125,10 +127,64 @@ def test_expiry_on_today_is_flagged(checker, tmp_path: Path) -> None:
     assert checker.expired_ids(entries, dt.date(2026, 6, 15)) == ["ADV-1"]
 
 
-def test_print_flags_emits_ignore_vuln(checker, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def _capture_raw_stdout(call) -> bytes:
+    """Run ``call`` and return the exact bytes it wrote to stdout.
+
+    ``--print-flags`` writes to ``sys.stdout.buffer`` on purpose (so the
+    payload is never newline-translated), which a text-mode ``capsys``
+    capture cannot represent faithfully. Redirecting to a binary buffer and
+    reading it back INSIDE the context keeps the raw payload — including any
+    ``\r`` or trailing space — visible to the assertion.
+    """
+    buf = io.BytesIO()
+    wrapper = io.TextIOWrapper(buf, encoding="utf-8", newline="")
+    with contextlib.redirect_stdout(wrapper):
+        call()
+        wrapper.flush()
+    return buf.getvalue()
+
+def test_print_flags_emits_ignore_vuln(checker, tmp_path: Path) -> None:
+    """The flag payload must survive CI command substitution verbatim.
+
+    CI consumes this as `$(python scripts/check_security_exceptions.py
+    --print-flags)` inside an UNQUOTED substitution. Bash strips the trailing
+    newline but NOT a carriage return, so a Windows-style ``\\r\\n`` (or a
+    trailing space from joining) turns the last ID into ``ADV-1\\r`` and
+    pip-audit then aborts with "couldn't find a supported project file".
+
+    Asserted on raw bytes because that is exactly what the shell sees — a
+    text-mode `capsys` capture would hide the CRLF/space defect that broke CI.
+    """
     path = _write(tmp_path, _VALID)
-    assert checker.main(["--path", str(path), "--print-flags"]) == 0
-    assert "--ignore-vuln ADV-1" in capsys.readouterr().out
+    out = _capture_raw_stdout(
+        lambda: checker.main(["--path", str(path), "--print-flags"])
+    )
+
+    assert out == b"--ignore-vuln ADV-1", f"unexpected flag payload: {out!r}"
+    assert b"\r" not in out, "flag payload must not contain a carriage return"
+    assert b"\n" not in out, "flag payload must not contain a newline"
+    assert not out.endswith(b" "), "flag payload must not end with a space"
+
+
+def test_print_flags_payload_matches_the_committed_exceptions_file(checker) -> None:
+    """The real repo file must emit a clean, single-line, CR-free payload."""
+    from scripts.check_security_exceptions import DEFAULT_PATH
+
+    out = _capture_raw_stdout(
+        lambda: checker.main(["--path", str(DEFAULT_PATH), "--print-flags"])
+    )
+
+    assert b"\r" not in out and b"\n" not in out, f"payload must be one CR/LF-free line: {out!r}"
+    assert out and not out.endswith(b" "), f"payload must not end with a space: {out!r}"
+
+    # The payload is a space-separated sequence of `--ignore-vuln <ID>` pairs;
+    # every `--ignore-vuln` must be followed by a non-empty, flag-free value.
+    tokens = out.split(b" ")
+    for index, token in enumerate(tokens):
+        if token == b"--ignore-vuln":
+            assert index + 1 < len(tokens), "dangling --ignore-vuln with no value"
+            value = tokens[index + 1]
+            assert value and not value.startswith(b"-"), f"bad advisory id: {value!r}"
 
 
 def test_main_fails_closed_on_expired_entry(checker, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

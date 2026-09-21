@@ -133,9 +133,20 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     if args.print_flags:
-        for entry in entries:
-            print(f"--ignore-vuln {entry['id']}", end=" ")
-        print()
+        # Emit on ONE line with no trailing space and no carriage return.
+        #
+        # This output is consumed by CI as `$(python ... --print-flags)` inside
+        # an unquoted command substitution. Word-splitting then turns it into
+        # separate argv entries, so the IDs must be space-separated and the
+        # result must not carry a trailing newline or a stray `\r`: bash strips
+        # `\n` but NOT `\r`, and a `\r`-terminated value makes pip-audit read
+        # `PYSEC-2026-2447\r` and abort with "couldn't find a supported project
+        # file". Writing bytes to stdout.buffer keeps the payload exactly as
+        # constructed regardless of platform text-mode translation.
+        flags = " ".join(f"--ignore-vuln {entry['id']}" for entry in entries)
+        if flags:
+            sys.stdout.buffer.write(flags.encode("utf-8"))
+        sys.stdout.buffer.flush()
     else:
         print(f"OK: {len(entries)} security exception(s) valid, none expired")
     return 0

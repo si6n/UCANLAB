@@ -25,6 +25,7 @@ still open at HEAD `6456d14`) and then fixed:
 from __future__ import annotations
 
 import json
+import os
 import sys
 import threading
 from pathlib import Path
@@ -479,10 +480,28 @@ def _linux_backend(tmp_path: Path):
     return LinuxSecretBackend(storage_path=tmp_path / "secrets.bin")
 
 
+def _write_seed(path: Path, payload: bytes) -> None:
+    """Write a machine seed with owner-only permissions.
+
+    ``LinuxSecretBackend._get_machine_seed`` refuses a seed that is
+    group/world accessible (mode & 0o077). A file created with the process
+    umask (0o644 on a typical CI runner) trips that permission gate before
+    the length/type check these tests target, so they would fail for the
+    wrong reason on Linux while passing on Windows (where the POSIX gate
+    is skipped). Creating with 0o600 keeps each test measuring what it
+    asserts.
+    """
+    path.write_bytes(payload)
+    try:
+        path.chmod(0o600)
+    except (OSError, NotImplementedError):  # pragma: no cover - non-POSIX
+        pass
+
+
 def test_a5_3_short_seed_is_rejected(tmp_path: Path) -> None:
     """A5-3: a 3-byte seed must not be used as the vault root key."""
     backend = _linux_backend(tmp_path)
-    (tmp_path / "machine_seed.bin").write_bytes(b"abc")
+    _write_seed(tmp_path / "machine_seed.bin", b"abc")
     with pytest.raises(SecurityError, match="invalid length") as exc_info:
         backend._get_machine_seed()
     assert exc_info.value.code == "MACHINE_SEED_INVALID_LENGTH"
@@ -490,7 +509,7 @@ def test_a5_3_short_seed_is_rejected(tmp_path: Path) -> None:
 
 def test_a5_3_oversized_seed_is_rejected(tmp_path: Path) -> None:
     backend = _linux_backend(tmp_path)
-    (tmp_path / "machine_seed.bin").write_bytes(b"a" * 64)
+    _write_seed(tmp_path / "machine_seed.bin", b"a" * 64)
     with pytest.raises(SecurityError):
         backend._get_machine_seed()
 
@@ -499,8 +518,21 @@ def test_a5_3_correct_length_seed_is_accepted(tmp_path: Path) -> None:
     """No false positive: an exactly-32-byte seed is used."""
     backend = _linux_backend(tmp_path)
     seed = bytes(range(32))
-    (tmp_path / "machine_seed.bin").write_bytes(seed)
+    _write_seed(tmp_path / "machine_seed.bin", seed)
     assert backend._get_machine_seed() == seed
+
+
+def test_a5_3_group_readable_seed_is_rejected(tmp_path: Path) -> None:
+    """A5-3: a group/world-readable seed must be refused (POSIX only)."""
+    if os.name != "posix":
+        pytest.skip("POSIX permission gate does not apply on this host")
+    backend = _linux_backend(tmp_path)
+    seed_file = tmp_path / "machine_seed.bin"
+    _write_seed(seed_file, bytes(range(32)))
+    seed_file.chmod(0o644)
+    with pytest.raises(SecurityError, match="group/world accessible") as exc_info:
+        backend._get_machine_seed()
+    assert exc_info.value.code == "MACHINE_SEED_INSECURE_PERMISSIONS"
 
 
 def test_a5_3_seed_symlink_is_rejected(tmp_path: Path) -> None:

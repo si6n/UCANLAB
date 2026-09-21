@@ -56,7 +56,21 @@ def resolve_export_path(
     else:
         # A relative name is interpreted as a basename INSIDE the root, so a
         # caller cannot escape with "../../etc/passwd" either.
-        if any(part in ("..", "") for part in candidate.parts) or candidate.name != str(candidate):
+        #
+        # `Path.parts` splits on the PLATFORM separator only, so on POSIX a
+        # Windows-style name such as `..\\evil.mat` arrives as a single part
+        # and slips past a parts-based check — while a Windows consumer of the
+        # same export directory would read it as a traversal. Reject both
+        # separators explicitly, and additionally refuse any name that still
+        # contains a separator after normalisation.
+        name = str(candidate)
+        if (
+            any(part in ("..", "") for part in candidate.parts)
+            or candidate.name != name
+            or "\\" in name
+            or "/" in name
+            or name in (".", "..")
+        ):
             raise ValueError(f"Export filename must be a bare name, got {output_file!r}")
         resolved = (root / candidate.name).resolve()
 
