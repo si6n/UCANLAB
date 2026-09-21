@@ -148,18 +148,115 @@ def _resolve_cloud_base_url() -> str:
     return DEFAULT_CLOUD_BASE_URL
 
 
-def _app_data_root() -> Path:
-    """Resolve the application's writable data root (L-12 / P3-8).
+def _resource_root() -> Path:
+    """Resolve the read-only BUNDLE/resource root (frozen) or repo root (source).
 
-    Raw-Python runs and frozen builds both anchor to a stable root instead
-    of the process CWD — launching the exe from a shortcut with a different
-    working directory used to scatter logs/blackbox and exports wherever the
-    OS happened to point, and (worse) made the upload-root allowlist depend
-    on the launch directory.
+    D3 (REVIEW Aşama 2): this is the directory that holds bundled, read-only
+    assets (the frontend ``dist/``, DBCs, catalogs). In a PyInstaller onefile
+    build it is ``sys._MEIPASS`` — a RUNTIME EXTRACTION directory that the
+    bootloader DELETES on exit. It must never be used as a writable location.
     """
     if getattr(sys, "frozen", False):
-        return Path(getattr(sys, "_MEIPASS", sys.executable)).resolve().parent
+        return Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent)).resolve()
     return Path(__file__).resolve().parents[2]
+
+
+def _app_data_root() -> Path:
+    """Resolve the application's PERSISTENT writable data root.
+
+    D3 (REVIEW Aşama 2): the frozen branch previously returned
+    ``Path(sys._MEIPASS).resolve().parent``. For a onefile build ``_MEIPASS``
+    is the runtime extraction directory, which is destroyed when the process
+    exits — so every artefact written under it was silently lost on restart.
+    The damage was not limited to logs: the LICENSE ANTI-ROLLBACK HWM
+    (``logs/license_hwm.txt``) also lived here, so a frozen build lost its
+    clock anchor each run and, now that the HWM loader fails closed, hit
+    ``LicenseError(HWM_UNAVAILABLE)`` on the next launch. The upload
+    allowlist, blackbox ring and exports had the same durability problem.
+
+    The writable root is therefore the OS-standard per-user data directory:
+      * Windows: ``%LOCALAPPDATA%\\UniversalCAN``
+      * macOS:   ``~/Library/Application Support/UniversalCAN``
+      * Linux:   ``$XDG_STATE_HOME/universal_can`` (or ``~/.local/state/...``)
+
+    A raw-Python run keeps anchoring to the repository root so developer
+    workflows (and the test-suite fixtures) stay unchanged.
+    """
+    if not getattr(sys, "frozen", False):
+        return Path(__file__).resolve().parents[2]
+
+    if sys.platform == "win32":
+        base = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA")
+        root = Path(base) if base else Path.home() / "AppData" / "Local"
+        return (root / "UniversalCAN").resolve()
+    if sys.platform == "darwin":
+        return (Path.home() / "Library" / "Application Support" / "UniversalCAN").resolve()
+    state_home = os.environ.get("XDG_STATE_HOME")
+    base = Path(state_home) if state_home else Path.home() / ".local" / "state"
+    return (base / "universal_can").resolve()
+
+
+def _ensure_app_data_root() -> Path:
+    """Return the writable data root, creating it (owner-only where possible).
+
+    D3: the persistent root may not exist on first run (and the old
+    `_MEIPASS`-parent location happened to exist already), so every writable
+    sub-path must be created before use. On POSIX the directory is created
+    with mode 0700 so the secret/HWM files inside are not world-readable.
+    """
+    root = _app_data_root()
+    if not root.exists():
+        root.mkdir(parents=True, exist_ok=True)
+        if os.name == "posix":
+            try:
+                os.chmod(root, 0o700)
+            except OSError:  # pragma: no cover - best-effort hardening
+                logger.warning("Could not restrict data-root permissions", extra={"root": str(root)})
+    return root
+
+
+# D6 / A5-4 (REVIEW Aşama 2 & 5): bridge input bounds. Every JS-reachable
+# method that takes free-form text must validate type, length and character
+# class before the value reaches a protocol client, the filesystem, an HTTP
+# body or the AI engine. Centralised so a new endpoint cannot silently omit
+# them (mirrors the existing REPLAY_PATH_MAX_CHARS pattern).
+BRIDGE_TEXT_MAX_CHARS: int = 512
+BRIDGE_IDENTIFIER_MAX_CHARS: int = 256
+#: Upper bound for a copilot prompt (the engine does O(n^2) fuzzy matching).
+COPILOT_QUERY_MAX_CHARS: int = 8192
+#: Bounds for a license reference / activation token string.
+LICENSE_REF_MAX_CHARS: int = 2048
+
+
+def _validate_bridge_text(
+    value: object,
+    *,
+    field: str,
+    max_chars: int,
+    allow_empty: bool = False,
+) -> str | None:
+    """Return a human-readable problem string, or None when `value` is usable.
+
+    Rejects non-string input, control characters other than tab/newline, and
+    over-long values. Used by the WebView bridge so malformed renderer input
+    becomes a controlled error rather than a raw TypeError deep in a protocol
+    client (D6) or an unbounded workload in the analyzer (A5-4).
+    """
+    if value is None:
+        return f"'{field}' is required" if not allow_empty else None
+    if not isinstance(value, str):
+        return f"'{field}' must be a string, got {type(value).__name__}"
+    if len(value) > max_chars:
+        return f"'{field}' exceeds the maximum length of {max_chars} characters"
+    if not value.strip():
+        return None if allow_empty else f"'{field}' must not be empty"
+    # Reject control characters (except tab/newline which are benign in text).
+    for ch in value:
+        if ch in ("\t", "\n", "\r"):
+            continue
+        if ord(ch) < 0x20 or ord(ch) == 0x7F:
+            return f"'{field}' contains a disallowed control character"
+    return None
 
 
 class DesktopApiBridge:
@@ -283,6 +380,21 @@ class DesktopApiBridge:
             pass
 
     def ask_copilot(self, query: str) -> str:
+        # A5-4 (REVIEW Aşama 5): the WebView input had no upper bound and no
+        # type check, so an oversized prompt pushed the deterministic engine
+        # through normalisation + tokenisation + Levenshtein + rule matching
+        # with unbounded CPU/memory. A non-str argument previously escaped as
+        # a raw TypeError/AttributeError into the bridge. Bound it here and
+        # return a structured error instead.
+        problem = _validate_bridge_text(
+            query, field="query", max_chars=COPILOT_QUERY_MAX_CHARS
+        )
+        if problem is not None:
+            logger.warning("ask_copilot rejected input", extra={"reason": problem})
+            return json.dumps(
+                {"error": problem, "code": "INVALID_COPILOT_QUERY"},
+                ensure_ascii=False,
+            )
         return self.app.query_copilot(query)
 
     # ------------------------------------------------------------------
@@ -582,41 +694,26 @@ class DesktopApiBridge:
             resp = self.app.cloud_client.request("GET", "/health", health_endpoint=True)
             if resp.status == 200:
                 user_info = None
-                # Cookie-via-extra_headers path removed: CloudClient drops
-                # protected headers, so the old one silently tested the
-                # STORED session instead of the supplied token. An explicit
-                # override token goes through the store_session_token flow
-                # (save → test → restore) instead of header smuggling.
+                # D2 (REVIEW Aşama 2): the previous implementation SAVED the
+                # candidate token into the shared secret vault, fired the
+                # request, then RESTORED the old value. During that window a
+                # concurrent request used the wrong session, and a crash left
+                # the vault holding the candidate. The override is now passed
+                # per-request (`session_token=`) and shared state is untouched.
                 override = session_override if session_override is not None else session_token
                 if override is not None and str(override).strip():
                     candidate = str(override).strip()
                     if len(candidate) > 4096:
                         return {"success": False, "error": "Oturum belirteci çok uzun"}
-                    client = self.app.cloud_client
-                    had_stored = client.has_session_token()
-                    prev: str | None = None
-                    if had_stored:
-                        try:
-                            prev = client._secrets.get_secret("CLOUD_SESSION_TOKEN").decode("utf-8")
-                        except Exception:
-                            prev = None
-                    try:
-                        client.store_session_token(candidate)
-                        test_resp = client.request("GET", "/auth/me")
-                        if test_resp.status == 200:
-                            user_info = test_resp.json()
-                    finally:
-                        try:
-                            if prev is not None:
-                                client.store_session_token(prev)
-                            else:
-                                client.clear_session_token()
-                        except Exception:
-                            pass
+                    test_resp = self.app.cloud_client.request(
+                        "GET", "/auth/me", session_token=candidate
+                    )
+                    if test_resp.status == 200:
+                        user_info = test_resp.json_object()
                 elif self.app.cloud_client.has_session_token():
                     test_resp = self.app.cloud_client.request("GET", "/auth/me")
                     if test_resp.status == 200:
-                        user_info = test_resp.json()
+                        user_info = test_resp.json_object()
                 return {"success": True, "status": resp.status, "user": user_info}
             return {"success": False, "error": f"Sağlık kontrolü başarısız (HTTP {resp.status})"}
         except Exception as exc:
@@ -681,6 +778,22 @@ class DesktopApiBridge:
             return {"success": False, "error": str(exc)}
 
     def cloud_register_device(self, device_name: str = "Desktop Diagnostic Tool") -> dict[str, Any]:
+        # D6 (REVIEW Aşama 2): this bridge method previously forwarded
+        # `device_name` straight into the cloud client with no type/length/
+        # character checks, so a 1 MB string, a list, or an int reached the
+        # HTTP layer. Validate at the boundary and return a controlled error.
+        # A JS `null`/`undefined` is normalized back to the default rather
+        # than forwarded as `None`.
+        if device_name is None:
+            device_name = "Desktop Diagnostic Tool"
+        problem = _validate_bridge_text(
+            device_name,
+            field="device_name",
+            max_chars=BRIDGE_IDENTIFIER_MAX_CHARS,
+            allow_empty=True,
+        )
+        if problem is not None:
+            return {"success": False, "error": problem, "code": "INVALID_DEVICE_NAME"}
         try:
             if not self.app.license_flow:
                 return {"success": False, "error": "Lisans akışı başlatılamadı"}
@@ -694,6 +807,13 @@ class DesktopApiBridge:
             return {"success": False, "error": str(exc)}
 
     def cloud_activate_license(self, license_ref: str) -> dict[str, Any]:
+        # D6 (REVIEW Aşama 2): validate the activation reference before it is
+        # placed in the cloud request body.
+        problem = _validate_bridge_text(
+            license_ref, field="license_ref", max_chars=LICENSE_REF_MAX_CHARS
+        )
+        if problem is not None:
+            return {"success": False, "error": problem, "code": "INVALID_LICENSE_REF"}
         try:
             if not self.app.license_flow:
                 return {"success": False, "error": "Lisans akışı başlatılamadı"}
@@ -884,7 +1004,11 @@ class DesktopApiBridge:
             safe_path = self._validate_telemetry_upload_path(file_path)
             logger.info(
                 "Cloud telemetry upload accepted",
-                extra={"path": str(safe_path), "bytes": safe_path.stat().st_size},
+                # D5 (REVIEW Aşama 2): log only the file NAME, not the absolute
+            # path — a Windows path such as
+            # `C:\Users\<name>\...\<vehicle-project>\...` leaks the operator's
+            # username and vehicle/project identity into log aggregation.
+            extra={"file": safe_path.name, "bytes": safe_path.stat().st_size},
             )
             # R2-S3: VIN is forwarded only with explicit operator consent.
             result = self.app.telemetry_uploader.upload_file(
@@ -1049,6 +1173,12 @@ class UniversalCanDesktopApp:
                 listen_only=True,
             )
         self._secret_provider = get_default_secret_provider()
+        # A5-2 (REVIEW Aşama 5): the provider's `protection_level()` was never
+        # called, so an EPHEMERAL or FALLBACK_FILE backend — i.e. a silent
+        # downgrade from DPAPI/AES-GCM — went unnoticed at startup. Surface it
+        # explicitly so an operator (and log aggregation) can see the strength
+        # of the secret store actually in use.
+        self._secret_protection_level = self._report_secret_protection_level()
         # P3 (G-3): the composition root must WIRE the cryptographic gates the
         # T41/G-1/HMAC work added — otherwise those fail-closed paths are dead
         # code in production and Stage 5 degrades to a bare `user_confirmed`
@@ -1059,7 +1189,15 @@ class UniversalCanDesktopApp:
         self._gateway_confirm_secret = self._derive_secret(
             "GATEWAY_CONFIRM_SECRET", _GATEWAY_CONFIRM_SECRET_BYTES
         )
-        self.estop = EmergencyStopSystem()
+        # S1-P2-5: pass the SAME provider instance the rest of the app uses.
+        # `EmergencyStopSystem()` with no argument calls
+        # `get_default_secret_provider()` internally, minting a SECOND
+        # provider object. With a persistent backend both instances happen to
+        # share one file, but with `EphemeralSecretBackend` (or a provider-init
+        # failure) they hold INDEPENDENT keys — so the external E-Stop reset
+        # tool, which reads THIS provider, could not validate a token minted by
+        # the E-Stop's own key ("invalid token", no visible cause).
+        self.estop = EmergencyStopSystem(secret_provider=self._secret_provider)
         # P0-1 (REVIEW C-1): the desktop app no longer owns a minting
         # authority — an in-process EStopResetAuthority could mint a valid
         # reset token for any caller that reaches the object graph,
@@ -1149,11 +1287,16 @@ class UniversalCanDesktopApp:
         except Exception:
             self._cloud_pubkey = None
         # M-19 (P2-13): persistent HWM — anti-rollback survives restarts.
+        # D3: anchored to the PERSISTENT writable root (created on demand). In
+        # a frozen onefile build the old `_MEIPASS`-derived path was deleted on
+        # exit, so the anti-rollback anchor silently vanished every run — and
+        # with the fail-closed HWM loader that makes the license path raise
+        # HWM_UNAVAILABLE on the next launch.
         self.license_flow = (
             LicenseFlow(
                 self.cloud_client,
                 self._cloud_pubkey,
-                hwm_path=_app_data_root() / "logs" / "license_hwm.txt",
+                hwm_path=_ensure_app_data_root() / "logs" / "license_hwm.txt",
             )
             if self._cloud_pubkey
             else None
@@ -1604,7 +1747,23 @@ class UniversalCanDesktopApp:
                     "fmi": int(match.group(2)) if match and match.group(2) is not None else None,
                 }
             )
-        report = self.copilot.analyze_session(dtc_payload, {}, [])
+        # F-07 (P1): the panel path used to pass an EMPTY telemetry dict
+        # (`analyze_session(dtc_payload, {}, [])`) while the *chat* path fed the
+        # same copilot the live `_current_rpm/_current_boost/_current_temp`.
+        # The two entry points therefore produced different severities and
+        # confidence scores for the same vehicle state, and the panel silently
+        # dropped every TELEMETRY-correlation cause. Rebuild the same snapshot
+        # the chat path uses, and omit a signal ENTIRELY when it is not
+        # trustworthy so the engine's "Veri Yok" logic (AGENTS.md §2.3) still
+        # fires instead of reading a stale 0.0 as a measured value.
+        live_telemetry: dict[str, Any] = {}
+        if math.isfinite(self._current_rpm) and self._current_rpm > 0.0:
+            live_telemetry["EngineSpeed"] = self._current_rpm
+        if math.isfinite(self._current_boost):
+            live_telemetry["BoostPressure"] = self._current_boost
+        if math.isfinite(self._current_temp) and self._current_temp > 0.0:
+            live_telemetry["CoolantTemp"] = self._current_temp
+        report = self.copilot.analyze_session(dtc_payload, live_telemetry, [])
         card = compose_user_card(report, session, is_simulating=self._is_simulating)
         return {
             "success": True,
@@ -1801,6 +1960,33 @@ class UniversalCanDesktopApp:
             provider.store_secret(key_name, os.urandom(nbytes))
             logger.info("Generated and persisted TX authorization secret %s", key_name)
         return provider.get_secret(key_name)
+
+    def _report_secret_protection_level(self) -> str:
+        """A5-2: surface (and warn about) the active secret-store strength.
+
+        A silent downgrade from DPAPI / AES-GCM-0600 to an EPHEMERAL or
+        FALLBACK_FILE backend weakens every key this app derives (TX
+        authorization, gateway confirmation, E-Stop, cloud session). The
+        provider already exposes `protection_level()`; nothing consumed it, so
+        the downgrade was invisible. Returns the level's string value.
+        """
+        try:
+            level = self._secret_provider.protection_level()
+        except Exception as exc:  # noqa: BLE001 — reporting must never block boot
+            logger.warning("Could not determine secret-store protection level", extra={"error": str(exc)})
+            return "UNKNOWN"
+
+        name = getattr(level, "value", str(level))
+        degraded = name in ("EPHEMERAL", "FALLBACK_FILE")
+        if degraded:
+            logger.warning(
+                "Secret store is running in a DEGRADED protection mode: cryptographic gates "
+                "use non-persistent or weaker key material.",
+                extra={"protection_level": name},
+            )
+        else:
+            logger.info("Secret-store protection level", extra={"protection_level": name})
+        return name
 
     def arm_tx(self, reason: str = "Operator explicitly armed TX via desktop UI") -> dict[str, Any]:
         """Explicitly transition SafetySupervisor from PASSIVE to ARMED_TX."""
@@ -2375,7 +2561,7 @@ class UniversalCanDesktopApp:
                             "data": {"service": "0x14", "group": hex(group)},
                         }
                     else:
-                        err = f"❌ [UDS 0x14] ECU reddetti: NRC 0x{resp.nrc:02X} ({resp.nrc_description_tr})"
+                        err = f"âŒ [UDS 0x14] ECU reddetti: NRC 0x{resp.nrc:02X} ({resp.nrc_description_tr})"
                         return {
                             "success": False,
                             "error": err,
@@ -2391,7 +2577,7 @@ class UniversalCanDesktopApp:
                     val = "WVWZZZ1KZ9W123456" if did == 0xF190 else "01 A4 B2 C3"
                     return {
                         "success": True,
-                        "message": f"📄 [UDS 0x22 DID 0x{did:04X}] {name}: `{val}` (Pozitif Yanıt 0x62).",
+                        "message": f"ğŸ“„ [UDS 0x22 DID 0x{did:04X}] {name}: `{val}` (Pozitif Yanıt 0x62).",
                         "vin": val if did == 0xF190 else "",
                         "did": hex(did),
                         "data": {"did": f"0x{did:04X}", "value": val, "name": name, "vin": val if did == 0xF190 else ""},
@@ -2405,11 +2591,11 @@ class UniversalCanDesktopApp:
                             val_str = "".join(chr(b) for b in resp.data if 32 <= b <= 126)
                         return {
                             "success": True,
-                            "message": f"📄 [UDS 0x22 DID 0x{did:04X}] {name}: `{val_str}` (Pozitif Yanıt 0x62).",
+                            "message": f"ğŸ“„ [UDS 0x22 DID 0x{did:04X}] {name}: `{val_str}` (Pozitif Yanıt 0x62).",
                             "data": {"did": f"0x{did:04X}", "value": val_str, "name": name},
                         }
                     else:
-                        err = f"❌ [UDS 0x22] DID 0x{did:04X} okunamadı: NRC 0x{resp.nrc:02X} ({resp.nrc_description_tr})"
+                        err = f"âŒ [UDS 0x22] DID 0x{did:04X} okunamadı: NRC 0x{resp.nrc:02X} ({resp.nrc_description_tr})"
                         return {
                             "success": False,
                             "error": err,
@@ -2422,7 +2608,7 @@ class UniversalCanDesktopApp:
                 if self._is_simulating:
                     return {
                         "success": True,
-                        "message": f"🔄 [UDS 0x10] Oturum başarıyla değiştirildi (Oturum: 0x{st:02X}, Pozitif Yanıt 0x50 0x{st:02X}).",
+                        "message": f"ğŸ”„ [UDS 0x10] Oturum başarıyla değiştirildi (Oturum: 0x{st:02X}, Pozitif Yanıt 0x50 0x{st:02X}).",
                         "session_type": st,
                         "data": {"session_type": st},
                     }
@@ -2441,11 +2627,11 @@ class UniversalCanDesktopApp:
                     if resp.is_positive:
                         return {
                             "success": True,
-                            "message": f"🔄 [UDS 0x10] Teşhis oturumu 0x{st:02X} moduna geçirildi (Pozitif Yanıt 0x50).",
+                            "message": f"ğŸ”„ [UDS 0x10] Teşhis oturumu 0x{st:02X} moduna geçirildi (Pozitif Yanıt 0x50).",
                             "data": {"session_type": st},
                         }
                     else:
-                        err = f"❌ [UDS 0x10] Oturum değiştirilemedi: NRC 0x{resp.nrc:02X} ({resp.nrc_description_tr})"
+                        err = f"âŒ [UDS 0x10] Oturum değiştirilemedi: NRC 0x{resp.nrc:02X} ({resp.nrc_description_tr})"
                         return {
                             "success": False,
                             "error": err,
@@ -2458,7 +2644,7 @@ class UniversalCanDesktopApp:
                 if self._is_simulating:
                     return {
                         "success": True,
-                        "message": f"▶️ [UDS 0x31] Teşhis rutini 0x{rid:04X} başarıyla başlatıldı (Pozitif Yanıt 0x71).",
+                        "message": f"â–¶ï¸ [UDS 0x31] Teşhis rutini 0x{rid:04X} başarıyla başlatıldı (Pozitif Yanıt 0x71).",
                         "routine_id": hex(rid),
                         "data": {"routine_id": hex(rid)},
                     }
@@ -2471,11 +2657,11 @@ class UniversalCanDesktopApp:
                     if resp.is_positive:
                         return {
                             "success": True,
-                            "message": f"▶️ [UDS 0x31] Rutin 0x{rid:04X} başlatıldı (Pozitif Yanıt 0x71).",
+                            "message": f"â–¶ï¸ [UDS 0x31] Rutin 0x{rid:04X} başlatıldı (Pozitif Yanıt 0x71).",
                             "data": {"routine_id": hex(rid)},
                         }
                     else:
-                        err = f"❌ [UDS 0x31] Rutin başlatılamadı: NRC 0x{resp.nrc:02X} ({resp.nrc_description_tr})"
+                        err = f"âŒ [UDS 0x31] Rutin başlatılamadı: NRC 0x{resp.nrc:02X} ({resp.nrc_description_tr})"
                         return {
                             "success": False,
                             "error": err,
@@ -2511,7 +2697,7 @@ class UniversalCanDesktopApp:
                             "data": {"reset_type": rt},
                         }
                     else:
-                        err = f"❌ [UDS 0x11] ECU Reset reddedildi: NRC 0x{resp.nrc:02X} ({resp.nrc_description_tr})"
+                        err = f"âŒ [UDS 0x11] ECU Reset reddedildi: NRC 0x{resp.nrc:02X} ({resp.nrc_description_tr})"
                         return {
                             "success": False,
                             "error": err,
@@ -2561,7 +2747,7 @@ class UniversalCanDesktopApp:
                         }
                     except Exception as exc:
                         logger.error("J1939 DM11 transmission failed", exc_info=True)
-                        err = f"❌ [J1939 DM11] Komut iletilemedi: {exc}"
+                        err = f"âŒ [J1939 DM11] Komut iletilemedi: {exc}"
                         return {"success": False, "error": err, "message": err}
 
             # J1939 DM1 Query
@@ -2569,7 +2755,7 @@ class UniversalCanDesktopApp:
                 dtc = self.SCENARIO_DTCS.get(self._active_scenario, "Aktif Arıza Yok")
                 return {
                     "success": True,
-                    "message": f"📋 [J1939 DM1] Aktif Arıza Durumu: {dtc} (PGN 65226 DM1 yayını dinleniyor).",
+                    "message": f"ğŸ“‹ [J1939 DM1] Aktif Arıza Durumu: {dtc} (PGN 65226 DM1 yayını dinleniyor).",
                     "active_dtc": dtc,
                     "data": {"pgn": 65226, "active_dtc": dtc},
                 }
@@ -2710,22 +2896,56 @@ class UniversalCanDesktopApp:
     # ECU Flashing Engine & Progress Subsystem
     # ------------------------------------------------------------------
     @staticmethod
-    def _validate_flash_prerequisites(config: dict[str, Any]) -> str | None:
+    def _flash_identity_waiver_allowed() -> bool:
+        """S1-P1-6: may a flash skip the target VIN/serial binding?
+
+        Only in an explicitly-flagged LAB environment. Previously
+        `skipTargetIdentity` was a plain key in the JS bridge `flash_start`
+        payload, so a compromised renderer / open devtools / XSS could send
+        ``pywebview.api.flash_start({..., skipTargetIdentity: true}, nonce)``
+        and drop the VIN/serial binding. The Ed25519 firmware signature would
+        still verify, so a correctly-signed image could be written to the WRONG
+        ECU on the same OEM trust anchor (fleet vehicle) — a silent bricking
+        and safety hazard.
+
+        Both environment variables are required, so this cannot be triggered
+        by renderer input alone; it is an operator/lab decision made before the
+        process starts.
+        """
+        return (
+            os.environ.get("UCANLAB_FLASH_SKIP_IDENTITY") == "1"
+            and os.environ.get("UCANLAB_TEST_MODE") == "1"
+        )
+
+    @classmethod
+    def _validate_flash_prerequisites(cls, config: dict[str, Any]) -> str | None:
         """R2-P1: synchronous flash precondition check (runs BEFORE arm_tx).
 
         Returns an error string when the UI-supplied material cannot satisfy
         the motor's fail-closed gates (signature / trust anchor / target
         identity), else None. The caller refuses synchronously so the bus is
         never armed for a flash that is doomed to fail.
+
+        S1-P1-6: the identity waiver is NOT honored from the bridge config.
+        It requires the out-of-band lab environment gate
+        (`_flash_identity_waiver_allowed`); a `skipTargetIdentity: true` key
+        arriving from the renderer is ignored and the identity requirement
+        stays enforced.
         """
         if not config.get("firmwareSignature") and not config.get("firmware_signature"):
             return "Flashing ön-koşulu sağlanamadı: firmware imzası (firmwareSignature) gerekli."
         if not config.get("trustedPubkey") and not config.get("trusted_pubkey"):
             return "Flashing ön-koşulu sağlanamadı: güvenilir ortak anahtar (trustedPubkey) gerekli."
+        identity_waived = config.get("skipTargetIdentity") is True and cls._flash_identity_waiver_allowed()
+        if identity_waived and config.get("skipTargetIdentity") is True:
+            logger.warning(
+                "Flash target-identity check waived by LAB environment gate "
+                "(UCANLAB_FLASH_SKIP_IDENTITY=1 + UCANLAB_TEST_MODE=1)",
+            )
         if not (
             config.get("expectedVin") or config.get("expected_vin")
             or config.get("expectedSerial") or config.get("expected_serial")
-            or config.get("skipTargetIdentity") is True
+            or identity_waived
         ):
             return "Flashing ön-koşulu sağlanamadı: hedef VIN/seri (expectedVin) gerekli."
         return None
@@ -2941,7 +3161,13 @@ class UniversalCanDesktopApp:
             trusted_pubkey=self._parse_flash_pubkey(config),
             expected_vin=config.get("expectedVin", config.get("expected_vin")),
             expected_serial=config.get("expectedSerial", config.get("expected_serial")),
-            require_target_identity=config.get("skipTargetIdentity") is not True,
+            # S1-P1-6: the identity waiver needs the out-of-band LAB env gate;
+            # a renderer-supplied `skipTargetIdentity: true` no longer relaxes
+            # this motor gate (it would let a correctly-signed image be
+            # written to the wrong ECU on the same OEM trust anchor).
+            require_target_identity=not (
+                config.get("skipTargetIdentity") is True and self._flash_identity_waiver_allowed()
+            ),
         )
 
         def _real_flash_worker() -> None:
@@ -3075,7 +3301,7 @@ class UniversalCanDesktopApp:
             if res.get("success"):
                 analysis = self.get_diagnostic_analysis()
                 hyps = analysis.get("hypotheses", []) if analysis.get("success") else []
-                lines = [f"📏 Operatör ölçümü kaydedildi: **{res.get('recorded')} = {value:g}** (kanıt tabanına %50 ağırlıkla eklendi)."]
+                lines = [f"ğŸ“ Operatör ölçümü kaydedildi: **{res.get('recorded')} = {value:g}** (kanıt tabanına %50 ağırlıkla eklendi)."]
                 if hyps:
                     lines.append("")
                     lines.append("**Güncel hipotez sıralaması:**")
@@ -3084,7 +3310,7 @@ class UniversalCanDesktopApp:
                 else:
                     lines.append("Hipotez üretilemedi (yetersiz kanıt / aktif DTC yok).")
                 return "\n".join(lines)
-            return f"⚠️ {res.get('error', 'Ölçüm kaydedilemedi.')}"
+            return f"âš ï¸ {res.get('error', 'Ölçüm kaydedilemedi.')}"
 
         # FAZ 5: "hipotezler" query — deterministic keyword gate on the
         # OPERATOR query (never foreign text), session analysis stays host-side.
@@ -3092,14 +3318,14 @@ class UniversalCanDesktopApp:
         if norm_q in {"hipotezler", "hipotez", "hipotheses", "hipotez sıralaması", "hipotez siralamasi"}:
             analysis = self.get_diagnostic_analysis()
             if not analysis.get("success"):
-                return "⚠️ Aktif teşhis oturumu yok."
+                return "âš ï¸ Aktif teşhis oturumu yok."
             gate = analysis.get("gate", {})
             hyps = analysis.get("hypotheses", [])
             anomalies = analysis.get("anomalies", [])
             cases = analysis.get("similar_cases", [])
             lines = ["**Teşhis Oturumu Analizi** (ağırlıklı kanıt skorları):"]
             lines.append("")
-            lines.append(f"- Kanıt kapısı: anomali {'✅ yeterli' if gate.get('anomaly_sufficient') else '❌ yetersiz'} | DTC/hipotez {'✅ yeterli' if gate.get('dtc_sufficient') else '❌ yetersiz'} ({gate.get('active_dtc_count', 0)} aktif DTC)")
+            lines.append(f"- Kanıt kapısı: anomali {'✅ yeterli' if gate.get('anomaly_sufficient') else 'âŒ yetersiz'} | DTC/hipotez {'✅ yeterli' if gate.get('dtc_sufficient') else 'âŒ yetersiz'} ({gate.get('active_dtc_count', 0)} aktif DTC)")
             for gap in gate.get("gaps", []):
                 lines.append(f"  - {gap}")
             if anomalies:
@@ -3130,11 +3356,23 @@ class UniversalCanDesktopApp:
         # FAZ 2: Symptom matching when query matches known failure symptoms
         from src.engine.ai.symptom_mapper import map_symptoms_to_systems
         symptom_res = map_symptoms_to_systems(query)
-        dtc = self.SCENARIO_DTCS.get(self._active_scenario)
-        dtc_list: list[str] = [dtc] if dtc else []
+        # F-07 (P1): prefer the REAL active DTCs from the live evidence session
+        # over the scenario label table. `SCENARIO_DTCS` is a display/demo
+        # mapping keyed by scenario name; using it as the diagnostic input meant
+        # the chat reported a DTC that the vehicle had not actually raised (and
+        # missed the ones it had). The scenario label remains a fallback ONLY
+        # for the simulator with no real session evidence.
+        dtc_list: list[str] = []
+        session = self._diag_session
+        if session is not None:
+            dtc_list = [e.code for e in session.events if e.status == "ACTIVE" and e.code]
+        if not dtc_list:
+            dtc = self.SCENARIO_DTCS.get(self._active_scenario)
+            if dtc:
+                dtc_list = [dtc]
 
         if symptom_res.matched_symptoms and not dtc_list:
-            s_lines = [f"🔍 **Semptom Tespiti:** '{query}'"]
+            s_lines = [f"ğŸ” **Semptom Tespiti:** '{query}'"]
             s_lines.append(f"- **Etkilenen Sistemler:** {', '.join(symptom_res.suspected_subsystems)}")
             s_lines.append(f"- **Olası DTC Adayları:** {', '.join(symptom_res.candidate_dtcs)}")
             s_lines.append("")
@@ -3174,7 +3412,7 @@ class UniversalCanDesktopApp:
                     future.cancel()
         except FuturesTimeoutError:
             logger.warning("Copilot query timed out", extra={"query": query[:50]})
-            return "⚠️ AI yanıtı zaman aşımına uğradı (15 s). Lütfen tekrar deneyin."
+            return "âš ï¸ AI yanıtı zaman aşımına uğradı (15 s). Lütfen tekrar deneyin."
 
     def export_logs(self, fmt: str) -> bool:
         """Export session telemetry and frames to disk (LOW-4).
@@ -4054,7 +4292,9 @@ class UniversalCanDesktopApp:
     def _resolve_dist_html(self) -> Path:
         """Resolve frontend dist path supporting both raw Python and PyInstaller frozen .EXE bundle."""
         if getattr(sys, "frozen", False):
-            base_dir = Path(getattr(sys, "_MEIPASS", sys.executable)).resolve()
+            # D3: this is a READ of a bundled asset -> resource root, not the
+            # (deleted-on-exit) writable root.
+            base_dir = _resource_root()
             dist_path = base_dir / "src" / "ui" / "frontend" / "dist" / "index.html"
             if dist_path.exists():
                 return dist_path
@@ -4090,9 +4330,20 @@ class UniversalCanDesktopApp:
             self._thread = threading.Thread(target=self._telemetry_loop, daemon=True)
             self._thread.start()
 
+            # F6-1 (REVIEW Aşama 6): serve the frontend over a loopback-only
+            # server that applies a strict Content-Security-Policy, instead of
+            # loading it from file:// with no CSP and no navigation policy. The
+            # renderer holds the pywebview bridge (TX / E-Stop / flash
+            # authority), so an injected script or a navigation to a remote
+            # origin must be blocked by policy, not by convention.
+            from src.ui.frontend_server import FrontendServer
+
+            self._frontend_server = FrontendServer(dist_html.parent)
+            frontend_url = self._frontend_server.start()
+
             self._window = webview.create_window(
                 title="Universal CAN-Bus Diagnostic & Telemetry Tool v13.0",
-                url=str(dist_html.resolve()),
+                url=frontend_url,
                 js_api=api,
                 width=1400,
                 height=900,
@@ -4107,6 +4358,9 @@ class UniversalCanDesktopApp:
             webview.start(debug=False)
         finally:
             self._set_ui_state(_running=False)
+            if getattr(self, "_frontend_server", None) is not None:
+                self._frontend_server.stop()
+                self._frontend_server = None
             if hasattr(self, "_thread") and self._thread and self._thread.is_alive():
                 self._thread.join(timeout=2.0)
             # L-13 (P3-9): release the physical bus FIRST — the gateway

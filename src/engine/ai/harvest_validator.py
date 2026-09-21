@@ -16,6 +16,30 @@ JUNK_TEXT_PATTERN = re.compile(
     r"(404|not found|access denied|captcha|cloudflare|enable javascript|robot|cookie policy|lorem ipsum)",
     re.IGNORECASE
 )
+# F-24 (P0): the pattern above only recognised HTTP/scraper boilerplate, so raw
+# JavaScript / JSON-LD artifacts that leaked into harvested records (e.g.
+# "p2032 }}", "function loadData(){return null;}", "JSON.parse(data)") sailed
+# through the gate and were stamped `verified_by="marshal_gatekeeper"`.
+#
+# Each alternative below requires UNAMBIGUOUS code syntax, so ordinary English
+# technical prose is never flagged: e.g. "sometimes a function of load" must
+# NOT match, while "function(a){" and "function loadData()" must. Bare "=>" and
+# bare "function <word>" were deliberately rejected as alternatives because
+# they produce exactly that false positive.
+CODE_ARTIFACT_PATTERN = re.compile(
+    r"(\{\{|\}\}"
+    r"|function\s*[\(a-zA-Z_$][\w$]*\s*\([^)]*\)\s*\{"
+    r"|function\s*\([^)]*\)\s*\{"
+    r"|\b(?:var|let|const)\s+[\w$]+\s*="
+    r"|JSON\.(?:parse|stringify)\s*\("
+    r"|\.push\s*\("
+    r"|</?script\b"
+    r"|__(?:NEXT_DATA|NUXT)__"
+    r"|\bwindow\.[\w$]+\s*[=.]"
+    r"|\bdocument\.(?:getElementById|querySelector|write)\b"
+    r"|\"@type\"|'@type'|\"@context\")",
+    re.IGNORECASE,
+)
 
 @dataclass
 class ValidationReport:
@@ -36,6 +60,9 @@ def validate_text(text: str, field_name: str, min_len: int = 6) -> Tuple[bool, O
         return False, f"{field_name} string length ({len(text)}) below threshold {min_len}"
     if JUNK_TEXT_PATTERN.search(text):
         return False, f"{field_name} contains junk/error text pattern"
+    # F-24: quarantine raw code artifacts masquerading as prose.
+    if CODE_ARTIFACT_PATTERN.search(text):
+        return False, f"{field_name} contains scraped code/JS artifact"
     return True, None
 
 def validate_dtc_record(record: Dict[str, Any]) -> ValidationReport:

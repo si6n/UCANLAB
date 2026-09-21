@@ -77,6 +77,10 @@ export const App: React.FC = () => {
   // Copilot & Diagnostics State
   const [isCopilotOpen, setIsCopilotOpen] = useState(false);
   const [diagnosticEngine] = useState(() => {
+    // AGENTS.md §2.8: the AI layer is FULLY OFFLINE — the cloud-LLM narration
+    // layer (Gemini/OpenAI) was removed. These keys are purged defensively so
+    // an installation upgrading from an older build cannot leave a usable
+    // provider key in localStorage.
     localStorage.removeItem('gemini_api_key');
     localStorage.removeItem('openai_api_key');
     localStorage.removeItem('cloud_session_token');

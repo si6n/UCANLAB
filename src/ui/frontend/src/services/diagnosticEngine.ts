@@ -753,7 +753,7 @@ export class DiagnosticEngine {
     const isFrameQuery = /0x[0-9A-Fa-f]{3,8}/i.test(query);
     const isMismatchedTrafficResponse = isFrameQuery && (nativeRes?.includes("Veri Yolu Trafik Analizi") || nativeRes?.includes("Hat Durumu"));
     if (nativeRes && !isMismatchedTrafficResponse && !nativeRes.includes("Girdiğiniz sorgu (") && !nativeRes.includes("sorunuz için uzman")) {
-      const parsed = this.parseActionMetadata(nativeRes);
+      const parsed = this.parseActionMetadata(nativeRes, query);
       return {
         id: `msg-${Date.now()}`,
         sender: 'copilot',
@@ -1151,17 +1151,52 @@ export class DiagnosticEngine {
     };
   }
 
-  public parseActionMetadata(rawText: string): { cleanText: string; actions: CopilotAction[] } {
-    const actionMatch = rawText.match(/<!--ACTIONS:(.*?)-->/s);
+  /**
+   * F-13: the action identifiers the UI is allowed to render. The UI must not
+   * trust whatever JSON happens to be in the text — a response body (or
+   * injected operator text) that mentions "0x14" used to mint a destructive
+   * "clear DTC" button. Only these ids may ever produce a button, and each is
+   * pinned to the single action_type it is allowed to carry.
+   */
+  private static readonly ACTION_ID_TO_TYPE: Record<string, CopilotAction['action_type']> = {
+    act_uds_0x14_clear_dtc: 'uds_clear_dtc',
+    act_uds_0x22_f190_vin: 'uds_read_did',
+    act_uds_0x10_session_3: 'uds_session_control',
+    act_j1939_dm11_clear: 'j1939_clear_dtc',
+    act_j1939_dm1_query: 'j1939_dm1_query',
+    act_uds_0x31_routine_d001: 'uds_routine',
+    act_uds_0x11_ecu_reset: 'uds_ecu_reset',
+  };
+
+  private isAllowedAction(action: unknown): action is CopilotAction {
+    if (!action || typeof action !== 'object') return false;
+    const a = action as Partial<CopilotAction>;
+    if (typeof a.id !== 'string') return false;
+    return DiagnosticEngine.ACTION_ID_TO_TYPE[a.id] === a.action_type;
+  }
+
+  public parseActionMetadata(
+    rawText: string,
+    operatorQuery: string = '',
+  ): { cleanText: string; actions: CopilotAction[] } {
+    // F-13: LAST marker wins (the backend appends its own marker at the end via
+    // attach_action_triggers), so a marker embedded earlier in the text — e.g.
+    // echoed operator input — can no longer shadow the engine's real marker.
+    const markers = [...rawText.matchAll(/<!--ACTIONS:(.*?)-->/gs)];
     let actions: CopilotAction[] = [];
     let cleanText = rawText;
 
-    if (actionMatch) {
-      cleanText = rawText.replace(/<!--ACTIONS:.*?-->/s, '').trim();
+    if (markers.length > 0) {
+      const marker = markers[markers.length - 1];
+      // Strip every marker (including any shadowing ones) from the visible text.
+      cleanText = rawText.replace(/<!--ACTIONS:.*?-->/gs, '').trim();
       try {
-        const parsed = JSON.parse(actionMatch[1].trim());
+        const parsed = JSON.parse(marker[1].trim());
         if (Array.isArray(parsed)) {
-          actions = parsed;
+          actions = parsed.filter((a) => this.isAllowedAction(a));
+          if (actions.length !== parsed.length) {
+            console.warn('parseActionMetadata: dropped off-allowlist action(s)');
+          }
         }
       } catch (err) {
         console.warn('Failed to parse actions JSON metadata:', err);
@@ -1169,7 +1204,10 @@ export class DiagnosticEngine {
     }
 
     if (actions.length === 0) {
-      actions = this.extractDynamicActions(rawText);
+      // F-13: the fallback scans ONLY the operator's own prompt — never the
+      // response body. A diagnostic text that merely *mentions* UDS 0x14 must
+      // not become a button the operator can fire.
+      actions = this.extractDynamicActions(operatorQuery);
     }
 
     return { cleanText, actions };

@@ -184,7 +184,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     // H-11 (P1-9): secrets are NEVER persisted to localStorage anymore — the
     // WebView profile directory stores it unencrypted, readable by any
     // script in the page and any process running as this user. The backend
@@ -195,16 +195,31 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     localStorage.removeItem('openai_api_key');
     localStorage.removeItem('cloud_session_token');
     localStorage.removeItem('ai_provider');
-    localStorage.setItem('cloud_base_url', cloudUrl.trim());
 
-    DesktopBridge.cloudSaveConfig(cloudUrl.trim());
-
-    onSave({
-      channel,
-      baudRate,
-      cloudBaseUrl: cloudUrl.trim()
-    });
-    onClose();
+    // D4 (REVIEW Aşama 2): do NOT announce success or persist the URL before
+    // the backend confirms it. The backend rejects hosts outside the cloud
+    // allowlist, and the old code wrote that rejected URL to localStorage and
+    // closed the modal as if it had been saved.
+    const requested = cloudUrl.trim();
+    try {
+      const res: any = await DesktopBridge.cloudSaveConfig(requested);
+      if (res && res.success === false) {
+        setActionFeedback({ type: 'error', text: res.error || 'Ayarlar kaydedilemedi.' });
+        return;
+      }
+      localStorage.setItem('cloud_base_url', requested);
+      onSave({
+        channel,
+        baudRate,
+        cloudBaseUrl: requested
+      });
+      onClose();
+    } catch (err: any) {
+      setActionFeedback({
+        type: 'error',
+        text: err?.message || 'Ayarlar kaydedilemedi: bağlantı hatası.',
+      });
+    }
   };
 
   return (

@@ -178,6 +178,7 @@ export class DesktopBridge {
     if (this.isNative() && window.pywebview?.api?.toggle_simulator) {
       return await window.pywebview.api.toggle_simulator();
     }
+    this.requireCapability('toggle_simulator', 'toggle Simulator');
     this.requireNativeOrDev();
     return null;
   }
@@ -187,6 +188,7 @@ export class DesktopBridge {
       await window.pywebview.api.select_scenario(scenario);
       return;
     }
+    this.requireCapability('select_scenario', 'select Scenario');
     this.requireNativeOrDev();
   }
 
@@ -195,6 +197,7 @@ export class DesktopBridge {
       return await window.pywebview.api.ask_copilot(query);
     }
     // Dev-only fallback: no fabricated copilot answer in production.
+    this.requireCapability('ask_copilot', 'ask Copilot');
     this.requireNativeOrDev();
     return null;
   }
@@ -251,6 +254,7 @@ export class DesktopBridge {
     // prod build opened without pywebview saw "DTCs cleared" while no frame
     // ever reached the bus. Diagnostic actions are mock-forbidden in prod;
     // in dev they return an explicit non-success so UI flows stay honest.
+    this.requireCapability('execute_diagnostic_action', 'execute Diagnostic Action');
     this.requireNativeOrDev();
     return {
       success: false,
@@ -283,6 +287,7 @@ export class DesktopBridge {
       const res = await m();
       return { ...res, execution_mode: 'native' };
     }
+    this.requireCapability('flash_progress', 'flash Progress');
     this.requireNativeOrDev();
     return { status: 'idle', percent: 0, logs: [], execution_mode: 'mock' };
   }
@@ -293,6 +298,7 @@ export class DesktopBridge {
       const res = await m();
       return { ...res, execution_mode: 'native' };
     }
+    this.requireCapability('flash_cancel', 'flash Cancel');
     this.requireNativeOrDev();
     return { success: false, error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
   }
@@ -305,6 +311,7 @@ export class DesktopBridge {
     if (this.isNative() && m) {
       return await m();
     }
+    this.requireCapability('discovery_get_summary', 'discovery Get Summary');
     this.requireNativeOrDev();
     return null;
   }
@@ -314,6 +321,7 @@ export class DesktopBridge {
     if (this.isNative() && m) {
       return await m(arbId);
     }
+    this.requireCapability('discovery_analyze_id', 'discovery Analyze Id');
     this.requireNativeOrDev();
     return null;
   }
@@ -324,6 +332,7 @@ export class DesktopBridge {
       const res = await m(approvedOnly);
       return { ...res, execution_mode: 'native' };
     }
+    this.requireCapability('discovery_export_dbc', 'discovery Export Dbc');
     this.requireNativeOrDev();
     return { success: false, error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
   }
@@ -334,6 +343,7 @@ export class DesktopBridge {
       const res = await m();
       return { ...res, execution_mode: 'native' };
     }
+    this.requireCapability('discovery_clear', 'discovery Clear');
     this.requireNativeOrDev();
     return { success: false, error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
   }
@@ -346,6 +356,7 @@ export class DesktopBridge {
     if (this.isNative() && m) {
       return await m();
     }
+    this.requireCapability('oem_list_decoders', 'oem List Decoders');
     this.requireNativeOrDev();
     return [];
   }
@@ -359,6 +370,7 @@ export class DesktopBridge {
       const res = await m(filePath);
       return { ...res, execution_mode: 'native' };
     }
+    this.requireCapability('replay_load', 'replay Load');
     this.requireNativeOrDev();
     return { success: false, error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
   }
@@ -369,6 +381,7 @@ export class DesktopBridge {
       const res = await m(speed, loop);
       return { ...res, execution_mode: 'native' };
     }
+    this.requireCapability('replay_start', 'replay Start');
     this.requireNativeOrDev();
     return { success: false, error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
   }
@@ -379,6 +392,7 @@ export class DesktopBridge {
       const res = await m();
       return { ...res, execution_mode: 'native' };
     }
+    this.requireCapability('replay_stop', 'replay Stop');
     this.requireNativeOrDev();
     return { success: false, error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
   }
@@ -399,6 +413,7 @@ export class DesktopBridge {
       return await window.pywebview.api.get_bus_traffic_status();
     }
     // Browser / Dev fallback
+    this.requireCapability('get_bus_traffic_status', 'get Bus Traffic Status');
     this.requireNativeOrDev();
     return null;
   }
@@ -410,6 +425,7 @@ export class DesktopBridge {
     }
     // REVIEW3 #4: fault injection is a simulator-native operation — no
     // silent no-op in production.
+    this.requireCapability('inject_fault', 'inject Fault');
     this.requireNativeOrDev();
   }
 
@@ -485,6 +501,7 @@ export class DesktopBridge {
     if (this.isNative() && m) {
       return await m();
     }
+    this.requireCapability('cloud_get_status', 'cloud Get Status');
     this.requireNativeOrDev();
     return {
       success: false,
@@ -552,6 +569,7 @@ export class DesktopBridge {
     if (this.isNative() && window.pywebview?.api?.get_session_evidence_summary) {
       return await window.pywebview.api.get_session_evidence_summary();
     }
+    this.requireCapability('get_session_evidence_summary', 'get Session Evidence Summary');
     this.requireNativeOrDev();
     return null;
   }
@@ -560,6 +578,7 @@ export class DesktopBridge {
     if (this.isNative() && window.pywebview?.api?.get_diagnostic_analysis) {
       return await window.pywebview.api.get_diagnostic_analysis();
     }
+    this.requireCapability('get_diagnostic_analysis', 'get Diagnostic Analysis');
     this.requireNativeOrDev();
     return null;
   }
@@ -568,6 +587,7 @@ export class DesktopBridge {
     if (this.isNative() && window.pywebview?.api?.reset_diagnostic_session) {
       return await window.pywebview.api.reset_diagnostic_session();
     }
+    this.requireCapability('reset_diagnostic_session', 'reset Diagnostic Session');
     this.requireNativeOrDev();
     return null;
   }
@@ -577,6 +597,7 @@ export class DesktopBridge {
       const res = await window.pywebview.api.record_operator_measurement(name, value);
       return { ...res, execution_mode: 'native' };
     }
+    this.requireCapability('record_operator_measurement', 'record Operator Measurement');
     this.requireNativeOrDev();
     return { success: false, error: 'native bridge unavailable', execution_mode: 'mock' };
   }
@@ -592,6 +613,7 @@ export class DesktopBridge {
       const res = await window.pywebview.api.record_operator_answer(questionId, value, kind, unit, isUnknown);
       return { success: res?.success !== false, ...res, execution_mode: 'native' };
     }
+    this.requireCapability('record_operator_answer', 'record Operator Answer');
     this.requireNativeOrDev();
     return { success: false, error: 'native bridge unavailable', execution_mode: 'mock' };
   }
@@ -601,6 +623,7 @@ export class DesktopBridge {
       const res = await window.pywebview.api.get_dialogue_state();
       return { success: res?.success !== false, ...res, execution_mode: 'native' };
     }
+    this.requireCapability('get_dialogue_state', 'get Dialogue State');
     this.requireNativeOrDev();
     return { success: false, error: 'native bridge unavailable', execution_mode: 'mock' };
   }
@@ -610,6 +633,7 @@ export class DesktopBridge {
       const res = await window.pywebview.api.get_diagnostic_kpi_metrics();
       return { success: res?.success !== false, ...res, execution_mode: 'native' };
     }
+    this.requireCapability('get_diagnostic_kpi_metrics', 'get Diagnostic Kpi Metrics');
     this.requireNativeOrDev();
     return { success: false, error: 'native bridge unavailable', execution_mode: 'mock' };
   }
@@ -623,6 +647,7 @@ export class DesktopBridge {
       const res = await window.pywebview.api.record_technician_feedback(dtc, resolved, notes);
       return { success: res?.success !== false, ...res, execution_mode: 'native' };
     }
+    this.requireCapability('record_technician_feedback', 'record Technician Feedback');
     this.requireNativeOrDev();
     return { success: false, error: 'native bridge unavailable', execution_mode: 'mock' };
   }
@@ -633,6 +658,7 @@ export class DesktopBridge {
       const res = await m();
       return { ...res, execution_mode: 'native' };
     }
+    this.requireCapability('export_session_report', 'export Session Report');
     this.requireNativeOrDev();
     return { success: false, error: 'native bridge unavailable', execution_mode: 'mock' };
   }

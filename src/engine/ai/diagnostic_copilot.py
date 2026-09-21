@@ -201,6 +201,12 @@ def attach_action_triggers(text: str, actions: list[dict[str, Any]]) -> str:
     seen_ids: set[str] = set()
     for a in actions:
         aid = a.get("id")
+        # F-26: never emit an action the engine did not itself mint. A non-string
+        # or unknown id is dropped here so it can never round-trip back in
+        # through parse_action_triggers_from_text as a forged button.
+        if not isinstance(aid, str) or not is_known_action_id(aid):
+            logger.warning("Bilinmeyen action id üretim anında reddedildi", extra={"action_id": str(aid)})
+            continue
         if aid and aid not in seen_ids:
             seen_ids.add(aid)
             unique_actions.append(a)
@@ -210,15 +216,135 @@ def attach_action_triggers(text: str, actions: list[dict[str, Any]]) -> str:
     return f"{text}\n<!--ACTIONS:{meta_json}-->"
 
 
+# F-26 (P1, security): the ONLY action identifiers the copilot may ever emit.
+# The parser used to accept any JSON from the FIRST <!--ACTIONS:--> marker
+# found in the text, with no validation of the ids inside it. Because the
+# fallback path echoes the operator's own query back into the response, an
+# operator-supplied (or upstream-injected) marker could shadow the engine's
+# real marker and mint an arbitrary action button — including destructive
+# ones (uds_ecu_reset). Two independent defences now apply:
+#   1. an id must match this allowlist (exact ids + parameterised families),
+#   2. the LAST marker wins, so the engine's own appended marker (always
+#      appended at the end by attach_action_triggers) cannot be shadowed by
+#      text that arrived earlier in the string.
+# Keep in sync with the make_*_action() factories in this module.
+_EXACT_ACTION_IDS: frozenset[str] = frozenset({
+    "act_uds_0x14_clear_dtc",
+    "act_uds_0x22_f190_vin",
+    "act_uds_0x11_ecu_reset",
+    "act_j1939_dm11_clear",
+    "act_j1939_dm1_query",
+})
+
+_ACTION_ID_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"^act_uds_0x10_session_[1-4]$"),
+    re.compile(r"^act_uds_0x31_routine_[0-9a-f]{4}$"),
+)
+
+# Action types the engine is allowed to expose, keyed by the id family they
+# belong to. A valid id paired with a DIFFERENT type is still rejected: the
+# type is what the UI dispatches on, so id and type must agree (F-26). Without
+# this pairing check, a forged marker could keep a benign-looking id
+# ("act_uds_0x14_clear_dtc") while swapping in a destructive type
+# ("uds_ecu_reset") and the UI would dispatch the reset.
+_ALLOWED_ACTION_TYPES: frozenset[str] = frozenset({
+    "uds_clear_dtc",
+    "uds_read_did",
+    "uds_session_control",
+    "uds_routine",
+    "uds_ecu_reset",
+    "j1939_clear_dtc",
+    "j1939_dm1_query",
+})
+
+# id -> the single action_type that id is permitted to carry.
+_ACTION_ID_TO_TYPE: dict[str, str] = {
+    "act_uds_0x14_clear_dtc": "uds_clear_dtc",
+    "act_uds_0x22_f190_vin": "uds_read_did",
+    "act_uds_0x11_ecu_reset": "uds_ecu_reset",
+    "act_j1939_dm11_clear": "j1939_clear_dtc",
+    "act_j1939_dm1_query": "j1939_dm1_query",
+}
+
+# Parameterised families: (id pattern, fixed action_type).
+_ACTION_FAMILY_TO_TYPE: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"^act_uds_0x10_session_[1-4]$"), "uds_session_control"),
+    (re.compile(r"^act_uds_0x31_routine_[0-9a-f]{4}$"), "uds_routine"),
+)
+
+
+def is_known_action_id(action_id: Any) -> bool:
+    """True when ``action_id`` is one the engine is allowed to mint (F-26)."""
+    if not isinstance(action_id, str) or not action_id:
+        return False
+    if action_id in _EXACT_ACTION_IDS:
+        return True
+    return any(p.match(action_id) for p in _ACTION_ID_PATTERNS)
+
+
+def _expected_action_type(action_id: str) -> str | None:
+    """The one action_type ``action_id`` is allowed to carry, else None."""
+    if action_id in _ACTION_ID_TO_TYPE:
+        return _ACTION_ID_TO_TYPE[action_id]
+    for pattern, expected in _ACTION_FAMILY_TO_TYPE:
+        if pattern.match(action_id):
+            return expected
+    return None
+
+
+def _filter_allowed_actions(raw: Any) -> list[dict[str, Any]]:
+    """Keep only well-formed, allowlisted action dicts (fail-closed).
+
+    An entry survives only when its id is known AND its action_type is exactly
+    the one that id is permitted to carry. This blocks the "valid id, swapped
+    type" forgery that a type-only membership check would let through.
+    """
+    if not isinstance(raw, list):
+        return []
+    allowed: list[dict[str, Any]] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        aid = item.get("id")
+        if not is_known_action_id(aid):
+            logger.warning("İzinsiz action id reddedildi", extra={"action_id": str(aid)})
+            continue
+        expected = _expected_action_type(aid)
+        if item.get("action_type") != expected:
+            logger.warning(
+                "action id/type uyuşmazlığı reddedildi",
+                extra={"action_id": str(aid), "action_type": str(item.get("action_type"))},
+            )
+            continue
+        allowed.append(item)
+    return allowed
+
+
 def parse_action_triggers_from_text(text: str) -> tuple[str, list[dict[str, Any]]]:
-    """Parse out structured action triggers from text comment, or extract if not found."""
-    match = re.search(r"<!--ACTIONS:(.*?)-->", text, re.DOTALL)
-    if match:
+    """Parse out structured action triggers from text comment, or extract if not found.
+
+    F-26: uses the LAST ``<!--ACTIONS:-->`` marker (the engine always appends
+    its own marker last via ``attach_action_triggers``) and validates every id
+    and action_type against a closed allowlist. Anything off-list is dropped
+    rather than surfaced as a button, so operator/injected text can never mint
+    an action the engine did not authorise.
+    """
+    matches = list(re.finditer(r"<!--ACTIONS:(.*?)-->", text, re.DOTALL))
+    if matches:
+        match = matches[-1]  # last-marker rule: the engine's own marker wins
         clean_text = text[: match.start()].rstrip() + text[match.end() :]
+        # Strip any earlier (shadowing) marker text so it cannot leak into the UI.
+        clean_text = re.sub(r"<!--ACTIONS:.*?-->", "", clean_text, flags=re.DOTALL).strip()
         try:
             actions = json.loads(match.group(1).strip())
+            allowed = _filter_allowed_actions(actions)
             if isinstance(actions, list):
-                return clean_text, actions
+                # A well-formed marker is authoritative even if every id inside
+                # was rejected: fall back to text extraction only when the
+                # payload itself is not a JSON list.
+                if allowed:
+                    return clean_text, allowed
+                return clean_text, extract_action_triggers(clean_text)
         except json.JSONDecodeError as exc:
             # A3-6: a malformed/manually-edited <!--ACTIONS:--> payload used to
             # vanish silently and drop every structured action button. Narrow
@@ -302,6 +428,23 @@ def explain_traffic_metrics(bus_metrics: dict[str, Any], user_query: str = "") -
     babbling = bus_metrics.get("babbling_node")
     if babbling and not any(str(babbling) in a for a in anomalies):
         anomalies.append(f"Babbling Node: {babbling}")
+
+    # F-25 (P0, fail-open): with no bus telemetry every counter reads its
+    # default 0/%0, which used to fall into the "else" branch and print
+    # "%0 (Nominal) ... veri yolu nominal hız ve frekansta çalışıyor". Zero
+    # packets is the ABSENCE of a measurement, not proof of health — asserting
+    # "nominal" there invents a measurement (AGENTS.md §2.3). Report the data
+    # gap instead. "Ölçüm yapıldı" requires an explicit packet count > 0 or a
+    # provided load reading.
+    measured = total_pkts > 0 or bool(bus_metrics.get("bus_load_percent") is not None and bus_load)
+
+    if not measured:
+        return (
+            "📊 **Veri Yolu Trafik Analizi:**\n"
+            "• **Veri Yolu Yükü:** Veri Yok | Hata Karesi: Veri Yok | Toplam: 0 paket\n"
+            "• **Teşhis:** Ölçülmüş hat trafiği verisi yok. "
+            "Sağlık/anomali beyanı üretilemez (nominal denemez)."
+        )
 
     if bus_load > 75 or error_count > 5 or anomalies:
         status_tag = "⚠️ **KRİTİK ANOMALİ ALARMI**"
@@ -393,10 +536,14 @@ def _get_fallback_dbc_decoder() -> Any:
 
 # ISO 15765-2 (ISO-TP) UDS service identifiers recognised by the packet
 # explainer — requests and positive/negative responses.
+# F-29: 0x46 is the SAE J1979 Mode $06 positive-response SID (the +0x40 echo
+# of request 0x06). Without it a legitimate Mode $06 response frame fell past
+# every decoder and printed only a bare CAN-ID line.
 _UDS_KNOWN_SIDS: frozenset[int] = frozenset(
     {
         0x10, 0x11, 0x14, 0x19, 0x22, 0x27, 0x28, 0x2E, 0x31, 0x3E,
         0x50, 0x51, 0x54, 0x59, 0x62, 0x67, 0x71, 0x7F, 0x01,
+        0x06, 0x46,
     }
 )
 
@@ -429,6 +576,45 @@ def _resolve_uds_sid_index(payload_bytes: list[int]) -> int:
     if payload_bytes[0] not in _UDS_KNOWN_SIDS and len(payload_bytes) > 1 and payload_bytes[1] in _UDS_KNOWN_SIDS:
         return 1
     return 0
+
+
+def _describe_ev_bms_frame(can_id: int) -> str | None:
+    """Return a descriptive line for a recognised EV BMS frame, else None (F-28).
+
+    Mirrors the id families that ``evaluate_diagnostic_query`` already
+    recognises, so the frame explainer and the query engine agree. These are
+    proprietary (non-standard-J1939) BMS ids, so matching is on the same
+    documented byte prefix the query engine uses — not on a recomputed PGN.
+    Only the frame's identity is described; no payload-derived value is
+    invented (AGENTS.md §2.3).
+    """
+    # Low 4 hex digits of the arbitration id, e.g. 0x1808E5F4 -> "1808e5".
+    prefix = f"{(can_id >> 8) & 0xFFFFFF:06x}"
+    if prefix.startswith("1808e5"):
+        return (
+            f"⚡ **EV BMS Hücre Voltajları (0x{can_id:X} - PGN 61447):**\n"
+            "• **Protokol:** ISO 11898-2 (EV Yüksek Voltaj BMS)\n"
+            "• **Kaynak Düğüm:** Batarya Yönetim Sistemi (BMS ECU - 0xF4)"
+        )
+    if prefix.startswith("1807e5"):
+        return (
+            f"⚡ **EV BMS Şarj & Sağlık (0x{can_id:X} - PGN 61446):**\n"
+            "• **Protokol:** ISO 11898-2 (BMS ECU 0xF4)\n"
+            "• **Açıklama:** Batarya SOC (Şarj) ve SOH (Sağlık) durumu."
+        )
+    if prefix.startswith("1809e5"):
+        return (
+            f"⚡ **EV BMS Termal Yönetimi (0x{can_id:X} - PGN 61448):**\n"
+            "• **Protokol:** ISO 11898-2 (BMS ECU 0xF4)\n"
+            "• **Açıklama:** Batarya paketi ve hücre modülü sıcaklıkları."
+        )
+    if prefix.startswith("18f020"):
+        return (
+            f"⚡ **EV BMS Yüksek Voltaj İzolasyonu (0x{can_id:X}):**\n"
+            "• **Protokol:** ISO 11898-2 (BMS ECU 0xF4)\n"
+            "• **Açıklama:** HV izolasyon direnci ve kontaktör durumları."
+        )
+    return None
 
 
 def explain_can_packet(
@@ -612,6 +798,50 @@ def explain_can_packet(
                 line3 = "• **Sonuç:** ECU hata hafızası sıfırlandı. Arıza kodları başarıyla temizlendi."
                 return (f"{line1}\n{line2}\n{line3}", [])
 
+            # 0x46 Positive Response (SAE J1979 Mode $06 — On-Board Monitoring)
+            # F-29: Mode $06 reports non-continuous monitor results (misfire
+            # counters, catalyst/O2 monitor values) as OBDMID/MID + TID + unit/
+            # scale + measured min/max. Previously this SID was absent from
+            # _UDS_KNOWN_SIDS, so the whole frame decoded to a bare CAN-ID line.
+            if sid == 0x46:
+                # ISO-TP single frame: [0x0N, 0x46, MID, TID, unit/scale, ...]
+                mid = payload_bytes[sid_idx + 1] if len(payload_bytes) > sid_idx + 1 else 0
+                tid = payload_bytes[sid_idx + 2] if len(payload_bytes) > sid_idx + 2 else 0
+                data_tail = payload_bytes[sid_idx + 3:]
+                line1 = f"✅ **OBD-II Mode $06 Yanıtı (ID: 0x{can_id:03X} / SID 0x46):**"
+                # F-28: route through the existing Mode $06 monitor catalog so a
+                # known MID resolves to its real monitor name instead of only a
+                # hex blob. This also gives `explain_can_frame_mode06` its first
+                # production call site (it was a fully-implemented orphan). The
+                # catalog tells us whether the MID matched; if it did not, we
+                # keep the honest raw-byte description rather than inventing a
+                # monitor name (AGENTS.md §2.3).
+                monitor_text, matched = CausalBayesianInferenceEngine.explain_can_frame_mode06(
+                    can_id, payload_bytes
+                )
+                if matched:
+                    line2 = monitor_text.splitlines()[0] if monitor_text else ""
+                    line3 = (
+                        "• **Ölçüm:** Monitör kataloğunda eşleşti; "
+                        f"ham test baytları `{' '.join(f'{b:02X}' for b in data_tail[:8])}`."
+                        if data_tail
+                        else "• **Ölçüm:** Monitör kimliği kataloğa eşleşti; ölçüm baytı gönderilmedi."
+                    )
+                    return (f"{line1}\n{line2}\n{line3}", [])
+                line2 = (
+                    f"• **Servis:** `Mode $06 On-Board Monitoring` — "
+                    f"OBDMID/MID 0x{mid:02X}, TID 0x{tid:02X}"
+                )
+                if data_tail:
+                    line3 = (
+                        "• **Ölçüm:** Ham veri baytları "
+                        f"`{' '.join(f'{b:02X}' for b in data_tail[:8])}` "
+                        "(monitör test değeri / min / max)."
+                    )
+                else:
+                    line3 = "• **Ölçüm:** Monitör kimliği raporlandı; ölçüm baytı gönderilmedi."
+                return (f"{line1}\n{line2}\n{line3}", [])
+
             # 0x59 Positive Response (Read DTC Information)
             if sid == 0x59:
                 subfn = payload_bytes[sid_idx + 1] if len(payload_bytes) > sid_idx + 1 else 2
@@ -787,6 +1017,18 @@ def explain_can_packet(
     if 0x7E8 <= can_id <= 0x7EF:
         ecu_name = "Motor (ECM/PCM)" if can_id == 0x7E8 else ("Şanzıman (TCM)" if can_id == 0x7E9 else f"ECU_{can_id - 0x7E8}")
         return (f"📡 **CAN ID 0x{can_id:03X}:** ISO 15765-4 Standart OBD-II / UDS Fiziksel Yanıt Hattı ({ecu_name}).", [])
+
+    # 3.5 EV BMS & N2K recognised frames (F-28)
+    # `evaluate_diagnostic_query` already decoded these J1939-PGN frames, but
+    # `explain_can_packet` did not own the same table, so pasting an EV BMS or
+    # N2K arbitration id into the frame explainer answered "CAN ID Tanımsız".
+    # The two entry points must agree on the same closed id set; this branch
+    # mirrors the PGN families the query engine recognises. Only the frame's
+    # identity is described — no byte-level claim is invented from a payload
+    # we cannot DBC-decode (AGENTS.md §2.3).
+    ev_bms = _describe_ev_bms_frame(can_id)
+    if ev_bms is not None:
+        return (ev_bms, [])
 
     # 4. DBC Fallback Signal Decoding for any frame with payload
     if payload_bytes:
@@ -1477,6 +1719,7 @@ def load_external_dtc_database(data_path: Path | str | None = None) -> int:
 
         added = 0
         rejected = 0
+        sanitized = 0
         for code, info in data.items():
             # M-17 (P2-16): shape validation BEFORE merge — garbage entries
             # are counted and skipped, never merged.
@@ -1485,13 +1728,45 @@ def load_external_dtc_database(data_path: Path | str | None = None) -> int:
                 continue
             # Preserve existing rich hand-crafted rules
             if code not in EXPERT_KNOWLEDGE_BASE:
-                EXPERT_KNOWLEDGE_BASE[code] = info
+                # F-24 (P0, wiring gate): the quarantine gate existed but was
+                # never on the production path, so scraped JavaScript/JSON-LD
+                # artifacts ("p2032 }}") were merged verbatim into the live
+                # knowledge base. Route every externally-sourced record through
+                # QuarantineGatekeeper and merge ONLY the sanitized result. The
+                # gate is read-only analysis; a record that fails quarantine is
+                # dropped (fail-closed) rather than trusted.
+                #
+                # NOTE: the DB stores the DTC code as the dict KEY, not inside
+                # the record — inject it so validate_dtc_record's DTC_PATTERN
+                # check sees real input instead of rejecting all 14k entries.
+                try:
+                    from src.engine.ai.harvest_validator import validate_dtc_record
+
+                    report = validate_dtc_record({**info, "code": code})
+                except Exception as exc:  # noqa: BLE001 — never lose the KB to a validator bug
+                    logger.warning("Quarantine gate error for %s: %s", code, exc)
+                    report = None
+                if report is None or not report.is_valid or not report.sanitized:
+                    rejected += 1
+                    continue
+                clean = report.sanitized
+                # Keep the hand-curated metadata that the gate does not model
+                # (subsystem/severity/steps/title) — those were shape-validated
+                # above — but take symptoms/causes ONLY from the sanitized set.
+                merged = dict(info)
+                merged["symptoms"] = clean.get("symptoms", [])
+                merged["causes"] = clean.get("causes", info.get("causes", []))
+                if merged["symptoms"] != info.get("symptoms") or merged["causes"] != info.get("causes"):
+                    sanitized += 1
+                EXPERT_KNOWLEDGE_BASE[code] = merged
                 added += 1
 
         if rejected:
             logger.warning(
-                "External DTC database: %d entries rejected by shape validation", rejected
+                "External DTC database: %d entries rejected by shape validation/quarantine", rejected
             )
+        if sanitized:
+            logger.info("External DTC database: %d entries sanitized by quarantine gate", sanitized)
         logger.info("Merged %d external DTC codes into EXPERT_KNOWLEDGE_BASE (total: %d)", added, len(EXPERT_KNOWLEDGE_BASE))
         return added
     except Exception as exc:
@@ -2222,16 +2497,57 @@ _SYMPTOM_SEARCH_STOPWORDS: frozenset[str] = frozenset({
 })
 
 
+def _has_standalone_word(haystack: str, needle: str) -> bool:
+    """True when ``needle`` occurs in ``haystack`` as a WHOLE word.
+
+    F-01 (P0): the diagnosis tree matched intent keywords with bare
+    ``"w" in norm_query`` substring tests. That produced wrong-path routing
+    ("hat" matching inside "hata karesi") and — worse — fabricated diagnoses
+    from unrelated prose: "hava durumu nedir" ("what is the weather") matched
+    the pneumatic-brake keyword "hava" and returned a CRITICAL_STOP brake
+    system report (Kanıt A). Whole-word matching is the minimal correct fix;
+    it is deterministic and locale-independent (both sides are already
+    normalised to lowercase ASCII by AutomotiveTokenizer.normalize_text).
+    """
+    if not needle:
+        return False
+    return re.search(rf"(?<![0-9a-z]){re.escape(needle)}(?![0-9a-z])", haystack) is not None
+
+
+def _has_any_standalone_word(haystack: str, needles: "frozenset[str] | tuple[str, ...] | list[str]") -> bool:
+    """True when ANY needle appears as a whole word in ``haystack``."""
+    return any(_has_standalone_word(haystack, n) for n in needles)
+
+
+# Kanıt A (P1): free-text words that carry no diagnostic specificity on their
+# own. A query consisting ONLY of these (plus stopwords) must abstain rather
+# than route to a code: "problem" previously produced a concrete P0500 report.
+_GENERIC_NON_DIAGNOSTIC_TERMS: frozenset[str] = frozenset({
+    "problem", "sorun", "sikinti", "sıkıntı", "arac", "araç", "araba",
+    "motor", "ariza", "hata", "issue", "trouble", "error", "fault",
+    "nedir", "ne", "nasil", "nasıl", "neden", "why", "what", "help",
+    "yardim", "yardım", "merhaba", "hello", "hi", "selam", "test",
+})
+
+
 def _symptom_search_terms(norm_query: str) -> list[str]:
     """Deterministik sorgu terimleri: normalize edilmis kelimeler.
 
     Yalniz uzunluk >= 4 ve stopword olmayan kelimeler; en fazla 6 terim.
     Sira korunur (determinizm).
+
+    Kanıt A / F-04: terms that carry no diagnostic specificity on their own
+    (see ``_GENERIC_NON_DIAGNOSTIC_TERMS``) are EXCLUDED from the search. A
+    generic word such as "hava" ("air"/"weather") or "durumu" otherwise matched
+    a brake-pressure record's symptom prose by coincidence and produced a
+    concrete CRITICAL_STOP report for an unrelated question.
     """
     terms: list[str] = []
     for raw in str(norm_query or "").split():
         w = raw.strip()
         if len(w) < 4 or w in _SYMPTOM_SEARCH_STOPWORDS:
+            continue
+        if w in _GENERIC_NON_DIAGNOSTIC_TERMS:
             continue
         if w not in terms:
             terms.append(w)
@@ -2240,12 +2556,25 @@ def _symptom_search_terms(norm_query: str) -> list[str]:
     return terms
 
 
+# F-04 (P0): minimum number of matched query terms required before a
+# free-text symptom search is allowed to name a DTC. A single coincidental
+# token overlap is not diagnostic evidence — with ~14k records spanning
+# dozens of subsystems, one shared word matches almost anything. Requiring
+# >= 2 independent terms makes the lookup selective; a query that cannot
+# clear the bar abstains instead of inventing a code.
+_SYMPTOM_SEARCH_MIN_SCORE = 2
+
+
 def search_dtc_by_symptom(norm_query: str, limit: int = 1) -> list[dict[str, Any]]:
     """DTC `symptoms`/`title` alanlarinda serbest-metin aramasi (T41 P1-4).
 
     Returns a deterministic, ranked list of ``{"code", "score", "matched"}``
     dicts (best first). Ties break on insertion order of the catalog, so the
     same input always yields the same output. Read-only: no network/HAL.
+
+    F-04 (P0): candidates must clear ``_SYMPTOM_SEARCH_MIN_SCORE`` matched
+    terms. Previously ANY single matched word was enough, so generic or
+    coincidental overlap produced a confident-looking diagnosis (Kanıt A).
     """
     terms = _symptom_search_terms(norm_query)
     if not terms:
@@ -2266,14 +2595,17 @@ def search_dtc_by_symptom(norm_query: str, limit: int = 1) -> list[dict[str, Any
         if not hay_parts:
             continue
         hay = AutomotiveTokenizer.normalize_text(" ".join(hay_parts))
-        matched = [t for t in terms if t in hay]
+        matched = [t for t in terms if _has_standalone_word(hay, t)]
         if matched:
             hits.append((len(matched), order, str(code), matched))
     # sort: more matched terms first, then catalog insertion order (stable).
     hits.sort(key=lambda h: (-h[0], h[1]))
+    # F-04: drop candidates that do not clear the evidence bar. An abstention
+    # (empty list) is the correct answer when the overlap is coincidental.
+    qualified = [h for h in hits if h[0] >= _SYMPTOM_SEARCH_MIN_SCORE]
     return [
         {"code": c, "score": n, "matched": m}
-        for (n, _order, c, m) in hits[: max(1, limit)]
+        for (n, _order, c, m) in qualified[: max(1, limit)]
     ]
 
 
@@ -2685,10 +3017,25 @@ class CausalBayesianInferenceEngine:
 
         mid = _mode06_mid_from_can_id(can_id)
         tid: int | None = None
-        if mid is None and len(payload_bytes) >= 2 and payload_bytes[0] == 0x46:
+        # F-28: accept the ISO-TP single-frame shape as well as a raw payload.
+        # A single frame prefixes the length in the high nibble of byte 0
+        # (`0xN6 0x46 <MID> <TID> ...`), so the literal 0x46 is at index 1, not
+        # 0. Without this the payload branch never matched a real overnight
+        # frame and the catalog lookup was unreachable in production.
+        payload_sid_idx = _resolve_uds_sid_index(payload_bytes) if payload_bytes else 0
+        if (
+            mid is None
+            and len(payload_bytes) > payload_sid_idx
+            and payload_bytes[payload_sid_idx] == 0x46
+            and len(payload_bytes) > payload_sid_idx + 1
+        ):
             # Mode $06 response: 0x46 <MID> <TID> <data...>
-            mid = payload_bytes[1]
-            tid = payload_bytes[2] if len(payload_bytes) >= 3 else None
+            mid = payload_bytes[payload_sid_idx + 1]
+            tid = (
+                payload_bytes[payload_sid_idx + 2]
+                if len(payload_bytes) > payload_sid_idx + 2
+                else None
+            )
         elif mid is not None and len(payload_bytes) >= 1:
             tid = payload_bytes[0]
 
@@ -2964,10 +3311,31 @@ class CausalBayesianInferenceEngine:
             return attach_action_triggers(frame_report, actions)
 
         # 0.1 CAN Traffic & Bus Load Anomaly Awareness (General Bus Questions Only)
-        is_traffic_query = any(w in norm_query for w in ["trafik", "hat yuku", "bus load", "error frame", "hata karesi", "patlama", "babbling"])
-        if is_traffic_query and any(w in norm_query for w in ["durum", "nasil", "yuku", "yuzde", "load", "rapor", "analiz", "hat", "hata"]):
+        # F-01: whole-word matching. The qualifier list previously contained the
+        # bare substrings "hat" and "hata", so "hata karesi" (an error-frame
+        # question, handled by its own branch below) also satisfied the traffic
+        # query and was hijacked into a bus-load report.
+        is_traffic_query = any(
+            _has_standalone_word(norm_query, w)
+            for w in ["trafik", "hat yuku", "bus load", "error frame", "hata karesi", "patlama", "babbling"]
+        )
+        if is_traffic_query and any(
+            _has_standalone_word(norm_query, w)
+            for w in ["durum", "nasil", "yuku", "yuzde", "load", "rapor", "analiz", "hat", "hata"]
+        ):
             traffic_rep = explain_traffic_metrics(telemetry, user_query)
-            actions = [make_uds_clear_dtc_action()]
+            # F-25: the previous code unconditionally attached a UDS 0x14
+            # "Clear DTC" action to EVERY traffic report — including an empty
+            # one. A bus-load question is not a DTC-clear request, and offering
+            # a destructive action with no diagnostic evidence is unsafe. The
+            # trigger is now minted only when the report actually reflects a
+            # measured anomaly (i.e. not the "no data" branch) AND the operator
+            # explicitly asked to clear/act.
+            actions: list[dict[str, Any]] = []
+            if "Veri Yok" not in traffic_rep and any(
+                w in norm_query for w in ["temizle", "sil", "clear", "reset"]
+            ):
+                actions = [make_uds_clear_dtc_action()]
             return attach_action_triggers(traffic_rep, actions)
 
         # 0.1 Direct Diagnostic Action Requests (UDS & J1939 Actionable Triggers)
@@ -3313,6 +3681,41 @@ class CausalBayesianInferenceEngine:
                     f"• **Tavsiye:** Aracın yetkili servis kılavuzunu inceleyin veya UDS `0x19 0x02` servisi ile çevre koşullarını (Freeze Frame) okuyun."
                 )
 
+        # Kanıt A (P1, fabrication from generic text): a query whose content
+        # words carry no diagnostic specificity must ABSTAIN here instead of
+        # falling through to the intent router, where loose keyword matching
+        # turned "problem" into a concrete P0500 report and "hava durumu nedir"
+        # into a CRITICAL_STOP SPN1087 brake report. Reaching this point means
+        # no hex payload, CAN ID, DTC/SPN, recall/TSB or bus-metric path
+        # matched — so the only honest answer for non-specific text is the
+        # "no data" fallback. Specific queries (tekleme, turbo, hararet, ...)
+        # keep all their content words and pass straight through.
+        if not target_code and not can_id_hex and not active_dtcs:
+            _content_words = [
+                w for w in norm_query.split()
+                if w and w not in _SYMPTOM_SEARCH_STOPWORDS
+            ]
+            if not _content_words or all(
+                w in _GENERIC_NON_DIAGNOSTIC_TERMS for w in _content_words
+            ):
+                _abstain = (
+                    f"ℹ️ **Bilgi Bulunamadı:** '{user_query[:60]}' hakkında yerel teşhis "
+                    f"veritabanında doğrudan bir eşleşme bulunamadı.\n\n"
+                    f"⚠️ **Ayrımsız ifade:** Sorgu teşhise özgü bir terim içermiyor; "
+                    f"uydurma arıza kodu üretilmedi. Belirti, arıza kodu (P0300), "
+                    f"SPN/FMI veya CAN ID belirtin.\n\n"
+                    f"💡 **Desteklenen Sorgu Formatları:**\n"
+                    f"• **Arıza Kodları:** *P0300*, *U0100*, *C0035*, *P1260*\n"
+                    f"• **Ağır Vasıta SPN:** *SPN 100 FMI 1*, *SPN 641*\n"
+                    f"• **DBC Dosyaları:** *golf dbc*, *tesla dbc*, *j1939 dbc*\n"
+                    f"• **Geri Çağırma / TSB:** *Ford F-150 recall*, *Tesla Model 3 kampanya*\n"
+                    f"• **Fiziksel Katman:** *120 ohm testi*, *CAN hata karesi*"
+                )
+                _extracted = extract_action_triggers(user_query)
+                if _extracted:
+                    return attach_action_triggers(_abstain, _extracted)
+                return _abstain
+
         # 5. Semantic Intent Matching using Causal Graph
         if intents.get("EV_HV_BATTERY", 0.0) >= 0.5 or any(w in norm_query for w in ["izolasyon", "hvil", "batarya", "megger", "precharge", "turtle"]):
             if "izolasyon" in norm_query or "megger" in norm_query or "kacak" in norm_query:
@@ -3334,7 +3737,16 @@ class CausalBayesianInferenceEngine:
                 return cls._format_4stage_technician_report("SPN3364", telemetry, vehicle_make, vehicle_year)
             if "enjektor" in norm_query:
                 return cls._format_4stage_technician_report("SPN651", telemetry, vehicle_make, vehicle_year)
-            if "fren" in norm_query or "hava" in norm_query:
+            # Kanıt A: "hava" must match the pneumatic-brake domain as a WHOLE
+            # word — bare substring matching sent "hava durumu nedir" (weather)
+            # to a CRITICAL_STOP SPN1087 brake report. Whole-word matching alone
+            # is not enough ("hava durumu" really does contain the word "hava"),
+            # so require an actual pneumatic/brake qualifier alongside it.
+            # A bare "hava" (weather) is handled by the abstention gate above.
+            if _has_standalone_word(norm_query, "fren") or any(
+                _has_standalone_word(norm_query, w)
+                for w in ("hava basinci", "hava kacagi", "hava kaçağı", "hava tanki", "hava tüpü", "kuru hava")
+            ):
                 return cls._format_4stage_technician_report("SPN1087", telemetry, vehicle_make, vehicle_year)
             return cls._format_4stage_technician_report("SPN4364", telemetry, vehicle_make, vehicle_year)
 
@@ -3957,7 +4369,15 @@ class CausalBayesianInferenceEngine:
 # ----------------------------------------------------------------------------
 @dataclass(slots=True)
 class ScenarioContext:
-    """Mutable accumulator shared by scenario bodies (original local vars)."""
+    """Mutable accumulator shared by scenario bodies (original local vars).
+
+    F-02 (P0, No Fabricated Telemetry): the ``has_*`` flags record whether a
+    signal was ACTUALLY MEASURED in this session. Scenario bodies MUST consult
+    them before emitting a telemetry correlation sentence, so a missing signal
+    can never be narrated as a measured value (e.g. "motor 0 RPM devirde...",
+    "soğutma sıvısı 85.0°C"). Raw values keep their neutral defaults only for
+    arithmetic; the flags are the sole authority on measurement provenance.
+    """
 
     dtcs: list[dict[str, object]]
     rpm: float
@@ -3968,6 +4388,11 @@ class ScenarioContext:
     steps: list["TroubleshootingStep"]
     correlations: list[str]
     affected: list[str]
+    # F-02 provenance flags — True ONLY when the key was present in the input
+    # telemetry snapshot (i.e. the value is a real reading, not a default).
+    has_rpm: bool = False
+    has_boost: bool = False
+    has_coolant: bool = False
 
 
 @dataclass(slots=True, frozen=True)
@@ -4129,7 +4554,11 @@ def _misfire_body(ctx: ScenarioContext) -> int:
             "Orta (Alet Gerekir)",
         )
     )
-    ctx.correlations.append(f"Motor {ctx.rpm:.0f} RPM devirde silindir teklemesi nedeniyle tork dalgalanması yaşıyor.")
+    # F-02: only narrate a RPM figure when devir was actually measured.
+    if ctx.has_rpm:
+        ctx.correlations.append(
+            f"Motor {ctx.rpm:.0f} RPM devirde silindir teklemesi nedeniyle tork dalgalanması yaşıyor."
+        )
     return count
 
 
@@ -4153,7 +4582,11 @@ def _turbo_body(ctx: ScenarioContext) -> int:
             "Orta (Alet Gerekir)",
         )
     )
-    ctx.correlations.append(f"Turbo basıncı {ctx.boost_bar:.2f} Bar seviyesinde; hedef basınç aralığından sapma var.")
+    # F-02: only narrate a boost figure when basınç was actually measured.
+    if ctx.has_boost:
+        ctx.correlations.append(
+            f"Turbo basıncı {ctx.boost_bar:.2f} Bar seviyesinde; hedef basınç aralığından sapma var."
+        )
     return turbo_count
 
 
@@ -4179,7 +4612,11 @@ def _overheat_body(ctx: ScenarioContext) -> int:
             "Kolay (Görsel)",
         )
     )
-    ctx.correlations.append(f"Motor soğutma sıvısı {ctx.coolant_temp:.1f}°C sıcaklıkta; kritik hararet eşiğinde!")
+    # F-02: only narrate a temperature figure when sıcaklık was actually measured.
+    if ctx.has_coolant:
+        ctx.correlations.append(
+            f"Motor soğutma sıvısı {ctx.coolant_temp:.1f}°C sıcaklıkta; kritik hararet eşiğinde!"
+        )
     return heat_count
 
 
@@ -4258,11 +4695,21 @@ class AiDiagnosticCopilot:
         # M-18 (P2-17): lazy knowledge-base load at first analysis use.
         ensure_external_dtc_database_loaded()
         dtc_count = len(active_dtcs)
+        # F-02 (P0, No Fabricated Telemetry): a signal is "measured" ONLY when its
+        # key is present in the snapshot. Absent keys keep a neutral numeric
+        # default for arithmetic, but MUST NOT be narrated as a reading. The
+        # previous code applied `CoolantTemp -> 85.0` unconditionally and printed
+        # "motor devri 0 RPM" / "85.0°C" for sessions that carried no telemetry
+        # at all, which is exactly the fabrication AGENTS.md §2.3 forbids.
+        has_rpm = "EngineSpeed" in telemetry_snapshot
+        has_boost = "BoostPressure" in telemetry_snapshot
+        has_coolant = "CoolantTemp" in telemetry_snapshot
         rpm = telemetry_snapshot.get("EngineSpeed", 0.0)
         raw_boost = telemetry_snapshot.get("BoostPressure", 0.0)
         # Normalize boost: if > 10, it's in kPa (e.g. 120 kPa = 1.20 Bar)
         boost_bar = raw_boost / 100.0 if raw_boost > 10.0 else raw_boost
-        coolant_temp = telemetry_snapshot.get("CoolantTemp", 85.0)
+        coolant_temp = telemetry_snapshot.get("CoolantTemp", 0.0)
+        telemetry_measured = has_rpm or has_boost or has_coolant
 
         likely_causes: list[str] = []
         steps: list[TroubleshootingStep] = []
@@ -4286,6 +4733,9 @@ class AiDiagnosticCopilot:
             steps=steps,
             correlations=correlations,
             affected=affected,
+            has_rpm=has_rpm,
+            has_boost=has_boost,
+            has_coolant=has_coolant,
         )
         for rule in SCENARIO_RULES:
             scenario_matched_count += rule.body(ctx)
@@ -4435,12 +4885,18 @@ class AiDiagnosticCopilot:
 
 
         # FAZ 4 wiring (AI plan Faz 3): rank graph hypotheses from the SAME
-        # active-DTC evidence and fold the top-1 into correlations as the
-        # root-cause candidate. Additive ONLY into correlations (never
-        # likely_causes — its length is acceptance-locked by
-        # test_adversarial_final_gate). Fail-soft: graph missing/unreadable
-        # → no line, analysis otherwise unchanged. No fabrication: only
-        # graph node titles verbatim, scored from real session codes.
+        # active-DTC evidence and surface the top-1 as a root-cause CANDIDATE.
+        #
+        # Kanıt C (P0, uncalibrated confidence inflation): this line used to be
+        # appended into ``correlations``, which is fed to
+        # ``compute_root_cause_confidence(telemetry_correlation_count=...)``.
+        # That made the engine count ITS OWN hypothesis as independent
+        # telemetry corroboration, doubling the evidence and pushing the score
+        # from ~%60 to ~%90 with zero measured signals. The hypothesis is now
+        # kept in a SEPARATE list and is explicitly excluded from the
+        # telemetry-correlation count below. A hypothesis is a conclusion, not
+        # evidence, and can never corroborate itself.
+        hypothesis_candidates: list[str] = []
         try:
             from src.core.models.diagnostics import DiagnosticDomain, DiagnosticEvent, VehicleSession
             from src.engine.ai.hypothesis_engine import rank_hypotheses
@@ -4485,8 +4941,8 @@ class AiDiagnosticCopilot:
                         f"🎯 Kök neden adayı [{_top.id}]: {_top.fault} "
                         f"(kanıt skoru %{_top.score * 100:.0f})"
                     )
-                    if _line not in correlations:
-                        correlations.append(_line)
+                    if _line not in hypothesis_candidates:
+                        hypothesis_candidates.append(_line)
         except Exception as exc:  # noqa: BLE001 — hypothesis layer must never break the expert report
             logger.warning(
                 "Hipotez sıralama atlandı — kök neden adayı üretilmedi",
@@ -4507,7 +4963,14 @@ class AiDiagnosticCopilot:
                     )
                 )
             else:
-                likely_causes.append("Aktif hata tespit edilmedi. Telemetri sinyalleri nominal aralıkta çalışıyor.")
+                # F-02: an empty session has NO health evidence. Saying
+                # "telemetri sinyalleri nominal aralıkta çalışıyor" asserts a
+                # measurement that never happened. Claim health only when a
+                # signal was actually measured, else state the data gap.
+                if telemetry_measured:
+                    likely_causes.append("Aktif hata tespit edilmedi. Telemetri sinyalleri nominal aralıkta çalışıyor.")
+                else:
+                    likely_causes.append("Ölçülmüş telemetri verisi ve aktif arıza kodu yok — sağlık beyanı üretilemez (veri yok).")
                 steps.append(
                     TroubleshootingStep(
                         1,
@@ -4517,11 +4980,34 @@ class AiDiagnosticCopilot:
                     )
                 )
 
+        # F-08 (P1): `active_ecus` was a dead parameter — accepted, passed
+        # through to this method, and never read (verified by AST: zero Load
+        # references in the body). A caller could therefore never influence the
+        # report through it, and the signature promised information the engine
+        # ignored. It now has one narrow, non-fabricating use: when the active
+        # DTC set contains U-codes (network/ECU communication faults), the
+        # ECUs the caller actually reported are surfaced as affected
+        # subsystems. Only names the caller supplied are echoed — never a
+        # guessed or synthesized ECU name (AGENTS.md §2.3).
+        if active_ecus and any(
+            str(d.get("code", "")).strip().upper().startswith("U") for d in active_dtcs
+        ):
+            for ecu in active_ecus:
+                if ecu and ecu not in affected:
+                    affected.append(ecu)
+
         if dtc_count == 0 and not affected:
-            summary = (
-                f"Çevrimdışı AI Analizi: Nominal durum: Aktif arıza kodu tespit edilmedi. "
-                f"Telemetri sinyalleri nominal aralıkta çalışıyor. Sistem Durumu: {severity.value}."
-            )
+            # F-02: distinguish "measured and healthy" from "no data at all".
+            if telemetry_measured:
+                summary = (
+                    f"Çevrimdışı AI Analizi: Nominal durum: Aktif arıza kodu tespit edilmedi. "
+                    f"Telemetri sinyalleri nominal aralıkta çalışıyor. Sistem Durumu: {severity.value}."
+                )
+            else:
+                summary = (
+                    "Çevrimdışı AI Analizi: Aktif arıza kodu ve ölçülmüş telemetri verisi yok. "
+                    f"Hüküm verilemedi (veri yok). Sistem Durumu: {severity.value}."
+                )
         else:
             summary = (
                 f"Çevrimdışı AI Analizi: Toplam {dtc_count} aktif arıza kodu tespit edildi. "
@@ -4535,13 +5021,15 @@ class AiDiagnosticCopilot:
                 dtc_count=dtc_count,
                 scenario_matched=scenario_matched_count,
                 kb_matched=kb_matched_count,
+                # Kanıt C: `hypothesis_candidates` is deliberately NOT counted —
+                # only genuine signal-derived correlations may corroborate.
                 telemetry_correlation_count=len(correlations),
             ),
             likely_causes=likely_causes,
             troubleshooting_steps=steps,
             affected_subsystems=affected if affected else ["CAN Veri Yolu & Genel Telemetri"],
             raw_dtc_count=dtc_count,
-            telemetry_correlations=correlations,
+            telemetry_correlations=correlations + hypothesis_candidates,
             ai_model_used="Yerel Otomotiv Uzman Motoru (Çevrimdışı)",
         )
 

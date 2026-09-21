@@ -135,12 +135,31 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   };
 
-  const handleSave = () => {
-    localStorage.setItem('cloud_base_url', cloudUrl.trim());
-    DesktopBridge.cloudSaveConfig(cloudUrl.trim());
-    onSave({ channel, baudRate, cloudBaseUrl: cloudUrl.trim() });
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 2500);
+  const handleSave = async () => {
+    // D4 (REVIEW Aşama 2): the previous implementation persisted the URL to
+    // localStorage and showed "Saved" BEFORE awaiting the backend, so a URL the
+    // backend rejects (host not on the cloud allowlist) was still announced as
+    // saved and silently written to storage. Persist only on a confirmed save.
+    const requested = cloudUrl.trim();
+    try {
+      const res: any = await DesktopBridge.cloudSaveConfig(requested);
+      if (res && res.success === false) {
+        setActionFeedback({
+          type: 'error',
+          text: `Ayarlar kaydedilemedi: ${res.error || 'bilinmeyen hata'}`,
+        });
+        return;
+      }
+      localStorage.setItem('cloud_base_url', requested);
+      onSave({ channel, baudRate, cloudBaseUrl: requested });
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 2500);
+    } catch (err: any) {
+      setActionFeedback({
+        type: 'error',
+        text: `Ayarlar kaydedilemedi: ${err?.message || 'bağlantı hatası'}`,
+      });
+    }
   };
 
   const baudOptions = ['125 kbps', '250 kbps', '500 kbps', '1000 kbps (1 Mbps)'];
