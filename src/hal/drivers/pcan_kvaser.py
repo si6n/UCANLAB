@@ -165,8 +165,28 @@ class PythonCanBus(AbstractBus):
                     )
                     return False
             except (NotImplementedError, AttributeError):
-                # Software-simulated bus (virtual / loopback) does not expose hardware transceiver state
-                pass
+                # S1-P1-4 (fail-closed): the backend cannot express hardware
+                # transceiver state (e.g. a serial/slcan adapter whose state
+                # property is read-only or absent). The OLD code swallowed this
+                # and still flipped `self.listen_only` + returned True — a
+                # PHANTOM SUCCESS that reported "disarmed" while the hardware
+                # kept ACTIVE (still ACK-ing on the vehicle bus) and "armed"
+                # while the hardware stayed PASSIVE (dead-but-armed protocol).
+                #
+                # The pure-Python virtual backend is the ONE legitimate
+                # exemption: it has no transceiver, so there is no hardware
+                # state to diverge from and the software flag is authoritative.
+                # This mirrors the identical `interface == "virtual"` exemption
+                # already applied in `connect()` when proving PASSIVE.
+                if getattr(self, "interface", None) == "virtual":
+                    self.listen_only = listen_only
+                    self.metrics.state = BusState.PASSIVE if listen_only else BusState.ACTIVE
+                    return True
+                logger.error(
+                    "Backend cannot mutate listen-only state; refusing to report unverified mode change",
+                    extra={"target": str(target), "requested_listen_only": listen_only},
+                )
+                return False
             except Exception as exc:  # noqa: BLE001 — backend refusal
                 logger.error(
                     "Backend refused bus state change",

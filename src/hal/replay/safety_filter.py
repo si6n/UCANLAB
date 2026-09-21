@@ -5,11 +5,13 @@ Complies with Saha Risk Kataloğu v1.2 Sections 21, 41, Risk R-17.
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Sequence
 from typing import ClassVar
 
 from src.core.logging import get_logger
 from src.core.models.can_frame import CanFrame
+from src.safety.criticality import PROHIBITED_UDS_SIDS
 
 logger = get_logger("hal.replay.safety_filter")
 
@@ -114,25 +116,14 @@ class ReplaySafetyFilter:
         0x7EF,
     }
 
-    # Prohibited Diagnostic Service Identifiers (UDS SIDs)
-    PROHIBITED_UDS_SIDS: ClassVar[set[int]] = {
-        0x10,  # Diagnostic Session Control (switching to programming/extended)
-        0x11,  # ECU Reset
-        0x14,  # Clear Diagnostic Information
-        0x27,  # Security Access
-        0x28,  # Communication Control
-        0x2E,  # Write Data By Identifier
-        0x2F,  # Input/Output Control By Identifier (P1-2: direct actuator drive)
-        0x31,  # Routine Control (actuator testing)
-        0x34,  # Request Download
-        0x36,  # Transfer Data
-        0x37,  # Request Transfer Exit
-        0x38,  # Request File Transfer
-        0x3D,  # Write Memory By Address (P1-2: raw memory writes)
-        0x3E,  # Tester Present (session keep-alive for the above)
-        0x85,  # Control DTC Setting
-        0x87,  # Link Control (baud-rate changes)
-    }
+    # Prohibited Diagnostic Service Identifiers (UDS SIDs).
+    # S1-P1-3: sourced from `src.safety.criticality` — the SHARED catalogue
+    # that the live-TX gateway also derives criticality from. Previously this
+    # set was maintained separately and drifted STRICTER than the gateway
+    # ({0x38, 0x3D, 0x87} blocked in replay but non-critical on the wire),
+    # which is the unsafe direction: a live injection was less guarded than
+    # the same frame replayed from a log.
+    PROHIBITED_UDS_SIDS: ClassVar[set[int]] = set(PROHIBITED_UDS_SIDS)
 
     def __init__(
         self,
@@ -142,11 +133,27 @@ class ReplaySafetyFilter:
         block_transport_tunneling: bool = True,
         custom_blocked_ids: set[int] | None = None,
     ) -> None:
-        self.block_address_claim = block_address_claim
-        self.block_diagnostic_write = block_diagnostic_write
-        self.block_actuator_routines = block_actuator_routines
-        self.block_transport_tunneling = block_transport_tunneling
-        self.custom_blocked_ids = custom_blocked_ids or set()
+        # S3 (REVIEW Aşama 4): the policy flags are stored privately and exposed
+        # as read-only properties. They used to be plain public attributes, so
+        # any holder of the filter (or the UI bridge) could silently weaken the
+        # protection policy WHILE a replay was running (`filter.
+        # block_diagnostic_write = False` re-enabled DM11/DM3 replay). Policy is
+        # now fixed at construction; changing it requires a new instance.
+        self._block_address_claim = bool(block_address_claim)
+        self._block_diagnostic_write = bool(block_diagnostic_write)
+        self._block_actuator_routines = bool(block_actuator_routines)
+        self._block_transport_tunneling = bool(block_transport_tunneling)
+        # S3: COPY the caller's set. `custom_blocked_ids or set()` aliased the
+        # caller's mutable set, so an external `ids.add(...)`/`.clear()` mutated
+        # this filter's policy behind its back.
+        self._custom_blocked_ids: frozenset[int] = frozenset(custom_blocked_ids or ())
+
+        # S2 (REVIEW Aşama 4): the counters and the ISO-TP session ledger are
+        # mutated on every frame. The replay worker and any concurrent
+        # `is_frame_safe` caller could interleave, corrupting the ledger (a
+        # half-tracked ISO-TP session is a policy bypass) and the metrics.
+        # All mutation now happens under this lock.
+        self._lock = threading.RLock()
 
         self.total_evaluated: int = 0
         self.total_passed: int = 0
@@ -156,6 +163,47 @@ class ReplaySafetyFilter:
         # CRITICAL-1: per-arbitration-ID ISO-TP session ledger:
         # arb_id -> (SID the First Frame carried, payload bytes the CFs still owe).
         self._iso_tp_pending: dict[int, tuple[int, int]] = {}
+
+    # -- S3: read-only policy surface (no setters, so no runtime weakening) --
+    @property
+    def block_address_claim(self) -> bool:
+        return self._block_address_claim
+
+    @property
+    def block_diagnostic_write(self) -> bool:
+        return self._block_diagnostic_write
+
+    @property
+    def block_actuator_routines(self) -> bool:
+        return self._block_actuator_routines
+
+    @property
+    def block_transport_tunneling(self) -> bool:
+        return self._block_transport_tunneling
+
+    @property
+    def custom_blocked_ids(self) -> frozenset[int]:
+        return self._custom_blocked_ids
+
+    def snapshot_metrics(self) -> dict[str, int | dict[str, int]]:
+        """Thread-safe snapshot of the replay filter counters (S2)."""
+        with self._lock:
+            return {
+                "evaluated": self.total_evaluated,
+                "passed": self.total_passed,
+                "blocked": self.total_blocked,
+                "blocked_reasons": dict(self.blocked_reasons),
+                "iso_tp_sessions_pending": len(self._iso_tp_pending),
+            }
+
+    def reset_session_state(self) -> None:
+        """Clear the ISO-TP ledger (call when starting a NEW replay session).
+
+        S2: leaving a stale ledger across sessions let a First Frame from
+        session A authorize Consecutive Frames in session B.
+        """
+        with self._lock:
+            self._iso_tp_pending.clear()
 
     def _extract_uds_sid(self, frame: CanFrame) -> int | None:
         """Extract the UDS SID from an ISO 15765-2 encoded frame (P1-4).
@@ -277,7 +325,19 @@ class ReplaySafetyFilter:
         return True, ""
 
     def is_frame_safe(self, frame: CanFrame) -> tuple[bool, str]:
-        """Evaluate if a frame is safe to be transmitted onto a CAN bus during replay."""
+        """Evaluate if a frame is safe to be transmitted onto a CAN bus during replay.
+
+        S2 (REVIEW Aşama 4): the whole evaluation runs under `_lock`. It reads
+        AND writes the ISO-TP session ledger (`_iso_tp_pending`), so two
+        concurrent callers could otherwise interleave a FirstFrame/CF sequence
+        and corrupt the ledger — a partially-tracked ISO-TP session is a
+        policy bypass for the very tunneling this filter exists to stop.
+        """
+        with self._lock:
+            return self._is_frame_safe_locked(frame)
+
+    def _is_frame_safe_locked(self, frame: CanFrame) -> tuple[bool, str]:
+        """Body of `is_frame_safe`; caller must hold `_lock`."""
         self.total_evaluated += 1
 
         # Check custom blocked IDs
@@ -369,22 +429,26 @@ class ReplaySafetyFilter:
 
     def filter_frame(self, frame: CanFrame) -> CanFrame | None:
         """Return frame if safe, or None if blocked by safety policy."""
-        is_safe, reason = self.is_frame_safe(frame)
-        if not is_safe:
-            self.total_blocked += 1
-            self.blocked_reasons[reason] = self.blocked_reasons.get(reason, 0) + 1
-            logger.warning(
-                "Replay Safety Filter BLOCKED unsafe frame",
-                extra={
-                    "arbitration_id": hex(frame.arbitration_id),
-                    "reason": str(reason)[:500],
-                    "data": frame.data.hex()[:16] + ("..." if len(frame.data.hex()) > 16 else ""),
-                },
-            )
-            return None
+        # S2: counters are mutated here as well, so the evaluation + counter
+        # update must be one atomic unit (RLock is re-entrant, so the nested
+        # `is_frame_safe` acquisition is safe on the same thread).
+        with self._lock:
+            is_safe, reason = self.is_frame_safe(frame)
+            if not is_safe:
+                self.total_blocked += 1
+                self.blocked_reasons[reason] = self.blocked_reasons.get(reason, 0) + 1
+                logger.warning(
+                    "Replay Safety Filter BLOCKED unsafe frame",
+                    extra={
+                        "arbitration_id": hex(frame.arbitration_id),
+                        "reason": str(reason)[:500],
+                        "data": frame.data.hex()[:16] + ("..." if len(frame.data.hex()) > 16 else ""),
+                    },
+                )
+                return None
 
-        self.total_passed += 1
-        return frame
+            self.total_passed += 1
+            return frame
 
     def filter_sequence(self, frames: Sequence[CanFrame]) -> list[CanFrame]:
         """Filter an entire sequence of frames, removing unsafe entries."""

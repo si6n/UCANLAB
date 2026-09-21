@@ -187,6 +187,60 @@ class RP1210Bus(AbstractBus):
             finally:
                 self.metrics.state = BusState.DISCONNECTED
 
+    def set_listen_only(self, listen_only: bool) -> bool:
+        """S1-P0-1: flip this adapter's software TX gate (honest semantics).
+
+        Why this method must exist: the desktop arming path
+        (`DesktopApiBridge.arm_tx` -> `_set_driver_listen_only`) enables TX by
+        calling `set_listen_only(False)`. Before this method existed, the
+        desktop fell back to
+        ``getattr(bus, "listen_only", not listen_only) == listen_only``, which
+        compared the constructor default (True) against the request (False)
+        and ALWAYS returned False. `arm_tx` therefore failed with "driver did
+        not confirm active mode" and the entire RP1210 (Nexiq / Noregon /
+        DPA5) TX path advertised in the README could never be armed from the
+        desktop UI.
+
+        Semantics: RP1210 has no standard hardware listen-only connect flag.
+        This adapter's passive guarantee is that `send()` is hard-blocked
+        while `listen_only` is True (see `send`). Toggling the flag IS the
+        mode change — no reconnection is required — so reporting the requested
+        mode is truthful rather than a phantom success.
+
+        Returns False when the bus is not connected (nothing to switch).
+        """
+        with self._lifecycle_lock:
+            if not self.is_connected:
+                logger.error(
+                    "Cannot change listen-only mode: RP1210 bus is not connected",
+                    extra={"requested_listen_only": listen_only},
+                )
+                return False
+            self.listen_only = bool(listen_only)
+            self.metrics.state = BusState.PASSIVE if self.listen_only else BusState.ACTIVE
+            logger.info(
+                "RP1210 listen-only mode changed",
+                extra={
+                    "device_id": self.device_id,
+                    "listen_only": self.listen_only,
+                    "tx_gate": "blocked" if self.listen_only else "enabled",
+                },
+            )
+            return True
+
+    @property
+    def hardware_listen_only(self) -> bool:
+        """S1-P1-5: False — this adapter produces ACKs; it is not a true sniffer.
+
+        The RP1210 API has no portable listen-only connect mode, so opening a
+        session makes the transceiver ACK on the bus. `listen_only=True` only
+        blocks OUR transmissions; it does not make the node passive at the
+        protocol layer (error counters, bus-off recovery and single-transmitter
+        scenarios still change). The UI must surface this so the operator is
+        not misled into believing a session is a passive sniff.
+        """
+        return False
+
     def send(self, frame: CanFrame) -> None:
         """Transmit a frame via the RP1210 adapter (canonical TX, D8).
 

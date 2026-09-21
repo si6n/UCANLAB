@@ -39,6 +39,15 @@ DEFAULT_DPAPI_ENTROPY: bytes = b"UniversalCAN_Hardware_Secret_Binding_2026"
 DEFAULT_LINUX_SALT: bytes = b"UniversalCAN_Linux_Secret_Salt_2026"
 DEFAULT_KDF_INFO: bytes = b"UniversalCAN_Secret_Key_Derivation_v1"
 
+# S1-P2-5: process-level memo for `get_default_secret_provider`. Keyed by
+# (resolved storage_dir or None, use_ephemeral) so identical requests share one
+# provider while tests can still obtain isolated instances by passing distinct
+# parameters. Without this, the desktop, EmergencyStopSystem's self-created
+# fallback and scripts/estop_reset_tool.py each built their own provider and
+# their keys could diverge.
+_DEFAULT_PROVIDER_CACHE: dict[tuple[str | None, bool], "SecretProvider"] = {}
+_DEFAULT_PROVIDER_LOCK = threading.RLock()
+
 # Fail-closed bounds for secret stores (memory/file DoS hardening).
 # NOTE: 4 KiB covers HMAC/AES keys and small tokens. The legacy 4096-byte
 # InMemorySecretProvider test vector (RSA key) targets the *protocol-level*
@@ -237,6 +246,10 @@ class LinuxSecretBackend(SecretProvider):
     """
 
     MAGIC_HEADER: bytes = b"UCANSEC1"
+    #: Required length of the machine seed file. The seed is the root key of
+    #: the vault, so its length is validated on read (A5-3); generation writes
+    #: exactly this many bytes.
+    SEED_BYTES: int = 32
 
     def __init__(
         self,
@@ -274,17 +287,50 @@ class LinuxSecretBackend(SecretProvider):
         """Gather platform machine identifier for user/machine tied key derivation."""
         # 1. Prioritize user-isolated persistent random seed (0600)
         seed_file = self.storage_path.parent / "machine_seed.bin"
-        if seed_file.exists():
+        if seed_file.exists() or seed_file.is_symlink():
+            # A5-3 (REVIEW Aşama 5): the seed is the ROOT KEY for the encrypted
+            # secret vault, so its integrity must be validated, not assumed.
+            # The old code did `read_bytes()` and only checked non-emptiness.
+            # An attacker (or a partially-restored backup) could therefore
+            # replace the seed with a 3-byte file, a FIFO/device node, or a
+            # SYMLINK pointing at a file they control — destroying the vault
+            # (decryption becomes impossible) or performing controlled key
+            # substitution. Validate type, size, ownership mode and reject
+            # symlinks, failing closed rather than deriving from bad key
+            # material.
+            if seed_file.is_symlink():
+                raise SecurityError(
+                    f"Machine seed path is a symlink, which is not permitted: {seed_file}",
+                    code="MACHINE_SEED_SYMLINK",
+                )
+            if not seed_file.is_file():
+                raise SecurityError(
+                    f"Machine seed path is not a regular file: {seed_file}",
+                    code="MACHINE_SEED_NOT_REGULAR",
+                )
+            if os.name == "posix":
+                st = seed_file.stat()
+                if (st.st_mode & 0o077) != 0:
+                    raise SecurityError(
+                        f"Machine seed file {seed_file} is group/world accessible "
+                        f"(mode {oct(st.st_mode & 0o777)}); refusing to derive keys from it",
+                        code="MACHINE_SEED_INSECURE_PERMISSIONS",
+                    )
             try:
                 existing = seed_file.read_bytes()
-                if existing:
-                    return existing
             except OSError as exc:
                 raise SecurityError(
                     f"Machine seed file exists but could not be read: {exc}",
                     code="MACHINE_SEED_UNREADABLE",
                     cause=exc,
                 ) from exc
+            if len(existing) != self.SEED_BYTES:
+                raise SecurityError(
+                    f"Machine seed file has invalid length {len(existing)} "
+                    f"(expected {self.SEED_BYTES} bytes); refusing to derive keys from it",
+                    code="MACHINE_SEED_INVALID_LENGTH",
+                )
+            return existing
 
         # 2. Gather machine-specific identity to bind together with random entropy
         candidates = [
@@ -304,7 +350,11 @@ class LinuxSecretBackend(SecretProvider):
                 continue
 
         machine_frag = b":".join(machine_frags)
-        seed = os.urandom(32) if not machine_frag else hashlib.sha256(machine_frag + os.urandom(32)).digest()
+        seed = (
+            os.urandom(self.SEED_BYTES)
+            if not machine_frag
+            else hashlib.sha256(machine_frag + os.urandom(self.SEED_BYTES)).digest()
+        )
         try:
             seed_file.parent.mkdir(parents=True, exist_ok=True)
             fd = os.open(seed_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
@@ -845,14 +895,49 @@ def get_default_secret_provider(
     - On Windows: WindowsDPAPISecretBackend (with automatic fallback)
     - On Linux / macOS / POSIX: LinuxSecretBackend (0600 file permissions + AES-256-GCM)
 
+    S1-P2-5 (singleton contract): callers in one process MUST observe the same
+    secret store. The desktop composition root, `EmergencyStopSystem()` (which
+    self-instantiates when no provider is injected) and
+    `scripts/estop_reset_tool.py` all call this factory independently. When it
+    returned a fresh object every call, the E-Stop's HMAC key and the key the
+    reset tool read could diverge — most visibly with EphemeralSecretBackend,
+    where the reset tool's provider reported `has_secret(ESTOP_HMAC_SECRET)
+    == False` while the E-Stop held a different key, so a correctly minted
+    reset token was rejected as invalid with no diagnosable cause.
+
+    The instance is therefore memoized per ``(storage_dir, force_ephemeral,
+    ephemeral_env)`` identity so repeat calls with the same parameters return
+    the SAME object. Distinct parameters still yield distinct providers (the
+    per-call override must stay possible for tests).
+
     Args:
         storage_dir: Optional custom storage directory.
         force_ephemeral: If True, forces in-memory ephemeral storage.
 
     Returns:
-        Configured concrete SecretProvider instance.
+        Configured concrete SecretProvider instance (shared for identical args).
     """
-    if force_ephemeral or os.environ.get("UNIVERSAL_CAN_EPHEMERAL_SECRETS") == "1":
+    ephemeral_env = os.environ.get("UNIVERSAL_CAN_EPHEMERAL_SECRETS") == "1"
+    use_ephemeral = bool(force_ephemeral) or ephemeral_env
+    cache_key = (
+        str(Path(storage_dir).resolve()) if storage_dir is not None else None,
+        use_ephemeral,
+    )
+    with _DEFAULT_PROVIDER_LOCK:
+        cached = _DEFAULT_PROVIDER_CACHE.get(cache_key)
+        if cached is not None:
+            return cached
+        provider = _build_default_secret_provider(storage_dir, use_ephemeral)
+        _DEFAULT_PROVIDER_CACHE[cache_key] = provider
+        return provider
+
+
+def _build_default_secret_provider(
+    storage_dir: Path | str | None,
+    use_ephemeral: bool,
+) -> SecretProvider:
+    """Construct a new provider (uncached). See `get_default_secret_provider`."""
+    if use_ephemeral:
         return EphemeralSecretBackend()
 
     try:

@@ -126,7 +126,31 @@ class FlashingConfig:
     def __post_init__(self) -> None:
         if self.container is not None:
             if not self.data:
-                base_addr, bin_data = self.container.get_continuous_binary()
+                # F1 (REVIEW Aşama 3) ORDERING FIX: the old code flattened the
+                # container FIRST and checked `max_image_bytes` afterwards, so a
+                # crafted image whose segments sat far apart allocated the whole
+                # span (256 MiB from a 79-byte file) and only THEN raised
+                # "Image size exceeds ECU profile max". The ECU profile bounds
+                # must reject the image BEFORE any padding allocation, so the
+                # span is validated against BOTH the profile cap and the parser
+                # limits up front. `get_continuous_binary` re-checks its own
+                # gap/span caps during the flatten as a second layer.
+                mem_min = self.memory_min_address
+                mem_max = self.memory_max_address
+                if mem_max > mem_min:
+                    profile_cap = min(self.max_image_bytes, mem_max - mem_min + 1)
+                else:
+                    profile_cap = self.max_image_bytes
+                span = self.container.max_address - self.container.min_address
+                if span > profile_cap:
+                    raise ValueError(
+                        f"Firmware address span {span} bytes exceeds ECU profile max "
+                        f"({profile_cap} bytes); refusing to flatten before allocation"
+                    )
+                try:
+                    base_addr, bin_data = self.container.get_continuous_binary(max_span=profile_cap)
+                except ProtocolError as exc:
+                    raise ValueError(f"Firmware cannot be flattened within ECU profile bounds: {exc}") from exc
                 if self.memory_address == 0 and base_addr != 0:
                     object.__setattr__(self, "memory_address", base_addr)
                 object.__setattr__(self, "data", bin_data)

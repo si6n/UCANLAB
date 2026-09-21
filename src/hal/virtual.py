@@ -40,6 +40,27 @@ class VirtualBus(AbstractBus):
         self.sent_frames: deque[CanFrame] = deque(maxlen=self.MAX_SENT_FRAMES)
         self._rx_queue: queue.Queue[CanFrame] = queue.Queue(maxsize=self.MAX_RX_QUEUE)
         self.dropped_rx_frames: int = 0
+        # S1-P1-4: a virtual bus has no physical transceiver, so the software
+        # listen-only flag IS the complete mode state. Declaring it here (and
+        # exposing `set_listen_only`) keeps the desktop arming path honest:
+        # without it the composition root fell through to the generic
+        # "flag must already match" fallback and could never arm a virtual
+        # session, even though there is nothing to verify.
+        self.listen_only: bool = False
+
+    def set_listen_only(self, listen_only: bool) -> bool:
+        """Set the virtual bus TX gate (always verifiable — no hardware).
+
+        Returns True unconditionally when connected: there is no transceiver
+        to confirm, so the flag is the authoritative state and the mode change
+        genuinely took effect. Returns False while disconnected so the caller
+        still gets a truthful "not applied" result.
+        """
+        if not self.is_connected:
+            return False
+        self.listen_only = bool(listen_only)
+        self.metrics.state = BusState.PASSIVE if self.listen_only else BusState.ACTIVE
+        return True
 
     def connect(self) -> None:
         """Connect the virtual CAN bus."""
@@ -55,6 +76,15 @@ class VirtualBus(AbstractBus):
         """Transmit frame onto the virtual bus (canonical TX entry point, D8)."""
         if not self.is_connected:
             raise HardwareError("Cannot send: Virtual CAN bus is not connected")
+        if self.listen_only:
+            # S1-P1-4: honor the listen-only gate so a virtual session opened
+            # passive cannot transmit either — this keeps virtual-bus
+            # behaviour aligned with the physical drivers instead of being a
+            # silent TX hole in tests.
+            raise HardwareError(
+                "Cannot send: Virtual CAN bus is in Listen-Only (passive) mode",
+                code="HARDWARE_LISTEN_ONLY_TX_BLOCKED",
+            )
         self.sent_frames.append(frame)
         self.metrics.tx_frames += 1
 

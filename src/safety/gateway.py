@@ -35,6 +35,11 @@ from typing import TYPE_CHECKING, ClassVar
 from src.core.errors import SafetyError
 from src.core.logging import get_logger
 from src.core.models.can_frame import CanFrame
+from src.safety.criticality import (
+    CRITICAL_J1939_PGNS,
+    CRITICAL_UDS_SIDS,
+    J1939_REQUEST_PGN,
+)
 from src.safety.e2e.packager import E2ESafetyPackager
 from src.safety.e2e.profiles import E2EProfileConfig
 from src.safety.estop import EmergencyStopSystem, EStopTriggerSource
@@ -112,18 +117,24 @@ class TxSafetyGateway:
     # a rubber stamp; a runaway producer cannot exceed it by rotating
     # `budget_category` strings.
     MAX_TOTAL_TX_PER_SEC: ClassVar[int] = 400
-    # P2 (G-2): UDS service identifiers whose transmission mutates ECU state
-    # (session/reset/clear/security/routine/write/communication-control).
-    # A whitelisted diagnostic frame carrying one of these as its first
-    # service byte is critical EVEN IF the caller forgot the flag.
-    CRITICAL_UDS_SIDS: ClassVar[frozenset[int]] = frozenset(
-        {0x10, 0x11, 0x14, 0x27, 0x28, 0x2E, 0x2F, 0x31, 0x34, 0x35, 0x36, 0x37, 0x85}
-    )
-    # P2 (G-2): J1939 PGNs that CLEAR / MUTATE diagnostic state. DM11 (65235)
-    # clears active DTCs, DM3 (65228) clears previously-active DTCs. Requests
-    # (59904) and reads are deliberately excluded so a read-only DM1/DM4 poll
-    # is not forced onto the physical-speed interlock.
-    CRITICAL_J1939_PGNS: ClassVar[frozenset[int]] = frozenset({65235, 65228})
+    # P2 (G-2): UDS service identifiers whose transmission mutates ECU state.
+    # S1-P1-3: sourced from `src.safety.criticality` so the live-TX policy and
+    # the replay filter can never diverge again (the replay path used to be
+    # STRICTER than live TX — 0x38/0x3D/0x87 were blocked in replay but
+    # non-critical on the wire).
+    CRITICAL_UDS_SIDS: ClassVar[frozenset[int]] = CRITICAL_UDS_SIDS
+    # P2 (G-2) / S1-P1-2: J1939 PGNs that CLEAR / MUTATE state, plus the
+    # actuation PGNs (TSC1/XBR) and Commanded Address that are dangerous on
+    # the wire. Read-only DM1/DM4 polls stay non-critical.
+    CRITICAL_J1939_PGNS: ClassVar[frozenset[int]] = CRITICAL_J1939_PGNS
+    # S1-P1-2: J1939-21 Request (PGN 59904). The first 3 payload bytes name
+    # the requested PGN, so a Request for a writable PGN (e.g. DM11) is an
+    # indirect erase command and must inherit that PGN's criticality.
+    J1939_REQUEST_PGN: ClassVar[int] = J1939_REQUEST_PGN
+    # ISO-TP addressing PGN prefix (PF=0xDA) used by ISO 15765-4 / DoCAN on
+    # 29-bit IDs (0x18DAxxxx). S1-P1-1: this path previously had NO UDS
+    # criticality derivation at all.
+    ISOTP_29BIT_PF: ClassVar[int] = 0xDA
     # P0 (perf): backpressure WARN output is rate-limited to one summary per
     # second — a throttled sender hammering the window used to emit one
     # log record per rejected frame, flooding stdout I/O and slowing the
@@ -987,6 +998,53 @@ class TxSafetyGateway:
                 return "moving", speed
             return "ok", speed
 
+    @staticmethod
+    def _iso_tp_service_byte(data: bytes) -> int | None:
+        """Extract the UDS service byte from an ISO-TP frame payload.
+
+        Handles classic CAN and the CAN-FD / extended-length escape sequence
+        (ISO 15765-2:2016 §9.2), where a 4-byte length follows the PCI byte so
+        the SID shifts to offset 6. Returns ``None`` when the frame carries no
+        service byte (ConsecutiveFrame 0x2 / FlowControl 0x3, truncated
+        payload).
+
+        Layouts:
+          * SingleFrame  classic:  ``[0x0L][SID][...]``            -> SID at 1
+          * FirstFrame   classic:  ``[0x1L LL][SID][...]``         -> SID at 2
+          * escape SF:             ``[0x00][0x00][DL32][SID][...]``-> SID at 6
+          * escape FF:             ``[0x10][0x00][DL32][SID][...]``-> SID at 6
+        """
+        if not data:
+            return None
+        pci = data[0] >> 4
+        if pci == 0x0:
+            if len(data) < 2:
+                return None
+            if data[1] == 0x00:
+                # Escape: 4-byte length at [2..5], SID at [6].
+                return data[6] if len(data) >= 7 else None
+            return data[1]
+        if pci == 0x1:
+            if len(data) < 2:
+                return None
+            if data[1] == 0x00:
+                # Escape FirstFrame: 4-byte length at [2..5], SID at [6].
+                return data[6] if len(data) >= 7 else None
+            return data[2] if len(data) >= 3 else None
+        return None
+
+    @staticmethod
+    def _j1939_requested_pgn(data: bytes) -> int | None:
+        """Decode the requested PGN from a J1939-21 Request payload.
+
+        J1939-21 §5.4.2: the request's first 3 bytes are the little-endian
+        PGN (byte0 = PGN LSB, byte1 = PGN middle, byte2 = PGN MSB). Returns
+        ``None`` when the payload is too short to carry all 3 bytes.
+        """
+        if len(data) < 3:
+            return None
+        return data[0] | (data[1] << 8) | (data[2] << 16)
+
     def _frame_is_critical(self, frame: CanFrame) -> bool:
         """P2 (G-2): derive command criticality from the FRAME ITSELF.
 
@@ -996,35 +1054,62 @@ class TxSafetyGateway:
         policy classifies a frame as critical on its own evidence, so the
         caller can only ever TIGHTEN the gate, never relax it.
 
-        Classification (deliberately narrow to avoid false positives):
-          * A whitelisted classical UDS request carrying an ISO-TP
-            SingleFrame / FirstFrame PCI nibble (0x0 / 0x1) whose service
-            byte is one of `CRITICAL_UDS_SIDS`. ConsecutiveFrames (0x2) and
-            flow-control (0x3) carry no SID and are never escalated.
-          * J1939 extended frames for PGN 65235 (DM11 Clear Active DTCs) and
-            PGN 65228 (DM3 Clear Previously Active DTCs). Read-only requests
-            such as PGN 59904 (Request) are intentionally NOT included.
+        Classification:
+          * **11-bit UDS**: a whitelisted frame carrying an ISO-TP
+            SingleFrame / FirstFrame whose service byte is one of
+            `CRITICAL_UDS_SIDS` (ConsecutiveFrame 0x2 / FlowControl 0x3 carry
+            no SID and are never escalated).
+          * **29-bit ISO-TP (S1-P1-1)**: `0x18DAxxxx` (PF = 0xDA, ISO
+            15765-4 / DoCAN) is the heavy-duty OBD/RP1210 diagnostic path.
+            It previously had NO criticality derivation, so ECUReset /
+            RequestDownload / LinkControl on that address passed Stage 4/5
+            untouched. The same ISO-TP service-byte extraction now applies.
+          * **J1939 direct write/actuate**: PGNs in `CRITICAL_J1939_PGNS`
+            (DM11/DM3/DM4/DM5 clear, Commanded Address, TSC1, XBR).
+          * **J1939 Request (S1-P1-2)**: PGN 59904 asks an ECU to emit some
+            PGN; requesting a writable/actuation PGN (e.g. DM11) is an
+            indirect erase/actuate command, so it inherits that PGN's
+            criticality. An undecodable Request payload is treated as
+            critical (fail-closed).
+
+        Note: a J1939 extended frame is ALSO a valid address for ISO-TP
+        (0x18DAxxxx) — the two namespaces are distinguished by PF, so the
+        ISO-TP check runs first and the J1939 PGN check second.
         """
         try:
             data = frame.data
             if not data:
                 return False
             is_extended = bool(getattr(frame, "is_extended", False))
+
             if not is_extended:
                 if frame.arbitration_id not in self.whitelist_ids:
                     return False
-                if len(data) < 2:
-                    return False
-                pci = data[0] >> 4
-                if pci not in (0x0, 0x1):
-                    return False
-                return data[1] in self.CRITICAL_UDS_SIDS
+                sid = self._iso_tp_service_byte(data)
+                return sid is not None and sid in self.CRITICAL_UDS_SIDS
+
             if not (self.whitelist_ids or self.whitelist_masks):
                 # Fail-closed: no whitelist configured means Stage 3 refuses
                 # everything anyway; do not invent criticality here.
                 return False
+
+            pf = (frame.arbitration_id >> 16) & 0xFF
+            if pf == self.ISOTP_29BIT_PF:
+                # S1-P1-1: 29-bit physical/functional ISO-TP to an ECU.
+                sid = self._iso_tp_service_byte(data)
+                return sid is not None and sid in self.CRITICAL_UDS_SIDS
+
             pgn = (frame.arbitration_id >> 8) & 0x3FFFF
-            return pgn in self.CRITICAL_J1939_PGNS
+            if pgn in self.CRITICAL_J1939_PGNS:
+                return True
+            if pgn == self.J1939_REQUEST_PGN:
+                # S1-P1-2: a Request for a writable/actuation PGN is a remote
+                # command. Fail-closed on an unparseable/short payload.
+                requested = self._j1939_requested_pgn(data)
+                if requested is None:
+                    return True
+                return requested in self.CRITICAL_J1939_PGNS
+            return False
         except Exception:  # pragma: no cover - defensive: never fail open
             logger.error("Criticality classification failed; treating frame as critical", exc_info=True)
             return True
