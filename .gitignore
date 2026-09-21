@@ -172,3 +172,12 @@ test_tmp/
 /tmpfoj4aobz/
 /tmpi3m1cygf/
 /tmpojsjiu2v/
+
+# --- Obsidian local credentials (never commit) ---
+# The vault itself is local-only session notes (see AGENTS.md 3.3).
+# scripts/obsidian_api.py was removed in 2026-09 because it shipped a
+# hardcoded OBSIDIAN_API_KEY default that leaked into 17 commits of git
+# history. Credentials must come from the environment only.
+.obsidian/workspace.json
+obsidian-api.env
+.obsidian-apikey
