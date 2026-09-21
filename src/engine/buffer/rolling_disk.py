@@ -301,6 +301,13 @@ class RollingDiskBuffer:
     MAX_CHUNK_BYTES: ClassVar[int] = 32 * 1024 * 1024
     MAX_STORED_FILE_BYTES: ClassVar[int] = 16 * 1024 * 1024
 
+    # Retention sweep throttling (see _enforce_retention). The sweep is a full
+    # directory scan, so running it after every chunk write is O(N^2) across a
+    # burst; these bounds keep it amortized O(1) per write while still bounding
+    # disk use and retention age.
+    _RETENTION_WRITE_INTERVAL: ClassVar[int] = 64
+    _RETENTION_INTERVAL_SEC: ClassVar[float] = 5.0
+
     _serialize_chunk = staticmethod(_serialize_chunk)
 
     def __init__(
@@ -349,6 +356,15 @@ class RollingDiskBuffer:
         self._current_chunk_frames: list[CanFrame] = []
         # E10: count of frames rejected at append-time for malformed content
         self._rejected_frames: int = 0
+        # Retention is a disk-space guard, not a per-write invariant: sweeping
+        # the whole chunk directory after every write is O(N^2) across a burst.
+        # Throttle it (see _enforce_retention).
+        self._writes_since_retention: int = 0
+        self._last_retention_mono: float = time.monotonic()
+        # Running estimate of the bytes held in chunk files, so the hard
+        # max_disk_bytes budget can be checked in O(1) per write. Resynced to
+        # the real total by every retention sweep.
+        self._approx_disk_bytes: int = 0
         self._cctx = zstd.ZstdCompressor(level=3)
         self._dctx = zstd.ZstdDecompressor()
         max_read_frames = max(chunk_frame_threshold, self.CHUNK_THRESHOLD_FRAMES)
@@ -488,7 +504,19 @@ class RollingDiskBuffer:
             self._current_chunk_frames.append(frame)
             should_flush = len(self._current_chunk_frames) >= self.chunk_frame_threshold
         if should_flush:
-            self.flush(drain=(self.chunk_frame_threshold <= 10))
+            # B-02/HIGH-8: an ingest thread must NOT block on disk I/O.
+            #
+            # This used to pass drain=True for small thresholds, which made
+            # every appender wait in _drain_flush_queue() until the worker had
+            # compressed, fsynced and retention-swept the chunk. With several
+            # appenders plus a flusher thread that turns append() into a
+            # multi-second stall: the concurrency test's 30 s join deadline is
+            # exceeded on a slow/Windows runner and reports "appender thread
+            # hung". Hand-off is already atomic (the batch is detached and the
+            # index reserved under _lock above), so draining here buys no
+            # ordering guarantee — callers that need the bytes on disk call
+            # flush(drain=True) explicitly, and close() drains.
+            self.flush(drain=False)
 
     def flush(self, drain: bool = True) -> Path | None:
         """Authenticate and enqueue the pending chunk for async disk write (F-34).
@@ -499,11 +527,25 @@ class RollingDiskBuffer:
         """
         with self._lock:
             if not self._current_chunk_frames:
-                return None
-            frames = self._current_chunk_frames
-            self._current_chunk_frames = []
-            chunk_idx = self._chunk_index
-            self._chunk_index += 1
+                # Nothing pending on THIS call, but a previous append/flush may
+                # still have chunks in flight. A drain request must observe
+                # those, otherwise `flush(drain=True)` silently returns while
+                # the bytes are still in the worker queue.
+                if drain:
+                    pending = self._flush_queue.unfinished_tasks
+                else:
+                    return None
+            else:
+                frames = self._current_chunk_frames
+                self._current_chunk_frames = []
+                chunk_idx = self._chunk_index
+                self._chunk_index += 1
+                pending = None
+
+        if pending is not None:
+            if pending > 0:
+                self._drain_flush_queue(timeout_s=30.0)
+            return None
 
         try:
             key, _ = _get_hmac_key(self._secret_provider)
@@ -585,6 +627,9 @@ class RollingDiskBuffer:
                 pass
             raise
         temporary_file.replace(chunk_file)
+        with self._lock:
+            self._writes_since_retention += 1
+            self._approx_disk_bytes += len(compressed_bytes)
         self._enforce_retention()
         return compressed_bytes
 
@@ -647,7 +692,12 @@ class RollingDiskBuffer:
             pass
 
     def _drain_flush_queue(self, timeout_s: float) -> None:
-        """Block until the worker catches up (used by read paths for consistency)."""
+        """Block until the worker catches up (used by read paths for consistency).
+
+        B-02: this is deliberately NOT called from append() — an ingest thread
+        must never wait on disk I/O. It is used by close()/read paths, where
+        the caller genuinely needs the bytes on disk.
+        """
         deadline = time.monotonic() + timeout_s
         while self._flush_queue.unfinished_tasks > 0:
             if time.monotonic() > deadline:
@@ -656,10 +706,43 @@ class RollingDiskBuffer:
                     extra={"pending": self._flush_queue.unfinished_tasks},
                 )
                 return
-            time.sleep(0.005)
+            time.sleep(0.002)
 
     def _enforce_retention(self) -> None:
-        """Purge chunks exceeding max time retention or total disk byte budget."""
+        """Purge chunks exceeding max time retention or total disk byte budget.
+
+        The full sweep is O(files) — a directory glob plus a stat per file — and
+        it runs on the flush worker. Running it after EVERY chunk write makes a
+        burst of N chunks cost O(N^2) filesystem calls, which is exactly the
+        shape the concurrency test produces (900 frames at threshold 4 = 225
+        chunks). On Windows those metadata calls are an order of magnitude
+        slower, so the expensive scan is throttled.
+
+        The two bounds are NOT throttled the same way, because they differ in
+        kind:
+
+        * ``max_disk_bytes`` is a hard budget. It is tracked with a running
+          counter (``_approx_disk_bytes``) so the check itself is O(1); the
+          authoritative rescan only runs once the counter says the budget
+          *may* be exceeded.
+        * ``max_retention_sec`` is an age bound; exceeding it for a few seconds
+          is harmless, so the time sweep is throttled by write count/interval.
+        """
+        now = time.monotonic()
+        with self._lock:
+            writes_since = self._writes_since_retention
+            last_run = self._last_retention_mono
+            over_budget = self._approx_disk_bytes > self.max_disk_bytes
+            due = (
+                over_budget
+                or writes_since >= self._RETENTION_WRITE_INTERVAL
+                or (now - last_run) >= self._RETENTION_INTERVAL_SEC
+            )
+            if not due:
+                return
+            self._writes_since_retention = 0
+            self._last_retention_mono = now
+
         cutoff_time = time.time() - self.max_retention_sec
         chunk_files = sorted(self.storage_dir.glob("chunk_*.bin.zst"))
         total_bytes = 0
@@ -690,6 +773,40 @@ class RollingDiskBuffer:
                     "Unable to remove rolling disk chunk during retention",
                     extra={"file": str(oldest), "error": str(exc)},
                 )
+
+        # Resync the running counter with what is actually on disk.
+        with self._lock:
+            self._approx_disk_bytes = total_bytes
+
+    def _enforce_retention_now(self) -> None:
+        """Unthrottled retention sweep (close()/clear() path)."""
+        with self._lock:
+            self._writes_since_retention = 0
+            self._last_retention_mono = time.monotonic()
+            force_budget = True
+        cutoff_time = time.time() - self.max_retention_sec
+        total_bytes = 0
+        valid_files: list[Path] = []
+        for file in sorted(self.storage_dir.glob("chunk_*.bin.zst")):
+            try:
+                stat = file.stat()
+                if stat.st_mtime < cutoff_time:
+                    file.unlink(missing_ok=True)
+                else:
+                    valid_files.append(file)
+                    total_bytes += stat.st_size
+            except OSError:
+                pass
+        while force_budget and total_bytes > self.max_disk_bytes and valid_files:
+            oldest = valid_files.pop(0)
+            try:
+                size = oldest.stat().st_size
+                oldest.unlink(missing_ok=True)
+                total_bytes -= size
+            except OSError:
+                pass
+        with self._lock:
+            self._approx_disk_bytes = total_bytes
 
     def _decompress_bounded(self, compressed_bytes: bytes) -> bytes:
         try:
@@ -799,7 +916,10 @@ class RollingDiskBuffer:
                 return
             self._closed = True
             self._available = False
-        self.flush()
+        # B-02: the ingest path no longer drains, so close() is the point where
+        # every queued chunk is guaranteed on disk. flush(drain=True) waits for
+        # the worker to catch up before the sentinel is enqueued.
+        self.flush(drain=True)
         try:
             self._flush_queue.put(None, timeout=timeout_s)
         except Exception as exc:  # noqa: BLE001 — worker shutdown must still be attempted
@@ -825,6 +945,7 @@ class RollingDiskBuffer:
             self._current_chunk_frames = []
             self._chunk_index = 0
             self._rejected_frames = 0
+            self._approx_disk_bytes = 0
         for file in self.storage_dir.glob("chunk_*.bin.zst"):
             file.unlink(missing_ok=True)
         for file in self.storage_dir.glob("*.tmp"):

@@ -169,8 +169,12 @@ def test_legacy_chunk_is_moved_out_of_active_store(tmp_path: Path) -> None:
 def test_chunk_naming_and_restart_index_are_preserved(tmp_path: Path) -> None:
     first = RollingDiskBuffer(tmp_path, chunk_frame_threshold=1, secret_provider=_provider())
     first.append(_frame(1))
+    # B-02: append() hands the chunk to the async worker and returns without
+    # waiting for disk I/O, so tests that inspect the directory must drain.
+    first.flush(drain=True)
     second = RollingDiskBuffer(tmp_path, chunk_frame_threshold=1, secret_provider=_provider())
     second.append(_frame(2))
+    second.flush(drain=True)
 
     names = sorted(path.name for path in tmp_path.glob("chunk_*.bin.zst"))
     assert names[0].startswith("chunk_00000000_")
@@ -185,6 +189,7 @@ def test_retention_budget_is_enforced(tmp_path: Path) -> None:
         secret_provider=_provider(),
     )
     disk_buf.append(_frame())
+    disk_buf.flush(drain=True)
     assert list(tmp_path.glob("chunk_*.bin.zst")) == []
 
 
@@ -196,13 +201,16 @@ def test_retention_age_is_enforced(tmp_path: Path) -> None:
         secret_provider=_provider(),
     )
     disk_buf.append(_frame())
+    disk_buf.flush(drain=True)
     chunk = next(tmp_path.glob("chunk_*.bin.zst"))
     old = time.time() - 60
     chunk.touch()
     import os
 
     os.utime(chunk, (old, old))
-    disk_buf._enforce_retention()
+    # The periodic sweep is throttled; use the unthrottled variant the same way
+    # close()/clear() do.
+    disk_buf._enforce_retention_now()
     assert not chunk.exists()
 
 
