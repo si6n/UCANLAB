@@ -658,19 +658,45 @@ def test_g3_diagnostic_action_requires_a_gateway_hmac_token() -> None:
 
 
 def test_g2_j1939_read_only_requests_are_not_escalated() -> None:
-    """Only DM11 (65235) / DM3 (65228) escalate; read-only J1939 requests do not."""
+    """Only write/actuation targets escalate; read-only J1939 requests do not.
+
+    S1-P1-2 (REVIEW Aşama 1): a J1939-21 Request (PGN 59904) carries the
+    REQUESTED PGN in its first three payload bytes, so the escalation must be
+    decided from that payload rather than treating every Request as
+    read-only. This test therefore uses a REQUEST payload naming a read-only
+    PGN (DM1 65226) to prove no false positive, while
+    `test_review_phase1_safety_fixes.py` proves a Request naming a writable
+    PGN (DM11) IS escalated.
+    """
     gateway, bus, _estop = _gateway(whitelist_ids={0x7E0})
 
-    def _j1939(pgn: int) -> object:
+    def _pgn_bytes(pgn: int) -> bytes:
+        return bytes([pgn & 0xFF, (pgn >> 8) & 0xFF, (pgn >> 16) & 0xFF])
+
+    def _j1939(pgn: int, payload: bytes = b"\x01\x02") -> object:
         # Priority 6, PGN in the extended id, source 0xF9.
         arb = (6 << 26) | (pgn << 8) | 0xF9
-        return CanFrame.create(channel_id="c0", arbitration_id=arb, data=b"\x01\x02", is_extended=True)
+        return CanFrame.create(channel_id="c0", arbitration_id=arb, data=payload, is_extended=True)
 
     assert gateway._frame_is_critical(_j1939(65235)) is True  # DM11 clear
     assert gateway._frame_is_critical(_j1939(65228)) is True  # DM3 clear
-    assert gateway._frame_is_critical(_j1939(59904)) is False  # Request
+    # A Request that names a read-only PGN (DM1) must NOT escalate.
+    assert gateway._frame_is_critical(_j1939(59904, _pgn_bytes(65226))) is False
     assert gateway._frame_is_critical(_j1939(65226)) is False  # DM1 read
 
+    bus.disconnect()
+
+
+def test_g2_j1939_request_escalation_is_fail_closed_on_short_payload() -> None:
+    """S1-P1-2: an undecodable Request payload is treated as critical.
+
+    A Request whose payload is too short to name a PGN cannot be proven
+    read-only, so it must escalate rather than pass Stage 4/5.
+    """
+    gateway, bus, _estop = _gateway(whitelist_ids={0x7E0})
+    arb = (6 << 26) | (59904 << 8) | 0xF9
+    frame = CanFrame.create(channel_id="c0", arbitration_id=arb, data=b"\x01", is_extended=True)
+    assert gateway._frame_is_critical(frame) is True
     bus.disconnect()
 
 

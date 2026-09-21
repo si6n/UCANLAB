@@ -388,7 +388,7 @@ def test_mdf4_length_mismatch_rejected() -> None:
         out = Path(td) / "s.mf4"
         signals = {"Bad": ([0.0, 0.1, 0.2], [1.0, 2.0], "unit")}
         with pytest.raises(ValueError, match="length mismatch"):
-            Mdf4Exporter.export_signals(out, signals)
+            Mdf4Exporter.export_signals(out, signals, exports_root=td)
         assert not out.exists()  # nothing written
 
 
@@ -398,7 +398,7 @@ def test_mdf4_nan_value_rejected() -> None:
         out = Path(td) / "s.mf4"
         signals = {"Bad": ([0.0, 0.1], [1.0, float("nan")], "unit")}
         with pytest.raises(ValueError, match="non-finite value"):
-            Mdf4Exporter.export_signals(out, signals)
+            Mdf4Exporter.export_signals(out, signals, exports_root=td)
 
 
 def test_mdf4_non_monotonic_timestamps_rejected() -> None:
@@ -407,7 +407,7 @@ def test_mdf4_non_monotonic_timestamps_rejected() -> None:
         out = Path(td) / "s.mf4"
         signals = {"Bad": ([0.0, 0.1, 0.1], [1.0, 2.0, 3.0], "unit")}
         with pytest.raises(ValueError, match="not strictly increasing"):
-            Mdf4Exporter.export_signals(out, signals)
+            Mdf4Exporter.export_signals(out, signals, exports_root=td)
 
 
 def test_mdf4_valid_export_is_atomic_no_tmp_left() -> None:
@@ -415,7 +415,7 @@ def test_mdf4_valid_export_is_atomic_no_tmp_left() -> None:
     with tempfile.TemporaryDirectory() as td:
         out = Path(td) / "s.mf4"
         signals = {"RPM": ([0.0, 0.1, 0.2], [800.0, 900.0, 1000.0], "rpm")}
-        res = Mdf4Exporter.export_signals(out, signals)
+        res = Mdf4Exporter.export_signals(out, signals, exports_root=td)
         assert res.exists() and res.stat().st_size > 0
         # No temp residue in the export directory
         leftovers = [p for p in Path(td).iterdir() if ".tmp-" in p.name]
@@ -430,5 +430,5 @@ def test_mdf4_empty_series_skipped_valid_others_exported() -> None:
             "Empty": ([], [], "unit"),
             "Real": ([0.0, 0.1], [1.0, 2.0], "unit"),
         }
-        res = Mdf4Exporter.export_signals(out, signals)
+        res = Mdf4Exporter.export_signals(out, signals, exports_root=td)
         assert res.exists() and res.stat().st_size > 0

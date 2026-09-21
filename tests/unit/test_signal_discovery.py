@@ -268,11 +268,13 @@ def test_dbc_builder_and_file_export() -> None:
     assert db.messages[0].frame_id == 0x120
 
     # Export to temp DBC file and load back with cantools
+    # F7: exports_root is now mandatory-by-convention; pass the temp dir so
+    # the confinement check is exercised against an explicit root.
     with tempfile.NamedTemporaryFile(suffix=".dbc", delete=False) as tmp:
         tmp_path = Path(tmp.name)
 
     try:
-        engine.export_dbc(tmp_path, approved_only=False)
+        engine.export_dbc(tmp_path, approved_only=False, exports_root=tmp_path.parent)
         loaded_db = cantools.database.load_file(tmp_path)
         assert len(loaded_db.messages) == 1
         assert loaded_db.messages[0].frame_id == 0x120

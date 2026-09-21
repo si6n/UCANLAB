@@ -35,7 +35,7 @@ def test_mdf4_exporter() -> None:
             "EngineSpeed": ([0.0, 0.1, 0.2, 0.3], [800.0, 850.0, 1200.0, 1500.0], "rpm"),
             "CoolantTemp": ([0.0, 0.1, 0.2, 0.3], [75.0, 75.2, 75.5, 76.0], "degC"),
         }
-        res_path = Mdf4Exporter.export_signals(out_file, signals)
+        res_path = Mdf4Exporter.export_signals(out_file, signals, exports_root=tmpdir)
         assert res_path.exists()
         assert res_path.stat().st_size > 0
 
@@ -47,7 +47,7 @@ def test_mat_exporter() -> None:
         signals = {
             "EngineSpeed": ([0.0, 0.1], [1000.0, 1100.0], "rpm"),
         }
-        res_path = MatExporter.export_signals(out_file, signals)
+        res_path = MatExporter.export_signals(out_file, signals, exports_root=tmpdir)
         assert res_path.exists()
         assert res_path.stat().st_size > 0
 
@@ -59,7 +59,7 @@ def test_kml_exporter() -> None:
             GpsPoint(latitude=41.0082, longitude=28.9784, altitude_m=10.0, speed_knots=15.0),
             GpsPoint(latitude=41.0100, longitude=28.9800, altitude_m=10.0, speed_knots=18.0),
         ]
-        res_path = KmlExporter.export_track(out_file, "Sea Trial 1", pts)
+        res_path = KmlExporter.export_track(out_file, "Sea Trial 1", pts, exports_root=tmpdir)
         assert res_path.exists()
         content = res_path.read_text(encoding="utf-8")
         assert "Sea Trial 1" in content
@@ -92,6 +92,7 @@ def test_report_generator_html_and_hash() -> None:
             metadata=meta,
             dm_messages=[dm],
             summary_stats={"Total Frames": 10000},
+            exports_root=tmpdir,
         )
 
         assert res_path.exists()

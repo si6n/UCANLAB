@@ -1,4 +1,4 @@
-﻿"""Universal CAN Cloud client integration tests (Tasks 5.3/5.4 â€” desktop side).
+"""Universal CAN Cloud client integration tests (Tasks 5.3/5.4 â€” desktop side).
 
  Uses a local mock cloud server (in-process, real HTTP on 127.0.0.1) that
  mirrors the Universal-CAN-Cloud API contract, so the full flow â€” device

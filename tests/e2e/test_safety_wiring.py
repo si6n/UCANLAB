@@ -1,4 +1,4 @@
-﻿"""End-to-End Safety Wiring Harness: SafeMultiplexedBus, FrameRouter, TxWatchdogSupervisor, TxSafetyGateway.
+"""End-to-End Safety Wiring Harness: SafeMultiplexedBus, FrameRouter, TxWatchdogSupervisor, TxSafetyGateway.
 
 Verifies:
 1. Composition root wiring in UniversalCanDesktopApp (Mock WebView2 + mock bus).
