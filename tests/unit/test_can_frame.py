@@ -205,3 +205,55 @@ def test_hypothesis_can_fd_frames(arb_id: int, payload: bytes) -> None:
     assert frame.is_extended is True
     assert frame.is_fd is True
     assert len(frame.padded_data) == dlc_to_length(frame.dlc)
+
+
+# ---------------------------------------------------------------------------
+# FAZ 3 (review #3): the CAN-FD length invariant is a deliberate RANGE check
+# `0 < len(data) <= DLC capacity`, NOT an equality check, and is intentionally
+# not tightened. It is locked here so a future "consistency" change cannot
+# silently break sniffer/replay ingest of sub-capacity FD payloads.
+# ---------------------------------------------------------------------------
+
+
+class TestCanFdLengthInvariantDocumentedBehaviour:
+    def test_fd_sub_capacity_payload_is_accepted(self) -> None:
+        """A sub-capacity FD payload (1 byte behind DLC 15) must be accepted.
+
+        RW captures (sniffer / .asc / .blf / .csv replay) carry the real byte
+        count with the FD DLC encoding only a capacity, so this shape is valid
+        ingest and must remain so.
+        """
+        frame = CanFrame(
+            channel_id="canfd0",
+            arbitration_id=0x123,
+            data=b"\xAA",
+            dlc=15,
+            is_fd=True,
+        )
+        assert len(frame.data) == 1
+        assert frame.dlc == 15
+
+    def test_fd_payload_may_be_shorter_than_capacity_but_not_longer(self) -> None:
+        # 5 bytes behind DLC 12 (capacity 24): accepted (sub-capacity).
+        ok = CanFrame(channel_id="c", arbitration_id=0x123, data=b"\x00" * 5, dlc=12, is_fd=True)
+        assert len(ok.data) == 5
+
+        with pytest.raises(ValueError, match="capacity"):
+            CanFrame(channel_id="c", arbitration_id=0x123, data=b"\x00" * 25, dlc=12, is_fd=True)
+
+    def test_fd_empty_payload_is_rejected(self) -> None:
+        """The lower bound (non-empty) IS enforced even for FD DLC >= 9."""
+        with pytest.raises(ValueError):
+            CanFrame(channel_id="c", arbitration_id=0x123, data=b"", dlc=12, is_fd=True)
+
+    def test_fd_exact_capacity_payload_is_accepted(self) -> None:
+        frame = CanFrame(channel_id="c", arbitration_id=0x123, data=b"\x00" * 24, dlc=12, is_fd=True)
+        assert len(frame.data) == 24
+        assert len(frame.padded_data) == 24
+
+    def test_classic_can_still_requires_exact_length(self) -> None:
+        """The Classic-CAN equality invariant is unchanged by FAZ 3."""
+        CanFrame(channel_id="c", arbitration_id=0x123, data=b"\x00" * 8, dlc=8)
+        with pytest.raises(ValueError, match="does not match DLC"):
+            CanFrame(channel_id="c", arbitration_id=0x123, data=b"\x00" * 2, dlc=8)
+

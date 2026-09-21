@@ -46,6 +46,12 @@ class LicenseValidator:
 
     MAX_OFFLINE_GRACE_SEC: ClassVar[int] = 7 * 24 * 3600  # 7 Days (604,800 s)
     _HWM_KEY_NAME: ClassVar[str] = "LICENSE_HWM_HMAC_KEY"
+    # FAZ 4 / review-#9 residual: `issued_at` was parsed but never compared to
+    # the current time, so a token dated *in the future* was accepted (a
+    # backend clock bug or a forged/rolled-forward issue date would sail
+    # through). A tolerance absorbs legitimate clock skew between the issuing
+    # server and this machine without admitting a meaningful future-dating.
+    ISSUED_AT_SKEW_TOLERANCE_SEC: ClassVar[int] = 300  # 5 minutes
 
     def __init__(
         self,
@@ -430,6 +436,16 @@ class LicenseValidator:
             raise LicenseError(
                 "License is locked to a different machine hardware ID.",
                 code="HARDWARE_MISMATCH",
+            )
+
+        # Issue-date sanity (FAZ 4): a token issued in the future beyond the
+        # allowed clock skew is corrupt or forged — fail closed rather than
+        # honour an `expires_at` window that has not even started yet.
+        if payload.issued_at > now + self.ISSUED_AT_SKEW_TOLERANCE_SEC:
+            raise LicenseError(
+                "License issue date is in the future beyond the permitted clock skew; "
+                "refusing a not-yet-valid license (fail-closed).",
+                code="LICENSE_FUTURE_DATED",
             )
 
         # Expiration Check

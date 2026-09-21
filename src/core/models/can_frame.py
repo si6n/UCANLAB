@@ -172,13 +172,33 @@ class CanFrame:
         # Classic CAN (DLC 0..8): len(data) must equal the DLC exactly — a
         # frame claiming DLC=8 with 2 payload bytes is ambiguous downstream
         # (len(data) vs dlc disagree; pad via CanFrame.create()/padded_data).
-        # CAN-FD DLC 9..15 encode capacities 12..64; the payload must fit
-        # within the DLC's capacity (padding covers the remainder on wire).
+        #
+        # CAN-FD DLC 9..15 (capacity 12..64) is DELIBERATELY a RANGE check, not
+        # an equality check (FAZ 3 / review #3 — behaviour documented and
+        # locked by tests, intentionally NOT tightened):
+        #
+        #   * On the wire, CAN-FD pads to the DLC capacity, but the *real*
+        #     payload length is a separate quantity (ISO 11898-1: the FD DLC
+        #     encodes a capacity, not the exact byte count — only CAN-FD's
+        #     "classic" DLCs 0..8 are exact).
+        #   * This model is also the ingest type for RAW captures (sniffer,
+        #     replay, .asc/.blf/.csv import). A replay file legitimately holds a
+        #     1-byte payload behind a DLC=15 encoding, and rejecting it would
+        #     break capture fidelity — the very thing the analyser must not do.
+        #   * Therefore the enforced invariant is: 0 < len(data) <= capacity.
+        #     The lower bound (non-empty) still rejects an unusable frame, and
+        #     the upper bound rejects over-capacity padding bugs.
+        #
+        # Canonical CONSTRUCTION still pads: use `CanFrame.create()` /
+        # `padded_data` when a full-capacity payload is required. Do NOT add an
+        # equality floor here without re-opening the sniffer/replay decision.
         expected_len = DLC_TO_LENGTH[self.dlc]
         if self.is_fd and self.dlc >= 9:
             if not (0 < len(self.data) <= expected_len):
                 raise ValueError(
-                    f"CAN-FD data length ({len(self.data)}) exceeds DLC {self.dlc} capacity ({expected_len} bytes)"
+                    f"CAN-FD data length ({len(self.data)}) must be non-empty and within "
+                    f"DLC {self.dlc} capacity ({expected_len} bytes); use CanFrame.create() "
+                    "or padded_data for a full-capacity payload"
                 )
         elif len(self.data) != expected_len:
             raise ValueError(

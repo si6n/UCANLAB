@@ -236,12 +236,34 @@ class EcuFlashingEngine:
         # the gateway's public mint directly.
         self._issuer_factory = confirmation_token_factory
 
-        self.current_step: FlashingStep = FlashingStep.IDLE
+        # FAZ 2 (review #5): these three fields are read/written from both the
+        # flashing thread and the UI thread (`cancel()`), with no lock. Two
+        # concurrent `execute_flash` calls, or a UI-thread `cancel()` racing
+        # the flash thread's reads, could interleave on `current_step`,
+        # `_is_cancelled` and `_active_config`. A small reentrant state lock
+        # guards ONLY the field accesses (never held across bus I/O), so the
+        # cancel window is closed without serializing the long flash flow.
+        self._state_lock = threading.RLock()
+        self._current_step: FlashingStep = FlashingStep.IDLE
         self._is_cancelled = False
+        # FAZ 2: single-run claim. Set for the duration of `execute_flash` so a
+        # second concurrent call fails closed instead of interleaving state.
+        self._flash_active = False
         # T57-D / F-2: active config stashed so per-step critical calls can
         # mint their gateway confirmation token without threading the config
         # through every helper.
         self._active_config: FlashingConfig | None = None
+
+    @property
+    def current_step(self) -> FlashingStep:
+        """FAZ 2: last announced flashing step (locked — read from any thread)."""
+        with self._state_lock:
+            return self._current_step
+
+    @current_step.setter
+    def current_step(self, step: FlashingStep) -> None:
+        with self._state_lock:
+            self._current_step = step
 
     def _confirmation_token(self) -> bytes | str | None:
         """Mint a fresh single-use gateway confirmation token for a critical step.
@@ -264,7 +286,11 @@ class EcuFlashingEngine:
         Returns None when no secret is wired (legacy boolean path), so the
         parameter is simply omitted.
         """
-        config = self._active_config
+        # FAZ 2: read the active config under the state lock (set/cleared by
+        # `execute_flash` on the flash thread, read here on the same thread but
+        # also reachable from token-minting helpers).
+        with self._state_lock:
+            config = self._active_config
         arb_id = int(getattr(self.uds_client, "tx_id", 0x7E0))
         if self._issuer_factory is not None:
             return self._issuer_factory(arb_id)
@@ -333,13 +359,18 @@ class EcuFlashingEngine:
 
     def cancel(self) -> None:
         """Signal engine to abort flashing safely at next boundary."""
-        self._is_cancelled = True
+        # FAZ 2: publish the flag under the state lock so a concurrent
+        # `_check_cancelled()` on the flash thread cannot observe a torn write.
+        with self._state_lock:
+            self._is_cancelled = True
         self._log("İptal talebi alındı! Flashing durduruluyor...", "warning")
 
     def _check_cancelled(self) -> None:
         """P1-8: cancellation is honoured at EVERY step boundary, not only
         inside the 0x36 loop — steps 2-9 can each take seconds on a slow bus."""
-        if self._is_cancelled:
+        with self._state_lock:
+            cancelled = self._is_cancelled
+        if cancelled:
             raise ProtocolError("Flashing kullanıcı tarafından iptal edildi.")
 
     @staticmethod
@@ -494,8 +525,30 @@ class EcuFlashingEngine:
 
     def execute_flash(self, config: FlashingConfig) -> bool:
         """Execute full end-to-end ECU flashing cycle synchronously."""
-        self._is_cancelled = False
-        self._active_config = config
+        # FAZ 2 (review #5): reset the run state and claim the engine under the
+        # state lock. Two concurrent `execute_flash` calls on one engine used to
+        # interleave their `_is_cancelled`/`_active_config` writes (a cancel
+        # meant for run A could be cleared by run B, and vice versa). The
+        # `_flash_active` flag makes the second caller fail closed instead.
+        with self._state_lock:
+            if self._flash_active:
+                raise ProtocolError(
+                    "Bu motor üzerinde zaten bir flashing işlemi sürüyor; "
+                    "eşzamanlı flash reddedildi (fail-closed).",
+                    code="FLASH_ALREADY_ACTIVE",
+                )
+            self._flash_active = True
+            self._is_cancelled = False
+            self._active_config = config
+        try:
+            return self._execute_flash_locked(config)
+        finally:
+            with self._state_lock:
+                self._flash_active = False
+                self._active_config = None
+
+    def _execute_flash_locked(self, config: FlashingConfig) -> bool:
+        """Body of `execute_flash` (run under the `_flash_active` claim)."""
         start_time = time.monotonic()
         total_bytes = len(config.data)
         if total_bytes == 0:

@@ -249,6 +249,76 @@ def test_license_expired() -> None:
     assert exc_info.value.code == "LICENSE_EXPIRED"
 
 
+def test_license_future_dated_token_rejected() -> None:
+    """FAZ 4 / review #9: `issued_at` in the future (beyond skew) fails closed.
+
+    Before this fix `issued_at` was parsed but never compared to `now`, so a
+    token whose validity window had not even begun was accepted.
+    """
+    priv_key = ed25519.Ed25519PrivateKey.generate()
+    pub_key = priv_key.public_key()
+    now = int(time.time())
+
+    payload_dict = {
+        "user_id": "usr_future",
+        "tier": "PRO",
+        "hardware_fingerprint": "HW_FUT",
+        # Issued far in the future, but "expires" even later — the pre-fix code
+        # only checked `expires_at` and let this through.
+        "issued_at": now + 3600,
+        "expires_at": now + 7200,
+    }
+    token_str = LicenseValidator.generate_signed_token(priv_key, payload_dict)
+
+    validator = LicenseValidator(public_key=pub_key, hardware_fingerprint="HW_FUT")
+    validator.clock = FakeWallClock(now)
+    with pytest.raises(LicenseError, match="future") as exc_info:
+        validator.verify_token(token_str)
+    assert exc_info.value.code == "LICENSE_FUTURE_DATED"
+
+
+def test_license_issued_at_within_skew_tolerance_accepted() -> None:
+    """A small server/machine clock skew must not reject a valid license."""
+    priv_key = ed25519.Ed25519PrivateKey.generate()
+    pub_key = priv_key.public_key()
+    now = int(time.time())
+
+    skew = LicenseValidator.ISSUED_AT_SKEW_TOLERANCE_SEC // 2
+    payload_dict = {
+        "user_id": "usr_skew",
+        "tier": "PRO",
+        "hardware_fingerprint": "HW_SKEW",
+        "issued_at": now + skew,
+        "expires_at": now + 3600,
+    }
+    token_str = LicenseValidator.generate_signed_token(priv_key, payload_dict)
+
+    validator = LicenseValidator(public_key=pub_key, hardware_fingerprint="HW_SKEW")
+    validator.clock = FakeWallClock(now)
+    verified = validator.verify_token(token_str)
+    assert verified.user_id == "usr_skew"
+
+
+def test_license_past_issued_at_still_accepted() -> None:
+    """A normally-issued token (issued_at in the past) must keep verifying."""
+    priv_key = ed25519.Ed25519PrivateKey.generate()
+    pub_key = priv_key.public_key()
+    now = int(time.time())
+
+    payload_dict = {
+        "user_id": "usr_past",
+        "tier": "PRO",
+        "hardware_fingerprint": "HW_PAST",
+        "issued_at": now - 86400,
+        "expires_at": now + 86400,
+    }
+    token_str = LicenseValidator.generate_signed_token(priv_key, payload_dict)
+
+    validator = LicenseValidator(public_key=pub_key, hardware_fingerprint="HW_PAST")
+    validator.clock = FakeWallClock(now)
+    assert validator.verify_token(token_str).tier == "PRO"
+
+
 @pytest.mark.parametrize(
     "bad_token",
     [

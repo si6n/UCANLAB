@@ -187,6 +187,18 @@ class TxSafetyGateway:
         for value, mask in masks:
             if mask == 0:
                 raise ValueError("whitelist maskesi 0 olamaz (tum bus'i gecirir)")
+            # FAZ 5 (review #25/#34): a NEGATIVE mask carries no meaningful ID
+            # information either. The match site's `mask != 0` test lets it
+            # through, and while a negative mask cannot broadly match a
+            # non-negative arbitration_id, it is always a configuration mistake
+            # (a mis-parsed or sign-corrupted value). Reject it here, at
+            # construction, instead of silently accepting a mask that can never
+            # match what the operator intended.
+            if int(mask) < 0:
+                raise ValueError(
+                    f"whitelist maskesi negatif olamaz (alindi: {mask}); "
+                    "ID maskeleri pozitif olmalidir"
+                )
             mask = int(mask)
             # Breadth is measured in the mask's own ID space: an 11-bit mask
             # (e.g. a standard 0x7FF diagnostic mask) covers 11-bit IDs only,

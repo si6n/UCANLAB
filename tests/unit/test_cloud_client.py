@@ -502,3 +502,159 @@ def test_parse_received_chunks_formats() -> None:
     assert TelemetryUploader._parse_received_chunks({"received_chunks": 3}, 5) == {0, 1, 2}
     assert TelemetryUploader._parse_received_chunks({"received_chunks": 0}, 5) == set()
 
+
+# ---------------------------------------------------------------------------
+# FAZ 4 (hardening): optional TLS SPKI certificate pinning.
+# ---------------------------------------------------------------------------
+
+
+def _self_signed_der() -> bytes:
+    """A real DER certificate so SPKI extraction is exercised end-to-end."""
+    from datetime import UTC, datetime, timedelta
+
+    from cryptography import x509
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    from cryptography.x509.oid import NameOID
+
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    subject = issuer = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "cloud.test")])
+    now = datetime.now(UTC)
+    cert = (
+        x509.CertificateBuilder()
+        .subject_name(subject)
+        .issuer_name(issuer)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(now - timedelta(days=1))
+        .not_valid_after(now + timedelta(days=30))
+        .sign(key, hashes.SHA256())
+    )
+    return cert.public_bytes(serialization.Encoding.DER)
+
+
+def test_spki_pin_bytes_accepts_base64_and_hex() -> None:
+    from src.security.cloud.client import _spki_pin_bytes
+
+    raw = bytes(range(32))
+    assert _spki_pin_bytes(base64.b64encode(raw).decode()) == raw
+    assert _spki_pin_bytes(raw.hex()) == raw
+    assert _spki_pin_bytes(":".join(f"{b:02x}" for b in raw)) == raw
+    assert _spki_pin_bytes("0x" + raw.hex()) == raw
+
+
+def test_spki_pin_bytes_rejects_malformed() -> None:
+    from src.security.cloud.client import _spki_pin_bytes
+
+    assert _spki_pin_bytes("") is None
+    assert _spki_pin_bytes("not-a-pin!!") is None
+    assert _spki_pin_bytes(base64.b64encode(b"short").decode()) is None  # not 32 bytes
+
+
+def test_cloud_config_rejects_malformed_pin() -> None:
+    """A malformed pin must be a CONFIGURATION error, never a silent unpinning."""
+    from src.core.errors import SecurityError
+
+    with pytest.raises(SecurityError, match="pin"):
+        CloudConfig(base_url="https://cloud.example.com", pinned_spki_sha256=("bogus!",))
+
+
+def test_cloud_config_accepts_valid_pin() -> None:
+    raw = bytes(range(32))
+    cfg = CloudConfig(
+        base_url="https://cloud.example.com",
+        pinned_spki_sha256=(base64.b64encode(raw).decode(),),
+    )
+    assert len(cfg.pinned_spki_sha256) == 1
+
+
+def test_spki_digest_from_der_matches_manual_computation() -> None:
+    """The helper must hash the SPKI, not the whole certificate."""
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.x509 import load_der_x509_certificate
+
+    from src.security.cloud.client import _spki_digest_from_der
+
+    der = _self_signed_der()
+    cert = load_der_x509_certificate(der)
+    spki = cert.public_key().public_bytes(
+        encoding=serialization.Encoding.DER,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+    assert _spki_digest_from_der(der) == hashlib.sha256(spki).digest()
+    assert _spki_digest_from_der(der) != hashlib.sha256(der).digest()  # SPKI, not cert
+
+
+def test_verify_pinned_peer_accepts_matching_pin() -> None:
+    from src.security.cloud.client import _spki_digest_from_der, _verify_pinned_peer
+
+    der = _self_signed_der()
+
+    class _Sock:
+        def getpeercert(self, binary_form: bool = False) -> bytes:
+            return der
+
+    _verify_pinned_peer(_Sock(), frozenset({_spki_digest_from_der(der)}))  # no raise
+
+
+def test_verify_pinned_peer_rejects_mismatch_fail_closed() -> None:
+    from src.core.errors import SecurityError
+    from src.security.cloud.client import _verify_pinned_peer
+
+    der = _self_signed_der()
+
+    class _Sock:
+        def getpeercert(self, binary_form: bool = False) -> bytes:
+            return der
+
+    with pytest.raises(SecurityError, match="does not match"):
+        _verify_pinned_peer(_Sock(), frozenset({b"\x00" * 32}))
+
+
+def test_verify_pinned_peer_rejects_missing_cert() -> None:
+    from src.core.errors import SecurityError
+    from src.security.cloud.client import _verify_pinned_peer
+
+    class _Sock:
+        def getpeercert(self, binary_form: bool = False) -> bytes:
+            return b""
+
+    with pytest.raises(SecurityError, match="no certificate"):
+        _verify_pinned_peer(_Sock(), frozenset({b"\x00" * 32}))
+
+
+def test_pinning_disabled_by_default_keeps_plain_opener() -> None:
+    """No pins configured -> opener has no pinning handler (back-compat)."""
+    client = CloudClient(config=CloudConfig(base_url="https://cloud.example.com"))
+    assert client._pinned_spki_digests == frozenset()
+    opener = client._build_opener("https://cloud.example.com/api/v1/x")
+    assert not any(
+        type(h).__name__ == "_PinnedHTTPSHandler" for h in opener.handlers
+    )
+
+
+def test_pinning_enabled_adds_handler_for_https() -> None:
+    raw = bytes(range(32))
+    client = CloudClient(
+        config=CloudConfig(
+            base_url="https://cloud.example.com",
+            pinned_spki_sha256=(base64.b64encode(raw).decode(),),
+        )
+    )
+    assert client._pinned_spki_digests == frozenset({raw})
+    opener = client._build_opener("https://cloud.example.com/api/v1/x")
+    assert any(type(h).__name__ == "_PinnedHTTPSHandler" for h in opener.handlers)
+
+
+def test_pinning_not_applied_to_loopback_http() -> None:
+    """Pinning is HTTPS-only; the loopback dev HTTP path stays unchanged."""
+    raw = bytes(range(32))
+    client = CloudClient(
+        config=CloudConfig(
+            base_url="http://127.0.0.1:8000",
+            pinned_spki_sha256=(base64.b64encode(raw).decode(),),
+        )
+    )
+    opener = client._build_opener("http://127.0.0.1:8000/api/v1/x")
+    assert not any(type(h).__name__ == "_PinnedHTTPSHandler" for h in opener.handlers)
+

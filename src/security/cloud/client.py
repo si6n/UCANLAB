@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import urllib.error
 import urllib.parse
@@ -46,6 +47,102 @@ def _sanitize_extra_headers(extra_headers: dict[str, str] | None) -> dict[str, s
             continue
         sanitized[name] = value
     return sanitized
+
+
+def _spki_pin_bytes(pin: str) -> bytes | None:
+    """Decode an SPKI SHA-256 pin to its 32 raw bytes, or None if malformed.
+
+    Accepts the two conventional spellings:
+      * base64 (the HPKP/``Public-Key-Pins`` form, e.g. ``AAAA...=``)
+      * colon- or dash-separated hex (``ab:cd:...``/``ab-cd-...``)
+    Returns ``None`` for anything that is not a well-formed 32-byte digest.
+    """
+    import base64
+    import binascii
+
+    text = pin.strip()
+    if not text:
+        return None
+    # Hex form: allow ':'/'-' separators and optional 0x prefix.
+    candidate = text[2:] if text.lower().startswith("0x") else text
+    normalised = candidate.replace(":", "").replace("-", "")
+    if normalised and all(ch in "0123456789abcdefABCDEF" for ch in normalised):
+        if len(normalised) == 64:
+            try:
+                return binascii.unhexlify(normalised)
+            except (binascii.Error, ValueError):
+                return None
+    try:
+        decoded = base64.b64decode(text, validate=True)
+    except (binascii.Error, ValueError):
+        return None
+    return decoded if len(decoded) == 32 else None
+
+
+def _spki_digest_from_der(der: bytes) -> bytes:
+    """SHA-256 digest of a DER certificate's SubjectPublicKeyInfo.
+
+    Separated from the connection shim so it is directly unit-testable without
+    a live TLS peer.
+    """
+    from cryptography.hazmat.primitives import serialization as _ser
+    from cryptography.x509 import load_der_x509_certificate as _load_der
+
+    try:
+        cert = _load_der(der)
+        spki = cert.public_key().public_bytes(
+            encoding=_ser.Encoding.DER,
+            format=_ser.PublicFormat.SubjectPublicKeyInfo,
+        )
+    except Exception as exc:  # noqa: BLE001 - fail closed on any parse failure
+        raise SecurityError(
+            f"Unable to extract SPKI from peer certificate: {exc}",
+            code="CLOUD_PIN_PARSE_FAILED",
+        ) from exc
+    return hashlib.sha256(spki).digest()
+
+
+def _verify_pinned_peer(sock: Any, pins: frozenset[bytes]) -> None:
+    """Fail closed unless the connected socket's leaf SPKI is in ``pins``.
+
+    Kept as a free function (not inlined in the handler) so tests can drive it
+    with a fake socket instead of standing up a real TLS server.
+    """
+    if sock is None:
+        raise SecurityError("TLS socket missing after connect", code="CLOUD_PIN_NO_CERT")
+    der = sock.getpeercert(binary_form=True)
+    if not der:
+        raise SecurityError(
+            "Peer presented no certificate; refusing unpinned connection",
+            code="CLOUD_PIN_NO_CERT",
+        )
+    if _spki_digest_from_der(der) not in pins:
+        raise SecurityError(
+            "Cloud TLS certificate SPKI does not match any configured pin "
+            "(possible MITM); connection refused",
+            code="CLOUD_PIN_MISMATCH",
+        )
+
+
+def _make_pinned_https_handler(pins: frozenset[bytes]) -> urllib.request.HTTPSHandler:
+    """An `HTTPSHandler` whose connections enforce the SPKI pin allowlist.
+
+    Pinning is ADDITIVE to normal CA verification: the stock SSL context still
+    validates the chain and hostname first, so a pinned-but-untrusted
+    certificate is rejected before the pin check even runs.
+    """
+    import http.client
+
+    class _PinnedConnection(http.client.HTTPSConnection):
+        def connect(self) -> None:
+            super().connect()
+            _verify_pinned_peer(self.sock, pins)
+
+    class _PinnedHTTPSHandler(urllib.request.HTTPSHandler):
+        def https_open(self, req: Any) -> Any:
+            return self.do_open(_PinnedConnection, req)
+
+    return _PinnedHTTPSHandler()
 
 
 class _SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -138,10 +235,40 @@ class CloudConfig:
     require_https: bool = True
     allowed_hosts: tuple[str, ...] | None = None
     enforce_allowlist: bool = False
+    # FAZ 4 (hardening): optional certificate pinning. When
+    # `pinned_spki_sha256` is non-empty, every TLS connection must present a
+    # leaf certificate whose Subject Public Key Info hashes (base64 SHA-256,
+    # the standard HPKP/SPKI form, colon-separated hex also accepted) to one of
+    # the listed values. Default is EMPTY (off) so existing deployments keep
+    # the standard CA-verified behaviour; pinning is opt-in because a stale pin
+    # bricks connectivity, so it must be a conscious operator decision.
+    pinned_spki_sha256: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         self._validate_scheme()
         self._validate_host()
+        self._validate_pins()
+
+    def _validate_pins(self) -> None:
+        """Fail fast on a malformed pin list (SEC hardening, FAZ 4).
+
+        A pin that silently fails to parse would leave the connection
+        *unpinned* while the operator believes otherwise — the worst outcome.
+        Validate the *form* here so a typo is a configuration error, not a
+        silent downgrade.
+        """
+        for pin in self.pinned_spki_sha256:
+            if not isinstance(pin, str) or not pin.strip():
+                raise SecurityError(
+                    "pinned_spki_sha256 entries must be non-empty strings",
+                    code="CLOUD_PIN_MALFORMED",
+                )
+            if not _spki_pin_bytes(pin):
+                raise SecurityError(
+                    f"pinned_spki_sha256 entry {pin!r} is not a valid "
+                    "base64 SHA-256 SPKI pin (expected 32 bytes)",
+                    code="CLOUD_PIN_MALFORMED",
+                )
 
     def _validate_host(self) -> None:
         """Enforce canonical host allowlist and reject userinfo (T62-U1 / SEC-C-002)."""
@@ -300,6 +427,28 @@ class CloudClient:
     # buggy endpoint streaming gigabytes must not OOM the diagnostic tool.
     MAX_RESPONSE_BODY_BYTES: ClassVar[int] = 8 * 1024 * 1024  # 8 MiB
     MAX_ERROR_BODY_BYTES: ClassVar[int] = 64 * 1024  # 64 KiB for HTTPError bodies
+
+    def _build_opener(self, url: str) -> urllib.request.OpenerDirector:
+        """Build the urllib opener, adding SPKI pinning when configured.
+
+        FAZ 4: with an empty `pinned_spki_sha256` the opener is identical to
+        the previous behaviour (redirect credential-stripping only). With pins
+        configured, an HTTPS handler whose connection class verifies the leaf
+        SPKI is installed, so a swapped certificate is rejected even if it
+        chains to a trusted CA (and the standard CA check still runs first).
+        """
+        handlers: list[Any] = [_SafeRedirectHandler()]
+        pins = self._pinned_spki_digests
+        if pins and url.lower().startswith("https://"):
+            handlers.append(_make_pinned_https_handler(pins))
+        return urllib.request.build_opener(*handlers)
+
+    @property
+    def _pinned_spki_digests(self) -> frozenset[bytes]:
+        """Decoded pin set (empty frozenset when pinning is disabled)."""
+        pins = getattr(self.config, "pinned_spki_sha256", ()) or ()
+        decoded = {_spki_pin_bytes(p) for p in pins}
+        return frozenset(d for d in decoded if d is not None)
 
     @classmethod
     def _read_body_bounded(cls, resp: Any) -> bytes:
@@ -487,7 +636,7 @@ class CloudClient:
         for attempt in range(self.config.max_retries + 1):
             try:
                 req = urllib.request.Request(url, data=data, headers=headers, method=method)
-                opener = urllib.request.build_opener(_SafeRedirectHandler())
+                opener = self._build_opener(url)
                 with opener.open(req, timeout=self.config.timeout_seconds) as resp:  # nosec: B310
                     return CloudResponse(
                         status=resp.status,

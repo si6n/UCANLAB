@@ -175,6 +175,164 @@ def test_flash_aborts_when_estop_engaged() -> None:
     assert client.calls == []
 
 
+# ---------------------------------------------------------------------------
+# FAZ 2 (review #5): the flashing engine's run state (`current_step`,
+# `_is_cancelled`, `_active_config`) is now guarded by a reentrant state lock,
+# and a single-run claim makes a concurrent `execute_flash` fail closed.
+# ---------------------------------------------------------------------------
+
+
+def test_faz2_cancel_is_visible_from_another_thread() -> None:
+    """A `cancel()` from a different thread must abort the flash deterministically."""
+    import threading
+
+    from src.core.errors import ProtocolError
+
+    client = _RecordingUdsClient()
+    engine = EcuFlashingEngine(uds_client=client, gateway=_StubGateway())
+
+    reached = threading.Event()
+    release = threading.Event()
+
+    # Make the first UDS step park so the cancel() lands mid-flash.
+    original = client.change_session
+
+    def _blocking_change_session(*args: Any, **kwargs: Any) -> _UdsResponse:
+        reached.set()
+        assert release.wait(timeout=5.0)
+        return original(*args, **kwargs)
+
+    client.change_session = _blocking_change_session  # type: ignore[method-assign]
+
+    result: list[BaseException] = []
+
+    def _run_flash() -> None:
+        try:
+            engine.execute_flash(_config())
+        except BaseException as exc:  # noqa: BLE001 — captured for the assertion
+            result.append(exc)
+
+    flash_thread = threading.Thread(target=_run_flash)
+    flash_thread.start()
+    assert reached.wait(timeout=5.0)
+
+    engine.cancel()  # UI thread
+    release.set()
+    flash_thread.join(timeout=5.0)
+
+    assert not flash_thread.is_alive()
+    assert len(result) == 1
+    assert isinstance(result[0], ProtocolError)
+    assert "iptal" in str(result[0]).lower()
+
+
+def test_faz2_concurrent_execute_flash_fails_closed() -> None:
+    """A second concurrent `execute_flash` on the same engine must be refused."""
+    import threading
+
+    client = _RecordingUdsClient()
+    engine = EcuFlashingEngine(uds_client=client, gateway=_StubGateway())
+
+    reached = threading.Event()
+    release = threading.Event()
+    original = client.change_session
+
+    def _blocking_change_session(*args: Any, **kwargs: Any) -> _UdsResponse:
+        reached.set()
+        assert release.wait(timeout=5.0)
+        return original(*args, **kwargs)
+
+    client.change_session = _blocking_change_session  # type: ignore[method-assign]
+
+    first_result: list[BaseException] = []
+
+    def _first() -> None:
+        try:
+            engine.execute_flash(_config())
+        except BaseException as exc:  # noqa: BLE001
+            first_result.append(exc)
+
+    t = threading.Thread(target=_first)
+    t.start()
+    assert reached.wait(timeout=5.0)
+
+    # Second call while the first is mid-flight -> fail closed.
+    with pytest.raises(ProtocolError, match="zaten bir flashing"):
+        engine.execute_flash(_config())
+
+    release.set()
+    t.join(timeout=5.0)
+
+    # The first run must NOT have been cancelled by the second call's state
+    # reset (the bug this fix closes): if it failed, it failed for its own
+    # reason (an unscripted routine response), never with the cancel message.
+    assert not any("iptal" in str(exc).lower() for exc in first_result)
+
+
+def test_faz2_state_lock_does_not_serialize_the_whole_flash() -> None:
+    """The state lock must not be held across bus I/O.
+
+    `cancel()` from another thread must be able to acquire `_state_lock`
+    promptly while a flash is blocked inside a UDS call.
+    """
+    import threading
+    import time as _time
+
+    client = _RecordingUdsClient()
+    engine = EcuFlashingEngine(uds_client=client, gateway=_StubGateway())
+
+    reached = threading.Event()
+    release = threading.Event()
+    original = client.change_session
+
+    def _blocking_change_session(*args: Any, **kwargs: Any) -> _UdsResponse:
+        reached.set()
+        assert release.wait(timeout=5.0)
+        return original(*args, **kwargs)
+
+    client.change_session = _blocking_change_session  # type: ignore[method-assign]
+
+    # The flash thread is expected to end with a cancellation ProtocolError;
+    # capture it so the failure is asserted rather than surfacing as an
+    # unhandled-thread-exception warning.
+    errors: list[BaseException] = []
+
+    def _flash() -> None:
+        try:
+            engine.execute_flash(_config())
+        except BaseException as exc:  # noqa: BLE001 — asserted below
+            errors.append(exc)
+
+    t = threading.Thread(target=_flash)
+    t.start()
+    assert reached.wait(timeout=5.0)
+
+    start = _time.monotonic()
+    engine.cancel()  # must not block on the state lock
+    elapsed = _time.monotonic() - start
+    assert elapsed < 1.0, f"cancel() blocked for {elapsed:.3f}s — lock held across I/O?"
+
+    release.set()
+    t.join(timeout=5.0)
+    assert len(errors) == 1
+    assert "iptal" in str(errors[0]).lower()
+
+
+def test_faz2_current_step_property_reads_consistently() -> None:
+    """`current_step` is exposed through a locked property, not a raw attribute."""
+    engine = EcuFlashingEngine(uds_client=_RecordingUdsClient(), gateway=_StubGateway())
+    assert engine.current_step == FlashingStep.IDLE
+    assert isinstance(type(engine).current_step, property)
+
+    client = _RecordingUdsClient()
+    client.replies["start_routine"] = [_UdsResponse(is_positive=True, data=b"")]
+    client.replies["request_routine_results"] = [
+        _UdsResponse(is_positive=True, data=b"\x03\x02\x02\x00")
+    ]
+    flashed = _run(client, _config())
+    assert flashed.current_step != FlashingStep.IDLE
+
+
 def test_flash_full_happy_path_sequence() -> None:
     """The happy-path sequence issues the canonical service order
     (P1-5: programming session BEFORE security access; checksum verified)."""

@@ -380,3 +380,122 @@ class TestConcurrencyAndThreadSafety:
 
         assert routed_count > 0
         assert router.stats["total_routed"] == routed_count
+
+
+class TestThreadLocalCounters:
+    """RT-3 (FAZ 1 / review #6): per-thread stats counters.
+
+    `route_frame` used to take the global `_stats_lock` on EVERY frame just to
+    bump `_total_routed`, serializing all RX ingest threads on one mutex. The
+    counters are now accumulated thread-locally and flushed periodically, while
+    `stats` stays EXACT (it drains every thread's pending delta).
+    """
+
+    def test_stats_exact_below_flush_threshold(self) -> None:
+        """Totals must be exact even when fewer than FLUSH_THRESHOLD frames were routed."""
+        router = FrameRouter()
+        router.subscribe(callback=lambda _: None)
+
+        frames = FrameRouter.FLUSH_THRESHOLD // 4
+        for i in range(frames):
+            router.route_frame(_create_test_frame(arbitration_id=i))
+
+        # Nothing should have been flushed to the global counters yet...
+        assert router._total_routed == 0
+        # ...but `stats` must still report the exact total by draining pending.
+        assert router.stats["total_routed"] == frames
+        # Draining must have published the delta (not double-counted).
+        assert router._total_routed == frames
+        assert router.stats["total_routed"] == frames
+
+    def test_stats_exact_across_flush_boundary(self) -> None:
+        """A count crossing the flush threshold must not double-count or drop frames."""
+        router = FrameRouter()
+        router.subscribe(callback=lambda _: None)
+
+        frames = FrameRouter.FLUSH_THRESHOLD * 3 + 7
+        for i in range(frames):
+            router.route_frame(_create_test_frame(arbitration_id=i % 0x7FF))
+
+        assert router.stats["total_routed"] == frames
+
+    def test_hot_path_does_not_take_stats_lock_per_frame(self) -> None:
+        """The per-frame path must not acquire `_stats_lock` (the review #6 bottleneck).
+
+        Asserts the lock is acquired strictly fewer times than frames routed by
+        instrumenting `threading.Lock.acquire` via a counting proxy.
+        """
+        router = FrameRouter()
+        router.subscribe(callback=lambda _: None)
+
+        acquire_count = 0
+        real_lock = router._stats_lock
+
+        class _CountingLock:
+            def __enter__(self_inner):  # noqa: N805
+                nonlocal acquire_count
+                acquire_count += 1
+                return real_lock.__enter__()
+
+            def __exit__(self_inner, *exc):  # noqa: N805
+                return real_lock.__exit__(*exc)
+
+        router._stats_lock = _CountingLock()  # type: ignore[assignment]
+
+        frames = FrameRouter.FLUSH_THRESHOLD * 2
+        for i in range(frames):
+            router.route_frame(_create_test_frame(arbitration_id=i % 0x7FF))
+
+        # Old code: one acquisition per frame. New code: ~one per FLUSH_THRESHOLD.
+        assert acquire_count <= frames // FrameRouter.FLUSH_THRESHOLD + 2
+
+    def test_multi_thread_totals_are_exact(self) -> None:
+        """Concurrent producers must not lose increments (the L-16 regression)."""
+        router = FrameRouter()
+        router.subscribe(callback=lambda _: None)
+
+        num_threads = 8
+        per_thread = FrameRouter.FLUSH_THRESHOLD * 2 + 13
+        barrier = threading.Barrier(num_threads)
+
+        def producer() -> None:
+            barrier.wait()
+            for i in range(per_thread):
+                router.route_frame(_create_test_frame(arbitration_id=i % 0x7FF))
+
+        threads = [threading.Thread(target=producer) for _ in range(num_threads)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert router.stats["total_routed"] == num_threads * per_thread
+
+    def test_dropped_and_routed_stay_consistent(self) -> None:
+        """stats() must never observe a torn pair (dropped > routed)."""
+        router = FrameRouter()
+        _, q = router.subscribe(use_queue=True, queue_maxsize=1)
+        assert q is not None
+
+        for i in range(50):
+            router.route_frame(_create_test_frame(arbitration_id=i))
+
+        stats = router.stats
+        assert stats["total_dropped"] >= 1  # queue capped at 1
+        assert stats["total_routed"] == 50
+        assert stats["total_dropped"] <= stats["total_routed"]
+
+    def test_flush_pending_counters_publishes_remainder(self) -> None:
+        """An explicit flush must publish sub-threshold remainders exactly once."""
+        router = FrameRouter()
+        router.subscribe(callback=lambda _: None)
+
+        for i in range(5):
+            router.route_frame(_create_test_frame(arbitration_id=i))
+
+        assert router._total_routed == 0
+        router.flush_pending_counters()
+        assert router._total_routed == 5
+        router.flush_pending_counters()  # idempotent: nothing left pending
+        assert router._total_routed == 5
+

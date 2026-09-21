@@ -671,6 +671,47 @@ def test_whitelist_masks_alone_are_not_fail_closed() -> None:
     bus.disconnect()
 
 
+def test_faz5_negative_whitelist_mask_rejected() -> None:
+    """FAZ 5 (review #25/#34): a negative mask is refused at construction.
+
+    The match site's `mask != 0` guard does not catch `mask < 0`; a negative
+    mask is always a mis-parsed configuration value, so it must fail closed
+    when the gateway is built rather than silently never matching.
+    """
+    bus = VirtualBus(channel_id="safety_vbus_negmask")
+    bus.connect()
+    try:
+        with pytest.raises(ValueError, match="negatif"):
+            TxSafetyGateway(bus=bus, whitelist_masks=[(0x7E0, -1)])
+    finally:
+        bus.disconnect()
+
+
+def test_faz5_zero_whitelist_mask_still_rejected() -> None:
+    """FAZ 5 must not regress the pre-existing zero-mask guard."""
+    bus = VirtualBus(channel_id="safety_vbus_zeromask")
+    bus.connect()
+    try:
+        with pytest.raises(ValueError, match="0 olamaz"):
+            TxSafetyGateway(bus=bus, whitelist_masks=[(0x7E0, 0)])
+    finally:
+        bus.disconnect()
+
+
+def test_faz5_positive_masks_still_accepted() -> None:
+    """FAZ 5 must not disturb a legitimate positive mask."""
+    bus = VirtualBus(channel_id="safety_vbus_posmask")
+    bus.connect()
+    try:
+        gateway = TxSafetyGateway(bus=bus, whitelist_masks=[(0x1CEC00F9, 0x1CEC00FF)])
+        frame = CanFrame.create(
+            channel_id="c0", arbitration_id=0x1CEC01F9, data=b"\x11", is_extended=True
+        )
+        assert gateway.validate_and_transmit(frame) is True
+    finally:
+        bus.disconnect()
+
+
 def test_production_constructor_has_no_testing_bypass_flag() -> None:
     """B1 regression: allow_all_for_testing must not be a production constructor knob."""
     import inspect
