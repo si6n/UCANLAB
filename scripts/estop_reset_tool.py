@@ -66,7 +66,11 @@ def main(argv: list[str] | None = None) -> int:
     # Bind the authority to a throwaway enforcement object: minting needs the
     # challenge, verification of independence needs a distinct provider. The
     # enforcement object here is never engaged; it only carries the challenge.
-    estop = EmergencyStopSystem()
+    # S1-P2-5: inject the SAME provider instance used for minting. Letting
+    # `EmergencyStopSystem()` self-instantiate risked a second, divergent
+    # provider (notably with EphemeralSecretBackend) whose ESTOP_HMAC_SECRET
+    # differed from the one this tool signs with.
+    estop = EmergencyStopSystem(secret_provider=provider)
     authority = EStopResetAuthority(estop=estop, secret_provider=provider, key_name=args.key_name)
 
     challenge = EStopChallenge(

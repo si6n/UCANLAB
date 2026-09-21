@@ -64,6 +64,61 @@ def _installed_can_backends() -> list[str]:
         ]
 
 
+def _latest_source_mtime(frontend_dir: Path) -> float:
+    """Newest mtime across the frontend SOURCES (excluding node_modules/dist)."""
+    newest = 0.0
+    skip = {"node_modules", "dist", ".vite"}
+    for path in frontend_dir.rglob("*"):
+        if any(part in skip for part in path.parts):
+            continue
+        if path.is_file():
+            newest = max(newest, path.stat().st_mtime)
+    return newest
+
+
+def _dist_is_stale(frontend_dir: Path, frontend_dist: Path) -> tuple[bool, str]:
+    """F6-6 (REVIEW Aşama 6): decide whether `dist/` must be rebuilt.
+
+    The old check was only `dist/index.html` EXISTS. A checked-in, stale
+    `dist/` (which still referenced `fonts.googleapis.com` long after the
+    source stopped doing so) therefore shipped inside the EXE — the build
+    never rebuilt it. Rebuild whenever ANY frontend source is newer than the
+    built entry point.
+    """
+    index = frontend_dist / "index.html"
+    if not frontend_dist.exists() or not index.exists():
+        return True, "dist/index.html missing"
+    if _latest_source_mtime(frontend_dir) > index.stat().st_mtime:
+        return True, "frontend sources are newer than dist/"
+    return False, "dist/ is up to date"
+
+
+def _assert_dist_offline(frontend_dist: Path) -> None:
+    """F6-6: refuse to package a bundle that references remote origins.
+
+    The AI layer and the whole app are OFFLINE by design (AGENTS.md §2.8). A
+    bundled asset pointing at a CDN (Google Fonts was the historical case)
+    both breaks that guarantee and leaks a request at runtime.
+    """
+    forbidden = ("fonts.googleapis.com", "fonts.gstatic.com", "cdn.jsdelivr.net", "unpkg.com")
+    offenders: list[str] = []
+    for asset in frontend_dist.rglob("*"):
+        if not asset.is_file() or asset.suffix.lower() not in {".html", ".js", ".css", ".json"}:
+            continue
+        try:
+            text = asset.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        for needle in forbidden:
+            if needle in text:
+                offenders.append(f"{asset.relative_to(frontend_dist)} -> {needle}")
+    if offenders:
+        raise RuntimeError(
+            "Frontend bundle references remote origin(s); the app must stay offline:\n  "
+            + "\n  ".join(sorted(set(offenders)))
+        )
+
+
 def build_exe() -> int:
     root_dir = Path(__file__).parent.parent.resolve()
     frontend_dir = root_dir / "src" / "ui" / "frontend"
@@ -73,15 +128,18 @@ def build_exe() -> int:
     print(">>> Universal CAN-Bus Platform v13.0 - EXE Builder")
     print("==================================================")
 
-    # 1. Check & Build Frontend if needed
-    if not frontend_dist.exists() or not (frontend_dist / "index.html").exists():
-        print("[1/2] Frontend React+Tailwind paketi derleniyor...")
+    # 1. Build the frontend when missing OR STALE (F6-6), then assert the
+    #    resulting bundle carries no remote origins before packaging it.
+    stale, why = _dist_is_stale(frontend_dir, frontend_dist)
+    if stale:
+        print(f"[1/2] Frontend React+Tailwind paketi derleniyor... ({why})")
         ret = _run_npm_build(frontend_dir)
         if ret != 0:
             print("[HATA] Frontend derleme hatasi!")
             return ret
     else:
         print("[1/2] Frontend React+Tailwind paketi hazir.")
+    _assert_dist_offline(frontend_dist)
 
     # 2. Package into Ultra-Fast & Compact Standalone .EXE using PyInstaller
     print("[2/2] Tek parca Windows .EXE derleniyor...")
