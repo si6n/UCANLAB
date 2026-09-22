@@ -748,8 +748,8 @@
    "est_items": 10,
    "license": "belirsiz (blog)",
    "sitemap": "https://www.wholefleet.ca/news/",
-   "notes": "T66-R2 2026-09-22: 27 sayfa -> 1.163 kayit (3 farkli layout parser'i gerekli). Diversity 0.857. Ajanin ana bulgusu: dtcCategories[] evreni (3.017 kod) ile %99.7 isabet (kör tarama %38.7 idi). ANCAK MERGE EDILMEDI: 799 PBCU kaydinin hepsinde yalniz description; openlabor ayni alanlari zaten doldurdu -> doldurulacak bos alan 0. Dusuk deger, dogru karar.",
-   "applied": false,
+   "notes": "T66-R2 2026-09-22: 27 sayfa -> 1.163 kayit (3 farkli layout parser'i gerekli). Diversity 0.857. T_cd363b33 MERGE: +9 SPN (4282->4291), +9 FMI, +5 alan doldu; DTC +15 kod (14469->14484), +247 desc_en. Commit 4c50e7c. T8b5df966: applied=true isaretlendi (t_cd363b33 unutmisti).",
+   "applied": true,
    "artifact": "output/scan_t66_r2_wholefleet.ca.json"
   },
   {
