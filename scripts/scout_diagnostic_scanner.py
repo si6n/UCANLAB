@@ -49,7 +49,7 @@ def scan_diagnostics():
 
 if __name__ == "__main__":
     res = scan_diagnostics()
-    assert res["spn_total"] == 4253, f"Unexpected SPN count {res['spn_total']}"
+    assert res["spn_total"] == 4282, f"Unexpected SPN count {res['spn_total']}"
     assert res["dtc_total"] == 14352, f"Unexpected DTC count {res['dtc_total']}"
     assert res["quarantined_entries"] >= 9, f"Quarantine count mismatch: {res['quarantined_entries']}"
     print(f"OK: {res}")

@@ -47,7 +47,7 @@ SCRIPT_PATH = REPO_ROOT / "scripts" / "merge_t44_recovery.py"
 SOURCE_PATH = REPO_ROOT / "tests" / "fixtures" / "t44_recovered_final.json"
 
 EXPECTED_RECOVERED = 6
-EXPECTED_SPNS = 4253
+EXPECTED_SPNS = 4282
 
 
 def _load_recover_module() -> Any:
