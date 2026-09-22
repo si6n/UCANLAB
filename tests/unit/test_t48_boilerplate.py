@@ -44,7 +44,7 @@ BOILERPLATE = "The most common cause of"
 # bc58b0eb7273226a1aabae98e956b70b8362bda1) added 117 previously-absent B/C/U
 # body+chassis codes. Each new record carries title/description and
 # _source_license/_source_ref, so it is a real record — not a fabricated shell.
-EXPECTED_RECORDS = 14469
+EXPECTED_RECORDS = 14484
 
 # The nested-parenthesis specimen called out in the task body.
 B0001_RAW = (

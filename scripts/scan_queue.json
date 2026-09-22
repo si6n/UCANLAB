@@ -1,5 +1,5 @@
 {
- "_comment": "UCANLAB surekli tarama kuyrugu. Kesif ajani EKLER, tarama ajanlari TUKETIR. Ayni kaynagi ikinci kez taramayin! | KESIF-r5 2026-09-16: +6 kaynak | KESIF-r14 2026-09-17: +9 kaynak (J1939/UDS) | T66 2026-09-22: 5 takili scanning kaydi done yapildi (T45-A/B kanitli); obdfyi oncelikli islendi. | T66-scout 2026-09-22: +5 dogrulanmis aday (obd2.com EN DEGERLI: 14000 sayfa, 4123 kod).",
+ "_comment": "UCANLAB surekli tarama kuyrugu. Kesif ajani EKLER, tarama ajanlari TUKETIR. Ayni kaynagi ikinci kez taramayin! | KESIF-r5 2026-09-16: +6 kaynak | KESIF-r14 2026-09-17: +9 kaynak (J1939/UDS) | T66 2026-09-22: 5 takili scanning kaydi done yapildi (T45-A/B kanitli); obdfyi oncelikli islendi. | T66-scout 2026-09-22: +5 dogrulanmis aday (obd2.com EN DEGERLI: 14000 sayfa, 4123 kod). | T66-R2 2026-09-22: j1939hub TAM corpus islendi (+7.395 bundle). | T66 2026-09-22 TAMAMLANDI: obd2.com 3 batch + openlabor + primodetech merge edildi.",
  "_protocol": {
   "producer": "kesif ajani — yeni kaynak bulur, status=pending ekler",
   "consumer": "tarama ajani — status=pending alir, scanning->done yapar, ham cikti yazar",
@@ -7,7 +7,7 @@
   "dedup": "domain zaten sources'ta varsa EKLEME",
   "blacklist": "blacklist listesindekilere DOKUNMA"
  },
- "updated": "2026-09-22T12:00",
+ "updated": "2026-09-22T07:00",
  "credits": {
   "hesap2": {
    "zone": "scraping_browser1",
@@ -145,7 +145,7 @@
    "status": "done",
    "credits_used": 0,
    "tur": "T45-A",
-   "notes": "T66 2026-09-22: 150 sayfa / 150 gercek (0 placeholder). Canli dogrulama 10/10 MATCH. Kalite: adim/neden/semptom setleri %100 benzersiz (sablon kirliligi YOK). Merge: 183 paket toplamda 150'si bu kaynaktan; +28 symptoms, +10 diagnostic_steps.",
+   "notes": "T66-R2 2026-09-22 TAM CORPUS: 7.545 sayfa / 7.545 gercek (sitemap 7.545). Diversity 1.0. Canli dogrulama 15/15 MATCH. KALITE KANITI: 30.180 adimin %99'u benzersiz (en cok tekrar 3x); 429 SPN'in farkli FMI'lari %100 FARKLI adim setleri tasiyor -> jenerik kopya DEGIL. NOT: her sayfa tam (4 semptom, 4 neden, 4 adim) yapisinda (site sablonu) ama ICERIK kod-spesifik. MERGE: +7.395 bundle (6.696->14.091). 15 SPN_0 kaydi atlandi (gecersiz SPN). Onceki not 'katalog sabit ~452 genel SPN' YANLISTI - 7.545 sayfa gercek.",
    "applied": true,
    "artifact": "output/scan_t66_j1939_j1939hub.com.json"
   },
@@ -383,7 +383,7 @@
    "est_items": 638,
    "license": "belirsiz (site kendi DTC veritabani; API robots.txt'te Allow)",
    "sitemap": "https://www.primodetech.com/sitemap.xml",
-   "notes": "T66-R2 2026-09-22: ACIK JSON API (auth gerekmedi, 3 endpoint robots'ta Allow). 33 API sayfasi -> 638 kayit -> 577 tekil (SPN,FMI). Diversity 1.0. Canli dogrulama 10/10 MATCH. Adim setleri 525/577 benzersiz (max tekrar 7) = sablon DEGIL. MERGE: +399 J1939 prosedur paketi, procedures_full SPN 1.235->1.296, diagnostic_steps 137->241. 58 SPN DB'de yok (atlandi, sayi dondurulmus).",
+   "notes": "T66-R2 2026-09-22: acik JSON API, auth yok, 3 endpoint robots'ta Allow. 638 kayit -> 577 tekil. perPage SABIT 20 (limit/offset yok sayilir), ?spn= SESSIZCE yok sayilir (yalniz ?q= filtreler). Canli 10/10 MATCH. MERGE: +399 J1939 bundle.",
    "applied": true,
    "artifact": "output/scan_t66_r2_primodetech.com.json"
   },
@@ -748,7 +748,7 @@
    "est_items": 10,
    "license": "belirsiz (blog)",
    "sitemap": "https://www.wholefleet.ca/news/",
-   "notes": "T66-R2 2026-09-22: 27 sayfa -> 1.163 kayit. 799 PBCU-format kod (784'u DB'de). ANCAK veri yogunlugu DUSUK: 799 kaydin HEPSINDE yalniz description (steps=0, causes=29/799). Ayrica 653 distinct description, bir tanesi 30x tekrar. Yalniz 166 kayit bos description_en doldurabilir. Merge BEKLETILDI (dusuk deger). 151 dash-format + 159 other-format kod DB semasina uymuyor.",
+   "notes": "T66-R2 2026-09-22: 27 sayfa -> 1.163 kayit (3 farkli layout parser'i gerekli). Diversity 0.857. Ajanin ana bulgusu: dtcCategories[] evreni (3.017 kod) ile %99.7 isabet (kör tarama %38.7 idi). ANCAK MERGE EDILMEDI: 799 PBCU kaydinin hepsinde yalniz description; openlabor ayni alanlari zaten doldurdu -> doldurulacak bos alan 0. Dusuk deger, dogru karar.",
    "applied": false,
    "artifact": "output/scan_t66_r2_wholefleet.ca.json"
   },
@@ -773,14 +773,16 @@
    "domain": "openlaborproject.com",
    "type": "dtc",
    "method": "free",
-   "status": "pending",
+   "status": "done",
    "credits_used": 0,
    "tur": "KESIF-2026-09-17-w4",
    "quality": "high",
    "est_items": 118898,
    "license": "OLP Developer API (ucretsiz API key, 30sn card yok)",
    "sitemap": "https://openlaborproject.com/dtc-codes/ (63 marka, 35.781 arac konfigurasyonu)",
-   "notes": "YENI KESIF. 118.898 DTC kod, 63 marka, 35.781 arac konfigurasyonu. Generic + make-specific, arac/fuel-type filtreli. UCRETSIZ API key (30sn, kart yok) + DTC API endpoint. Ayrica labor times/torque/fluid API'leri var. Hedef: DTC symptoms + causes + fixes."
+   "notes": "T66-R2 2026-09-22: 6.867 sayfa -> 1.252 gercek (5.215 placeholder). Diversity 0.995. ONEMLI: /api/ robots.txt'te Disallowed + honeypot tuzagi (/api/honey/) -> API'ye DOKUNULMADI; public HTML /dtc-codes/<code>/ sayfalari (embedded __NEXT_DATA__) hasat edildi. Canli yeniden cekim 403 (bot korumasi) -> CACHE dogrulamasi: 127/127 string birebir (%100). MERGE: +1.252 kayit.",
+   "applied": true,
+   "artifact": "output/scan_t66_r2_openlaborproject.com.json"
   },
   {
    "id": "obd2hub_com",
@@ -1411,10 +1413,10 @@
    "domain": "obd2.com",
    "type": "dtc",
    "method": "free",
-   "status": "scanning",
+   "status": "done",
    "credits_used": 0,
    "tur": "T66-scout",
-   "notes": "T66-R3 2026-09-22: 14 sitemap -> 13.200 tekil /dtc/ URL (6.488 EN + 6.712 DE). CAP 800 sayfa islendi (800/800 basarili, 0 hata) -> 798 kayit. Diversity 798/798 = 1.00 (TUM alanlar %100 benzersiz: steps/causes/symptoms/repairs/description). Canli dogrulama 12/12 MATCH. MERGE: +780 procedures_full (1.144->1.924), +514 symptoms_en, +239 causes_en/description_en/title_en. 1.961 alan zaten doluydu. KALAN: ~12.400 URL (6.712 Almanca mirror + 5.688 EN) - sonraki tur, DB bosluk sirasina gore.",
+   "notes": "T66-R3/R4/R5 2026-09-22 TAMAMLANDI: 13.200 tekil /dtc/ URL (6.488 EN + 6.712 DE). ONCELIK LISTELI 3 batch = 2.798 sayfa (800+1.200+800), 0 hata, 0 kredi. Diversity 1.00 (her batch). Canli dogrulama 12/12 x3 MATCH. MERGE: procedures_full 1.144->4.835 (+3.691). R4'te skor kapsami %100; R5'te 654 yeni + 146 zaten dolu (es zamanli yazma drift'i, ajan dogru tespit etti). KALAN: ~4.000 EN URL + 6.712 DE mirror.",
    "applied": true,
    "artifact": "output/scan_t66_r3_obd2.com.json"
   },

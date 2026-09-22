@@ -47,7 +47,10 @@ SCRIPT_PATH = REPO_ROOT / "scripts" / "merge_t44_recovery.py"
 SOURCE_PATH = REPO_ROOT / "tests" / "fixtures" / "t44_recovered_final.json"
 
 EXPECTED_RECOVERED = 6
-EXPECTED_SPNS = 4282
+EXPECTED_SPNS = 4291
+# T_cd363b33: 4282->4291, +9 SPN from wholefleet.ca (SPN 2458/3252/3714
+# standard J1939 + 6 Yale OEM-proprietary 522xxx). Genuine new SPNs with
+# causes/steps, not shells.
 
 
 def _load_recover_module() -> Any:

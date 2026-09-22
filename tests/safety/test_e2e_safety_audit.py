@@ -33,9 +33,9 @@ _FW_PUB = _FW_KEY.public_key()
 def test_audit_database_integrity_and_scale():
     load_external_dtc_database()
     from src.engine.ai.diagnostic_copilot import EXPERT_KNOWLEDGE_BASE
-    assert len(EXPERT_KNOWLEDGE_BASE) >= 14188
+    assert len(EXPERT_KNOWLEDGE_BASE) >= 14203
     spn_db = get_j1939_spn_database()
-    assert len(spn_db.get("spns", spn_db)) == 4282
+    assert len(spn_db.get("spns", spn_db)) == 4291
     did_db = get_uds_did_database()
     assert len(did_db.get("dids", did_db)) == 68
     m06_db = get_mode06_database()

@@ -34,7 +34,7 @@ pytestmark = pytest.mark.benchmark
 REPO_ROOT = Path(__file__).resolve().parents[2]
 J1939_DB = REPO_ROOT / "data" / "diagnostics" / "j1939_spn_fmi_database.json"
 
-EXPECTED_SPNS = 4_282
+EXPECTED_SPNS = 4_291
 # BASELINE TRIAGE: this constant is CORRECT — do NOT raise it to silence a
 # failure. The working tree briefly held 4266 rows, 13 of them nameless shells
 # injected by tools/data_ingest/merge_staging_into_data.py (key=f"SPN_{spn}" with
@@ -43,6 +43,8 @@ EXPECTED_SPNS = 4_282
 # to 4253. Raising this constant would launder a data-integrity defect into the
 # test — see the baseline-failures triage. (T_9f8e3294: 4253->4282, +29 SPN from
 # procarmanuals.com Scania DM1 list — genuine new SPNs, not shells.)
+# (T_cd363b33: 4282->4291, +9 SPN from wholefleet.ca — 3 standard J1939 + 6
+# Yale OEM-proprietary 522xxx, all with causes/steps, not shells.)
 # J1939 FMI 12 = "Bad intelligent device or component" içeren referans DTC.
 REF_SPN = 629
 REF_FMI = 12

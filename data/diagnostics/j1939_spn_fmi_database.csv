@@ -173,6 +173,8 @@
 40,2,1. Yükseklik sensörü sayısal kalibrasyon hatası 2. Arka aks TT/mm eğri kalibrasyon hatası 3. Ön aks TT/mm eğri kalibrasyon hatası (yalnızca takılıysa) 4. Yükseklik sensörü hata verebilir (LL << NL << UL) 5. Minimum arıza / maksimum yürütme süresini kontrol edin,ECAS,0 (TBD),,MEDIUM,
 40,13,Diz çökme (Kneeling) fonksiyonu yükseklik sensörü kalibrasyon hatası,ECAS,0 (TBD),,MEDIUM,
 41,2,1. Basınç sensörü kalibrasyon hatası / basınç ofseti (yalnızca basınç sensörü varsa) 2. Basınç ofseti 0xFFFF olmamalı,ECAS,0 (TBD),,MEDIUM,
+41,3,8-Volt DC Supply — Voltage Above Normal,ECAS,0 (TBD),,HIGH,
+41,4,8-Volt DC Supply — Voltage Below Normal,ECAS,0 (TBD),,HIGH,
 42,2,1. (Bir veya birden fazla) aks yük eğrisi 1-4 parametre ayar hatası 2. Aks yükü ofseti (bir veya birden fazla) eğri çalışma aralığının dışında 3. Aks yükü eğrisi verileri (1. nokta - 3. nokta) olası arıza (yalnızca aks yükü kontrolü için),ECAS,0 (TBD),,LOW,
 42,12,1. Tahrik mili yastığı basınç ayar hatası 2. Ek aks yastığı basınç ayar hatası,ECAS,0 (TBD),,LOW,
 43,3,Kısa devre (beslemeye),ECAS,0 (TBD),,MEDIUM,
@@ -1063,6 +1065,7 @@
 319,4,Voltaj normalin altında veya şasiye (GND) kısa devre,ZF_GearBox,0 (TBD),"Voltage Below Normal, Or Shorted To Low Source",MEDIUM,Sinyal pini ile şasi arasındaki direnci ölçün (<1.0 Ω ise tesisatta şasi teması vardır).
 324,0,SPN 324 - Veri geçerli fakat normal çalışma aralığının üzerinde (en ciddi),Şebeke & İletişim Katmanı (J1939),0 (TBD),Data Valid But Above Normal Range - Most Severe Level,HIGH,"SPN 324 FMI 0: Meaning, Symptoms and Troubleshooting Skip to content J1939 Hub Menu J1939 Categories SPN FMI Lookup PGN Lookup FMI Decoder CAN Frame Decoder J1939 CAN Bus Traffic Simulator DBC Generator J1939 CAN Log Analyzer SPN 324 FMI 0: Meaning, Symptoms and Troubleshooting July 6, 2026 May 20, 2026 by 55yhaymas Home - General & Network - SPN 324 FMI 0: Meaning, Symptoms and Troubleshooting Diagnostic Code SPN 324 FMI 0: Meaning and Fix SPN 324 FMI 0 indicates the secondary engine speed sensor (magnetic pickup) is reporting a signal above the normal operational range. This fault commonly appears after an ECM replacement when the sensor air gap is incorrectly set, or after a forced DPF regeneration that caused excessive crankshaft vibration."
 342,2,"CA EEPROM verisi - Veri tutarsız, kesintili veya hatalı",AMT / Otomatik Vites Kutusu,0 (TBD),"Veri tutarsız, kesintili veya hatalı",medium,
+342,8,Secondary Engine Speed Sensor,AMT / Otomatik Vites Kutusu,0 (TBD),,MEDIUM,
 343,2,"GA EEPROM verisi - Veri tutarsız, kesintili veya hatalı",AMT / Otomatik Vites Kutusu,0 (TBD),"Veri tutarsız, kesintili veya hatalı",medium,
 344,2,"NSC EEPROM verisi - Veri tutarsız, kesintili veya hatalı",AMT / Otomatik Vites Kutusu,0 (TBD),"Veri tutarsız, kesintili veya hatalı",medium,
 346,2,"CS EEPROM verisi - Veri tutarsız, kesintili veya hatalı",AMT / Otomatik Vites Kutusu,0 (TBD),"Veri tutarsız, kesintili veya hatalı",medium,
@@ -3212,6 +3215,7 @@
 1677,19,Ağdan hatalı veri alındı (CAN Mesaj Bozulması),Egzoz & Aftertreatment Sistemi,65133 (HTR),Received Network Data In Error,MEDIUM,Veri yolunda 120Ω hat sonlandırma direncini ve CAN-H/CAN-L sinyal gürültüsünü test edin.
 1678,0,ECU dahili hataları,KNORREBS,65133 (HTR),,HIGH,
 1679,0,ECU dahili hataları,KNORREBS,65133 (HTR),,HIGH,
+1679,5,Fuel Pump Relay — Current Below Normal,KNORREBS,65133 (HTR),,MEDIUM,
 1680,0,ECU dahili hataları,KNORREBS,65133 (HTR),,HIGH,
 1681,9,J1939 BM (Battery Main Switch) Message Missing - J1939 BM (Battery Main Switch) Message Missing,Elektrik Dağıtım & Alternatör,65126 (BM),Abnormal Update Rate,CRITICAL_STOP,Sensör veya kaynak modülün CAN-Bus hattına bağlı olduğunu ve adres aldığını (Address Claim) doğrulayın.
 1692,0,Engine Intake Manifold Desired Absolute Pressure - Data Valid But Above Normal Operational Range - Most Severe Level,Şebeke & İletişim Katmanı (J1939),65194 (AF2),Data Valid But Above Normal Range - Most Severe Level,MEDIUM,Kaynak sayfada saha teşhisi anlatımı mevcut (j1939hub.com).
@@ -3411,6 +3415,7 @@
 1868,7,Mekanik sistem yanıt vermiyor veya kalibrasyon dışı (Mekanik Sıkışma),Motor Yönetimi & Genel Güç Aktarma (J1939),65095 (MP),Mechanical System Not Responding Or Out Of Adjustment,MEDIUM,"Aktüatör itici kollarını, kurum birikmesini ve hava/yağ tahrik hatlarını mekanik olarak inceleyin."
 2000,8,"Source Address 0 (engine #1?) - anormal frekans, darbe genisligi veya periyot",Ağır Vasıta J1939 (OEM tablo hasadı),0 (TBD),"Anormal frekans, darbe genişliği veya periyot",MEDIUM,
 2000,9,Lost Communication with a CPC Module - Communication Loss with a Common Powertrain Controller (CPC) Module (CPC Heartbeat Message No Longer Arriving),Ağır Vasıta J1939 (OEM tablo hasadı),0 (TBD),Abnormal Update Rate,MEDIUM,Sensör veya kaynak modülün CAN-Bus hattına bağlı olduğunu ve adres aldığını (Address Claim) doğrulayın.
+2000,12,CAN bus communication failure (CAN Rx or CAN Tx),Ağır Vasıta J1939 (OEM tablo hasadı),0 (TBD),,MEDIUM,
 2003,9,J1939 Message Missing from Source Address 3 (Dec) - J1939 Message Missing from Source Address 3 (Dec),Ağır Vasıta J1939 (OEM tablo hasadı),0 (TBD),Abnormal Update Rate,MEDIUM,Sensör veya kaynak modülün CAN-Bus hattına bağlı olduğunu ve adres aldığını (Address Claim) doğrulayın.
 2011,9,J1939 Message Missing from Source Address 11 (Dec) - J1939 Message Missing from Source Address 11 (Dec),Ağır Vasıta J1939 (OEM tablo hasadı),0 (TBD),Abnormal Update Rate,MEDIUM,Sensör veya kaynak modülün CAN-Bus hattına bağlı olduğunu ve adres aldığını (Address Claim) doğrulayın.
 2011,31,Kaynak Adresi 11 - Durum mevcut değil,Ağır Vasıta J1939 (OEM tablo hasadı),0 (TBD),Koşul mevcut / Belirli bir durum mevcut,MEDIUM,
@@ -3455,6 +3460,7 @@
 2348,4,Halojen ve kombine lamba ile sol uzun far şaseye kısa devre,BCM_HR,65088 (LD),,MEDIUM,
 2348,5,Halojen ve kombine lamba ile sol uzun far açık devre,BCM_HR,65088 (LD),,MEDIUM,
 2348,6,Sol uzun far,BCM_HR,65088 (LD),,MEDIUM,
+2348,9,SAE J1939 Data Link #2 — Abnormal Update Rate,BCM_HR,65088 (LD),,CRITICAL_STOP,
 2350,4,Halojen ve kombine lamba ile sol kısa far şaseye kısa devre,BCM_HR,65088 (LD),,MEDIUM,
 2350,5,Halojen ve kombine lamba ile sol kısa far açık devre,BCM_HR,65088 (LD),,MEDIUM,
 2350,6,Sol kısa far,BCM_HR,65088 (LD),,MEDIUM,
@@ -3489,6 +3495,7 @@
 2432,12,Motor Talebi - Yüzde Tork - Hatalı akıllı aygıt veya bileşen,Motor Yönetimi & Tork Talebi,61444 (EEC1),Bad Intelligent Device Or Component,MEDIUM,Talep sürekli -125 %'ye kilitliyse ECU içi tork arbitrajını kontrol edin; yazılım sürümü ve kalibrasyon kimliğini doğrulayın.
 2432,13,Motor Talebi - Yüzde Tork - Fault Code 184: Engine Demand Percent Torque (TRTS0950) Endurant HD,Motor Yönetimi & Tork Talebi,61444 (EEC1),SPN 2432 FMI 13,MEDIUM,J1939 DM1 uzerinden SPN 2432 FMI 13 icin OEM tablo teshis kaydi (kaynak: T62 Eaton ServiceRanger 4 Product Information Library harvest).
 2432,19,Motor Talebi - Yüzde Tork - Fault Code 184: Engine Demand Percent Torque (TRTS0950) Endurant HD,Motor Yönetimi & Tork Talebi,61444 (EEC1),SPN 2432 FMI 19,MEDIUM,J1939 DM1 uzerinden SPN 2432 FMI 19 icin OEM tablo teshis kaydi (kaynak: T62 Eaton ServiceRanger 4 Product Information Library harvest).
+2458,2,DPF #1 Differential Pressure — Erratic,Arka İşlem (Aftertreatment),0 (TBD),,HIGH,
 2540,12,PGNRQ CAN mesaji zaman asimi hatasi icin teshis ariza kontrolu.,Bosch,59904 (RQST),,MEDIUM,
 2550,2,"Veri tutarsız, kesintili veya yanlış (Sinyal Sıçraması)",Motor Yönetimi & Genel Güç Aktarma (J1939),61184 (PropA),"Data Erratic, Intermittent Or Incorrect",MEDIUM,"Kablo demetinde titreşim temassızlığı, gevşek klemens veya manyetik relüktör çark diş hasarı arayın."
 2550,9,Anormal veri güncelleme hızı (CAN Zaman Aşımı),Motor Yönetimi & Genel Güç Aktarma (J1939),61184 (PropA),Abnormal Update Rate,MEDIUM,Sensör veya kaynak modülün CAN-Bus hattına bağlı olduğunu ve adres aldığını (Address Claim) doğrulayın.
@@ -4098,6 +4105,7 @@
 3251,18,DPF Partikül Filtresi Fark Basıncı - Aftertreatment 1 Diesel Exhaust Fluid Property,Egzoz & DPF Kurum Yönetimi,64946 (AT1IMG),SPN 3251 FMI 18,HIGH,J1939 DM1 uzerinden SPN 3251 FMI 18 icin OEM tablo teshis kaydi (kaynak: T62 repair.diesellaptops.com harvest).
 3251,20,Ardisik 2 surus dongusu arasinda ogrenilen ofset degerlerinde yuksek sapmalari bildiren DFC (teshis ariza kontrolu),Egzoz & DPF Kurum Yönetimi,64946 (AT1IMG),Veri geçerli fakat normal aralığın üzerinde - En az ciddi seviye,MEDIUM,
 3251,21,DPF Partikül Filtresi Fark Basıncı - Diesel Particulate Filter Differential Pressure (Bank 1) – Data Drifted Low,Egzoz & DPF Kurum Yönetimi,64946 (AT1IMG),SPN 3251 FMI 21,MEDIUM,J1939 DM1 uzerinden SPN 3251 FMI 21 icin OEM tablo teshis kaydi (kaynak: T62 repair.diesellaptops.com harvest).
+3252,0,Exhaust Temperature - High,Arka İşlem (Aftertreatment),0 (TBD),,MEDIUM,
 3253,14,Yuksek yuk icin asgari basinc farki karakteristigi teshis ariza kontrolu,Bosch,64946 (AT1IMG),,MEDIUM,
 3253,20,DPF delta-basinc sensoru makuliyeti icin ariza kontrolu,Bosch,64946 (AT1IMG),,MEDIUM,
 3272,2,NOxSenDsRxPACK CAN mesaji zaman asimi hatasi icin teshis ariza kontrolu.,Bosch,61457 (AT2OG1),,MEDIUM,
@@ -4728,6 +4736,7 @@
 3711,31,High Idle Regeneration (Aborted) - Diesel Particulate Filter Active Regeneration Inhibited Due to Low Exhaust Gas Temperature – Condition Exists,Egzoz & DPF Rejenerasyonu,64892 (DPFC1),Condition Exists,MEDIUM,İlgili anahtar veya sensör kontak pozisyonunu doğrulayın.
 3713,14,High Idle Regeneration Aborted - High Idle Regen (HIR) (Aborted) – Low Regen Temperature,Egzoz & DPF Rejenerasyonu,64892 (DPFC1),Special Instructions,MEDIUM,Motor üreticisinin (Cummins/CAT/Volvo) yetkili servis kılavuzuna başvurun.
 3713,31,High Idle Regeneration Aborted - Diesel Particulate Filter Active Regeneration Inhibited Due to System Timeout – Condition Exists,Egzoz & DPF Rejenerasyonu,64892 (DPFC1),Condition Exists,MEDIUM,İlgili anahtar veya sensör kontak pozisyonunu doğrulayın.
+3714,0,SCR Operator Inducement — Derate,Arka İşlem (Aftertreatment),0 (TBD),,HIGH,
 3716,31,High Idle Regeneration Aborted - High Idle Regeneration Aborted – Low Coolant Temp,Egzoz & DPF Rejenerasyonu,64892 (DPFC1),Condition Exists,MEDIUM,İlgili anahtar veya sensör kontak pozisyonunu doğrulayın.
 3719,0,DPF Kurum Doluluk Oranı - Veri geçerli fakat normal çalışma aralığının üzerinde (Kritik Yüksek),Egzoz & DPF Rejenerasyonu,64891 (AT1S1),Data Valid But Above Normal Range - Most Severe Level,MEDIUM,Sensör besleme hattını ve fiziksel aşırı basınç/sıcaklık durumunu mekanik test portundan doğrulayın.
 3719,1,DPF Kurum Doluluk Oranı - DPF Çıkış Sıcaklığı Çok Düşük,Egzoz & DPF Rejenerasyonu,64891 (AT1S1),Aftertreatment DPF Outlet Temperature Too Low,MEDIUM,Check fuel dosing valve; inspect exhaust for leaks; test temperature sensor
@@ -4738,6 +4747,7 @@
 3719,19,"DPF Kurum Doluluk Oranı - CAN Communication – Message (AT1S) Out of Range, Soot Load Percent From Aftertreatment System",Egzoz & DPF Rejenerasyonu,64891 (AT1S1),SPN 3719 FMI 19,MEDIUM,J1939 DM1 uzerinden SPN 3719 FMI 19 icin OEM tablo teshis kaydi (kaynak: T62 repair.diesellaptops.com harvest).
 3719,31,Diesel Particulate Filter Regeneration Lamp is Flashing in ” Regen Zone 2″,Egzoz & DPF Rejenerasyonu,64891 (AT1S1),,MEDIUM,Standart OEM saha servis manuallerine başvurun.
 3720,0,Diesel Particulate Filter Has Reached the End of Its Service Life - Aftertreatment DPF Ash Load Percent – Data Valid But Above Normal Operational Range – Most Severe Level,Egzoz & DPF Kurum Yönetimi,64891 (AT1S1),Data Valid But Above Normal Range - Most Severe Level,MEDIUM,Sensör besleme hattını ve fiziksel aşırı basınç/sıcaklık durumunu mekanik test portundan doğrulayın.
+3720,3,DEF Dosing Unit — Voltage Above Normal,Egzoz & DPF Kurum Yönetimi,64891 (AT1S1),,HIGH,
 3720,14,Diesel Particulate Filter Has Reached the End of Its Service Life - ACM Reported Ash Mileage is Lower than MCM Stored Value,Egzoz & DPF Kurum Yönetimi,64891 (AT1S1),Special Instructions,MEDIUM,Motor üreticisinin (Cummins/CAT/Volvo) yetkili servis kılavuzuna başvurun.
 3720,15,Diesel Particulate Filter Has Reached the End of Its Service Life - Particulate Trap No. 1 Ash Load Percent – High – Least Severe (1),Egzoz & DPF Kurum Yönetimi,64891 (AT1S1),Data Valid But Above Normal - Least Severe Level,MEDIUM,Filtre ve soğutma temizliği yapın; sistem henüz arıza lambası yakmamış olabilir.
 3720,16,Diesel Particulate Filter Has Reached the End of Its Service Life - Diesel Particulate Filter Has Reached the End of Its Service Life,Egzoz & DPF Kurum Yönetimi,64891 (AT1S1),Data Valid But Above Normal - Moderate Severity,MEDIUM,Motor tork sınırlandırması (Derate) başlamadan önce ilgili devreyi temizleyin.
@@ -5781,6 +5791,7 @@
 5285,7,Engine Charge-Air Cooler Efficiency - Charge Air Cooler (CAC) Temperature – Mechanical System Not Responding Properly,Ağır Vasıta J1939 (OEM tablo hasadı),64758 (CAC1),Mechanical System Not Responding Or Out Of Adjustment,MEDIUM,"Aktüatör itici kollarını, kurum birikmesini ve hava/yağ tahrik hatlarını mekanik olarak inceleyin."
 5285,18,Engine Charge-Air Cooler Efficiency - Engine Charge-Air Cooler Efficiency – Data Valid but Below Normal Operating Range – Moderately Severe Level,Ağır Vasıta J1939 (OEM tablo hasadı),64758 (CAC1),Data Valid But Below Normal - Moderate Severity,MEDIUM,"Dozaj pompası, hava tahrik valfi veya debi kısıtlamalarını giderin."
 5292,2,Bank2 turbo şarj soğutucu verimliliği tanı kontrolü,Bosch,64756 (CAC2),,MEDIUM,
+5298,0,DEF Tank Level — Low,Egzoz & DPF Termal Rejenerasyonu,0 (TBD),,MEDIUM,
 5298,2,"Aftertreatment Diesel Oxidation Catalyst Conversion Efficiency - Aftertreatment Diesel Oxidation Catalyst (DOC) Conversion Efficiency – Data Erratic, Intermittent, or Incorrect",Egzoz & DPF Termal Rejenerasyonu,0 (TBD),"Data Erratic, Intermittent Or Incorrect",MEDIUM,"Kablo demetinde titreşim temassızlığı, gevşek klemens veya manyetik relüktör çark diş hasarı arayın."
 5298,7,Aftertreatment Diesel Oxidation Catalyst Conversion Efficiency - Aftertreatment Diesel Oxidation Catalyst (DOC) Conversion Efficiency – Mechanical System Not Responding Properly,Egzoz & DPF Termal Rejenerasyonu,0 (TBD),Mechanical System Not Responding Or Out Of Adjustment,MEDIUM,"Aktüatör itici kollarını, kurum birikmesini ve hava/yağ tahrik hatlarını mekanik olarak inceleyin."
 5298,11,Egzoz Ard İşlem Diesel Oxidation Catalyst Dönüşüm Verimliliği - Diesel Particulate Filter (DPF) – Stationary Regeneration Aborted Due to Poor Regeneration Efficiency,Egzoz & DPF Termal Rejenerasyonu,0 (TBD),SPN 5298 FMI 11,MEDIUM,J1939 DM1 uzerinden SPN 5298 FMI 11 icin OEM tablo teshis kaydi (kaynak: T62 repair.diesellaptops.com harvest).
@@ -10663,6 +10674,7 @@
 522406,9,CAN EBC1 mesajı zaman aşımı,ECAS4PLUS,0 (TBD),,MEDIUM,
 522407,9,CAN EBC2 mesajı zaman aşımı,ECAS4PLUS,0 (TBD),,MEDIUM,
 522409,9,CAN VDHR mesajı zaman aşımı,ECAS4PLUS,0 (TBD),,MEDIUM,
+522614,7,Throttle not at limp mode position (GM engines only),OEM-proprietary (Yale),0 (TBD),,MEDIUM,
 522740,14,Sürüş sırasında engel tespiti; tespit veya kontak sıfırlamasından sonra değiştirilecek,OGP,0 (TBD),,MEDIUM,
 522755,11,"CAN Haberleşmesi - CAN Communication – Message (PROPB_VIC) Not Available, Estimated Engine Parasitic Losses From Vehicle Control System",Şebeke & İletişim Katmanı (J1939),0 (TBD),SPN 522755 FMI 11,MEDIUM,J1939 DM1 uzerinden SPN 522755 FMI 11 icin OEM tablo teshis kaydi (kaynak: T62 repair.diesellaptops.com harvest).
 522755,19,"CAN Haberleşmesi - CAN Communication – Message (PROPB_VIC) Out of Range, Estimated Engine Parasitic Losses From Vehicle Control System",Şebeke & İletişim Katmanı (J1939),0 (TBD),SPN 522755 FMI 19,MEDIUM,J1939 DM1 uzerinden SPN 522755 FMI 19 icin OEM tablo teshis kaydi (kaynak: T62 repair.diesellaptops.com harvest).
@@ -11048,6 +11060,10 @@
 524213,14,TCM Test Tezgahı Aktif-Dinamometre Modu - TCM Test Bench Active – Dyno Mode,Şanzıman Kontrol Modülü (TCM),0 (TBD),SPN 524213 FMI 14,MEDIUM,J1939 DM1 uzerinden SPN 524213 FMI 14 icin OEM tablo teshis kaydi (kaynak: T62 repair.diesellaptops.com harvest).
 524214,14,Lastik Basınç İzleme (TPMS) ECU'su Eksik - Missing TPMS ECU,Elektrik & ECU Beslemesi (J1939),0 (TBD),SPN 524214 FMI 14,MEDIUM,J1939 DM1 uzerinden SPN 524214 FMI 14 icin OEM tablo teshis kaydi (kaynak: T62 repair.diesellaptops.com harvest).
 524215,14,Yanlış Lastik Basınç İzleme (TPMS) ECU'su - Wrong TPMS ECU,Elektrik & ECU Beslemesi (J1939),0 (TBD),SPN 524215 FMI 14,MEDIUM,J1939 DM1 uzerinden SPN 524215 FMI 14 icin OEM tablo teshis kaydi (kaynak: T62 repair.diesellaptops.com harvest).
+524223,0,XMSN reverse pressure greater than commanded pressure,OEM-proprietary (Yale),0 (TBD),,MEDIUM,
+524223,1,XMSN reverse pressure less than commanded pressure,OEM-proprietary (Yale),0 (TBD),,MEDIUM,
+524225,0,XMSN forward pressure greater than commanded pressure,OEM-proprietary (Yale),0 (TBD),,MEDIUM,
+524238,3,Rear wiper motor driver out of range high,OEM-proprietary (Yale),0 (TBD),,MEDIUM,
 524249,0,SPN 524249 - Veri geçerli fakat normal çalışma aralığının üzerinde (en ciddi),Şebeke & İletişim Katmanı (J1939),0 (TBD),Data Valid But Above Normal Range - Most Severe Level,HIGH,Kaynak sayfada saha teşhisi anlatımı mevcut (j1939hub.com).
 524250,16,E / P şalteri uzun süreli basılı / arızalı,BCM_HR,0 (TBD),,MEDIUM,
 524251,7,SPN 524251 - Mekanik sistem yanıt vermiyor,Şebeke & İletişim Katmanı (J1939),0 (TBD),Mechanical System Not Responding Or Out Of Adjustment,MEDIUM,"SPN 524251 FMI 7: Meaning, Symptoms and Troubleshooting Skip to content J1939 Hub Menu J1939 Categories SPN FMI Lookup PGN Lookup FMI Decoder CAN Frame Decoder J1939 CAN Bus Traffic Simulator DBC Generator J1939 CAN Log Analyzer SPN 524251 FMI 7: Meaning, Symptoms and Troubleshooting August 8, 2026 May 28, 2026 by 55yhaymas Home - General & Network - SPN 524251 FMI 7: Meaning, Symptoms and Troubleshooting Diagnostic Code SPN 524251 FMI 7: Meaning and Fix SPN 524251 FMI 7 indicates a mechanical system not responding properly, as per SAE J1939 standards. This fault often appears in scenarios where components like actuators or valves fail to operate as expected, possibly after routine maintenance or part replacements."
@@ -11055,6 +11071,8 @@
 524257,0,SPN 524257 - Veri geçerli fakat normal çalışma aralığının üzerinde (en ciddi),Şebeke & İletişim Katmanı (J1939),0 (TBD),Data Valid But Above Normal Range - Most Severe Level,HIGH,Kaynak sayfada saha teşhisi anlatımı mevcut (j1939hub.com).
 524258,0,SPN 524258 - Veri geçerli fakat normal çalışma aralığının üzerinde (en ciddi),Şebeke & İletişim Katmanı (J1939),0 (TBD),Data Valid But Above Normal Range - Most Severe Level,HIGH,Kaynak sayfada saha teşhisi anlatımı mevcut (j1939hub.com).
 524259,0,SPN 524259 - Veri geçerli fakat normal çalışma aralığının üzerinde (en ciddi),Şebeke & İletişim Katmanı (J1939),0 (TBD),Data Valid But Above Normal Range - Most Severe Level,HIGH,"SPN 524259 FMI 0: Meaning, Symptoms and Troubleshooting Skip to content J1939 Hub Menu J1939 Categories SPN FMI Lookup PGN Lookup FMI Decoder CAN Frame Decoder J1939 CAN Bus Traffic Simulator DBC Generator J1939 CAN Log Analyzer SPN 524259 FMI 0: Meaning, Symptoms and Troubleshooting June 28, 2026 May 28, 2026 by 55yhaymas Home - General & Network - SPN 524259 FMI 0: Meaning, Symptoms and Troubleshooting Diagnostic Code SPN 524259 FMI 0: Meaning and Fix SPN 524259 FMI 0 indicates that a system parameter is operating above its normal range, which is severe. This code often surfaces in heavy-duty trucks after an ECM recalibration that results in unexpected sensor readings."
+524261,4,5VE1 sensor supply voltage out of range low,OEM-proprietary (Yale),0 (TBD),,MEDIUM,
+524263,1,Uncommanded power down,OEM-proprietary (Yale),0 (TBD),,MEDIUM,
 524264,0,SPN 524264 - Veri geçerli fakat normal çalışma aralığının üzerinde (en ciddi),Şebeke & İletişim Katmanı (J1939),0 (TBD),Data Valid But Above Normal Range - Most Severe Level,HIGH,Kaynak sayfada saha teşhisi anlatımı mevcut (j1939hub.com).
 524265,0,SPN 524265 - Veri geçerli fakat normal çalışma aralığının üzerinde (en ciddi),Şebeke & İletişim Katmanı (J1939),0 (TBD),Data Valid But Above Normal Range - Most Severe Level,HIGH,"SPN 524265 FMI 0: Meaning, Symptoms and Troubleshooting Skip to content J1939 Hub Menu J1939 Categories SPN FMI Lookup PGN Lookup FMI Decoder CAN Frame Decoder J1939 CAN Bus Traffic Simulator DBC Generator J1939 CAN Log Analyzer SPN 524265 FMI 0: Meaning, Symptoms and Troubleshooting June 28, 2026 June 2, 2026 by 55yhaymas Home - General & Network - SPN 524265 FMI 0: Meaning, Symptoms and Troubleshooting Diagnostic Code SPN 524265 FMI 0: Meaning and Fix SPN 524265 FMI 0 indicates a manufacturer-assignable sensor or actuator signal is above the normal operational range, with highest severity. This code often appears after a forced DPF regeneration when exhaust temperature sensors exceed calibrated limits, or after replacing the ECM without proper parameter configuration."
 524267,0,SPN 524267 - Veri geçerli fakat normal çalışma aralığının üzerinde (en ciddi),Şebeke & İletişim Katmanı (J1939),0 (TBD),Data Valid But Above Normal Range - Most Severe Level,HIGH,Kaynak sayfada saha teşhisi anlatımı mevcut (j1939hub.com).
