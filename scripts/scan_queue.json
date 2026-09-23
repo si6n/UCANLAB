@@ -7,7 +7,7 @@
   "dedup": "domain zaten sources'ta varsa EKLEME",
   "blacklist": "blacklist listesindekilere DOKUNMA"
  },
- "updated": "2026-09-22T07:00",
+ "updated": "2026-09-24T12:00",
  "credits": {
   "hesap2": {
    "zone": "scraping_browser1",
@@ -19,7 +19,13 @@
    "remaining": 4097,
    "env_prefix": "BRIGHTDATA3_"
   },
-  "note": "Kredi panelden ogrenilir; API kredi sorgusu yetkisiz. Bu degerler manuel guncellenir. TARAMA t_2d5e35d4: 10 kredi harcandi (hesap3 google.com URL kesfi)."
+  "note": "Kredi panelden ogrenilir; API kredi sorgusu yetkisiz. Bu degerler manuel guncellenir. TARAMA t_2d5e35d4: 10 kredi harcandi (hesap3 google.com URL kesfi). T67: hesap4 (7antikent_mailcom) ile 60 sayfa harcandi; hesap2/3 dokunulmadi.",
+  "hesap4": {
+   "zone": "7antikent_mailcom",
+   "remaining": null,
+   "env_prefix": "BRIGHTDATA4_",
+   "note": "2026-09-22 operator sagladi. T67: 60 sayfa. T69: 19 kayit merge + tam tarama ajan calisiyor. Kalan panel teyidi bekliyor."
+  }
  },
  "sources": [
   {
@@ -200,10 +206,12 @@
    "domain": "obdhut.com",
    "type": "dtc",
    "method": "free",
-   "status": "pending",
+   "status": "done",
    "credits_used": 0,
    "tur": "T45-C",
-   "notes": "4515 DTC (meaning+causes) — DIKKAT: kaynakta symptoms==causes kopyasi, symptoms gecersiz"
+   "notes": "4515 DTC (meaning+causes) — DIKKAT: kaynakta symptoms==causes kopyasi, symptoms gecersiz | T46: 4515 satir merge edildi (4178 giris bu kaynaktan). T71 (2026-09-23): tekrar olcum - in_DB 5315, (no_desc AND no_cause) kesisimi 0, NEW 91 (donuk sayim) -> doldurulabilir bos alan yok: TUKETILDI. | T72 (2026-09-24): applied=true isaretlendi (T46 merge zaten tam, dry-run 0 fields_written, idempotent).",
+   "artifact": "tests/unit/test_t46_merge.py",
+   "applied": true
   },
   {
    "id": "troublecodes_net",
@@ -211,10 +219,12 @@
    "domain": "troublecodes.net",
    "type": "dtc",
    "method": "free",
-   "status": "pending",
+   "status": "done",
    "credits_used": 0,
    "tur": "T45-C",
-   "notes": "4080 sayfa (755 anlam, 680 semptom)"
+   "notes": "4080 sayfa (755 anlam, 680 semptom) | T46: 617 satir merge edildi (336 giris bu kaynaktan). T71 (2026-09-23): yeniden tarama olcumu - 16 rastgele sayfanin 15'i INCE sablon (h1 + destek h2, icerik bolumu yok, JS gizleme yok), dolgu 1/16 = %6 << 0.80 kapisi -> DEVAM TARAMASI YOK. | T72 (2026-09-24): applied=true isaretlendi (T46 merge zaten tam, dry-run 0 fields_written, idempotent).",
+   "artifact": "tests/unit/test_t46_merge.py",
+   "applied": true
   },
   {
    "id": "engine_codes_com",
@@ -288,10 +298,12 @@
    "domain": "detroitmanuals.info",
    "type": "dtc",
    "method": "free",
-   "status": "pending",
+   "status": "done",
    "credits_used": 0,
    "tur": "T50",
-   "notes": "378 SPN/FMI procedures_full kaydi (135 SPN, 348 sayfa; Series 60/MBE4000/MBE900/DD15 DDEC VI); 291 DB procedures_full boslugunu doldurur + 87 yeni cif"
+   "notes": "T66-R7 2026-09-22: 832 sayfa cekildi -> 620 gercek. 250 tekil (SPN,FMI) / 93 SPN. Diversity 0.792. Canli 20/20 PASS. MERGE: +645 J1939 bundle (tam corpus; ilk 26-kayitlik snapshot yerine).",
+   "applied": true,
+   "artifact": "output/_t66r7_cache/_dm_all_pages.json"
   },
   {
    "id": "aidieseltech_com",
@@ -343,10 +355,12 @@
    "domain": "obd2pros.com",
    "type": "dtc",
    "method": "brightdata",
-   "status": "pending",
-   "credits_used": 31,
+   "status": "done",
+   "credits_used": 47,
    "tur": "T55-C",
-   "notes": "31 DTC kodu (P/B/C/U) BD ile cekildi (free 403): symptoms+causes+steps; 30'u DB symptoms boslugunu doldurur; C0242 robot-challenge -> veri yok (belirs"
+   "notes": "T69 (2026-09-22): 11 kayit MERGE EDILDI (B0001=404 haric). Ayni append yolu ile cok-kaynakli hale geldi. 589 DTC URL'si output/t67_work/t2_dtc_urls.json'da; tam tarama T70 adayi. T70-G (2026-09-23): TAM TARAMA 572/572 HTTP 200, 0 kredi (BrightData customer_suspended -> free urllib). Kirlilik 0.8311 adim dizesi (T69 0.8273/ T64 0.09 oncelegi ile >=0.80 -> ACCEPT). 6 ayristirma kacagi ayristirildi (2 inc sayfa + 4 sablon varyanti). MERGE 553 doldu; md5 FEDC9466->FF8B6D3B; 2. apply bayit (IDEMPOTENT).",
+   "artifact": "output/scan_t70_obd2pros.json",
+   "applied": true
   },
   {
    "id": "manualslib_com",
@@ -393,14 +407,16 @@
    "domain": "raw.githubusercontent.com",
    "type": "dtc",
    "method": "free",
-   "status": "pending",
+   "status": "done",
    "credits_used": 0,
    "tur": "KESIF-2026-09-16",
    "quality": "high",
    "est_items": 9533,
    "license": "CC0 1.0 (public domain, LICENSE-DATA)",
    "sitemap": "https://github.com/foerbsnavi/OBDex/tree/main/data/generic",
-   "notes": "Zenginlestirilmis YAML, makine-okunur. Aile bazinda SAYILDI: P0xxx=3705, P2xxx=3495, U0xxx=1055, C0xxx=626, B0xxx=323, U3xxx=174, P3xxx=155 => 9533 DTC. Her kayit: title(en/de), description(en/de), affected_components, common_causes[{id,likelihood,label}], repair{difficulty,diy_possible,cost_eur,hours}, flags{mil,limp_mode}. DIKKAT: raw.githubusercontent.com domain'i ZATEN var (sitrak) ama FARKLI repo+icerik (OBD-II generic vs SITRAK J1939) — ayri kaynak id."
+   "notes": "Zenginlestirilmis YAML, makine-okunur. Aile bazinda SAYILDI: P0xxx=3705, P2xxx=3495, U0xxx=1055, C0xxx=626, B0xxx=323, U3xxx=174, P3xxx=155 => 9533 DTC. Her kayit: title(en/de), description(en/de), affected_components, common_causes[{id,likelihood,label}], repair{difficulty,diy_possible,cost_eur,hours}, flags{mil,limp_mode}. DIKKAT: raw.githubusercontent.com domain'i ZATEN var (sitrak) ama FARKLI repo+icerik (OBD-II generic vs SITRAK J1939) — ayri kaynak id. T70-F (2026-09-23): lisans okundu, MERGE EDILDI (9533 kayit). symptoms_en sekillendirme kapisiyla dustu.",
+   "artifact": "output/scan_t70_open_sources.json",
+   "applied": true
   },
   {
    "id": "github_wal33d_dtc_database",
@@ -408,14 +424,16 @@
    "domain": "raw.githubusercontent.com",
    "type": "dtc",
    "method": "free",
-   "status": "pending",
+   "status": "done",
    "credits_used": 0,
    "tur": "KESIF-2026-09-16",
    "quality": "medium",
    "est_items": 12128,
    "license": "MIT",
    "sitemap": "https://github.com/Wal33D/dtc-database",
-   "notes": "SQLite 3.2MB + kaynak txt. README'ye gore: 18805 tanim satiri / 12128 benzersiz DTC / 9415 generic SAE J2012 / 9390 marka-ozel / 33 marka (P=14821,B=1465,C=985,U=1534). Yalniz kod+aciklama (semptom/neden/adim YOK) -> kalite medium. OBDex ile buyuk olcude ORTUSUR (OBDex kaynagi olarak Wal33D'yi gosteriyor) — merge'te dedup sart."
+   "notes": "SQLite 3.2MB + kaynak txt. README'ye gore: 18805 tanim satiri / 12128 benzersiz DTC / 9415 generic SAE J2012 / 9390 marka-ozel / 33 marka (P=14821,B=1465,C=985,U=1534). Yalniz kod+aciklama (semptom/neden/adim YOK) -> kalite medium. OBDex ile buyuk olcude ORTUSUR (OBDex kaynagi olarak Wal33D'yi gosteriyor) — merge'te dedup sart. T70-F (2026-09-23): lisans okundu, MERGE EDILDI (12128 kayit). 6677 dup kod birlestirildi.",
+   "artifact": "output/scan_t70_open_sources.json",
+   "applied": true
   },
   {
    "id": "dieselscanners_com",
@@ -440,14 +458,16 @@
    "domain": "carcarehacks.com",
    "type": "dtc",
    "method": "free",
-   "status": "pending",
+   "status": "done",
    "credits_used": 0,
    "tur": "KESIF-2026-09-16",
    "quality": "high",
    "est_items": 476,
    "license": "belirsiz (WordPress blog, telif hakkı saklı)",
    "sitemap": "https://www.carcarehacks.com/sitemap.xml -> post-sitemap{,2,3}.xml",
-   "notes": "2126 post; SAYILDI: 421 P/B/C/U kod yazisi + 55 SPN/FMI yazisi = 476 hedef. Ornek P0401 sayfasi 18KB metin; Symptoms+Causes+How to Fix+Diagnostic bolumleri mevcut. Kalite high. Lisans belirsiz."
+   "notes": "T66-R7 2026-09-22: 530 kod sayfasi -> 529 gercek -> 490 kayit (435 DTC + 55 J1939). Diversity 1.000. Canli 10/10 PASS. MERGE: +151 DTC + 55 J1939 bundle.",
+   "applied": true,
+   "artifact": "output/scan_t66_r7_carcarehacks.com.json"
   },
   {
    "id": "faultcodes_co",
@@ -470,14 +490,16 @@
    "domain": "raw.githubusercontent.com",
    "type": "dtc",
    "method": "free",
-   "status": "pending",
+   "status": "done",
    "credits_used": 0,
    "tur": "KESIF-2026-09-16-r4",
    "quality": "high",
    "est_items": 60,
-   "license": "NOASSERTION (GitHub: lisans dosyasi BILDIRILMEMIS -> kullanmadan once teyit)",
+   "license": "MIT (LICENSE dosyasi okundu; kuyruk NOASSERTION kaydi guncellendi)",
    "sitemap": "https://github.com/sathya1495/obd2-dtc-database/tree/main/codes",
-   "notes": "60 kod / 3 dosya; HER kayit: code+system+subsystem+description+severity+common_makes[]+common_causes[]+guide_url. 60/60 common_causes DOLU (gercek tani adimlari: 'Inspect EGR valve and passages'). DIKKAT: guide_url fixcarcodes.com -> o site 410 GONE; bu repo TEK KALAN KOPYA. Az kayit ama kod-ozel semptom/neden/adim -> kalite=high. DB karsilastirma: 28/29 DB'de var; katki = symptoms/prosedur zenginlestirme (kod sayisi degil)."
+   "notes": "60 kod / 3 dosya; HER kayit: code+system+subsystem+description+severity+common_makes[]+common_causes[]+guide_url. 60/60 common_causes DOLU (gercek tani adimlari: 'Inspect EGR valve and passages'). DIKKAT: guide_url fixcarcodes.com -> o site 410 GONE; bu repo TEK KALAN KOPYA. Az kayit ama kod-ozel semptom/neden/adim -> kalite=high. DB karsilastirma: 28/29 DB'de var; katki = symptoms/prosedur zenginlestirme (kod sayisi degil). T70-F (2026-09-23): lisans okundu, MERGE EDILDI (60 kayit).",
+   "artifact": "output/scan_t70_open_sources.json",
+   "applied": true
   },
   {
    "id": "github_hoffman1938_bimmercode",
@@ -485,14 +507,14 @@
    "domain": "raw.githubusercontent.com",
    "type": "dtc",
    "method": "free",
-   "status": "pending",
+   "status": "rejected",
    "credits_used": 0,
    "tur": "KESIF-2026-09-16-r4",
    "quality": "medium",
    "est_items": 74,
    "license": "BILDIRILMEMIS (GitHub'da LICENSE yok -> belirsiz)",
    "sitemap": "https://github.com/hoffman1938/bimmercode (data/codes.json 169KB)",
-   "notes": "74 kod; her kayit code + title{en,ru,ka} + description{en,ru,ka}. 74/74 EN description DOLU (gercek aciklama metni, yer tutucu degil). Cok dilli (EN/RU/KA) — TR'ye ceviri icin temel. Kod sayisi az, prosedur adimi YOK -> medium. Lisans belirsiz."
+   "notes": "74 kod; her kayit code + title{en,ru,ka} + description{en,ru,ka}. 74/74 EN description DOLU (gercek aciklama metni, yer tutucu degil). Cok dilli (EN/RU/KA) — TR'ye ceviri icin temel. Kod sayisi az, prosedur adimi YOK -> medium. Lisans belirsiz. T70-F (2026-09-23): RED — NO LICENSE. output/t70_open_sources_report.md §8"
   },
   {
    "id": "github_aalih34554_ai_obd2_database",
@@ -500,14 +522,14 @@
    "domain": "raw.githubusercontent.com",
    "type": "dtc",
    "method": "free",
-   "status": "pending",
+   "status": "rejected",
    "credits_used": 0,
    "tur": "KESIF-2026-09-16-r4",
    "quality": "medium",
    "est_items": 29,
    "license": "BILDIRILMEMIS (GitHub'da LICENSE yok -> belirsiz)",
    "sitemap": "https://github.com/aalih34554-ai/obd2-database",
-   "notes": "29 kod; her kayit code+description+category+severity+system+causes[]+symptoms[]+solutions[]. Semptom+neden+cozum UCLU ve gercek (orn. P0001 causes 4 / symptoms 3 / solutions 4). Yalniz 29 kayit -> hacim dusuk; 28/29 DB'de zaten var; katki = symptoms[] (DB'de symptoms 13521/14352 BOS). Lisans yok."
+   "notes": "29 kod; her kayit code+description+category+severity+system+causes[]+symptoms[]+solutions[]. Semptom+neden+cozum UCLU ve gercek (orn. P0001 causes 4 / symptoms 3 / solutions 4). Yalniz 29 kayit -> hacim dusuk; 28/29 DB'de zaten var; katki = symptoms[] (DB'de symptoms 13521/14352 BOS). Lisans yok. T70-F (2026-09-23): RED — NO LICENSE. output/t70_open_sources_report.md §8"
   },
   {
    "id": "github_misspellted_dtc_database",
@@ -515,14 +537,14 @@
    "domain": "raw.githubusercontent.com",
    "type": "dtc",
    "method": "free",
-   "status": "pending",
+   "status": "rejected",
    "credits_used": 0,
    "tur": "KESIF-2026-09-16-r4",
    "quality": "low",
    "est_items": 6665,
    "license": "BILDIRILMEMIS (LibreTune'dan devralinmis 'reupload'; LICENSE dosyasi YOK)",
    "sitemap": "https://github.com/misspellted/DTC-Database (codes.json 450KB + codes.xml 481KB)",
-   "notes": "6665 kod (B=1147/C=487/P=4188/U=843). DB karsilastirma: 6664/6665 ZATEN VAR -> yalniz 1 yeni (C2767). Icerik yalniz 'kod -> tek satir aciklama'; semptom/neden/adim YOK. Kaynak degeri DUSUK (kod envanteri zaten tam). xinings/DTC-Database ile AYNI dosya (481768B codes.xml birebir) — dedup."
+   "notes": "6665 kod (B=1147/C=487/P=4188/U=843). DB karsilastirma: 6664/6665 ZATEN VAR -> yalniz 1 yeni (C2767). Icerik yalniz 'kod -> tek satir aciklama'; semptom/neden/adim YOK. Kaynak degeri DUSUK (kod envanteri zaten tam). xinings/DTC-Database ile AYNI dosya (481768B codes.xml birebir) — dedup. T70-F (2026-09-23): RED — NO LICENSE. output/t70_open_sources_report.md §8"
   },
   {
    "id": "github_dsoprea_dtclookup",
@@ -530,14 +552,14 @@
    "domain": "raw.githubusercontent.com",
    "type": "dtc",
    "method": "free",
-   "status": "pending",
+   "status": "rejected",
    "credits_used": 0,
    "tur": "KESIF-2026-09-16-r4",
    "quality": "low",
    "est_items": 874,
    "license": "GPL-2.0 (depo LICENSE 18KB) — DIKKAT: GPL veri aktariminda lisans uyumu gerekir",
    "sitemap": "https://github.com/dsoprea/DtcLookup (dtc/resource/lists/)",
-   "notes": "874 generic kod satiri (code<TAB>description) + MARKA dosyalari (Jaguar 32KB/Audi 26KB/BMW 13KB/Chrysler/Volkswagen/Mazda/Ford/Landrover/Subaru/Dodge/Honda/Lexus...). DB karsilastirma: generic 873 -> 831 VAR, 42 YENI (C0357/C0359/C0362...). Semptom/neden/adim YOK -> low. GPL-2.0 lisansi merge'te dikkat gerektirir."
+   "notes": "874 generic kod satiri (code<TAB>description) + MARKA dosyalari (Jaguar 32KB/Audi 26KB/BMW 13KB/Chrysler/Volkswagen/Mazda/Ford/Landrover/Subaru/Dodge/Honda/Lexus...). DB karsilastirma: generic 873 -> 831 VAR, 42 YENI (C0357/C0359/C0362...). Semptom/neden/adim YOK -> low. GPL-2.0 lisansi merge'te dikkat gerektirir. T70-F (2026-09-23): RED — LICENSE NOT PERMISSIVE (GPL-2.0). output/t70_open_sources_report.md §8"
   },
   {
    "id": "autofaultcodes_com",
@@ -579,14 +601,16 @@
    "domain": "huggingface.co",
    "type": "dtc",
    "method": "free",
-   "status": "pending",
+   "status": "done",
    "credits_used": 0,
    "tur": "KESIF-2026-09-16-r5",
    "quality": "medium",
    "est_items": 2973,
    "license": "CC-BY-4.0",
    "sitemap": "https://huggingface.co/datasets/fabiovilao/obd2-ptbr (codigos.json 1.9MB)",
-   "notes": "2973 OBD-II DTC, Portekizce (PT-BR). Her kayit: Code + Description (PT) + cdescr (detayli PT aciklama; nedenler + cozumler + tani onerileri icerir). Ornek P0001 cdescr: 'As solucoes podem incluir verificar e reparar fios ou conexoes soltas, substituir o regulador...' — gercek neden/cozum metni. DB'de title_tr boslugu icin TR'ye ceviri temel olabilir. Kalite=medium (yapisal alanlar YOK, serbest metin; PT dili). CC-BY-4.0. DIKKAT: lucasveneno/dtc 'fabiovila_json' kaynagi olarak bunu kullanmis — ortusme var, merge'te dedup."
+   "notes": "2973 OBD-II DTC, Portekizce (PT-BR). Her kayit: Code + Description (PT) + cdescr (detayli PT aciklama; nedenler + cozumler + tani onerileri icerir). Ornek P0001 cdescr: 'As solucoes podem incluir verificar e reparar fios ou conexoes soltas, substituir o regulador...' — gercek neden/cozum metni. DB'de title_tr boslugu icin TR'ye ceviri temel olabilir. Kalite=medium (yapisal alanlar YOK, serbest metin; PT dili). CC-BY-4.0. DIKKAT: lucasveneno/dtc 'fabiovila_json' kaynagi olarak bunu kullanmis — ortusme var, merge'te dedup. T70-F (2026-09-23): lisans okundu, MERGE EDILDI (2972 kayit). PT metin yalnizca *_pt alanina; ceviri YOK.",
+   "artifact": "output/scan_t70_open_sources.json",
+   "applied": true
   },
   {
    "id": "github_gediz_bmw_unified_db",
@@ -594,14 +618,14 @@
    "domain": "raw.githubusercontent.com",
    "type": "dtc",
    "method": "free",
-   "status": "pending",
+   "status": "rejected",
    "credits_used": 0,
    "tur": "KESIF-2026-09-16-r5",
    "quality": "high",
    "est_items": 326161,
    "license": "MIT (compilation); BMW data provenance CREDITS.md'de (ediabasx-docs-sgbd, bmw-advanced-tools)",
    "sitemap": "https://github.com/gediz/bmw-unified-db (dist/bmw.sqlite ~654MB, 46 tables)",
-   "notes": "BMW-specific fault dictionary: 326,161 fault locations, 42,415 fault types, 192,941 English DTC texts, 3,071 generic OBD codes, 2,235 fault classes. Freeze-frame with raw-to-engineering scaling. Tables: dtc, dtc_type, dtc_env, dtc_class, english_dtc. NOT J1939/SPN/FMI — BMW marka-ozel DTC'ler (UDS format). Kalite=high (kapsamli fault dictionary). MIT lisans compilation icin; BMW verisi provenance CREDITS.md'de. DIKKAT: raw.githubusercontent.com domain'i ZATEN var (OBDex/Wal33D/sitrak vs.) ama FARKLI repo+icerik (BMW fault dictionary)."
+   "notes": "BMW-specific fault dictionary: 326,161 fault locations, 42,415 fault types, 192,941 English DTC texts, 3,071 generic OBD codes, 2,235 fault classes. Freeze-frame with raw-to-engineering scaling. Tables: dtc, dtc_type, dtc_env, dtc_class, english_dtc. NOT J1939/SPN/FMI — BMW marka-ozel DTC'ler (UDS format). Kalite=high (kapsamli fault dictionary). MIT lisans compilation icin; BMW verisi provenance CREDITS.md'de. DIKKAT: raw.githubusercontent.com domain'i ZATEN var (OBDex/Wal33D/sitrak vs.) ama FARKLI repo+icerik (BMW fault dictionary). T70-F (2026-09-23): RED — LICENSE NOT UNIFORM / PROPRIETARY DERIVATION. output/t70_open_sources_report.md §8"
   },
   {
    "id": "github_danielmartensson_open_sae_j1939",
@@ -609,14 +633,16 @@
    "domain": "raw.githubusercontent.com",
    "type": "j1939",
    "method": "free",
-   "status": "pending",
+   "status": "done",
    "credits_used": 0,
    "tur": "KESIF-2026-09-16-r5",
    "quality": "medium",
    "est_items": 3866,
    "license": "MIT",
    "sitemap": "https://github.com/DanielMartensson/Open-SAE-J1939 (Enum_DM1_DM2.h 183KB, 3907 satir)",
-   "notes": "3866 SPN entry (SPN_ADI = 0xNN formatinda, C enum). 31 FMI entry (FMI_ADI = 0xNN). J1939 SPN parameter name lookup tablosu — SPN numarasina karsilik gelen insan-okunur SPN adi. Semptom/neden/adim YOK -> kalite=medium (yalniz SPN adi envanteri). DB'de 4253 SPN'in bir kismi icin name doldurmaya katki. MIT. DIKKAT: raw.githubusercontent.com domain'i ZATEN var ama FARKLI repo+icerik (J1939 SPN enum)."
+   "notes": "3866 SPN entry (SPN_ADI = 0xNN formatinda, C enum). 31 FMI entry (FMI_ADI = 0xNN). J1939 SPN parameter name lookup tablosu — SPN numarasina karsilik gelen insan-okunur SPN adi. Semptom/neden/adim YOK -> kalite=medium (yalniz SPN adi envanteri). DB'de 4253 SPN'in bir kismi icin name doldurmaya katki. MIT. DIKKAT: raw.githubusercontent.com domain'i ZATEN var ama FARKLI repo+icerik (J1939 SPN enum). T70-F (2026-09-23): lisans okundu, MERGE EDILDI (3861 kayit).",
+   "artifact": "output/scan_t70_open_sources.json",
+   "applied": true
   },
   {
    "id": "faultcode_com",
@@ -638,15 +664,15 @@
    "url": "truckcodex.com/codes/J1939/{spn}/ + truckcodex.com/codes/OBD2/{kod}/",
    "domain": "truckcodex.com",
    "type": "dtc",
-   "method": "free",
-   "status": "done",
-   "credits_used": 0,
+   "method": "brightdata",
+   "status": "pending",
+   "credits_used": 5,
    "tur": "KESIF-2026-09-17-w1",
    "quality": "high",
    "est_items": 300,
    "license": "public-record compilation; robots Content-Signal: search=yes, ai-input=yes, ai-train=no (attribution: link + 'TruckCodex' + access date)",
    "sitemap": "https://truckcodex.com/sitemap.xml -> sitemap/codes.xml (J1939 ~94 SPN sayfasi + OBD2 ~224 kod sayfasi = ~318)",
-   "notes": "T66 2026-09-22: 6 sayfa denendi, 0 gercek icerik (sayfa yok/bos). sitemap yolu dogrulanmali; simdilik veri YOK. | MERGE t_9f8e3294: VERI YOK (Cloudflare 403 bot challenge), 0 kayit uygulandi.",
+   "notes": "T67 (2026-09-22): robots.txt HTTP 200 -> ACIK RIZA: 'Content-Signal: search=yes,ai-input=yes,ai-train=no' + 'Allow: /'; yalniz /api/ ve /compare/ disallow. Sitemap erisilebilir (34 loc). HANGI YOLUN fault-code tasidigi DOGRULANMADI (butce doldu) -> T68'de sitemap deseni cikarilmali.",
    "applied": true,
    "artifact": "output/scan_t66_j1939_truckcodex.com.json"
   },
@@ -765,7 +791,7 @@
    "est_items": 17319,
    "license": "belirsiz (ticari ECU tuning sitesi; free reference)",
    "sitemap": "https://tuningbot.com/dtc-codes/ (116 sayfa, sayfalanmis; 29 marka + 21 sistem filtre)",
-   "notes": "YENI KESIF. 17.319 kayit (9.208 generic OBD-II + 8.111 manufacturer-specific), 29 marka (VAG=1608, Ford=1080, BMW=295, PSA=958, Toyota...), 21 sistem. Her kod sayfasi: meaning + symptoms + possible causes + recommended checks. PSA ECU-seviye kayitlar. Hedef: DTC symptoms + causes (DB'de 13.521 symptoms bos!)."
+   "notes": "YENI KESIF. 17.319 kayit (9.208 generic OBD-II + 8.111 manufacturer-specific), 29 marka (VAG=1608, Ford=1080, BMW=295, PSA=958, Toyota...), 21 sistem. Her kod sayfasi: meaning + symptoms + possible causes + recommended checks. PSA ECU-seviye kayitlar. Hedef: DTC symptoms + causes (DB'de 13.521 symptoms bos!). | T71 (2026-09-23): HEDEF SECILDI - robots /dtc-codes/ acik (yalniz ?dtc= kapali), EN sitemap 10750 alfa-kod URL, in_DB 10578, HEDEF (no_sym OR no_desc OR no_proc OR no_title) 6735 sayfa (no_sym=6301). Serbest sahne provasi: u0179 tam sablon (symptoms+causes+checks li), p0531 kismi (causes p), c054c/p001f ince (bolum yok); no_sym ornekinde icerikli 8/16=%50. hasat: output/t71_work/t71_tuningbot_free.py"
   },
   {
    "id": "openlaborproject_com",
@@ -807,14 +833,16 @@
    "domain": "raw.githubusercontent.com",
    "type": "j1939",
    "method": "free",
-   "status": "pending",
+   "status": "done",
    "credits_used": 0,
    "tur": "KESIF-2026-09-17-w5",
    "quality": "high",
    "est_items": 50,
    "license": "belirsiz (GitHub repo; lisans kontrol edilecek)",
    "sitemap": "https://github.com/EvanL1/voltage-j1939 (src/database.rs)",
-   "notes": "YENI KESIF. Rust J1939 decoder icinde PGN/SPN database. Her SPN icin: spn + name + pgn + start_byte + start_bit + bit_length + scale + offset + unit + data_type. ~50+ SPN (EEC1 61444, EEC2 61443, EEC3 65247, ET1 65262, EFL/P1 65263, IC1 65270, VEP1 65271, AMB 65269, LFE 65266, HOURS 65253, FC 65257, VH 65217, DD 65248, CCVS 65265). Projenin DbcSignalDecoder ile dogrudan ilgili. Hedef: PGN/SPN olcek/offset/bit-alani dogrulamasi."
+   "notes": "YENI KESIF. Rust J1939 decoder icinde PGN/SPN database. Her SPN icin: spn + name + pgn + start_byte + start_bit + bit_length + scale + offset + unit + data_type. ~50+ SPN (EEC1 61444, EEC2 61443, EEC3 65247, ET1 65262, EFL/P1 65263, IC1 65270, VEP1 65271, AMB 65269, LFE 65266, HOURS 65253, FC 65257, VH 65217, DD 65248, CCVS 65265). Projenin DbcSignalDecoder ile dogrudan ilgili. Hedef: PGN/SPN olcek/offset/bit-alani dogrulamasi. T70-F (2026-09-23): lisans okundu, MERGE EDILDI (71 kayit).",
+   "artifact": "output/scan_t70_open_sources.json",
+   "applied": true
   },
   {
    "id": "procarmanuals_com",
@@ -869,14 +897,16 @@
    "domain": "raw.githubusercontent.com",
    "type": "dtc",
    "method": "free",
-   "status": "pending",
+   "status": "done",
    "credits_used": 0,
    "tur": "KESIF-2026-09-17-w7",
    "quality": "high",
    "est_items": 90,
    "license": "ODbL v1.0 (sample, free); tam veri ticari ($49/$149)",
    "sitemap": "https://github.com/MechanicDB/MechanicDB-public (dtc_codes + diagnostic_fixes + replacement_parts + dtc_fixes_joined) + Kaggle + HuggingFace (Ichlibitiche/mechanicdb-obd2-repair-sample)",
-   "notes": "YENI KESIF (yapisal deger YUKSEK). Ucretsiz sample: 90 DTC (75 SAE + 15 OEM), 320 RANKED repair procedure (difficulty_level + est_parts_cost_min/max_usd + labor_hours + step-by-step instructions), 449 parts mapping. Pipe-delimited CSV + Snappy Parquet. Tam veri (ucretli): 15.886 DTC / 56.561 fix / 75.055 parts / 647 fault family. LISANS/PROVENANCE: kod spine = Wal33D/dtc-database'den turetilmis (MIT, projede ZATEN kayitli -> DEDUP SART); authored content (repair/cost/difficulty/fault-family) = orijinal MechanicDB (ODbL v1.0 share-alike). Hedef: DTC causes + procedures_full/steps + difficulty + parts cost."
+   "notes": "YENI KESIF (yapisal deger YUKSEK). Ucretsiz sample: 90 DTC (75 SAE + 15 OEM), 320 RANKED repair procedure (difficulty_level + est_parts_cost_min/max_usd + labor_hours + step-by-step instructions), 449 parts mapping. Pipe-delimited CSV + Snappy Parquet. Tam veri (ucretli): 15.886 DTC / 56.561 fix / 75.055 parts / 647 fault family. LISANS/PROVENANCE: kod spine = Wal33D/dtc-database'den turetilmis (MIT, projede ZATEN kayitli -> DEDUP SART); authored content (repair/cost/difficulty/fault-family) = orijinal MechanicDB (ODbL v1.0 share-alike). Hedef: DTC causes + procedures_full/steps + difficulty + parts cost. T70-F (2026-09-23): lisans okundu, MERGE EDILDI (89 kayit).",
+   "artifact": "output/scan_t70_open_sources.json",
+   "applied": true
   },
   {
    "id": "carvector_io_dtc",
@@ -929,14 +959,14 @@
    "domain": "huggingface.co",
    "type": "dtc",
    "method": "free",
-   "status": "pending",
+   "status": "rejected",
    "credits_used": 0,
    "tur": "KESIF-2026-09-17-w9",
    "quality": "low",
    "est_items": 100,
    "license": "MIT",
    "sitemap": "https://huggingface.co/datasets/RRK1987/automotive-diagnostics-v2 (parquet, 100 satir: 85 train / 15 validation)",
-   "notes": "YENI KESIF. 100 satir: DTC + affected ECU + ISO 26262 ASIL seviyesi (ASIL-A/B/C/D) + severity + UDS diagnosis procedure (service 0x10/0x19) + CAN signals. PROJE UYUMLU: proje ISO 26262 ASIL-B/D hedefliyor -> ASIL eslesmesi nadir ve degerli. Kucuk hacim. Hedef: DTC ASIL/safety level + UDS procedure referansi."
+   "notes": "YENI KESIF. 100 satir: DTC + affected ECU + ISO 26262 ASIL seviyesi (ASIL-A/B/C/D) + severity + UDS diagnosis procedure (service 0x10/0x19) + CAN signals. PROJE UYUMLU: proje ISO 26262 ASIL-B/D hedefliyor -> ASIL eslesmesi nadir ve degerli. Kucuk hacim. Hedef: DTC ASIL/safety level + UDS procedure referansi. T70-F (2026-09-23): KARANTINA — description_en benzersizligi %20 (<%30 kapisi); lisans MIT, icerik elendi. output/t70_open_sources_report.md §8"
   },
   {
    "id": "huggingface_rrk_automotive_dtc_finetune",
@@ -944,14 +974,16 @@
    "domain": "huggingface.co",
    "type": "dtc",
    "method": "free",
-   "status": "pending",
+   "status": "done",
    "credits_used": 0,
    "tur": "KESIF-2026-09-17-w9",
    "quality": "low",
    "est_items": 140,
    "license": "MIT",
    "sitemap": "https://huggingface.co/datasets/RRK1987/automotive-dtc-finetune (parquet, 140 satir: 119 train / 21 validation)",
-   "notes": "YENI KESIF. 140 satir yapisal: dtc_code + dtc_system + severity + category + vehicle + is_safety_critical + diagnosis (root causes + repair steps). Hedef: DTC causes/repair + severity + safety_critical flag. Kucuk hacim."
+   "notes": "YENI KESIF. 140 satir yapisal: dtc_code + dtc_system + severity + category + vehicle + is_safety_critical + diagnosis (root causes + repair steps). Hedef: DTC causes/repair + severity + safety_critical flag. Kucuk hacim. T70-F (2026-09-23): lisans okundu, MERGE EDILDI (35 kayit).",
+   "artifact": "output/scan_t70_open_sources.json",
+   "applied": true
   },
   {
    "id": "github_riz4d_openvag",
@@ -959,14 +991,14 @@
    "domain": "raw.githubusercontent.com",
    "type": "dtc",
    "method": "free",
-   "status": "pending",
+   "status": "rejected",
    "credits_used": 0,
    "tur": "KESIF-2026-09-17-w9",
    "quality": "medium",
    "est_items": 995,
    "license": "MIT",
    "sitemap": "https://github.com/riz4d/OpenVAG (SQLite DB + FastAPI; /api/v1/dtc, /api/v1/dtc/{code}, /api/v1/components)",
-   "notes": "YENI KESIF. VAG (VW/Audi/Skoda/SEAT) DTC API. SQLite: 995 DTC + 1.103 FAULT VARIANT (symptoms + causes + solutions!) + 341 component identifier + FTS5 full-text. Yapisal API (JSON). Hedef: DTC symptoms + causes + solutions (VAG-spesifik). Projede BMW/global decoder var ama VAG yok; yine de symptoms/causes semasi ornek."
+   "notes": "YENI KESIF. VAG (VW/Audi/Skoda/SEAT) DTC API. SQLite: 995 DTC + 1.103 FAULT VARIANT (symptoms + causes + solutions!) + 341 component identifier + FTS5 full-text. Yapisal API (JSON). Hedef: DTC symptoms + causes + solutions (VAG-spesifik). Projede BMW/global decoder var ama VAG yok; yine de symptoms/causes semasi ornek. T70-F (2026-09-23): RED — DATA FILE ABSENT. output/t70_open_sources_report.md §8"
   },
   {
    "id": "github_k0rsantan_vehicle_diagnostics",
@@ -1229,14 +1261,16 @@
    "domain": "raw.githubusercontent.com",
    "type": "j1939",
    "method": "free",
-   "status": "pending",
+   "status": "done",
    "credits_used": 0,
    "tur": "KESIF-2026-09-17-w14",
    "quality": "high",
    "est_items": 25,
    "license": "MIT",
    "sitemap": "https://github.com/arthithadee/J1939-DBC-Database",
-   "notes": "YENI KESIF. Standart SAE J1939 CAN Database (DBC). SPN 91 (EEC2 61443 - AccelPedalPosition1), SPN 513 (EEC1 61444 - ActualEnginePercentTorque), SPN 111 (EFL_P1 65263 - EngineCoolantLevel), SPN 109 (EngineCoolantPressure), SPN 108 (BarometricPressure), SPN 100 (EngineOilPressure), SPN 190 (EngineSpeed), SPN 84 (WheelBasedVehicleSpeed). Dogrudan DbcSignalDecoder ile eslesir."
+   "notes": "YENI KESIF. Standart SAE J1939 CAN Database (DBC). SPN 91 (EEC2 61443 - AccelPedalPosition1), SPN 513 (EEC1 61444 - ActualEnginePercentTorque), SPN 111 (EFL_P1 65263 - EngineCoolantLevel), SPN 109 (EngineCoolantPressure), SPN 108 (BarometricPressure), SPN 100 (EngineOilPressure), SPN 190 (EngineSpeed), SPN 84 (WheelBasedVehicleSpeed). Dogrudan DbcSignalDecoder ile eslesir. T70-F (2026-09-23): lisans okundu, MERGE EDILDI (8 kayit).",
+   "artifact": "output/scan_t70_open_sources.json",
+   "applied": true
   },
   {
    "id": "github_jorgeed13_can_telemetry_forge",
@@ -1244,14 +1278,16 @@
    "domain": "raw.githubusercontent.com",
    "type": "j1939",
    "method": "free",
-   "status": "pending",
+   "status": "done",
    "credits_used": 0,
    "tur": "KESIF-2026-09-17-w14",
    "quality": "high",
    "est_items": 15,
    "license": "MIT",
    "sitemap": "https://github.com/JorgeEd13/can-telemetry-forge",
-   "notes": "YENI KESIF. Tier-1 Heavy Duty J1939 sinyal tanimlari ve cerceve yerlesim spesifikasyonu (spec.py). SPN 183 (LFE 65266 - fuel_rate_lph, 0.05 L/h per bit, 0..3212.75 L/h), SPN 190 (EEC1 61444 - engine speed), SPN 110 (ET1 65262 - coolant temp), SPN 100 (EFL/P1 65263 - oil pressure), SPN 92 (EEC2 61443 - engine load), SPN 102 (IC1 65270 - boost pressure), SPN 173 (IC1 - exhaust gas temp EGT), SPN 1761 (AT1T1I 65110 - DEF level). Fiziksel cerceve yerlesimi (start_bit, bit_len, scale, offset, min_value, max_value) ve sinyal korelasyon grafigi."
+   "notes": "YENI KESIF. Tier-1 Heavy Duty J1939 sinyal tanimlari ve cerceve yerlesim spesifikasyonu (spec.py). SPN 183 (LFE 65266 - fuel_rate_lph, 0.05 L/h per bit, 0..3212.75 L/h), SPN 190 (EEC1 61444 - engine speed), SPN 110 (ET1 65262 - coolant temp), SPN 100 (EFL/P1 65263 - oil pressure), SPN 92 (EEC2 61443 - engine load), SPN 102 (IC1 65270 - boost pressure), SPN 173 (IC1 - exhaust gas temp EGT), SPN 1761 (AT1T1I 65110 - DEF level). Fiziksel cerceve yerlesimi (start_bit, bit_len, scale, offset, min_value, max_value) ve sinyal korelasyon grafigi. T70-F (2026-09-23): lisans okundu, MERGE EDILDI (11 kayit).",
+   "artifact": "output/scan_t70_open_sources.json",
+   "applied": true
   },
   {
    "id": "github_pylessard_python_udsoncan",
@@ -1259,14 +1295,16 @@
    "domain": "raw.githubusercontent.com",
    "type": "uds",
    "method": "free",
-   "status": "pending",
+   "status": "done",
    "credits_used": 0,
    "tur": "KESIF-2026-09-17-w14",
    "quality": "high",
    "est_items": 150,
    "license": "MIT",
    "sitemap": "https://github.com/pylessard/python-udsoncan",
-   "notes": "YENI KESIF. Tam ISO 14229:2006/2013 UDS standart DID katalogu (0xF180..0xF19F standart DIDs: Boot/App SW, Fingerprints, Session, Spare Part, ECU HW/SW, VIN 0xF190; 0xF2xx periyodik, 0xF3xx dinamik, 0xF4xx-0xF8xx OBD DIDs) ve DTC modelleme (dtc.py: 3-byte DTC ID, 8-flag status byte, 3-bit severity byte, DTC classes A/B1/B2/C, snapshots, extended data). 25+ UDS servis uygulamasi (0x10, 0x11, 0x14, 0x19 ReadDTCInformation, 0x22 ReadDataByIdentifier, 0x27 SecurityAccess, 0x2E WriteDataByIdentifier, 0x31 RoutineControl, 0x34..0x37 Flashing)."
+   "notes": "YENI KESIF. Tam ISO 14229:2006/2013 UDS standart DID katalogu (0xF180..0xF19F standart DIDs: Boot/App SW, Fingerprints, Session, Spare Part, ECU HW/SW, VIN 0xF190; 0xF2xx periyodik, 0xF3xx dinamik, 0xF4xx-0xF8xx OBD DIDs) ve DTC modelleme (dtc.py: 3-byte DTC ID, 8-flag status byte, 3-bit severity byte, DTC classes A/B1/B2/C, snapshots, extended data). 25+ UDS servis uygulamasi (0x10, 0x11, 0x14, 0x19 ReadDTCInformation, 0x22 ReadDataByIdentifier, 0x27 SecurityAccess, 0x2E WriteDataByIdentifier, 0x31 RoutineControl, 0x34..0x37 Flashing). T70-F (2026-09-23): lisans okundu, MERGE EDILDI (32 kayit).",
+   "artifact": "output/scan_t70_open_sources.json",
+   "applied": true
   },
   {
    "id": "github_yaseermulla604_uds_simulator",
@@ -1289,14 +1327,16 @@
    "domain": "raw.githubusercontent.com",
    "type": "j1939",
    "method": "free",
-   "status": "pending",
+   "status": "done",
    "credits_used": 0,
    "tur": "KESIF-2026-09-17-w14",
    "quality": "high",
    "est_items": 100,
-   "license": "GPL-2.0",
+   "license": "Apache-2.0 (repo) / per-entry MIT + Public-Domain (data); GPL girisler atlandi (11)",
    "sitemap": "https://github.com/nmfta-repo/pretty_j1939",
-   "notes": "YENI KESIF. NMFTA (National Motor Freight Traffic Association - ABD Agir Vasita Tasimacilik Birligi) acik kaynak J1939 Source Address tablosu (0..255: 0 Engine, 3 Transmission, 11 Brakes, 33 Body, 49 Cab, 61 Exhaust Emission...), PGN/SPN capraz referansi ve SAE J1939 Digital Annex parser araclari (da_parsers.py, create_j1939db_json.py)."
+   "notes": "YENI KESIF. NMFTA (National Motor Freight Traffic Association - ABD Agir Vasita Tasimacilik Birligi) acik kaynak J1939 Source Address tablosu (0..255: 0 Engine, 3 Transmission, 11 Brakes, 33 Body, 49 Cab, 61 Exhaust Emission...), PGN/SPN capraz referansi ve SAE J1939 Digital Annex parser araclari (da_parsers.py, create_j1939db_json.py). T70-F (2026-09-23): lisans okundu, MERGE EDILDI (17 kayit). Kismi: stub DB; GPL-2.0 girisler atlandi (11).",
+   "artifact": "output/scan_t70_open_sources.json",
+   "applied": true
   },
   {
    "id": "csselectronics_j1939_specs",
@@ -1334,14 +1374,14 @@
    "domain": "raw.githubusercontent.com",
    "type": "uds",
    "method": "free",
-   "status": "pending",
+   "status": "rejected",
    "credits_used": 0,
    "tur": "KESIF-2026-09-17-w14",
    "quality": "high",
    "est_items": 30,
    "license": "Apache-2.0",
    "sitemap": "https://github.com/Xaloqi/xaloqi-testlab-core",
-   "notes": "YENI KESIF. Apache-2.0 acik kaynak UDS istemci ve ECU simulator paketi. UDS SecurityAccess (0x27) seed-key dogrulama algoritmasi, ISO-TP coklu-cerceve tasima motoru, oturum yonetimi ve otomatik teshis kampanya yurutucusu."
+   "notes": "YENI KESIF. Apache-2.0 acik kaynak UDS istemci ve ECU simulator paketi. UDS SecurityAccess (0x27) seed-key dogrulama algoritmasi, ISO-TP coklu-cerceve tasima motoru, oturum yonetimi ve otomatik teshis kampanya yurutucusu. T70-F (2026-09-23): RED — NO DTC DATASET. output/t70_open_sources_report.md §8"
   },
   {
    "id": "github_w1ne_udslib",
@@ -1416,7 +1456,7 @@
    "status": "done",
    "credits_used": 0,
    "tur": "T66-scout",
-   "notes": "T66-R3/R4/R5 2026-09-22 TAMAMLANDI: 13.200 tekil /dtc/ URL (6.488 EN + 6.712 DE). ONCELIK LISTELI 3 batch = 2.798 sayfa (800+1.200+800), 0 hata, 0 kredi. Diversity 1.00 (her batch). Canli dogrulama 12/12 x3 MATCH. MERGE: procedures_full 1.144->4.835 (+3.691). R4'te skor kapsami %100; R5'te 654 yeni + 146 zaten dolu (es zamanli yazma drift'i, ajan dogru tespit etti). KALAN: ~4.000 EN URL + 6.712 DE mirror.",
+   "notes": "T66-R3..R6 2026-09-22: 13.200 tekil /dtc/ URL. ONCELIK LISTELI 4 batch = 4.298 sayfa (800+1.200+800+1.500), 0 hata, 0 kredi. Diversity 1.00 (her batch). MERGE: procedures_full 1.144->5.960 (+4.816). KALAN: ~2.190 EN URL (cogu zaten dolu) + 6.712 DE mirror.",
    "applied": true,
    "artifact": "output/scan_t66_r3_obd2.com.json"
   },
@@ -1458,11 +1498,11 @@
    "url": "troubleshootmyvehicle.com DTC sayfalari",
    "domain": "troubleshootmyvehicle.com",
    "type": "dtc",
-   "method": "free",
-   "status": "pending",
-   "credits_used": 0,
+   "method": "brightdata",
+   "status": "done",
+   "credits_used": 53,
    "tur": "T66-scout",
-   "notes": "KESIF T66: 179 sayfa, 5/5 benzersiz, ~150 yeni kayit. Kod-spesifik test adimlari + multimetre talimatlari. ONEMLI KISIT: robots.txt 403 -> izin durumu BELIRSIZ; tarama ONCESI robots izni dogrulanmali."
+   "notes": "T66-scout: ilk 40 sayfa. T69: 19 kayit multi-source prosedur hattina baglandi (3 kaynak/647 adim). T69-F (2026-09-22/23): TAM KORPUS taramasi — 98 makale / 41 kod / 8 marka, 185 charged sayfa (200 butce), 85 uncharged abort (CDP oturumu ~290s'de sunucu tarafi geri donusum; site hic dokunulmadi). Sablon-kirliligi BAGIMSIZ olculdu: adim imzasi 3.200/3.880 = %82,5 (ajanin raporu %100 dedi — olcum hatasi duzeltildi). Ayrica: ajanin 28 HTML kanit iddiasina karsi 29 dosya bulundu. 3 sablon varyanti kesfedildi (T67 parser'i yalnizca 1'ini isliyordu) — output/t69_work/t69_parse_ext.py ile yeniden ayristirildi. Merge: 58 kayit procedures_full_multi kazandi. T69-G: merge kurali zenginlik-farkinda yapildi (ayni URL daha zengin donerse degistirir) — P0117 40->75 adim yukseltildi; DB 14.484 kayit SABIT ve merge IDEMPOTAN."
   }
  ],
  "blacklist": [
