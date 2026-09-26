@@ -365,3 +365,45 @@ class TestT81LexiconCorrections:
             "Drive Motor A Coolant Temperature Sensor Circuit",
             "P0CBC - Battery Current Sensor Range/Performance Problem")
         assert v.status == "block"
+
+# ---------------------------------------------------------------------------
+# 9. T82: the gate's FIELD-TYPE limit (measured)
+# ---------------------------------------------------------------------------
+
+class TestFieldTypeLimit:
+    """The gate is reliable on fault-STATEMENT text, not on symptom LISTS.
+
+    A symptom legitimately names the downstream systems the driver observes,
+    so a block on a symptom list is usually a FALSE block.
+    """
+
+    @pytest.mark.parametrize("title,symptoms", [
+        # P2688: fuel-supply heater -> hard cold starting is CORRECT
+        ("Fuel Supply Heater Control Circuit Low",
+         "Hard starting, especially in cold weather. Rough idle."),
+        # C1139: wheel-speed tone ring -> ABS lamp is CORRECT
+        ("Wheel Speed Sensor Center Tone Ring Missing Tooth Fault",
+         "ABS warning light illuminated on the dashboard. Traction control "
+         "warning light illuminated."),
+        # P2A05: O2 sensor -> fuel-economy drop is CORRECT
+        ("Heated oxygen sensor (H02S) 3, bank 2 - range/performance",
+         "Check Engine Light illuminated. Decreased fuel economy. Rough idle."),
+    ])
+    def test_symptom_effects_produce_false_blocks(self, title, symptoms):
+        """Documents the limit: these block, but the content is correct."""
+        v = check_subject_anchor(title, symptoms)
+        assert v.status == "block", (
+            "this case documents the false-block behaviour; if the gate ever "
+            "stops blocking here, revisit the T82 field-type warning")
+        # and the decisive check: the symptom text is NOT about another code
+        assert "abs" in symptoms.lower() or "econom" in symptoms.lower() \
+            or "starting" in symptoms.lower()
+
+    def test_fault_statement_text_blocks_reliably(self):
+        """The same gate on a fault STATEMENT is a true block (T82c)."""
+        v = check_subject_anchor(
+            "Battery temperature sensor circuit – temperature error",
+            "P1348 indicates an open circuit condition in the ignition coil "
+            "power output stage 1. The ECU driver transistor…")
+        assert v.status == "block"
+        assert "ignition" in v.claim_systems

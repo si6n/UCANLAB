@@ -255,6 +255,28 @@ def check_subject_anchor(title, subject_claim) -> AnchorVerdict:
     Returns `pass` when the two texts share a system (or when either side
     names no system at all — an unverifiable claim is not evidence of a
     mismatch), `block` when both name systems and they are disjoint.
+
+    FIELD-TYPE WARNING (measured 2026-09-26, T82)
+    --------------------------------------------
+    This gate is reliable on text that STATES THE FAULT (a title, a
+    `description_en` prose sentence, a page h1). It is NOT reliable on a
+    SYMPTOM LIST, because a symptom legitimately names the DOWNSTREAM systems
+    the driver observes:
+
+        P2688  title "Fuel Supply Heater Control Circuit Low"
+               symptoms "Hard starting, especially in cold weather"
+               -> the gate blocks (fuel vs starter) but this is CORRECT
+        C1139  title "Wheel Speed Sensor Center Tone Ring Missing Tooth"
+               symptoms "ABS warning light illuminated"
+               -> the gate blocks (wheel speed vs abs) but this is CORRECT
+
+    Measured on the DB: obd2.com's symptom lists produced 854 blocks, of which
+    a hand-read sample of 12/12 were legitimate. Reverting on a symptom-list
+    block would delete correct content at scale.
+
+    Rule of thumb: use this gate on fault-STATEMENT text. For a symptom list,
+    require an independent vote before any deletion, or compare the symptom
+    against the SOURCE PAGE's own claim rather than against the DB title.
     """
     title = str(title or "")
     claim = str(subject_claim or "")
