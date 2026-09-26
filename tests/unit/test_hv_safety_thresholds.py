@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-import pytest
 
 DIAG_DIR = Path(__file__).resolve().parents[2] / "data" / "diagnostics"
 HV_THRESHOLDS_PATH = DIAG_DIR / "hv_safety_thresholds.json"

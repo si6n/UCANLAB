@@ -5,12 +5,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 from scripts.lint_dbc import (
     CATALOG_PATH,
     DBC_DIR,
-    KNOWN_DUPLICATE_BO_EXCEPTIONS,
     check_bidirectional_catalog,
     lint_dbc_file,
 )

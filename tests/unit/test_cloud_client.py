@@ -817,6 +817,7 @@ def test_pinning_not_applied_to_loopback_http() -> None:
 
 def test_safe_redirect_handler_cross_origin_refused() -> None:
     from urllib.request import Request
+
     from src.core.errors import SecurityError
     from src.security.cloud.client import _SafeRedirectHandler
 
@@ -828,6 +829,7 @@ def test_safe_redirect_handler_cross_origin_refused() -> None:
 
 def test_safe_redirect_handler_rejects_private_dns_resolution(monkeypatch) -> None:
     from urllib.request import Request
+
     from src.core.errors import SecurityError
     from src.security.cloud.client import _SafeRedirectHandler
 
@@ -842,6 +844,7 @@ def test_safe_redirect_handler_rejects_private_dns_resolution(monkeypatch) -> No
 
 def test_safe_redirect_handler_rejects_unresolvable_dns(monkeypatch) -> None:
     from urllib.request import Request
+
     from src.core.errors import SecurityError
     from src.security.cloud.client import _SafeRedirectHandler
 

@@ -185,7 +185,7 @@ def _build_mode06_rows() -> list[list[object]]:
     js = json.loads(MODE06_JSON.read_text(encoding="utf-8"))
     uasid_map = js.get("metadata", {}).get("uasid_scaling_formulas", {})
     rows: list[list[object]] = []
-    for mid_key, m in js.get("monitors", {}).items():
+    for _mid_key, m in js.get("monitors", {}).items():
         for t in m.get("tests", []):
             uasid = t.get("uasid", "")
             sf = uasid_map.get(uasid, {})
@@ -208,7 +208,7 @@ def _build_mode06_rows() -> list[list[object]]:
                 t.get("limit_type", ""),
                 t.get("hex_range", ""),
             ])
-    for c2_key, m in js.get("class2_monitors", {}).items():
+    for _c2_key, m in js.get("class2_monitors", {}).items():
         for t in m.get("tests", []):
             uasid = t.get("uasid", "")
             sf = uasid_map.get(uasid, {})

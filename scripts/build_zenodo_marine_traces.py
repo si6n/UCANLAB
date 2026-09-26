@@ -326,15 +326,15 @@ def main() -> None:
     # Write provenance manifest
     prov_file = TRACE_DIR / "provenance.json"
     prov_file.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
-    print(f"  + provenance.json oluşturuldu.")
+    print("  + provenance.json oluşturuldu.")
 
     # Write README.md
     readme_file = TRACE_DIR / "README.md"
-    readme_content = f"""# Zenodo 19857425 — Marine Engine Physical Fault Injection Traces
+    readme_content = """# Zenodo 19857425 — Marine Engine Physical Fault Injection Traces
 
-**Kaynak:** Zenodo DOI [10.5281/zenodo.19857425](https://doi.org/10.5281/zenodo.19857425)  
-**Lisans:** CC BY 4.0  
-**Otorite:** IMO SOLAS II-1/51.1.1, FSS Code 9.1.14, NMEA 2000 / SAE J1939  
+**Kaynak:** Zenodo DOI [10.5281/zenodo.19857425](https://doi.org/10.5281/zenodo.19857425)\
+**Lisans:** CC BY 4.0\
+**Otorite:** IMO SOLAS II-1/51.1.1, FSS Code 9.1.14, NMEA 2000 / SAE J1939
 
 ## Genel Bakış
 
@@ -358,7 +358,7 @@ Tüm dosyalar `time,id,dlc,data,channel,dir` başlıklarına sahiptir ve Replay 
 üzerinden doğrudan oynatılabilir.
 """
     readme_file.write_text(readme_content, encoding="utf-8")
-    print(f"  + README.md oluşturuldu.")
+    print("  + README.md oluşturuldu.")
 
 
 if __name__ == "__main__":

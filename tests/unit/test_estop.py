@@ -223,6 +223,7 @@ def test_estop_concurrent_trigger_and_reset_toctou_safety() -> None:
 def test_estop_secret_store_failure_fails_closed() -> None:
     """F1 (Aksiyon 18): verify store_secret failure immediately triggers E-Stop fail-closed."""
     from unittest.mock import MagicMock
+
     from src.core.exceptions import SafetyError
     from src.safety.secret_provider import SecretProvider
 

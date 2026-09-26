@@ -92,8 +92,9 @@ def verify_12_glyphs_integrity() -> bool:
 def scan_for_naive_upper(root_dir: Path) -> list[tuple[str, int, str]]:
     """Scan UI python files for potentially naive str.upper() calls on visible strings."""
     findings: list[tuple[str, int, str]] = []
-    # Match .upper() calls
-    pattern = re.compile(r'\b([a-zA-Z_0-9]+)\.upper\(\)')
+    # The line scan below is the matcher; the pattern documents the shape it
+    # looks for (`<identifier>.upper()`).
+    re.compile(r"\b([a-zA-Z_0-9]+)\.upper\(\)")
 
     for p in root_dir.glob("**/*.py"):
         if "test" in p.name or "venv" in p.parts:

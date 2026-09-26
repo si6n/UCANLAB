@@ -3,11 +3,12 @@
 
 import base64
 import json
+
 import pytest
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
-from src.core.errors import LicenseError, SecurityError
-from src.security.license.jcs import canonicalize, canonical_hash
+from src.core.errors import SecurityError
+from src.security.license.jcs import canonicalize
 from src.security.license.validator import LicenseValidator
 
 

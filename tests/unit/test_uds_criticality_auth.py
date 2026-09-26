@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import socket
-import struct
 from unittest.mock import MagicMock
 
 import pytest
@@ -15,7 +14,6 @@ from src.protocols.uds import (
     AuthenticationTask,
     SocketCanIsoTpGeneralOpts,
     UdsClient,
-    UdsResponse,
     UdsServiceBuilder,
     UdsServiceId,
     configure_socketcan_isotp_socket,
@@ -295,7 +293,7 @@ def test_configure_socketcan_isotp_socket_with_isotp_socket_wrapper() -> None:
     mock_opts.optflag = 0x004  # TX_PADDING
     mock_isotp_sock.get_opts.return_value = mock_opts
 
-    opts = configure_socketcan_isotp_socket(
+    configure_socketcan_isotp_socket(
         mock_isotp_sock,
         wait_tx_done=True,
     )

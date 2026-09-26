@@ -34,7 +34,6 @@ LOCKED INVARIANTS
 
 from __future__ import annotations
 
-import hashlib
 import json
 import re
 from pathlib import Path
@@ -224,8 +223,8 @@ class TestRound3Revert:
 
     def test_weak_single_token_codes_are_NOT_reverted(self, db):
         """Tier C (a single shared token) must stay flagged, not reverted."""
-        from pathlib import Path as _P
         import json as _json
+        from pathlib import Path as _P
         p = _P(__file__).resolve().parents[2] / "output" / "t80_work" / "verify" / "round2_tiered.json"
         if not p.exists():
             pytest.skip("tiered list not present")

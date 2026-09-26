@@ -23,18 +23,12 @@ from src.core.contracts.ports import SystemClockProvider
 from src.core.errors import SafetyError
 from src.core.models.can_frame import CanFrame
 from src.core.models.diagnostics import (
-    DiagnosticEvent,
     DtcClass,
-    DtcNamespace,
     Severity,
-    SignalSample,
-    VehicleSession,
     classify_dtc_class,
-    classify_dtc_namespace,
 )
 from src.engine.ai.diagnostic_copilot import (
     AiDiagnosticCopilot,
-    _derive_severity,
     ensure_external_dtc_database_loaded,
 )
 from src.engine.ai.drive_safety_policy import decide_risk, validate_ai_dialogue_action
@@ -46,8 +40,6 @@ from src.safety.e2e.profiles import E2EProfileConfig
 from src.safety.e2e.validator import E2ESafetyValidator
 from src.safety.estop import EmergencyStopSystem, EStopTriggerSource
 from src.safety.exceptions import (
-    FrameSanityError,
-    RateLimitExceededError,
     WhitelistViolationError,
 )
 from src.safety.gateway import TxSafetyGateway

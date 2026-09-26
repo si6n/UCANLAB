@@ -2,8 +2,9 @@
 """Test suite for RFC 4998 Evidence Chain & Merkle Tree — Aksiyon 32 / Faz 6.2."""
 
 import pytest
+
 from src.core.errors import SecurityError
-from src.security.audit.evidence_chain import EvidenceChain, MerkleTree, GENESIS_PREV_HASH
+from src.security.audit.evidence_chain import GENESIS_PREV_HASH, EvidenceChain, MerkleTree
 
 
 class DummyClock:

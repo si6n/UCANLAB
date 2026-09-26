@@ -2,9 +2,7 @@ import json
 import tempfile
 from pathlib import Path
 
-import pytest
-
-from src.hal.replay.n2k_converter import N2KTraceConverter, ProvenanceMetadata
+from src.hal.replay.n2k_converter import N2KTraceConverter
 from src.hal.replay.parsers import CsvParser
 
 

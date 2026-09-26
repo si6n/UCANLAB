@@ -11,22 +11,18 @@ Verifies:
 
 from __future__ import annotations
 
-import os
-import pytest
-
-from src.core.errors import PlatformError
-from src.ui.alarm_model import (
-    AlarmItem,
-    AlarmSeverity,
-    AlarmState,
-    COLOR_NORMAL_GREEN,
-    get_visual_badge,
-)
 from scripts.check_tr_pseudo_locale import (
     generate_pseudo_locale,
     tr_lower,
     tr_upper,
     verify_12_glyphs_integrity,
+)
+from src.ui.alarm_model import (
+    COLOR_NORMAL_GREEN,
+    AlarmItem,
+    AlarmSeverity,
+    AlarmState,
+    get_visual_badge,
 )
 
 

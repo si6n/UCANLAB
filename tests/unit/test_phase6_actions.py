@@ -2,18 +2,16 @@
 """Test suite for Phase 6 actions (Aksiyon 34, 35, 36) — CanOpen, Telemetry Schema, ISOBUS DDI."""
 
 import json
-import pytest
 
-from src.protocols.canopen.eds_parser import parse_eds_text, CanOpenObjectDictionary
 from src.engine.storage.telemetry_schema import (
     TelemetryRecord,
-    get_questdb_ddl,
-    get_duckdb_ddl,
-    format_questdb_ilp,
     format_mosquitto_payload,
+    format_questdb_ilp,
+    get_duckdb_ddl,
+    get_questdb_ddl,
 )
+from src.protocols.canopen.eds_parser import parse_eds_text
 from src.protocols.isobus.ddi_registry import IsobusDdiRegistry
-from src.core.errors import PlatformError
 
 
 # 1. CANopen EDS (CiA 306) Tests

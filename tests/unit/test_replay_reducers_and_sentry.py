@@ -10,14 +10,12 @@ Verifies:
 
 from __future__ import annotations
 
-import tempfile
 from pathlib import Path
-import pytest
 
-from src.core.models.can_frame import CanFrame
-from src.hal.replay.trace_reducer import CanTraceReducer
-from src.hal.replay.can_train_test_adapter import CanTrainTestAdapter
 from scripts.check_corpus_size_sentry import check_corpus_sizes
+from src.core.models.can_frame import CanFrame
+from src.hal.replay.can_train_test_adapter import CanTrainTestAdapter
+from src.hal.replay.trace_reducer import CanTraceReducer
 
 
 class TestCanTraceReducer:

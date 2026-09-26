@@ -100,8 +100,10 @@ class TestReservedCodes:
         import sys
         sys.path.insert(0, str(REPO_ROOT))
         from src.engine.ai.diagnostic_copilot import (
-            ensure_external_dtc_database_loaded, search_dtc_by_symptom,
-            EXPERT_KNOWLEDGE_BASE)
+            EXPERT_KNOWLEDGE_BASE,
+            ensure_external_dtc_database_loaded,
+            search_dtc_by_symptom,
+        )
         ensure_external_dtc_database_loaded()
         bare_reserved = {
             c for c, e in EXPERT_KNOWLEDGE_BASE.items()

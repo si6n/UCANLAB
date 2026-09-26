@@ -5,7 +5,6 @@ Complies with ISO 26262 ASIL-D functional safety timing requirements.
 
 from __future__ import annotations
 
-import os
 from types import SimpleNamespace
 from unittest.mock import patch
 

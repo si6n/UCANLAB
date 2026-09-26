@@ -1926,7 +1926,7 @@ INJECTOR_CIRCUIT_PROFILES: list[dict[str, Any]] = [
         "candidate_dtcs": [f"P020{i}"],
         "initial_questions": [
             f"{i}. silindir enjektör soketinde iç direnç ölçüldü mü (nominal 12 - 16 Ohm veya piezo 180-220 kOhm)?",
-            f"Kablo demetinde titreşimden kaynaklı kopukluk veya şasiye sürtme var mı?",
+            "Kablo demetinde titreşimden kaynaklı kopukluk veya şasiye sürtme var mı?",
         ],
         "authority": "SAE J2012 / ISO 14229",
     }
@@ -1949,7 +1949,7 @@ IGNITION_COIL_PROFILES: list[dict[str, Any]] = [
         "candidate_dtcs": [f"P035{i}"],
         "initial_questions": [
             f"{i}. silindir bobin soketine kontak açıldığında 12V besleme ve sağlam şasi geliyor mu?",
-            f"Bobin gövdesinde kıvılcım atlama (ark) beyaz çizgi izi veya çatlak var mı?",
+            "Bobin gövdesinde kıvılcım atlama (ark) beyaz çizgi izi veya çatlak var mı?",
         ],
         "authority": "SAE J2012 / ISO 14229",
     }
@@ -2506,7 +2506,7 @@ def generate_exports() -> tuple[int, int]:
 
 def main() -> None:
     json_count, csv_count = generate_exports()
-    print(f"Kanonik Belirti Tablosu başarıyla oluşturuldu:")
+    print("Kanonik Belirti Tablosu başarıyla oluşturuldu:")
     print(f"  JSON: {OUTPUT_JSON} ({json_count} belirti)")
     print(f"  CSV : {OUTPUT_CSV} ({csv_count} satır)")
 
