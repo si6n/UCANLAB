@@ -68,7 +68,7 @@ class EncryptedKnowledgePackLoader:
         try:
             self._aesgcm = None  # type: ignore[assignment]
         except Exception:
-            pass
+            logger.debug("AESGCM deallocation failed on close", exc_info=True)
 
     def load_pack_from_bytes(
         self,

@@ -9,11 +9,12 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from src.core.contracts.ports import RxSubscription, TxPort
-from src.core.errors import ProtocolError
+from src.core.errors import ProtocolError, SafetyError
 from src.core.logging import get_logger
 from src.protocols.uds.isotp import IsoTpTransport, decode_st_min
 from src.protocols.uds.nrc import UdsNrc
 from src.protocols.uds.services import (
+    AuthenticationTask,
     DiagnosticSessionType,
     ReadDtcInformationType,
     RoutineControlType,
@@ -232,6 +233,51 @@ class UdsClient:
         T62-T7: confirmation_token carries the gateway HMAC proof.
         """
         req_payload = UdsServiceBuilder.build_security_access_send_key(level=level, key=key)
+        return self._send_and_receive(
+            req_payload,
+            is_critical_command=True,
+            user_confirmed=user_confirmed,
+            confirmation_token=confirmation_token,
+            confirmation_context=confirmation_context,
+        )
+
+    def authenticate(
+        self,
+        sub_function: int | AuthenticationTask,
+        data: bytes = b"",
+        user_confirmed: bool = False,
+        confirmation_token: bytes | str | None = None,
+        confirmation_context: bytes | str | None = None,
+    ) -> UdsResponse:
+        """Authenticate (0x29) - Critical command.
+
+        ISO 14229-1:2020 §11.2 Authentication.
+        Requires explicit operator confirmation; dual confirmation is NOT
+        granted by default. Confirmation token carries gateway-issued HMAC proof.
+        """
+        req_payload = UdsServiceBuilder.build_authentication(sub_function, data)
+        return self._send_and_receive(
+            req_payload,
+            is_critical_command=True,
+            user_confirmed=user_confirmed,
+            confirmation_token=confirmation_token,
+            confirmation_context=confirmation_context,
+        )
+
+    def secured_data_transmission(
+        self,
+        secured_data: bytes,
+        user_confirmed: bool = False,
+        confirmation_token: bytes | str | None = None,
+        confirmation_context: bytes | str | None = None,
+    ) -> UdsResponse:
+        """Secured Data Transmission (0x84) - Critical command.
+
+        ISO 14229-1:2020 §11.3 SecuredDataTransmission.
+        Requires explicit operator confirmation; dual confirmation is NOT
+        granted by default. Confirmation token carries gateway-issued HMAC proof.
+        """
+        req_payload = UdsServiceBuilder.build_secured_data_transmission(secured_data)
         return self._send_and_receive(
             req_payload,
             is_critical_command=True,
@@ -591,12 +637,32 @@ class UdsClient:
                 kwargs["confirmation_context"] = confirmation_context
             self.tx_port.validate_and_transmit(frame, **kwargs)
         elif hasattr(self.tx_port, "send_sync") and not hasattr(self.tx_port, "validate_and_transmit"):
-            # TxSafetyGateway-shaped port: honour the category-aware lane.
-            try:
-                self.tx_port.send_sync(frame, budget_category=budget_category)
-            except TypeError:
-                # Plain TxPort (send_sync(frame) only) — fall back.
-                self.tx_port.send_sync(frame)
+            # I-02: send_sync-shaped port. Non-critical frames may use the
+            # lane-aware call first; plain send_sync(frame) only as fallback.
+            # Critical proof is NEVER silently dropped: when the port cannot
+            # carry the proof flags, fail closed with a typed SafetyError.
+            if not is_critical_command and confirmation_token is None:
+                try:
+                    self.tx_port.send_sync(frame, budget_category=budget_category)
+                except TypeError:
+                    self.tx_port.send_sync(frame)
+            else:
+                try:
+                    self.tx_port.send_sync(
+                        frame,
+                        budget_category=budget_category,
+                        is_critical_command=is_critical_command,
+                        user_confirmed=user_confirmed,
+                        confirmation_token=confirmation_token,
+                        confirmation_context=confirmation_context,
+                    )
+                except TypeError as exc:
+                    raise SafetyError(
+                        "UDS critical frame refused: tx_port.send_sync cannot "
+                        "carry is_critical_command/user_confirmed/confirmation "
+                        "proof (fail-closed, refusing unflagged send)",
+                        code="UDS_TX_PROOF_CONTRACT_VIOLATION",
+                    ) from exc
         else:
             self.tx_port.send_sync(frame)
 
@@ -767,6 +833,7 @@ class UdsClient:
         0x22: 2,  # ReadDataByIdentifier: DID
         0x2E: 2,  # WriteDataByIdentifier: DID
         0x27: 1,  # SecurityAccess: securityAccessType
+        0x29: 1,  # Authentication: authenticationTask
         0x31: 3,  # RoutineControl: controlType + routineId
         0x36: 1,  # TransferData: blockSequenceCounter
     }

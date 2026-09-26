@@ -105,7 +105,17 @@ _OBDHUT_TITLE_SUFFIX = " | OBDHut"
 # why 625 records kept the prefix (T48-A, item 1).
 _OBDHUT_CAUSE_PREFIX_RE = re.compile(
     r"^The\s+most\s+common\s+cause\s+of\s+"
-    r"(?:the\s+)?(?:[A-Z0-9]+\s*)?(?:code\s*)?"
+    # T48-A follow-up: the harvest also emitted "of DTC C0137 is ..." and
+    # "of code C0208 is ..." forms; the original pattern only matched the
+    # bare "of <CODE> (...)" / "of the <CODE> code" shapes, so 81 records
+    # kept the prefix. "DTC" and "code" are now both optional leading words
+    # (in either order) before the parenthetical/code group.
+    r"(?:the\s+)?(?:a\s+)?(?:DTC\s+|code\s+)?(?:[A-Z0-9]+\s*)?(?:code\s*)?"
+    # The harvest interleaved qualifiers between the code and "is":
+    # "C0276, with a likelihood of 60%, is ...", "the C0299 code,
+    # accounting for about 40% of cases, is ...". Consume an optional
+    # comma-delimited qualifier clause (up to the next "is") when present.
+    r"(?:,\s*[^,]{0,80},\s*)?"
     r"(?:\("
     r"(?:[^()]|\([^()]*\))*"
     r"\))?"

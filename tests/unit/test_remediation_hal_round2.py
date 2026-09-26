@@ -503,7 +503,7 @@ def test_hal10_disconnect_wakes_blocking_recv() -> None:
 
 
 # ---------------------------------------------------------------------------
-# HAL-11 — play() must refuse an unfiltered TX-looking callback
+# HAL-11 / B-06 — play() ALWAYS filters; no unfiltered-TX path exists
 # ---------------------------------------------------------------------------
 
 
@@ -515,15 +515,30 @@ class _FakeDriver:
         self.tx.append(frame)
 
 
-def test_hal11_tx_callback_refused_without_optin() -> None:
-    """HAL-11: `play(callback=bus.send)` is an unfiltered live-TX path — refuse."""
+def test_hal11_tx_callback_receives_only_filtered_frames() -> None:
+    """B-06: `play(callback=bus.send)` used to need a filter or an opt-in.
+
+    The contract is now structural: even a bound TX driver method receives
+    ONLY frames that passed ``filter_frame``. An unsafe J1939 Address Claim
+    in the trace never reaches ``driver.tx``; the benign frame does.
+    """
     driver = _FakeDriver()
-    bus = ReplayBus(
-        [CanFrame.create(channel_id="c0", arbitration_id=0x100, data=b"\x01", timestamp_ns=0)]
+    frames = [
+        # Unsafe: J1939 Address Claim (PGN 60928 / 0xEE00)
+        CanFrame.create(
+            channel_id="c0", arbitration_id=0x18EEFF00, data=b"\x01" * 8,
+            is_extended=True, timestamp_ns=0,
+        ),
+        # Safe: benign 11-bit telemetry
+        CanFrame.create(channel_id="c0", arbitration_id=0x100, data=b"\x01", timestamp_ns=1_000_000),
+    ]
+    bus = ReplayBus(frames)
+    bus.play(callback=driver.send, speed=100.0)
+
+    assert [f.arbitration_id for f in driver.tx] == [0x100], (
+        "an unsafe frame reached the TX driver through play()"
     )
-    with pytest.raises(ValueError, match="live-TX driver method"):
-        bus.play(callback=driver.send, speed=100.0)
-    assert driver.tx == [], "nothing may be transmitted when the guard fires"
+    assert bus.filtered_frames == 1
 
 
 def test_hal11_safety_filter_makes_tx_callback_safe() -> None:
@@ -546,20 +561,70 @@ def test_hal11_safety_filter_makes_tx_callback_safe() -> None:
     assert bus.filtered_frames == 1
 
 
-def test_hal11_explicit_optin_allows_unfiltered_tx() -> None:
-    """HAL-11: the documented audit trail (`allow_unfiltered_tx=True`) works."""
+def test_hal11_optin_removed_typeerror_and_tx_callback_still_filtered() -> None:
+    """B-06: ``allow_unfiltered_tx`` no longer exists — TypeError, and even
+    the strongest TX-shaped callback is filtered by default."""
     driver = _FakeDriver()
     frames = [
-        CanFrame.create(channel_id="c0", arbitration_id=0x100 + i, data=b"\x01", timestamp_ns=0)
-        for i in range(2)
+        CanFrame.create(channel_id="c0", arbitration_id=0x100, data=b"\x01", timestamp_ns=0),
+        # Unsafe J1939 DM11 (PGN 65235 / 0xFED3) — evidence wipe.
+        CanFrame.create(
+            channel_id="c0", arbitration_id=0x18FED300, data=b"\x01" * 8,
+            is_extended=True, timestamp_ns=1_000_000,
+        ),
     ]
     bus = ReplayBus(frames)
-    bus.play(callback=driver.send, speed=100.0, allow_unfiltered_tx=True)
-    assert len(driver.tx) == 2
+
+    # The opt-in escape hatch is gone: an unexpected kwarg is a TypeError.
+    with pytest.raises(TypeError):
+        bus.play(callback=driver.send, speed=100.0, allow_unfiltered_tx=True)  # type: ignore[call-arg]
+    assert driver.tx == [], "nothing may be transmitted before/while the call is rejected"
+
+    # Without the removed opt-in, the same bound TX method gets filtered
+    # frames only — the DM11 frame is dropped by the default filter.
+    bus.play(callback=driver.send, speed=100.0)
+    assert [f.arbitration_id for f in driver.tx] == [0x100]
+    assert bus.filtered_frames == 1
+
+
+def test_hal11_play_level_safety_filter_is_used() -> None:
+    """B-06: a `safety_filter` passed to play() overrides the constructor's."""
+    driver = _FakeDriver()
+    frames = [
+        CanFrame.create(channel_id="c0", arbitration_id=0x100, data=b"\x01", timestamp_ns=0),
+    ]
+    # Custom-block this benign-looking ID to prove the play()-level filter ran.
+    strict = ReplaySafetyFilter(custom_blocked_ids={0x100})
+    bus = ReplayBus(frames, safety_filter=ReplaySafetyFilter())  # permissive ctor filter
+    bus.play(callback=driver.send, speed=100.0, safety_filter=strict)
+
+    assert driver.tx == [], "the play()-level filter must win over the constructor's"
+    assert bus.filtered_frames == 1
+
+
+def test_hal11_tx_shaped_callback_logs_informational_warning(caplog: pytest.LogCaptureFixture) -> None:
+    """B-06: the heuristic survives as an informational WARNING only.
+
+    It no longer gates delivery — the frame still arrives (filtered) — but
+    the operator gets a visible signal that a TX-shaped callback is wired to
+    the replay stream.
+    """
+    driver = _FakeDriver()
+    frames = [
+        CanFrame.create(channel_id="c0", arbitration_id=0x100, data=b"\x01", timestamp_ns=0)
+    ]
+    bus = ReplayBus(frames)
+    with caplog.at_level("WARNING", logger="universal_can.hal.replay"):
+        bus.play(callback=driver.send, speed=100.0)
+
+    assert "TX-shaped callback receiving filtered replay stream" in caplog.text
+    # Informational only: the safe frame still reached the callback.
+    assert [f.arbitration_id for f in driver.tx] == [0x100]
 
 
 def test_hal11_analysis_callback_needs_no_filter() -> None:
-    """HAL-11: a non-TX analysis callback keeps working with no filter."""
+    """HAL-11/B-06: a non-TX analysis callback keeps working with no filter
+    (benign frames pass the default filter unchanged)."""
     seen: list[CanFrame] = []
     frames = [
         CanFrame.create(channel_id="c0", arbitration_id=0x100, data=b"\x01", timestamp_ns=0)

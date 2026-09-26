@@ -58,8 +58,12 @@ jobs:
       - name: Install Python Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install --require-hashes -r requirements.lock
           pip install -r requirements-dev.txt
+
+      - name: Verify lock matches requirements pins (B-10)
+        run: |
+          python scripts/check_lock_sync.py
 
       - name: Verify asammdf came from a binary wheel (no sdist build)
         # Guards against regressing to an asammdf release without a cp3xx-abi3
@@ -74,6 +78,15 @@ jobs:
       - name: Run Ruff Static Analysis
         run: |
           ruff check .
+
+      - name: Run Mypy Baseline Gate (I-15)
+        # I-15: `mypy src scripts` was red on arrival (180+ legacy errors), so
+        # typing was never actually enforced. The accepted legacy baseline is
+        # committed in mypy-baseline.txt; this gate fails only on NEW errors,
+        # and reports fixed ones as an informational note. Refresh the baseline
+        # deliberately with: python scripts/check_mypy_baseline.py --update
+        run: |
+          python scripts/check_mypy_baseline.py
 
       - name: Verify regression fixtures
         shell: pwsh
@@ -135,12 +148,15 @@ jobs:
           fetch-depth: 0
 
       - name: Run gitleaks
-        # Pin the release + verify the published digest (supply-chain: a
+        # Pin the release + verify the published SHA-256 (supply-chain: a
         # compromised scanner tarball would silently neuter this gate).
+        # Digest from gitleaks_8.28.0_checksums.txt (GitHub release assets).
         run: |
           set -euo pipefail
           VERSION=8.28.0
+          SHA256=a65b5253807a68ac0cafa4414031fd740aeb55f54fb7e55f386acb52e6a840eb
           curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz" -o gitleaks.tgz
+          echo "${SHA256}  gitleaks.tgz" | sha256sum -c -
           tar -xzf gitleaks.tgz gitleaks
           ./gitleaks detect --source . --redact --verbose --exit-code 1
 
@@ -190,8 +206,12 @@ jobs:
       - name: Install Python Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install --require-hashes -r requirements.lock
           pip install -r requirements-dev.txt
+
+      - name: Verify lock matches requirements pins (B-10)
+        run: |
+          python scripts/check_lock_sync.py
 
       - name: Verify asammdf came from a binary wheel (no sdist build)
         # Same guard as the windows job: a wheelless asammdf release would be
@@ -230,7 +250,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt -r requirements-dev.txt
+          pip install --require-hashes -r requirements.lock -r requirements-dev.txt
 
       - name: Create vcan0 interface & headless dependencies
         run: |
@@ -274,12 +294,10 @@ jobs:
       # the workflow that tracks removing `continue-on-error`).
       - name: Frontend typecheck
         working-directory: src/ui/frontend
-        continue-on-error: true
         run: npm run typecheck
 
       - name: Frontend lint
         working-directory: src/ui/frontend
-        continue-on-error: true
         run: npm run lint
 
       - name: Frontend dependency audit
@@ -314,6 +332,96 @@ jobs:
             echo "ERROR: frontend references a generative-AI endpoint (AGENTS.md §2.8)"; exit 1
           fi
           echo "no cloud-LLM references: OK"
+
+  release-windows:
+    # I-20: no upload-artifact/release job existed — releases were hand-built.
+    # This job builds the signed Windows EXE from the hash-locked deps and
+    # uploads the bundle + SBOM + provenance as artifacts.
+    name: Windows Release (hash-locked EXE + SBOM)
+    runs-on: windows-latest
+    needs: [test, secret-scan, frontend-build]
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: 'requirements.lock'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: src/ui/frontend/package-lock.json
+
+      - name: Install Python dependencies (hash-locked)
+        run: |
+          python -m pip install --upgrade pip
+          pip install --require-hashes -r requirements.lock
+          pip install -r requirements-dev.txt
+
+      - name: Verify lock matches requirements pins (B-10)
+        run: |
+          python scripts/check_lock_sync.py
+
+      - name: Build frontend + verify offline
+        run: |
+          cd src/ui/frontend
+          npm ci --ignore-scripts
+          npm run typecheck
+          npm run lint
+          npm run build
+          cd ../../..
+          python -c "import sys, pathlib; sys.path.insert(0, '.'); from scripts.build_exe import _assert_dist_offline; _assert_dist_offline(pathlib.Path('src/ui/frontend/dist')); print('bundle is offline: OK')"
+
+      - name: Run tests (release gate)
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          pytest -q --cov=src --cov-fail-under=81
+
+      - name: Build EXE
+        run: |
+          python scripts/build_exe.py
+
+      - name: Bundle hash verify + frozen smoke test
+        shell: pwsh
+        run: |
+          $errorActionPreference = 'Stop'
+          $exe = Get-ChildItem -Path dist -Filter *.exe | Select-Object -First 1
+          if (-not $exe) { throw "no EXE in dist/" }
+          $hash = (Get-FileHash $exe.FullName -Algorithm SHA256).Hash.ToLower()
+          "$hash  $($exe.Name)" | Out-File dist/SHA256SUMS.txt -Encoding ascii
+          Write-Host "EXE: $($exe.Name) sha256=$hash"
+          & $exe.FullName --smoke-test
+
+      - name: Generate SBOM (pip freeze + npm)
+        run: |
+          pip freeze > dist/SBOM-python.txt
+          npm --prefix src/ui/frontend ls --all > dist/SBOM-frontend.txt
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@ef244556ac8c15512d109b906c0da8e8460107b # v2.2.3
+        with:
+          subject-path: 'dist/*'
+
+      - name: Upload release bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ucanlab-windows
+          path: |
+            dist/*.exe
+            dist/SHA256SUMS.txt
+            dist/SBOM-*.txt
 
   codeql:
     name: CodeQL Security Analysis

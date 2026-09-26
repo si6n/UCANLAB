@@ -584,6 +584,11 @@ class J1939TransportProtocol:
         with self._sessions_lock:
             return self._reap_stale_sessions(now=now)
 
+    def session_count(self) -> int:
+        """Lock-held RX session count — thread-safe stats accessor (P2-8)."""
+        with self._sessions_lock:
+            return len(self._rx_sessions)
+
     def _reap_stale_tx_sessions(self, now: float) -> list[CanFrame]:
         """Reap expired CMDT SENDER sessions; return their timeout aborts.
 

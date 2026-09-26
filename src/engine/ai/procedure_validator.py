@@ -186,6 +186,18 @@ _ALL_LOADED: bool = False
 _CACHE_LOCK = threading.Lock()
 
 
+def _resolve_procedures_dir() -> Path:
+    """Resolve the DTC procedures directory, honoring frozen bundles (H-9 / P1-11)."""
+    import sys
+
+    if getattr(sys, "frozen", False):
+        frozen_root = Path(getattr(sys, "_MEIPASS", sys.executable)).resolve()
+        frozen_dir = frozen_root / "data" / "knowledge" / "dtc_procedures"
+        if frozen_dir.is_dir():
+            return frozen_dir
+    return Path(__file__).resolve().parents[3] / "data" / "knowledge" / "dtc_procedures"
+
+
 def get_procedure(dtc: str, dir_path: Path | None = None) -> DtcProcedure | None:
     """O(1) lazy lookup of a single DTC/SPN procedure with memory caching."""
     clean = (dtc or "").strip().upper()
@@ -195,10 +207,9 @@ def get_procedure(dtc: str, dir_path: Path | None = None) -> DtcProcedure | None
         if clean in _PROCEDURE_CACHE:
             return _PROCEDURE_CACHE[clean]
 
-    target_dir = dir_path or (
-        Path(__file__).resolve().parents[3] / "data" / "knowledge" / "dtc_procedures"
-    )
+    target_dir = dir_path or _resolve_procedures_dir()
     if not target_dir.is_dir():
+        logger.warning("DTC prosedür dizini bulunamadı: %s", target_dir)
         return None
 
     filename = clean.replace(" ", "_") + ".json"
@@ -226,10 +237,9 @@ def load_all_procedures(dir_path: Path | None = None, force_reload: bool = False
         if _ALL_LOADED and not force_reload and dir_path is None:
             return dict(_PROCEDURE_CACHE)
 
-    target_dir = dir_path or (
-        Path(__file__).resolve().parents[3] / "data" / "knowledge" / "dtc_procedures"
-    )
+    target_dir = dir_path or _resolve_procedures_dir()
     if not target_dir.is_dir():
+        logger.warning("DTC prosedür dizini bulunamadı: %s", target_dir)
         return {}
     procedures: dict[str, DtcProcedure] = {}
     for file_path in sorted(target_dir.glob("*.json")):

@@ -123,7 +123,9 @@ class ChecksumDetector:
         CrcModel.create("CRC-8/GSM-A", poly=0x1D),
     )
 
-    # check="123456789": CCITT-FALSE=0x29B1, KERMIT=0x447F, XMODEM=0x31C3,
+    # check="123456789": CCITT-FALSE=0x29B1, KERMIT=0x2189 (the catalogue
+    # check; an earlier comment here claimed 0x447F — wrong, the unit test
+    # and the RevEng catalogue both expect 0x2189), XMODEM=0x31C3,
     # IBM(ARC)=0xBB3D, MODBUS=0x4B37, CRC-32/ISO-HDLC=0xCBF43926
     CRC16_MODELS: ClassVar[tuple[CrcModel, ...]] = (
         CrcModel.create("CRC-16/CCITT-FALSE", poly=0x1021, width=16, init=0xFFFF),

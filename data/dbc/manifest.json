@@ -210,8 +210,8 @@
           "is_valid": true
         },
         {
-          "filename": "gb27830_2015.dbc",
-          "relative_path": "curated/ev_bms/gb27830_2015.dbc",
+          "filename": "gbt27930_2023.dbc",
+          "relative_path": "curated/ev_bms/gbt27930_2023.dbc",
           "messages_count": 24,
           "signals_count": 653,
           "sha256": "777822cc0ef4d9dc944500182b03ede7e84416339b3c21de123df3fefc5e3f2e",
@@ -324,8 +324,296 @@
       "protocol": "CAN 2.0B / CAN-FD",
       "license": "MIT / CC-BY-4.0",
       "description": "Reverse-engineered passenger vehicle DBCs across Toyota, Tesla, VW Group, Ford, Hyundai/Kia, BMW, Rivian, GM, Mazda, Honda, Subaru, Nissan, BYD, Geely, Volvo, Mercedes.",
-      "files_count": 152,
+      "files_count": 177,
       "files": [
+        {
+          "filename": "ESR.dbc",
+          "relative_path": "curated/passenger/ESR.dbc",
+          "messages_count": 80,
+          "signals_count": 868,
+          "sha256": "e02b01a53b444570e4a48b792a47ed4284b0a387b03769e9091a6304fbccf676",
+          "size_bytes": 65956,
+          "is_valid": true
+        },
+        {
+          "filename": "FORD_CADS.dbc",
+          "relative_path": "curated/passenger/FORD_CADS.dbc",
+          "messages_count": 80,
+          "signals_count": 784,
+          "sha256": "a2099b1e2f499083bdf5b705bd8bab3af85a85aa37f11fc337e1bf6984a6e40a",
+          "size_bytes": 219255,
+          "is_valid": true
+        },
+        {
+          "filename": "FORD_CADS_64.dbc",
+          "relative_path": "curated/passenger/FORD_CADS_64.dbc",
+          "messages_count": 80,
+          "signals_count": 1850,
+          "sha256": "29d49a855d8f0b1b5a0bf6d91b9fc639d2873d6088077f5a6c8a63b5afb1751c",
+          "size_bytes": 491625,
+          "is_valid": true
+        },
+        {
+          "filename": "LeafPowertrainBus.dbc",
+          "relative_path": "curated/passenger/LeafPowertrainBus.dbc",
+          "messages_count": 10,
+          "signals_count": 21,
+          "sha256": "13b8ec1be42e92404d939cf2bae6f95f86ef6aceb0e63721a89f38839aa27adb",
+          "size_bytes": 2079,
+          "is_valid": true
+        },
+        {
+          "filename": "MX5ND_6thGenMazda_HSCAN.dbc",
+          "relative_path": "curated/passenger/MX5ND_6thGenMazda_HSCAN.dbc",
+          "messages_count": 148,
+          "signals_count": 141,
+          "sha256": "cd2e3fb1b0ce3ee8ed792cf9057ed453bf74a2bc78611ec2a98be259f402c862",
+          "size_bytes": 19440,
+          "is_valid": true
+        },
+        {
+          "filename": "MX5ND_6thGenMazda_MSCAN.dbc",
+          "relative_path": "curated/passenger/MX5ND_6thGenMazda_MSCAN.dbc",
+          "messages_count": 35,
+          "signals_count": 10,
+          "sha256": "3fb7c37c336fb4be310325e48f8f7d03d6fb4b6d714fe65a78b4b5658bc7b1df",
+          "size_bytes": 2909,
+          "is_valid": true
+        },
+        {
+          "filename": "ThinkCity.dbc",
+          "relative_path": "curated/passenger/ThinkCity.dbc",
+          "messages_count": 501,
+          "signals_count": 548,
+          "sha256": "223fd960a845d759696b7f2459b810f5dfb4a9c5f9da588386de0496410b8e31",
+          "size_bytes": 280344,
+          "is_valid": true
+        },
+        {
+          "filename": "_bosch_2018.dbc",
+          "relative_path": "curated/passenger/_bosch_2018.dbc",
+          "size_bytes": 10349,
+          "sha256": "03edc9aa51d335e38c7a9645e741cae15af27dbc5950e30285731d9d18000aaa",
+          "messages_count": 20,
+          "signals_count": 166,
+          "is_valid": false
+        },
+        {
+          "filename": "_bosch_radar_acc.dbc",
+          "relative_path": "curated/passenger/_bosch_radar_acc.dbc",
+          "size_bytes": 1732,
+          "sha256": "96e9a31e362a1cba334b0ce5cc910bea69b5dd88bd11e8f7276078afad192fb6",
+          "messages_count": 2,
+          "signals_count": 25,
+          "is_valid": true
+        },
+        {
+          "filename": "_bosch_standstill.dbc",
+          "relative_path": "curated/passenger/_bosch_standstill.dbc",
+          "size_bytes": 316,
+          "sha256": "d4c23f8f1b43e93da388fe4d09ccafc9e4d4dd98f47eda1555a14c90916ff99b",
+          "messages_count": 1,
+          "signals_count": 6,
+          "is_valid": true
+        },
+        {
+          "filename": "_community.dbc",
+          "relative_path": "curated/passenger/_community.dbc",
+          "size_bytes": 766,
+          "sha256": "0c5f4244341f6be7b063124af59cb9710ba338419cbebd6cc5661ef77b68b79b",
+          "messages_count": 2,
+          "signals_count": 10,
+          "is_valid": true
+        },
+        {
+          "filename": "_gearbox_common.dbc",
+          "relative_path": "curated/passenger/_gearbox_common.dbc",
+          "size_bytes": 2298,
+          "sha256": "5de7b7ba72968d81ede0d17e1cb1acb73bb1f34647172ae946dc6350c6683e56",
+          "messages_count": 2,
+          "signals_count": 25,
+          "is_valid": true
+        },
+        {
+          "filename": "_honda_common.dbc",
+          "relative_path": "curated/passenger/_honda_common.dbc",
+          "size_bytes": 9655,
+          "sha256": "c6b5a895001ec84c633cdb4922dcac272df8e74557a55934dfd2e5b4877d1da7",
+          "messages_count": 23,
+          "signals_count": 160,
+          "is_valid": false
+        },
+        {
+          "filename": "_hyundai_canfd_common.dbc",
+          "relative_path": "curated/passenger/_hyundai_canfd_common.dbc",
+          "size_bytes": 10329,
+          "sha256": "7c40790777bc47ccecc548788e39a456ae9a669c0d198f40f226b97c14d4ebc0",
+          "messages_count": 37,
+          "signals_count": 113,
+          "is_valid": true
+        },
+        {
+          "filename": "_lkas_hud_5byte.dbc",
+          "relative_path": "curated/passenger/_lkas_hud_5byte.dbc",
+          "size_bytes": 1323,
+          "sha256": "0f7be675c427a13c51e3850cf87713baa7b76cc3b8eefd3878383fd4ab8e2b00",
+          "messages_count": 1,
+          "signals_count": 20,
+          "is_valid": true
+        },
+        {
+          "filename": "_lkas_hud_8byte.dbc",
+          "relative_path": "curated/passenger/_lkas_hud_8byte.dbc",
+          "size_bytes": 1464,
+          "sha256": "82d28791ac6847ed0920c6cf07dfc9d4c21e4de8436695e7a5249e06a8518286",
+          "messages_count": 1,
+          "signals_count": 21,
+          "is_valid": true
+        },
+        {
+          "filename": "_nidec_common.dbc",
+          "relative_path": "curated/passenger/_nidec_common.dbc",
+          "size_bytes": 3078,
+          "sha256": "786bf243c650c609cb1de6ba5d3b0cc94347264f380fbae61179df3548e8a7d2",
+          "messages_count": 5,
+          "signals_count": 44,
+          "is_valid": true
+        },
+        {
+          "filename": "_nidec_scm_group_a.dbc",
+          "relative_path": "curated/passenger/_nidec_scm_group_a.dbc",
+          "size_bytes": 989,
+          "sha256": "e26402b995689d82ae52c19ce60a2049d0f9ffcfc5f5b41e5936c868ae6a98d1",
+          "messages_count": 2,
+          "signals_count": 14,
+          "is_valid": true
+        },
+        {
+          "filename": "_nidec_scm_group_b.dbc",
+          "relative_path": "curated/passenger/_nidec_scm_group_b.dbc",
+          "size_bytes": 909,
+          "sha256": "6329a2f34689aaa94aa3ee776ed319989a83f015e31d7ab0a0b330d1f22accd3",
+          "messages_count": 2,
+          "signals_count": 13,
+          "is_valid": true
+        },
+        {
+          "filename": "_nissan_common.dbc",
+          "relative_path": "curated/passenger/_nissan_common.dbc",
+          "size_bytes": 6642,
+          "sha256": "92aad4d701a8d00708a624f525fa993062943652e41122c4438fc3f33af4c6a8",
+          "messages_count": 10,
+          "signals_count": 95,
+          "is_valid": true
+        },
+        {
+          "filename": "_steering_control_a.dbc",
+          "relative_path": "curated/passenger/_steering_control_a.dbc",
+          "size_bytes": 915,
+          "sha256": "cbcafe5e6f27e7a2817f3b028ec00fd6fa2c41850026ed67b0b21e62bb1ea9da",
+          "messages_count": 2,
+          "signals_count": 13,
+          "is_valid": true
+        },
+        {
+          "filename": "_steering_control_b.dbc",
+          "relative_path": "curated/passenger/_steering_control_b.dbc",
+          "size_bytes": 866,
+          "sha256": "0e807e6278bf7111ad36c82e92e13b9d0961c1c9961089f9524b67badf84fa4c",
+          "messages_count": 2,
+          "signals_count": 12,
+          "is_valid": true
+        },
+        {
+          "filename": "_steering_control_c.dbc",
+          "relative_path": "curated/passenger/_steering_control_c.dbc",
+          "size_bytes": 866,
+          "sha256": "86ad322f5cdc630e076141c67decb0fe05c61f2fe2e0be4a356c7aa92cc388c7",
+          "messages_count": 2,
+          "signals_count": 12,
+          "is_valid": false
+        },
+        {
+          "filename": "_steering_sensors_a.dbc",
+          "relative_path": "curated/passenger/_steering_sensors_a.dbc",
+          "size_bytes": 481,
+          "sha256": "d3b4029da8abbe8cafcc9aff5dcfa85941e84cc564e19e49fb93692d490c3e58",
+          "messages_count": 1,
+          "signals_count": 8,
+          "is_valid": true
+        },
+        {
+          "filename": "_steering_sensors_b.dbc",
+          "relative_path": "curated/passenger/_steering_sensors_b.dbc",
+          "size_bytes": 245,
+          "sha256": "de12385ecf99ebcaa344ee193fc33bf5e71bbf3f9a16ddfc3a34caccb0d47133",
+          "messages_count": 1,
+          "signals_count": 4,
+          "is_valid": true
+        },
+        {
+          "filename": "_steering_sensors_c.dbc",
+          "relative_path": "curated/passenger/_steering_sensors_c.dbc",
+          "size_bytes": 310,
+          "sha256": "251a7bbc9e590ecaebd8de3775bd868433d4b6a2f26f14de00902b89cfa25412",
+          "messages_count": 1,
+          "signals_count": 4,
+          "is_valid": true
+        },
+        {
+          "filename": "_stellantis_common.dbc",
+          "relative_path": "curated/passenger/_stellantis_common.dbc",
+          "size_bytes": 8813,
+          "sha256": "068d8eb74e64a2a8c54dfd29da14bec2d3eed427831b2027446a6223d4b5c0f4",
+          "messages_count": 21,
+          "signals_count": 135,
+          "is_valid": false
+        },
+        {
+          "filename": "_subaru_global.dbc",
+          "relative_path": "curated/passenger/_subaru_global.dbc",
+          "size_bytes": 13044,
+          "sha256": "3e4afef326a14eb47de6f1632e46bdee4f975e1985a067787200fb5b139a3b33",
+          "messages_count": 27,
+          "signals_count": 189,
+          "is_valid": true
+        },
+        {
+          "filename": "_subaru_preglobal_2015.dbc",
+          "relative_path": "curated/passenger/_subaru_preglobal_2015.dbc",
+          "size_bytes": 9056,
+          "sha256": "e112dfff0a58d1d0cea0505a68d8c96d8c7ee79b50d3c6d1eafdd21574ea8d07",
+          "messages_count": 26,
+          "signals_count": 132,
+          "is_valid": true
+        },
+        {
+          "filename": "_toyota_2017.dbc",
+          "relative_path": "curated/passenger/_toyota_2017.dbc",
+          "size_bytes": 28314,
+          "sha256": "0058c3d5ec99df2b8946bf670b63aad0d807b56ee911a18a6dccc088017d36c8",
+          "messages_count": 50,
+          "signals_count": 310,
+          "is_valid": false
+        },
+        {
+          "filename": "_toyota_adas_standard.dbc",
+          "relative_path": "curated/passenger/_toyota_adas_standard.dbc",
+          "size_bytes": 3067,
+          "sha256": "716f4163d8fea58bf5cb4ed79f44eabc8c6fb37941360c8b0ce6826ecafe67f5",
+          "messages_count": 5,
+          "signals_count": 36,
+          "is_valid": true
+        },
+        {
+          "filename": "_vw_meb_common.dbc",
+          "relative_path": "curated/passenger/_vw_meb_common.dbc",
+          "size_bytes": 262893,
+          "sha256": "1329374723557cee2a6b7a7ec21d00460b7f336bf776bc0347b20a1492c1ebcf",
+          "messages_count": 126,
+          "signals_count": 1745,
+          "is_valid": false
+        },
         {
           "filename": "acura_ilx_2016_can_generated.dbc",
           "relative_path": "curated/passenger/acura_ilx_2016_can_generated.dbc",
@@ -387,6 +675,15 @@
           "signals_count": 86,
           "sha256": "e90c6bdc8515a5e77285f0ed9d892aaf4c7b9b5398800b5f5ba26f07e6f52dbe",
           "size_bytes": 8956,
+          "is_valid": true
+        },
+        {
+          "filename": "bms.dbc",
+          "relative_path": "curated/passenger/bms.dbc",
+          "messages_count": 6,
+          "signals_count": 30,
+          "sha256": "3b5601d6d61c1b2a6c08ebcb0b758e21928e06bd6d7fd7ea1ad2450bc74ed4b2",
+          "size_bytes": 2460,
           "is_valid": true
         },
         {
@@ -516,39 +813,12 @@
           "is_valid": true
         },
         {
-          "filename": "ESR.dbc",
-          "relative_path": "curated/passenger/ESR.dbc",
-          "messages_count": 80,
-          "signals_count": 868,
-          "sha256": "e02b01a53b444570e4a48b792a47ed4284b0a387b03769e9091a6304fbccf676",
-          "size_bytes": 65956,
-          "is_valid": true
-        },
-        {
           "filename": "fca_giorgio.dbc",
           "relative_path": "curated/passenger/fca_giorgio.dbc",
           "messages_count": 37,
           "signals_count": 155,
           "sha256": "bacc929a84907019419de126b3e5d09710a0aa9cc1f0ab96fe3ba6cb7101b1d8",
           "size_bytes": 9715,
-          "is_valid": true
-        },
-        {
-          "filename": "FORD_CADS.dbc",
-          "relative_path": "curated/passenger/FORD_CADS.dbc",
-          "messages_count": 80,
-          "signals_count": 784,
-          "sha256": "a2099b1e2f499083bdf5b705bd8bab3af85a85aa37f11fc337e1bf6984a6e40a",
-          "size_bytes": 219255,
-          "is_valid": true
-        },
-        {
-          "filename": "FORD_CADS_64.dbc",
-          "relative_path": "curated/passenger/FORD_CADS_64.dbc",
-          "messages_count": 80,
-          "signals_count": 1850,
-          "sha256": "29d49a855d8f0b1b5a0bf6d91b9fc639d2873d6088077f5a6c8a63b5afb1751c",
-          "size_bytes": 491625,
           "is_valid": true
         },
         {
@@ -1110,24 +1380,6 @@
           "is_valid": true
         },
         {
-          "filename": "MX5ND_6thGenMazda_HSCAN.dbc",
-          "relative_path": "curated/passenger/MX5ND_6thGenMazda_HSCAN.dbc",
-          "messages_count": 148,
-          "signals_count": 141,
-          "sha256": "cd2e3fb1b0ce3ee8ed792cf9057ed453bf74a2bc78611ec2a98be259f402c862",
-          "size_bytes": 19440,
-          "is_valid": true
-        },
-        {
-          "filename": "MX5ND_6thGenMazda_MSCAN.dbc",
-          "relative_path": "curated/passenger/MX5ND_6thGenMazda_MSCAN.dbc",
-          "messages_count": 35,
-          "signals_count": 10,
-          "sha256": "3fb7c37c336fb4be310325e48f8f7d03d6fb4b6d714fe65a78b4b5658bc7b1df",
-          "size_bytes": 2909,
-          "is_valid": true
-        },
-        {
           "filename": "nissan_leaf_2018_generated.dbc",
           "relative_path": "curated/passenger/nissan_leaf_2018_generated.dbc",
           "messages_count": 20,
@@ -1398,6 +1650,15 @@
           "is_valid": true
         },
         {
+          "filename": "test.dbc",
+          "relative_path": "curated/passenger/test.dbc",
+          "messages_count": 3,
+          "signals_count": 18,
+          "sha256": "0484d8c0cead515f5db329c429cc4c79e9ce206dcf90e213a8aa6eed44e6b1af",
+          "size_bytes": 1031,
+          "is_valid": true
+        },
+        {
           "filename": "toyota_2017_ref_pt.dbc",
           "relative_path": "curated/passenger/toyota_2017_ref_pt.dbc",
           "messages_count": 143,
@@ -1657,42 +1918,6 @@
           "sha256": "0d25d3b62e60974bbd6ce40d454012f22d043a7882521cce4c86443d2be97bf0",
           "size_bytes": 103288,
           "is_valid": true
-        },
-        {
-          "filename": "LeafPowertrainBus.dbc",
-          "relative_path": "curated/passenger/LeafPowertrainBus.dbc",
-          "messages_count": 10,
-          "signals_count": 21,
-          "sha256": "13b8ec1be42e92404d939cf2bae6f95f86ef6aceb0e63721a89f38839aa27adb",
-          "size_bytes": 2079,
-          "is_valid": true
-        },
-        {
-          "filename": "ThinkCity.dbc",
-          "relative_path": "curated/passenger/ThinkCity.dbc",
-          "messages_count": 501,
-          "signals_count": 548,
-          "sha256": "223fd960a845d759696b7f2459b810f5dfb4a9c5f9da588386de0496410b8e31",
-          "size_bytes": 280344,
-          "is_valid": true
-        },
-        {
-          "filename": "bms.dbc",
-          "relative_path": "curated/passenger/bms.dbc",
-          "messages_count": 6,
-          "signals_count": 30,
-          "sha256": "3b5601d6d61c1b2a6c08ebcb0b758e21928e06bd6d7fd7ea1ad2450bc74ed4b2",
-          "size_bytes": 2460,
-          "is_valid": true
-        },
-        {
-          "filename": "test.dbc",
-          "relative_path": "curated/passenger/test.dbc",
-          "messages_count": 3,
-          "signals_count": 18,
-          "sha256": "0484d8c0cead515f5db329c429cc4c79e9ce206dcf90e213a8aa6eed44e6b1af",
-          "size_bytes": 1031,
-          "is_valid": true
         }
       ]
     },
@@ -1733,7 +1958,7 @@
       ]
     }
   },
-  "total_files": 181,
-  "total_messages": 14961,
-  "total_signals": 75603
+  "total_files": 211,
+  "total_messages": 16198,
+  "total_signals": 80914
 }

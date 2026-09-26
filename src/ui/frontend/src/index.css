@@ -71,64 +71,64 @@
 .dark {
   color-scheme: dark;
 
-  /* ZERON DARK THEME — Locked to Zeron Image 2 Tokens */
-  --bg-window: #0c0e14;
-  --bg-app: #0c0e14;
-  --bg-rail: rgba(16, 19, 28, 0.64);
-  --bg-chrome: rgba(18, 21, 30, 0.70);
-  --bg-panel: rgba(22, 25, 35, 0.55);
-  --bg-card: rgba(22, 25, 35, 0.55);
-  --bg-popover: rgba(26, 30, 42, 0.86);
-  --bg-row-hover: rgba(255, 255, 255, 0.035);
-  --bg-row-selected: rgba(96, 165, 250, 0.10);
-  --bg-row-anomaly: rgba(248, 113, 113, 0.06);
+  /* PURE MINIMALIST CHARCOAL / NEUTRAL DARK (Zero night-blue tint, 100% neutral R=G=B) */
+  --bg-window: #0c0c0c;
+  --bg-app: #111111;                          /* Pure neutral matte black/charcoal canvas */
+  --bg-rail: #161616;                         /* Clean neutral sidebar */
+  --bg-chrome: #161616;                       /* Clean neutral header */
+  --bg-panel: #1b1b1b;                        /* Elevated matte charcoal panel */
+  --bg-card: #1b1b1b;                         /* Card surface */
+  --bg-popover: #222222;                      /* Elevated popover overlay */
+  --bg-row-hover: rgba(255, 255, 255, 0.04);
+  --bg-row-selected: rgba(255, 255, 255, 0.08);
+  --bg-row-anomaly: rgba(244, 63, 94, 0.12);
 
-  /* Surfaces & Panels: cam panel %55/blur20+sat120, rail %64/blur18, chrome %70/blur22, popover %86/blur16 */
-  --glass-rail: rgba(16, 19, 28, 0.64);
-  --glass-panel: rgba(22, 25, 35, 0.55);
-  --glass-chrome: rgba(18, 21, 30, 0.70);
-  --glass-popover: rgba(26, 30, 42, 0.86);
-  --glass-row-sel: rgba(96, 165, 250, 0.10);
-  --glass-row-anom: rgba(248, 113, 113, 0.06);
+  /* Surfaces & Panels with clean neutral tones */
+  --glass-rail: #161616;
+  --glass-panel: #1b1b1b;
+  --glass-chrome: #161616;
+  --glass-popover: #222222;
+  --glass-row-sel: rgba(255, 255, 255, 0.08);
+  --glass-row-anom: rgba(244, 63, 94, 0.12);
   --table-body-surface: transparent;
-  --surface-inset: #151824;
-  --surface-inset-border: rgba(255, 255, 255, 0.10);
+  --surface-inset: #111111;                   /* Pure neutral inset */
+  --surface-inset-border: rgba(255, 255, 255, 0.09);
 
-  /* Hairlines: %8/%14, satır ayraç 0 */
-  --border: rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.14);
-  --border-row: transparent;
-  --border-focus: rgba(96, 165, 250, 0.55);
-  --inset-top-hl: rgba(255, 255, 255, 0.12);
+  /* Hairlines: Ultra-fine crisp neutral borders */
+  --border: rgba(255, 255, 255, 0.08);        /* Crisp neutral hairline */
+  --border-strong: rgba(255, 255, 255, 0.14); /* Distinct structural divider */
+  --border-row: rgba(255, 255, 255, 0.035);
+  --border-focus: rgba(255, 255, 255, 0.40);
+  --inset-top-hl: rgba(255, 255, 255, 0.04);
 
-  /* Metin: #fafafa/#d4d4d8/#a1a1aa/#71717a/#52525b */
-  --text-hi: #fafafa;
-  --text-body: #d4d4d8;
-  --text-mid: #a1a1aa;
-  --text-low: #71717a;
-  --text-faint: #52525b;
+  /* Typography: Pure Neutral White & Gray (Zero blue tint, razor sharp legibility) */
+  --text-hi: #ffffff;      /* Pure white: crisp headers & primary data */
+  --text-body: #d4d4d4;    /* Neutral-300: clean, readable body text */
+  --text-mid: #a3a3a3;     /* Neutral-400: secondary info */
+  --text-low: #737373;     /* Neutral-500: subtle metadata & timestamps */
+  --text-faint: #525252;   /* Neutral-600: placeholders & dividers */
 
-  /* Accent: #60a5fa, soft %10, line %28 */
-  --accent: #60a5fa;
-  --accent-text: #60a5fa;
-  --accent-soft: rgba(96, 165, 250, 0.10);
-  --accent-glow: rgba(96, 165, 250, 0.18);
-  --accent-line: rgba(96, 165, 250, 0.28);
+  /* Accent: Clean Minimalist Pure Monochrome White */
+  --accent: #ffffff;
+  --accent-text: #ffffff;
+  --accent-soft: rgba(255, 255, 255, 0.08);
+  --accent-glow: rgba(255, 255, 255, 0.14);
+  --accent-line: rgba(255, 255, 255, 0.22);
 
-  /* Brand Amber: #fbbf24 (yalnızca güneş + ASIL-D) */
-  --brand-amber: #fbbf24;
+  /* Brand Amber */
+  --brand-amber: #f59e0b;
 
-  /* Diff & Semantic: del #f87171/bg %6/edge #ef4444, add #4ade80/bg %8/edge #22c55e */
-  --del: #f87171;
-  --del-bg: rgba(248, 113, 113, 0.06);
-  --del-edge: #ef4444;
-  --add: #4ade80;
-  --add-bg: rgba(74, 222, 128, 0.08);
-  --add-edge: #22c55e;
-  --warn: #fde047;
-  --warn-bg: rgba(253, 224, 71, 0.08);
-  --warn-edge: #eab308;
-  --info-teal: #a1a1aa;
+  /* Diff & Semantic */
+  --del: #fb7185;          /* Modern Rose */
+  --del-bg: rgba(251, 113, 133, 0.10);
+  --del-edge: #f43f5e;
+  --add: #34d399;          /* Modern Mint/Emerald */
+  --add-bg: rgba(52, 211, 153, 0.10);
+  --add-edge: #10b981;
+  --warn: #fbbf24;         /* Amber */
+  --warn-bg: rgba(251, 191, 36, 0.10);
+  --warn-edge: #f59e0b;
+  --info-teal: #9e9e9e;
   --info-teal-bg: transparent;
   --info-teal-edge: transparent;
 }
@@ -140,7 +140,7 @@
   }
 
   html, body {
-    background-color: var(--bg-app) !important;
+    background-color: transparent !important;
     color: var(--text-body);
     font-family: 'Geist', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     -webkit-font-smoothing: antialiased;
@@ -157,63 +157,29 @@
   }
 }
 
-/* Glow near-off with soft ambient diffusion so frosted glass blurs luminance, not flat black */
+/* Atmospheric Ambient Glow removed for pure, modern, distraction-free clean dark mode */
 .app-ambient-glow {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(1000px circle at 85% 10%, rgba(96, 165, 250, 0.045), transparent 65%),
-    radial-gradient(900px circle at 15% 90%, rgba(96, 165, 250, 0.025), transparent 60%);
+  display: none;
 }
 
-:root:not(.dark) .app-ambient-glow {
-  background:
-    radial-gradient(1000px circle at 85% 10%, rgba(29, 78, 216, 0.035), transparent 65%),
-    radial-gradient(900px circle at 15% 90%, rgba(29, 78, 216, 0.02), transparent 60%);
-}
-
-/* Zeron Frosted Glass Surfaces with Soft Depth */
+/* Modern Clean Obsidian Workspace */
 .glass-workspace {
   background-color: var(--bg-app);
+  position: relative;
+  box-shadow: inset 0 0 0 1px var(--border);
+  border-radius: 8px;
 }
 
-/* Cam Panel: %55/blur20+sat120, gölgeler saf siyah 0 1px 2px .04 + 0 8px 28px .06, kesik 12px */
+:root:not(.dark) .glass-workspace {
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+
+/* Crisp Clean Panel Surface */
 .glass-panel {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 100%), var(--glass-panel);
+  background: var(--glass-panel);
   border: 1px solid var(--border);
-  box-shadow:
-    inset 0 1px 0 0 var(--inset-top-hl),
-    0 1px 2px rgba(0, 0, 0, 0.35),
-    0 8px 28px rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(20px) saturate(120%);
-  -webkit-backdrop-filter: blur(20px) saturate(120%);
+  box-shadow: inset 0 1px 0 0 var(--inset-top-hl), 0 4px 20px rgba(0, 0, 0, 0.25);
   border-radius: 12px;
-}
-
-:root:not(.dark) .glass-panel {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.65) 0%, rgba(255, 255, 255, 0.30) 100%), var(--glass-panel);
-  box-shadow:
-    inset 0 1px 0 0 var(--inset-top-hl),
-    0 1px 2px rgba(0, 0, 0, 0.04),
-    0 8px 28px rgba(0, 0, 0, 0.06);
-}
-
-/* Rail: %64/blur18 */
-.glass-rail {
-  background-color: var(--glass-rail);
-  border-right: 1px solid var(--border);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-}
-
-/* Chrome: %70/blur22 */
-.glass-chrome {
-  background-color: var(--glass-chrome);
-  border-bottom: 1px solid var(--border);
-  backdrop-filter: blur(22px);
-  -webkit-backdrop-filter: blur(22px);
 }
 
 /* Popover: %86/blur16, gölgeler saf siyah 0 12px 40px .10, kesik 10px */
@@ -224,6 +190,55 @@
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-radius: 10px;
+  transform-origin: var(--transform-origin, top center);
+}
+
+/* Tactile Micro-Interactions (Emil Kowalski Design Engineering) */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+.btn-interactive {
+  transition: transform 140ms cubic-bezier(0.23, 1, 0.32, 1), background-color 140ms ease, border-color 140ms ease;
+  will-change: transform;
+}
+
+button:not(:disabled):active,
+[role="button"]:not([aria-disabled="true"]):active,
+.btn-interactive:active {
+  transform: scale(0.97);
+}
+
+/* Telemetry & CAN bus tabular numbers */
+.tabular-nums, table, code, pre, .font-mono {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* Dark mode monochrome button high contrast */
+.dark .bg-accent.text-white,
+.dark button.bg-accent,
+.dark [class*="bg-accent"][class*="text-white"] {
+  color: #0c0c0c !important;
+}
+
+:root:not(.dark) .glass-panel {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.65) 0%, rgba(255, 255, 255, 0.30) 100%), var(--glass-panel);
+  box-shadow:
+    inset 0 1px 0 0 var(--inset-top-hl),
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 8px 28px rgba(0, 0, 0, 0.06);
+}
+
+/* Rail: %64/blur24 */
+.glass-rail {
+  background-color: var(--glass-rail);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+}
+
+/* Chrome: %70/blur20 */
+.glass-chrome {
+  background-color: var(--glass-chrome);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
 }
 
 :root:not(.dark) .glass-popover {
@@ -315,29 +330,23 @@
   outline-offset: 1px;
 }
 
-/* Rail collapse animation — 220ms smooth desktop easing with will-change */
-.rail-collapse {
-  transition: width 220ms cubic-bezier(0.2, 0, 0, 1);
-  will-change: width;
-}
-.rail-collapse .rail-label {
-  transition: opacity 180ms ease, max-width 220ms cubic-bezier(0.2, 0, 0, 1);
-  white-space: nowrap;
-  overflow: hidden;
-}
-.rail-collapsed .rail-label {
-  opacity: 0;
-  max-width: 0;
-  margin: 0 !important;
+/* Global keyboard focus ring; inputs excluded — they keep border-focus treatment */
+button:focus-visible,
+[role="button"]:focus-visible,
+a:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
-/* Copilot drawer animation — 240ms smooth desktop easing matching the left SideRail */
-.copilot-drawer {
-  transition: width 240ms cubic-bezier(0.2, 0, 0, 1),
-              margin-right 240ms cubic-bezier(0.2, 0, 0, 1),
-              padding 240ms cubic-bezier(0.2, 0, 0, 1),
-              opacity 200ms ease;
-  will-change: width, margin-right, padding, opacity;
+/* Zeron GPUI-style smooth sidebar collapse animation — 220ms spring ease-out with will-change */
+.zeron-sidebar-transition {
+  transition: width 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: width;
+}
+
+.zeron-sidebar-dragging {
+  transition: none !important;
 }
 
 /* Reduced motion preference */

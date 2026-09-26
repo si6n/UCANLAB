@@ -21,6 +21,7 @@ from src.core.logging import get_logger
 from src.core.models.diagnostics import VehicleSession
 from src.engine.ai.diagnostic_copilot import (
     DiagnosticAnalysisReport,
+    format_confidence_breakdown,
     get_j1939_spn_database,
 )
 from src.engine.ai.drive_safety_policy import (
@@ -100,6 +101,20 @@ def _extract_spn_number(code: str) -> int | None:
         except ValueError:
             return None
     return None
+
+
+def _confidence_lines(report: DiagnosticAnalysisReport) -> list[str]:
+    """T70-D: the rendered confidence breakdown as a list of lines.
+
+    Returns an empty list when the report carries no breakdown (a session with
+    no active DTC has no score to explain), so the card gains no noise.
+    Deterministic: the breakdown dict is rendered in its own key order.
+    """
+    breakdown = getattr(report, "confidence_breakdown", None)
+    if not isinstance(breakdown, dict) or not breakdown.get("components"):
+        return []
+    rendered = format_confidence_breakdown(breakdown)
+    return [ln for ln in rendered.splitlines() if ln.strip()]
 
 
 def compose_user_card(
@@ -208,11 +223,36 @@ def compose_user_card(
     else:
         evidence.append("Canlı telemetri korelasyonu sınırlı")
 
+    # T67-G (exhaustive answers): the card showed ONE reading of the fault and
+    # never told the owner that the engine holds competing explanations. The
+    # engineering report has ranked every hypothesis and listed every cause the
+    # database carries; those are surfaced here so the owner sees the full
+    # picture rather than a single confident-looking line. Nothing is invented:
+    # each entry is a string the engine already produced.
+    alternatives: list[str] = []
+    for _line in report.hypothesis_candidates:
+        if isinstance(_line, str) and _line.strip():
+            alternatives.append(_line.strip())
+    for _cause in report.likely_causes:
+        if isinstance(_cause, str) and _cause.strip():
+            alternatives.append(_cause.strip())
+    # Deterministic de-duplication, order preserved.
+    _seen_alt: set[str] = set()
+    alternatives = [a for a in alternatives if not (a in _seen_alt or _seen_alt.add(a))]
+
     technical: dict[str, Any] = {
         "dtcs": dtc_codes[:10],
         "severity": report.severity.value,
         "subsystem": "; ".join(report.affected_subsystems[:3]),
         "confidence_score": None,
+        # Additive keys: the TS type declares them optional, so an older UI
+        # ignores them rather than breaking (bridge.ts UserDiagnosticCard).
+        "alternatives_tr": alternatives,
+        "confidence_label": report.root_cause_probability,
+        # T70-D: the label alone could not tell the owner WHICH evidence kind
+        # carried the score. `confidence_breakdown_tr` is the rendered
+        # component view (empty when there is no score to explain).
+        "confidence_breakdown_tr": _confidence_lines(report),
     }
 
     return UserDiagnosticCard(

@@ -169,9 +169,15 @@ class E2EProfileConfig:
         elif variant_upper == "1B":
             p_type = E2EProfileType.AUTOSAR_PROFILE_1B
             counter_mod = 16
-        else:
+        elif variant_upper == "1C":
             p_type = E2EProfileType.AUTOSAR_PROFILE_1C
             counter_mod = 16
+        else:
+            # Fail-closed: silently mapping a typo'd variant to 1C would accept
+            # a mis-configured profile as if it were validated.
+            raise ValueError(
+                f"unknown AUTOSAR Profile 1 variant {variant!r} (expected '1A', '1B' or '1C')"
+            )
 
         return cls(
             profile_type=p_type,

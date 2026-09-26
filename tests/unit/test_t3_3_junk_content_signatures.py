@@ -91,6 +91,24 @@ class TestMeasuredFalsePositivesAreLocked:
         text = "See also our experts. Advanced Technical Analysis The ECM monitors continuously."
         assert classify_cause(text).is_junk is True
 
+    def test_whitespace_variant_marker_still_junks(self) -> None:
+        """The marker is matched on the WHITESPACE-COLLAPSED copy, so the head
+        must be sliced from that same copy.
+
+        Before the fix the head was ``text[: text.lower().find(phrase)]``: with
+        a whitespace variant of the marker ("Advanced  Technical" — double
+        space) the raw ``find()`` returned -1, ``text[:-1]`` degenerated to the
+        WHOLE text, its leading fault nouns satisfied ``_looks_like_a_cause``,
+        and the SEO rule was defeated.
+        """
+        text = (
+            "Advanced Technical  Analysis The ECM employs logic to monitor the "
+            "wiring harness and sensor supply. This section describes the overview "
+            "of the system operation and diagnostic strategies."
+        )
+        v = classify_cause(text)
+        assert v.is_junk is True and v.signature == "seo_marketing_filler", text
+
 
 class TestSourceRuleIsNarrow:
     def test_only_truly_wholesale_junk_sources_are_listed(self) -> None:

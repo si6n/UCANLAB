@@ -7,6 +7,7 @@ import {
   Play,
   AlertTriangle,
   Cpu,
+  X,
 } from 'lucide-react';
 import {
   INITIAL_SCOPE_SERIES,
@@ -26,6 +27,7 @@ export const ScopePanel: React.FC<ScopePanelProps> = ({
   const [activeSegment, setActiveSegment] = useState<'oscilloscope' | 'heatmap'>('oscilloscope');
   const [seriesList, setSeriesList] = useState(INITIAL_SCOPE_SERIES);
   const [showAlertDetails, setShowAlertDetails] = useState(false);
+  const [isAlertDismissed, setIsAlertDismissed] = useState(false);
 
   // Crosshair coordinates
   const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null);
@@ -360,7 +362,7 @@ export const ScopePanel: React.FC<ScopePanelProps> = ({
   return (
     <div className="relative flex flex-1 min-h-[200px] flex-col overflow-hidden">
       {/* Panel Header: seamless row on frosted glass card */}
-      <div className="flex h-11 shrink-0 select-none items-center justify-between border-b border-border/60 px-3.5">
+      <div className="flex min-h-[44px] shrink-0 select-none flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-border/60 px-3.5 py-1">
         {/* Left: Section Title */}
         <div className="flex items-center gap-2">
           <div className="flex h-5 w-5 items-center justify-center rounded-md bg-accent-soft text-accent">
@@ -372,9 +374,9 @@ export const ScopePanel: React.FC<ScopePanelProps> = ({
         </div>
 
         {/* Right: Legend Chips + Divider + Corner Controls + Segmented Switch */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
           {/* Legend — inline: dot + SANS name micro + MONO value + unit low, no boxes */}
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             {seriesList.map((s) => (
               <div
                 key={s.id}
@@ -447,32 +449,42 @@ export const ScopePanel: React.FC<ScopePanelProps> = ({
       </div>
 
       {/* FLOATING ALERT BANNER — banner hairline %20, AI-Analiz del outline, kesik 6px */}
-      <div className="mx-3 my-1.5 flex h-8 shrink-0 select-none items-center justify-between rounded-[6px] border border-deledge/20 bg-delbg/70 px-3 backdrop-blur-sm transition-all">
-        <div className="flex items-center gap-2">
-          <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-del" />
-          <span className="font-sans text-[11.5px] font-semibold text-text-hi">
-            RPM Ani Düşüşü: -575 RPM (Tekleme Çentiği!)
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {showAlertDetails && (
-            <span className="rounded-[4px] border border-deledge/25 bg-delbg px-2 py-0.5 font-mono text-[10.5px] text-del">
-              SPN 190 FMI 2 · Süre: 40ms
+      {!isAlertDismissed && (
+        <div className="mx-3 my-1.5 flex h-8 shrink-0 select-none items-center justify-between rounded-[6px] border border-deledge/20 bg-delbg/70 px-3 backdrop-blur-sm transition-all duration-200 animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-del" />
+            <span className="font-sans text-[11.5px] font-semibold text-text-hi">
+              RPM Ani Düşüşü: -575 RPM (Tekleme Çentiği!)
             </span>
-          )}
-          <button
-            onClick={() => {
-              setShowAlertDetails((prev) => !prev);
-              if (onAnalyzeFault) onAnalyzeFault();
-            }}
-            className="flex items-center gap-1.5 rounded-[6px] border border-deledge/50 px-2 py-0.5 font-sans text-[11.5px] font-medium text-del transition-all hover:bg-deledge/20 active:scale-[0.98]"
-          >
-            <Cpu className="h-3 w-3" />
-            <span>AI Analiz</span>
-          </button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {showAlertDetails && (
+              <span className="rounded-[4px] border border-deledge/25 bg-delbg px-2 py-0.5 font-mono text-[10.5px] text-del">
+                SPN 190 FMI 2 · Süre: 40ms
+              </span>
+            )}
+            <button
+              onClick={() => {
+                setShowAlertDetails((prev) => !prev);
+                if (onAnalyzeFault) onAnalyzeFault();
+              }}
+              className="flex items-center gap-1.5 rounded-[5px] border border-deledge/50 px-2 py-0.5 font-sans text-[11px] font-medium text-del transition-all hover:bg-deledge/20 active:scale-[0.97]"
+            >
+              <Cpu className="h-3 w-3" />
+              <span>AI Analiz</span>
+            </button>
+            <button
+              onClick={() => setIsAlertDismissed(true)}
+              className="flex h-5 w-5 items-center justify-center rounded-[4px] text-text-low hover:text-del hover:bg-delbg transition-colors"
+              title="Uyarıyı Gizle"
+              aria-label="Uyarıyı Gizle"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Scope Canvas Area — glass wash behind, sheen on top (both pointer-transparent) */}
       <div className="relative flex-1 min-h-[140px] w-full overflow-hidden">

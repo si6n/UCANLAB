@@ -285,7 +285,8 @@ class TelemetryUploader:
         if resp.status != 200:
             raise LicenseError(f"Session not found: {session_id}", code="SESSION_NOT_FOUND")
         data = resp.json_object()
-        total_chunks = data.get("total_chunks", 0)
+        raw_total = data.get("total_chunks", 0)
+        total_chunks = int(raw_total) if isinstance(raw_total, (int, float)) and raw_total >= 0 else 0
         received_chunks = self._parse_received_chunks(data, total_chunks)
         uploaded_count = len(received_chunks) if received_chunks else (
             data.get("received_chunks", 0) if isinstance(data.get("received_chunks"), int) else 0

@@ -189,6 +189,18 @@ def build_exe() -> int:
     else:
         print("[UYARI] data/diagnostics bulunamadi — exe duyarlik DB'siz derlenecek.")
 
+    knowledge_dir = root_dir / "data" / "knowledge"
+    if knowledge_dir.is_dir():
+        data_args.append(f"{knowledge_dir};data/knowledge")
+
+    golden_dir = root_dir / "data" / "golden_traces"
+    if golden_dir.is_dir():
+        data_args.append(f"{golden_dir};data/golden_traces")
+
+    dbc_dir = root_dir / "data" / "dbc"
+    if dbc_dir.is_dir():
+        data_args.append(f"{dbc_dir};data/dbc")
+
     cmd = [
         sys.executable,
         "-m",
@@ -207,7 +219,6 @@ def build_exe() -> int:
         "--hidden-import=src.safety.state_machine",
         "--hidden-import=src.safety.secret_provider",
         "--hidden-import=src.safety.multiplexer",
-        "--hidden-import=src.safety.reset_authority",
         "--hidden-import=src.safety.e2e.packager",
         "--hidden-import=src.safety.e2e.validator",
         "--hidden-import=src.security.license.validator",
@@ -247,8 +258,6 @@ def build_exe() -> int:
         "--hidden-import=src.hal.replay.safety_filter",
         "--hidden-import=src.hal.power.win32_power",
         "--hidden-import=src.hal.virtual",
-        "--hidden-import=src.hal.tx_port",
-        "--hidden-import=src.hal.can_interface",
         "--hidden-import=src.engine.discovery.engine",
         "--hidden-import=src.engine.discovery.bitstats",
         "--hidden-import=src.engine.discovery.segmenter",

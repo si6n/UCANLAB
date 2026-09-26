@@ -194,10 +194,6 @@ class BinaryRingBuffer:
         if ch_int is None:
             ch_int = self._intern_channel_unlocked(channel_id)
 
-        # RB-1: detach a coherent reverse-map snapshot while still holding
-        # the lock, and keep it for get_latest_frames' record materialization.
-        self._rev_channel_snapshot = dict(self._rev_channel_map)
-
         padded = data.ljust(64, b"\x00") if data_len < 64 else data[:64]
         self._buffer[idx] = (
             frame.timestamp_ns,
@@ -247,6 +243,7 @@ class BinaryRingBuffer:
         val = len(self._channel_map)
         self._channel_map[channel_id] = val
         self._rev_channel_map[val] = channel_id
+        self._rev_channel_snapshot = dict(self._rev_channel_map)
         return val
 
     def append(self, frame: CanFrame) -> int:
@@ -273,6 +270,11 @@ class BinaryRingBuffer:
     def current_size(self) -> int:
         with self._lock:
             return min(self._total_written, self.capacity)
+
+    def _channel_name_snapshot(self) -> dict[int, str]:
+        """Copy of the channel-name map captured under the buffer lock (RB-1)."""
+        with self._lock:
+            return dict(self._rev_channel_snapshot)
 
     def get_latest_view(
         self, count: int, *, copy: bool = True
@@ -340,11 +342,11 @@ class BinaryRingBuffer:
         records = list(old_part) + list(new_part)
         records = records[-n:]
 
-        # RB-1: the channel-name map is captured from the coherent append-time
-        # snapshot, not by a lock-free read of the live dict (which a
-        # concurrent clear() could blank mid-materialization, relabelling
-        # every frame `ch_<n>`).
-        rev_channel_snapshot = self._rev_channel_snapshot
+        # RB-1: the channel-name map is copied under the buffer lock (helper
+        # pairs with get_latest_view), never read lock-free from the live dict
+        # (which a concurrent clear() could blank mid-materialization,
+        # relabelling every frame `ch_<n>`).
+        rev_channel_snapshot = self._channel_name_snapshot()
 
         # Lock-free materialization, sequence labels coherent with the snapshot.
         frames: list[CanFrame] = []

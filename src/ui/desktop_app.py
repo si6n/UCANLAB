@@ -5,19 +5,23 @@ from __future__ import annotations
 import base64
 import concurrent.futures
 import hashlib
+import html
 import json
 import math
 import os
 import re
 import secrets
+import socket
 import sys
 import threading
 import time
 import urllib.parse
 import uuid
+import webbrowser
 from collections import deque
 from concurrent.futures import TimeoutError as FuturesTimeoutError
 from dataclasses import dataclass
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -64,7 +68,12 @@ from src.safety.multiplexer import SafeMultiplexedBus
 from src.safety.secret_provider import get_default_secret_provider
 from src.safety.state_machine import SafetyState, SafetySupervisor
 from src.safety.watchdog import TxWatchdogSupervisor
-from src.security.cloud.client import CANONICAL_CLOUD_HOSTS, CloudClient, CloudConfig
+from src.security.cloud.client import (
+    CANONICAL_CLOUD_HOSTS,
+    CloudClient,
+    CloudConfig,
+    validate_session_token,
+)
 from src.security.cloud.license_flow import LicenseFlow
 from src.security.cloud.telemetry_uploader import TelemetryUploader, UploadProgress
 from src.security.hwid.collector import generate_hardware_fingerprint
@@ -88,6 +97,8 @@ class DiagnosticChallenge:
     created_at_monotonic_ns: int
     max_age_ns: int = 30_000_000_000  # 30 seconds
     params_hash: str = ""
+    # B-01: native presence flag, True only after an OS-level dialog.
+    native_presence: bool = False
 
 DEFAULT_EMBEDDED_CLOUD_PUBLIC_KEY_B64 = "eX3vJQWpo/pKrkpi5Y+f7m5ooUCRbCyY201DTnAjz/Q="
 
@@ -118,7 +129,7 @@ ATTRIBUTION_ALLOWED_FILES: tuple[str, ...] = (
 
 # B7 (REVIEW): production cloud endpoint. Override with UCANLAB_CLOUD_BASE_URL
 # (any HTTPS URL) or switch to the local dev server with UCANLAB_CLOUD_DEV=1.
-DEFAULT_CLOUD_BASE_URL = "https://ucan-cloud.si6n.io"
+DEFAULT_CLOUD_BASE_URL = "https://ucanlab.org"
 _DEV_CLOUD_BASE_URL = "http://127.0.0.1:8000"
 
 
@@ -272,6 +283,309 @@ def _validate_bridge_text(
     return None
 
 
+def _strict_bool(value: object) -> bool:
+    """M-03: strict string->bool. Only canonical truthy spellings are True."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    if isinstance(value, str):
+        return value.strip().lower() in ("1", "true", "yes", "y", "on")
+    return False
+
+
+def _sanitize_features(value: object) -> list[str]:
+    """M-03: validate features list shape. Non-list -> []."""
+    if not isinstance(value, (list, tuple)):
+        return []
+    out: list[str] = []
+    for item in value:
+        if isinstance(item, str) and item and len(item) <= 128 and item.isprintable():
+            out.append(item)
+    return out
+
+
+# B-02: navigation guard poll interval (seconds).
+_NAV_GUARD_POLL_S: float = 0.5
+# I-05: diagnostic challenge store caps (estop single-slot untouched).
+_DIAG_CHALLENGE_MAX: int = 64
+_DIAG_CHALLENGE_MAX_PER_MIN: int = 20
+# I-05: reject oversized action payloads before hashing/serializing them.
+_DIAG_CHALLENGE_MAX_ACTION_CHARS: int = 16_384
+# I-08: upload approval token TTL.
+_UPLOAD_APPROVAL_TTL_S: float = 120.0
+
+
+# Desktop SSO loopback ports (RFC 8252 §8.1 + RFC 7636 PKCE).
+#
+# Security review finding (desktop SSO session-token leak): the previous flow
+# had the web page hand the raw session token to whatever process owned the
+# callback port. The replacement binds one of a FIXED set of ports and receives
+# only a short-lived, single-use authorization code; the code is exchanged for
+# a token over HTTPS using a PKCE verifier that never leaves this process.
+#
+# The port list must match the backend's DESKTOP_LOOPBACK_PORTS allowlist.
+#
+# Port ownership (security review, verified by measurement on Windows 11):
+# HTTPServer sets allow_reuse_address = 1, which maps to SO_REUSEADDR. On
+# Windows that does NOT mean "reuse a socket in TIME_WAIT" as it does on
+# POSIX — it lets a SECOND process bind an address that is already bound and
+# listening. Measured consequences:
+#
+#   * app binds first, squatter second  -> squatter bind SUCCEEDS; whichever
+#     listener bound first keeps winning new connections, so behaviour depends
+#     on start order rather than on any guarantee;
+#   * squatter binds first, app second  -> both bind, and the squatter (first)
+#     receives the browser's redirect, i.e. the authorization code.
+#
+# PKCE does not cover this: it protects a code that was STOLEN from a
+# legitimate flow. Here the attacker supplies their own code_challenge and
+# verifier, so if their listener receives the code they can redeem it for the
+# victim's session (reproduced end-to-end against the real API).
+#
+# SO_EXCLUSIVEADDRUSE makes the bind exclusive, which closes both directions.
+# It cannot be combined with SO_REUSEADDR — Windows rejects the pair with
+# WinError 10022 — so `allow_reuse_address` MUST be disabled as well; setting
+# the socket option alone silently produces an invalid socket setup.
+_DESKTOP_LOOPBACK_PORTS: tuple[int, ...] = (47820, 47821, 47822)
+
+_SO_EXCLUSIVEADDRUSE = getattr(socket, "SO_EXCLUSIVEADDRUSE", None)
+
+
+class _ExclusiveHTTPServer(HTTPServer):
+    """HTTPServer that owns its loopback port outright.
+
+    With SO_EXCLUSIVEADDRUSE (Windows) a second process cannot bind the same
+    address, so a local squatter can neither join the app's listener nor
+    pre-empt it. When the port is already taken the bind fails, `_bind_loopback_server`
+    moves to the next allowlisted port, and if none is free the caller reports
+    an error instead of handing an authorization code to a foreign listener.
+
+    On platforms without SO_EXCLUSIVEADDRUSE (Linux/macOS) this falls back to
+    the default behaviour: POSIX SO_REUSEADDR does not permit two live listeners
+    on the same address, so the port is already exclusive there.
+    """
+
+    # Must be 0: Windows rejects SO_EXCLUSIVEADDRUSE together with SO_REUSEADDR.
+    allow_reuse_address = 0
+
+    def server_bind(self) -> None:
+        if _SO_EXCLUSIVEADDRUSE is not None:
+            try:
+                self.socket.setsockopt(socket.SOL_SOCKET, _SO_EXCLUSIVEADDRUSE, 1)
+            except OSError as exc:
+                # Never fall through silently: binding without exclusivity is
+                # exactly the weakness this class exists to remove.
+                raise OSError(
+                    f"could not take exclusive ownership of the loopback port: {exc}"
+                ) from exc
+        super().server_bind()
+
+
+def _pkce_verifier() -> str:
+    """RFC 7636 §4.1 verifier: 43-128 chars of unreserved characters."""
+    return secrets.token_urlsafe(32)
+
+
+def _pkce_challenge(verifier: str) -> str:
+    """S256 challenge: base64url(SHA256(ASCII(verifier))) without padding."""
+    digest = hashlib.sha256(verifier.encode("ascii")).digest()
+    return base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+
+
+def _bind_loopback_server() -> tuple[HTTPServer, int]:
+    """Bind the first free port from the allowlist, or raise OSError."""
+    last_exc: OSError | None = None
+    for port in _DESKTOP_LOOPBACK_PORTS:
+        try:
+            return _ExclusiveHTTPServer(("127.0.0.1", port), _DesktopAuthCallbackHandler), port
+        except OSError as exc:  # port busy OR squatted -> try the next allowlisted one
+            last_exc = exc
+    raise last_exc or OSError("no loopback port available")
+
+
+class _DesktopAuthCallbackHandler(BaseHTTPRequestHandler):
+    """Temporary loopback HTTP handler receiving the auth callback from the web browser."""
+
+    app_instance: Any = None
+    expected_state: str = ""
+    code_verifier: str = ""
+    redirect_uri: str = ""
+    auth_result: dict[str, Any] = {}
+
+    def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
+        pass  # Silence stderr request logging
+
+    # ------------------------------------------------------------------
+    # Response handling
+    # ------------------------------------------------------------------
+    #
+    # The callback handler used to interleave two very different things in a
+    # single try/except: authenticating the login, and writing the browser's
+    # response. When the browser closed the tab before the body drained
+    # (WinError 10053 / ConnectionAbortedError — likely, because the success
+    # page calls window.close()), that socket error was caught by the same
+    # handler that reports authentication failures. Two consequences:
+    #
+    #   1. a COMPLETED login was recorded as `status="error"`, so the UI showed
+    #      a failure even though the session token had been stored;
+    #   2. the error path then tried to write a 400 to the already-dead socket
+    #      and raised a second time — the debugger stop.
+    #
+    # The phases are now separate by construction: `_authenticate` decides
+    # auth_result and writes nothing; `_respond` writes exactly one response and
+    # can never change the outcome.
+
+    @classmethod
+    def _mark_completed(cls) -> None:
+        cls.auth_result["status"] = "completed"
+        cls.auth_result["error"] = None
+
+    @classmethod
+    def _mark_failed(cls, message: str) -> None:
+        """Record a failure without downgrading an already-completed login.
+
+        A stale or duplicate callback (browser retry, second tab, a late error
+        redirect) must not turn a successful sign-in into a reported failure.
+        """
+        if cls.auth_result.get("status") == "completed":
+            return
+        cls.auth_result["status"] = "error"
+        cls.auth_result["error"] = message
+
+    def _respond(self, status: int, body: str, content_type: str = "text/html; charset=utf-8") -> None:
+        """Write the single HTTP response, best-effort.
+
+        A client disconnect here is not an application error: the browser may
+        have closed the tab, navigated away, or been closed by the page's own
+        window.close() before the body drained. Swallowing those socket errors
+        keeps them from surfacing as a false auth failure and from triggering a
+        second write to a dead socket.
+        """
+        payload = body.encode("utf-8")
+        try:
+            self.send_response(status)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(payload)))
+            self.send_header("Connection", "close")
+            self.end_headers()
+            self.wfile.write(payload)
+        except OSError as exc:
+            # BrokenPipeError, ConnectionResetError and ConnectionAbortedError
+            # (WinError 10053) are all OSError subclasses.
+            logger.debug("auth callback client disconnected before the response completed: %s", exc)
+        except Exception:
+            logger.exception("unexpected failure writing the auth callback response")
+
+    def do_GET(self) -> None:
+        parsed = urllib.parse.urlsplit(self.path)
+        if parsed.path != "/callback":
+            self._respond(404, "Not Found", content_type="text/plain; charset=utf-8")
+            return
+
+        params = urllib.parse.parse_qs(parsed.query)
+        incoming_state = (params.get("state") or [""])[0]
+        code = (params.get("code") or [""])[0]
+        # Legacy `token`/`session_token` params are DELIBERATELY not accepted:
+        # the whole point of the PKCE flow is that the browser never carries a
+        # session token. An old-style URL must fail loudly, not silently work.
+        err = (params.get("error") or params.get("error_description") or [""])[0]
+
+        # --- Phase 1: authenticate. Writes NO response. ---
+        if not incoming_state or incoming_state != self.expected_state:
+            self._mark_failed("Güvenlik doğrulama hatası (state mismatch)")
+            self._respond(400, "<h3>Guvenlik dogrulama hatasi (State mismatch). Lutfen tekrar deneyin.</h3>")
+            return
+
+        if err:
+            # The user/provider cancelled. Echo the reason ESCAPED: it comes
+            # straight from the query string, so it must never be rendered raw.
+            self._mark_failed(err)
+            self._respond(200, f"<h3>Giris iptal edildi: {html.escape(err)}</h3>")
+            return
+
+        if not code:
+            self._mark_failed("Yetkilendirme kodu alinamadi")
+            self._respond(400, "<h3>Yetkilendirme kodu alinamadi.</h3>")
+            return
+
+        # --- Phase 1 (cont.): exchange the code. Writes NO response. ---
+        try:
+            app = _DesktopAuthCallbackHandler.app_instance
+            verifier = _DesktopAuthCallbackHandler.code_verifier
+            redirect_uri = _DesktopAuthCallbackHandler.redirect_uri
+            if app is None or not verifier or not redirect_uri:
+                raise SecurityError(
+                    "Web login callback arrived without an active PKCE session",
+                    code="WEB_LOGIN_NO_PKCE_CONTEXT",
+                )
+
+            # The code is worthless without the verifier, which never left this
+            # process — a local attacker who intercepted the redirect cannot
+            # complete this exchange.
+            resp = app.cloud_client.request(
+                "POST",
+                "/auth/desktop/token",
+                json_body={
+                    "code": code,
+                    "code_verifier": verifier,
+                    "redirect_uri": redirect_uri,
+                },
+            )
+            payload = resp.json_object() or {}
+            token = payload.get("session_token")
+            if not token:
+                raise SecurityError(
+                    "Token exchange returned no session_token",
+                    code="WEB_LOGIN_EXCHANGE_FAILED",
+                )
+
+            validated_token = validate_session_token(token)
+            app.cloud_client.store_session_token(validated_token)
+            if getattr(app, "license_flow", None) and not app.cloud_client.get_device_token():
+                try:
+                    app.license_flow.register_device(device_name="Desktop Diagnostic Tool")
+                except Exception as reg_exc:
+                    logger.warning("Automatic device registration during web login skipped: %s", reg_exc)
+        except Exception as exc:
+            # A genuine authentication failure: the token was NOT stored, so
+            # the login really did fail and the UI must be told.
+            logger.warning("web login callback authentication failed: %s", exc)
+            self._mark_failed(str(exc))
+            self._respond(400, f"<h3>Giris isleme hatasi: {html.escape(str(exc))}</h3>")
+            return
+
+        # Authentication succeeded and the token is stored. From here on the
+        # outcome is final: delivering the page is a courtesy to the browser,
+        # and a disconnect while doing so must NOT be reported as a failed
+        # login (the original bug — a completed sign-in shown as an error).
+        self._mark_completed()
+
+        # --- Phase 2: respond. Cannot change auth_result. ---
+        html_body = (
+            "<!DOCTYPE html>"
+            "<html lang='tr'><head><meta charset='utf-8'>"
+            "<title>UCanLab - Giriş Başarılı</title>"
+            "<style>"
+            "body { font-family: system-ui, -apple-system, sans-serif; background: #090d16; color: #f1f5f9; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }"
+            ".card { background: #131b2e; border: 1px solid #1e293b; padding: 36px 40px; border-radius: 12px; text-align: center; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); max-width: 420px; }"
+            ".icon { width: 48px; height: 48px; border-radius: 50%; background: rgba(34, 197, 94, 0.15); color: #22c55e; display: inline-flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 16px; }"
+            "h2 { color: #f8fafc; margin: 0 0 8px 0; font-size: 20px; font-weight: 600; }"
+            "p { color: #94a3b8; font-size: 14px; line-height: 1.5; margin: 0 0 16px 0; }"
+            ".sub { font-size: 12px; color: #64748b; margin-top: 16px; border-top: 1px solid #1e293b; padding-top: 12px; }"
+            "</style></head><body>"
+            "<div class='card'>"
+            "<div class='icon'>✓</div>"
+            "<h2>Giriş Başarılı!</h2>"
+            "<p>UCanLab Masaüstü Uygulaması başarıyla bağlandı. Abonelik ve yetkileriniz eşitlendi.</p>"
+            "<p class='sub'>Bu sekmeyi güvenle kapatıp uygulamaya dönebilirsiniz.</p>"
+            "</div>"
+            "<script>setTimeout(function(){ window.close(); }, 3500);</script>"
+            "</body></html>"
+        )
+        self._respond(200, html_body)
+
+
 class DesktopApiBridge:
     """Bidirectional API bridge exposed to React JavaScript window via window.pywebview.api."""
 
@@ -309,13 +623,17 @@ class DesktopApiBridge:
         "export_session_report": "data",
         "cloud_upload_session": "data",
         "cloud_upload_raw_content": "data",
+        "cloud_request_upload_approval": "data",
         "discovery_export_dbc": "data",
         "record_operator_measurement": "data",
         "record_operator_answer": "data",
         "record_technician_feedback": "data",
         "get_dialogue_state": "read",
         "ask_copilot": "read",
-        "cloud_activate_license": "config",
+        "cloud_start_web_login": "config",
+        "cloud_check_web_login_status": "read",
+        "cloud_cancel_web_login": "config",
+        "cloud_logout": "config",
         "cloud_get_status": "read",
         "cloud_register_device": "config",
         "cloud_save_config": "config",
@@ -466,8 +784,15 @@ class DesktopApiBridge:
         return self.app.export_session_report()
 
     def request_diagnostic_challenge(self, action: dict[str, Any]) -> dict[str, Any]:
-        """Issue a short-lived (≤30s) single-use cryptographic confirmation token for a diagnostic action."""
-        return self.app.request_diagnostic_challenge(action)
+        """Issue a short-lived (≤30s) single-use nonce challenge for a diagnostic action.
+
+        B-01: the challenge is stamped with the OS-native user-presence result
+        captured at mint time. A challenge minted without native presence can
+        never authorize a destructive action in physical mode — the renderer
+        completing both mint and consume in script alone stays fail-closed.
+        """
+        native_presence = self._require_native_presence("diagnostic_challenge")
+        return self.app.request_diagnostic_challenge(action, native_presence=native_presence)
 
     def execute_diagnostic_action(
         self,
@@ -573,6 +898,17 @@ class DesktopApiBridge:
     def flash_start(self, config: dict[str, Any], confirmation_token: str | None = None) -> dict[str, Any]:
         """Start UDS ECU reprogramming sequence with dual confirmation challenge verification."""
         return self.app.flash_start(config, confirmation_token=confirmation_token)
+
+    @classmethod
+    def _validate_flash_prerequisites(cls, config: dict[str, Any]) -> str | None:
+        """B-07: bridge-level access to the pre-arm flash contract.
+
+        The authoritative gate lives on the composition root
+        (`UniversalCanDesktopApp._validate_flash_prerequisites`); this
+        delegate keeps the renderer-facing contract testable at the bridge
+        boundary without duplicating the policy.
+        """
+        return UniversalCanDesktopApp._validate_flash_prerequisites(config)
 
     def flash_progress(self) -> dict[str, Any]:
         """Get live step-by-step progress and status of ECU reprogramming."""
@@ -690,10 +1026,41 @@ class DesktopApiBridge:
         return self.app.supervisor.current_state.value
 
     def arm_tx(self, reason: str = "Operator armed TX via UI") -> dict[str, Any]:
+        # B-01: renderer cannot arm TX directly; fail-closed without native dialog.
+        if not self._require_native_presence("arm_tx"):
+            return {"success": False, "error": "Native confirmation required (fail-closed)."}
         return self.app.arm_tx(reason=reason)
 
     def disarm_tx(self, reason: str = "Operator disarmed TX via UI") -> dict[str, Any]:
+        if not self._require_native_presence("disarm_tx"):
+            return {"success": False, "error": "Native confirmation required (fail-closed)."}
         return self.app.disarm_tx(reason=reason)
+
+    def _native_confirmed(self, action: str) -> bool:
+        """B-01: OS-level user-presence check. Never trusts JS booleans."""
+        window = getattr(self.app, "_window", None)
+        if window is None:
+            logger.warning("Native confirmation unavailable (no window): %s refused", action)
+            return False
+        try:
+            return bool(window.create_confirmation_dialog(
+                "Onay Gerekli",
+                f"Kritik islem: {action}. Devam edilsin mi?",
+            ))
+        except Exception as exc:
+            logger.warning("Native confirmation failed: %s refused (%s)", action, exc)
+            return False
+
+    def _require_native_presence(self, action: str) -> bool:
+        """B-01: user presence for a renderer-initiated sensitive mint.
+
+        Production: an OS-native confirmation dialog must actually run (the
+        dialog is the evidence). Test mode models the operator dialog so the
+        suite can exercise the flows; simulation cannot reach hardware TX.
+        """
+        if os.environ.get("UCANLAB_TEST_MODE") == "1":
+            return True
+        return self._native_confirmed(action)
 
     def estop_request_challenge(self) -> dict[str, Any]:
         """Issue a cryptographic reset challenge for multi-operator/independent verification."""
@@ -785,6 +1152,40 @@ class DesktopApiBridge:
             has_session = self.app.cloud_client.has_session_token()
             device_token = self.app.cloud_client.get_device_token()
             license_claims = None
+            user_data = None
+            subscription_data = None
+
+            # Fetch live user and subscription info if has session
+            if has_session:
+                user_info = self.app.cloud_client.get_current_user_and_subscription()
+                if user_info:
+                    user_data = {
+                        "id": user_info.get("id"),
+                        "email": user_info.get("email"),
+                        "name": user_info.get("name"),
+                        "organization": user_info.get("organization") or user_info.get("organization_name"),
+                    }
+                    sub = user_info.get("subscription")
+                    if isinstance(sub, dict):
+                        # M-03: strict parse — the cloud payload may carry
+                        # string "false"/"0"/"no", which are TRUTHY in Python;
+                        # `_strict_bool` maps only canonical truthy spellings.
+                        subscription_data = {
+                            "isActive": _strict_bool(sub.get("is_active", False))
+                            or _strict_bool(sub.get("active", False)),
+                            "tier": str(sub.get("tier", "FREE")),
+                            "expiresAt": sub.get("expires_at"),
+                            "features": _sanitize_features(sub.get("features")),
+                        }
+                    elif user_info.get("tier"):
+                        tier_str = str(user_info.get("tier", "FREE"))
+                        subscription_data = {
+                            "isActive": tier_str.upper() not in ("", "FREE", "COMMUNITY"),
+                            "tier": tier_str,
+                            "expiresAt": user_info.get("expires_at"),
+                            "features": _sanitize_features(user_info.get("features")),
+                        }
+
             if self.app._secret_provider.has_secret("CLOUD_LICENSE_TICKET") and self.app.license_flow:
                 ticket_str = self.app._secret_provider.get_secret("CLOUD_LICENSE_TICKET").decode("utf-8")
                 try:
@@ -799,8 +1200,23 @@ class DesktopApiBridge:
                         "offlineUntil": claims.offline_until,
                         "issuedAt": claims.issued_at,
                     }
+                    if subscription_data is None:
+                        subscription_data = {
+                            "isActive": True,
+                            "tier": claims.tier,
+                            "expiresAt": claims.expires_at,
+                            "features": list(claims.features),
+                        }
                 except Exception:
                     pass
+
+            if subscription_data is None:
+                subscription_data = {
+                    "isActive": False,
+                    "tier": "FREE",
+                    "expiresAt": None,
+                    "features": [],
+                }
 
             return {
                 "success": True,
@@ -812,8 +1228,134 @@ class DesktopApiBridge:
                 # as secret-grade (log-truncated). The full value stays in
                 # the Python/DPAPI layer.
                 "hwid": hwid[:8] + "…" if len(hwid) > 8 else hwid,
+                "user": user_data,
+                "subscription": subscription_data,
                 "license": license_claims,
             }
+        except Exception as exc:
+            return {"success": False, "error": str(exc)}
+
+    def cloud_start_web_login(self) -> dict[str, Any]:
+        """Start browser-based SSO login (RFC 8252 loopback + PKCE).
+
+        Security review finding (desktop SSO session-token leak): the browser
+        used to receive the raw session token in the callback URL. Now it
+        receives only a short-lived, single-use authorization code; this method
+        generates the PKCE verifier (kept in-process) and sends its S256
+        challenge to the web page, so the eventual exchange can only succeed
+        here.
+        """
+        with self.app._web_login_lock:
+            if self.app._web_login_server is not None:
+                try:
+                    self.app._web_login_server.server_close()
+                except Exception:
+                    pass
+                self.app._web_login_server = None
+
+            csrf_state = secrets.token_urlsafe(24)
+            verifier = _pkce_verifier()
+            challenge = _pkce_challenge(verifier)
+            self.app._web_login_state = {"status": "pending", "state": csrf_state, "error": None}
+
+            try:
+                server, port = _bind_loopback_server()
+                server.timeout = 300.0  # 5 minutes
+                redirect_uri = f"http://127.0.0.1:{port}/callback"
+                _DesktopAuthCallbackHandler.app_instance = self.app
+                _DesktopAuthCallbackHandler.expected_state = csrf_state
+                # The verifier stays in this process; the web page only ever
+                # sees the derived challenge.
+                _DesktopAuthCallbackHandler.code_verifier = verifier
+                _DesktopAuthCallbackHandler.redirect_uri = redirect_uri
+                _DesktopAuthCallbackHandler.auth_result = self.app._web_login_state
+                self.app._web_login_server = server
+
+                def _listen() -> None:
+                    try:
+                        server.handle_request()
+                    finally:
+                        try:
+                            server.server_close()
+                        except Exception:
+                            pass
+                        # Drop the verifier as soon as the one-shot listener
+                        # exits: it must not outlive the flow it authorizes.
+                        _DesktopAuthCallbackHandler.code_verifier = ""
+
+                th = threading.Thread(target=_listen, name="web_login_callback", daemon=True)
+                th.start()
+            except Exception as exc:
+                self.app._web_login_state = {"status": "error", "error": f"Yerel sunucu başlatılamadı: {exc}"}
+                return {"success": False, "error": str(exc)}
+
+            base_url = self.app.cloud_client.config.base_url.rstrip("/")
+            if "ucanlab.org" in base_url:
+                portal_url = "https://ucanlab.org"
+            else:
+                portal_url = base_url
+
+            hwid = generate_hardware_fingerprint()
+            login_url = (
+                f"{portal_url}/auth/desktop?"
+                f"port={port}&state={urllib.parse.quote(csrf_state)}"
+                f"&hwid={urllib.parse.quote(hwid[:16])}"
+                f"&code_challenge={urllib.parse.quote(challenge)}"
+            )
+
+            try:
+                webbrowser.open(login_url)
+            except Exception as exc:
+                logger.warning("Failed to open system browser automatically: %s", exc)
+
+            return {
+                "success": True,
+                "login_url": login_url,
+                "port": port,
+            }
+
+    def cloud_check_web_login_status(self) -> dict[str, Any]:
+        """Poll the status of the in-flight web login process."""
+        with self.app._web_login_lock:
+            state = dict(self.app._web_login_state)
+            status = state.get("status", "idle")
+            if status == "completed":
+                self.app._web_login_server = None
+                self.app._web_login_state = {"status": "idle"}
+                cloud_status = self.cloud_get_status()
+                return {
+                    "status": "completed",
+                    "success": True,
+                    "user": cloud_status.get("user"),
+                    "subscription": cloud_status.get("subscription"),
+                }
+            if status == "error":
+                return {
+                    "status": "error",
+                    "success": False,
+                    "error": state.get("error", "Giriş işlemi başarısız oldu"),
+                }
+            if status == "cancelled":
+                return {"status": "cancelled", "success": False}
+            return {"status": "pending", "success": True}
+
+    def cloud_cancel_web_login(self) -> dict[str, Any]:
+        """Cancel waiting for browser login and close the loopback listener."""
+        with self.app._web_login_lock:
+            if self.app._web_login_server is not None:
+                try:
+                    self.app._web_login_server.server_close()
+                except Exception:
+                    pass
+                self.app._web_login_server = None
+            self.app._web_login_state = {"status": "cancelled"}
+        return {"success": True}
+
+    def cloud_logout(self) -> dict[str, Any]:
+        """Log out current user and clear local credentials."""
+        try:
+            self.app.cloud_client.logout()
+            return {"success": True}
         except Exception as exc:
             return {"success": False, "error": str(exc)}
 
@@ -842,29 +1384,6 @@ class DesktopApiBridge:
                 "success": True,
                 "deviceId": reg.device_id,
                 "resetsRemaining": reg.hwid_resets_remaining,
-            }
-        except Exception as exc:
-            return {"success": False, "error": str(exc)}
-
-    def cloud_activate_license(self, license_ref: str) -> dict[str, Any]:
-        # D6 (REVIEW Aşama 2): validate the activation reference before it is
-        # placed in the cloud request body.
-        problem = _validate_bridge_text(
-            license_ref, field="license_ref", max_chars=LICENSE_REF_MAX_CHARS
-        )
-        if problem is not None:
-            return {"success": False, "error": problem, "code": "INVALID_LICENSE_REF"}
-        try:
-            if not self.app.license_flow:
-                return {"success": False, "error": "Lisans akışı başlatılamadı"}
-            claims = self.app.license_flow.activate_license(license_ref.strip())
-            return {
-                "success": True,
-                "licenseId": claims.license_id,
-                "tier": claims.tier,
-                "features": list(claims.features),
-                "expiresAt": claims.expires_at,
-                "offlineUntil": claims.offline_until,
             }
         except Exception as exc:
             return {"success": False, "error": str(exc)}
@@ -949,11 +1468,8 @@ class DesktopApiBridge:
         Path("logs"),
         Path("exports"),
     )
-    # Extension keep-list mirrors UPLOAD_EXTENSION_HINTS minus formats that
-    # are never trace containers (.json/.log stay: ReplayBus parses .csv).
-    REPLAY_EXTENSION_HINTS: ClassVar[frozenset[str]] = frozenset(
-        {".mf4", ".mdf", ".bin", ".asc", ".blf", ".csv", ".json", ".log", ".zst"}
-    )
+    # Single source of truth: ReplayBus supported trace formats (.asc, .csv, .blf)
+    REPLAY_EXTENSION_HINTS: ClassVar[frozenset[str]] = ReplayBus.SUPPORTED_EXTENSIONS
     # Windows reserved device names (case-insensitive, with or without an
     # extension: ``CON`` and ``CON.asc`` both address the device).
     _RESERVED_DEVICE_NAMES: ClassVar[frozenset[str]] = frozenset(
@@ -1062,6 +1578,25 @@ class DesktopApiBridge:
         except Exception as exc:
             return {"success": False, "error": str(exc)}
 
+    def cloud_request_upload_approval(
+        self, filename: str, content: str, vehicle_vin: str | None = None
+    ) -> dict[str, Any]:
+        """I-08: native operator approval for one specific upload payload.
+
+        The renderer requests approval; the OS-native dialog is the evidence
+        (test mode models it). The returned single-use token is bound to
+        (destination, filename, byte count, SHA-256) — approving one payload
+        can never authorize another.
+        """
+        if not self._require_native_presence("cloud_upload"):
+            return {"success": False, "error": "Native confirmation required (fail-closed)."}
+        try:
+            raw = content.encode("utf-8") if isinstance(content, str) else bytes(content)
+        except Exception:
+            return {"success": False, "error": "Geçersiz içerik."}
+        destination = str(getattr(self.app.cloud_client.config, "base_url", "") or "")
+        return self.app.request_upload_approval(destination, str(filename), raw)
+
     # Raw-content upload guard: 1MB cap + 60 req/s simple token bucket.
     _RAW_UPLOAD_MAX_BYTES: ClassVar[int] = 1 * 1024 * 1024
     _RAW_UPLOAD_MAX_PER_SEC: ClassVar[int] = 60
@@ -1085,6 +1620,7 @@ class DesktopApiBridge:
         content: str,
         vehicle_vin: str | None = None,
         user_consented: bool = False,
+        approval_token: str | None = None,
     ) -> dict[str, Any]:
         import os as _os
         try:
@@ -1095,6 +1631,18 @@ class DesktopApiBridge:
             if len(raw) > self._RAW_UPLOAD_MAX_BYTES:
                 logger.warning("cloud_upload_raw_content rejected: oversize", extra={"bytes": len(raw)})
                 return {"success": False, "error": "İçerik 1MB sınırını aşıyor."}
+            # I-08: raw bytes may only leave the machine under a single-use,
+            # content-bound native approval. Test mode models the operator
+            # dialog (UCANLAB_TEST_MODE), keeping the suite able to exercise
+            # the upload path without a real window.
+            if os.environ.get("UCANLAB_TEST_MODE") != "1":
+                destination = str(getattr(self.app.cloud_client.config, "base_url", "") or "")
+                if not self.app.consume_upload_approval(approval_token, destination, str(filename), raw):
+                    logger.warning("cloud_upload_raw_content rejected: missing/invalid native approval")
+                    return {
+                        "success": False,
+                        "error": "Yükleme için yerel operatör onayı gereklidir (fail-closed).",
+                    }
             # F-4: Sanitize filename to prevent directory traversal or alternate stream injection
             clean_name = re.sub(r"[^a-zA-Z0-9_.-]", "_", Path(filename).name).strip("._")
             if not clean_name:
@@ -1359,6 +1907,9 @@ class UniversalCanDesktopApp:
             else None
         )
         self.telemetry_uploader = TelemetryUploader(self.cloud_client, progress_callback=self._on_upload_progress)
+        self._web_login_lock = threading.Lock()
+        self._web_login_server: HTTPServer | None = None
+        self._web_login_state: dict[str, Any] = {"status": "idle"}
 
         # F-28: real CAN ingestion pipeline — bus -> FrameRouter -> decoders -> UI
         self.router = FrameRouter()
@@ -1385,6 +1936,16 @@ class UniversalCanDesktopApp:
         # ── Composition Root Wiring: Central Protocol & Analysis Engines ──
         self._diagnostic_challenges: dict[str, DiagnosticChallenge] = {}
         self._challenges_lock = threading.Lock()
+        # I-05: per-process issue timestamps for the diagnostic-challenge
+        # rate limit (renderer spam could otherwise grow the store and burn
+        # CPU within the 30 s TTL window).
+        self._challenge_issue_times: deque[float] = deque()
+        # I-08: single-use upload approvals — token -> (expires_monotonic,
+        # binding_hash). Minted only with native user presence; bound to
+        # destination+filename+bytes+sha256 so a token approved for one
+        # upload can never authorize another.
+        self._upload_approvals: dict[str, tuple[float, str]] = {}
+        self._upload_approvals_lock = threading.Lock()
         self.discovery_engine = SignalDiscoveryEngine()
         self.oem_registry = OemJ1939Registry()
         self.replay_bus: ReplayBus | None = None
@@ -1425,6 +1986,10 @@ class UniversalCanDesktopApp:
 
         self._is_simulating = False
         self._is_estop = False
+        # M-02: explicit degraded-bus flag. True while no physical channel is
+        # live (DEMO-only mode); set at connect/reconnect outcomes, read by
+        # status surfaces. Display-only — no TX/RX behavior change.
+        self.bus_degraded = True
         self._active_scenario = "nominal"
         self._speed_mult = 1.0
         self._sim_time = 0.0
@@ -1435,8 +2000,11 @@ class UniversalCanDesktopApp:
         self._current_boost = 0.0
         self._current_temp = 0.0
         self._current_speed_kmh = 0.0
-        # P0-5 (REVIEW C-3): trusted CCVS source address. None = learning
-        # mode (first CCVS sender binds the session's trusted SA).
+        # B-05: default-closed CCVS interlock. Trusted SA ONLY via
+        # authenticated address claim / DBC vehicle profile / explicit native
+        # operator approval. None (default) = untrusted: speed stays stale/
+        # unknown and NEVER authorizes flash/reset/DTC-clear. First-sender
+        # learning is removed (spoofed first frame used to bind trust).
         self._ccvs_trusted_sa: int | None = None
         self._pack_voltage = 398.4
         self._battery_soc = 78.4
@@ -1446,6 +2014,8 @@ class UniversalCanDesktopApp:
         self._propeller_slip = 11.2
         self._window: webview.Window | None = None
         self._thread: threading.Thread | None = None
+        # B-02: stop handle for the WebView navigation-guard poller.
+        self._nav_guard_stop: threading.Event | None = None
         self._running = True
         # E14/E15: bridge thread (JS calls) and telemetry thread mutate the
         # same flags and counters — plain `+=` across threads loses updates.
@@ -1529,12 +2099,16 @@ class UniversalCanDesktopApp:
             logger.warning("Failed to open diagnostic session", extra={"error": str(exc)})
             self._diag_session = None
 
-    def _record_signal_sample(self, name: str, raw: int, physical: float, unit: str) -> None:
+    def _record_signal_sample(self, name: str, raw: int, physical: float, unit: str, confidence: float = 1.0) -> None:
         """Append one SignalSample under the session lock (FAZ 1, hook 2).
 
         Called from the live RX decode path only — the sim branch of
         _telemetry_loop never reaches this (Bulgu 7). Bounded ring per
         signal keeps RX hot-path cost O(1).
+
+        I-10: OEM attribution confidence rides into the evidence base.
+        LOW-confidence OEM payloads arrive as confidence < 1.0 so they
+        can never be mistaken for authoritative telemetry downstream.
         """
         session = self._diag_session
         if session is None or self._is_simulating:
@@ -1547,6 +2121,7 @@ class UniversalCanDesktopApp:
                 physical_value=physical,
                 unit=unit,
                 source=SignalSource.J1939,
+                confidence=confidence,
             )
         except ValueError as exc:
             logger.debug("SignalSample rejected", extra={"error": str(exc), "signal": name})
@@ -2291,6 +2866,24 @@ class UniversalCanDesktopApp:
     # stuck/spoofed speed source (fail-closed to unknown).
     SPEED_PLAUSIBILITY_KMH: ClassVar[float] = 2.0
     SPEED_PLAUSIBILITY_RPM: ClassVar[float] = 600.0
+
+    def approve_ccvs_source(self, source_address: int, *, reason: str = "operator approval") -> None:
+        """B-05: explicit native operator approval of the trusted CCVS SA.
+
+        The ONLY native path that binds interlock trust (besides address
+        claim / DBC vehicle profile wiring, which call this). Never bridged
+        to the renderer. Reason is audit-logged.
+        """
+        sa = int(source_address)
+        if not 0 <= sa <= 253:
+            raise ValueError(f"CCVS source address out of range: {source_address!r}")
+        self._ccvs_trusted_sa = sa
+        logger.warning("CCVS trusted source approved", extra={"sa": sa, "reason": reason})
+
+    def drop_ccvs_trust(self, *, reason: str = "trust revoked") -> None:
+        """B-05: drop CCVS trust (vehicle change / operator revoke)."""
+        self._ccvs_trusted_sa = None
+        logger.warning("CCVS trusted source dropped", extra={"reason": reason})
     # LINK-FAULT wiring (Kontrol #21/#44): consecutive telemetry-tick
     # HardwareErrors before the interface is declared disconnected. 3 ticks
     # ≈ 150–300 ms — fast enough to bound stale-TX authority, slow enough
@@ -2415,7 +3008,7 @@ class UniversalCanDesktopApp:
             canonical = str(sorted(payload.items()))
         return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
-    def request_diagnostic_challenge(self, action: dict[str, Any]) -> dict[str, Any]:
+    def request_diagnostic_challenge(self, action: dict[str, Any], native_presence: bool = False) -> dict[str, Any]:
         """Issue a short-lived (≤30s) single-use nonce challenge for a diagnostic action.
 
         R2-EN2: this renderer-reachable endpoint NEVER mints a gateway HMAC
@@ -2423,6 +3016,13 @@ class UniversalCanDesktopApp:
         The gateway token authorizing the TX is minted process-internally in
         `execute_diagnostic_action` after the nonce verifies, so a renderer
         script can never manufacture its own TX authorization.
+
+        B-01: `native_presence` records whether an OS-level confirmation
+        dialog actually ran at mint time. The nonce alone proves nothing
+        about operator presence; destructive physical actions additionally
+        require a presence-stamped challenge (or the test-mode escape).
+        I-05: per-minute rate limit + capacity cap keep a compromised
+        renderer from growing the store without bound.
         """
         if not isinstance(action, dict):
             return {"success": False, "error": "Geçersiz aksiyon verisi (dictionary bekleniyor)."}
@@ -2431,11 +3031,24 @@ class UniversalCanDesktopApp:
         if not action_type:
             return {"success": False, "error": "Aksiyon türü (action_type) belirtilmelidir."}
 
+        # I-05: bound the action payload BEFORE hashing/serializing it —
+        # an oversized/deep dict must not burn CPU in the params-hash path.
+        try:
+            encoded_action = json.dumps(action, separators=(",", ":"), default=str)
+        except Exception:
+            return {"success": False, "error": "Aksiyon verisi serileştirilemedi."}
+        if len(encoded_action) > _DIAG_CHALLENGE_MAX_ACTION_CHARS:
+            return {
+                "success": False,
+                "error": f"Aksiyon verisi çok büyük (>{_DIAG_CHALLENGE_MAX_ACTION_CHARS} karakter).",
+            }
+
         action_id = str(action.get("id") or "")
         params_hash = self._compute_action_params_hash(action)
 
         token = secrets.token_hex(16)
         now_ns = time.monotonic_ns()
+        now_s = time.monotonic()
 
         challenge = DiagnosticChallenge(
             token=token,
@@ -2444,13 +3057,38 @@ class UniversalCanDesktopApp:
             created_at_monotonic_ns=now_ns,
             max_age_ns=30_000_000_000,
             params_hash=params_hash,
+            native_presence=bool(native_presence),
         )
 
         with self._challenges_lock:
+            # I-05: sliding-window rate limit (per process; the renderer is
+            # the only caller). Refuse rather than queue — a legit operator
+            # never needs 20 challenges/minute.
+            window = self._challenge_issue_times
+            while window and (now_s - window[0]) > 60.0:
+                window.popleft()
+            if len(window) >= _DIAG_CHALLENGE_MAX_PER_MIN:
+                return {
+                    "success": False,
+                    "error": "Çok fazla onay isteği (dakikada en fazla "
+                    f"{_DIAG_CHALLENGE_MAX_PER_MIN}). Lütfen bekleyin.",
+                }
+            window.append(now_s)
+
             # Prune expired tokens
             expired = [k for k, ch in self._diagnostic_challenges.items() if (now_ns - ch.created_at_monotonic_ns) > ch.max_age_ns]
             for k in expired:
                 self._diagnostic_challenges.pop(k, None)
+
+            # I-05: capacity cap with FIFO prune — oldest live challenge is
+            # dropped so the dict can never exceed the hard maximum.
+            while len(self._diagnostic_challenges) >= _DIAG_CHALLENGE_MAX:
+                oldest_key = min(
+                    self._diagnostic_challenges,
+                    key=lambda k: self._diagnostic_challenges[k].created_at_monotonic_ns,
+                )
+                self._diagnostic_challenges.pop(oldest_key, None)
+
             self._diagnostic_challenges[token] = challenge
 
         return {
@@ -2467,6 +3105,7 @@ class UniversalCanDesktopApp:
         action_type: str,
         action_id: str = "",
         action_payload: dict[str, Any] | None = None,
+        require_native_presence: bool = False,
     ) -> tuple[bool, str]:
         """Verify that a single-use nonce challenge is present, unexpired (≤30s), and matches action_type/action_id/params.
 
@@ -2474,6 +3113,11 @@ class UniversalCanDesktopApp:
         gateway HMAC token presented from JS is rejected — gateway tokens
         are minted process-internally (`_confirm_token_for`) and never cross
         the bridge.
+
+        B-01: when `require_native_presence` is set (destructive physical
+        actions), the challenge must carry the OS-native presence stamp
+        captured at mint time. Outside the test environment a script-only
+        mint→consume pair therefore cannot authorize a destructive action.
         """
         if not token or not isinstance(token, str) or not token.strip():
             return False, "Kullanıcı onayı gereklidir (Dual Confirmation challenge token eksik)."
@@ -2500,6 +3144,18 @@ class UniversalCanDesktopApp:
                 current_hash = self._compute_action_params_hash(action_payload)
                 if current_hash != challenge.params_hash:
                     return False, "Onay token'ı aksiyon parametreleri ile uyuşmuyor (parametreler değiştirilmiş)."
+
+            # B-01: presence-stamp gate (fail-closed outside the test env).
+            if (
+                require_native_presence
+                and not challenge.native_presence
+                and os.environ.get("UCANLAB_TEST_MODE") != "1"
+            ):
+                return (
+                    False,
+                    "Yıkıcı işlem için yerel (native) operatör onayı gereklidir "
+                    "(presence-damgasız challenge kabul edilmez).",
+                )
 
         return True, "OK"
 
@@ -2586,7 +3242,14 @@ class UniversalCanDesktopApp:
 
             try:
                 valid, reason = self._verify_and_consume_diagnostic_token(
-                    token_candidate, action_type, action_id, action_payload=action
+                    token_candidate,
+                    action_type,
+                    action_id,
+                    action_payload=action,
+                    # B-01: destructive physical actions need a presence-stamped
+                    # challenge. Simulation is sandboxed (cannot reach hardware
+                    # TX), so the sandbox path stays usable without a dialog.
+                    require_native_presence=not self._is_simulating,
                 )
             except TypeError:
                 valid, reason = self._verify_and_consume_diagnostic_token(
@@ -3028,14 +3691,20 @@ class UniversalCanDesktopApp:
 
         Returns an error string when the UI-supplied material cannot satisfy
         the motor's fail-closed gates (signature / trust anchor / target
-        identity), else None. The caller refuses synchronously so the bus is
-        never armed for a flash that is doomed to fail.
+        identity / memory bounds), else None. The caller refuses synchronously
+        so the bus is never armed for a flash that is doomed to fail.
 
         S1-P1-6: the identity waiver is NOT honored from the bridge config.
         It requires the out-of-band lab environment gate
         (`_flash_identity_waiver_allowed`); a `skipTargetIdentity: true` key
         arriving from the renderer is ignored and the identity requirement
         stays enforced.
+
+        B-07: the bounds block mirrors the frontend's `FLASH_ECU_BOUNDS`
+        contract (src/ui/frontend/src/components/ecu/flashRequest.ts) so a
+        renderer payload that passes the frontend gate also passes here, and
+        anything outside the ECU flash window / block-size set / image cap is
+        refused BEFORE the bus is armed.
         """
         if not config.get("firmwareSignature") and not config.get("firmware_signature"):
             return "Flashing ön-koşulu sağlanamadı: firmware imzası (firmwareSignature) gerekli."
@@ -3053,7 +3722,59 @@ class UniversalCanDesktopApp:
             or identity_waived
         ):
             return "Flashing ön-koşulu sağlanamadı: hedef VIN/seri (expectedVin) gerekli."
+
+        # B-07 bounds gate (frontend/backend typed contract).
+        try:
+            block_size = int(config.get("blockSize", 256))
+        except (TypeError, ValueError):
+            return "Flashing ön-koşulu sağlanamadı: geçersiz blok boyutu (blockSize)."
+        if block_size not in cls.FLASH_ALLOWED_BLOCK_SIZES:
+            return (
+                "Flashing ön-koşulu sağlanamadı: geçersiz blok boyutu "
+                f"({block_size}); izin verilenler: {sorted(cls.FLASH_ALLOWED_BLOCK_SIZES)}."
+            )
+
+        try:
+            memory_address = int(config.get("memoryAddress", 0x80000))
+            size_bytes = int(config.get("sizeBytes", config.get("size", 1024)))
+        except (TypeError, ValueError):
+            return "Flashing ön-koşulu sağlanamadı: geçersiz bellek adresi/boyut."
+        if memory_address < 0 or size_bytes <= 0:
+            return "Flashing ön-koşulu sağlanamadı: geçersiz bellek adresi/boyut."
+        if size_bytes > cls.FLASH_MAX_IMAGE_BYTES:
+            return (
+                "Flashing ön-koşulu sağlanamadı: görüntü boyutu üst sınırı aşıyor "
+                f"({size_bytes} > {cls.FLASH_MAX_IMAGE_BYTES})."
+            )
+        end_address = memory_address + size_bytes
+        if end_address > cls.FLASH_ADDRESS_SPACE_LIMIT:
+            return (
+                "Flashing ön-koşulu sağlanamadı: bellek aralığı adres uzayı dışında "
+                f"(0x{memory_address:X} + {size_bytes} > 0x{cls.FLASH_ADDRESS_SPACE_LIMIT:X})."
+            )
+        ecu = str(config.get("ecu") or "").strip().upper()
+        bounds = cls.FLASH_ECU_BOUNDS.get(ecu)
+        if bounds is not None:
+            base, window = bounds
+            if memory_address < base or end_address > base + window:
+                return (
+                    f"Flashing ön-koşulu sağlanamadı: bellek aralığı {ecu} flash penceresi dışında "
+                    f"(0x{base:X}..0x{base + window:X})."
+                )
         return None
+
+    # B-07: mirrors src/ui/frontend/src/components/ecu/flashRequest.ts.
+    FLASH_ALLOWED_BLOCK_SIZES: ClassVar[frozenset[int]] = frozenset({64, 128, 256, 512, 1024, 2048, 4096})
+    FLASH_MAX_IMAGE_BYTES: ClassVar[int] = 32 * 1024 * 1024
+    # Upper edge of the writable flash address space (vector table / special
+    # regions above this are never a legal application flash target).
+    FLASH_ADDRESS_SPACE_LIMIT: ClassVar[int] = 0xFFF00000
+    FLASH_ECU_BOUNDS: ClassVar[dict[str, tuple[int, int]]] = {
+        "ECM": (0x80000, 4 * 1024 * 1024),
+        "TCU": (0x80000, 1 * 1024 * 1024),
+        "ABS": (0x80000, 4 * 1024 * 1024),
+        "BCM": (0x80000, 2 * 1024 * 1024),
+    }
 
     @staticmethod
     def _parse_flash_signature(config: dict[str, Any]) -> bytes | None:
@@ -3110,6 +3831,9 @@ class UniversalCanDesktopApp:
         # parameter — never from the caller-supplied `config` dict (which
         # would let the caller satisfy its own independent-confirmation
         # invariant via config["confirmation_token"] / config["token"]).
+        # B-01: physical flashing is the most destructive renderer-reachable
+        # action — its challenge must carry the native-presence stamp
+        # (simulation is sandboxed and stays dialog-free).
         token_candidate = confirmation_token if isinstance(confirmation_token, str) else None
         try:
             valid, reason = self._verify_and_consume_diagnostic_token(
@@ -3117,6 +3841,7 @@ class UniversalCanDesktopApp:
                 action_type=str(config.get("action_type") or "ecu_flash"),
                 action_id=str(config.get("id") or ""),
                 action_payload=config,
+                require_native_presence=not self._is_simulating,
             )
         except TypeError:
             valid, reason = self._verify_and_consume_diagnostic_token(
@@ -3222,6 +3947,50 @@ class UniversalCanDesktopApp:
                     self._flash_progress_state["status"] = "failed"
                     self._flash_progress_state["error"] = _pre_err
                 return {"success": False, "error": _pre_err, "message": _pre_err}
+
+        # Parse config and construct FlashingConfig BEFORE arming the bus
+        # so any integer/hex parsing error fails closed without leaving TX armed.
+        try:
+            raw_data = config.get("data")
+            if isinstance(raw_data, str):
+                try:
+                    payload_bytes = bytes.fromhex(raw_data)
+                except ValueError:
+                    payload_bytes = raw_data.encode("latin-1")
+            elif isinstance(raw_data, (bytes, bytearray)):
+                payload_bytes = bytes(raw_data)
+            else:
+                payload_bytes = b"\x00" * int(config.get("sizeBytes", 1024))
+
+            flash_cfg = FlashingConfig(
+                memory_address=int(config.get("memoryAddress", 0x80000)),
+                data=payload_bytes,
+                block_size=int(config.get("blockSize", 256)),
+                # R2-P3: operator approval is taken ONCE at flash_start entry via
+                # the diagnostic nonce challenge above; this flag forwards that
+                # session-level approval to the motor (NOT a per-step UI prompt).
+                user_confirmed=True,
+                # R2-P1: feed the motor's mandatory gates from the UI config —
+                # without these the real-mode flash fail-closes by design.
+                firmware_signature=self._parse_flash_signature(config),
+                trusted_pubkey=self._parse_flash_pubkey(config),
+                expected_vin=config.get("expectedVin", config.get("expected_vin")),
+                expected_serial=config.get("expectedSerial", config.get("expected_serial")),
+                # S1-P1-6: the identity waiver needs the out-of-band LAB env gate;
+                # a renderer-supplied `skipTargetIdentity: true` no longer relaxes
+                # this motor gate (it would let a correctly-signed image be
+                # written to the wrong ECU on the same OEM trust anchor).
+                require_target_identity=not (
+                    config.get("skipTargetIdentity") is True and self._flash_identity_waiver_allowed()
+                ),
+            )
+        except Exception as exc:
+            with self._flash_lock:
+                self._flash_progress_state["status"] = "failed"
+                self._flash_progress_state["error"] = f"Geçersiz flash konfigürasyonu: {exc}"
+            return {"success": False, "error": str(exc), "message": f"Geçersiz flash konfigürasyonu: {exc}"}
+
+        if self.supervisor.current_state == SafetyState.PASSIVE:
             arm_res = self.arm_tx(reason="Operator started ECU flashing")
             if not arm_res.get("success", False):
                 err = arm_res.get("error", "TX pipeline cannot be armed for flashing")
@@ -3239,40 +4008,6 @@ class UniversalCanDesktopApp:
             # R2-P2: the flasher mints step tokens through the
             # composition-root-owned issuer, never the gateway directly.
             confirmation_token_factory=self.gateway.create_confirmation_issuer(),
-        )
-
-        raw_data = config.get("data")
-        if isinstance(raw_data, str):
-            try:
-                payload_bytes = bytes.fromhex(raw_data)
-            except ValueError:
-                payload_bytes = raw_data.encode("latin-1")
-        elif isinstance(raw_data, (bytes, bytearray)):
-            payload_bytes = bytes(raw_data)
-        else:
-            payload_bytes = b"\x00" * int(config.get("sizeBytes", 1024))
-
-        flash_cfg = FlashingConfig(
-            memory_address=int(config.get("memoryAddress", 0x80000)),
-            data=payload_bytes,
-            block_size=int(config.get("blockSize", 256)),
-            # R2-P3: operator approval is taken ONCE at flash_start entry via
-            # the diagnostic nonce challenge above; this flag forwards that
-            # session-level approval to the motor (NOT a per-step UI prompt).
-            user_confirmed=True,
-            # R2-P1: feed the motor's mandatory gates from the UI config —
-            # without these the real-mode flash fail-closes by design.
-            firmware_signature=self._parse_flash_signature(config),
-            trusted_pubkey=self._parse_flash_pubkey(config),
-            expected_vin=config.get("expectedVin", config.get("expected_vin")),
-            expected_serial=config.get("expectedSerial", config.get("expected_serial")),
-            # S1-P1-6: the identity waiver needs the out-of-band LAB env gate;
-            # a renderer-supplied `skipTargetIdentity: true` no longer relaxes
-            # this motor gate (it would let a correctly-signed image be
-            # written to the wrong ECU on the same OEM trust anchor).
-            require_target_identity=not (
-                config.get("skipTargetIdentity") is True and self._flash_identity_waiver_allowed()
-            ),
         )
 
         def _real_flash_worker() -> None:
@@ -3298,8 +4033,15 @@ class UniversalCanDesktopApp:
                         self._flash_progress_state["logs"].append("[CRITICAL] TX cleanup failed after flash!")
                 self._push_flash_progress()
 
-        self._flash_thread = threading.Thread(target=_real_flash_worker, name="real_flasher", daemon=True)
-        self._flash_thread.start()
+        try:
+            self._flash_thread = threading.Thread(target=_real_flash_worker, name="real_flasher", daemon=True)
+            self._flash_thread.start()
+        except Exception as exc:
+            self._safe_disarm_after_flash()
+            with self._flash_lock:
+                self._flash_progress_state["status"] = "failed"
+                self._flash_progress_state["error"] = f"Flash worker thread başlatılamadı: {exc}"
+            return {"success": False, "error": str(exc), "message": f"Flash worker başlatılamadı: {exc}"}
         # R2-P4: the worker validates asynchronously — report ACCEPTANCE, not success.
         return {"success": True, "accepted": True, "message": "Flashing isteği kabul edildi (ön-koşullar doğrulandı, işlem sürüyor)."}
 
@@ -3330,6 +4072,45 @@ class UniversalCanDesktopApp:
             except Exception:
                 pass
         return cleanup_ok
+
+    def request_upload_approval(self, destination: str, filename: str, content: bytes) -> dict[str, Any]:
+        """I-08: mint a single-use, content-bound cloud-upload approval.
+
+        Binds (destination, filename, byte count, SHA-256); minted only via
+        the bridge after OS-native presence. Never reachable from JS directly.
+        """
+        import hashlib as _hashlib
+
+        binding = _hashlib.sha256(
+            f"{destination}\x00{filename}\x00{len(content)}\x00".encode("utf-8")
+            + _hashlib.sha256(content).digest()
+        ).hexdigest()
+        token = secrets.token_hex(16)
+        now = time.monotonic()
+        with self._upload_approvals_lock:
+            expired = [k for k, (exp, _b) in self._upload_approvals.items() if exp <= now]
+            for k in expired:
+                self._upload_approvals.pop(k, None)
+            self._upload_approvals[token] = (now + _UPLOAD_APPROVAL_TTL_S, binding)
+        return {"success": True, "approvalToken": token, "expiresInS": _UPLOAD_APPROVAL_TTL_S}
+
+    def consume_upload_approval(self, token: str | None, destination: str, filename: str, content: bytes) -> bool:
+        """I-08: verify + burn a content-bound upload approval (fail-closed)."""
+        import hashlib as _hashlib
+
+        if not token or not isinstance(token, str):
+            return False
+        binding = _hashlib.sha256(
+            f"{destination}\x00{filename}\x00{len(content)}\x00".encode("utf-8")
+            + _hashlib.sha256(content).digest()
+        ).hexdigest()
+        now = time.monotonic()
+        with self._upload_approvals_lock:
+            entry = self._upload_approvals.pop(token.strip(), None)
+        if entry is None:
+            return False
+        expires, expected = entry
+        return expires > now and expected == binding
 
     def _push_flash_progress(self) -> None:
         if self._window is None:
@@ -3710,14 +4491,18 @@ class UniversalCanDesktopApp:
             else:
                 try:
                     new_bus.connect()
+                    self.bus_degraded = False
                 except Exception as exc:  # noqa: BLE001 — was already DEMO-only; stay honest about it
+                    self.bus_degraded = True
                     logger.warning(
-                        "CAN bus connect failed; DEMO-only mode",
-                        extra={"interface": target_interface, "channel": target_channel, "error": str(exc)},
+                        "CAN bus connect failed; DEMO-only mode (degraded-state flag set)",
+                        extra={"interface": target_interface, "channel": target_channel, "error": str(exc), "bus_degraded": True},
                     )
 
             self.bus = new_bus
             self.gateway.rebind_bus(self.bus)
+            if bool(getattr(self.bus, "is_connected", False)):
+                self.bus_degraded = False
             self.interface_val = target_interface
             self.channel_name = str(target_channel)
             self.bitrate_val = target_bitrate
@@ -3754,6 +4539,10 @@ class UniversalCanDesktopApp:
             self.ring_buffer.clear()
             self.j1939_tp = J1939TransportProtocol(my_address=0xF9, channel_id=self.channel_name)
             self.n2k_fp = Nmea2000FastPacketDecoder()
+            # B-05: bus reconnect / vehicle change drops CCVS trust — the new
+            # channel must re-establish it via address claim / vehicle profile
+            # / operator approval; stale-SA trust must never cross a rebind.
+            self._ccvs_trusted_sa = None
 
             logger.info(
                 "CAN bus reconnected",
@@ -3827,16 +4616,10 @@ class UniversalCanDesktopApp:
                 raw_speed = data[1] | (data[2] << 8)
                 if raw_speed < 0xFE00:  # J1939-71: 0xFE00..0xFFFF = Error / Not Available
                     speed_kmh = raw_speed / 256.0
-                    trusted = (
-                        self._ccvs_trusted_sa is None
-                        or sa == self._ccvs_trusted_sa
-                    )
-                    if self._ccvs_trusted_sa is None:
-                        # Learning mode: bind the first CCVS sender as the
-                        # trusted source address for this session.
-                        self._ccvs_trusted_sa = sa
-                        trusted = True
-                    if trusted:
+                    # B-05: default-closed — only a trusted SA feeds the
+                    # interlock. None = untrusted: display the reading, but
+                    # the interlock feed stays stale/unknown (fail-closed).
+                    if sa == self._ccvs_trusted_sa:
                         plausible = True
                         if speed_kmh <= self.SPEED_PLAUSIBILITY_KMH and self._current_rpm > self.SPEED_PLAUSIBILITY_RPM:
                             # Engine clearly running but vehicle "stopped" —
@@ -3847,6 +4630,12 @@ class UniversalCanDesktopApp:
                                 "CCVS speed implausible vs engine RPM; treating speed as unknown",
                                 extra={"speed_kmh": speed_kmh, "rpm": self._current_rpm, "sa": sa},
                             )
+                        if speed_kmh > getattr(self.gateway, "SPEED_MAX_PLAUSIBLE_KMH", 300.0):
+                            plausible = False
+                            logger.warning(
+                                "CCVS speed implausible (> max plausible km/h); treating speed as unknown",
+                                extra={"speed_kmh": speed_kmh, "sa": sa},
+                            )
                         if plausible:
                             self._current_speed_kmh = speed_kmh
                             self.gateway.update_vehicle_speed(speed_kmh, source="physical")
@@ -3854,11 +4643,37 @@ class UniversalCanDesktopApp:
                         else:
                             self._current_speed_kmh = float("nan")
                             self.gateway.update_vehicle_speed(float("nan"), source="physical")
+                    elif self._ccvs_trusted_sa is None:
+                        # Default-closed: no allowlist yet — the reading
+                        # updates the DISPLAY mirror only. It must not seed
+                        # the diagnostic evidence base (B-05: an unapproved
+                        # SA is not attributable to the vehicle's CCVS) and
+                        # never authorizes (spoofed-first-frame hardening:
+                        # the first sender must NOT bind trust).
+                        self._current_speed_kmh = speed_kmh
+                        self.gateway.record_synthetic_speed(speed_kmh)
+                        logger.debug(
+                            "CCVS frame from unapproved source ignored for interlock (no trusted SA)",
+                            extra={"sa": sa},
+                        )
                     else:
+                        # Untrusted SA (allowlist bound elsewhere): display
+                        # mirror only — never evidence, never interlock.
+                        self._current_speed_kmh = speed_kmh
+                        self.gateway.record_synthetic_speed(speed_kmh)
                         logger.debug(
                             "CCVS frame from untrusted source address ignored",
                             extra={"sa": sa, "trusted_sa": self._ccvs_trusted_sa},
                         )
+                elif sa == self._ccvs_trusted_sa:
+                    # J1939-71: 0xFE00..0xFFFF = Error Indicator / Not Available.
+                    # When trusted source reports error/unavailable, fail-closed to NaN immediately.
+                    self._current_speed_kmh = float("nan")
+                    self.gateway.update_vehicle_speed(float("nan"), source="physical")
+                    logger.warning(
+                        "CCVS speed reported error/unavailable from trusted SA; invalidating interlock",
+                        extra={"raw_speed": hex(raw_speed), "sa": sa},
+                    )
             # ET1 (PGN 65262 / 0xFEEE): engine coolant temperature (B-10
             # sentinel filter). REVIEW3 #5: the old PS=0xE1 guard matched
             # PGN 65249 (Engine Hours) and rendered its LSB as °C — a
@@ -3890,9 +4705,16 @@ class UniversalCanDesktopApp:
                 self._record_dm1_events(dm.dtcs)
 
             # OEM Proprietary J1939 Decoders (Cummins, Caterpillar, Scania, Volvo, Detroit, Actros)
+            # I-10 / P2-15: gate on is_valid AND confidence. LOW-confidence
+            # (unconfirmed NAME attribution) OEM payloads are recorded for
+            # display with degraded confidence but NEVER authoritative: they
+            # cannot drive severity/interlock state (rpm/temp/boost stay
+            # untouched on the LOW path).
             if isinstance(frame, CanFrame) and frame.is_extended:
                 oem_payload = self.oem_registry.decode_frame(frame)
                 if oem_payload is not None:
+                    oem_conf = 0.5 if getattr(oem_payload, "confidence", "HIGH") == "LOW" else 1.0
+                    oem_authoritative = oem_conf >= 1.0
                     for sig in oem_payload.signals.values():
                         if not getattr(sig, "is_valid", True):
                             continue
@@ -3902,7 +4724,9 @@ class UniversalCanDesktopApp:
                         ):
                             continue
                         phys_val = getattr(sig, "physical_value", getattr(sig, "value", None))
-                        self._record_signal_sample(sig.name, raw_val, phys_val, getattr(sig, "unit", ""))
+                        self._record_signal_sample(sig.name, raw_val, phys_val, getattr(sig, "unit", ""), confidence=oem_conf)
+                        if not oem_authoritative:
+                            continue
                         sig_name_lower = sig.name.lower()
                         if "enginespeed" in sig_name_lower or "rpm" in sig_name_lower:
                             if isinstance(phys_val, (int, float)):
@@ -4368,9 +5192,17 @@ class UniversalCanDesktopApp:
                 return default
 
         t = _safe_float(self._sim_time)
+        # AGENTS.md §2.3: the payload must carry its own provenance. The
+        # pack/marine fields below are SIMULATION placeholders (they are only
+        # ever written by the DEMO generator loop), and `oilPressureBar` is a
+        # fixed demo constant — no live oil-pressure measurement exists yet.
+        # `isSimulating` lets the frontend gate those fields off the live
+        # gauges the moment it registers the onTelemetryTick handler (see
+        # canSimulator.ts: "LIVE: real data arrives via ... onTelemetryTick").
         telemetry_payload = {
             "timeSec": t,
             "timeFormatted": f"{t:.2f}s",
+            "isSimulating": bool(self._is_simulating),
             "rpm": _safe_int(self._current_rpm),
             "turboBoostBar": _safe_float(self._current_boost),
             "coolantTempC": _safe_int(self._current_temp),
@@ -4407,6 +5239,49 @@ class UniversalCanDesktopApp:
         root_dir = Path(__file__).parent.parent.parent
         return root_dir / "src" / "ui" / "frontend" / "dist" / "index.html"
 
+    @staticmethod
+    def _install_navigation_guard(window: object, allowed_url: str) -> threading.Event:
+        """B-02: fail-closed WebView navigation guard.
+
+        The renderer holds the privileged pywebview bridge (TX / E-Stop /
+        flash authority), so a top-level navigation away from the exact
+        loopback asset origin must never keep bridge access. pywebview 6.x
+        has no cancelable navigation hook that fires for every backend, so
+        the guard POLLS the current URL (``_NAV_GUARD_POLL_S`` cadence) and,
+        on the first same-origin violation, destroys the window — the
+        renderer process (and its bridge handle) is gone with it.
+
+        `is_navigation_allowed` is the pure same-origin predicate from
+        ``frontend_server`` (scheme+host+port must match the bound origin).
+        The returned Event stops the poller on normal shutdown.
+        """
+        from src.ui.frontend_server import is_navigation_allowed
+
+        stop = threading.Event()
+
+        def _poll() -> None:
+            while not stop.wait(_NAV_GUARD_POLL_S):
+                try:
+                    current = window.get_current_url()  # type: ignore[attr-defined]
+                except Exception:
+                    continue  # window not ready yet / backend transition
+                if current is None:
+                    continue
+                if not is_navigation_allowed(str(current), allowed_url):
+                    logger.critical(
+                        "B-02: WebView navigated away from the asset origin — destroying "
+                        "window (bridge authority revoked)",
+                        extra={"current_url": str(current)[:300], "allowed": allowed_url},
+                    )
+                    try:
+                        window.destroy()  # type: ignore[attr-defined]
+                    except Exception:
+                        pass
+                    return
+
+        threading.Thread(target=_poll, name="nav_guard", daemon=True).start()
+        return stop
+
     def run(self) -> None:
         dist_html = self._resolve_dist_html()
 
@@ -4428,9 +5303,11 @@ class UniversalCanDesktopApp:
             # F-28: connect the real CAN bus before the ingestion loop starts
             try:
                 self.bus.connect()
+                self.bus_degraded = False
                 logger.info("CAN bus connected for live ingestion", extra={"channel": self.channel_name})
             except Exception as exc:  # noqa: BLE001 — HardwareError/PlatformError degrade to DEMO, never crash startup
-                logger.warning("CAN bus connect failed; running in DEMO-only mode", extra={"error": str(exc)})
+                self.bus_degraded = True
+                logger.warning("CAN bus connect failed; running in DEMO-only mode (degraded-state flag set)", extra={"error": str(exc), "bus_degraded": True})
 
             self._thread = threading.Thread(target=self._telemetry_loop, daemon=True)
             self._thread.start()
@@ -4455,17 +5332,75 @@ class UniversalCanDesktopApp:
                 min_size=(1100, 700),
                 frameless=True,
                 easy_drag=False,
-                transparent=False,
-                background_color="#0c0e14",
+                transparent=True,
+                background_color="#000000",
                 text_select=True,
             )
 
-            webview.start(debug=False)
+            # B-02: install the same-origin navigation guard immediately —
+            # the renderer holds the privileged bridge, so ANY navigation
+            # away from the loopback asset origin must fail closed.
+            self._nav_guard_stop = self._install_navigation_guard(self._window, frontend_url)
+
+            def _apply_windows_acrylic() -> None:
+                import sys
+                import time
+                if sys.platform != "win32":
+                    return
+                for _ in range(5):
+                    time.sleep(0.2)
+                    try:
+                        import ctypes
+                        from ctypes import byref, c_int, sizeof
+                        hwnd = None
+                        if hasattr(self, "_window") and self._window is not None:
+                            native = getattr(self._window, "native", None)
+                            if native is not None and hasattr(native, "Handle"):
+                                hwnd = int(native.Handle.ToInt64())
+                        if not hwnd:
+                            hwnd = ctypes.windll.user32.FindWindowW(
+                                None, "Universal CAN-Bus Diagnostic & Telemetry Tool v13.0"
+                            )
+                        if hwnd:
+                            dwmapi = ctypes.WinDLL("dwmapi")
+                            dark_mode = c_int(1)
+                            # DWMWA_USE_IMMERSIVE_DARK_MODE = 20
+                            dwmapi.DwmSetWindowAttribute(hwnd, 20, byref(dark_mode), sizeof(dark_mode))
+                            # DWMWA_SYSTEMBACKDROP_TYPE = 38 (3 = DWMSBT_ACRYLIC, 2 = DWMSBT_MAINWINDOW)
+                            backdrop_type = c_int(3)
+                            dwmapi.DwmSetWindowAttribute(hwnd, 38, byref(backdrop_type), sizeof(backdrop_type))
+                            logger.debug("Applied DWM Acrylic backdrop to hwnd %s", hwnd)
+                            break
+                    except Exception as exc:
+                        logger.debug("DWM backdrop attribute error: %s", exc)
+
+            # Aksiyon 39 / Report E.6: Fail-closed against legacy/insecure webview engines
+            # (mshtml IE11, cef Chrome 66) and strip REMOTE_DEBUGGING_PORT in production.
+            env_gui = os.environ.get("PYWEBVIEW_GUI", "").lower()
+            if env_gui in ("mshtml", "cef"):
+                from src.core.errors import PlatformError
+                raise PlatformError(
+                    f"Insecure pywebview renderer '{env_gui}' forbidden by security policy (Aksiyon 39 / E.6).",
+                    code="INSECURE_RENDERER",
+                )
+
+            is_dev = os.environ.get("ENV") == "development" or os.environ.get("PYWEBVIEW_ENV") == "development"
+            for debug_var in ("REMOTE_DEBUGGING_PORT", "PYWEBVIEW_REMOTE_DEBUGGING_PORT"):
+                if debug_var in os.environ and not is_dev:
+                    logger.warning("Stripping insecure %s in non-development environment", debug_var)
+                    os.environ.pop(debug_var, None)
+
+            target_gui = "edgechromium" if sys.platform == "win32" else None
+            webview.start(_apply_windows_acrylic, gui=target_gui, debug=False)
         finally:
             self._set_ui_state(_running=False)
+            # B-02: stop the navigation-guard poller before the window goes away.
+            nav_stop = getattr(self, "_nav_guard_stop", None)
+            if nav_stop is not None:
+                nav_stop.set()
             if getattr(self, "_frontend_server", None) is not None:
-                self._frontend_server.stop()
-                self._frontend_server = None
+                self._frontend_server.stop()  # type: ignore[union-attr]
+                self._frontend_server = None  # type: ignore[assignment]
             if hasattr(self, "_thread") and self._thread and self._thread.is_alive():
                 self._thread.join(timeout=2.0)
             # L-13 (P3-9): release the physical bus FIRST — the gateway

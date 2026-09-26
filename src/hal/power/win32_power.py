@@ -86,11 +86,24 @@ class WindowsPowerManager:
                 logger.info("SetThreadExecutionState: System Sleep Prevention ACTIVATED")
                 return True
             with cls._lock:
-                cls._leases[tid] = depth
+                # FIX 10a: undo THIS call's bookkeeping — drop the lease key
+                # entirely at depth 0 (no stale 0 entry) and pop the display
+                # flag only if this call set it.
+                if depth == 0:
+                    cls._leases.pop(tid, None)
+                else:
+                    cls._leases[tid] = depth
+                if keep_display_on and not prev_disp:
+                    cls._display_required.pop(tid, None)
         except (AttributeError, OSError, RuntimeError) as exc:
             logger.warning("Failed to invoke SetThreadExecutionState", extra={"error": str(exc)})
             with cls._lock:
-                cls._leases[tid] = depth
+                if depth == 0:
+                    cls._leases.pop(tid, None)
+                else:
+                    cls._leases[tid] = depth
+                if keep_display_on and not prev_disp:
+                    cls._display_required.pop(tid, None)
 
         return False
 
@@ -161,7 +174,16 @@ class KeepSystemAwake:
         self.keep_display_on = keep_display_on
 
     def __enter__(self) -> Self:
-        WindowsPowerManager.prevent_sleep(keep_display_on=self.keep_display_on)
+        # FIX 9: fail-closed — a discarded prevent_sleep() failure silently
+        # ran telemetry/flash work on a system that may suspend mid-write.
+        if not WindowsPowerManager.prevent_sleep(keep_display_on=self.keep_display_on):
+            logger.error(
+                "KeepSystemAwake could not prevent system sleep; refusing to continue",
+                extra={"keep_display_on": self.keep_display_on},
+            )
+            raise OSError(
+                "SetThreadExecutionState failed: system sleep prevention unavailable"
+            )
         return self
 
     def __exit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None:

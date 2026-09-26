@@ -309,9 +309,9 @@ class ReassemblyPipeline:
             # reaching into `_reap_stale_sessions` under only the pipeline
             # lock races concurrent RX threads mutating the same dicts.
             if hasattr(self.j1939_transport, "reap_stale_sessions_public"):
-                before_j1939 = len(getattr(self.j1939_transport, "_rx_sessions", {}))
+                before_j1939 = self.j1939_transport.session_count()
                 self.j1939_transport.reap_stale_sessions_public()
-                after_j1939 = len(getattr(self.j1939_transport, "_rx_sessions", {}))
+                after_j1939 = self.j1939_transport.session_count()
                 reaped_count += max(0, before_j1939 - after_j1939)
 
             # 2. Reap ISO-TP Sessions
@@ -1037,14 +1037,14 @@ class ReassemblyPipeline:
     def get_active_session_count(self) -> int:
         """Return total active in-flight J1939 and ISO-TP sessions."""
         with self._lock:
-            j1939_count = len(getattr(self.j1939_transport, "_rx_sessions", {}))
+            j1939_count = self.j1939_transport.session_count()
             isotp_count = len(self._isotp_sessions)
             return j1939_count + isotp_count
 
     def get_stats(self) -> dict[str, Any]:
         """Return complete execution statistics dictionary."""
         with self._lock:
-            j1939_active = len(getattr(self.j1939_transport, "_rx_sessions", {}))
+            j1939_active = self.j1939_transport.session_count()
             isotp_active = len(self._isotp_sessions)
             return {
                 "total_frames_processed": self._total_frames_processed,

@@ -456,9 +456,28 @@ class UniversalCanLauncher:
                 from src.safety.secret_provider import get_default_secret_provider
 
                 secrets = get_default_secret_provider()
-            return bool(secrets.has_secret(self._OBLIGATION_ARMED_KEY_NAME))
-        except Exception:
-            return False
+            if secrets.has_secret(self._OBLIGATION_ARMED_KEY_NAME):
+                return True
+            vault_said_no = True
+        except Exception as exc:
+            # Fail-closed: an unreadable vault must never read as "never armed".
+            logger.error(
+                "Obligation-armed vault read failed; install treated as ARMED",
+                extra={"error": str(exc)},
+            )
+            vault_said_no = False
+        # Fall back to the on-disk marker written by _arm_obligation_record()
+        # (covers a vault that lost the key but left the marker behind).
+        try:
+            if self._obligation_armed_path().is_file():
+                return True
+        except OSError as exc:
+            logger.error(
+                "Obligation-armed marker read failed; install treated as ARMED",
+                extra={"error": str(exc)},
+            )
+            return True
+        return not vault_said_no
 
     def _arm_obligation_record(self) -> None:
         """One-way arming marker: once set it is never cleared (fail-closed)."""
@@ -824,7 +843,7 @@ def main() -> int:
         # L-1: point the operator at activation when the license gate closed.
         print(f"License gate CLOSED (tier={report.auth_status.tier}): no valid license for this device.")
         print("Activate this device with a license key to enable launch:")
-        print("    ucanlab_launcher --activate <LICENSE-KEY> [--device-name <NAME>]")
+        print("    ucanlab_launcher --activate [--device-name <NAME>] (etkileşimli, gizli istem)")
     print("Preflight FAILED: launch aborted. Use --check-only for diagnostics.")
     return 1
 

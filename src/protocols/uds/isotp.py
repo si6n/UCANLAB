@@ -19,10 +19,12 @@ from __future__ import annotations
 
 import asyncio
 import enum
+import socket
+import struct
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from src.core.contracts.ports import ClockProvider, RxSubscription, SystemClockProvider, TxPort
 from src.core.exceptions import (
@@ -55,6 +57,12 @@ class IsoTpPayloadTooLargeError(IsoTpBufferOverflowError, ValueError):
 
 __all__ = [
     "AddressingMode",
+    "CAN_ISOTP_EXTEND_ADDR",
+    "CAN_ISOTP_LISTEN_MODE",
+    "CAN_ISOTP_OPTS",
+    "CAN_ISOTP_RX_PADDING",
+    "CAN_ISOTP_TX_PADDING",
+    "CAN_ISOTP_WAIT_TX_DONE",
     "FS_CTS",
     "FS_OVERFLOW",
     "FS_WAIT",
@@ -62,6 +70,10 @@ __all__ = [
     "PCI_FIRST_FRAME",
     "PCI_FLOW_CONTROL",
     "PCI_SINGLE_FRAME",
+    "SOL_CAN_BASE",
+    "SOL_CAN_ISOTP",
+    "SocketCanIsoTpGeneralOpts",
+    "configure_socketcan_isotp_socket",
     "IsoTpError",
     "IsoTpPayloadTooLargeError",
     "IsoTpReceiver",
@@ -71,6 +83,182 @@ __all__ = [
     "decode_st_min",
     "normalize_can_payload",
 ]
+
+# SocketCAN ISO-TP definitions (<linux/can/isotp.h>)
+CAN_ISOTP_LISTEN_MODE: int = 0x001
+CAN_ISOTP_EXTEND_ADDR: int = 0x002
+CAN_ISOTP_TX_PADDING: int = 0x004
+CAN_ISOTP_RX_PADDING: int = 0x008
+CAN_ISOTP_CHK_PAD_LEN: int = 0x010
+CAN_ISOTP_CHK_PAD_DATA: int = 0x020
+CAN_ISOTP_HALF_DUPLEX: int = 0x040
+CAN_ISOTP_FORCE_TXSTMIN: int = 0x080
+CAN_ISOTP_FORCE_RXSTMIN: int = 0x100
+CAN_ISOTP_RX_EXT_ADDR: int = 0x200
+CAN_ISOTP_WAIT_TX_DONE: int = 0x400  # 1024: Wait until transmission is complete on wire
+
+SOL_CAN_BASE: int = getattr(socket, "SOL_CAN_BASE", 100)
+SOL_CAN_ISOTP: int = SOL_CAN_BASE + getattr(socket, "CAN_ISOTP", 6)
+CAN_ISOTP_OPTS: int = 1
+
+
+@dataclass(frozen=True)
+class SocketCanIsoTpGeneralOpts:
+    """struct can_isotp_options (12 bytes, '=IIBBBB') from <linux/can/isotp.h>.
+
+    C struct layout:
+        __u32 flags;           /* set flags for options */
+        __u32 frame_txtime;     /* transmission time in micro_seconds, 0 => default */
+        __u8  ext_address;      /* extended addressing parameter */
+        __u8  txpad_content;    /* byte value to fill padding on transmission */
+        __u8  rxpad_content;    /* byte value to check padding on reception */
+        __u8  rx_ext_address;   /* extended addressing parameter for rx */
+    """
+
+    flags: int = 0
+    frame_txtime: int = 0
+    ext_address: int = 0
+    txpad_content: int = 0xCC
+    rxpad_content: int = 0xCC
+    rx_ext_address: int = 0
+
+    STRUCT_FORMAT: ClassVar[str] = "=IIBBBB"
+    STRUCT_SIZE: ClassVar[int] = struct.calcsize(STRUCT_FORMAT)
+
+    def pack(self) -> bytes:
+        return struct.pack(
+            self.STRUCT_FORMAT,
+            self.flags & 0xFFFFFFFF,
+            self.frame_txtime & 0xFFFFFFFF,
+            self.ext_address & 0xFF,
+            self.txpad_content & 0xFF,
+            self.rxpad_content & 0xFF,
+            self.rx_ext_address & 0xFF,
+        )
+
+    @classmethod
+    def unpack(cls, data: bytes) -> SocketCanIsoTpGeneralOpts:
+        if len(data) < cls.STRUCT_SIZE:
+            raise ValueError(
+                f"Data size {len(data)} less than required struct can_isotp_options size {cls.STRUCT_SIZE}"
+            )
+        fields = struct.unpack(cls.STRUCT_FORMAT, data[: cls.STRUCT_SIZE])
+        return cls(
+            flags=fields[0],
+            frame_txtime=fields[1],
+            ext_address=fields[2],
+            txpad_content=fields[3],
+            rxpad_content=fields[4],
+            rx_ext_address=fields[5],
+        )
+
+    def with_wait_tx_done(self, enable: bool = True) -> SocketCanIsoTpGeneralOpts:
+        new_flags = (self.flags | CAN_ISOTP_WAIT_TX_DONE) if enable else (self.flags & ~CAN_ISOTP_WAIT_TX_DONE)
+        return SocketCanIsoTpGeneralOpts(
+            flags=new_flags,
+            frame_txtime=self.frame_txtime,
+            ext_address=self.ext_address,
+            txpad_content=self.txpad_content,
+            rxpad_content=self.rxpad_content,
+            rx_ext_address=self.rx_ext_address,
+        )
+
+
+def configure_socketcan_isotp_socket(
+    sock: Any,
+    wait_tx_done: bool = True,
+    tx_padding: bool = False,
+    rx_padding: bool = False,
+    frame_txtime: int = 0,
+    ext_address: int | None = None,
+    txpad_content: int = 0xCC,
+    rxpad_content: int = 0xCC,
+    rx_ext_address: int | None = None,
+) -> SocketCanIsoTpGeneralOpts:
+    """Configure Linux SocketCAN ISO-TP socket options.
+
+    Enforces CAN_ISOTP_WAIT_TX_DONE (0x400) to block transmission until the frame
+    has been confirmed on the physical CAN wire by the controller (or raised on bus error/timeout),
+    preventing race conditions and unverified diagnostic dispatch.
+
+    Supports:
+      - `isotp.socket` instances from python-can / can-isotp
+      - Standard Python `socket.socket` instances with SOL_CAN_ISOTP level
+      - Mock socket objects implementing `setsockopt` / `getsockopt`
+    """
+    if hasattr(sock, "set_opts") and callable(sock.set_opts):
+        current_optflag = 0
+        if hasattr(sock, "get_opts") and callable(sock.get_opts):
+            try:
+                opts = sock.get_opts()
+                if opts and hasattr(opts, "optflag") and opts.optflag is not None:
+                    current_optflag = int(opts.optflag)
+            except Exception:
+                pass
+        flags_val = current_optflag
+        if wait_tx_done:
+            flags_val |= CAN_ISOTP_WAIT_TX_DONE
+        else:
+            flags_val &= ~CAN_ISOTP_WAIT_TX_DONE
+        if tx_padding:
+            flags_val |= CAN_ISOTP_TX_PADDING
+        if rx_padding:
+            flags_val |= CAN_ISOTP_RX_PADDING
+
+        kwargs: dict[str, Any] = {"optflag": flags_val}
+        if frame_txtime:
+            kwargs["frame_txtime"] = frame_txtime
+        if ext_address is not None:
+            kwargs["ext_address"] = ext_address
+        if txpad_content is not None:
+            kwargs["txpad"] = txpad_content
+        if rxpad_content is not None:
+            kwargs["rxpad"] = rxpad_content
+        if rx_ext_address is not None:
+            kwargs["rx_ext_address"] = rx_ext_address
+        sock.set_opts(**kwargs)
+
+        return SocketCanIsoTpGeneralOpts(
+            flags=flags_val,
+            frame_txtime=frame_txtime,
+            ext_address=ext_address or 0,
+            txpad_content=txpad_content,
+            rxpad_content=rxpad_content,
+            rx_ext_address=rx_ext_address or 0,
+        )
+
+    if hasattr(sock, "setsockopt") and callable(sock.setsockopt):
+        existing_opts = SocketCanIsoTpGeneralOpts()
+        if hasattr(sock, "getsockopt") and callable(sock.getsockopt):
+            try:
+                raw_bytes = sock.getsockopt(SOL_CAN_ISOTP, CAN_ISOTP_OPTS, SocketCanIsoTpGeneralOpts.STRUCT_SIZE)
+                if isinstance(raw_bytes, (bytes, bytearray)):
+                    existing_opts = SocketCanIsoTpGeneralOpts.unpack(bytes(raw_bytes))
+            except Exception:
+                pass
+
+        flags_val = existing_opts.flags
+        if wait_tx_done:
+            flags_val |= CAN_ISOTP_WAIT_TX_DONE
+        else:
+            flags_val &= ~CAN_ISOTP_WAIT_TX_DONE
+        if tx_padding:
+            flags_val |= CAN_ISOTP_TX_PADDING
+        if rx_padding:
+            flags_val |= CAN_ISOTP_RX_PADDING
+
+        opts_obj = SocketCanIsoTpGeneralOpts(
+            flags=flags_val,
+            frame_txtime=frame_txtime or existing_opts.frame_txtime,
+            ext_address=ext_address if ext_address is not None else existing_opts.ext_address,
+            txpad_content=txpad_content if txpad_content is not None else existing_opts.txpad_content,
+            rxpad_content=rxpad_content if rxpad_content is not None else existing_opts.rxpad_content,
+            rx_ext_address=rx_ext_address if rx_ext_address is not None else existing_opts.rx_ext_address,
+        )
+        sock.setsockopt(SOL_CAN_ISOTP, CAN_ISOTP_OPTS, opts_obj.pack())
+        return opts_obj
+
+    raise TypeError(f"Object {type(sock).__name__} does not expose setsockopt or set_opts")
 
 # ISO 15765-2 N_PCI Types (4 bits)
 PCI_SINGLE_FRAME: int = 0x0

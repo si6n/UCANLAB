@@ -141,6 +141,31 @@ class PythonCanBus(AbstractBus):
         self.hardware_unverified_code = code
         return verified
 
+    def _hw_listen_only_confirmed(self) -> bool | None:
+        """Independent hardware read of PCAN_LISTEN_ONLY (fix 1).
+
+        python-can's `PcanBus.state` getter returns the flag its setter just
+        wrote — reading it back is CIRCULAR and never proves the hardware
+        `SetValue(PCAN_LISTEN_ONLY, ...)` command landed. When the driver
+        exposes `m_objPCANBasic`/`m_PcanHandle`, ask the adapter directly.
+        Returns True/False on a successful hardware read, None when no
+        independent read is available (non-PCAN backend, test stub, or the
+        read itself failed) so callers can warn instead of pretending.
+        """
+        api = getattr(self._bus, "m_objPCANBasic", None)
+        handle = getattr(self._bus, "m_PcanHandle", None)
+        if api is None or handle is None or not callable(getattr(api, "GetValue", None)):
+            return None
+        try:
+            from can.interfaces.pcan.basic import PCAN_LISTEN_ONLY
+
+            err, value = api.GetValue(handle, PCAN_LISTEN_ONLY)
+            if int(err) != 0:
+                return None
+            return bool(value)
+        except Exception:  # noqa: BLE001 — hardware read unavailable: fall back
+            return None
+
     def connect(self) -> None:
         """Initialize physical transceiver connection via python-can.
 
@@ -185,9 +210,17 @@ class PythonCanBus(AbstractBus):
                 # The pure-Python virtual bus never ACKs onto hardware, so
                 # it is exempt from the fail-closed verification; physical
                 # backends must prove PASSIVE state or refuse to open.
+                # FIX 1: the python-can `state` read-back is SOFTWARE-FLAG-ONLY
+                # (the getter returns what the setter wrote), so it can never
+                # prove a hardware PCAN_LISTEN_ONLY command landed. On PCAN an
+                # independent hardware read is attempted: a hardware "OFF"
+                # fails closed, an unavailable read is warned about explicitly
+                # (anti-ACK guarantee is software-enforced). The existing
+                # PASSIVE fail-closed check below is kept either way.
                 if self.listen_only and self.interface not in ("virtual",):
                     actual_state = getattr(self._bus, "state", None)
-                    if actual_state != can.BusState.PASSIVE:
+                    hw_listen_only = self._hw_listen_only_confirmed()
+                    if actual_state != can.BusState.PASSIVE or hw_listen_only is False:
                         try:
                             self._bus.shutdown()
                         except Exception:  # noqa: BLE001 — best-effort cleanup
@@ -198,6 +231,13 @@ class PythonCanBus(AbstractBus):
                             "(PASSIVE) mode — refusing an active connection that could "
                             "disturb a live vehicle bus",
                             code="HARDWARE_LISTEN_ONLY_UNSUPPORTED",
+                        )
+                    if hw_listen_only is None:
+                        logger.warning(
+                            "Listen-only verified from python-can state ONLY (software flag) "
+                            "— hardware listen-only could not be independently verified; "
+                            "anti-ACK guarantee is software-enforced",
+                            extra={"interface": self.interface, "channel": str(self.channel)},
                         )
 
                 self.is_connected = True
@@ -279,6 +319,24 @@ class PythonCanBus(AbstractBus):
                         extra={"target": target, "actual": actual_state},
                     )
                     return False
+                # FIX 1: the read-back above is CIRCULAR on PCAN (the getter
+                # returns what the setter just wrote). Ask the hardware
+                # directly when the driver exposes the PCANBasic API: a
+                # mismatch fails closed, an unavailable read is warned about
+                # (software-flag-only verification).
+                hw_listen_only = self._hw_listen_only_confirmed()
+                if hw_listen_only is not None and hw_listen_only != listen_only:
+                    logger.error(
+                        "Hardware PCAN_LISTEN_ONLY does not match requested mode",
+                        extra={"requested_listen_only": listen_only, "hw_listen_only": hw_listen_only},
+                    )
+                    return False
+                if hw_listen_only is None and getattr(self, "interface", None) != "virtual":
+                    logger.warning(
+                        "Listen-only change verified from python-can state ONLY (software "
+                        "flag) — hardware listen-only could not be independently verified",
+                        extra={"requested_listen_only": listen_only},
+                    )
             except (NotImplementedError, AttributeError):
                 # S1-P1-4 (fail-closed): the backend cannot express hardware
                 # transceiver state (e.g. a serial/slcan adapter whose state
@@ -350,8 +408,6 @@ class PythonCanBus(AbstractBus):
                         "In-flight operations did not drain within deadline; forcing shutdown",
                         extra={"stranded_sends": self._active_sends, "stranded_recvs": self._active_recvs},
                     )
-                    # Forcing the counter to zero releases the drain loop;
-                    # the vendor shutdown() below still runs best-effort.
                     self._active_sends = 0
                     self._active_recvs = 0
                     break
@@ -396,7 +452,10 @@ class PythonCanBus(AbstractBus):
             # most native backends.
             bus_snapshot.send(msg, timeout=0.05)
             self.metrics.tx_frames += 1
-        except (can.CanError, ValueError) as exc:
+        except (can.CanError, ValueError, OSError, RuntimeError) as exc:
+            # FIX 7: the vendor C layer also surfaces OSError/RuntimeError on a
+            # wedged/removed handle (recv already catches them) — one driver
+            # hiccup must wrap as TransportError, not escape raw.
             self.metrics.error_frames += 1
             raise TransportError(
                 f"Hardware frame construction/transmission failed: {str(exc)[:500]}",
@@ -412,7 +471,7 @@ class PythonCanBus(AbstractBus):
             ) from exc
         finally:
             with self._lifecycle_lock:
-                self._active_sends -= 1
+                self._active_sends = max(0, self._active_sends - 1)
                 if self._active_sends == 0 and self._active_recvs == 0:
                     self._send_cond.notify_all()
 
@@ -437,7 +496,19 @@ class PythonCanBus(AbstractBus):
         H3: remote frames carry data=b'' with DLC>0, which violates the
         CanFrame invariant — filtered like error frames.
         H7: bus state is probed; ERROR/BUS_OFF updates metrics + supervisor.
+        HAL-31 (fix 6): timeout_s is validated per the AbstractBus contract
+        before any snapshot is taken (negative/NaN/bool/out-of-range rejected).
         """
+        # HAL-31 contract (copied from RP1210Bus.recv): None = block
+        # indefinitely, 0 = non-blocking, 0 < x <= 60 = timed; everything else
+        # (negative, NaN, bool, non-numeric, > 60) fails closed with ValueError.
+        if timeout_s is not None and (
+            not isinstance(timeout_s, (int, float))
+            or isinstance(timeout_s, bool)
+            or not (0 <= timeout_s <= 60)
+        ):
+            raise ValueError(f"timeout_s must be None, 0, or in range (0, 60], got {timeout_s!r}")
+
         with self._lifecycle_lock:
             if not self.is_connected or self._bus is None:
                 raise HardwareError("Cannot receive: CAN bus is not connected")
@@ -447,6 +518,11 @@ class PythonCanBus(AbstractBus):
         try:
             msg = bus_snapshot.recv(timeout=timeout_s)
         except (can.CanError, OSError, RuntimeError, AttributeError) as exc:
+            # FIX: a teardown racing this recv closes the handle — that is not
+            # a hardware fault, so return None instead of HARDWARE_READ_ERROR.
+            with self._lifecycle_lock:
+                if not self.is_connected:
+                    return None
             self.metrics.error_frames += 1
             raise HardwareError(
                 f"Hardware frame read error: {str(exc)[:500]}",
@@ -455,7 +531,7 @@ class PythonCanBus(AbstractBus):
             ) from exc
         finally:
             with self._lifecycle_lock:
-                self._active_recvs -= 1
+                self._active_recvs = max(0, self._active_recvs - 1)
                 if self._active_sends == 0 and self._active_recvs == 0:
                     self._send_cond.notify_all()
 

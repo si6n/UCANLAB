@@ -595,9 +595,16 @@ class SafetySupervisor:
             _, expired_payload = heapq.heappop(heap)
             # `if` (not `while`): payloads are unique, so at most one entry
             # matches. The deque is insertion-ordered by non-decreasing expiry
-            # and expiry pruning only removes from the front.
+            # and expiry pruning normally only removes from the front.
             if consumed and consumed[0] == expired_payload:
                 consumed.popleft()
+            else:
+                # Front-mismatch (or empty deque): still remove by value so an
+                # expired payload can never strand in the deque.
+                try:
+                    consumed.remove(expired_payload)
+                except ValueError:
+                    pass
 
     def _burn_arm_token(self, payload: bytes) -> None:
         """R2-S2: burn a previously validated arm payload (no-return point)."""
@@ -695,6 +702,44 @@ class SafetySupervisor:
                 code="ESTOP_PROTECTION_DOWNGRADED",
             )
 
+    def _assert_clock_safety(self, operation: str) -> None:
+        """F2 (Aksiyon 19): Verify monotonic clock safety before granting TX authorization.
+
+        Enforces:
+          - Clock info reported monotonic=True
+          - Clock info reported adjustable=False (NTP step-proof)
+          - Clock resolution <= 0.050s (50ms)
+        Fail-closed: triggers FAULT state and raises SafetyError on integrity breach.
+        Never falls back to wall clock.
+        """
+        try:
+            info = time.get_clock_info("monotonic")
+        except Exception as exc:
+            self.trigger_fault(f"CLOCK_UNAVAILABLE: monotonic clock check failed ({exc})")
+            raise SafetyError(
+                f"{operation} refused: monotonic clock unavailable ({exc})",
+                code="CLOCK_INTEGRITY_VIOLATION",
+            ) from exc
+
+        if not getattr(info, "monotonic", False):
+            self.trigger_fault("CLOCK_NOT_MONOTONIC: system clock reported non-monotonic")
+            raise SafetyError(
+                f"{operation} refused: system clock is not monotonic",
+                code="CLOCK_INTEGRITY_VIOLATION",
+            )
+        if getattr(info, "adjustable", True):
+            self.trigger_fault("CLOCK_ADJUSTABLE: system clock is adjustable")
+            raise SafetyError(
+                f"{operation} refused: system clock is adjustable",
+                code="CLOCK_INTEGRITY_VIOLATION",
+            )
+        if getattr(info, "resolution", 1.0) > 0.050:
+            self.trigger_fault(f"CLOCK_COARSE: resolution {info.resolution:.4f}s > 0.050s")
+            raise SafetyError(
+                f"{operation} refused: clock resolution too coarse ({info.resolution:.4f}s > 0.050s)",
+                code="CLOCK_INTEGRITY_VIOLATION",
+            )
+
     def arm_tx(
         self,
         reason: str = "Operator explicitly ARMED TX pipeline",
@@ -709,8 +754,10 @@ class SafetySupervisor:
 
         R2-S2: the token burns only after the transition succeeds.
         S-15: a downgraded E-Stop protection level refuses the arm outright.
+        F2: monotonic clock integrity must be verified (monotonic=True, adjustable=False, res<=0.050s).
         """
         self._assert_estop_protection_intact("arm_tx")
+        self._assert_clock_safety("arm_tx")
         pending = self._require_arm_authorization("arm_tx", auth_token, consume=False)
         self.transition_to(SafetyState.ARMED_TX, reason=reason)
         if pending is not None:
@@ -728,6 +775,7 @@ class SafetySupervisor:
     ) -> None:
         """Transition from ARMED_TX to ACTIVE (same authorization gate as arm_tx)."""
         self._assert_estop_protection_intact("activate_tx")
+        self._assert_clock_safety("activate_tx")
         pending = self._require_arm_authorization("activate_tx", auth_token, consume=False)
         self.transition_to(SafetyState.ACTIVE, reason=reason)
         if pending is not None:

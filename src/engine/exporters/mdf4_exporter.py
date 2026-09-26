@@ -87,12 +87,14 @@ class Mdf4Exporter:
         # A crash mid-save previously left a truncated .mf4 at the target path,
         # which asammdf later opened as a corrupt session file; and a save that
         # raised left the `.tmp-` scratch file behind on disk forever.
-        # Scratch path: the `_atomic_replace`/`.part` suffix that
-        # `atomic_producer_path` owns is illegal on several Windows builds (a
-        # create-then-rename over an existing `.part` target hits a
-        # WindowsError 183 / Permission denied), so the scratch name is passed
-        # explicitly and only `commit_producer_path` (whose `_publish` unlinks
-        # the scratch on ANY failure) is reused.
+        # Scratch path: an explicit name rather than the `.part` scratch
+        # `atomic_producer_path` owns. The earlier justification here — that
+        # `.part` is illegal on several Windows builds — was WRONG (mat_exporter
+        # uses that exact scratch via Path.replace without issue); the real
+        # constraint is only that asammdf's save() opens and writes the scratch
+        # path itself, so any scratch name works and only
+        # `commit_producer_path` (whose `_publish` unlinks the scratch on ANY
+        # failure) must be reused for the final rename.
         scratch_path = path.with_name(path.stem + ".mf4tmp" + path.suffix)
         final_path = path
         try:

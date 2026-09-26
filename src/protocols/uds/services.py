@@ -15,6 +15,7 @@ class UdsServiceId(IntEnum):
     ECU_RESET = 0x11
     SECURITY_ACCESS = 0x27
     COMMUNICATION_CONTROL = 0x28
+    AUTHENTICATION = 0x29
     TESTER_PRESENT = 0x3E
     READ_DATA_BY_IDENTIFIER = 0x22
     WRITE_DATA_BY_IDENTIFIER = 0x2E
@@ -26,7 +27,22 @@ class UdsServiceId(IntEnum):
     REQUEST_UPLOAD = 0x35
     TRANSFER_DATA = 0x36
     REQUEST_TRANSFER_EXIT = 0x37
+    SECURED_DATA_TRANSMISSION = 0x84
     NEGATIVE_RESPONSE = 0x7F
+
+
+class AuthenticationTask(IntEnum):
+    """ISO 14229-1:2020 §11.2 Authentication (0x29) sub-functions."""
+
+    DEAUTHENTICATE = 0x00
+    VERIFY_CERTIFICATE_UNIDIRECTIONAL = 0x01
+    VERIFY_CERTIFICATE_BIDIRECTIONAL = 0x02
+    PROOF_OF_OWNERSHIP = 0x03
+    TRANSMIT_CERTIFICATE = 0x04
+    REQUEST_CHALLENGE_FOR_AUTHENTICATION = 0x05
+    VERIFY_PROOF_OF_OWNERSHIP_UNIDIRECTIONAL = 0x06
+    VERIFY_PROOF_OF_OWNERSHIP_BIDIRECTIONAL = 0x07
+    AUTHENTICATION_CONFIGURATION = 0x08
 
 
 class DiagnosticSessionType(IntEnum):
@@ -343,6 +359,41 @@ class UdsServiceBuilder:
         if reset_type not in (0x01, 0x02, 0x03):
             raise ValueError(f"Invalid ECU reset type 0x{reset_type:02X} (valid: 0x01 hard, 0x02 keyOffOn, 0x03 soft)")
         return bytes([UdsServiceId.ECU_RESET, reset_type & 0xFF])
+
+    @classmethod
+    def build_authentication(
+        cls,
+        sub_function: int | AuthenticationTask,
+        data: bytes = b"",
+    ) -> bytes:
+        """Build UDS Authentication request (0x29).
+
+        ISO 14229-1:2020 §11.2:
+        [0x29] [subFunction] [authenticationData (optional)]
+        """
+        if not isinstance(sub_function, AuthenticationTask):
+            try:
+                sub_function = AuthenticationTask(sub_function)
+            except ValueError:
+                valid = ", ".join(f"0x{t.value:02X}" for t in AuthenticationTask)
+                raise ValueError(
+                    f"Invalid Authentication sub-function 0x{int(sub_function):02X} (valid: {valid})"
+                ) from None
+        return bytes([UdsServiceId.AUTHENTICATION, int(sub_function)]) + data
+
+    @classmethod
+    def build_secured_data_transmission(
+        cls,
+        secured_data: bytes,
+    ) -> bytes:
+        """Build UDS SecuredDataTransmission request (0x84).
+
+        ISO 14229-1:2020 §11.3:
+        [0x84] [securedDataRecord]
+        """
+        if not secured_data:
+            raise ValueError("SecuredDataTransmission requires non-empty secured_data")
+        return bytes([UdsServiceId.SECURED_DATA_TRANSMISSION]) + secured_data
 
     @classmethod
     def parse_response(cls, payload: bytes) -> UdsResponse:

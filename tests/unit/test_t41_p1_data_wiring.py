@@ -48,12 +48,22 @@ def _first_spn_with(field: str, *, not_in_kb: bool = True) -> tuple[str, dict]:
 
 
 class TestP1_1ProceduresFull:
-    """P1-1: Eaton PIM `procedures_full` (59 SPN) reaches the SPN report."""
+    """P1-1: Eaton PIM `procedures_full` (59 SPN) reaches the SPN report.
+
+    T67 (2026-09-22): the block header was renamed from "Eaton OEM Tam
+    Prosedürü (PIM)" to "OEM Tam Prosedürü (DB `procedures_full`)". The old
+    header became factually wrong after T66: the reader renders the NON-Eaton
+    harvest schema (steps/first_moves/causes/symptoms) too, so labelling the
+    whole block "Eaton" mislabelled the majority of what it prints. The
+    behavioural contract is unchanged and still pinned below.
+    """
+
+    RENDER_HEADER = "OEM Tam Prosedürü (DB `procedures_full`)"
 
     def test_procedures_full_block_is_rendered(self) -> None:
         num, entry = _first_spn_with("procedures_full")
         report = CausalBayesianInferenceEngine.evaluate_diagnostic_query(f"SPN {num} nedir", [], {})
-        assert "Eaton OEM Tam Prosedürü (PIM)" in report
+        assert self.RENDER_HEADER in report
         # The Eaton fault code carried by the DB row must be surfaced verbatim.
         code = str(entry["procedures_full"][0].get("eaton_fault_code", ""))
         assert code[:60] in report

@@ -7,7 +7,6 @@ import {
   FileText,
   Settings,
   Terminal,
-  PanelLeft,
 } from 'lucide-react';
 import { NAV_GROUPS } from '../data/constants';
 
@@ -18,6 +17,8 @@ interface SideRailProps {
   isSimulating?: boolean;
   isEstopActive?: boolean;
   collapsed?: boolean;
+  width?: number;
+  isDragging?: boolean;
   onToggleCollapse?: () => void;
   onNewSession?: () => void;
 }
@@ -25,16 +26,17 @@ interface SideRailProps {
 export const SideRail: React.FC<SideRailProps> = ({
   activeTab,
   onSelectTab,
-  channel = 'vcan0',
-  isSimulating = false,
-  isEstopActive = false,
+  channel,
+  isSimulating,
+  isEstopActive,
   collapsed = false,
+  width = 200,
+  isDragging = false,
   onToggleCollapse,
-  onNewSession,
 }) => {
   const renderIcon = (iconName: string, isActive: boolean) => {
     const iconClass = `h-4 w-4 shrink-0 transition-colors ${
-      isActive ? 'text-accent' : 'text-text-mid group-hover:text-text-hi'
+      isActive ? 'text-text-hi' : 'text-text-mid group-hover:text-text-hi'
     }`;
     switch (iconName) {
       case 'LayoutDashboard':
@@ -55,46 +57,18 @@ export const SideRail: React.FC<SideRailProps> = ({
   };
 
   return (
-    <aside
-      className={`rail-collapse flex h-full shrink-0 select-none flex-col justify-between glass-rail overflow-hidden ${
-        collapsed ? 'rail-collapsed' : ''
-      }`}
-      style={{ width: collapsed ? 48 : 168 }}
-    >
-      {/* Upper Area: Sidebar Header with Toggle + Grouped Nav */}
-      <div className="flex flex-col min-h-0 flex-1">
-        {/* Top Header Row (h-11 matching Toolbar) — hosting PanelLeft toggle with fixed alignment, zero jumping */}
-        <div className="flex h-11 shrink-0 items-center px-2">
-          {onToggleCollapse && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleCollapse();
-              }}
-              aria-label={collapsed ? 'Kenar çubuğunu aç' : 'Kenar çubuğunu daralt'}
-              title={collapsed ? 'Kenar çubuğunu aç' : 'Kenar çubuğunu daralt'}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px] text-text-mid transition-colors hover:bg-bg-row-hover hover:text-text-hi"
-              style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-            >
-              <PanelLeft className="h-4 w-4" />
-            </button>
-          )}
-        </div>
-
-        {/* Grouped Navigation */}
-        <div className="flex flex-col gap-3 overflow-y-auto px-2 py-1">
+    <nav className="flex h-full w-full shrink-0 select-none flex-col justify-between bg-transparent overflow-hidden">
+      {/* Upper Area: Grouped Navigation */}
+      <div className="flex flex-col min-h-0 flex-1 w-full overflow-y-auto px-2 py-2">
+        <div className="flex flex-col gap-3">
           {NAV_GROUPS.map((group) => (
             <div key={group.id} className="flex flex-col gap-0.5">
-              {/* Smooth Micro-Label */}
-              <div
-                className={`micro-label overflow-hidden whitespace-nowrap transition-all duration-200 px-2 select-none ${
-                  collapsed ? 'h-0 opacity-0 py-0' : 'h-4 opacity-100 py-0.5'
-                }`}
-              >
+              {/* Group Micro-Label */}
+              <div className="overflow-hidden whitespace-nowrap px-2.5 pt-1.5 pb-1 text-[10px] font-semibold tracking-wider text-text-low/70 uppercase select-none">
                 {group.title}
               </div>
 
-              {/* Group Items */}
+              {/* Group Navigation Items */}
               <div className="flex flex-col gap-0.5">
                 {group.items.map((item) => {
                   const isActive = activeTab === item.id;
@@ -102,30 +76,23 @@ export const SideRail: React.FC<SideRailProps> = ({
                     <button
                       key={item.id}
                       onClick={() => onSelectTab(item.id)}
-                      title={collapsed ? item.label : undefined}
                       aria-label={item.label}
-                      className={`group relative flex h-8 w-full items-center rounded-[6px] font-sans text-[12px] font-medium transition-colors ${
+                      className={`group relative flex h-8 w-full items-center gap-2.5 rounded-[6px] px-2.5 font-sans text-[12px] transition-all duration-140 cursor-pointer active:scale-[0.98] ${
                         isActive
-                          ? 'bg-accent-soft text-accent-text font-semibold shadow-xs'
-                          : 'text-text-mid hover:bg-bg-row-hover hover:text-text-hi'
+                          ? 'bg-bg-row-selected text-text-hi font-medium shadow-2xs'
+                          : 'text-text-mid hover:bg-bg-row-hover hover:text-text-hi font-normal'
                       }`}
                     >
-                      {/* ACTIVE = 3px accent LEFT EDGE-BAR */}
+                      {/* Active indicator bar */}
                       {isActive && (
-                        <div className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-accent" />
+                        <span className="absolute left-1 top-2 bottom-2 w-[2.5px] rounded-full bg-text-hi" />
                       )}
-                      {/* Fixed 32px icon container aligned with toggle button */}
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center">
+                      {/* Icon */}
+                      <div className="flex h-4 w-4 shrink-0 items-center justify-center">
                         {renderIcon(item.icon, isActive)}
                       </div>
-                      {/* Label with smooth width and opacity transition */}
-                      <span
-                        className={`rail-label truncate overflow-hidden whitespace-nowrap transition-all duration-200 ${
-                          collapsed
-                            ? 'max-w-0 opacity-0 -translate-x-1 pointer-events-none'
-                            : 'max-w-[105px] opacity-100 translate-x-0 ml-1'
-                        }`}
-                      >
+                      {/* Label */}
+                      <span className="truncate overflow-hidden whitespace-nowrap">
                         {item.label}
                       </span>
                     </button>
@@ -137,27 +104,28 @@ export const SideRail: React.FC<SideRailProps> = ({
         </div>
       </div>
 
-      {/* Pinned footer status — perfectly aligned with toggle and nav icons */}
-      <div className="flex h-10 shrink-0 items-center px-2">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center">
-          <span
-            className={`status-dot shrink-0 ${
-              isEstopActive
-                ? 'status-dot-danger animate-pulse'
-                : isSimulating
-                ? 'status-dot-ok animate-pulse'
-                : 'status-dot-idle'
-            }`}
-          />
+      {/* Bottom Status Card */}
+      <div className="p-2 border-t border-border mt-auto">
+        <div className="flex items-center justify-between rounded-[8px] bg-surface-inset border border-border px-2.5 py-1.5 text-[11px]">
+          <div className="flex items-center gap-2 min-w-0">
+            <span
+              className={`h-2 w-2 rounded-full shrink-0 transition-all ${
+                isEstopActive
+                  ? 'bg-del animate-ping'
+                  : isSimulating
+                  ? 'bg-add shadow-[0_0_6px_rgba(52,211,153,0.6)]'
+                  : 'bg-text-faint'
+              }`}
+            />
+            <span className="truncate font-mono text-[11px] font-medium text-text-hi">
+              {channel || 'vcan0'}
+            </span>
+          </div>
+          <span className="font-mono text-[10px] text-text-low shrink-0">
+            {isEstopActive ? 'KİLİTLİ' : isSimulating ? 'CAN Canlı' : 'Beklemede'}
+          </span>
         </div>
-        <span
-          className={`rail-label font-mono text-[10.5px] text-text-low truncate overflow-hidden whitespace-nowrap transition-all duration-200 ${
-            collapsed ? 'max-w-0 opacity-0 pointer-events-none' : 'max-w-[110px] opacity-100 ml-1'
-          }`}
-        >
-          {channel} · {isEstopActive ? 'ESTOP' : isSimulating ? 'CANLI' : 'HAZIR'}
-        </span>
       </div>
-    </aside>
+    </nav>
   );
 };

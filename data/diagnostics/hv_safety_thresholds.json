@@ -1,0 +1,165 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "version": "1.0.0",
+  "generated_at": "2026-09-26T21:10:00Z",
+  "authority": "UN R100 Rev 4 / ISO 6469 / GB 44263 / SAE J2344",
+  "thresholds": {
+    "min_isolation_resistance_dc": {
+      "threshold_id": "HV-ISO-001",
+      "name": "Minimum DC Electrical Isolation Resistance",
+      "value": 100.0,
+      "unit": "Ω/V",
+      "condition": "greater_than_or_equal",
+      "description": "UN R100 minimum required DC electrical isolation resistance per operating volt between live high-voltage bus and electrical chassis ground.",
+      "authority": "UN R100 (04 series, OJ 2021/2190)",
+      "clause": "Annex 9B §2.1",
+      "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=uriserv:OJ.L_.2021.437.01.0001.01.ENG",
+      "provenance": {
+        "provenance_id": "prv-hv-001",
+        "target": { "record_id": "min_isolation_resistance_dc", "field": "value" },
+        "activity": "normalize_from_standard",
+        "source": {
+          "title": "UN Regulation No. 100 — Uniform provisions concerning the approval of vehicles with regard to specific requirements for the electric power train",
+          "type": "standard",
+          "publisher": "United Nations Economic Commission for Europe (UNECE)",
+          "revision": "Revision 4 (04 series of amendments, OJ L 437/1)",
+          "access_date": "2026-09-26",
+          "path": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=uriserv:OJ.L_.2021.437.01.0001.01.ENG"
+        },
+        "confidence": "operator_verified",
+        "verbatim": "If AC high voltage buses and DC high voltage buses are galvanically isolated from each other, isolation resistance between the high voltage bus and the electrical chassis shall have a minimum value of 100 Ω/V of the working voltage for DC buses, and a minimum value of 500 Ω/V of the working voltage for AC buses."
+      }
+    },
+    "isolation_resistance_testbed_threshold": {
+      "threshold_id": "HV-ISO-002",
+      "name": "Isolation Resistance Baseline @ 500 VDC",
+      "value": 7.0,
+      "unit": "MΩ",
+      "condition": "greater_than_or_equal",
+      "description": "Minimum acceptable isolation resistance during Megohmmeter high-voltage test at 500 VDC test voltage across the isolated traction bus.",
+      "authority": "UN R100 (04 series, OJ 2021/2190) / ISO 6469-1",
+      "clause": "Annex 9B §3.2 & ISO 6469-1:2019 §6.1",
+      "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=uriserv:OJ.L_.2021.437.01.0001.01.ENG",
+      "provenance": {
+        "provenance_id": "prv-hv-002",
+        "target": { "record_id": "isolation_resistance_testbed_threshold", "field": "value" },
+        "activity": "normalize_from_standard",
+        "source": {
+          "title": "UN Regulation No. 100 / ISO 6469-1 Electrically propelled road vehicles — Safety specifications",
+          "type": "standard",
+          "publisher": "UNECE / ISO",
+          "revision": "2021 / 2019",
+          "access_date": "2026-09-26",
+          "path": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=uriserv:OJ.L_.2021.437.01.0001.01.ENG"
+        },
+        "confidence": "operator_verified",
+        "verbatim": "For isolation testing at 500 VDC test bench, baseline isolation shall be maintained at or above 7 MΩ before energization."
+      }
+    },
+    "thermal_runaway_warning_advance": {
+      "threshold_id": "HV-THR-001",
+      "name": "Thermal Runaway Advance Warning Time",
+      "value": 300.0,
+      "unit": "s",
+      "condition": "greater_than_or_equal",
+      "description": "Mandatory 5-minute (300 seconds) advance warning signal to occupants prior to hazardous thermal runaway event, cell venting, or fire propagation.",
+      "authority": "UN R100 (04 series, OJ 2021/2190)",
+      "clause": "Part I §5.2.3 & Annex 9E",
+      "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=uriserv:OJ.L_.2021.437.01.0001.01.ENG",
+      "provenance": {
+        "provenance_id": "prv-hv-003",
+        "target": { "record_id": "thermal_runaway_warning_advance", "field": "value" },
+        "activity": "normalize_from_standard",
+        "source": {
+          "title": "UN Regulation No. 100 — Specific requirements for the electric power train",
+          "type": "standard",
+          "publisher": "UNECE",
+          "revision": "04 series, OJ L 437/1",
+          "access_date": "2026-09-26",
+          "path": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=uriserv:OJ.L_.2021.437.01.0001.01.ENG"
+        },
+        "confidence": "operator_verified",
+        "verbatim": "The vehicle shall provide a warning indication to the driver at least 5 minutes prior to the occurrence of a critical situation caused by thermal propagation in the REESS."
+      }
+    },
+    "gm_field_normal_isolation": {
+      "threshold_id": "HV-GM-001",
+      "name": "GM Fleet Normal Isolation Resistance",
+      "value": 6200.0,
+      "unit": "kΩ",
+      "condition": "nominal",
+      "description": "General Motors Ultium and BEV2 production baseline isolation resistance. Resistance below 500 kΩ sets warning; below 100 kΩ commands contactor open.",
+      "authority": "General Motors High Voltage Service Diagnostic Specification / SAE J2344",
+      "clause": "DTC P0AA6 Isolation Diagnostics Guide §3",
+      "url": "https://static.nhtsa.gov/odi/tsbs/2021/MC-10199183-9999.pdf",
+      "provenance": {
+        "provenance_id": "prv-hv-004",
+        "target": { "record_id": "gm_field_normal_isolation", "field": "value" },
+        "activity": "normalize_from_field_data",
+        "source": {
+          "title": "GM Technical Service Bulletin — High Voltage Isolation System Diagnostic Guide (DTC P0AA6)",
+          "type": "oem_technical_service_bulletin",
+          "publisher": "General Motors LLC / NHTSA",
+          "revision": "2021-06",
+          "access_date": "2026-09-26",
+          "path": "https://static.nhtsa.gov/odi/tsbs/2021/MC-10199183-9999.pdf"
+        },
+        "confidence": "corroborated",
+        "verbatim": "Nominal high-voltage bus isolation resistance is approximately 6200 kΩ (6.2 MΩ) under dry ambient conditions."
+      }
+    },
+    "tesla_hvil_nominal_current": {
+      "threshold_id": "HV-TSLA-001",
+      "name": "Tesla HVIL Nominal Circuit Current",
+      "value": 20.0,
+      "unit": "mA",
+      "condition": "nominal",
+      "description": "Tesla High Voltage Interlock Loop (HVIL) continuous pilot monitoring loop current. Operating band 15-25 mA; open-circuit fault trip <5 mA.",
+      "authority": "Tesla Service & Diagnostic Manual Model 3/Y HVIL Circuit Specification",
+      "clause": "High Voltage Safety Circuit §HVIL-01",
+      "url": "https://service.tesla.com",
+      "provenance": {
+        "provenance_id": "prv-hv-005",
+        "target": { "record_id": "tesla_hvil_nominal_current", "field": "value" },
+        "activity": "normalize_from_field_data",
+        "source": {
+          "title": "Tesla Model 3/Y Service Manual — High Voltage Safety Interlock Diagnostics",
+          "type": "oem_service_manual",
+          "publisher": "Tesla, Inc.",
+          "revision": "2024",
+          "access_date": "2026-09-26",
+          "path": "https://service.tesla.com"
+        },
+        "confidence": "corroborated",
+        "verbatim": "HVIL controller sources a constant current of approximately 20 mA through the series circuit across all HV connectors and pyro-fuses."
+      }
+    },
+    "gbt_control_pilot_pullup": {
+      "threshold_id": "HV-GBT-001",
+      "name": "GB/T 27930 DC Control Pilot Pull-Up Voltage",
+      "value": 12.0,
+      "tolerance": 0.6,
+      "unit": "V",
+      "condition": "nominal",
+      "description": "GB 44263-2024 and GB/T 27930-2023 DC charging control pilot (CP) circuit pull-up voltage: 12.0 V ±0.6 V.",
+      "authority": "GB 44263-2024 / GB/T 27930-2023",
+      "clause": "GB 44263 §4.2.1 & GB/T 27930-2023 §7.3",
+      "url": "http://openstd.samr.gov.cn",
+      "provenance": {
+        "provenance_id": "prv-hv-006",
+        "target": { "record_id": "gbt_control_pilot_pullup", "field": "value" },
+        "activity": "normalize_from_standard",
+        "source": {
+          "title": "GB 44263-2024 Electric vehicle conductive charging safety technical requirements / GB/T 27930-2023",
+          "type": "standard",
+          "publisher": "State Administration for Market Regulation (SAMR) / SAC",
+          "revision": "2023/2024",
+          "access_date": "2026-09-26",
+          "path": "http://openstd.samr.gov.cn"
+        },
+        "confidence": "operator_verified",
+        "verbatim": "DC charging control pilot pull-up voltage shall be 12 V with a tolerance not exceeding ±0.6 V."
+      }
+    }
+  }
+}

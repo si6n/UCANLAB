@@ -18,7 +18,6 @@ import sys
 import threading
 import time
 from abc import ABC, abstractmethod
-from ctypes import wintypes
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -230,6 +229,12 @@ class SecretProvider(ABC):
 class EphemeralSecretBackend(SecretProvider):
     """Thread-safe in-memory secret provider for testing, CI, and ephemeral sessions."""
 
+    #: S-15: True only when this ephemeral backend is a FORCED fallback (the
+    #: platform SecretProvider failed to initialize). `EmergencyStopSystem`
+    #: propagates it so arming refuses while storage protection is downgraded.
+    #: Deliberate ephemeral modes (testing/CI/explicit reset_secret) stay False.
+    protection_downgraded: bool = False
+
     def __init__(self, secrets: dict[str, bytes] | None = None) -> None:
         self._secrets: dict[str, bytes] = dict(secrets) if secrets is not None else {}
         self._lock = threading.RLock()
@@ -270,6 +275,10 @@ class EphemeralSecretBackend(SecretProvider):
     def list_secrets(self) -> list[str]:
         with self._lock:
             return list(self._secrets.keys())
+
+    def protection_level(self) -> ProtectionLevel:
+        """Explicit protection level: in-memory storage is always EPHEMERAL."""
+        return ProtectionLevel.EPHEMERAL
 
 
 # Aliases for Ephemeral backend
@@ -616,11 +625,14 @@ LinuxKeyfileSecretProvider = LinuxSecretBackend
 # =====================================================================
 
 
-class _WindowsDATA_BLOB(ctypes.Structure):
-    _fields_ = [
-        ("cbData", wintypes.DWORD),
-        ("pbData", ctypes.POINTER(ctypes.c_byte)),
-    ]
+if sys.platform == "win32":
+    from ctypes import wintypes
+
+    class _WindowsDATA_BLOB(ctypes.Structure):
+        _fields_ = [
+            ("cbData", wintypes.DWORD),
+            ("pbData", ctypes.POINTER(ctypes.c_byte)),
+        ]
 
 
 class WindowsDPAPISecretBackend(SecretProvider):
@@ -1010,11 +1022,17 @@ def _build_default_secret_provider(
             path = Path(storage_dir) / "secrets.bin" if storage_dir else None
             return LinuxSecretBackend(storage_path=path)
     except Exception as exc:
-        logger.warning(
-            "Failed to initialize platform SecretProvider, falling back to Ephemeral",
+        # S-15: forced fallback = protection downgrade. Mark the returned
+        # backend so `EmergencyStopSystem` refuses to arm instead of silently
+        # treating process-local storage as healthy.
+        backend = EphemeralSecretBackend()
+        backend.protection_downgraded = True
+        logger.critical(
+            "Failed to initialize platform SecretProvider, falling back to Ephemeral "
+            "— protection DOWNGRADED (arming will be refused until platform storage recovers)",
             extra={"error": str(exc)},
         )
-        return EphemeralSecretBackend()
+        return backend
 
 
 # Alias for factory

@@ -9,12 +9,28 @@ export interface CloudLicenseInfo {
   issuedAt?: number;
 }
 
+export interface CloudUser {
+  id?: string;
+  email?: string;
+  name?: string;
+  organization?: string;
+}
+
+export interface CloudSubscription {
+  isActive: boolean;
+  tier: string;
+  expiresAt?: number | null;
+  features?: string[];
+}
+
 export interface CloudStatus {
   success: boolean;
   baseUrl: string;
   hasSessionToken: boolean;
   hasDeviceToken: boolean;
   hwid: string;
+  user?: CloudUser | null;
+  subscription?: CloudSubscription | null;
   license?: CloudLicenseInfo | null;
   error?: string;
 }
@@ -86,7 +102,17 @@ export interface UserDiagnosticCard {
   risk_level: 'RED' | 'YELLOW' | 'GREEN' | 'GRAY';
   risk_advice_tr: string;
   evidence_tr: string[];
-  technical: { dtcs: string[]; severity: string; subsystem: string; confidence_score: number | null };
+  technical: {
+    dtcs: string[];
+    severity: string;
+    subsystem: string;
+    confidence_score: number | null;
+    // T67-G: additive, optional. The Python composer fills them with every
+    // competing hypothesis and every DB cause it already ranked; a card from
+    // an older backend simply omits them.
+    alternatives_tr?: string[];
+    confidence_label?: string;
+  };
   source_badges: string[];
 }
 
@@ -130,7 +156,10 @@ declare global {
         cloud_save_config?: (url: string, sessionToken?: string) => Promise<{ success: boolean; error?: string }>;
         cloud_get_status?: () => Promise<CloudStatus>;
         cloud_register_device?: (deviceName?: string) => Promise<{ success: boolean; deviceId?: string; resetsRemaining?: number; error?: string }>;
-        cloud_activate_license?: (licenseRef: string) => Promise<{ success: boolean; licenseId?: string; tier?: string; features?: string[]; expiresAt?: number; offlineUntil?: number; error?: string }>;
+        cloud_start_web_login?: () => Promise<{ success: boolean; login_url?: string; port?: number; error?: string }>;
+        cloud_check_web_login_status?: () => Promise<{ success: boolean; status: 'idle' | 'pending' | 'completed' | 'error' | 'cancelled'; user?: any; subscription?: any; error?: string }>;
+        cloud_cancel_web_login?: () => Promise<{ success: boolean }>;
+        cloud_logout?: () => Promise<{ success: boolean; error?: string }>;
         cloud_upload_session?: (filePath: string, vehicleVin?: string) => Promise<{ success: boolean; sessionId?: string; status?: string; error?: string }>;
         cloud_upload_raw_content?: (filename: string, content: string, vehicleVin?: string) => Promise<{ success: boolean; sessionId?: string; status?: string; error?: string }>;
         // Diagnostic session (FAZ 1..6) — analysis stays in Python (Bulgu 3)
@@ -573,16 +602,47 @@ export class DesktopBridge {
     return { success: false, error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
   }
 
-  public static async cloudActivateLicense(licenseRef: string): Promise<{ success: boolean; licenseId?: string; tier?: string; features?: string[]; expiresAt?: number; offlineUntil?: number; error?: string; execution_mode?: 'mock' | 'simulated' | 'native' }> {
-    const m = this.apiMethod('cloud_activate_license');
+  public static async cloudStartWebLogin(): Promise<{ success: boolean; login_url?: string; port?: number; error?: string; execution_mode?: 'mock' | 'simulated' | 'native' }> {
+    const m = this.apiMethod('cloud_start_web_login');
     if (this.isNative() && m) {
-      const res = await m(licenseRef);
+      const res = await m();
       return { ...res, execution_mode: 'native' };
     }
-    // REVIEW (capability guard): the old mock granted ENTERPRISE — a fake
-    // license activation. Fail closed instead.
-    this.requireCapability('cloud_activate_license', 'license activation');
-    this.requireNativeOrDev(); // mock grants ENTERPRISE tier — never in prod
+    this.requireCapability('cloud_start_web_login', 'cloud start web login');
+    this.requireNativeOrDev();
+    return { success: false, error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
+  }
+
+  public static async cloudCheckWebLoginStatus(): Promise<{ success: boolean; status: 'idle' | 'pending' | 'completed' | 'error' | 'cancelled'; user?: any; subscription?: any; error?: string; execution_mode?: 'mock' | 'simulated' | 'native' }> {
+    const m = this.apiMethod('cloud_check_web_login_status');
+    if (this.isNative() && m) {
+      const res = await m();
+      return { ...res, execution_mode: 'native' };
+    }
+    this.requireCapability('cloud_check_web_login_status', 'cloud check web login status');
+    this.requireNativeOrDev();
+    return { success: false, status: 'error', error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
+  }
+
+  public static async cloudCancelWebLogin(): Promise<{ success: boolean; execution_mode?: 'mock' | 'simulated' | 'native' }> {
+    const m = this.apiMethod('cloud_cancel_web_login');
+    if (this.isNative() && m) {
+      const res = await m();
+      return { ...res, execution_mode: 'native' };
+    }
+    this.requireCapability('cloud_cancel_web_login', 'cloud cancel web login');
+    this.requireNativeOrDev();
+    return { success: false, execution_mode: 'mock' };
+  }
+
+  public static async cloudLogout(): Promise<{ success: boolean; error?: string; execution_mode?: 'mock' | 'simulated' | 'native' }> {
+    const m = this.apiMethod('cloud_logout');
+    if (this.isNative() && m) {
+      const res = await m();
+      return { ...res, execution_mode: 'native' };
+    }
+    this.requireCapability('cloud_logout', 'cloud logout');
+    this.requireNativeOrDev();
     return { success: false, error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
   }
 

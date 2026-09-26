@@ -68,12 +68,16 @@ class TxWatchdogSupervisor:
                 "TxWatchdogSupervisor wired with a duck-typed virtual clock "
                 "(test clock in prod path?)"
             )
+        # F2 / Aksiyon 19: Verify monotonic clock safety for production clock
+        if not isinstance(resolved, VirtualClock):
+            SystemClockProvider.validate_clock_safety()
         self._clock = resolved
         self.supervisor = supervisor
         self.estop = estop
         self.timeout_sec = max(0.050, timeout_ms / 1000.0)
 
         self._last_heartbeat_time = self._clock.now_monotonic()
+        self._last_heartbeat_wall_ns: int = self._clock.now_wall_ns()
         self._is_running = False
         self._started_once = False
         self._thread: threading.Thread | None = None
@@ -136,6 +140,7 @@ class TxWatchdogSupervisor:
             # Push the lease into the past: `is_lease_valid` is False until a
             # token-authenticated heartbeat re-anchors it.
             self._last_heartbeat_time -= self.timeout_sec + 1.0
+            self._last_heartbeat_wall_ns -= int((self.timeout_sec + 1.0) * 1_000_000_000)
         logger.warning(
             "Watchdog lease invalidated on safety state change (fail-closed)",
             extra={"from": getattr(old_state, "value", str(old_state)), "to": state_val,
@@ -183,6 +188,7 @@ class TxWatchdogSupervisor:
                 logger.error("watchdog heartbeat refused: missing/forged caller token")
                 raise PermissionError("watchdog heartbeat requires the shared caller token")
             self._last_heartbeat_time = self._clock.now_monotonic()
+            self._last_heartbeat_wall_ns = self._clock.now_wall_ns()
 
     def anchor_lease_for_arm(self, caller_token: str | None = None) -> bool:
         """S-02/S-08 correctness: anchor the lease at the ARM instant — token-gated.
@@ -234,18 +240,18 @@ class TxWatchdogSupervisor:
                     "the composition root must start supervision before arming TX)"
                 )
                 return False
-            already_valid = (
-                self._clock.now_monotonic() - self._last_heartbeat_time
-            ) <= self.timeout_sec
+            elapsed = max(0.0, self._clock.now_monotonic() - self._last_heartbeat_time)
+            already_valid = elapsed <= self.timeout_sec
             if not already_valid:
                 self._last_heartbeat_time = self._clock.now_monotonic()
+                self._last_heartbeat_wall_ns = self._clock.now_wall_ns()
         return True
 
     @property
     def remaining_lease_sec(self) -> float:
         """Returns time in seconds until current lease expires."""
         with self._lock:
-            elapsed = self._clock.now_monotonic() - self._last_heartbeat_time
+            elapsed = max(0.0, self._clock.now_monotonic() - self._last_heartbeat_time)
             return max(0.0, self.timeout_sec - elapsed)
 
     @property
@@ -258,9 +264,8 @@ class TxWatchdogSupervisor:
         monitor's running flag is therefore part of the predicate.
         """
         with self._lock:
-            return self._is_running and (
-                self._clock.now_monotonic() - self._last_heartbeat_time
-            ) <= self.timeout_sec
+            elapsed = max(0.0, self._clock.now_monotonic() - self._last_heartbeat_time)
+            return self._is_running and elapsed <= self.timeout_sec
 
     def start(self) -> None:
         """Start the watchdog monitor background thread.
@@ -284,6 +289,7 @@ class TxWatchdogSupervisor:
             self._is_running = True
             if not self._started_once:
                 self._last_heartbeat_time = self._clock.now_monotonic()
+                self._last_heartbeat_wall_ns = self._clock.now_wall_ns()
                 self._started_once = True
             self._thread = threading.Thread(
                 target=self._monitor_loop,
@@ -414,33 +420,50 @@ class TxWatchdogSupervisor:
             if not self._is_running and not force:
                 return
             now = self._clock.now_monotonic()
-            elapsed = now - self._last_heartbeat_time
+            now_wall_ns = self._clock.now_wall_ns()
+            elapsed = max(0.0, now - self._last_heartbeat_time)
+
+            # F2 (Aksiyon 19): Suspend protection check
+            # If wall time leaped ahead past lease window while monotonic time lagged (suspend signature)
+            suspend_detected = False
+            if self._last_heartbeat_wall_ns > 0:
+                elapsed_wall = max(0.0, (now_wall_ns - self._last_heartbeat_wall_ns) / 1_000_000_000.0)
+                if (
+                    self.supervisor.is_tx_permitted
+                    and elapsed_wall > self.timeout_sec
+                    and (elapsed_wall - elapsed) > (self.timeout_sec / 2.0)
+                ):
+                    suspend_detected = True
 
             # Only enforce watchdog if transmission is armed or active
-            if not (self.supervisor.is_tx_permitted and elapsed > self.timeout_sec):
+            if not (self.supervisor.is_tx_permitted and (elapsed > self.timeout_sec or suspend_detected)):
                 return
 
-            elapsed_ms = elapsed * 1000.0
+            elapsed_ms = (elapsed if not suspend_detected else elapsed_wall) * 1000.0
             timeout_ms = self.timeout_sec * 1000.0
 
             # Re-check lease freshness under the lock immediately before fault trigger
             # to prevent false-positive cutoff if heartbeat arrived mid-flight.
-            if (self._clock.now_monotonic() - self._last_heartbeat_time) <= self.timeout_sec:
+            fresh_elapsed = max(0.0, self._clock.now_monotonic() - self._last_heartbeat_time)
+            if not suspend_detected and fresh_elapsed <= self.timeout_sec:
                 return
 
             expired = True  # decision made under the lock; triggers fire below
 
         if expired:
+            reason = (
+                f"SUSPEND_DETECTED: OS sleep/suspend detected ({elapsed_ms:.1f}ms wall gap) during TX lease"
+                if suspend_detected
+                else f"WATCHDOG_TIMEOUT: Lease expired after {elapsed_ms:.1f} ms without heartbeat"
+            )
             logger.critical(
                 "TX Watchdog Lease Expired! Revoking all TX authorization.",
-                extra={"elapsed_ms": elapsed_ms, "timeout_ms": timeout_ms},
+                extra={"elapsed_ms": elapsed_ms, "timeout_ms": timeout_ms, "suspend_detected": suspend_detected},
             )
             # Revoke TX in state machine with primary root cause — outside
             # the watchdog lock (callbacks may re-enter the watchdog).
             try:
-                self.supervisor.trigger_fault(
-                    f"WATCHDOG_TIMEOUT: Lease expired after {elapsed_ms:.1f} ms without heartbeat",
-                )
+                self.supervisor.trigger_fault(reason)
             except Exception as sup_exc:  # noqa: BLE001
                 logger.critical("Failed to trigger supervisor fault during watchdog timeout", extra={"error": str(sup_exc)})
 

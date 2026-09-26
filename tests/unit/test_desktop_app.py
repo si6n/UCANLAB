@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 
 import pytest
 
@@ -278,25 +279,34 @@ def _eec1_frame(sa: int, raw_rpm: int) -> CanFrame:
 
 
 def test_ccvs_speed_feeds_interlock_with_plausibility() -> None:
-    """P0-5: trusted CCVS with plausible engine state refreshes the interlock."""
+    """P0-5 / B-05: approved CCVS with plausible engine state refreshes the
+    interlock; unapproved CCVS never does (default-closed)."""
     app = UniversalCanDesktopApp(channel="vcan0", bitrate=250000)
     assert app.gateway._last_speed_update_ns == 0  # fail-closed baseline
+    assert app._ccvs_trusted_sa is None  # B-05: no first-sender learning
 
-    # Engine off (RPM 0) + stationary CCVS from SA 0x00 -> plausible
+    # Spoofed first frame before approval must NOT feed the interlock.
     app._decode_j1939_signal(_eec1_frame(0x00, 0))
     app._decode_j1939_signal(_ccvs_frame(0x00, 0))
-    assert app._ccvs_trusted_sa == 0x00  # learning mode bound the first sender
+    assert app.gateway._last_speed_update_ns == 0
+    assert app._ccvs_trusted_sa is None
+
+    # Explicit native operator approval binds the SA; then the feed works.
+    app.approve_ccvs_source(0x00, reason="test approval")
+    app._decode_j1939_signal(_ccvs_frame(0x00, 0))
+    assert app._ccvs_trusted_sa == 0x00
     assert app.gateway._last_speed_update_ns > 0
     assert app._current_speed_kmh == 0.0
 
 
 def test_ccvs_from_untrusted_source_address_is_ignored() -> None:
-    """P0-5 (REVIEW C-3): a second node spoofing CCVS after the trusted SA is
-    bound must NOT feed the interlock."""
+    """P0-5 (REVIEW C-3) / B-05: a second node spoofing CCVS after the trusted
+    SA is bound must NOT feed the interlock."""
     app = UniversalCanDesktopApp(channel="vcan0", bitrate=250000)
 
+    app.approve_ccvs_source(0x00, reason="test approval")
     app._decode_j1939_signal(_eec1_frame(0x00, 0))
-    app._decode_j1939_signal(_ccvs_frame(0x00, 0))  # binds SA 0x00 as trusted
+    app._decode_j1939_signal(_ccvs_frame(0x00, 0))  # approved SA feeds
     ts_after_trusted = app.gateway._last_speed_update_ns
     assert ts_after_trusted > 0
 
@@ -312,6 +322,7 @@ def test_ccvs_implausible_vs_engine_rpm_fails_closed() -> None:
     is a stuck/spoofed CCVS signature — speed becomes unknown (NaN), and
     arm_tx is refused fail-closed."""
     app = UniversalCanDesktopApp(channel="vcan0", bitrate=250000)
+    app.approve_ccvs_source(0x00, reason="test approval")
 
     # Engine running hard (2400 rpm) but vehicle "stationary" -> implausible
     app._decode_j1939_signal(_eec1_frame(0x00, int(2400 / 0.125)))
@@ -333,18 +344,26 @@ def test_ccvs_sentinel_band_rejected() -> None:
     `speed <= 250.0` check used to accept."""
     app = UniversalCanDesktopApp(channel="vcan0", bitrate=250000)
 
+    app.approve_ccvs_source(0x00, reason="test approval")
     app._decode_j1939_signal(_eec1_frame(0x00, 0))
     app._decode_j1939_signal(_ccvs_frame(0x00, 0))
     assert app.gateway._last_speed_update_ns > 0
 
     # Error sentinel 0xFE00 (previously passed the <= 250.0 km/h check at
     # raw 0xFA00..0xFDFF; 0xFE00/256 = 254.0 -> rejected now)
-    app.gateway._last_speed_update_ns = 0
+    # Receiving error sentinel from trusted SA must actively invalidate fresh interlock (fail-closed)
     app._decode_j1939_signal(_ccvs_frame(0x00, 0xFE00))
     assert app.gateway._last_speed_update_ns == 0
-    # Not-available sentinel 0xFFFF
+    assert math.isnan(app._current_speed_kmh)
+
+    # Re-arm with fresh stationary speed
+    app._decode_j1939_signal(_ccvs_frame(0x00, 0))
+    assert app.gateway._last_speed_update_ns > 0
+
+    # Not-available sentinel 0xFFFF must also actively invalidate fresh interlock
     app._decode_j1939_signal(_ccvs_frame(0x00, 0xFFFF))
     assert app.gateway._last_speed_update_ns == 0
+    assert math.isnan(app._current_speed_kmh)
 
 
 def test_demo_loop_never_feeds_speed_interlock() -> None:
@@ -357,6 +376,7 @@ def test_demo_loop_never_feeds_speed_interlock() -> None:
     # speed-side effects indirectly: the DEMO branch must leave the
     # physical timestamp untouched. The call was removed from _telemetry_loop;
     # verify no synthetic path refreshes the interlock by construction.
+    app.approve_ccvs_source(0x00, reason="test approval")
     app._decode_j1939_signal(_eec1_frame(0x00, 0))
     app._decode_j1939_signal(_ccvs_frame(0x00, 0))
     ts_physical = app.gateway._last_speed_update_ns
@@ -811,5 +831,117 @@ def test_desktop_speed_source_is_gateway_review3() -> None:
     # (May fail later for other reasons — e.g. no live bus — but the
     # speed interlock itself must no longer block it.)
     assert "hareketsiz" not in (res2.get("error") or "")
+
+
+def test_desktop_web_login_flow() -> None:
+    """Verify loopback browser SSO flow (RFC 8252 + PKCE): start, CSRF state
+    verification, code delivery, and status polling.
+
+    Security review finding (desktop SSO session-token leak): this test used to
+    deliver a raw `token=` in the callback URL, mirroring the vulnerable flow.
+    The browser now carries only an authorization code; the token is obtained
+    by exchanging that code with the in-process PKCE verifier. The exchange
+    needs a live API, so the callback's code path is exercised up to the
+    exchange attempt — the assertions below pin the properties that matter:
+    a code arrives, the state is verified, and no token is accepted from the URL.
+
+    Isolation: the app persists session tokens in the operator's real DPAPI
+    store, so on a machine that has already signed in, `has_session_token()`
+    is True before this test starts — and the "a URL token must never be
+    stored" assertion would fail against the PRE-EXISTING token, not against
+    anything the callback did. The test therefore saves the real token, runs
+    against a clean slate, and restores it afterwards so a developer's live
+    session survives the suite.
+    """
+    app = UniversalCanDesktopApp(channel="vcan0", bitrate=250000)
+    bridge = DesktopApiBridge(app)
+
+    # Snapshot the operator's real session (may be None) and start clean.
+    saved_token = app.cloud_client.get_session_token()
+    app.cloud_client.clear_session_token()
+    try:
+        _run_web_login_flow(app, bridge)
+    finally:
+        # Restore the developer's session exactly as it was.
+        app.cloud_client.clear_session_token()
+        if saved_token:
+            app.cloud_client.store_session_token(saved_token)
+
+
+def _run_web_login_flow(app, bridge) -> None:
+    """The actual flow assertions, run against a clean credential store."""
+    import urllib.error
+    import urllib.request
+    from urllib.parse import parse_qs, urlsplit
+
+    assert app.cloud_client.has_session_token() is False, "precondition: clean store"
+
+    # 1. Start web login
+    res = bridge.cloud_start_web_login()
+    assert res["success"] is True
+    port = res["port"]
+    login_url = res["login_url"]
+    assert port > 0
+    parsed = urlsplit(login_url)
+    params = parse_qs(parsed.query)
+    csrf_state = params["state"][0]
+    assert csrf_state
+
+    # The port must come from the backend allowlist — an arbitrary high port
+    # would let an attacker park a listener and win the callback race.
+    assert port in (47820, 47821, 47822), f"port {port} is not allowlisted"
+
+    # The login URL must carry a PKCE challenge and NO token/secret material.
+    assert "code_challenge" in params, "PKCE challenge missing from the login URL"
+    assert len(params["code_challenge"][0]) == 43, "S256 challenge must be 43 chars"
+    assert "callback" not in params, "raw callback URL must not be sent to the browser"
+    assert "token" not in parsed.query, "the login URL must never carry a token"
+
+    # Verify status is pending
+    st = bridge.cloud_check_web_login_status()
+    assert st["status"] == "pending"
+
+    # 2. Invalid state -> HTTP 400 (CSRF guard)
+    bad_url = f"http://127.0.0.1:{port}/callback?state=invalid_state&code=test_code_123"
+    try:
+        urllib.request.urlopen(bad_url, timeout=2.0)
+    except urllib.error.HTTPError as err:
+        assert err.code == 400
+
+    st_err = bridge.cloud_check_web_login_status()
+    assert st_err["status"] == "error"
+
+    # 3. Cancel flow
+    bridge.cloud_start_web_login()
+    cancel_res = bridge.cloud_cancel_web_login()
+    assert cancel_res["success"] is True
+    st_cancel = bridge.cloud_check_web_login_status()
+    assert st_cancel["status"] == "cancelled"
+
+    # 4. Valid state but a legacy `token` param must NOT be accepted — the whole
+    # point of the fix is that the browser can no longer hand over a token.
+    res2 = bridge.cloud_start_web_login()
+    port2 = res2["port"]
+    state2 = parse_qs(urlsplit(res2["login_url"]).query)["state"][0]
+
+    legacy_url = (
+        f"http://127.0.0.1:{port2}/callback"
+        f"?state={state2}&token=tok_test_sso_session_abcdef123"
+    )
+    try:
+        urllib.request.urlopen(legacy_url, timeout=2.0)
+    except urllib.error.HTTPError as err:
+        # A missing `code` is an error — no token is ever taken from the URL.
+        assert err.code == 400
+    st_legacy = bridge.cloud_check_web_login_status()
+    assert st_legacy["status"] == "error"
+    assert app.cloud_client.has_session_token() is False, (
+        "a URL-supplied token must never be stored (the leak this fix closes)"
+    )
+
+    # 5. Logout (no session was established, but the call must stay safe)
+    out_res = bridge.cloud_logout()
+    assert out_res["success"] is True
+    assert app.cloud_client.has_session_token() is False
 
 

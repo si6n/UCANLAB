@@ -178,29 +178,44 @@ class EmergencyStopSystem:
 
         if reset_secret is not None:
             self._secret_provider: SecretProvider = EphemeralSecretBackend({self._key_name: bytes(reset_secret)})
+            # B-03: explicit operator-/test-supplied key — deliberate ephemeral
+            # use, NOT a storage downgrade (see _sync_protection_from_provider).
+            self._explicit_ephemeral_ok: bool = True
         elif secret_provider is not None:
             self._secret_provider = secret_provider
+            self._explicit_ephemeral_ok = False
         else:
             self._secret_provider = get_default_secret_provider()
+            self._explicit_ephemeral_ok = False
 
         # Ensure a valid key exists in the provider; if not, generate a dynamic 256-bit key
         self._protection_downgraded: bool = False
+        init_trigger_reason: str | None = None
         if not self._secret_provider.has_secret(self._key_name):
             try:
                 self._secret_provider.store_secret(self._key_name, os.urandom(32))
             except Exception as exc:
-                # P17 (E-5): an ephemeral fallback means the reset secret is
+                # P17 (E-5) / F1: an ephemeral fallback means the reset secret is
                 # process-local and does NOT survive a restart — the audit
-                # trail/protection level silently weakens. Report at CRITICAL
-                # (not WARNING) and expose the downgrade so the UI can banner it.
+                # trail/protection level silently weakens.
+                # Fail-closed (F1): engage E-Stop immediately so the system
+                # starts locked until durable storage recovers or is re-anchored.
                 self._protection_downgraded = True
+                init_trigger_reason = (
+                    f"Failed to persist initial E-Stop secret ({exc}) — fail-closed "
+                    "(ephemeral secret fallback prohibited without E-Stop engagement)"
+                )
                 logger.critical(
-                    "Failed to persist initial E-Stop secret — falling back to an "
-                    "EPHEMERAL, process-local key (reset tokens will not survive a "
-                    "restart; protection level downgraded)",
+                    "Failed to persist initial E-Stop secret — entering ESTOP_TRIGGERED / "
+                    "fail-closed state (protection level downgraded)",
                     extra={"error": str(exc), "key_name": self._key_name},
                 )
                 self._secret_provider = EphemeralSecretBackend({self._key_name: os.urandom(32)})
+        # B-03: propagate the backend's own degrade signal. EPHEMERAL storage
+        # (env-forced UNIVERSAL_CAN_EPHEMERAL_SECRETS=1, platform-init fallback)
+        # is always downgraded — arm_tx/flash fail closed until durable storage
+        # recovers. Typed port: backend.protection_downgraded, else
+        # protection_level() == EPHEMERAL. Evaluated after lock creation below.
         # P5 (E-2): resolve the HMAC secret ONCE at construction. `reset()` used
         # to call `_get_secret()` while holding `self._lock`, which runs file
         # I/O + AES-GCM/DPAPI decryption under the SAME lock that `trigger()`
@@ -234,6 +249,17 @@ class EmergencyStopSystem:
         # Abort/flush hooks: gateway registers a driver abort/flush callback
         # so trigger() can request HAL-level cancellation after fencing.
         self._abort_hooks: list[Callable[[], None]] = []
+        # B-03: propagate the backend's own degrade signal (EPHEMERAL always
+        # counts as downgraded — arm_tx/flash raise). Evaluated here because
+        # it needs _lock; re-evaluated on bind_secret_provider()/refresh_secret().
+        self._sync_protection_from_provider()
+
+        # F1: fail-closed initial engagement if secret persistence failed
+        if init_trigger_reason is not None:
+            self.trigger(
+                trigger=EStopTriggerSource.UNAUTHORIZED_PAYLOAD,
+                reason=init_trigger_reason,
+            )
 
     @property
     def is_engaged(self) -> bool:
@@ -350,12 +376,67 @@ class EmergencyStopSystem:
 
         Performs the provider I/O OUTSIDE the E-Stop lock and atomically swaps
         the cached value, so rotation never widens the lock-hold window.
+        B-03: re-evaluates the protection-downgrade signal — a rotation onto
+        (or off) ephemeral storage flips the arm gate accordingly.
         """
         fresh = self._load_secret()
         with self._lock:
             self._cached_secret = fresh
             self._cached_secret_version = self._provider_version()
+        self._sync_protection_from_provider()
         return fresh
+
+    def bind_secret_provider(self, provider: SecretProvider) -> None:
+        """B-03: replace the bound provider and re-evaluate protection.
+
+        Provider I/O runs outside the lock; the cache + downgrade flag swap
+        atomically under it. A replacement that is ephemeral/downgraded fails
+        subsequent arm_tx/flash closed until durable storage recovers.
+        """
+        fresh = provider.get_secret(self._key_name)
+        with self._lock:
+            self._secret_provider = provider
+            self._explicit_ephemeral_ok = False
+            self._cached_secret = fresh
+            self._cached_secret_version = int(getattr(provider, "revision", 0))
+        self._sync_protection_from_provider()
+
+    def _sync_protection_from_provider(self) -> None:
+        """B-03: propagate the backend degrade flag into the arm gate.
+
+        Typed port, in order: ``backend.protection_downgraded`` (forced
+        platform-init fallback), else ``protection_level() == EPHEMERAL``
+        (env-forced ``UNIVERSAL_CAN_EPHEMERAL_SECRETS=1`` / bare in-memory
+        backend). EPHEMERAL always counts as downgraded — arm_tx + flash
+        raise via ``assert_arm_permitted``. Deliberate ephemeral use
+        (explicit ``reset_secret=``) is exempt. Caller must hold ``_lock``
+        only for the flag write; provider reads never run under it — call
+        from construction/refresh/bind paths only.
+        """
+        if self._explicit_ephemeral_ok:
+            return
+        provider = self._secret_provider
+        if bool(getattr(provider, "protection_downgraded", False)):
+            downgraded = True
+        else:
+            try:
+                level = provider.protection_level()  # type: ignore[attr-defined]
+            except AttributeError:
+                # No typed level — a bare in-memory backend is EPHEMERAL.
+                from src.safety.secret_provider import EphemeralSecretBackend as _Eph
+
+                downgraded = isinstance(provider, _Eph)
+            else:
+                from src.safety.secret_provider import ProtectionLevel as _PL
+
+                downgraded = level == _PL.EPHEMERAL
+        if downgraded and not self._protection_downgraded:
+            logger.critical(
+                "E-Stop secret storage is EPHEMERAL/downgraded — "
+                "arm_tx and flash are fail-closed until durable storage recovers",
+                extra={"key_name": self._key_name},
+            )
+        self._protection_downgraded = downgraded
 
     @property
     def protection_downgraded(self) -> bool:

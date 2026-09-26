@@ -7,6 +7,9 @@ operating system monotonic clocks, and cryptographic key stores.
 from __future__ import annotations
 
 import asyncio
+import ctypes
+import sys
+import threading
 import time
 from typing import Protocol, runtime_checkable
 
@@ -142,17 +145,95 @@ class SecretProvider(Protocol):
 
 # Concrete Default Implementations & Test Utilities
 
+# F2 / Action 19: Suspend-aware high-resolution clock implementation
+_HAS_CLOCK_BOOTTIME: bool = hasattr(time, "CLOCK_BOOTTIME") and hasattr(time, "clock_gettime")
+_CLOCK_BOOTTIME: int | None = getattr(time, "CLOCK_BOOTTIME", None)
+
+_QIT_FUNC = None
+if sys.platform == "win32":
+    try:
+        _kernelbase = getattr(ctypes, "windll", None) and getattr(ctypes.windll, "kernelbase", None)
+        if _kernelbase and hasattr(_kernelbase, "QueryInterruptTimePrecise"):
+            _f = _kernelbase.QueryInterruptTimePrecise
+            _f.argtypes = [ctypes.POINTER(ctypes.c_ulonglong)]
+            _f.restype = None
+            _QIT_FUNC = _f
+        else:
+            _kernel32 = getattr(ctypes, "windll", None) and getattr(ctypes.windll, "kernel32", None)
+            if _kernel32 and hasattr(_kernel32, "QueryInterruptTimePrecise"):
+                _f = _kernel32.QueryInterruptTimePrecise
+                _f.argtypes = [ctypes.POINTER(ctypes.c_ulonglong)]
+                _f.restype = None
+                _QIT_FUNC = _f
+    except Exception:
+        _QIT_FUNC = None
+
 
 class SystemClockProvider:
-    """Default system clock provider using standard library clocks."""
+    """Default system clock provider using suspend-aware monotonic clocks (F2 / Action 19).
+
+    Uses Linux CLOCK_BOOTTIME or Windows QueryInterruptTimePrecise when available
+    so that OS sleep/suspend intervals are accounted for in safety watchdog leases.
+    Guarantees non-decreasing monotonic readings across thread executions.
+    """
+
+    def __init__(self) -> None:
+        self._last_monotonic_ns: int = 0
+        self._lock = threading.Lock()
+
+    @classmethod
+    def validate_clock_safety(cls) -> None:
+        """Validate system monotonic clock meets ISO 26262 safety criteria (F2/Action 19).
+
+        Verifies:
+          1. Monotonicity: monotonic=True
+          2. Inadjustability: adjustable=False (NTP step-proof)
+          3. Resolution: resolution <= 0.050s (50ms)
+
+        Raises:
+          RuntimeError: If monotonic clock is invalid or unavailable.
+        """
+        try:
+            info = time.get_clock_info("monotonic")
+        except Exception as exc:
+            raise RuntimeError(f"Monotonic system clock unavailable: {exc}") from exc
+
+        if not getattr(info, "monotonic", False):
+            raise RuntimeError("System monotonic clock reported non-monotonic")
+        if getattr(info, "adjustable", True):
+            raise RuntimeError("System monotonic clock reported adjustable (subject to NTP step)")
+        if getattr(info, "resolution", 1.0) > 0.050:
+            raise RuntimeError(
+                f"System monotonic clock resolution ({info.resolution:.4f}s) is too coarse (max 0.050s allowed)"
+            )
+
+    @classmethod
+    def is_suspend_aware(cls) -> bool:
+        """Return True if system monotonic clock counts time during OS suspend/sleep."""
+        return _HAS_CLOCK_BOOTTIME or (_QIT_FUNC is not None)
 
     def now_monotonic(self) -> float:
-        """Return monotonic time in fractional seconds."""
-        return time.monotonic()
+        """Return suspend-aware monotonic time in fractional seconds."""
+        return self.now_monotonic_ns() / 1_000_000_000.0
 
     def now_monotonic_ns(self) -> int:
-        """Return monotonic time in nanoseconds."""
-        return time.monotonic_ns()
+        """Return suspend-aware monotonic time in nanoseconds."""
+        if _HAS_CLOCK_BOOTTIME and _CLOCK_BOOTTIME is not None:
+            raw_ns = time.clock_gettime_ns(_CLOCK_BOOTTIME)
+        elif _QIT_FUNC is not None:
+            buf = ctypes.c_ulonglong()
+            _QIT_FUNC(ctypes.byref(buf))
+            raw_ns = buf.value * 100
+        else:
+            raw_ns = time.monotonic_ns()
+
+        # F2: Monotonic clamp to prevent non-monotonic clock regressions
+        with self._lock:
+            if raw_ns < self._last_monotonic_ns:
+                raw_ns = self._last_monotonic_ns
+            else:
+                self._last_monotonic_ns = raw_ns
+            return raw_ns
 
     def now_wall_ns(self) -> int:
         """Return wall-clock time in nanoseconds since the epoch."""
@@ -176,6 +257,7 @@ class VirtualClock:
         # 800_000_000 ns) came back off by a few nanoseconds — enough to flip a
         # `<=` lease-expiry comparison. Start at exactly 1000.0 s = 1e12 ns.
         self._monotonic_ns: int = int(round(float(start_monotonic_sec) * 1_000_000_000))
+        self._simulated_wall_ns: int | None = None
 
     @property
     def _monotonic_sec(self) -> float:
@@ -195,6 +277,12 @@ class VirtualClock:
         if delta < 0:
             raise ValueError(f"VirtualClock.advance_ns requires non-negative delta, got {delta_ns!r}")
         self._monotonic_ns += delta
+
+    def advance_wall_sec(self, delta_sec: float) -> None:
+        """Advance simulated wall clock for suspend tests (F2)."""
+        if self._simulated_wall_ns is None:
+            self._simulated_wall_ns = time.time_ns()
+        self._simulated_wall_ns += int(round(delta_sec * 1_000_000_000))
 
     def set(self, monotonic_sec: float) -> None:
         """Set the virtual monotonic clock to an absolute value (monotonic, never backwards)."""
@@ -224,7 +312,9 @@ class VirtualClock:
         return self._monotonic_ns
 
     def now_wall_ns(self) -> int:
-        """Return real wall-clock time in nanoseconds (not virtualised)."""
+        """Return real wall-clock time in nanoseconds (or simulated wall-clock if advanced)."""
+        if self._simulated_wall_ns is not None:
+            return self._simulated_wall_ns
         return time.time_ns()
 
 

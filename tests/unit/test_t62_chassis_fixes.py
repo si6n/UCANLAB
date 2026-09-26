@@ -142,7 +142,7 @@ def test_rp1210_bus_recv_active_recvs_lifetime() -> None:
 
     active_during_recv = -1
 
-    def fake_read_message(block: bool = False) -> bytes | None:
+    def fake_read_message(buffer_size: int = 2048, block: bool = False) -> bytes | None:
         nonlocal active_during_recv
         active_during_recv = bus._active_recvs
         # Return 11-bit frame: 2-byte header (dlc=1, id=0x100) + 1-byte payload
@@ -170,7 +170,7 @@ def test_rp1210_bus_disconnect_drains_active_recvs() -> None:
     recv_release = threading.Event()
     client_disconnect_during_recv = False
 
-    def fake_read_message(block: bool = False) -> bytes | None:
+    def fake_read_message(buffer_size: int = 2048, block: bool = False) -> bytes | None:
         recv_entered.set()
         recv_release.wait(timeout=1.0)
         return None

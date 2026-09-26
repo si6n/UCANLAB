@@ -189,6 +189,15 @@ class SignalSegmenter:
         highs = [v >> 8 for v in values]
         if min(values) < 0x8000 and set(highs) & {0xFF} and max(values) - min(values) > 0x8000:
             is_signed = True
+        if is_signed:
+            # The candidate was flagged signed: the RAW series is two's
+            # complement, so the observed PHYSICAL range is the signed
+            # reinterpretation. Exporting the raw unsigned min/max instead
+            # produced DBC metadata no signed signal can even represent
+            # (measured: an observed -20..39 range exported as 0..65535
+            # with signed=True; cantools still decoded correctly, so the
+            # operator was shown a bogus bound, not a wrong decode).
+            values = [(v - 0x10000 if v >= 0x8000 else v) for v in values]
         min_v = float(min(values))
         max_v = float(max(values))
 

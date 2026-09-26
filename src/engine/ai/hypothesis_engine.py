@@ -663,7 +663,15 @@ def rank_hypotheses(
         if dtc_hits:
             declared_fmis = {fmi for _, fmi in node_qualified if fmi is not None}
             if declared_fmis:
-                explicit = {(code, fmi) for code, fmi in active_qualified if fmi is not None and fmi in declared_fmis}
+                # Code AND FMI must both match THIS node: dtc_hits is the
+                # node's own declared codes ∩ active codes, so a foreign
+                # active code's FMI can never satisfy this node's qualifier
+                # (contract: a qualifier qualifies the node's own DTC only).
+                explicit = {
+                    (code, fmi)
+                    for code, fmi in active_qualified
+                    if code in dtc_hits and fmi is not None and fmi in declared_fmis
+                }
                 if explicit:
                     qualified_hits = explicit
                 else:

@@ -166,3 +166,15 @@ class TestNormalization:
         assert _normalize_code("spn 100") == "SPN 100"
         assert _normalize_code("p0300") == "P0300"
         assert _normalize_code("P0300") == "P0300"
+
+    def test_normalize_code_unifies_the_nospace_kb_spelling(self) -> None:
+        """The KB keys are "SPN100" (no space); the graph/corpus spell "SPN 100".
+
+        Before the fix the two forms normalized to DIFFERENT strings, so the
+        0.50-weighted dtc_jaccard channel silently scored 0 whenever a KB-form
+        code met a corpus-form code.
+        """
+        assert _normalize_code("SPN100") == "SPN 100"
+        assert _normalize_code("SPN_100") == "SPN 100"
+        # The unified forms must intersect for the Jaccard sets.
+        assert _normalize_code("SPN100") == _normalize_code("SPN 100")

@@ -24,10 +24,21 @@ korur. Entegrasyon sırasında bu dosya `data/dbc/` yanına kopyalanmalıdır.
 | dalathegreat/leaf_can_bus_messages | **GPL-3.0** | © dalathegreat + baradhili (orijinal tablo) | Nissan LEAF ZE0/AZE0/ZE1 EV/CAR/AV/QC bus DBC'leri (GPL viral lisans; paket dağıtımında lisans metni korunur) | `curated/passenger/nissan_leaf_{ev_can_ze0,ev_can_aze0,ev_can_ze1,car_can_aze0,av_can,qc_can}.dbc` + `curated/ev_bms/` kopyaları |
 | joshwardell/model3dbc | MIT | © Josh Wardell | Tesla Model 3/Y topluluk decode DBC (Model3CAN) | `curated/passenger/tesla_model3_model3can.dbc` |
 | autti/abraham | MIT | © autti + katkıda bulunanlar | Lincoln MKZ / Ford Fusion crowdsourced DBC | `curated/passenger/lincoln_mkz.dbc` |
-| qwec01/ARCFOX_dbc | **GPL-3.0** | © qwec01 | ARCFOX IBUS1/IBUS2/EVBUS + GB27830-2015 (GB18030 → UTF-8 çevrildi) | `curated/passenger/arcfox_{evbus,ibus1,ibus2}.dbc`, `curated/ev_bms/arcfox_{evbus,ibus2}.dbc`, `gb27830_2015.dbc` |
+| qwec01/ARCFOX_dbc | **GPL-3.0** | © qwec01 | ARCFOX IBUS1/IBUS2/EVBUS + GB/T 27930-2023 (GB18030 → UTF-8 çevrildi, eski adlandırma gb27830_2015) | `curated/passenger/arcfox_{evbus,ibus1,ibus2}.dbc`, `curated/ev_bms/arcfox_{evbus,ibus2}.dbc`, `gbt27930_2023.dbc` |
 | open-vehicle-control-system/dbc | MIT | © OVCS katkıda bulunanlar | Tesla iBooster Gen 2 fren aktüatörü DBC | `curated/passenger/tesla_ibooster_gen2.dbc` |
 | alan707/openOBD2 | MIT | © alan707 | Standart OBD-II PID DBC — küratörlükte PID 0x09 adı J1979'a göre Bank1→Bank2 düzeltildi + 2 çakışan sinyal strict-hattıyla düşüldü | `curated/diagnostics/obd2_open_pids.dbc` |
 | BogGyver/opendbc (tesla_unity_dev dalı) | MIT (commaai/opendbc fork'u) | © comma.ai + BogGyver katkıda bulunanlar | 28 committed DBC: statik 7 (hyundai_kia_generic, stellantis_dasm, tesla_can_pre1916, vw_golf_mk4, vw_mqb_2010, chrysler_pacifica_2017_hybrid, tesla_radar) + generated 21 (Lexus ×6, Honda ×6, Toyota ×9). Küratörlükte tesla_can_pre1916'nın kesik `VAL_ 921 DAS_lssState` numaralandırmasındaki sarkan değeri düşürüldü | `curated/passenger/*` (Batch-4: boggyver kaynaklı tümü) |
+
+## Copyleft ve Paylaşımlı Lisans İzolasyonu (GPL-3.0 & CC-BY-SA-4.0)
+
+Bu depoda yer alan bazı DBC dosyaları copyleft (GPL-3.0) veya paylaşımlı (CC-BY-SA-4.0) lisanslar altındadır:
+- **GPL-3.0-only**: `nissan_leaf_*` (dalathegreat), `arcfox_*` (qwec01), `gbt27930_2023.dbc` (eski adı `gb27830_2015.dbc`). Lisans metni: `LICENSES/GPL-3.0-only.txt`.
+- **CC-BY-SA-4.0**: `jaguar_xf_x250_ms_bus.dbc`, `jaguar_xf_x250_hs_bus.dbc` (fsfarmscaper). Lisans metni: `LICENSES/CC-BY-SA-4.0.txt`.
+
+### İzolasyon ve Lisans Sınırı (Air-Gap)
+1. **Veri Ayrımı:** Bu dosyalar yazılım koduna statik olarak gömülmez veya derlenmez; çalışma zamanında `cantools` kütüphanesi üzerinden dinamik veri yükü (data payload) olarak okunur.
+2. **Ticari / Kapalı Dağıtım Temizliği:** Katı ticari veya kapalı kod dağıtımlarında GPL veya CC-BY-SA copyleft etkilenimini tamamen ortadan kaldırmak için bu dosyalar `data/dbc/` dizininden silinebilir veya dağıtım paketinden hariç tutulabilir. Çekirdek teşhis, J1939, OBD-II ve diğer MIT/Apache-2.0 lisanslı DBC'ler bağımsız çalışmaya devam eder.
+3. **REUSE 3.0 / SPDX Uyumu:** Tüm lisans ve atıf eşlemeleri depo kökündeki `REUSE.toml` dosyasında tescil edilmiştir.
 
 ## DO-NOT-INTEGRATE — lisanssız / riskli dosyalar
 

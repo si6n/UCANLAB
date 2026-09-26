@@ -50,6 +50,8 @@ CSV_PAIRS: dict[str, tuple[str, str]] = {
     "extended_pid_database.csv": ("extended_pid_database.json", "pids"),
     "j1939_spn_fmi_database.csv": ("j1939_spn_fmi_database.json", "fault_matrix"),
     "nhtsa_can_recalls_database.csv": ("nhtsa_can_recalls_database.json", "one_to_one"),
+    "obd_mode06_database.csv": ("obd_mode06_database.json", "mode06_tests"),
+    "canonical_symptoms.csv": ("canonical_symptoms.json", "symptoms"),
 }
 
 # j1939 CSV düzeni = scripts/expand_j1939_spn_database.py'nin ürettiği FMI-başına düzen
@@ -77,6 +79,15 @@ def _expected_rows(json_name: str, rule: str) -> int:
     if rule == "fault_matrix":
         spns = _load("j1939_spn_fmi_database.json")["spns"]
         return sum(len(entry.get("fault_matrix") or {}) for entry in spns.values())
+    if rule == "mode06_tests":
+        data = _load("obd_mode06_database.json")
+        monitors = data.get("monitors", {})
+        c2 = data.get("class2_monitors", {})
+        m_tests = sum(len(m.get("tests") or []) for m in monitors.values())
+        c2_tests = sum(len(m.get("tests") or []) for m in c2.values()) if isinstance(c2, dict) else 0
+        return m_tests + c2_tests
+    if rule == "symptoms":
+        return len(_load("canonical_symptoms.json").get("symptoms", {}))
     return len(_load(json_name))
 @pytest.mark.parametrize("csv_name", sorted(CSV_PAIRS))
 def test_csv_twin_has_no_hollow_rows(csv_name: str) -> None:
@@ -139,6 +150,15 @@ def test_dbc_catalog_entries_resolve_with_matching_hash() -> None:
             checked += 1
     assert checked == catalog["total_files"] >= 70
 
+    # Aksiyon 23: bidirectional disk <-> catalog check
+    disk_files = {p.relative_to(DBC_DIR).as_posix() for p in DBC_DIR.rglob("*.dbc")}
+    catalog_files = {
+        f"{category}/{entry['filename']}"
+        for category, meta in catalog["categories"].items()
+        for entry in meta["files"]
+    }
+    assert disk_files == catalog_files, f"DBC katalog↔disk iki yönlü uyumsuzluk: disk-fark={disk_files - catalog_files}, katalog-fark={catalog_files - disk_files}"
+
 
 def test_golden_cases_load_with_production_validator() -> None:
     from src.engine.ai.golden_cases import calibration_eligible_cases, load_all_cases
@@ -170,6 +190,41 @@ def test_knowledge_procedures_are_orphan_free_and_consistent() -> None:
             assert len(parts) == 2 and int(parts[1]) in spn_ids, f"{path.name}: yetim SPN prosedürü"
         else:
             assert stem in dtc_db, f"{path.name}: yetim DTC prosedürü"
+
+
+def test_dtc_database_mandatory_autosar_fields() -> None:
+    """Aksiyon 12 / Faz 4.2: dtc_namespace ve dtc_class zorunlu alan doğrulaması."""
+    from src.core.models.diagnostics import DtcClass, DtcNamespace
+
+    dtc_db = _load("dtc_database.json")
+    allowed_ns = {ns.value for ns in DtcNamespace}
+    allowed_cls = {c.value for c in DtcClass}
+    assert len(dtc_db) >= 14000
+    for code, rec in dtc_db.items():
+        assert "dtc_namespace" in rec, f"{code}: dtc_namespace alanı eksik"
+        assert "dtc_class" in rec, f"{code}: dtc_class alanı eksik"
+        assert rec["dtc_namespace"] in allowed_ns, f"{code}: geçersiz namespace {rec['dtc_namespace']}"
+        assert rec["dtc_class"] in allowed_cls, f"{code}: geçersiz class {rec['dtc_class']}"
+
+
+def test_dtc_provenance_schema_integrity() -> None:
+    """Aksiyon 14 / Faz 5.1: provenance_schema.json ve dtc_record_schema.json doğrulaması."""
+    import jsonschema
+
+    prov_path = DIAG_DIR / "provenance_schema.json"
+    dtc_path = DIAG_DIR / "dtc_record_schema.json"
+    assert prov_path.exists(), "provenance_schema.json yok"
+    assert dtc_path.exists(), "dtc_record_schema.json yok"
+
+    prov_schema = json.loads(prov_path.read_text(encoding="utf-8"))
+    dtc_schema = json.loads(dtc_path.read_text(encoding="utf-8"))
+    jsonschema.Draft202012Validator.check_schema(prov_schema)
+    jsonschema.Draft202012Validator.check_schema(dtc_schema)
+
+    assert "dependentRequired" in dtc_schema
+    for f in ("title", "severity", "causes", "steps", "symptoms"):
+        assert f in dtc_schema["dependentRequired"], f"{f} dependentRequired içinde yok"
+        assert "provenance" in dtc_schema["dependentRequired"][f]
 
 
 def test_truncation_and_fault_title_gaps_do_not_grow() -> None:

@@ -26,6 +26,12 @@ export default {
         'glass-row-anom': 'var(--glass-row-anom)',
         'table-body': 'var(--table-body)',
 
+        // Inset surfaces. NOTE: `surface-inset` is also a hand-written CSS class
+        // in index.css (it bundles background + border + radius), so it must NOT
+        // be used as a bare utility here. `surface-inset-raw` is the background
+        // colour only; pair it with rounded-*/border-* utilities explicitly.
+        'surface-inset-raw': 'var(--surface-inset)',
+
         // Hairlines & Borders
         'border-whisper': 'var(--border)',
         'border-strong': 'var(--border-strong)',

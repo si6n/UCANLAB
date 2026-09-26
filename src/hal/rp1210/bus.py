@@ -52,6 +52,10 @@ class RP1210Bus(AbstractBus):
     DEFAULT_RX_BUFFER: ClassVar[int] = 8000
     MAX_CLASSIC_PAYLOAD: ClassVar[int] = 8
     DISCONNECT_DRAIN_TIMEOUT_S: ClassVar[float] = 2.0
+    # FIX 4: bound on consecutive vendor RX faults tolerated inside one
+    # recv() call before the HardwareError is re-raised (fail-closed —
+    # a permanently broken adapter must not masquerade as an idle bus).
+    MAX_CONSECUTIVE_READ_ERRORS: ClassVar[int] = 3
     # Protocols that are strictly 29-bit only (SAE J1939 standard).
     # HAL-27: derived from the SHARED client allowlist so the two can never
     # drift again. `j1939t` used to exist only here, making it an unreachable
@@ -402,7 +406,7 @@ class RP1210Bus(AbstractBus):
             self.metrics.tx_frames += 1
         finally:
             with self._lifecycle_lock:
-                self._active_sends -= 1
+                self._active_sends = max(0, self._active_sends - 1)
                 if self._active_sends == 0 and self._active_recvs == 0:
                     self._drain_cond.notify_all()
 
@@ -443,21 +447,41 @@ class RP1210Bus(AbstractBus):
             deadline = None if timeout_s is None else time.monotonic() + float(timeout_s)
             poll_interval = 0.001
             self.last_rx_queue_full = False
+            consecutive_errors = 0
             while True:
                 with self._lifecycle_lock:
                     if not self.is_connected:
                         return None
                 try:
-                    raw = self._client.read_message(block=False)
+                    # FIX 5: read with the session's allocated RX buffer size —
+                    # the default 2048 would truncate packets the 8000-byte
+                    # session buffer was opened for.
+                    raw = self._client.read_message(
+                        buffer_size=self.DEFAULT_RX_BUFFER, block=False
+                    )
                 except HardwareError as exc:
-                    # Transient RX errors are logged and polling continues until deadline (HIGH-2):
-                    # one malformed vendor packet must not kill the ingest loop or truncate timeout.
+                    # HIGH-2 / FIX 4: transient vendor RX faults are logged and
+                    # polling continues until the deadline — but only for a
+                    # BOUNDED number of consecutive failures. The old code
+                    # swallowed every HardwareError: a finite timeout returned
+                    # None indistinguishable from a real timeout, and an
+                    # infinite timeout retried forever with log spam. Past the
+                    # bound the adapter is treated as broken (fail-closed).
+                    consecutive_errors += 1
+                    self.metrics.error_frames += 1
+                    if consecutive_errors > self.MAX_CONSECUTIVE_READ_ERRORS:
+                        logger.error(
+                            "RP1210 read errors persist; giving up",
+                            extra={"error": str(exc), "consecutive_errors": consecutive_errors},
+                        )
+                        raise
                     logger.warning("RP1210 read error; retrying until deadline", extra={"error": str(exc)})
                     if deadline is not None and time.monotonic() >= deadline:
                         return None
                     time.sleep(poll_interval)
                     poll_interval = min(poll_interval * 2.0, 0.010)
                     continue
+                consecutive_errors = 0
 
                 # HAL-22: a queue-full condition is NOT an empty queue — it
                 # means frames were LOST by the vendor stack. Surface it and
@@ -503,7 +527,7 @@ class RP1210Bus(AbstractBus):
                 poll_interval = min(poll_interval * 2.0, 0.010)
         finally:
             with self._lifecycle_lock:
-                self._active_recvs -= 1
+                self._active_recvs = max(0, self._active_recvs - 1)
                 if self._active_sends == 0 and self._active_recvs == 0:
                     self._drain_cond.notify_all()
 
@@ -547,6 +571,15 @@ class RP1210Bus(AbstractBus):
                 self.metrics.dropped_frames += 1
                 return None
             arb_id = int.from_bytes(raw[0:4], "little") & _EXT_ID_MASK
+            # FIX 10c: validate the RAW DLC byte before masking — values
+            # 16..255 would wrap through `& 0x0F` into a plausible length.
+            if raw[4] > 15:
+                logger.warning(
+                    "RP1210 extended packet declares out-of-range DLC byte; dropped",
+                    extra={"raw_dlc": raw[4]},
+                )
+                self.metrics.dropped_frames += 1
+                return None
             dlc = raw[4] & 0x0F
             payload = raw[5 : 5 + dlc]
 

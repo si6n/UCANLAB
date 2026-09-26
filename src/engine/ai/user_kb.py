@@ -120,6 +120,19 @@ def get_entry(code: str, kb: dict[str, UserKbEntry] | None = None) -> UserKbEntr
 
 
 def _resolve_feedback_path() -> Path:
+    """Resolve user feedback path, routing to persistent app_data_root when frozen."""
+    if getattr(sys, "frozen", False):
+        try:
+            from src.launcher.paths import app_data_root
+
+            return app_data_root() / "user_feedback.json"
+        except Exception:
+            try:
+                from src.ui.desktop_app import _app_data_root
+
+                return _app_data_root() / "user_feedback.json"
+            except Exception:
+                pass
     return _resolve_kb_path().parent / "user_feedback.json"
 
 

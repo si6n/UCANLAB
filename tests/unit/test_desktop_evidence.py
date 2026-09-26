@@ -65,9 +65,18 @@ class TestLiveSignalEvidence:
         assert samples[0].timestamp_ns > 0
 
     def test_ccvs_speed_records_sample(self) -> None:
+        """B-05 (default-closed): the VehicleSpeed evidence sample exists ONLY
+        for an approved CCVS source. An unapproved SA is display-only — the
+        reading is not attributable to the vehicle's CCVS, so it must not seed
+        the AI evidence base, and the interlock feed stays stale."""
         app = _app()
-        app._decode_j1939_signal(_eec1_frame(0x00, 0))
-        app._decode_j1939_signal(_ccvs_frame(0x00, 5120))  # 20 km/h
+        app._decode_j1939_signal(_eec1_frame(0x00, 16000))
+        app._decode_j1939_signal(_ccvs_frame(0x00, 5120))  # 20 km/h, UNapproved
+        samples = [s for s in app._diag_session.samples if s.name == "VehicleSpeed"]
+        assert len(samples) == 0
+
+        app.approve_ccvs_source(0x00, reason="test approval")
+        app._decode_j1939_signal(_ccvs_frame(0x00, 5120))  # 20 km/h, approved
         samples = [s for s in app._diag_session.samples if s.name == "VehicleSpeed"]
         assert len(samples) == 1
         assert samples[0].physical_value == 20.0

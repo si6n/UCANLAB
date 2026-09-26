@@ -218,3 +218,30 @@ def test_estop_concurrent_trigger_and_reset_toctou_safety() -> None:
     t2.join()
 
     assert not errors
+
+
+def test_estop_secret_store_failure_fails_closed() -> None:
+    """F1 (Aksiyon 18): verify store_secret failure immediately triggers E-Stop fail-closed."""
+    from unittest.mock import MagicMock
+    from src.core.exceptions import SafetyError
+    from src.safety.secret_provider import SecretProvider
+
+    mock_provider = MagicMock(spec=SecretProvider)
+    mock_provider.has_secret.return_value = False
+    mock_provider.store_secret.side_effect = OSError("Disk storage unavailable / permission denied")
+    mock_provider.get_secret.return_value = b"\x00" * 32
+    mock_provider.protection_downgraded = False
+
+    estop = EmergencyStopSystem(secret_provider=mock_provider)
+
+    # Must be engaged fail-closed immediately upon initialization
+    assert estop.is_engaged is True
+    assert estop.protection_downgraded is True
+    assert estop.last_event is not None
+    assert "fail-closed" in estop.last_event.reason
+
+    # Arming must be refused fail-closed
+    with pytest.raises(SafetyError) as exc_info:
+        estop.assert_arm_permitted("arm_tx")
+    assert exc_info.value.code == "ESTOP_PROTECTION_DOWNGRADED"
+

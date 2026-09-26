@@ -39,12 +39,64 @@ except ImportError:  # pragma: no cover - environment dependent
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_PATH = REPO_ROOT / "security-exceptions.yaml"
-_REQUIRED_FIELDS = ("id", "owner", "justification", "expires")
+_REQUIRED_FIELDS = ("id", "package", "owner", "justification", "expires")
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
 def _fail(message: str) -> None:
     print(f"ERROR: {message}", file=sys.stderr)
+
+
+def _installed_distributions() -> "dict[str, str]":
+    """Name (normalized) -> version for the current environment. Stdlib only."""
+    try:
+        from importlib import metadata as _md
+    except ImportError:
+        return {}
+    out: dict[str, str] = {}
+    for _d in _md.distributions():
+        _name = (_d.metadata.get("Name") or "").strip().lower().replace("_", "-")
+        if _name:
+            out.setdefault(_name, _d.version)
+    return out
+
+
+def _pinned_requirement_names(root: Path) -> set[str]:
+    """Package names pinned in requirements*.txt / lock (normalized, no deps)."""
+    names: set[str] = set()
+    for _pat in ("requirements.txt", "requirements-dev.txt", "requirements.lock"):
+        _p = root / _pat
+        if not _p.is_file():
+            continue
+        for _line in _p.read_text(encoding="utf-8", errors="replace").splitlines():
+            _line = _line.strip()
+            if not _line or _line.startswith(("#", "-")):
+                continue
+            _m = re.match(r"^([A-Za-z0-9_.\-]+)(\[.*\])?", _line)
+            if _m:
+                names.add(_m.group(1).lower().replace("_", "-"))
+    return names
+
+
+def validate_package_match(
+    entries: list[dict[str, object]], root: Path | None = None
+) -> list[str]:
+    """B-10: reject exceptions whose package is neither installed nor pinned.
+
+    Returns the list of ineffective entry ids (e.g. nltk when the repo has
+    zero nltk/diskcache references and it is not installed).
+    """
+    root = root or REPO_ROOT
+    installed = _installed_distributions()
+    pinned = _pinned_requirement_names(root)
+    bad: list[str] = []
+    for entry in entries:
+        pkg = str(entry.get("package") or "").strip().lower().replace("_", "-")
+        if not pkg:
+            bad.append(str(entry.get("id")))
+        elif pkg not in installed and pkg not in pinned:
+            bad.append(str(entry.get("id")))
+    return bad
 
 
 def _parse_expiry(raw: object, index: int) -> dt.date:
@@ -129,6 +181,16 @@ def main(argv: list[str] | None = None) -> int:
             _fail(
                 f"security exception '{advisory_id}' has EXPIRED — re-evaluate the advisory "
                 "and either patch the dependency or extend 'expires' with a new justification"
+            )
+        return 1
+
+    ineffective = validate_package_match(entries, REPO_ROOT)
+    if ineffective:
+        for advisory_id in ineffective:
+            _fail(
+                f"security exception '{advisory_id}' is INEFFECTIVE — its package is "
+                "neither installed nor pinned in requirements*.txt/lock; "
+                "remove it or pin the dependency it covers"
             )
         return 1
 

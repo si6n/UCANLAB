@@ -368,7 +368,7 @@ class AddressClaimEngine:
 
     def handle_rx_frame(self, frame: CanFrame) -> CanFrame | None:
         """Process incoming frame. If Address Claim contention occurs, handles arbitration."""
-        if not frame.is_extended or len(frame.data) < 8:
+        if not frame.is_extended or len(frame.data) < 3:
             return None
 
         # Extract PGN and Source Address from 29-bit CAN ID with PDU1/PDU2
@@ -436,10 +436,15 @@ class AddressClaimEngine:
                 )
             return None
 
+        # Address Claim (8 bytes) and Commanded Address (9 bytes via TP/reassembly)
+        # require at least 8 bytes.
+        if len(frame.data) < 8:
+            return None
+
         # REVIEW 1-H4 (HIGH): SAE J1939-81 — Commanded Address (PGN 65240)
-        # carries NAME + new source address; a node whose NAME matches MUST
-        # adopt the new address and re-claim. Frames for other NAMEs are
-        # ignored (other target).
+        # carries NAME + new source address (arrives via multi-packet TP/reassembly);
+        # a node whose NAME matches MUST adopt the new address and re-claim.
+        # Frames for other NAMEs are ignored (other target).
         if pgn == PGN_COMMANDED_ADDRESS and len(frame.data) == 9:
             commanded_name = J1939Name.from_bytes(frame.data[0:8])
             if commanded_name.to_int64() != self.name.to_int64():
@@ -618,6 +623,21 @@ class AddressClaimEngine:
             self.state = AddressClaimState.CANNOT_CLAIM
             can_id = 0x18EEFF00 | NULL_ADDRESS
             logger.error("Transitioned to CANNOT_CLAIM (Null Address 0xFE)")
+            return CanFrame.create(
+                channel_id=self.channel_id,
+                arbitration_id=can_id,
+                data=self.name.to_bytes(),
+                is_extended=True,
+                direction="tx",
+            )
+        else:
+            # SAE J1939-81: non-arbitrary address capable node loses contention
+            # and cannot shift to an alternative address — transition to CANNOT_CLAIM
+            # and broadcast Cannot Claim (SA = 254 / 0xFE).
+            self.current_address = NULL_ADDRESS
+            self.state = AddressClaimState.CANNOT_CLAIM
+            can_id = 0x18EEFF00 | NULL_ADDRESS
+            logger.error("Non-AAC node lost contention; transitioned to CANNOT_CLAIM (Null Address 0xFE)")
             return CanFrame.create(
                 channel_id=self.channel_id,
                 arbitration_id=can_id,

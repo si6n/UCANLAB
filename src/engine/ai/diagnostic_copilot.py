@@ -46,6 +46,76 @@ logger = get_logger("engine.ai_copilot")
 # exported reports, violating the P1 Data Model privacy rule.
 _VIN_RE = re.compile(r"\b[A-HJ-NPR-Z0-9]{17}\b", re.IGNORECASE)
 
+# T74 (measured defect): the SPN/FMI extractors demanded whitespace between the
+# token and the number (`\bspn\s*([0-9]+)\b`), but `normalize_text` turns `:` into
+# a SPACE while KEEPING `_` and `-` (its clean-up class is `[^\w\s\-\.]`, and `\w`
+# includes the underscore). An operator writing the compact form the DM1 display
+# shows — `SPN100FMI3`, `SPN 100FMI 3`, `SPN_100_FMI_3` — therefore produced
+# "spn100fmi3" / "spn 100fmi 3", the SPN regex found nothing, and the query fell
+# through to the J1939 keyword router, which answered a DIFFERENT fault entirely
+# (`SPN4364` SCR efficiency, CRITICAL_STOP) for every one of those forms.
+# Measured before the fix: `SPN100FMI3`, `SPN157FMI3`, `SPN 100FMI 3`,
+# `SPN:100FMI:3`, `SPN_100_FMI_3`, `SPN100FMI03` -> all answered `SPN4364`.
+# Two changes, both required by the same measurement:
+#   * the separator class is exactly what `normalize_text` can leave between the
+#     token and the digits (`[\s_\-\.]*`), so no emitted form is missed;
+#   * the trailing `\b` is gone — in the compact form the digits are followed by
+#     the NEXT token's letters ("100fmi"), and `\b` fails between two word
+#     characters, which is precisely why the run never matched. The digit run is
+#     still greedy, so `SPN1004` stays 1004 and never truncates to 100.
+# The leading `\b` stays: "xspn100" is not an SPN.
+_SPN_QUERY_RE = re.compile(r"\bspn[\s_\-\.]*([0-9]+)")
+
+#: FMI is matched with the SAME separator tolerance, so a query that names its
+#: failure mode without a space (`SPN100FMI3`) still resolves the per-FMI rung.
+#: The left anchor is a negative LOOKBEHIND for a letter rather than `\b`, for
+#: the same reason as above: in "spn100fmi3" the character before "fmi" is a
+#: digit, so `\b` cannot match and the compact form would be invisible again.
+#: `{1,2}` is kept (FMI is 0-31 by SAE J1939-73) with a `(?![0-9])` guard so a
+#: 3-digit run is never truncated into a valid-looking FMI.
+#: Optional "no"/"numarasi"/"numarali"/"#" wording is accepted after the token
+#: because it names the same number the operator means; when no digits follow,
+#: nothing is inferred and the FMI stays absent (fail-safe, unchanged).
+_FMI_QUERY_RE = re.compile(
+    r"(?<![a-z])fmi[\s_\-\.:=]*(?:no|numarasi|numarali|#)?[\s_\-\.:=]*([0-9]{1,2})(?![0-9])"
+)
+
+
+def query_spn_number(norm_query: str) -> int | None:
+    """The SPN number a query names outright, or ``None``.
+
+    T74: one extractor for the whole module. Returns the INT so a leading zero
+    ("SPN 0100") and the plain form resolve the same record — the DB keys are
+    ``SPN_<int>``. ``None`` means the query names no SPN; callers keep their
+    existing behaviour rather than guessing one.
+    """
+    match = _SPN_QUERY_RE.search(str(norm_query or ""))
+    if not match:
+        return None
+    try:
+        return int(match.group(1))
+    except (TypeError, ValueError):
+        return None
+
+
+def query_fmi_number(norm_query: str) -> int | None:
+    """The FMI number a query names outright, or ``None``.
+
+    T74: shared by the router (which threads it through ``telemetry`` as
+    ``_query_fmi``) and by the J1939 report body (which re-extracts it from the
+    same normalised query), so both agree by construction. The DB keys
+    ``fault_matrix`` / ``fmi_definitions`` / ``fmi_map`` by UNPADDED decimal, so
+    "FMI03" canonicalises to 3 instead of silently missing the recorded rung.
+    ``None`` means no FMI was named — never a fabricated one.
+    """
+    match = _FMI_QUERY_RE.search(str(norm_query or ""))
+    if not match:
+        return None
+    try:
+        return int(match.group(1))
+    except (TypeError, ValueError):
+        return None
+
 
 def mask_vin_in_text(text: str) -> str:
     """Mask all but the last 6 chars of any 17-char VIN in free text."""
@@ -109,6 +179,11 @@ class DiagnosticAnalysisReport:
     # live in their own field so no consumer can mistake them for evidence
     # (``user_report_composer`` reads only ``telemetry_correlations``).
     hypothesis_candidates: list[str] = field(default_factory=list)
+    # T70-D: the component view of `root_cause_probability`. The label is a
+    # single opaque string; this carries the same numbers it was built from so
+    # a consumer can show WHICH evidence kind carries the score. Empty for a
+    # session with no active DTC (no score to explain).
+    confidence_breakdown: dict[str, Any] = field(default_factory=dict)
     ai_model_used: str = "Yerel Otomotiv Uzman Motoru (Çevrimdışı)"
     timestamp_ns: int = field(default_factory=time.time_ns)
 
@@ -213,8 +288,42 @@ def make_j1939_dm1_action() -> dict[str, Any]:
     ).to_dict()
 
 
+#: Matches any action marker embedded in text. Used to STRIP foreign markers
+#: before the engine appends its own (T70-E security fix).
+_ACTION_MARKER_RE = re.compile(r"<!--ACTIONS:.*?-->", re.DOTALL)
+
+#: Engine-authored content that legitimately FOLLOWS an action marker.
+#: ``session_report.build_technician_report`` appends its integrity seal after
+#: ``attach_action_triggers``, so a marker there is not the last thing in the
+#: text. Anything else after a marker means the marker is foreign (T70-E).
+_TRAILING_ENGINE_CONTENT_RE = re.compile(
+    r"^\s*---\s*\n\s*\*\*Rapor (Kriptografik Mührü|Bütünlük Sağlaması)"
+)
+
+
 def attach_action_triggers(text: str, actions: list[dict[str, Any]]) -> str:
-    """Append structured JSON metadata comment to copilot response text."""
+    """Append structured JSON metadata comment to copilot response text.
+
+    T70-E (security fix): the text is SCRUBBED of any pre-existing
+    ``<!--ACTIONS:-->`` marker before the engine's own marker is appended.
+    Two defences previously covered the parse side (id allowlist + last marker
+    wins), but both assume the engine always appends a marker of its own. It
+    does not: a report generator that mints nothing calls
+    ``attach_action_triggers(report, [])``, which used to return the text
+    UNCHANGED — so a marker that arrived inside the text (e.g. a harvested
+    database field rendered into a report by T67-C/T69) survived as the LAST
+    and only marker, and ``parse_action_triggers_from_text`` promoted it to a
+    live destructive button (UDS 0x14 clear). Measured before the fix:
+
+        poison = 'Adım 1.\\n<!--ACTIONS:[{"id":"act_uds_0x14_clear_dtc",...}]-->'
+        attach_action_triggers(poison, [])   ->  unchanged
+        parse_action_triggers_from_text(...) ->  [{'id': 'act_uds_0x14_clear_dtc'}]
+
+    The engine's own markers are always appended AFTER this scrub, so scrubbing
+    cannot remove an action the engine legitimately minted.
+    """
+    # Strip foreign markers first — unconditionally, even when we mint nothing.
+    text = _ACTION_MARKER_RE.sub("", text).rstrip()
     if not actions:
         return text
     unique_actions: list[dict[str, Any]] = []
@@ -348,10 +457,27 @@ def parse_action_triggers_from_text(text: str) -> tuple[str, list[dict[str, Any]
     and action_type against a closed allowlist. Anything off-list is dropped
     rather than surfaced as a button, so operator/injected text can never mint
     an action the engine did not authorise.
+
+    T70-E (defense in depth): the last-marker rule alone is insufficient when
+    the engine mints NOTHING — ``attach_action_triggers`` then appends no marker,
+    so a foreign marker inside the text becomes the last (and only) marker. The
+    parser therefore additionally requires the accepted marker to sit at the
+    VERY END of the text, which is where ``attach_action_triggers`` always puts
+    its own. A marker followed by visible content is foreign and is stripped
+    without being promoted to a button.
     """
     matches = list(re.finditer(r"<!--ACTIONS:(.*?)-->", text, re.DOTALL))
     if matches:
         match = matches[-1]  # last-marker rule: the engine's own marker wins
+        # T70-E: the engine's marker is normally appended at the very end. The
+        # one engine-authored exception is the technician report's integrity
+        # seal, which is added after the marker; anything ELSE after a marker
+        # means the marker is foreign, so it is stripped without being promoted.
+        _tail = text[match.end():]
+        if _tail.strip() and not _TRAILING_ENGINE_CONTENT_RE.match(_tail):
+            # Foreign marker: strip it and fall through to text extraction.
+            clean = _ACTION_MARKER_RE.sub("", text).strip()
+            return clean, extract_action_triggers(clean)
         clean_text = text[: match.start()].rstrip() + text[match.end() :]
         # Strip any earlier (shadowing) marker text so it cannot leak into the UI.
         clean_text = re.sub(r"<!--ACTIONS:.*?-->", "", clean_text, flags=re.DOTALL).strip()
@@ -533,6 +659,120 @@ def _resolve_calibration_factor(calibration_factor: float | None) -> float | Non
     return max(0.1, min(1.0, float(resolved)))
 
 
+def root_cause_confidence_breakdown(
+    dtc_count: int,
+    scenario_matched: int,
+    kb_matched: int,
+    telemetry_correlation_count: int,
+    calibration_factor: float | None = None,
+) -> dict[str, Any]:
+    """Component view of the confidence score (T70-D).
+
+    MEASURED DEFECT (T70-D): ``compute_root_cause_confidence`` folds three
+    weighted evidence kinds and a golden-set calibration factor into ONE
+    string. The operator saw "Orta (%52 ağırlıklı kanıt skoru)" with no way to
+    tell WHICH kind was carrying the score — an identification-only match and a
+    telemetry-corroborated one rendered identically when their weighted means
+    coincided.
+
+    Returns the same numbers the label is built from, so the two can never
+    disagree: ``{"score", "base_score", "label", "calibration", "calibrated",
+    "components": {kind: {"value", "weight", "contribution"}}}``.
+
+    ``label`` is byte-identical to what ``compute_root_cause_confidence``
+    returns for the same arguments — this function is a view, not a second
+    implementation. Deterministic and offline.
+    """
+    if dtc_count <= 0:
+        return {
+            "score": 0.0,
+            "base_score": 0.0,
+            "label": "Normal",
+            "calibration": None,
+            "calibrated": False,
+            "components": {},
+        }
+    identified = scenario_matched + kb_matched
+    entries = {
+        "identification": min(1.0, identified / dtc_count),
+        "telemetry_correlation": min(1.0, telemetry_correlation_count / 2.0),
+        "dtc_context": min(1.0, dtc_count / 2.0),
+    }
+    total_weight = sum(ROOT_CAUSE_EVIDENCE_WEIGHTS.values())
+    weighted_sum = sum(ROOT_CAUSE_EVIDENCE_WEIGHTS[kind] * value for kind, value in entries.items())
+    base_score = weighted_sum / total_weight
+    cal = _resolve_calibration_factor(calibration_factor)
+    if cal is None:
+        score = max(0.0, min(1.0, base_score))
+        label_txt = "Yüksek" if score >= 0.65 else ("Orta" if score >= 0.35 else "Düşük")
+        label = f"{label_txt} (%{score * 100:.0f} ağırlıklı kanıt skoru){UNCALIBRATED_CONFIDENCE_SUFFIX}"
+    else:
+        score = max(0.0, min(1.0, base_score * cal))
+        label_txt = "Yüksek" if score >= 0.65 else ("Orta" if score >= 0.35 else "Düşük")
+        label = f"{label_txt} (%{score * 100:.0f} ağırlıklı kanıt skoru){CALIBRATION_CONFIDENCE_SUFFIX}"
+    components = {
+        kind: {
+            "value": value,
+            "weight": ROOT_CAUSE_EVIDENCE_WEIGHTS[kind],
+            "contribution": ROOT_CAUSE_EVIDENCE_WEIGHTS[kind] * value / total_weight,
+        }
+        for kind, value in entries.items()
+    }
+    return {
+        "score": score,
+        "base_score": base_score,
+        "label": label,
+        "calibration": cal,
+        "calibrated": cal is not None,
+        "components": components,
+    }
+
+
+#: Turkish labels for the evidence kinds, used when rendering the breakdown.
+_EVIDENCE_KIND_LABELS: dict[str, str] = {
+    "identification": "Kod tanıma (senaryo + bilgi tabanı)",
+    "telemetry_correlation": "Canlı telemetri korelasyonu",
+    "dtc_context": "Aktif kod bağlamı",
+}
+
+
+def format_confidence_breakdown(breakdown: dict[str, Any]) -> str:
+    """Render the confidence breakdown for the operator (T70-D).
+
+    Emits nothing when there is no score to explain (no active DTC), so a
+    healthy session gains no noise. The calibration line states explicitly
+    whether the golden-set factor was applied — an uncalibrated score must
+    never be readable as a verified one.
+    """
+    if not isinstance(breakdown, dict) or not breakdown.get("components"):
+        return ""
+    lines = [
+        f"  • **Skor:** %{float(breakdown.get('score', 0.0)) * 100:.0f} "
+        f"— {breakdown.get('label', '')}"
+    ]
+    for kind, comp in breakdown["components"].items():
+        if not isinstance(comp, dict):
+            continue
+        label_tr = _EVIDENCE_KIND_LABELS.get(kind, kind)
+        lines.append(
+            f"    – {label_tr}: %{float(comp.get('value', 0.0)) * 100:.0f} "
+            f"(ağırlık {comp.get('weight', 0):g}, katkı "
+            f"%{float(comp.get('contribution', 0.0)) * 100:.1f})"
+        )
+    cal = breakdown.get("calibration")
+    if breakdown.get("calibrated") and isinstance(cal, (int, float)):
+        lines.append(
+            f"    – Golden-set kalibrasyon faktörü: {float(cal):.3f} "
+            f"(uygulandı — skor ölçülmüş isabet oranına çekildi)"
+        )
+    else:
+        lines.append(
+            "    – ⚠️ Golden-set kalibrasyonu UYGULANAMADI: skor ham ağırlıklı "
+            "ortalamadır, doğrulanmış isabet oranına çekilmemiştir."
+        )
+    return "\n📊 **Güven Skoru Kırılımı:**\n" + "\n".join(lines) + "\n"
+
+
 def compute_root_cause_confidence(
     dtc_count: int,
     scenario_matched: int,
@@ -555,26 +795,20 @@ def compute_root_cause_confidence(
     score can never be mistaken for a verified one; when the factor was
     obtained (passed in or resolved) the label carries
     ``CALIBRATION_CONFIDENCE_SUFFIX``.
+
+    T70-D: this is now a thin view over ``root_cause_confidence_breakdown``, so
+    the label and the rendered breakdown are computed from the same numbers and
+    cannot disagree.
     """
-    if dtc_count <= 0:
-        return "Normal"
-    identified = scenario_matched + kb_matched
-    entries = {
-        "identification": min(1.0, identified / dtc_count),
-        "telemetry_correlation": min(1.0, telemetry_correlation_count / 2.0),
-        "dtc_context": min(1.0, dtc_count / 2.0),
-    }
-    total_weight = sum(ROOT_CAUSE_EVIDENCE_WEIGHTS.values())
-    weighted_sum = sum(ROOT_CAUSE_EVIDENCE_WEIGHTS[kind] * value for kind, value in entries.items())
-    base_score = weighted_sum / total_weight
-    cal = _resolve_calibration_factor(calibration_factor)
-    if cal is None:
-        score = max(0.0, min(1.0, base_score))
-        label = "Yüksek" if score >= 0.65 else ("Orta" if score >= 0.35 else "Düşük")
-        return f"{label} (%{score * 100:.0f} ağırlıklı kanıt skoru){UNCALIBRATED_CONFIDENCE_SUFFIX}"
-    score = max(0.0, min(1.0, base_score * cal))
-    label = "Yüksek" if score >= 0.65 else ("Orta" if score >= 0.35 else "Düşük")
-    return f"{label} (%{score * 100:.0f} ağırlıklı kanıt skoru){CALIBRATION_CONFIDENCE_SUFFIX}"
+    return str(
+        root_cause_confidence_breakdown(
+            dtc_count=dtc_count,
+            scenario_matched=scenario_matched,
+            kb_matched=kb_matched,
+            telemetry_correlation_count=telemetry_correlation_count,
+            calibration_factor=calibration_factor,
+        )["label"]
+    )
 
 
 def extract_hex_payload_from_query(query: str) -> list[int]:
@@ -773,21 +1007,44 @@ def explain_can_packet(
             # 0x22 Read Data By Identifier
             if sid == 0x22:
                 did = (payload_bytes[sid_idx + 1] << 8 | payload_bytes[sid_idx + 2]) if len(payload_bytes) >= sid_idx + 3 else 0
-                known_dids = {
-                    0xF190: "VIN (Araç Şasi Numarası)",
-                    0xF187: "Yedek Parça Numarası",
-                    0xF189: "ECU Yazılım Versiyonu",
-                    0xF197: "Sistem Adı",
-                    0x1102: "Common Rail Yakıt Basıncı",
-                    0x4100: "EV Batarya Hücre Voltaj Haritası",
-                    0x4101: "EV Min/Max Hücre Voltajı",
-                    0x4102: "HVIL Sensör Voltajı",
-                    0x4105: "Batarya Sıcaklık Dağılımı",
-                }
-                did_name = known_dids.get(did, f"DID 0x{did:04X}")
+                # T68: this used to be a hardcoded 9-entry dict, so a DID outside
+                # it rendered as a bare hex number even though
+                # `uds_did_database.json` carries 68 DIDs with name_tr,
+                # subsystem, byte_length, data_type, scaling, offset and unit.
+                # The DB lookup falls back to the builtin table when the file is
+                # absent (fail-safe), and the builtin entries are kept as the
+                # last resort so a stripped build still names the common ones.
+                _did_row = _uds_did_row(did)
+                if _did_row is not None:
+                    did_name = _did_row.get("name_tr") or _did_row.get("name") or f"DID 0x{did:04X}"
+                    _oem = str(_did_row.get("oem", "") or "").strip()
+                    if _oem:
+                        did_name = f"{did_name} ({_oem})"
+                else:
+                    known_dids = {
+                        0xF190: "VIN (Araç Şasi Numarası)",
+                        0xF187: "Yedek Parça Numarası",
+                        0xF189: "ECU Yazılım Versiyonu",
+                        0xF197: "Sistem Adı",
+                        0x1102: "Common Rail Yakıt Basıncı",
+                        0x4100: "EV Batarya Hücre Voltaj Haritası",
+                        0x4101: "EV Min/Max Hücre Voltajı",
+                        0x4102: "HVIL Sensör Voltajı",
+                        0x4105: "Batarya Sıcaklık Dağılımı",
+                    }
+                    did_name = known_dids.get(did, f"DID 0x{did:04X}")
                 line1 = f"📦 **UDS Teşhis Paketi (ID: 0x{can_id:03X} / SID 0x22):**"
                 line2 = f"• **Servis:** `0x22 ReadDataByIdentifier` — 0x{did:04X} ({did_name})"
                 line3 = f"• **Anlam:** ECU'dan {did_name} parametresinin anlık telemetri değeri sorgulanıyor."
+                # T68: surface the decode recipe so the operator can read the
+                # answer bytes without a lookup table of their own.
+                if _did_row is not None:
+                    _recipe = _uds_did_decode_hint(_did_row)
+                    if _recipe:
+                        line3 += f"\n• **Çözümleme:** {_recipe}"
+                    _sub = str(_did_row.get("subsystem", "") or "").strip()
+                    if _sub:
+                        line3 += f"\n• **Alt Sistem:** {_sub}"
                 actions = [make_uds_read_vin_action()] if did == 0xF190 else []
                 return (f"{line1}\n{line2}\n{line3}", actions)
 
@@ -931,8 +1188,20 @@ def explain_can_packet(
             if sid == 0x62:
                 did = (payload_bytes[sid_idx + 1] << 8 | payload_bytes[sid_idx + 2]) if len(payload_bytes) >= sid_idx + 3 else 0
                 data_tail = payload_bytes[sid_idx + 3:]
+                # T68: the response body used to be printed as raw hex unless the
+                # DID happened to be 0xF190. The DID catalog states the byte
+                # length, type, scale, offset and unit for 68 identifiers, so the
+                # value is now decoded from the record's own recipe. An unknown
+                # DID still prints its bytes — no invented interpretation.
                 val_str = ""
-                if did == 0xF190 and data_tail:
+                _did_row = _uds_did_row(did)
+                if data_tail and _did_row is not None:
+                    _decoded = _uds_did_decode_value(_did_row, bytes(data_tail))
+                    if _decoded:
+                        _name = str(_did_row.get("name_tr") or _did_row.get("name") or "").strip()
+                        _label = f" ({_name})" if _name else ""
+                        val_str = f" Değer{_label}: {_decoded} |"
+                elif did == 0xF190 and data_tail:
                     ascii_str = "".join(chr(b) for b in data_tail if 32 <= b <= 126)
                     val_str = f" Araç VIN: `{ascii_str}` |" if ascii_str else ""
                 line1 = f"✅ **UDS Pozitif Yanıt (ID: 0x{can_id:03X} / SID 0x62):**"
@@ -1797,10 +2066,16 @@ def _validate_dtc_entry_shape(code: str, info: Any) -> bool:
     """
     if not isinstance(info, dict):
         return False
-    for required_field in ("title", "subsystem", "severity"):
+    for required_field in ("title", "subsystem", "severity", "dtc_namespace", "dtc_class"):
         val = info.get(required_field)
         if not isinstance(val, str) or not val.strip():
             return False
+    dtc_namespace = info.get("dtc_namespace")
+    if dtc_namespace not in ("SAE_J2012", "SAE_J2012_4", "ISO_14229_1", "OBD", "WWH_OBD", "J1939", "OEM"):
+        return False
+    dtc_class = info.get("dtc_class")
+    if dtc_class not in ("NoClass", "A", "B1", "B2", "C"):
+        return False
     severity = info.get("severity")
     # P0-1: UNKNOWN is a first-class rung (Severity.UNKNOWN -> GRAY, never
     # GREEN). The severity rebuild emits it for codes the SAE J2012 rule
@@ -1819,6 +2094,15 @@ def _validate_dtc_entry_shape(code: str, info: Any) -> bool:
     causes = info.get("causes")
     if causes is not None and not isinstance(causes, (list, tuple)):
         return False
+    prov = info.get("provenance")
+    if prov is not None:
+        if not isinstance(prov, (list, tuple)):
+            return False
+        for p in prov:
+            if not isinstance(p, dict):
+                return False
+            if not p.get("provenance_id") or not str(p.get("provenance_id")).startswith("prv-"):
+                return False
     _ = code  # validated by caller (dict key, always str from JSON)
     return True
 
@@ -1892,6 +2176,12 @@ def _reconcile_knowledge_base_severities() -> int:
                 entry["_source_severity"] = current
             entry["severity"] = derived
             changed += 1
+        if "dtc_namespace" not in entry:
+            from src.core.models.diagnostics import classify_dtc_namespace
+            entry["dtc_namespace"] = classify_dtc_namespace(code).value
+        if "dtc_class" not in entry:
+            from src.core.models.diagnostics import classify_dtc_class
+            entry["dtc_class"] = classify_dtc_class(code, entry.get("severity", "UNKNOWN")).value
     return changed
 
 
@@ -1919,6 +2209,19 @@ def load_external_dtc_database(data_path: Path | str | None = None) -> int:
         added = 0
         rejected = 0
         sanitized = 0
+        enriched = 0
+        # T67-D (measured 2026-09-22): `code not in EXPERT_KNOWLEDGE_BASE` was a
+        # key-presence test, so every code hand-written in the literal was never
+        # enriched by its 14k-record external counterpart. 17 builtin keys were
+        # shadowed, each losing 6-10 populated fields — P0300 alone dropped
+        # procedures_full, causes_en, description_en, symptoms_en, oem_variants,
+        # gm_monitor, nhtsa_evidence, vag_code, evidence_url and title_en.
+        #
+        # The fix is FILL-IF-EMPTY, never overwrite: a hand-curated value wins,
+        # and only fields the builtin leaves empty are taken from the DB. This
+        # keeps the curated EV/HV and CAN-physical rules authoritative while
+        # making the harvested evidence reachable. Quarantine still applies —
+        # an enriched record passes the same gate as a fresh one.
         for code, info in data.items():
             # M-17 (P2-16): shape validation BEFORE merge — garbage entries
             # are counted and skipped, never merged.
@@ -1966,6 +2269,40 @@ def load_external_dtc_database(data_path: Path | str | None = None) -> int:
                     sanitized += 1
                 EXPERT_KNOWLEDGE_BASE[code] = merged
                 added += 1
+                continue
+
+            # T67-D: the code exists in the builtin literal — enrich it with
+            # every field the builtin leaves empty, and never overwrite one it
+            # fills. The same quarantine gate runs first so an enriched record
+            # is exactly as trustworthy as a fresh one.
+            _cur = EXPERT_KNOWLEDGE_BASE[code]
+            if not isinstance(_cur, dict):
+                continue
+            try:
+                from src.engine.ai.harvest_validator import validate_dtc_record
+
+                _rep = validate_dtc_record({**info, "code": code})
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Quarantine gate error for %s: %s", code, exc)
+                _rep = None
+            if _rep is None or not _rep.is_valid or not _rep.sanitized:
+                rejected += 1
+                continue
+            _gained = 0
+            for _field, _value in info.items():
+                if _field in ("symptoms", "causes", "severity"):
+                    # Sanitized values only, and still fill-if-empty.
+                    if _field == "symptoms":
+                        _value = _rep.sanitized.get("symptoms", [])
+                    elif _field == "causes":
+                        _value = _rep.sanitized.get("causes", _value)
+                if _value in (None, "", [], {}):
+                    continue
+                if _cur.get(_field) in (None, "", [], {}):
+                    _cur[_field] = _value
+                    _gained += 1
+            if _gained:
+                enriched += 1
 
         # P0-1 (cont.): reconcile the WHOLE base, since built-in entries carry
         # the same defect and would otherwise never be corrected.
@@ -1982,6 +2319,12 @@ def load_external_dtc_database(data_path: Path | str | None = None) -> int:
             )
         if sanitized:
             logger.info("External DTC database: %d entries sanitized by quarantine gate", sanitized)
+        if enriched:
+            logger.info(
+                "T67-D: %d builtin knowledge-base entries enriched from the external DB "
+                "(fill-if-empty; curated values never overwritten)",
+                enriched,
+            )
         logger.info("Merged %d external DTC codes into EXPERT_KNOWLEDGE_BASE (total: %d)", added, len(EXPERT_KNOWLEDGE_BASE))
         return added
     except Exception as exc:
@@ -2060,6 +2403,155 @@ def get_uds_did_database(data_path: Path | str | None = None) -> dict[str, Any]:
     except Exception as exc:
         logger.warning("Failed to load UDS DID database: %s", exc)
     return {}
+
+
+# ----------------------------------------------------------------------------
+# T68: UDS DID decode helpers.
+#
+# `uds_did_database.json` carried 68 DIDs with full decode metadata
+# (byte_length / data_type / scaling / offset / unit) and had NO consumer
+# anywhere in the engine — `desktop_app.py:642` only counted the rows. The two
+# packet handlers below used a hardcoded 9-entry dict instead, so 59 DIDs were
+# invisible and a positive 0x62 response was never decoded beyond VIN.
+#
+# Both helpers are read-only, offline and deterministic. A missing DB degrades
+# to the builtin name table (fail-safe) — no fabricated decode is ever emitted.
+# ----------------------------------------------------------------------------
+
+
+def _uds_did_row(did_int: int) -> dict[str, Any] | None:
+    """Return the DID record for ``did_int`` from the DID database, or None.
+
+    The catalog mixes key casings — measured 2026-09-22: 36 keys are lowercase
+    ``"0x1153"`` and 32 are uppercase ``"0XF180"``. A case-sensitive lookup
+    therefore resolved only 36 of the 68 DIDs, silently degrading the other 32
+    (every ISO 14229 universal identifier among them) back to bare hex. The
+    lookup is case-insensitive on both the prefix and the digits.
+    """
+    try:
+        db = get_uds_did_database()
+    except Exception:  # noqa: BLE001 — a broken catalog must not break packet forensics
+        return None
+    dids = db.get("dids") if isinstance(db, dict) else None
+    if not isinstance(dids, dict):
+        return None
+    wanted = {f"0x{did_int:04X}".lower(), str(did_int)}
+    for key, row in dids.items():
+        if not isinstance(row, dict):
+            continue
+        if str(key).strip().lower() in wanted:
+            return row
+    return None
+
+
+def _uds_did_decode_hint(row: dict[str, Any]) -> str:
+    """Build an honest decode recipe from a DID record's own fields.
+
+    Only fields actually present are used. The output names the raw type, the
+    byte count, and the scale/offset/unit when the record carries them, so the
+    operator can convert the answer bytes themselves. Nothing is computed from
+    a value the record does not state.
+    """
+    parts: list[str] = []
+    dtype = str(row.get("data_type", "") or "").strip()
+    blen = row.get("byte_length")
+    if dtype or blen:
+        _t = dtype or "raw"
+        if isinstance(blen, int) and blen > 0:
+            _t += f", {blen} bayt"
+        parts.append(_t)
+    scaling = row.get("scaling")
+    offset = row.get("offset")
+    unit = str(row.get("unit", "") or "").strip()
+    if isinstance(scaling, (int, float)) and scaling not in (0, 1.0):
+        _s = f"× {scaling}"
+        if isinstance(offset, (int, float)) and offset:
+            _s += f" {'+' if offset > 0 else '-'} {abs(offset)}"
+        if unit:
+            _s += f" {unit}"
+        parts.append(_s)
+    elif unit:
+        parts.append(f"birim: {unit}")
+    elif isinstance(offset, (int, float)) and offset:
+        parts.append(f"offset {offset}")
+    return " | ".join(parts)
+
+
+def _uds_did_decode_value(row: dict[str, Any], data: bytes) -> str:
+    """Decode a positive 0x62 response body using the DID record's own recipe.
+
+    Returns a human-readable value, or "" when the record does not describe
+    enough to decode honestly. Integer and ASCII payloads are supported — the
+    two forms the catalog's `data_type` values actually name. An unsupported
+    type yields "" rather than a guess (AGENTS.md §2.3).
+
+    Identifier DIDs are ASCII by DEFINITION, not by their record's
+    `data_type`: ISO 14229-1 Annex F specifies F180-F19F as textual
+    identifiers (VIN, part number, ECU serial, system name). Measured
+    2026-09-22: the catalog's 32 universal entries carry no `data_type` at
+    all, so a byte-count-only decode turned the VIN fragment "WVW" into the
+    integer 5723735. The identifier range is therefore treated as ASCII when
+    the bytes are printable — and falls back to the numeric path when they
+    are not, so a genuinely binary payload is never mis-rendered as text.
+    """
+    if not data:
+        return ""
+    dtype = str(row.get("data_type", "") or "").strip().lower()
+    blen = row.get("byte_length")
+    if not isinstance(blen, int) or blen <= 0:
+        blen = len(data)
+    body = data[:blen]
+    scaling = row.get("scaling")
+    offset = row.get("offset")
+    unit = str(row.get("unit", "") or "").strip()
+
+    _is_identifier_range = False
+    _did_int = row.get("did_int")
+    if isinstance(_did_int, int):
+        _is_identifier_range = 0xF180 <= _did_int <= 0xF19F
+    _printable = bool(body) and all(32 <= b <= 126 for b in body)
+
+    if "ascii" in dtype or "string" in dtype or "vin" in dtype or (_is_identifier_range and _printable):
+        text = "".join(chr(b) for b in body if 32 <= b <= 126).strip()
+        return f"`{text}`" if text else ""
+
+    if any(t in dtype for t in ("uint", "int", "byte", "word", "dword")) or dtype == "":
+        if not body:
+            return ""
+        raw_int = int.from_bytes(body, byteorder="big", signed=dtype.startswith("int"))
+        if isinstance(scaling, (int, float)) and scaling:
+            val = raw_int * scaling
+            if isinstance(offset, (int, float)):
+                val += offset
+            _v = f"{val:g}"
+            return f"{_v} {unit}".strip() if unit else _v
+        return f"{raw_int} (ham) {unit}".strip()
+    return ""
+
+
+def _uds_did_table_for_tests() -> dict[int, str]:
+    """Name table used by packet forensics — exposed for regression tests."""
+    out: dict[int, str] = {}
+    try:
+        db = get_uds_did_database()
+    except Exception:  # noqa: BLE001
+        return out
+    dids = db.get("dids") if isinstance(db, dict) else None
+    if not isinstance(dids, dict):
+        return out
+    for key, row in dids.items():
+        if not isinstance(row, dict):
+            continue
+        did_int = row.get("did_int")
+        if not isinstance(did_int, int):
+            try:
+                did_int = int(str(key), 16) if str(key).lower().startswith("0x") else int(key)
+            except (TypeError, ValueError):
+                continue
+        name = str(row.get("name_tr") or row.get("name") or "").strip()
+        if name:
+            out[did_int] = name
+    return out
 
 
 def get_mode06_database(data_path: Path | str | None = None) -> dict[str, Any]:
@@ -2786,11 +3278,27 @@ _GENERIC_NON_DIAGNOSTIC_TERMS: frozenset[str] = frozenset({
 })
 
 
-def _symptom_search_terms(norm_query: str) -> list[str]:
-    """Deterministik sorgu terimleri: normalize edilmis kelimeler.
+# T72 (2026-09-23): curated SHORT automotive acronyms admitted through the
+# length>=4 gate. That gate is a typo-noise guard, but it also discarded whole
+# diagnostic concepts, because the canonical operator term for them is shorter
+# than four characters. Measured on the shipped DB: "DPF clogged" reduced to the
+# single term ["clogged"], so the F-04 min-score gate (2) abstained and the query
+# returned NO hit at all — while 182 records mention DPF and 28 mention both
+# "dpf" and "clogged". These tokens are unambiguous industry acronyms, not
+# English words, so admitting them adds signal without the substring noise the
+# length gate exists to prevent. Ambiguous short tokens that ARE ordinary
+# English/technical words ("can", "def", "air") are deliberately NOT listed.
+_SYMPTOM_SEARCH_SHORT_ACRONYMS: frozenset[str] = frozenset({
+    "dpf", "egr", "maf", "map", "o2", "scr", "tps", "abs", "ac", "ecu",
+    "tcm", "pcm", "bcm", "evap", "mil", "hvil",
+})
 
-    Yalniz uzunluk >= 4 ve stopword olmayan kelimeler; en fazla 6 terim.
-    Sira korunur (determinizm).
+
+def _symptom_search_terms(norm_query: str) -> list[str]:
+    """Deterministlik sorgu terimleri: normalize edilmis kelimeler.
+
+    Yalniz uzunluk >= 4 (veya ``_SYMPTOM_SEARCH_SHORT_ACRONYMS`` uyesi) ve
+    stopword olmayan kelimeler; en fazla 6 terim. Sira korunur (determinizm).
 
     Kanıt A / F-04: terms that carry no diagnostic specificity on their own
     (see ``_GENERIC_NON_DIAGNOSTIC_TERMS``) are EXCLUDED from the search. A
@@ -2801,7 +3309,9 @@ def _symptom_search_terms(norm_query: str) -> list[str]:
     terms: list[str] = []
     for raw in str(norm_query or "").split():
         w = raw.strip()
-        if len(w) < 4 or w in _SYMPTOM_SEARCH_STOPWORDS:
+        if w in _SYMPTOM_SEARCH_STOPWORDS:
+            continue
+        if len(w) < 4 and w not in _SYMPTOM_SEARCH_SHORT_ACRONYMS:
             continue
         if w in _GENERIC_NON_DIAGNOSTIC_TERMS:
             continue
@@ -2810,6 +3320,43 @@ def _symptom_search_terms(norm_query: str) -> list[str]:
         if len(terms) >= 6:
             break
     return terms
+
+
+def _symptom_term_forms(term: str) -> tuple[str, ...]:
+    """Surface forms of ONE query term (deterministic, longest-first).
+
+    T72: operator utterances are inflected ("engine stalls at idle", "no start
+    cranks") while the DB prose is mostly the bare stem. Measured on the shipped
+    DB: the plural token "stalls" occurs in 46 haystacks but "stall" in 108;
+    "cranks" 54 vs "crank" 150; "slips" 4 vs "slip" 154; "drains" 14 vs "drain"
+    140. Matching the singular form of a trailing-'s' query term recovers that
+    recall. The REVERSE direction (expanding a singular QUERY term to a plural)
+    was measured and rejected — it lowered top-1 relevance (T72 experiment 7).
+    """
+    if term.endswith("s") and len(term) - 1 >= 4:
+        return (term, term[:-1])
+    return (term,)
+
+
+def _dtc_query_key(norm_query: str) -> str | None:
+    """The catalog key a DTC-shaped query names outright, else ``None``.
+
+    T72: a code query names its own record. Measured before this fix:
+    ``search_dtc_by_symptom("p0301")`` returned an EMPTY list — the literal
+    token "p0301" occurs in only 2 of 14,496 haystacks, so the F-04 min-score
+    gate abstained and a caller asking "what is this code" got nothing. It also
+    guards a future regression: as ``symptoms_en`` coverage grows, code-shaped
+    tokens appear in more prose (already measurable: "p0301 misfire" ranks
+    P0314 second, purely because its text mentions P0301), so identity must be
+    resolved BEFORE text overlap. Deterministic, read-only, no fabrication —
+    only a key the catalog actually carries is returned.
+    """
+    key = re.sub(r"\s+", "", str(norm_query or "")).upper()
+    if re.fullmatch(r"(?:[PBUC][0-9A-F]{4}|SPN[0-9]+)", key):
+        ensure_external_dtc_database_loaded()
+        if key in EXPERT_KNOWLEDGE_BASE:
+            return key
+    return None
 
 
 # F-04 (P0): minimum number of matched query terms required before a
@@ -2836,32 +3383,95 @@ def search_dtc_by_symptom(norm_query: str, limit: int = 1) -> list[dict[str, Any
     if not terms:
         return []
     ensure_external_dtc_database_loaded()
-    hits: list[tuple[int, int, str, list[str]]] = []
+    # T72: a query that names a catalog key outright resolves to that record
+    # before any text overlap is considered (see ``_dtc_query_key``).
+    exact_key = _dtc_query_key(norm_query)
+    # T72: the haystack is scored in two evidence tiers. `symptoms` /
+    # `symptoms_en` / titles are the record's own SYMPTOM claim; `causes_en` /
+    # `description_en` are longer prose that mentions many unrelated concepts.
+    # Measured on the shipped DB (T72): with one merged haystack, "coolant
+    # temperature too high" ranked P0171 (lean fuel trim) first purely because
+    # its cause prose contains the words "coolant" and "temperature"; ranking
+    # the strong tier ahead of the weak tier moved the coolant-temperature
+    # records (P0117/P0118/P2181) to the top. Both tiers still match, so recall
+    # is unchanged — only the ORDER of equally-matching records changes.
+    hits: list[tuple[int, int, int, str, list[str]]] = []
     for order, (code, info) in enumerate(EXPERT_KNOWLEDGE_BASE.items()):
         if not isinstance(info, dict):
             continue
-        hay_parts: list[str] = []
+        strong_parts: list[str] = []
+        weak_parts: list[str] = []
         sym = info.get("symptoms")
         if isinstance(sym, list):
-            hay_parts.extend(str(x) for x in sym)
-        for key in ("title", "title_tr"):
+            strong_parts.extend(str(x) for x in sym)
+        # T66 (2026-09-22): the T46/T63/T66 harvests write English payload to
+        # `symptoms_en` / `causes_en` / `description_en` (never the Turkish
+        # fields — tests/unit/test_t46_merge.py locks that). Measured: 6,228
+        # records carry `symptoms_en` while the Turkish `symptoms` holds only
+        # 1,275 — so the search was blind to the larger corpus, the same class
+        # of defect T41 P1-1 fixed for `procedures_full`. English text is a
+        # legitimate search surface for an English query term.
+        # T80j (2026-09-26): a record whose `symptoms_en` is a KNOWN subject
+        # misattribution must not be findable BY that misattributed text.
+        # Measured: geekobd.com pages were about a different subject than the
+        # record for 4,583 of 6,330 codes; 79 were reverted outright and 3,886
+        # carry `geekobd_subject_conflict_t80e` because no independent source
+        # could arbitrate. Measured search pollution before this guard: a
+        # query about the PAGE's subject surfaced 13 records in 100 top-10
+        # slots (e.g. "oil separator performance" surfaced P04E8, an EGR
+        # temperature sensor). The record's own `title` / `symptoms` stay
+        # searchable — only the flagged text is withheld from the haystack, so
+        # the record is not hidden, just no longer findable by a claim the DB
+        # itself marks as conflicting.
+        _misattributed = bool(info.get("geekobd_subject_conflict_t80e"))
+        for key in ("symptoms_en", "causes_en", "description_en"):
+            if _misattributed and key in ("symptoms_en", "causes_en"):
+                continue
+            v = info.get(key)
+            bucket = strong_parts if key == "symptoms_en" else weak_parts
+            if isinstance(v, str):
+                bucket.append(v)
+            elif isinstance(v, list):
+                bucket.extend(str(x) for x in v)
+        for key in ("title", "title_tr", "title_en"):
             v = info.get(key)
             if isinstance(v, str):
-                hay_parts.append(v)
-        if not hay_parts:
+                strong_parts.append(v)
+        if not strong_parts and not weak_parts:
             continue
-        hay = AutomotiveTokenizer.normalize_text(" ".join(hay_parts))
-        matched = [t for t in terms if _has_standalone_word(hay, t)]
+        hay_strong = AutomotiveTokenizer.normalize_text(" ".join(strong_parts))
+        hay_weak = AutomotiveTokenizer.normalize_text(" ".join(weak_parts))
+        matched: list[str] = []
+        strong_matched = 0
+        for t in terms:
+            forms = _symptom_term_forms(t)
+            if any(_has_standalone_word(hay_strong, f) for f in forms):
+                matched.append(t)
+                strong_matched += 1
+            elif any(_has_standalone_word(hay_weak, f) for f in forms):
+                matched.append(t)
         if matched:
-            hits.append((len(matched), order, str(code), matched))
-    # sort: more matched terms first, then catalog insertion order (stable).
-    hits.sort(key=lambda h: (-h[0], h[1]))
+            hits.append((len(matched), strong_matched, order, str(code), matched))
+    # sort: more matched terms first, then more of them matched in the
+    # symptom/title tier, then catalog insertion order (stable).
+    hits.sort(key=lambda h: (-h[0], -h[1], h[2]))
     # F-04: drop candidates that do not clear the evidence bar. An abstention
     # (empty list) is the correct answer when the overlap is coincidental.
     qualified = [h for h in hits if h[0] >= _SYMPTOM_SEARCH_MIN_SCORE]
+    if exact_key:
+        # Identity, not coincidence: the operator named this record's own key,
+        # so the F-04 min-score bar does not apply. Measured before this fix:
+        # ``search_dtc_by_symptom("p0301")`` returned [] although the catalog
+        # carries P0301 — the literal token occurs in only 2 of 14,496
+        # haystacks, so the text path abstained on a query that is not
+        # ambiguous at all.
+        exact_hit = next((h for h in hits if h[3] == exact_key), None)
+        if exact_hit is None:
+            exact_hit = (1, 0, -1, exact_key, [exact_key.lower()])
+        qualified = [exact_hit] + [h for h in qualified if h[3] != exact_key]
     return [
         {"code": c, "score": n, "matched": m}
-        for (n, _order, c, m) in qualified[: max(1, limit)]
+        for (n, _strong, _order, c, m) in qualified[: max(1, limit)]
     ]
 
 
@@ -3216,6 +3826,370 @@ class AutomotiveTokenizer:
 
 
 # ============================================================================
+# T70-A: VALIDATED PROCEDURE CORPUS READER
+# ============================================================================
+#
+# MEASURED DEFECT (T70-A): `data/knowledge/dtc_procedures/` holds 601
+# schema-validated procedure files (B 15 / C 15 / P 169 / S 350 / U 52) with
+# branching guidance (`pass_next` / `fail_next`), 1,084 yes/no questions, 601
+# `measurement_steps` lists and 601 `expected_values` maps. The corpus had
+# exactly TWO consumers in the whole tree — `desktop_app.get_dtc_info` and
+# `dialogue_engine` question generation — and NEITHER deep-dive report
+# (`_format_4stage_technician_report`, `_format_j1939_technician_report`) ever
+# imported `procedure_validator`. An operator who asked "P0300 nedir" received
+# the KB record but never the validated branch tree the corpus already carries
+# for that same code.
+#
+# Coverage measured against the live keys: 261 EXPERT_KNOWLEDGE_BASE keys
+# resolve a procedure after normalisation (251 DTC codes + 10 SPN keys); the
+# remaining 340 `SPN_*` files are reached through the same resolver.
+#
+# NO FABRICATION (AGENTS.md §2.3): every line below is copied from the
+# validated file. An absent field produces no line — never a placeholder.
+
+#: Key spellings tried, in fixed order. Files are named with the human form
+#: (`SPN 100.json`) while the engine's SPN keys are compact (`SPN100`), so both
+#: spellings must resolve; `{n}` marks the numeric form.
+_PROCEDURE_KEY_FORMS: tuple[str, ...] = ("{code}", "SPN {n}", "SPN_{n}")
+
+
+def _procedure_for_code(code: str) -> Any | None:
+    """Resolve the validated procedure for ``code`` across key spellings.
+
+    Returns a ``DtcProcedure`` or ``None``. The order is fixed so the same
+    input always resolves the same file; ``get_procedure``'s lazy cache is
+    reused, so a hit costs one dict lookup.
+    """
+    _c = str(code or "").strip().upper()
+    if not _c:
+        return None
+    # Imported lazily (M-18 precedent): the corpus must not be touched at
+    # module import time.
+    from src.engine.ai.procedure_validator import get_procedure
+
+    _n = _c[3:] if _c.startswith("SPN") else ""
+    for _form in _PROCEDURE_KEY_FORMS:
+        if "{n}" in _form and not _n:
+            continue
+        _key = _form.format(code=_c, n=_n)
+        proc = get_procedure(_key)
+        if proc is not None:
+            return proc
+    return None
+
+
+def procedure_corpus_block(code: str, *, include_header: bool = True) -> str:
+    """Render the validated procedure-corpus entry for ``code`` (T70-A).
+
+    Deterministic and offline: the corpus is local JSON validated against
+    ``procedure_validator``'s schema. The block is emitted ONLY when a
+    procedure exists — a code without one renders nothing at all (fail-safe,
+    exactly like the T67-C readers).
+
+    Rendered, in corpus order: ``system``, ``symptoms``, every ``questions``
+    entry, every ``measurement_steps`` entry with its ``test_type`` and
+    ``safety_note``, ``expected_values``, the ``pass_next`` / ``fail_next``
+    conditional branches, and every ``safety_notes`` line.
+
+    ``include_header=False`` drops the section title and the leading blank
+    line — used by the multi-DTC report, which supplies its own per-code
+    heading and would otherwise repeat the title once per code.
+    """
+    proc = _procedure_for_code(code)
+    if proc is None:
+        return ""
+    lines: list[str] = []
+    _sys = str(getattr(proc, "system", "") or "").strip()
+    if _sys:
+        lines.append(f"  • **Sistem:** {_sys}")
+    _sym = [str(s).strip() for s in (getattr(proc, "symptoms", ()) or ()) if str(s).strip()]
+    if _sym:
+        lines.append("  • **Belirtiler:** " + "; ".join(_sym))
+    _qs = list(getattr(proc, "questions", ()) or ())
+    if _qs:
+        lines.append("  • **Doğrulama Soruları (korpus):**")
+        for _q in _qs:
+            if not isinstance(_q, dict):
+                continue
+            _qt = str(_q.get("text", "") or "").strip()
+            if not _qt:
+                continue
+            _qid = str(_q.get("id", "") or "").strip()
+            _why = str(_q.get("why", "") or "").strip()
+            lines.append(f"    – {_qt}" + (f" *(id: {_qid})*" if _qid else ""))
+            if _why:
+                lines.append(f"      *Gerekçe:* {_why}")
+    _ms = list(getattr(proc, "measurement_steps", ()) or ())
+    if _ms:
+        lines.append("  • **Ölçüm Adımları (korpus):**")
+        for _m in _ms:
+            if not isinstance(_m, dict):
+                continue
+            _mt = str(_m.get("target", "") or "").strip()
+            _tt = str(_m.get("test_type", "") or "").strip()
+            _sn = str(_m.get("safety_note", "") or "").strip()
+            _num = _m.get("step")
+            if not (_mt or _tt):
+                continue
+            _prefix = f"{_num}. " if isinstance(_num, int) else ""
+            lines.append(f"    – {_prefix}{_mt}" + (f" *({_tt})*" if _tt else ""))
+            if _sn:
+                lines.append(f"      ⚠️ {_sn}")
+    _ev = getattr(proc, "expected_values", None)
+    if isinstance(_ev, dict) and _ev:
+        _ev_txt = ", ".join(f"`{k}` = {v}" for k, v in _ev.items())
+        lines.append(f"  • **Beklenen Değerler (korpus):** {_ev_txt}")
+    _pass = str(getattr(proc, "pass_next", "") or "").strip()
+    _fail = str(getattr(proc, "fail_next", "") or "").strip()
+    if _pass or _fail:
+        lines.append("  • **Koşullu Dallanma (korpus):**")
+        if _pass:
+            lines.append(f"    – ✔️ *Geçti ise:* {_pass}")
+        if _fail:
+            lines.append(f"    – ❌ *Kaldı ise:* {_fail}")
+    _safety = [str(s).strip() for s in (getattr(proc, "safety_notes", ()) or ()) if str(s).strip()]
+    if _safety:
+        lines.append("  • **Güvenlik Notları (korpus):** " + " | ".join(_safety))
+    if not lines:
+        return ""
+    if not include_header:
+        return "\n".join(lines)
+    return (
+        "\n\n📐 **Doğrulanmış Prosedür Kütüphanesi (korpus `dtc_procedures`):**\n"
+        + "\n".join(lines)
+    )
+
+
+# ============================================================================
+# T70-B: PHYSICAL-ENVELOPE SWEEP OVER SUPPLIED MEASUREMENTS
+# ============================================================================
+#
+# MEASURED DEFECT (T70-B): `anomaly_detector.PHYSICAL_BOUNDS`-style plausibility
+# checking exists in two places, and NEITHER sees the measurements the copilot
+# renders:
+#   * `procedure_validator.PHYSICAL_BOUNDS` runs only while LOADING a procedure
+#     JSON — it validates authored data, never live telemetry.
+#   * `anomaly_detector.detect_anomalies` scans a `VehicleSession`'s recorded
+#     SAMPLE STREAM; the copilot's reports take a `telemetry` SNAPSHOT dict and
+#     never call it.
+# So a physically impossible reading (a 350 km/h road speed, a -40 °C coolant
+# value on a running engine) passed straight through every report.
+#
+# The table below is DERIVED, not invented: every pair is copied from the
+# existing `_THRESHOLD_SIGNAL_FOR_CODE` (telemetry key -> threshold-DB key),
+# which already covers all seven signals in `telemetry_thresholds.json`.
+# `test_t70b_telemetry_plausibility.py` pins the two tables against each other,
+# so editing one without the other fails the suite.
+_TELEMETRY_TO_THRESHOLD_KEY: dict[str, str] = {
+    "BoostPressure": "TurboBoost",
+    "CoolantTemp": "EngineCoolantTemp",
+    "OilPressure": "EngineOilPressure",
+    "EngineSpeed": "EngineSpeed",
+    "VehicleSpeed": "VehicleSpeed",
+    "EngineLoad": "EngineLoad",
+    "EngineTorque": "EngineTorque",
+}
+
+#: Extra spellings accepted for the same physical quantity (source forms taken
+#: from `data/diagnostics/signal_aliases.json`, which documents each pairing).
+_TELEMETRY_SIGNAL_ALIASES: dict[str, str] = {
+    "CoolantTemperature": "EngineCoolantTemp",
+    "EngineCoolantTemperature": "EngineCoolantTemp",
+    "coolant_temp": "EngineCoolantTemp",
+    "engine_coolant_temp": "EngineCoolantTemp",
+    "TurboBoost": "TurboBoost",
+    "Boost": "TurboBoost",
+    "boost_pressure": "TurboBoost",
+    "EngineOilPressure": "EngineOilPressure",
+    "oil_pressure": "EngineOilPressure",
+    "RPM": "EngineSpeed",
+    "engine_speed": "EngineSpeed",
+    "VSS": "VehicleSpeed",
+    "vehicle_speed": "VehicleSpeed",
+    "EngineLoadPct": "EngineLoad",
+    "engine_load": "EngineLoad",
+    "EngineTorquePct": "EngineTorque",
+    "engine_torque": "EngineTorque",
+}
+
+
+def _threshold_entry_for_signal(
+    signal: str, thresholds: dict[str, dict[str, Any]]
+) -> dict[str, Any] | None:
+    """Resolve a telemetry key to its threshold-DB entry, or ``None``.
+
+    Resolution order is fixed: exact DB key, then the derived table, then the
+    documented alias spellings. An unresolved signal yields ``None`` and is
+    therefore NOT judged — the honest outcome, since no envelope is known.
+    """
+    if not isinstance(signal, str) or not signal:
+        return None
+    if signal in thresholds:
+        return thresholds[signal]
+    key = _TELEMETRY_TO_THRESHOLD_KEY.get(signal) or _TELEMETRY_SIGNAL_ALIASES.get(signal)
+    if key is None:
+        return None
+    entry = thresholds.get(key)
+    return entry if isinstance(entry, dict) else None
+
+
+def telemetry_plausibility_block(telemetry: dict[str, Any]) -> str:
+    """Flag measurements outside their recorded physical envelope (T70-B).
+
+    Deterministic and offline. Reads only ``telemetry_thresholds.json`` — the
+    same KB-derived DB the consistency line already uses — and compares each
+    supplied measurement against the WIDEST envelope across the signal's
+    recorded RPM bands (``_band_for(ranges, None)``). That envelope is the
+    physical plausibility limit, not a diagnostic band: a value inside it is
+    simply not flagged here, and the per-code consistency line remains the
+    place where nominal-band judgement happens.
+
+    Emits NOTHING when every supplied value is inside its envelope, when no
+    supplied signal has a recorded envelope, or when the DB cannot be read
+    (fail-safe — a broken threshold DB must never break a report). Private
+    keys (leading ``_``, e.g. ``_query_fmi``) and non-numeric values are
+    skipped: they are engine context, not measurements.
+    """
+    if not isinstance(telemetry, dict) or not telemetry:
+        return ""
+    try:
+        from src.engine.ai.anomaly_detector import _band_for, load_thresholds
+
+        thresholds = load_thresholds()
+    except Exception:  # noqa: BLE001 — a broken threshold DB never breaks a report
+        return ""
+
+    violations: list[str] = []
+    for signal in sorted(telemetry):
+        if signal.startswith("_"):
+            continue  # engine context (e.g. _query_fmi), not a measurement
+        value = telemetry.get(signal)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            continue  # not measured -> say nothing (F-02 / P0-5)
+        entry = _threshold_entry_for_signal(signal, thresholds)
+        if entry is None:
+            continue
+        band = _band_for(entry.get("ranges", []), None)
+        if band is None:
+            continue
+        lo, hi = band.get("min"), band.get("max")
+        if lo is None and hi is None:
+            continue
+        unit = str(entry.get("unit", "") or "")
+        _below = isinstance(lo, (int, float)) and value < lo
+        _above = isinstance(hi, (int, float)) and value > hi
+        if not (_below or _above):
+            continue
+        _lim = f"{lo:g}" if _below else f"{hi:g}"
+        _dir = "altında" if _below else "üstünde"
+        violations.append(
+            f"  • **{signal}**: {float(value):g} {unit} — kayıtlı fiziksel zarfın "
+            f"({_lim} {unit}) {_dir}. Bu değer FİZİKSEL OLARAK ŞÜPHELİ; ölçüm "
+            f"hattını (sensör, tesisat, DBC ölçekleme) doğrulamadan teşhisi "
+            f"bu okumaya dayandırmayın."
+        )
+    if not violations:
+        return ""
+    return (
+        "\n🌡️ **Fiziksel Sınır Denetimi (ölçülen değerler):**\n"
+        + "\n".join(violations)
+        + "\n"
+    )
+
+
+# ============================================================================
+# T70-C: BMS CELL-IMBALANCE CROSS-CHECK
+# ============================================================================
+#
+# MEASURED DEFECT (T70-C): the cell-voltage spread was computed in exactly ONE
+# place — the CAN-frame forensics branch (`analyze_can_frame`, 0x1808E5F4) —
+# and the DTC diagnosis path never touched it. An operator who asked
+# "P0A80 nedir" while both cell-extreme channels were live received the KB
+# text "Arıza / Değişim Eşiği: >150 mV" as PROSE, with no comparison against
+# the measurement actually in hand.
+#
+# Thresholds are DERIVED FROM THE KNOWLEDGE BASE, not invented. P0A80's own
+# `measurement` field reads:
+#
+#   "Nominal Hücre Delta Voltajı: <30 mV | Arıza / Değişim Eşiği:
+#    >150 mV (Yükte) veya >50 mV (Dengede)."
+#
+# `test_t70c_bms_cell_imbalance.py` re-reads that KB string and asserts every
+# number below still appears in it, so the table cannot silently drift from
+# its source.
+
+#: code -> (nominal_max_mv, fault_rest_mv, fault_load_mv, source_note)
+_BMS_DELTA_THRESHOLDS: dict[str, tuple[float, float, float, str]] = {
+    "P0A80": (30.0, 50.0, 150.0, "KB `P0A80.measurement`"),
+}
+
+#: The two telemetry channels whose difference IS the cell spread. Both must be
+#: present: a spread computed from one extreme is not a measurement.
+_BMS_CELL_MIN_KEY = "bms_cell_voltage_min_v"
+_BMS_CELL_MAX_KEY = "bms_cell_voltage_max_v"
+
+
+def bms_cell_imbalance_block(code: str, telemetry: dict[str, Any]) -> str:
+    """Cross-check the measured cell spread against the KB thresholds (T70-C).
+
+    Emits NOTHING unless ALL of the following hold (fail-safe, AGENTS.md §2.3):
+      * the code has a recorded ΔV threshold (``_BMS_DELTA_THRESHOLDS``)
+      * BOTH cell-extreme channels were supplied as numbers
+      * the two values are physically coherent (max >= min)
+
+    The verdict is stated against the REST threshold (``fault_rest_mv``) and,
+    when the spread also exceeds the LOAD threshold, against that too — the KB
+    distinguishes them and the engine has no current channel with which to
+    choose, so both are reported rather than one being guessed.
+    """
+    _c = str(code or "").strip().upper()
+    entry = _BMS_DELTA_THRESHOLDS.get(_c)
+    if entry is None:
+        return ""
+    nominal_max, fault_rest, fault_load, source = entry
+    lo = telemetry.get(_BMS_CELL_MIN_KEY)
+    hi = telemetry.get(_BMS_CELL_MAX_KEY)
+    if isinstance(lo, bool) or isinstance(hi, bool):
+        return ""
+    if not isinstance(lo, (int, float)) or not isinstance(hi, (int, float)):
+        return ""  # one extreme is not a measurement (F-02 / P0-5)
+    if float(hi) < float(lo):
+        # Incoherent input: report the inconsistency, never a spread from it.
+        return (
+            "\n🔋 **Hücre Dengesi (ΔV):**\n"
+            f"  • ⚠️ Ölçüm tutarsız: min ({float(lo):.3f} V) > max "
+            f"({float(hi):.3f} V). ΔV hesaplanmadı — kanalları doğrulayın.\n"
+        )
+    delta_mv = (float(hi) - float(lo)) * 1000.0
+    lines = [
+        f"  • **ΔV = {delta_mv:.1f} mV** "
+        f"(min {float(lo):.3f} V / max {float(hi):.3f} V) — {source}"
+    ]
+    if delta_mv > fault_load:
+        lines.append(
+            f"  • ⛔ ΔV kayıtlı **yük altı değişim eşiğinin** ({fault_load:g} mV) "
+            f"ÜZERİNDE — ölçüm bu tanıyı DESTEKLİYOR."
+        )
+    elif delta_mv > fault_rest:
+        lines.append(
+            f"  • ⚠️ ΔV kayıtlı **denge (yüksüz) eşiğinin** ({fault_rest:g} mV) "
+            f"ÜZERİNDE, yük altı eşiğinin ({fault_load:g} mV) altında — ölçüm "
+            f"bu tanıyı KISMEN destekliyor; ölçümü yük altında tekrarlayın."
+        )
+    elif delta_mv <= nominal_max:
+        lines.append(
+            f"  • ✔️ ΔV kayıtlı nominal sınırın ({nominal_max:g} mV) içinde — "
+            f"ölçüm bu tanıyı DESTEKLEMİYOR; başka bir kök neden arayın."
+        )
+    else:
+        lines.append(
+            f"  • ΔV nominal sınırın ({nominal_max:g} mV) üzerinde ama kayıtlı "
+            f"değişim eşiklerinin altında — sınırda; eğilimi izleyin."
+        )
+    return "\n🔋 **Hücre Dengesi (ΔV Çapraz Kontrolü):**\n" + "\n".join(lines) + "\n"
+
+
+# ============================================================================
 # CAUSAL BAYESIAN & DETERMINISTIC INFERENCE ENGINE
 # ============================================================================
 
@@ -3565,17 +4539,44 @@ class CausalBayesianInferenceEngine:
         # of oil pressure (FMI 1). Extract the FMI once and thread it through
         # `telemetry` (already passed to every formatter call) so the report can
         # state the FMI-specific rung. Absent FMI leaves behaviour unchanged.
-        _fmi_match = re.search(r"\bfmi[\s:]*(\d{1,2})\b", norm_query)
-        if _fmi_match and "_query_fmi" not in telemetry:
-            telemetry = {**telemetry, "_query_fmi": int(_fmi_match.group(1))}
+        # T74: the extraction is the shared `query_fmi_number` helper so the
+        # compact form ("SPN100FMI3") resolves here exactly as it does in the
+        # report body, and a zero-padded "FMI03" canonicalises to 3.
+        _q_fmi_num = query_fmi_number(norm_query)
+        if _q_fmi_num is not None and "_query_fmi" not in telemetry:
+            telemetry = {**telemetry, "_query_fmi": _q_fmi_num}
 
         # 0. Dedicated CAN Frame Forensics (e.g. from right-click context menu)
-        frame_report = cls.analyze_can_frame(user_query, norm_query, telemetry)
-        if frame_report is not None:
-            actions = []
-            if "j1939" in frame_report.lower() or "59904" in frame_report:
-                actions = [make_j1939_dm1_action()]
-            return attach_action_triggers(frame_report, actions)
+        #
+        # T67-E (measured defect): this branch ran FIRST and matched on any
+        # 1-8 digit `0x…` token, so a bare CAN id anywhere in the sentence
+        # shadowed every diagnostic branch below it. Verified before the fix:
+        #   "P0300 nedir (CAN ID 0x7E8)"  -> "🚗 UDS / OBD-II Fiziksel ECU Yanıt Karesi"
+        #   "SPN 100 FMI 3 (0x18FEEE00)"  -> "📡 29-Bit Genişletilmiş CAN / J1939 Çerçevesi"
+        #   "0x22 f190 vin oku"           -> "📡 11-Bit Standart CAN Çerçevesi: 0x22"
+        # The operator asked about a FAULT; the id was context, not the subject.
+        # Frame forensics now yields to a query that names a DTC, names an SPN,
+        # or asks for a diagnostic action — those branches carry the answer.
+        _act_kw = (
+            "dtc temizle", "ariza sil", "arizalari sil", "hata kodlarini sil",
+            "hafizayi sil", "hafizayi temizle", "clear dtc", "hata sil",
+            "vin oku", "sasi no oku", "sasi numarasi oku", "read vin",
+            "chassis number", "f190 oku", "dm1", "dm11", "oturum degistir",
+            "extended session", "genisletilmis oturum", "session degistir",
+            "ecu reset", "ecu sifirla",
+        )
+        _names_fault = bool(
+            re.search(r"\b([PBUC][0-9A-F]{4})\b", user_query, re.IGNORECASE)
+            or _SPN_QUERY_RE.search(norm_query)
+        )
+        _asks_action = any(w in norm_query for w in _act_kw)
+        if not (_names_fault or _asks_action):
+            frame_report = cls.analyze_can_frame(user_query, norm_query, telemetry)
+            if frame_report is not None:
+                actions = []
+                if "j1939" in frame_report.lower() or "59904" in frame_report:
+                    actions = [make_j1939_dm1_action()]
+                return attach_action_triggers(frame_report, actions)
 
         # 0.1 CAN Traffic & Bus Load Anomaly Awareness (General Bus Questions Only)
         # F-01: whole-word matching. The qualifier list previously contained the
@@ -3607,7 +4608,7 @@ class CausalBayesianInferenceEngine:
 
         # 0.1 Direct Diagnostic Action Requests (UDS & J1939 Actionable Triggers)
         has_dtc_in_query = bool(re.search(r"\b([PBUC][0-9A-F]{4})\b", user_query, re.IGNORECASE))
-        has_spn_in_query = bool(re.search(r"\bspn\s*([0-9]+)\b", norm_query))
+        has_spn_in_query = bool(_SPN_QUERY_RE.search(norm_query))
 
         # J1939 DM11 Clear DTC request
         is_dm11_action = any(w in norm_query for w in ["dm11", "j1939 ariza sil", "agir vasita ariza sil", "j1939 temizle", "pgn 65235"])
@@ -3780,9 +4781,12 @@ class CausalBayesianInferenceEngine:
         direct_dtc = dtc_match.group(1).upper() if dtc_match else None
 
         # 2. Check for SPN numbers (e.g. SPN 100, SPN 102, SPN 3251, SPN 641)
-        spn_match = re.search(r"\bspn\s*([0-9]+)\b", norm_query)
-        if spn_match:
-            spn_num = spn_match.group(1)
+        # T74: the shared extractor accepts the compact/underscore/hyphen forms
+        # too; `spn_num` is the canonical int so "SPN 0100" and "SPN100" resolve
+        # the same `SPN_<n>` DB key.
+        spn_match = query_spn_number(norm_query)
+        if spn_match is not None:
+            spn_num = str(spn_match)
             spn_key = f"SPN{spn_num}"
             if spn_key in EXPERT_KNOWLEDGE_BASE:
                 direct_dtc = spn_key
@@ -3924,7 +4928,9 @@ class CausalBayesianInferenceEngine:
             if len(_codes) >= 2:
                 known = [c for c in _codes if c in EXPERT_KNOWLEDGE_BASE]
                 if known:
-                    return cls._format_multi_dtc_combined_report(known, telemetry, _clusters)
+                    return cls._format_multi_dtc_combined_report(
+                        known, telemetry, _clusters, vehicle_make, vehicle_year
+                    )
 
         if target_code:
             if target_code in EXPERT_KNOWLEDGE_BASE:
@@ -4080,6 +5086,8 @@ class CausalBayesianInferenceEngine:
         codes: list[str],
         telemetry: dict[str, float],
         clusters: dict[str, Any],
+        vehicle_make: str | None = None,
+        vehicle_year: int | None = None,
     ) -> str:
         """T42 P2-1: coklu-DTC BIRLESIK analiz raporu.
 
@@ -4089,19 +5097,47 @@ class CausalBayesianInferenceEngine:
             `associated_pgn` varsa
           • rezerve (ureticiye ozel) kodlar icin yanlis-teshis uyarisi (P2-6)
           • her kod icin kisa 1-satir ozet (ad + alt sistem + onem)
+          • OEM varyantlari (marka verildiyse filtreli) — T69-G
+          • NHTSA sahip-sikayetleri (marka/yil verildiyse filtreli) — T69-G
+
+        ``vehicle_make`` / ``vehicle_year`` (T69-G): the single-code and J1939
+        generators have accepted these since T42 P2-2/P2-3, but the combined
+        report's signature omitted them while its CALL SITE already computed
+        both. Measured consequence: for a vehicle whose fault set is multi-code
+        (the common case for a shared-root-cause failure) the operator lost the
+        OEM variant filter and the complaint fusion entirely — the two features
+        T42 added were unreachable exactly when several codes fire at once.
+        Both default to ``None``, which preserves the previous behaviour
+        byte-for-byte (fail-safe).
 
         Determinizm: ``codes`` cagirandan SIRALI gelir; her grup icin uye listesi
         sirali basilir. Ayni girdi -> ayni cikti. Uydurma YOK — alan DB'de
         yoksa ilgili satir/blok uretilmez (fail-safe).
         """
+        # T67-A (F-02 parity): same fabricated-coolant defect as the 4-stage
+        # report — each measured value prints only when the caller supplied it.
         rpm = telemetry.get("EngineSpeed", 0.0)
         boost = telemetry.get("BoostPressure", 0.0)
-        temp = telemetry.get("CoolantTemp", 85.0)
-        telemetry_str = f" | {rpm:.0f} RPM, {boost:.2f} Bar, {temp:.1f}°C" if rpm > 0 or boost > 0 else ""
+        _t_parts: list[str] = []
+        if rpm > 0:
+            _t_parts.append(f"{rpm:.0f} RPM")
+        if boost > 0:
+            _t_parts.append(f"{boost:.2f} Bar")
+        _t_coolant = telemetry.get("CoolantTemp")
+        if isinstance(_t_coolant, (int, float)) and _t_coolant > 0:
+            _t_parts.append(f"{float(_t_coolant):.1f}°C")
+        telemetry_str = (" | " + ", ".join(_t_parts)) if _t_parts else ""
 
         lines: list[str] = [
             f"🧩 **ÇOKLU-DTC BİRLEŞİK ANALİZ ({len(codes)} aktif kod):**{telemetry_str}",
         ]
+
+        # T70-B: a multi-code session supplies several measurements at once, so
+        # the physical-envelope sweep matters most here. Empty when all values
+        # are inside their recorded envelope (fail-safe).
+        _multi_plaus = telemetry_plausibility_block(telemetry)
+        if _multi_plaus:
+            lines.append(_multi_plaus)
 
         # (1) ortak alt-sistem gruplari
         sub_groups = clusters.get("subsystem_groups") or []
@@ -4144,6 +5180,95 @@ class CausalBayesianInferenceEngine:
                 f"ortak besleme/kablolama arızasından türer."
             )
 
+        # (4b) T69-G: OEM varyantlari — her kod icin, marka verildiyse filtreli.
+        # Only blocks the DB actually fills are emitted (no fabrication).
+        oem_lines: list[str] = []
+        _oem_hidden_total = 0
+        for c in codes:
+            info = EXPERT_KNOWLEDGE_BASE.get(c)
+            if not isinstance(info, dict):
+                continue
+            ov = info.get("oem_variants")
+            if not isinstance(ov, list) or not ov:
+                continue
+            kept, hidden = filter_oem_variants(ov, vehicle_make)
+            _oem_hidden_total += hidden
+            rendered: list[str] = []
+            for item in kept:
+                if isinstance(item, dict):
+                    mk = item.get("manufacturer") or item.get("make") or "OEM"
+                    ds = item.get("description") or item.get("meaning") or ""
+                    if ds:
+                        rendered.append(f"    • **{mk}:** {str(ds)[:160]}")
+                elif isinstance(item, str) and item.strip():
+                    rendered.append(f"    • {item[:160]}")
+            if rendered:
+                oem_lines.append(f"  • **[{c}]**")
+                oem_lines.extend(rendered)
+        if oem_lines:
+            _hdr = "🏭 **OEM Varyantları (aynı kod, marka bazlı anlam):**"
+            if vehicle_make:
+                _hdr = f"🏭 **OEM Varyantları — {vehicle_make.upper()} (marka filtreli):**"
+            lines.append("\n" + _hdr)
+            lines.extend(oem_lines)
+            if _oem_hidden_total:
+                lines.append(
+                    f"  *(+{_oem_hidden_total} farklı marka varyantı gizlendi — "
+                    "marka filtresi aktif)*"
+                )
+
+        # (4c) T69-G: NHTSA sahip-sikayetleri — marka/yil verildiyse filtreli.
+        # Fail-safe: the complaints corpus must never break the report.
+        try:
+            _cmp = search_nhtsa_complaints(
+                make=vehicle_make, year=vehicle_year, limit=3
+            )
+            _cmp_hits = _cmp.get("complaints") or []
+            if _cmp_hits:
+                _cmp_lines: list[str] = []
+                for _e in _cmp_hits[:3]:
+                    _comp = str(_e.get("components", "")).split(",")[0].strip()
+                    _sum = str(_e.get("summary", "")).strip()
+                    if _comp or _sum:
+                        _cmp_lines.append(
+                            f"    • [{_comp}] {_sum[:180]}" if _comp else f"    • {_sum[:180]}"
+                        )
+                if _cmp_lines:
+                    _scope = (
+                        f"{len(_cmp.get('matched_vehicles', []))} araç / "
+                        f"{len(_cmp_hits)} şikayet"
+                    )
+                    if vehicle_make:
+                        _chdr = (
+                            "🗣️ **Sahip Şikayetleri (NHTSA complaints — "
+                            f"{vehicle_make.upper()} marka filtreli):**"
+                        )
+                    else:
+                        _chdr = "🗣️ **Sahip Şikayetleri (NHTSA complaints):**"
+                    lines.append(f"\n{_chdr} {_scope}")
+                    lines.extend(_cmp_lines)
+        except Exception as exc:  # noqa: BLE001 — complaints asla raporu düsürmez
+            logger.debug("NHTSA complaints fusion skipped (multi-DTC): %s", exc)
+
+        # (4d) T70-A: the validated procedure corpus, per code. The corpus had
+        # no consumer in ANY report before T70-A; on a multi-code session the
+        # per-code branch tree (pass_next/fail_next) is exactly what tells the
+        # technician which code to chase first. Codes without a procedure
+        # contribute nothing — no empty header is emitted (fail-safe).
+        _corpus_lines: list[str] = []
+        for _c in codes:
+            _cblock = procedure_corpus_block(_c, include_header=False)
+            if not _cblock:
+                continue
+            _corpus_lines.append(f"  • **[{_c}]**")
+            _corpus_lines.extend("  " + _ln for _ln in _cblock.splitlines())
+        if _corpus_lines:
+            lines.append(
+                f"\n📐 **Doğrulanmış Prosedür Kütüphanesi "
+                f"(korpus `dtc_procedures`, {sum(1 for x in _corpus_lines if x.startswith('  • **['))} kod):**"
+            )
+            lines.extend(_corpus_lines)
+
         # (5) P2-6: rezerve kod uyarisi (yanlis teshisi engeller)
         reserved_codes = clusters.get("reserved_codes") or []
         if reserved_codes:
@@ -4161,9 +5286,49 @@ class CausalBayesianInferenceEngine:
         )
 
         report_text = "\n".join(lines)
-        actions = [make_uds_clear_dtc_action()]
-        actions.extend(extract_action_triggers(report_text))
+        # P0-3 parity (session_report.py:217-224): a combined report is a record,
+        # not a command surface — the unconditional UDS 0x14 clear button is gone.
+        actions = extract_action_triggers("", "")
         return attach_action_triggers(report_text, actions)
+
+    #: T68: which thresholded signal a diagnosis is ABOUT.
+    #:
+    #: Before T68 this mapping was three hardcoded `if` lines covering exactly
+    #: three codes (P0234/SPN102, SPN110/P0115, SPN100). `telemetry_thresholds.
+    #: json` carries SEVEN signals (EngineCoolantTemp, TurboBoost,
+    #: EngineOilPressure, EngineSpeed, VehicleSpeed, EngineLoad, EngineTorque),
+    #: so four of them could never be cross-checked against a measurement no
+    #: matter what the operator asked.
+    #:
+    #: The table below is derived from the J1939 SPN definitions in the live DB,
+    #: not invented: each entry names the SPN whose measured quantity the
+    #: threshold describes. An OBD-II code is attached where the SAE J1979 PID
+    #: measures the same physical quantity (documented in signal_aliases.json).
+    #: A code absent from this table simply produces no consistency line — the
+    #: honest outcome, since no threshold applies to it.
+    _THRESHOLD_SIGNAL_FOR_CODE: dict[str, tuple[str, str, str, str]] = {
+        # telemetry key, threshold-db key, Turkish label, unit
+        "SPN102": ("BoostPressure", "TurboBoost", "Turbo basıncı", "bar"),
+        "P0234": ("BoostPressure", "TurboBoost", "Turbo basıncı", "bar"),
+        "P0299": ("BoostPressure", "TurboBoost", "Turbo basıncı", "bar"),
+        "SPN110": ("CoolantTemp", "EngineCoolantTemp", "Soğutma suyu sıcaklığı", "°C"),
+        "P0115": ("CoolantTemp", "EngineCoolantTemp", "Soğutma suyu sıcaklığı", "°C"),
+        "P0116": ("CoolantTemp", "EngineCoolantTemp", "Soğutma suyu sıcaklığı", "°C"),
+        "P0117": ("CoolantTemp", "EngineCoolantTemp", "Soğutma suyu sıcaklığı", "°C"),
+        "P0118": ("CoolantTemp", "EngineCoolantTemp", "Soğutma suyu sıcaklığı", "°C"),
+        "P0119": ("CoolantTemp", "EngineCoolantTemp", "Soğutma suyu sıcaklığı", "°C"),
+        "SPN100": ("OilPressure", "EngineOilPressure", "Yağ basıncı", "bar"),
+        "P0524": ("OilPressure", "EngineOilPressure", "Yağ basıncı", "bar"),
+        "SPN190": ("EngineSpeed", "EngineSpeed", "Motor devri", "rpm"),
+        "P0335": ("EngineSpeed", "EngineSpeed", "Motor devri", "rpm"),
+        "P0336": ("EngineSpeed", "EngineSpeed", "Motor devri", "rpm"),
+        "SPN84": ("VehicleSpeed", "VehicleSpeed", "Araç hızı", "km/h"),
+        "P0500": ("VehicleSpeed", "VehicleSpeed", "Araç hızı", "km/h"),
+        "P0501": ("VehicleSpeed", "VehicleSpeed", "Araç hızı", "km/h"),
+        "SPN92": ("EngineLoad", "EngineLoad", "Motor yükü", "%"),
+        "P0106": ("EngineLoad", "EngineLoad", "Motor yükü", "%"),
+        "SPN513": ("EngineTorque", "EngineTorque", "Motor torku", "%"),
+    }
 
     @classmethod
     def _measured_value_consistency(
@@ -4180,16 +5345,22 @@ class CausalBayesianInferenceEngine:
         normal?" at a nominal 2.6 bar is told the value is nominal instead of
         being shown an unexplained overboost work-order (P0-2, finding 4).
 
+        T68: coverage widened from 3 codes to every code whose measured
+        quantity has a threshold band (see `_THRESHOLD_SIGNAL_FOR_CODE`).
         Deterministic and offline: reads only telemetry_thresholds.json (itself
         derived from the KB measurement text).
         """
         checks: list[tuple[str, str, str, str]] = []
-        if code == "P0234" or _turbo_matches({"code": code}):
-            checks.append(("BoostPressure", "TurboBoost", "Turbo basıncı", "bar"))
-        if code in {"SPN110", "P0115"}:
-            checks.append(("CoolantTemp", "EngineCoolantTemp", "Soğutma suyu sıcaklığı", "°C"))
-        if code == "SPN100":
-            checks.append(("OilPressure", "EngineOilPressure", "Yağ basıncı", "bar"))
+        # Accept both the SPN form ("SPN102") and the bare number the DM1 path
+        # produces ("102"), so a session event and a query reach the same band.
+        _norm = str(code or "").strip().upper().replace(" ", "")
+        _entry = cls._THRESHOLD_SIGNAL_FOR_CODE.get(_norm)
+        if _entry is None and _norm.isdigit():
+            _entry = cls._THRESHOLD_SIGNAL_FOR_CODE.get(f"SPN{_norm}")
+        if _entry is None and _norm.startswith("SPN") and _norm[3:].isdigit():
+            _entry = cls._THRESHOLD_SIGNAL_FOR_CODE.get(_norm)
+        if _entry is not None:
+            checks.append(_entry)
         if not checks:
             return ""
         try:
@@ -4275,23 +5446,55 @@ class CausalBayesianInferenceEngine:
         info = EXPERT_KNOWLEDGE_BASE[code]
         rpm = telemetry.get("EngineSpeed", 0.0)
         boost = telemetry.get("BoostPressure", 0.0)
-        temp = telemetry.get("CoolantTemp", 85.0)
 
+        # T67-A (F-02 parity, AGENTS.md §2.3): the query path defaulted the
+        # coolant reading to a FABRICATED 85.0 °C and then printed it whenever
+        # RPM *or* boost was measured. A session with only RPM rendered
+        # "1800 RPM, 0.00 Bar, 85.0°C" — the temperature was never measured.
+        # The session path has been strict since F-02; the query path is now
+        # too: each value prints only when the caller actually supplied it.
+        _t_parts: list[str] = []
+        if rpm > 0:
+            _t_parts.append(f"{rpm:.0f} RPM")
+        if boost > 0:
+            _t_parts.append(f"{boost:.2f} Bar")
+        _t_coolant = telemetry.get("CoolantTemp")
+        if isinstance(_t_coolant, (int, float)) and _t_coolant > 0:
+            _t_parts.append(f"{float(_t_coolant):.1f}°C")
+        telemetry_str = (" | " + ", ".join(_t_parts)) if _t_parts else ""
+
+        # T67-B (exhaustive answers): the report rendered `causes[:2]` and
+        # `steps[:2]`. Measured on the live DB: 1,388 records carry 4 causes,
+        # 1,213 carry 5, 219 carry 6+; 13,805 records carry exactly 3 steps, so
+        # the third step was dropped for ~96% of the catalog. Every cause and
+        # every step the record holds is now rendered.
         causes = info.get("causes", [])
-        top_causes = causes[:2] if causes else ["İlgili alt sistem elektriksel veya mekanik parametre sapması."]
+        top_causes = list(causes)
         causes_formatted = "\n".join(f"  • {c}" for c in top_causes)
+        if not causes_formatted:
+            # No fabrication: an empty field renders as an explicit gap, never
+            # as an invented generic cause.
+            causes_formatted = "  • (Kayıtlı neden yok — uydurma neden üretilmedi.)"
 
         steps = info.get("steps", [])
         steps_lines: list[str] = []
-        for idx, s in enumerate(steps[:2]):
+        for idx, s in enumerate(steps):
             if len(s) >= 2:
                 steps_lines.append(f"  {idx + 1}. {s[0]} *(Hedef: {s[1]})*")
             elif len(s) == 1:
                 steps_lines.append(f"  {idx + 1}. {s[0]}")
-        steps_formatted = "\n".join(steps_lines) if steps_lines else "  • Tesisat ve sensör bağlantılarını kontrol edin."
+        steps_formatted = (
+            "\n".join(steps_lines) if steps_lines else "  • (Kayıtlı adım yok — uydurma adım üretilmedi.)"
+        )
 
-        measurement_block = info.get("measurement", "Nominal voltaj ve şasi dirençlerini test edin.")
-        routine_block = info.get("uds_routine", "UDS Service 0x14 (DTC Temizleme)")
+        # T67-A (AGENTS.md §2.3): the missing-field fallbacks INVENTED a
+        # tolerance ("Nominal voltaj ve şasi dirençlerini test edin.") and a
+        # diagnostic routine ("UDS Service 0x14"). An invented measurement
+        # tolerance is precisely the fabrication §2.3 forbids. An absent field
+        # now renders as an explicit gap; the stage-2/3 headers stay so the
+        # 4-stage structure is intact.
+        measurement_block = str(info.get("measurement", "") or "").strip()
+        routine_block = str(info.get("uds_routine", "") or "").strip()
 
         # Check if there are related NHTSA recalls for this code (max 1)
         nhtsa_block = ""
@@ -4306,8 +5509,6 @@ class CausalBayesianInferenceEngine:
             r = related_recalls[0]
             nhtsa_block = f"\n📢 **NHTSA Geri Çağırma:** {r.get('campaign_number')} ({r.get('manufacturer')}) — {r.get('component')}"
 
-        telemetry_str = f" | {rpm:.0f} RPM, {boost:.2f} Bar, {temp:.1f}°C" if rpm > 0 or boost > 0 else ""
-
         # REVIEW (Tur-27 P0, @tuner AI plan Boguluk 2): merge edilmis ama HIC okunmayan
         # OEM zenginlik katmanlari. Geriye-uyumlu: alan yoksa blok uretilmez.
         # T42 P2-2: arac markasi verildiyse OEM varyantlari markaya gore
@@ -4317,7 +5518,7 @@ class CausalBayesianInferenceEngine:
         if isinstance(ov, list) and ov:
             kept, hidden = filter_oem_variants(ov, vehicle_make)
             lines = []
-            for item in kept[:3]:
+            for item in kept:
                 if isinstance(item, dict):
                     mk = item.get("manufacturer") or item.get("make") or "OEM"
                     ds = item.get("description") or item.get("meaning") or ""
@@ -4394,7 +5595,7 @@ class CausalBayesianInferenceEngine:
         _bridge = info.get("j1939_spn_fmi")
         if isinstance(_bridge, list) and _bridge:
             _b_lines: list[str] = []
-            for _b in _bridge[:3]:
+            for _b in _bridge:
                 if not isinstance(_b, dict):
                     continue
                 _bspn = _b.get("spn")
@@ -4404,11 +5605,11 @@ class CausalBayesianInferenceEngine:
                 _bfmi = _b.get("fm")
                 _bfmi_str = ""
                 if isinstance(_bfmi, list) and _bfmi:
-                    _bfmi_str = f" | FMI: {', '.join(str(x) for x in _bfmi[:4])}"
+                    _bfmi_str = f" | FMI: {', '.join(str(x) for x in _bfmi)}"
                 _bsys = _b.get("systems")
                 _bsys_str = ""
                 if isinstance(_bsys, list) and _bsys:
-                    _bsys_str = f" | Sistem: {', '.join(str(x) for x in _bsys[:3])}"
+                    _bsys_str = f" | Sistem: {', '.join(str(x) for x in _bsys)}"
                 _resolved = ""
                 try:
                     _jdb = get_j1939_spn_database()
@@ -4431,6 +5632,18 @@ class CausalBayesianInferenceEngine:
         # honestly instead of asserting an overboost at a nominal reading.
         consistency_block = cls._measured_value_consistency(code, telemetry)
 
+        # T70-B: the consistency line judges only the ONE signal the code maps
+        # to. Every OTHER supplied measurement was previously unexamined, so a
+        # physically impossible reading rode along unflagged. This sweep covers
+        # all of them and emits nothing when all values are inside envelope.
+        plausibility_block = telemetry_plausibility_block(telemetry)
+
+        # T70-C: the cell-spread cross-check. Until now the ΔV computation
+        # existed only in the CAN-frame forensics branch, so a DTC diagnosis of
+        # P0A80 showed the KB's ">150 mV" threshold as prose without ever
+        # comparing it to the two cell channels the caller had supplied.
+        bms_block = bms_cell_imbalance_block(code, telemetry)
+
         # P0-3: when the operator named an FMI, state the FMI-SPECIFIC rung next
         # to the SPN-level one. The per-FMI rung is the more specific evidence,
         # so an electrical fault (FMI 3) is not shown as "stop the engine".
@@ -4447,26 +5660,202 @@ class CausalBayesianInferenceEngine:
         else:
             priority_line = f"*(Öncelik: {info.get('severity', 'MEDIUM')})*"
 
+        # T67-A: stage 2/3 render only what the record actually holds. An empty
+        # field states the gap instead of substituting an invented tolerance or
+        # routine (AGENTS.md §2.3).
+        _stage2_body = (
+            f"  • {measurement_block}"
+            if measurement_block
+            else "  • (Bu kod için kayıtlı ölçüm toleransı yok — araç servis kılavuzundaki "
+            "değerleri kullanın; uydurma tolerans üretilmedi.)"
+        )
+        _stage3_body = (
+            f"  • `{routine_block}`"
+            if routine_block
+            else "  • (Bu kod için kayıtlı UDS/J1939 rutini yok — uydurma rutin üretilmedi.)"
+        )
+        # T67-A: stage 4 was hardcoded boilerplate for every code. It is now
+        # driven by the record's own fields: `uds_routine` is quoted only when
+        # the DB actually carries one, and the code-specific closing note comes
+        # from the record's subsystem. Nothing is asserted about a procedure the
+        # record does not describe.
+        _stage4_parts: list[str] = []
+        if routine_block:
+            _stage4_parts.append(
+                f"  • Parça değişimi/adaptasyon sonrası kayıtlı rutini uygulayın: `{routine_block}`"
+            )
+        _subsystem_note = str(info.get("subsystem", "") or "").strip()
+        if _subsystem_note:
+            _stage4_parts.append(
+                f"  • Onarım sonrası **{_subsystem_note}** alt sisteminde yeniden test sürüşü "
+                "yapıp kodu yeniden okuyun (onarım doğrulaması)."
+            )
+        _stage4_body = (
+            "\n".join(_stage4_parts)
+            if _stage4_parts
+            else "  • (Kayıtlı parça/adaptasyon prosedürü yok — uydurma prosedür üretilmedi.)"
+        )
+
+        # T67-C: the DTC-side `procedures_full` (6,087 records) had NO consumer.
+        # It is a `list[str]` of ordered repair steps harvested from
+        # obd2.com/obdfyi and friends — a different SHAPE from the J1939 bundle
+        # list, which is why the dict-only reader never saw it. Rendered here in
+        # full, deduplicated against the KB steps already printed above so the
+        # operator is not shown the same line twice.
+        proc_dtc_block = ""
+        _dpf = info.get("procedures_full")
+        if isinstance(_dpf, list):
+            _dpf_lines: list[str] = []
+            _seen_dpf: set[str] = {
+                " ".join(str(s).split()).lower()
+                for s in (steps if isinstance(steps, list) else [])
+                for s in ([s[0]] if isinstance(s, (list, tuple)) and s else ([s] if isinstance(s, str) else []))
+            }
+            for _item in _dpf:
+                if isinstance(_item, dict):
+                    # A J1939-style bundle accidentally present on a DTC row.
+                    _t = _item.get("overview") or _item.get("text") or ""
+                else:
+                    _t = _item
+                _t = str(_t).strip()
+                _k = " ".join(_t.split()).lower()
+                if _t and _k not in _seen_dpf:
+                    _seen_dpf.add(_k)
+                    _dpf_lines.append(_t)
+            if _dpf_lines:
+                _dpf_src = str(info.get("procedures_source_url", "") or "").strip()
+                proc_dtc_block = (
+                    f"\n\n📚 **Ayrıntılı Onarım Prosedürü (DB `procedures_full`, "
+                    f"{len(_dpf_lines)} adım):**\n"
+                    + "\n".join(f"  {i + 1}. {s}" for i, s in enumerate(_dpf_lines))
+                    + (f"\n  *Kaynak:* {_dpf_src}" if _dpf_src else "")
+                )
+
+        # T69: multi-source procedure bundles. `procedures_full` holds ONE
+        # source's steps; `procedures_full_multi` holds every ADDITIONAL
+        # independent source, each with its own URL. Measured: P0420 carried a
+        # 7-step obd2.com summary while troubleshootmyvehicle.com publishes a
+        # 77-step test procedure (labelled "[TEST 1: ...]") for the same code.
+        # Both are shown, grouped by source, deduplicated against everything
+        # already rendered above. Quarantined bundles are never rendered (T2-3).
+        multi_block = ""
+        _multi = info.get("procedures_full_multi")
+        if isinstance(_multi, list):
+            _multi_lines: list[str] = []
+            _seen_multi: set[str] = set()
+            _multi_sources = 0
+            _multi_steps = 0
+            for _b in _multi:
+                if not isinstance(_b, dict) or _b.get("_quarantined"):
+                    continue
+                _b_steps = [
+                    str(s).strip()
+                    for s in (_b.get("steps") or [])
+                    if isinstance(s, str) and str(s).strip()
+                ]
+                _b_causes = [
+                    str(c).strip()
+                    for c in (_b.get("causes") or [])
+                    if isinstance(c, str) and str(c).strip()
+                ]
+                _b_syms = [
+                    str(s).strip()
+                    for s in (_b.get("symptoms") or [])
+                    if isinstance(s, str) and str(s).strip()
+                ]
+                if not (_b_steps or _b_causes or _b_syms):
+                    continue
+                _site = str(_b.get("source_site") or "").strip()
+                _url = str(_b.get("source_url") or "").strip()
+                _hdr = _site or _url or "kaynak belirtilmemiş"
+                _block: list[str] = []
+                if _b_steps:
+                    _block.append("  • **Adımlar:**")
+                    _n = 0
+                    for s in _b_steps:
+                        k = " ".join(s.split()).lower()
+                        if k in _seen_multi:
+                            continue
+                        _seen_multi.add(k)
+                        _n += 1
+                        _block.append(f"    {_n}. {s}")
+                    _multi_steps += _n
+                if _b_causes:
+                    _kc = [c for c in _b_causes if " ".join(c.split()).lower() not in _seen_multi]
+                    if _kc:
+                        _block.append("  • **Olası Nedenler:**")
+                        for c in _kc:
+                            _seen_multi.add(" ".join(c.split()).lower())
+                            _block.append(f"    - {c}")
+                if _b_syms:
+                    _ks = [s for s in _b_syms if " ".join(s.split()).lower() not in _seen_multi]
+                    if _ks:
+                        _block.append("  • **Belirtiler:**")
+                        for s in _ks:
+                            _seen_multi.add(" ".join(s.split()).lower())
+                            _block.append(f"    - {s}")
+                if not _block:
+                    continue
+                _multi_sources += 1
+                _multi_lines.append(f"\n  ── **{_hdr}** ──")
+                if _url:
+                    _multi_lines.append(f"    *Kaynak:* {_url}")
+                _multi_lines.extend(_block)
+            if _multi_lines:
+                multi_block = (
+                    f"\n\n📖 **Ek Bağımsız Kaynak Prosedürleri "
+                    f"({_multi_sources} kaynak, {_multi_steps} adım — "
+                    "tekrarlar ayıklandı):**" + "\n".join(_multi_lines)
+                )
+
+        # T67-C: VAG-specific decode (2,102 records) — the same code means
+        # something specific in the VAG (VW/Audi/Seat/Skoda) world, and the
+        # numeric VAG code is what a VCDS reader shows. Rendered only when the
+        # record carries it.
+        vag_block = ""
+        _vag = info.get("vag_code")
+        _vag_desc = str(info.get("vag_desc_en", "") or "").strip()
+        if _vag or _vag_desc:
+            _vag_txt = f"  • **VAG Kodu:** {_vag}" if _vag else ""
+            if _vag_desc:
+                _vag_txt += f"\n  • **VAG Açıklaması (EN):** {_vag_desc}"
+            vag_block = "\n\n🚗 **VAG (VW/Audi/Seat/Skoda) Karşılığı:**\n" + _vag_txt
+
+        # T67-C: `evidence_url` (11,088 records) — the provenance link for the
+        # record. A technician verifying a diagnosis needs the source.
+        evidence_block = ""
+        _ev_url = str(info.get("evidence_url", "") or "").strip()
+        if _ev_url and _ev_url != str(info.get("procedures_source_url", "") or "").strip():
+            evidence_block = f"\n\n🔖 **Kaynak Kanıt:** {_ev_url}"
+
         report_text = (
             f"🚨 **[{code}] — {info.get('title', code)}** {priority_line}\n"
             f"🏷️ **Alt Sistem:** {info.get('subsystem', 'Genel Teşhis')}{telemetry_str}\n"
             f"{consistency_block}\n"
+            f"{plausibility_block}"
+            f"{bms_block}"
             f"🔍 **Olası Nedenler:**\n{causes_formatted}\n\n"
             f"📋 **4-AŞAMALI USTA TEKNİSYEN SAHA ONARIM KILAVUZU:**\n"
             f"**Aşama 1: Görsel & Mekanik Kontrol:**\n{steps_formatted}\n"
-            f"⚡ **Aşama 2: Kesin Multimetre & Osiloskop Toleransları:**\n  • {measurement_block}\n"
-            f"💻 **Aşama 3: UDS / J1939 Özel Teşhis Rutinleri:**\n  • `{routine_block}`\n"
-            f"🔧 **Aşama 4: Parça Değişim & Adaptasyon Prosedürü:**\n  • Parça değişimi sonrası kontak açıkken `UDS 0x14` ile arıza hafızasını temizleyin."
+            f"⚡ **Aşama 2: Kesin Multimetre & Osiloskop Toleransları:**\n{_stage2_body}\n"
+            f"💻 **Aşama 3: UDS / J1939 Özel Teşhis Rutinleri:**\n{_stage3_body}\n"
+            f"🔧 **Aşama 4: Parça Değişim & Adaptasyon Prosedürü:**\n{_stage4_body}"
+            f"{procedure_corpus_block(code)}"
+            f"{proc_dtc_block}"
+            f"{multi_block}"
+            f"{vag_block}"
+            f"{evidence_block}"
             f"{bridge_block}"
             f"{nhtsa_block}"
             f"{oem_block}"
         )
-        actions = [make_uds_clear_dtc_action()]
-        if "0x31" in routine_block:
-            m = re.search(r"0x([0-9a-fA-F]{4})", routine_block)
-            if m:
-                actions.append(make_uds_routine_action(int(m.group(1), 16)))
-        actions.extend(extract_action_triggers(report_text))
+        # P0-3 parity (session_report.py:217-224): a diagnostic REPORT is a
+        # record, not a command surface. This generator used to mint a
+        # destructive UDS 0x14 DTC-clear button unconditionally — on a report
+        # the operator never asked to act on. The report is now read-only:
+        # triggers come only from the operator's own words, exactly as
+        # `extract_action_triggers` has enforced since P0-1.
+        actions = extract_action_triggers("", "")
         return attach_action_triggers(report_text, actions)
 
     @classmethod
@@ -4522,10 +5911,16 @@ class CausalBayesianInferenceEngine:
         range_info = spn_entry.get("range", [spn_entry.get("range_min", 0), spn_entry.get("range_max", 0)])
         range_str = f"{range_info[0]}..{range_info[1]} {unit}" if isinstance(range_info, list) and len(range_info) >= 2 else f"{range_info} {unit}"
 
-        fmi_match = re.search(r"\bfmi\s*([0-9]+)\b", query, re.I)
+        # T74: same shared extractor as the router, so a compact form
+        # ("SPN100FMI3") resolves the per-FMI rung here too. The DB keys
+        # `fault_matrix` / `fmi_definitions` / `fmi_map` by UNPADDED decimal
+        # ("3", never "03"), so the captured digits are canonicalised — a
+        # zero-padded "FMI03" must not silently miss the recorded rung.
+        _fmi_num_int = query_fmi_number(query)
+        fmi_num = "" if _fmi_num_int is None else str(_fmi_num_int)
+        fmi_tree: dict[str, Any] | None = None
         fmi_info_str = ""
-        if fmi_match:
-            fmi_num = fmi_match.group(1)
+        if _fmi_num_int is not None:
             fmi_tree = spn_entry.get("fault_matrix", {}).get(fmi_num)
             if not fmi_tree:
                 j1939_db = get_j1939_spn_database()
@@ -4586,7 +5981,7 @@ class CausalBayesianInferenceEngine:
                         shown += 1
         fe = spn_entry.get("oem_field_evidence")
         if isinstance(fe, list) and fe:
-            for e in fe[:2]:
+            for e in fe:
                 if isinstance(e, dict):
                     mk = e.get("manufacturer") or e.get("oem") or ""
                     tx = e.get("evidence") or e.get("note") or e.get("description") or ""
@@ -4613,17 +6008,17 @@ class CausalBayesianInferenceEngine:
             _fam_hdr = "🚚 **OEM Motor Aileleri (DB):**"
             if vehicle_make:
                 _fam_hdr = f"🚚 **OEM Motor Aileleri — {vehicle_make.upper()} (marka filtreli):**"
-            _fam_txt = ", ".join(str(f)[:60] for f in _families[:8])
+            _fam_txt = ", ".join(str(f) for f in _families)
             oem_lines.append(f"  • {_fam_hdr} {_fam_txt}")
             if _fam_hidden:
                 oem_lines.append(f"  • *(+{_fam_hidden} farklı marka motor ailesi gizlendi)*")
 
         # T42 P2-2: saha kaniti FMI anlamlari (field_fmi_meanings) — FMI
         # sorgusu varsa o FMI'nin saha anlami DB'den basilir.
-        if isinstance(fe, dict) and fmi_match:
+        if isinstance(fe, dict) and _fmi_num_int is not None:
             _ffm = fe.get("field_fmi_meanings")
             if isinstance(_ffm, dict):
-                _meanings = _ffm.get(str(fmi_match.group(1)))
+                _meanings = _ffm.get(fmi_num)
                 if isinstance(_meanings, list) and _meanings:
                     _uniq = []
                     for _m in _meanings:
@@ -4631,24 +6026,26 @@ class CausalBayesianInferenceEngine:
                         if _ms and _ms not in _uniq:
                             _uniq.append(_ms)
                     if _uniq:
-                        oem_lines.append(f"  • **Saha FMI Anlamı:** {_uniq[0][:200]}")
+                        oem_lines.append(
+                            "  • **Saha FMI Anlamı:** " + " | ".join(_uniq)
+                        )
 
         oem_block = ""
         if oem_lines:
             _fmi_hdr = ""
-            if fmi_match:
+            if _fmi_num_int is not None:
                 _fmi_hdr = f" (SPN {spn} seviyesinde)"
             oem_block = f"\n\n🔧 **OEM Saha Prosedürü / Kanıtı{_fmi_hdr}:**\n" + "\n".join(oem_lines)
 
         # FMI severity rapora tasi (Boguluk 3, P1)
-        if fmi_match and fmi_tree:
+        if _fmi_num_int is not None and fmi_tree:
             _sev = str(fmi_tree.get("severity", "")).upper()
             if _sev:
                 oem_block += f"\n\n⚠️ **FMI Önem Derecesi:** {_sev}"
             # oem_occurrences de zengin ama raporda gorunmuyordu (Tur-27 P0)
             _occ = fmi_tree.get("oem_occurrences")
             if isinstance(_occ, list) and _occ:
-                _show = [str(x)[:60] for x in _occ[:5]]
+                _show = [str(x) for x in _occ]
                 oem_block += "\n\n🚚 **Görüldüğü Araçlar/Platformlar:** " + ", ".join(_show)
 
         # T41 P1-2: J1939 SPN girdisindeki `causes` (3.720 SPN dolu) ve `steps`
@@ -4660,7 +6057,7 @@ class CausalBayesianInferenceEngine:
             _jc_lines = [str(c).strip() for c in _jc if isinstance(c, str) and str(c).strip()]
             if _jc_lines:
                 j1939_causes_block = "\n\n🔍 **J1939 Olası Nedenler (DB):**\n" + "\n".join(
-                    f"  • {c[:200]}" for c in _jc_lines[:4]
+                    f"  • {c}" for c in _jc_lines
                 )
         j1939_steps_block = ""
         _js = spn_entry.get("steps")
@@ -4668,64 +6065,259 @@ class CausalBayesianInferenceEngine:
             _js_lines = [str(s).strip() for s in _js if isinstance(s, str) and str(s).strip()]
             if _js_lines:
                 j1939_steps_block = "\n\n📋 **J1939 Onarım Adımları (DB):**\n" + "\n".join(
-                    f"  {i + 1}. {s[:200]}" for i, s in enumerate(_js_lines[:4])
+                    f"  {i + 1}. {s}" for i, s in enumerate(_js_lines)
                 )
 
         # T41 P1-1: Eaton PIM tam prosedürleri (`procedures_full`, 59 SPN) motor
         # tarafindan HIC okunmuyordu (T36-T39 kurtarma emegi atildi). Yalnizca
         # DB'de var olan alanlar basilir — uydurma prosedur uretilmez.
+        #
+        # T67-B (exhaustive answers): this block used to render the TWO richest
+        # CLEAN blocks. Measured on the live DB: 929 SPNs hold more than 2
+        # blocks, SPN_157 holds 52 and SPN_100 holds 34 (731 steps across them).
+        # Every clean block is now rendered — the operator asked for every
+        # possibility — but blocks are GROUPED BY SOURCE SITE, because one SPN
+        # is typically covered by a dozen sites and the same procedure text is
+        # republished across them. Grouping makes the agreement between
+        # independent sources visible instead of burying it in a flat list.
+        #
+        # Deduplication is measured, not assumed: across all SPN blocks the
+        # 56,963 step strings collapse to 47,398 unique (83.2%), so identical
+        # lines repeated across harvest bundles are dropped and the remaining
+        # text is printed once. No information is lost, only repetition.
         procedures_block = ""
         _pf = spn_entry.get("procedures_full")
         if isinstance(_pf, list) and _pf:
             _pf_lines: list[str] = []
-            # T2-3 (karantina kalanı): the reader took `procedures_full[:1]`
-            # (index 0 ONLY). For three SPNs (SPN_520604, SPN_520605,
-            # SPN_524265) index 0 WAS the quarantined block, so the
-            # `_quarantined` marker protected nothing and quarantined
-            # dtcdocs/LLM content could reach the technician report. The
-            # upstream data fix (scripts/detect_quarantine_dtcdocs_llm.py
-            # --apply) now removes quarantined blocks from the array entirely;
-            # this guard is the second, load-bearing layer: whatever the array
-            # contains, a `_quarantined` block is NEVER rendered and NEVER
-            # consumed by the `[:1]` truncation. Fail-closed: skip it and keep
-            # looking for the next clean block instead of printing it.
-            for _proc in _pf:
-                if not isinstance(_proc, dict):
-                    continue
-                if _proc.get("_quarantined"):
-                    continue
-                _ec = str(_proc.get("eaton_fault_code", "") or "").strip()
-                if _ec:
-                    _pf_lines.append(f"  • **{_ec[:120]}**")
-                for _key, _label in (
-                    ("overview", "Genel Bakış"),
-                    ("detection", "Tespit"),
-                    ("conditions_set_active", "Aktif Olma Koşulu"),
-                    ("fallback", "Yedek Mod / Etki"),
-                    ("possible_causes", "Olası Nedenler"),
-                ):
-                    _val = str(_proc.get(_key, "") or "").strip()
-                    if _val:
-                        _pf_lines.append(f"  • **{_label}:** {_val[:240]}")
-                # One clean procedure block is rendered — the pre-T2-3 budget.
-                break
+            _seen_proc: set[str] = set()
+            _steps_rendered = 0
+            _causes_rendered = 0
+            _symptoms_rendered = 0
+
+            def _richness(block: dict) -> int:
+                score = len(str(block.get("overview") or ""))
+                for key in ("steps", "first_moves", "causes", "symptoms"):
+                    val = block.get(key)
+                    if isinstance(val, list):
+                        score += sum(len(str(x)) for x in val)
+                return score
+
+            def _norm(text: str) -> str:
+                return " ".join(str(text).split()).lower()
+
+            def _emit(line: str, text: str) -> bool:
+                """Append ``line`` unless its underlying ``text`` was already shown.
+
+                The dedupe key is the TEXT alone, never the numbered rendering:
+                the same step listed as #1 in one harvest bundle and #3 in
+                another is one piece of information, not two.
+                """
+                key = _norm(text)
+                if not key or key in _seen_proc:
+                    return False
+                _seen_proc.add(key)
+                _pf_lines.append(line)
+                return True
+
+            _clean = [
+                b
+                for b in _pf
+                if isinstance(b, dict) and not b.get("_quarantined")
+            ]
+            # Group by source site (falling back to the harvest method), keeping
+            # the richest block of each group first. Sites are ordered by their
+            # best block's richness so the most detailed source leads.
+            _groups: dict[str, list[dict]] = {}
+            for _b in _clean:
+                _key = str(_b.get("source_site") or _b.get("source") or _b.get("method") or "(kaynak belirtilmemiş)")
+                _groups.setdefault(_key, []).append(_b)
+            _ordered_groups = sorted(
+                _groups.items(),
+                key=lambda kv: (-max(_richness(b) for b in kv[1]), kv[0]),
+            )
+            _rendered = 0
+            for _site, _blocks in _ordered_groups:
+                _ranked = sorted(_blocks, key=_richness, reverse=True)
+                _site_hdr_emitted = False
+                for _proc in _ranked:
+                    _block_lines: list[str] = []
+                    _ec = str(_proc.get("eaton_fault_code", "") or "").strip()
+                    if _ec:
+                        _block_lines.append(f"  • **{_ec[:120]}**")
+                    for _key, _label in (
+                        ("overview", "Genel Bakış"),
+                        ("detection", "Tespit"),
+                        ("conditions_set_active", "Aktif Olma Koşulu"),
+                        ("fallback", "Yedek Mod / Etki"),
+                        ("possible_causes", "Olası Nedenler"),
+                    ):
+                        _val = str(_proc.get(_key, "") or "").strip()
+                        if _val:
+                            _block_lines.append(f"  • **{_label}:** {_val}")
+                    # Non-Eaton schema (T63/T66 harvest bundles): steps / causes /
+                    # symptoms / first_moves. Every item renders; duplicates across
+                    # bundles are dropped by _emit (keyed on the text, not the number).
+                    _bm = _proc.get("steps") or _proc.get("first_moves")
+                    if isinstance(_bm, list):
+                        _bm_lines = [
+                            str(s).strip() for s in _bm if isinstance(s, str) and str(s).strip()
+                        ]
+                        if any(_norm(s) not in _seen_proc for s in _bm_lines):
+                            _block_lines.append("  • **Adımlar:**")
+                            _n = 0
+                            for s in _bm_lines:
+                                if _emit(f"    {_n + 1}. {s}", s):
+                                    _n += 1
+                                    _steps_rendered += 1
+                    _bc = _proc.get("causes")
+                    if isinstance(_bc, list):
+                        _bc_lines = [
+                            str(c).strip() for c in _bc if isinstance(c, str) and str(c).strip()
+                        ]
+                        if any(_norm(c) not in _seen_proc for c in _bc_lines):
+                            _block_lines.append("  • **Olası Nedenler:**")
+                            for c in _bc_lines:
+                                if _emit(f"    - {c}", c):
+                                    _causes_rendered += 1
+                    _bs = _proc.get("symptoms")
+                    if isinstance(_bs, list):
+                        _bs_lines = [
+                            str(s).strip() for s in _bs if isinstance(s, str) and str(s).strip()
+                        ]
+                        if any(_norm(s) not in _seen_proc for s in _bs_lines):
+                            _block_lines.append("  • **Belirtiler:**")
+                            for s in _bs_lines:
+                                if _emit(f"    - {s}", s):
+                                    _symptoms_rendered += 1
+                    if not _block_lines:
+                        # Nothing renderable here — keep looking instead of breaking.
+                        continue
+                    if not _site_hdr_emitted:
+                        _pf_lines.append(f"\n  ── **{_site}** ──")
+                        _site_hdr_emitted = True
+                    _pf_lines.extend(_block_lines)
+                    _rendered += 1
             if _pf_lines:
-                procedures_block = "\n\n📖 **Eaton OEM Tam Prosedürü (PIM):**\n" + "\n".join(_pf_lines)
+                _hdr = (
+                    "📖 **OEM Tam Prosedürü (DB `procedures_full`):**"
+                    f"\n  *({_rendered} blok / {len(_ordered_groups)} kaynak sitesi; "
+                    f"{_steps_rendered} adım, {_causes_rendered} neden, "
+                    f"{_symptoms_rendered} belirti — tümü gösterildi, "
+                    "tekrarlar ayıklandı)*"
+                )
+                procedures_block = "\n\n" + _hdr + "\n" + "\n".join(_pf_lines)
+
+        # T67-C: three rich SPN-level fields had NO consumer in the engine.
+        #   * `diagnostic_steps` (546 SPNs) — a parallel, field-verified step
+        #     list written by the T-verified harvests; SPN_100 alone carries 54.
+        #   * `fmi_map` (170 SPNs) — per-FMI causes/actions, the most specific
+        #     evidence in the record for the FMI the operator actually named.
+        #   * `field_evidence` (244 SPNs) — real field articles {url,title,excerpt}.
+        # All three are rendered when present and when the query names an FMI
+        # for fmi_map. No fabrication: absent fields produce no block.
+        diag_steps_block = ""
+        _ds = spn_entry.get("diagnostic_steps")
+        if isinstance(_ds, list):
+            _ds_lines = [str(s).strip() for s in _ds if isinstance(s, str) and str(s).strip()]
+            if _ds_lines:
+                diag_steps_block = (
+                    f"\n\n🧰 **Saha Doğrulamalı Teşhis Adımları (DB `diagnostic_steps`, "
+                    f"{len(_ds_lines)} adım):**\n"
+                    + "\n".join(f"  {i + 1}. {s}" for i, s in enumerate(_ds_lines))
+                )
+
+        fmi_map_block = ""
+        _fm_map = spn_entry.get("fmi_map")
+        if isinstance(_fm_map, dict) and _fmi_num_int is not None:
+            _row = _fm_map.get(fmi_num)
+            if not isinstance(_row, dict):
+                # Some harvests key the map by int, others by "FMI 3".
+                _row = _fm_map.get(_fmi_num_int)
+            if isinstance(_row, dict):
+                _parts: list[str] = []
+                _mc = _row.get("causes")
+                if isinstance(_mc, str) and _mc.strip():
+                    _parts.append(
+                        "  • **FMI'ye Özel Nedenler:** "
+                        + "; ".join(x.strip() for x in _mc.split(";") if x.strip())
+                    )
+                elif isinstance(_mc, list):
+                    _ml = [str(x).strip() for x in _mc if str(x).strip()]
+                    if _ml:
+                        _parts.append("  • **FMI'ye Özel Nedenler:** " + "; ".join(_ml))
+                _ma = _row.get("actions")
+                if isinstance(_ma, str) and _ma.strip():
+                    _parts.append(
+                        "  • **FMI'ye Özel Eylemler:** "
+                        + "; ".join(x.strip() for x in _ma.split(";") if x.strip())
+                    )
+                elif isinstance(_ma, list):
+                    _ml = [str(x).strip() for x in _ma if str(x).strip()]
+                    if _ml:
+                        _parts.append("  • **FMI'ye Özel Eylemler:** " + "; ".join(_ml))
+                if _parts:
+                    fmi_map_block = (
+                        f"\n\n🎯 **FMI {fmi_num} — SPN'ye Özel Harita "
+                        "(DB `fmi_map`):**\n" + "\n".join(_parts)
+                    )
+
+        field_evidence_block = ""
+        _fev = spn_entry.get("field_evidence")
+        if isinstance(_fev, list):
+            _fev_lines: list[str] = []
+            for _e in _fev:
+                if not isinstance(_e, dict):
+                    continue
+                _et = str(_e.get("title", "") or "").strip()
+                _ex = str(_e.get("excerpt", "") or "").strip()
+                _eu = str(_e.get("url", "") or "").strip()
+                if _et or _ex:
+                    _fev_lines.append(
+                        f"  • **{_et}**" + (f" — {_ex}" if _ex else "")
+                        + (f"\n    *Kaynak:* {_eu}" if _eu else "")
+                    )
+            if _fev_lines:
+                field_evidence_block = (
+                    f"\n\n🗂️ **Saha Makaleleri (DB `field_evidence`, {len(_fev_lines)} kayıt):**\n"
+                    + "\n".join(_fev_lines)
+                )
+
+        # T67-C: cross-reference to the passenger-car DTC codes the same fault
+        # maps to (2,411 SPNs). Lets an OBD-II reader's code be tied to the
+        # heavy-duty SPN under diagnosis.
+        xref_block = ""
+        _xref = spn_entry.get("sitrakin_dtc_codes")
+        if isinstance(_xref, list):
+            _xref_codes = [str(x).strip() for x in _xref if str(x).strip()]
+            if _xref_codes:
+                xref_block = (
+                    "\n\n🔁 **İlgili OBD-II DTC Kodları (DB `sitrakin_dtc_codes`):** "
+                    + ", ".join(f"`{c}`" for c in _xref_codes)
+                )
 
         report_text = (
             f"🚛 **[SPN {spn}] — {title_tr} ({name})**\n"
             f"🏷️ **Alt Sistem:** {subsystem} | {pgn_line} | **Aralık:** {range_str}\n"
-            f"📝 **Açıklama:** {desc[:140] + ('...' if len(desc) > 140 else '')}\n\n"
+            f"📝 **Açıklama:** {desc}\n\n"
             f"{fmi_info_str}"
+            f"{telemetry_plausibility_block(telemetry)}"
             f"📋 **SAE J1939-73 Saha Teşhis Adımları:**\n"
             f"1. {step1_pgn}\n"
             f"2. Sensör besleme voltajını (5V/12V) ve şasi hattını multimetre ile test edin."
             f"{j1939_causes_block}"
             f"{j1939_steps_block}"
+            f"{diag_steps_block}"
+            f"{fmi_map_block}"
             f"{procedures_block}"
+            f"{procedure_corpus_block(f'SPN{spn}')}"
+            f"{field_evidence_block}"
+            f"{xref_block}"
             f"{oem_block}"
         )
-        actions = [make_j1939_dm1_action(), make_j1939_dm11_action()]
+        # P0-3 parity (session_report.py:217-224): the report is a record, not a
+        # command surface — the unconditional DM11 clear button is gone. The
+        # READ-ONLY DM1 query survives.
+        actions = [make_j1939_dm1_action()]
         return attach_action_triggers(report_text, actions)
 
 
@@ -5413,13 +7005,28 @@ class AiDiagnosticCopilot:
                 )
                 _hyps = rank_hypotheses(_mini, [], None)
                 if _hyps:
+                    # T67-B (exhaustive answers): only rank 1 was surfaced, so a
+                    # technician saw a single root-cause candidate and never the
+                    # competing ones the engine had already ranked and scored.
+                    # Every ranked hypothesis is now listed with its evidence
+                    # score, strongest first, plus the score gap to the next
+                    # candidate — a narrow gap is exactly the signal that the
+                    # diagnosis is not settled and further tests are needed.
                     _top = _hyps[0]
-                    _line = (
-                        f"🎯 Kök neden adayı [{_top.id}]: {_top.fault} "
-                        f"(kanıt skoru %{_top.score * 100:.0f})"
-                    )
-                    if _line not in hypothesis_candidates:
-                        hypothesis_candidates.append(_line)
+                    for _rank, _h in enumerate(_hyps):
+                        _line = (
+                            f"🎯 Kök neden adayı #{_rank + 1} [{_h.id}]: {_h.fault} "
+                            f"(kanıt skoru %{_h.score * 100:.0f})"
+                        )
+                        if _rank == 0 and len(_hyps) > 1:
+                            _gap = _top.score - _hyps[1].score
+                            if _gap < 0.20:
+                                _line += (
+                                    f" — ⚠️ ikinci adayla fark yalnız %{_gap * 100:.0f}; "
+                                    "ayırt edici test yapılmadan kesin onarım önerilmez"
+                                )
+                        if _line not in hypothesis_candidates:
+                            hypothesis_candidates.append(_line)
         except Exception as exc:  # noqa: BLE001 — hypothesis layer must never break the expert report
             logger.warning(
                 "Hipotez sıralama atlandı — kök neden adayı üretilmedi",
@@ -5491,29 +7098,35 @@ class AiDiagnosticCopilot:
                 f"Sistem Durumu: {severity.value}. Ana etki alanı: {', '.join(affected) if affected else 'Genel Sistem'}."
             )
 
+        # T70-D: compute the confidence ONCE as a breakdown and read the label
+        # off it, so the label the operator sees and the rendered components can
+        # never disagree (they are the same numbers).
+        _conf_breakdown = root_cause_confidence_breakdown(
+            dtc_count=dtc_count,
+            scenario_matched=scenario_matched_count,
+            kb_matched=kb_matched_count,
+            # Kanıt C: `hypothesis_candidates` is deliberately NOT counted —
+            # only genuine signal-derived correlations may corroborate.
+            telemetry_correlation_count=len(correlations),
+            # T1-1 (calibration wiring): the parameter existed but NO
+            # production call site ever passed it, so the engine kept
+            # reporting ~%68.5 mean confidence against a measured %44.4
+            # golden-set top-1 accuracy (overconfidence_detected=True).
+            # The factor is COMPUTED from the verified golden corpus and
+            # memoised per process (see calibration.compute_calibration_factor)
+            # — never a hardcoded magic number. T2-3: a ``None`` result is
+            # no longer "no damping"; ``_resolve_calibration_factor``
+            # resolves it internally and, when no evidence exists at all,
+            # marks the label KALİBRE EDİLMEDİ instead of granting full
+            # confidence.
+            calibration_factor=compute_calibration_factor(),
+        )
+
         return DiagnosticAnalysisReport(
             summary=summary,
             severity=severity,
-            root_cause_probability=compute_root_cause_confidence(
-                dtc_count=dtc_count,
-                scenario_matched=scenario_matched_count,
-                kb_matched=kb_matched_count,
-                # Kanıt C: `hypothesis_candidates` is deliberately NOT counted —
-                # only genuine signal-derived correlations may corroborate.
-                telemetry_correlation_count=len(correlations),
-                # T1-1 (calibration wiring): the parameter existed but NO
-                # production call site ever passed it, so the engine kept
-                # reporting ~%68.5 mean confidence against a measured %44.4
-                # golden-set top-1 accuracy (overconfidence_detected=True).
-                # The factor is COMPUTED from the verified golden corpus and
-                # memoised per process (see calibration.compute_calibration_factor)
-                # — never a hardcoded magic number. T2-3: a ``None`` result is
-                # no longer "no damping"; ``_resolve_calibration_factor``
-                # resolves it internally and, when no evidence exists at all,
-                # marks the label KALİBRE EDİLMEDİ instead of granting full
-                # confidence.
-                calibration_factor=compute_calibration_factor(),
-            ),
+            root_cause_probability=str(_conf_breakdown["label"]),
+            confidence_breakdown=_conf_breakdown,
             likely_causes=likely_causes,
             troubleshooting_steps=steps,
             affected_subsystems=affected if affected else ["CAN Veri Yolu & Genel Telemetri"],

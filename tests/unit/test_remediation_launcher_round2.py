@@ -790,7 +790,10 @@ def test_m1_webview2_is_non_critical_in_cli_mode(monkeypatch: pytest.MonkeyPatch
 def test_m1_cli_mode_detected_from_argv(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("UCANLAB_CLI_MODE", raising=False)
     assert PrereqChecker.is_cli_mode(["launcher", "--cli"]) is True
-    assert PrereqChecker.is_cli_mode(["-c", "vcan0"]) is True
+    # M-1 correction: "-c" is the short form of --channel, never --cli —
+    # the old True here asserted the WebView2-gate bypass.
+    assert PrereqChecker.is_cli_mode(["-c", "vcan0"]) is False
+    assert PrereqChecker.is_cli_mode(["--channel", "vcan0"]) is False
     assert PrereqChecker.is_cli_mode(["launcher"]) is False
     monkeypatch.setenv("UCANLAB_CLI_MODE", "1")
     assert PrereqChecker.is_cli_mode([]) is True

@@ -280,7 +280,8 @@ def test_estop_concurrent_trigger_and_reset_race_conditions() -> None:
                     reason=f"Worker {worker_id} trigger",
                     vehicle_speed_kmh=float(worker_id),
                 )
-                time.sleep(0.0005)
+                if stop_event.wait(0.0005):
+                    break
         except Exception as e:
             exceptions.append(e)
 
@@ -296,7 +297,8 @@ def test_estop_concurrent_trigger_and_reset_race_conditions() -> None:
                         except SafetyError:
                             # Token might be invalidated if another trigger fired concurrently
                             pass
-                time.sleep(0.0005)
+                if stop_event.wait(0.0005):
+                    break
         except Exception as e:
             exceptions.append(e)
 
@@ -306,7 +308,8 @@ def test_estop_concurrent_trigger_and_reset_race_conditions() -> None:
                 _ = estop.is_engaged
                 _ = estop.last_event
                 _ = estop.get_reset_nonce()
-                time.sleep(0.0002)
+                if stop_event.wait(0.0002):
+                    break
         except Exception as e:
             exceptions.append(e)
 
@@ -320,8 +323,8 @@ def test_estop_concurrent_trigger_and_reset_race_conditions() -> None:
     for t in threads:
         t.start()
 
-    # Let the race run under high load for 0.5s
-    time.sleep(0.5)
+    # Let the race run under high load for 0.5s (event wait: wakes early if set)
+    stop_event.wait(0.5)
     stop_event.set()
 
     for t in threads:
@@ -635,7 +638,8 @@ def test_ring_buffer_100k_frames_zero_corruption_stress() -> None:
                     if f.data[k] != expected:
                         corruption_detected.append(f"Reader {rid}: Corrupt byte at {k}")
                         break
-            time.sleep(0.0005)
+            if stop_event.wait(0.0005):
+                break
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
         rfutures = [executor.submit(reader_task, i) for i in range(4)]

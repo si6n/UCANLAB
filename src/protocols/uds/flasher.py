@@ -38,8 +38,8 @@ class FlashingStep(StrEnum):
     IDLE = "Boşta (Hazır)"
     SAFETY_VALIDATION = "1. Güvenlik & Hız Kilidi Doğrulaması"
     EXTENDED_SESSION = "2. Genişletilmiş Diyagnostik Oturumu (0x10 0x03)"
-    SECURITY_ACCESS = "3. Güvenlik Erişimi & Tohum-Anahtar (0x27)"
-    PROGRAMMING_SESSION = "4. Programlama / Bootloader Oturumu (0x10 0x02)"
+    PROGRAMMING_SESSION = "3. Programlama / Bootloader Oturumu (0x10 0x02)"
+    SECURITY_ACCESS = "4. Güvenlik Erişimi & Tohum-Anahtar (0x27)"
     REQUEST_DOWNLOAD = "5. Bellek İndirme Talebi (0x34)"
     TRANSFER_DATA = "6. Blok Veri Aktarımı (0x36)"
     TRANSFER_EXIT = "7. Aktarım Çıkışı ve Tamamlama (0x37)"
@@ -294,9 +294,45 @@ class EcuFlashingEngine:
         # also reachable from token-minting helpers).
         with self._state_lock:
             config = self._active_config
+        return self._confirmation_token_for(
+            config=config,
+            payload=None,
+            context=None,
+        )
+
+    def _confirmation_token_for(
+        self,
+        *,
+        config: FlashingConfig | None = None,
+        payload: bytes | None = None,
+        context: bytes | str | None = None,
+    ) -> bytes | str | None:
+        """I-03: mint a step token bound to payload + context + target/session.
+
+        The issuer closure receives payload_hash/context/target-identity/
+        session kwargs; the gateway enforces them for flash steps
+        (see `_verify_confirmation_token` + flash-context gate). Payload-swap
+        or context-swap replays fail closed at Stage 5.
+        """
         arb_id = int(getattr(self.uds_client, "tx_id", 0x7E0))
+        kwargs: dict[str, object] = {}
+        if payload is not None or context is not None:
+            import hashlib as _hl
+
+            if payload is not None:
+                kwargs["payload_hash"] = _hl.sha256(bytes(payload)).digest()[:8]
+            if context is not None:
+                kwargs["context"] = context
+        # I-03: target-identity + session binding — a token minted for one
+        # ECU/session must not authorize a different target.
+        with self._state_lock:
+            active = config if config is not None else self._active_config
+        if active is not None:
+            ident = active.expected_vin or active.expected_serial
+            if ident:
+                kwargs.setdefault("context", f"flash:{ident}:{active.memory_address:#x}")
         if self._issuer_factory is not None:
-            return self._issuer_factory(arb_id)
+            return self._issuer_factory(arb_id, **kwargs) if kwargs else self._issuer_factory(arb_id)
         if config is not None and config.confirmation_token_factory is not None:
             return config.confirmation_token_factory(arb_id)
         issuer = getattr(self.gateway, "issue_confirmation_token", None)
@@ -304,7 +340,7 @@ class EcuFlashingEngine:
             return None
         if not self._gateway_has_confirmation_secret():
             return None
-        return issuer(arb_id, ttl_s=30.0)
+        return issuer(arb_id, ttl_s=30.0, **kwargs) if kwargs else issuer(arb_id, ttl_s=30.0)
 
     def _gateway_has_confirmation_secret(self) -> bool:
         """M13 (verified OPEN): ask the gateway whether it has a secret.
@@ -539,7 +575,7 @@ class EcuFlashingEngine:
     # long erase/key-computation gaps.
     TESTER_PRESENT_INTERVAL_S: ClassVar[float] = 2.0
 
-    def _tester_present_loop(self, stop_event: threading.Event, config: FlashingConfig) -> None:
+    def _tester_present_loop(self, stop_event: threading.Event, _config: FlashingConfig) -> None:
         """Background keep-alive: TesterPresent 0x3E (suppress) while flashing.
 
         REVIEW 3.3: in extended/programming sessions the ECU runs the S3
@@ -1039,8 +1075,8 @@ class EcuFlashingEngine:
                     )
 
                 status_code = status_record[0]
-                if status_code in (0x00, 0x02):
-                    # Correctly completed
+                if status_code == 0x00:
+                    # Correctly completed (ISO 14229-1 routineCorrectlyCompleted)
                     break
                 elif status_code == 0x01:
                     # In progress

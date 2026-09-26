@@ -274,7 +274,7 @@ class J1939DiagnosticService:
         return _pad_request_payload(b"\xcc\xfe\x00")
 
     @classmethod
-    def create_dm11_clear_active_request(cls, target_address: int = 0, source_address: int = 0xF9) -> bytes:
+    def create_dm11_clear_active_request(cls, _target_address: int = 0, _source_address: int = 0xF9) -> bytes:
         """Construct PGN 59904 (Request PGN) targeting DM11 (PGN 65235 / 0xFED3)."""
         return cls.dm11_request_payload()
 
@@ -291,7 +291,7 @@ class J1939DiagnosticService:
         )
 
     @classmethod
-    def create_dm3_clear_previously_active_request(cls, target_address: int = 0, source_address: int = 0xF9) -> bytes:
+    def create_dm3_clear_previously_active_request(cls, _target_address: int = 0, _source_address: int = 0xF9) -> bytes:
         """Construct PGN 59904 (Request PGN) targeting DM3 (PGN 65228 / 0xFECC)."""
         return cls.dm3_request_payload()
 

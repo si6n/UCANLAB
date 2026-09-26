@@ -181,6 +181,30 @@ class FrontendServer:
         self.stop()
 
 
+def is_navigation_allowed(url: str, base: str) -> bool:
+    """Pure same-origin check for the webview navigation guard (B-02).
+
+    Allows only the exact loopback origin the asset server bound
+    (scheme + host + port must match `base`). Everything else —
+    remote origins, file:/data:/blob: URLs, port mismatches — is denied
+    fail-closed. Pure function so unit/integration tests can drive it.
+    """
+    try:
+        current, origin = urlsplit(url), urlsplit(base)
+    except ValueError:
+        return False
+    if current.scheme not in ("http", "https"):
+        return False
+    if current.scheme != origin.scheme:
+        return False
+    if (current.hostname or "").lower() != (origin.hostname or "").lower():
+        return False
+    default_port = 443 if origin.scheme == "https" else 80
+    if (current.port or default_port) != (origin.port or default_port):
+        return False
+    return is_loopback_url(base)
+
+
 def is_loopback_url(url: str) -> bool:
     """True when `url` points at loopback (used by the navigation guard)."""
     try:

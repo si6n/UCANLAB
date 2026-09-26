@@ -21,8 +21,22 @@ If you discover a safety interlock bypass, buffer overflow, cryptographic flaw, 
 
 ### Coordinated Disclosure Timeline
 - **Initial Acknowledgement**: Within 24 hours.
-- **Triage & Risk Assessment**: Within 72 hours (Complies with Saha Risk Katalo�Yu v1.2).
+- **Triage & Risk Assessment**: Within 72 hours (Complies with Saha Risk Kataloğu v1.2).
 - **Patch & Critical Release**: Immediate expedited release based on severity.
+
+## EU Cyber Resilience Act (CRA - Regulation (EU) 2024/2847) Article 14 Compliance
+
+This platform implements a structured Vulnerability Disclosure Program (VDP) aligned with **EU CRA Article 14** (Obligations of manufacturers to notify vulnerabilities and incidents):
+
+1. **Single Point of Contact:** Vulnerability reports are ingested privately via GitHub Security Advisories or designated security coordinators. All incoming reports receive cryptographic verification and strict chain-of-custody logging.
+2. **Early Warning (Within 24 Hours):** Upon confirmed awareness of an actively exploited vulnerability or severe security incident impacting vehicle bus communications, an early-warning assessment is documented and communicated to authorized CSIRTs / supervisory authorities (such as ENISA CSIRT network).
+3. **Vulnerability Notification (Within 72 Hours):** A comprehensive vulnerability notification is compiled, including:
+   - Technical description, affected bus protocols, and CVSS / ASIL severity ratings.
+   - Initial mitigation actions, fail-closed perimeter rules, or temporary filter configurations.
+4. **Final Remediation Report (Within 14 Days):** Following patch deployment and test verification (via ASIL-B/D fail-closed test suites), a final report is issued detailing:
+   - Root cause analysis and cryptographic patch identifiers.
+   - Upstream supplier advisory notices and CVE/GHSA publication links.
+5. **No Undisclosed Zero-Days:** Exploits and safety interlock bypasses are never held or weaponized; security patches are made freely available for all supported product versions.
 
 ## Enforcement Scope Notes (R2 review remainders)
 

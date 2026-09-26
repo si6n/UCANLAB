@@ -165,7 +165,7 @@ kolon sayısı sapması yok; tekrar koşum aynı md5 (idempotent); yazım atomik
 
 `CAN-DTC-Collector/spn_gap_hunter/mode06_harvester.py` hasadı. Kaynak: GM resmi
 "Mode $06 data definitions" PDF'leri
-(`gsi.ext.gm.com/gmspo/mode6/pdf/GM CAN mode $06 data final_rev1.pdf`,
+(`https://gsi.ext.gm.com/gmspo/mode6/pdf/GM CAN mode $06 data final_dm.pdf`,
 GMLAN; ücretsiz, robots engelsiz):
 
 - **+18 yeni MID** (0x03/05/06/07 O2 bank serileri, 0x22/31 Catalyst bank 2,

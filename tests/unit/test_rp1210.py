@@ -362,13 +362,45 @@ def test_rp1210_bus_recv_rejects_truncated_packet() -> None:
 
 
 def test_rp1210_bus_recv_read_error_does_not_kill_loop() -> None:
+    # ADAPTED (fix 4): the old assertion (`recv(...) is None`) verified the
+    # UNSAFE swallow — a bounded-timeout HardwareError returned None,
+    # indistinguishable from a real timeout, so persistent RX faults were
+    # invisible to the caller. recv() now retries transient errors a few
+    # times and then re-raises: fail-closed.
     class _FailingReadMock(_MockRP1210Client):
         def read_message(self, buffer_size: int = 2048, block: bool = False) -> bytes | None:
             raise HardwareError("transient vendor RX fault")
 
     bus = _make_bus(_FailingReadMock())
     bus.connect()
-    assert bus.recv(timeout_s=0.05) is None  # logged-and-skipped, not raised
+    with pytest.raises(HardwareError, match="transient vendor RX fault"):
+        bus.recv(timeout_s=0.05)  # bounded retries exhausted -> raised
+    assert bus.metrics.error_frames >= 1  # every failed read was counted
+
+
+def test_rp1210_bus_recv_transient_error_recovers() -> None:
+    """A FLAKY vendor read (2 failures then success) must recover, not raise —
+    the consecutive-error counter resets on the first good read."""
+    class _FlakyReadMock(_MockRP1210Client):
+        def __init__(self) -> None:
+            super().__init__()
+            self.calls = 0
+
+        def read_message(self, buffer_size: int = 2048, block: bool = False) -> bytes | None:
+            self.calls += 1
+            if self.calls <= 2:
+                raise HardwareError("transient vendor RX fault")
+            return super().read_message(buffer_size=buffer_size, block=block)
+
+    mock = _FlakyReadMock()
+    bus = _make_bus(mock, protocol="CAN")
+    bus.connect()
+    header = (0x1F5 << 4) | 3
+    mock.rx_queue.append(header.to_bytes(2, "little") + b"\xAA\xBB\xCC")
+
+    frame = bus.recv(timeout_s=0.5)
+    assert frame is not None and frame.arbitration_id == 0x1F5
+    assert bus.metrics.error_frames == 2
 
 
 def test_build_bus_routes_rp1210_and_rejects_bad_device() -> None:

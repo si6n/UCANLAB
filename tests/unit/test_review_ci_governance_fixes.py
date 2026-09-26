@@ -44,18 +44,32 @@ def _write(tmp_path: Path, body: str) -> Path:
 _VALID = """\
 exceptions:
   - id: ADV-1
-    package: foo
+    package: python-can
     owner: "@owner"
     justification: not reachable
     expires: "2999-12-31"
 """
+# NOTE: the fixture package must be one the environment actually has (installed
+# or pinned in requirements*.txt / requirements.lock), because
+# `validate_package_match` (B-10) rejects an exception whose package is absent
+# from both. `python-can` is a direct runtime dependency (requirements.txt),
+# so the fixture stays valid here and on CI.
 
 
 def test_repository_exceptions_file_is_valid(checker) -> None:
-    """The checked-in exceptions file must be structurally valid."""
+    """The checked-in exceptions file must be structurally valid.
+
+    An EMPTY list is the current, correct state: every previously accepted
+    advisory was remediated, so no exception is in force. A non-empty list is
+    equally allowed — each entry must still carry all required fields, be
+    unexpired, and (B-10) name a package that is installed or pinned, which the
+    package-match validator in the same run enforces.
+    """
     entries = checker.load_exceptions(REPO_ROOT / "security-exceptions.yaml")
-    assert entries, "expected at least one documented exception"
     assert checker.expired_ids(entries) == []
+    assert checker.validate_package_match(entries) == [], (
+        "every documented exception must name an installed/pinned package"
+    )
 
 
 def test_valid_file_returns_entries(checker, tmp_path: Path) -> None:
@@ -166,16 +180,36 @@ def test_print_flags_emits_ignore_vuln(checker, tmp_path: Path) -> None:
     assert not out.endswith(b" "), "flag payload must not end with a space"
 
 
-def test_print_flags_payload_matches_the_committed_exceptions_file(checker) -> None:
-    """The real repo file must emit a clean, single-line, CR-free payload."""
+def test_print_flags_payload_matches_the_committed_exceptions_file(checker, tmp_path: Path) -> None:
+    """The committed file currently accepts NO advisories, so the payload is empty.
+
+    Two cases are documented here, because the shape of the payload depends on
+    whether any exception is in force:
+
+    * the COMMITTED ``security-exceptions.yaml`` has ``exceptions: []`` (every
+      accepted advisory was remediated), so ``--print-flags`` must emit
+      NOTHING — a stray flag would suppress an advisory nobody accepted;
+    * a NON-EMPTY valid file must still emit a clean, single-line, CR-free
+      ``--ignore-vuln <ID>`` payload, because CI consumes it inside an unquoted
+      command substitution.
+    """
     from scripts.check_security_exceptions import DEFAULT_PATH
 
-    out = _capture_raw_stdout(
+    committed = _capture_raw_stdout(
         lambda: checker.main(["--path", str(DEFAULT_PATH), "--print-flags"])
     )
+    assert committed == b"", (
+        f"the committed exceptions file accepts no advisory, so the flag payload must be empty: {committed!r}"
+    )
 
+    # Non-empty case: a valid, in-force exception must produce the flag payload.
+    path = _write(tmp_path, _VALID)
+    out = _capture_raw_stdout(
+        lambda: checker.main(["--path", str(path), "--print-flags"])
+    )
+    assert out == b"--ignore-vuln ADV-1", f"unexpected flag payload: {out!r}"
     assert b"\r" not in out and b"\n" not in out, f"payload must be one CR/LF-free line: {out!r}"
-    assert out and not out.endswith(b" "), f"payload must not end with a space: {out!r}"
+    assert not out.endswith(b" "), f"payload must not end with a space: {out!r}"
 
     # The payload is a space-separated sequence of `--ignore-vuln <ID>` pairs;
     # every `--ignore-vuln` must be followed by a non-empty, flag-free value.

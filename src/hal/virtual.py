@@ -82,6 +82,12 @@ class VirtualBus(AbstractBus):
         every metrics consumer read a state the bus would immediately refuse
         to transmit under.
         """
+        # Drain any leftover STOP sentinels from a prior disconnect
+        while True:
+            try:
+                self._rx_queue.get_nowait()
+            except queue.Empty:
+                break
         self.is_connected = True
         self.metrics.state = BusState.PASSIVE if self.listen_only else BusState.ACTIVE
 
@@ -183,11 +189,11 @@ class VirtualBus(AbstractBus):
     def inject_rx(self, frame: CanFrame) -> None:
         """Inject a CAN frame into the receive queue.
 
-        HAL-10: once the STOP sentinel is queued the bus is being torn down,
-        so newly injected frames are counted as dropped rather than queued
-        behind the sentinel where a woken consumer would never see them.
+        HAL-10: once the bus is disconnected/torn down, newly injected frames
+        are counted as dropped rather than queued behind the sentinel where
+        a woken consumer would never see them.
         """
-        if self._rx_stop_sentinel in tuple(self._rx_queue.queue):
+        if not self.is_connected:
             self.dropped_rx_frames += 1
             self.metrics.dropped_frames += 1
             return
@@ -272,6 +278,10 @@ class UdsServerEcu:
             resp_payload = self._handle_uds_request(completed_payload)
             if resp_payload is not None:
                 resp_frames = self.transport.segment_message(resp_payload, is_fd=self.is_fd)
+                # FIX 8: a suppressed positive response (b"") segments to []
+                # and `resp_frames[0]` would raise IndexError.
+                if not resp_frames:
+                    return None
                 for r_frame in resp_frames:
                     self.bus.inject_rx(r_frame)
                 return resp_frames[0]

@@ -1,0 +1,103 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "authority": "Agricultural Industry Electronics Foundation (AEF) / ISO 11783-11",
+  "citation": "isobus.net Data Dictionary Database (AEF Guidelines / ISO 11783-11:2024)",
+  "licensing_notice": "AEF terms of use apply. Third-party scraping without ISO/AEF permission prohibited.",
+  "pinned_releases": {
+    "2025092601": {
+      "release_id": "2025092601",
+      "release_date": "2025-09-26",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddi_count": 732,
+      "status": "baseline_lts"
+    },
+    "2026050501": {
+      "release_id": "2026050501",
+      "release_date": "2026-05-05",
+      "sha256": "4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a",
+      "ddi_count": 748,
+      "status": "stable"
+    },
+    "2026090801": {
+      "release_id": "2026090801",
+      "release_date": "2026-09-08",
+      "sha256": "ef2d127de37b942baad06145e54b0c619a1f22327b2ebbcfbec78f5564afe39d",
+      "ddi_count": 756,
+      "status": "latest_verified"
+    }
+  },
+  "core_ddi_dictionary": {
+    "0001": {
+      "ddi": 1,
+      "hex": "0x0001",
+      "name": "Setpoint Volume Application Rate",
+      "unit": "mm3/m2",
+      "resolution": 0.01,
+      "added_in": "2025092601"
+    },
+    "0002": {
+      "ddi": 2,
+      "hex": "0x0002",
+      "name": "Actual Volume Application Rate",
+      "unit": "mm3/m2",
+      "resolution": 0.01,
+      "added_in": "2025092601"
+    },
+    "0006": {
+      "ddi": 6,
+      "hex": "0x0006",
+      "name": "Actual Work State",
+      "unit": "state",
+      "resolution": 1.0,
+      "added_in": "2025092601"
+    },
+    "0047": {
+      "ddi": 71,
+      "hex": "0x0047",
+      "name": "Grain Mass Flow",
+      "unit": "mg/s",
+      "resolution": 1.0,
+      "added_in": "2025092601"
+    },
+    "0048": {
+      "ddi": 72,
+      "hex": "0x0048",
+      "name": "Moisture Content",
+      "unit": "ppm",
+      "resolution": 1.0,
+      "added_in": "2025092601"
+    },
+    "00B5": {
+      "ddi": 181,
+      "hex": "0x00B5",
+      "name": "Target Speed",
+      "unit": "mm/s",
+      "resolution": 1.0,
+      "added_in": "2025092601"
+    },
+    "00D3": {
+      "ddi": 211,
+      "hex": "0x00D3",
+      "name": "Actual Working Width",
+      "unit": "mm",
+      "resolution": 1.0,
+      "added_in": "2025092601"
+    },
+    "02EC": {
+      "ddi": 748,
+      "hex": "0x02EC",
+      "name": "Electric Drive Motor Temperature",
+      "unit": "deg_C",
+      "resolution": 0.1,
+      "added_in": "2026050501"
+    },
+    "02F4": {
+      "ddi": 756,
+      "hex": "0x02F4",
+      "name": "Autonomous Navigation Boundary Alert",
+      "unit": "bitfield",
+      "resolution": 1.0,
+      "added_in": "2026090801"
+    }
+  }
+}

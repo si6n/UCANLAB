@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ucanlab.org/schemas/dtc_record.json",
+  "title": "UCanLab DTC Record Schema with Provenance dependentRequired",
+  "description": "DTC diagnostic record schema enforcing ISO 26262 ASIL-B / AUTOSAR Dem R25-11 metadata and dependentRequired provenance for all non-key telemetry/clinical fields (Aksiyon 14).",
+  "type": "object",
+  "required": [
+    "dtc_namespace",
+    "dtc_class"
+  ],
+  "properties": {
+    "code": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Standardized trouble code identifier."
+    },
+    "record_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique record identifier."
+    },
+    "dtc_namespace": {
+      "type": "string",
+      "enum": [
+        "SAE_J2012",
+        "SAE_J2012_4",
+        "ISO_14229_1",
+        "OBD",
+        "WWH_OBD",
+        "J1939",
+        "OEM"
+      ],
+      "description": "Normative AUTOSAR Dem DTC namespace."
+    },
+    "dtc_class": {
+      "type": "string",
+      "enum": [
+        "NoClass",
+        "A",
+        "B1",
+        "B2",
+        "C"
+      ],
+      "description": "ISO 27145-3 / WWH-OBD / AUTOSAR Dem DTC classification."
+    },
+    "title": { "type": "string" },
+    "subsystem": { "type": "string" },
+    "severity": {
+      "type": "string",
+      "enum": ["UNKNOWN", "INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL", "CRITICAL_STOP"]
+    },
+    "severity_raw": { "type": "string" },
+    "severity_norm_rule": { "type": "string" },
+    "causes": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 3,
+        "items": { "type": "string" }
+      }
+    },
+    "symptoms": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "measurement": { "type": "string" },
+    "uds_routine": { "type": "string" },
+    "title_en": { "type": "string" },
+    "title_tr": { "type": "string" },
+    "description_en": { "type": "string" },
+    "description_tr": { "type": "string" },
+    "causes_en": { "type": "string" },
+    "symptoms_en": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "procedures_full": { "type": "array" },
+    "procedures_full_multi": { "type": "array" },
+    "oem_details": { "type": "object" },
+    "gm_monitor": { "type": "object" },
+    "nhtsa_evidence": { "type": "array" },
+    "vag_code": { "type": "string" },
+    "vag_code_5digit": { "type": "string" },
+    "vag_desc_en": { "type": "string" },
+    "oem_variants": { "type": "array" },
+    "provenance": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "https://ucanlab.org/schemas/provenance.json"
+      },
+      "description": "Audit trail of provenance records validating clinical claims."
+    }
+  },
+  "dependentRequired": {
+    "title": ["provenance"],
+    "subsystem": ["provenance"],
+    "severity": ["provenance"],
+    "causes": ["provenance"],
+    "steps": ["provenance"],
+    "symptoms": ["provenance"],
+    "measurement": ["provenance"],
+    "uds_routine": ["provenance"],
+    "title_en": ["provenance"],
+    "title_tr": ["provenance"],
+    "description_en": ["provenance"],
+    "causes_en": ["provenance"],
+    "symptoms_en": ["provenance"],
+    "procedures_full": ["provenance"],
+    "oem_details": ["provenance"],
+    "gm_monitor": ["provenance"],
+    "nhtsa_evidence": ["provenance"]
+  }
+}

@@ -349,8 +349,8 @@ class VolvoPentaDecoder:
             raw_rudder = int.from_bytes(frame.data[2:4], byteorder="little")
             rudder_deg2: float | None = (raw_rudder * 0.1) - 90.0 if raw_rudder not in (0xFFFF, 0xFFFE) else None
 
-            # Byte 4: Station flags
-            station_active = bool(frame.data[4] & 0x01) if len(frame.data) > 4 else True
+            # Byte 4: Station flags (len >= 8 is guaranteed by the entry guard)
+            station_active = bool(frame.data[4] & 0x01)
 
             # REVIEW hardening: this PGN carries no lever/gear — they stay
             # None/UNKNOWN + invalid instead of fabricated 0.0/NEUTRAL.

@@ -477,59 +477,62 @@ class DbcSignalDecoder:
                 self._message_cache.move_to_end(key)
                 return self._message_cache[key]
 
-        msg: Any = None
+            # Single critical section (C-5/B-22): exact-match lookup, format
+            # and page guards, PGN fallback and the cache store all run under
+            # the same lock add_dbc_file() and the store path use, so a
+            # concurrent db mutation or cache clear can never interleave with
+            # this lookup or let a stale miss be stored.
+            msg: Any = None
 
-        # Exact match attempt
-        try:
-            msg = self.db.get_message_by_frame_id(arbitration_id)
-        except KeyError:
-            # REVIEW 3 (builder databases): Databases assembled by
-            # DbcBuilder append to `.messages` without rebuilding cantools'
-            # frame-id index — get_message_by_frame_id misses those. Fall
-            # back to a linear scan over messages (bounded by the LRU cache
-            # after the first miss).
-            msg = next(
-                (m for m in self.db.messages
-                 if (m.frame_id & 0x1FFFFFFF) == arbitration_id
-                 and (bool(getattr(m, "is_extended_frame", False)) or bool(m.frame_id & 0x80000000)) == is_extended),
-                None,
-            )
+            # Exact match attempt
+            try:
+                msg = self.db.get_message_by_frame_id(arbitration_id)
+            except KeyError:
+                # REVIEW 3 (builder databases): Databases assembled by
+                # DbcBuilder append to `.messages` without rebuilding cantools'
+                # frame-id index — get_message_by_frame_id misses those. Fall
+                # back to a linear scan over messages (bounded by the LRU cache
+                # after the first miss).
+                msg = next(
+                    (m for m in self.db.messages
+                     if (m.frame_id & 0x1FFFFFFF) == arbitration_id
+                     and (bool(getattr(m, "is_extended_frame", False)) or bool(m.frame_id & 0x80000000)) == is_extended),
+                    None,
+                )
 
-        # REVIEW (format-bound exact match): cantools' frame-id lookup is
-        # format-agnostic — an 11-bit frame could decode against a 29-bit
-        # DBC message sharing the numeric id (wrong names, wrong scaling).
-        # Reject an exact hit whose frame format disagrees with the
-        # physical frame; the J1939 PGN path below is extended-only by
-        # construction.
-        if msg is not None:
-            msg_is_ext = bool(getattr(msg, "is_extended_frame", False)) or bool(
-                getattr(msg, "frame_id", 0) & 0x80000000
-            )
-            if msg_is_ext != is_extended:
-                msg = None
-
-        # DB-2: for 29-bit frames, never hand a page-1 (DP set) identifier to
-        # a page-0 (DP clear) DBC message or vice versa. The PGN-mask path
-        # below already treats PG 0x1F004 and 0x0F004 as different messages,
-        # but the exact-id fast path and cantools' own index are page-agnostic
-        # — without this check a NMEA 2000 frame (DP=1) would decode against
-        # the J1939 page-0 PG of the same PGN number, and vice versa.
-        # DP and EDP are separate bits (DP = 24, EDP = 25) — compare both, not
-        # a conflated `& 0x03` (see _is_j1939_identifier).
-        if msg is not None and is_extended:
-            msg_is_ext_id = bool(getattr(msg, "is_extended_frame", False)) or bool(
-                getattr(msg, "frame_id", 0) & 0x80000000
-            )
-            if msg_is_ext_id:
-                msg_frame_id = getattr(msg, "frame_id", 0)
-                msg_dp = (msg_frame_id >> 24) & 0x01
-                frame_dp = (arbitration_id >> 24) & 0x01
-                msg_edp = (msg_frame_id >> 25) & 0x01
-                frame_edp = (arbitration_id >> 25) & 0x01
-                if msg_dp != frame_dp or msg_edp != frame_edp:
+            # REVIEW (format-bound exact match): cantools' frame-id lookup is
+            # format-agnostic — an 11-bit frame could decode against a 29-bit
+            # DBC message sharing the numeric id (wrong names, wrong scaling).
+            # Reject an exact hit whose frame format disagrees with the
+            # physical frame; the J1939 PGN path below is extended-only by
+            # construction.
+            if msg is not None:
+                msg_is_ext = bool(getattr(msg, "is_extended_frame", False)) or bool(
+                    getattr(msg, "frame_id", 0) & 0x80000000
+                )
+                if msg_is_ext != is_extended:
                     msg = None
 
-        with self._cache_lock:
+            # DB-2: for 29-bit frames, never hand a page-1 (DP set) identifier to
+            # a page-0 (DP clear) DBC message or vice versa. The PGN-mask path
+            # below already treats PG 0x1F004 and 0x0F004 as different messages,
+            # but the exact-id fast path and cantools' own index are page-agnostic
+            # — without this check a NMEA 2000 frame (DP=1) would decode against
+            # the J1939 page-0 PG of the same PGN number, and vice versa.
+            # DP and EDP are separate bits (DP = 24, EDP = 25) — compare both, not
+            # a conflated `& 0x03` (see _is_j1939_identifier).
+            if msg is not None and is_extended:
+                msg_is_ext_id = bool(getattr(msg, "is_extended_frame", False)) or bool(
+                    getattr(msg, "frame_id", 0) & 0x80000000
+                )
+                if msg_is_ext_id:
+                    msg_frame_id = getattr(msg, "frame_id", 0)
+                    msg_dp = (msg_frame_id >> 24) & 0x01
+                    frame_dp = (arbitration_id >> 24) & 0x01
+                    msg_edp = (msg_frame_id >> 25) & 0x01
+                    frame_edp = (arbitration_id >> 25) & 0x01
+                    if msg_dp != frame_dp or msg_edp != frame_edp:
+                        msg = None
             # J1939 PGN lookup for 29-bit extended frames
             if msg is None and is_extended:
                 # Extract PGN: bits 8..25 (18-bit, includes Data Page);
@@ -580,5 +583,3 @@ class DbcSignalDecoder:
             if len(self._message_cache) > self.max_cache_size:
                 self._message_cache.popitem(last=False)
             return msg
-
-        return msg

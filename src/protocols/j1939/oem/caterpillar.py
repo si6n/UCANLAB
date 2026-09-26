@@ -451,15 +451,7 @@ class CaterpillarDecoder(BaseOemDecoder):
             return None
 
         cmd_name = cmd_names[cmd_id]
-        # REVIEW hardening: short Prop-A frames → None + invalid.
-        if len(data) > 1:
-            target_cyl: int | None = data[1]
-            target_valid = True
-            target_status = SignalStatus.VALID
-        else:
-            target_cyl = None
-            target_valid = False
-            target_status = SignalStatus.ERROR
+        target_cyl = data[1]
         if len(data) >= 4:
             param: int | None = data[2] | (data[3] << 8)
             param_valid = True
@@ -488,11 +480,11 @@ class CaterpillarDecoder(BaseOemDecoder):
             ),
             "target_cylinder": DecodedSignal(
                 name="target_cylinder",
-                value=target_cyl,  # type: ignore[arg-type]
+                value=target_cyl,
                 unit="index",
-                raw_value=target_cyl if target_cyl is not None else 0,
-                is_valid=target_valid,
-                status=target_status,
+                raw_value=target_cyl,
+                is_valid=True,
+                status=SignalStatus.VALID,
             ),
             "service_parameter": DecodedSignal(
                 name="service_parameter",

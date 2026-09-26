@@ -19,7 +19,7 @@ logger = get_logger("protocols.j1939.oem")
 
 # REVIEW (HIGH-7): SAE J1939-81 NAME Manufacturer Code (bits 31..21 of the
 # 64-bit NAME, PGN 60928 Address Claim) per the canboat J1939 name table
-# (data/dbc/j1939_canboat.dbc VAL_ 2565734400 Manufacturer_Code). An OEM
+# (data/dbc/heavy_duty/j1939_canboat.dbc VAL_ 2565734400 Manufacturer_Code). An OEM
 # attribution is CONFIRMED only when the claiming node's NAME carries that
 # OEM's manufacturer code — otherwise the match is payload-pattern only.
 OEM_NAME_MANUFACTURER_CODES: dict[str, set[int]] = {
@@ -305,6 +305,7 @@ class OemJ1939Registry:
         try:
             name = J1939Name.from_bytes(bytes(frame.data[:8]))
         except Exception:
+            logger.debug("record_address_claim failed", exc_info=True)
             return
         # M8: the table stamps its own monotonic TTL on assignment and prunes
         # expired entries lazily — a spoofed claim can no longer pin an OEM

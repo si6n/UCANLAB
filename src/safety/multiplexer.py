@@ -86,6 +86,10 @@ class SafeMultiplexedBus(AbstractBus):
         # meaningful; afterwards it is strictly derived from the live bus.
         if not self._initialized:
             self.__dict__["channel_id"] = value
+        else:
+            raise AttributeError(
+                "channel_id is read-only after initialization — derived from the live physical bus"
+            )
 
     @property
     def bitrate(self) -> int:
@@ -95,6 +99,10 @@ class SafeMultiplexedBus(AbstractBus):
     def bitrate(self, value: int) -> None:
         if not self._initialized:
             self.__dict__["bitrate"] = value
+        else:
+            raise AttributeError(
+                "bitrate is read-only after initialization — derived from the live physical bus"
+            )
 
     @property
     def is_fd(self) -> bool:
@@ -104,6 +112,10 @@ class SafeMultiplexedBus(AbstractBus):
     def is_fd(self, value: bool) -> None:
         if not self._initialized:
             self.__dict__["is_fd"] = value
+        else:
+            raise AttributeError(
+                "is_fd is read-only after initialization — derived from the live physical bus"
+            )
 
     @property
     def is_connected(self) -> bool:
@@ -118,7 +130,12 @@ class SafeMultiplexedBus(AbstractBus):
     def is_connected(self, value: bool) -> None:
         """Read-only delegation: connection state is strictly driven by the physical bus
         driver lifecycle (connect/disconnect), not by external property assignment."""
-        pass
+        if not self._initialized:
+            # Base-class constructor write — the getter ignores __dict__ anyway.
+            return
+        raise AttributeError(
+            "is_connected is read-only after initialization — driven by the physical bus lifecycle"
+        )
 
     def connect(self) -> None:
         """Physical bus connection is managed externally (e.g. by main UI)."""
@@ -143,6 +160,7 @@ class SafeMultiplexedBus(AbstractBus):
         budget_category: str = "default",
         confirmation_token: bytes | str | None = None,
         inbound_triggered: bool = False,
+        confirmation_context: bytes | str | None = None,
     ) -> None:
         """Enforce CORE_SAFETY_FLOOR on every transmission.
 
@@ -163,6 +181,8 @@ class SafeMultiplexedBus(AbstractBus):
         }
         if confirmation_token is not None:
             kwargs["confirmation_token"] = confirmation_token
+        if confirmation_context is not None:
+            kwargs["confirmation_context"] = confirmation_context
         if inbound_triggered:
             kwargs["inbound_triggered"] = inbound_triggered
         self.gateway.validate_and_transmit(frame, **kwargs)
@@ -176,6 +196,7 @@ class SafeMultiplexedBus(AbstractBus):
         budget_category: str = "default",
         confirmation_token: bytes | str | None = None,
         inbound_triggered: bool = False,
+        confirmation_context: bytes | str | None = None,
     ) -> None:
         """Synchronously transmit frame conforming to TxPort protocol."""
         kwargs: dict[str, object] = {
@@ -185,6 +206,8 @@ class SafeMultiplexedBus(AbstractBus):
         }
         if confirmation_token is not None:
             kwargs["confirmation_token"] = confirmation_token
+        if confirmation_context is not None:
+            kwargs["confirmation_context"] = confirmation_context
         if inbound_triggered:
             kwargs["inbound_triggered"] = inbound_triggered
         self.gateway.validate_and_transmit(frame, **kwargs)
@@ -198,6 +221,7 @@ class SafeMultiplexedBus(AbstractBus):
         budget_category: str = "default",
         confirmation_token: bytes | str | None = None,
         inbound_triggered: bool = False,
+        confirmation_context: bytes | str | None = None,
     ) -> None:
         """Asynchronously transmit frame conforming to TxPort protocol."""
         kwargs: dict[str, object] = {
@@ -207,6 +231,8 @@ class SafeMultiplexedBus(AbstractBus):
         }
         if confirmation_token is not None:
             kwargs["confirmation_token"] = confirmation_token
+        if confirmation_context is not None:
+            kwargs["confirmation_context"] = confirmation_context
         if inbound_triggered:
             kwargs["inbound_triggered"] = inbound_triggered
         await self.gateway.send(frame, **kwargs)

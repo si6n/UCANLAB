@@ -114,7 +114,6 @@ READONLY_DIAGNOSTIC_J1939_PGNS: frozenset[int] = frozenset(
     {
         65226,  # DM1  — Active DTCs
         65227,  # DM2  — Previously Active DTCs
-        65228,  # DM3  — (read form) Previously Active DTCs / clear-trigger context
         65229,  # DM4  — Freeze Frame Parameters (READ, J1939-73)
         65230,  # DM5  — Diagnostic Readiness 1 (READ, J1939-73)
     }

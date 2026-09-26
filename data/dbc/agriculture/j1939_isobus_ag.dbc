@@ -223,16 +223,6 @@ BA_ "SystemSignalLongSymbol" SG_ 2147548865 HighResolutionTotalVehicleDistan "Hi
 VAL_ 2565866496 EngineTorqueMode 0 "LowIdleGovernor" 1 "AcceleratorPedal" 2 "CruiseControl" 3 "PTOGovernor" 4 "RoadSpeedGovernor" 5 "ASRControl" 6 "TransmissionControl" 7 "ABSControl" 8 "TorqueLimiting" 9 "HighSpeedGovernor" 10 "BrakingSystem" 11 "RemoteAccelerator" 14 "Other" 15 "NotAvailable";
 
 
-VERSION "created by canmatrix"
-
-
-NS_ :
-
-BS_:
-
-BU_: 
-
-
 BO_ 2561409024 AgriculturalGuidanceMachineInfo: 8 Vector__XXX
  SG_ EstimatedCurvature : 0|16@1+ (0.25,-8032) [-8032|8351.75] "1/km" Vector__XXX
  SG_ MechanicalSystemLockoutState : 16|2@1+ (1,0) [0|3] "" Vector__XXX

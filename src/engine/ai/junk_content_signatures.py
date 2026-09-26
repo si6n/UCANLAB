@@ -191,7 +191,15 @@ def classify_cause(text: str) -> CauseVerdict:
             # record would destroy it. Rule: if the text BEFORE the marker is
             # itself a usable cause, the record is CLEAN (the trailing filler is
             # the harvesting tool's problem, not a reason to delete evidence).
-            head = text[: text.lower().find(phrase)]
+            #
+            # The head is sliced from ``low`` — the SAME normalized copy the
+            # phrase matched — never from the raw text. ``find()`` on the raw
+            # lowercased text returns -1 when the marker's internal whitespace
+            # differs from the collapsed form ("Advanced  Technical"), and
+            # ``text[:-1]`` then degenerated to the WHOLE text, so
+            # ``_looks_like_a_cause`` saw the leading fault nouns of the filler
+            # itself and the SEO rule was defeated for whitespace variants.
+            head = low[: low.find(phrase)]
             if _looks_like_a_cause(head):
                 return CauseVerdict(False, "", "")
             return CauseVerdict(True, "seo_marketing_filler", phrase)

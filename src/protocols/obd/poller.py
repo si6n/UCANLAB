@@ -954,6 +954,12 @@ class ActiveDiagnosticPoller:
             direction="tx",
         )
 
+        if self.rx_subscription is None:
+            raise ProtocolError(
+                "RxSubscription is required for functional OBD queries",
+                code="OBD_NO_SUBSCRIPTION",
+            )
+
         isotp_by_rx = {
             rid: self._get_transport_for(self.FUNCTIONAL_REQUEST_ID, rid) for rid in self.PHYSICAL_RESPONSE_RANGE
         }
@@ -966,7 +972,7 @@ class ActiveDiagnosticPoller:
             remaining = deadline - self.clock.now_monotonic()
             if remaining <= 0:
                 break
-            frame = await self.rx_subscription.recv(timeout_s=remaining) if self.rx_subscription is not None else None
+            frame = await self.rx_subscription.recv(timeout_s=remaining)
             if frame is None:
                 break
             if frame.channel_id != self.channel_id:

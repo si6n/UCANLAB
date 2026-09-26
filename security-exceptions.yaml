@@ -14,15 +14,4 @@
 #   expires:        ISO date (YYYY-MM-DD) — CI FAILS on/after this date
 #   compensating_control: what limits the exposure in the meantime
 
-exceptions:
-  - id: PYSEC-2026-2447
-    package: nltk
-    owner: "@si6n"
-    justification: >-
-      Reachable only through a documentation/harvest tooling extra that is not
-      imported by the shipped desktop application or the CAN TX/RX path. The
-      AI layer is fully offline and does not load NLTK at runtime.
-    compensating_control: >-
-      `bandit` and CodeQL run on every pipeline; the packaged EXE is built from
-      requirements.txt only, which does not include the affected extra.
-    expires: "2026-12-31"
+exceptions: []

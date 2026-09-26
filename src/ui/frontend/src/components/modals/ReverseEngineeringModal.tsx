@@ -26,7 +26,8 @@ import {
  TARGET_SIGNAL_CONFIGS, 
  ExperimentPhase, 
  CapturedFrameRecord, 
- SignalCandidate 
+ SignalCandidate,
+ sanitizeDbcIdentifier
 } from '../../services/reverseEngineeringEngine';
 import { CANFrame } from '../../types/can';
 
@@ -203,7 +204,7 @@ export const ReverseEngineeringModal: React.FC<ReverseEngineeringModalProps> = (
  const url = URL.createObjectURL(blob);
  const link = document.createElement('a');
  link.href = url;
- link.download = `${updatedCandidate.signalName}_discovered.dbc`;
+ link.download = `${sanitizeDbcIdentifier(updatedCandidate.signalName)}_discovered.dbc`;
  document.body.appendChild(link);
  link.click();
  document.body.removeChild(link);

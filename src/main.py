@@ -113,14 +113,19 @@ def _anti_tamper_gate() -> bool:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Universal CAN-Bus Diagnostic & Telemetry Tool")
     parser.add_argument("--cli", action="store_true", help="Run in CLI mode instead of GUI")
-    parser.add_argument("--channel", type=str, default="vcan0", help="CAN Channel (e.g. PCAN_USBBUS1, 0, vcan0)")
+    # M-7: the launcher forwards the README short flags (-i/-c/-b), so the
+    # child parser must accept them — argparse rejected them with exit code 2.
+    parser.add_argument(
+        "--channel", "-c", type=str, default="vcan0", help="CAN Channel (e.g. PCAN_USBBUS1, 0, vcan0)"
+    )
     parser.add_argument(
         "--interface",
+        "-i",
         type=str,
         default="virtual",
         help="Hardware driver (virtual, pcan, kvaser, vector, rp1210)",
     )
-    parser.add_argument("--bitrate", type=int, default=250000, help="CAN Bitrate (e.g. 250000, 500000)")
+    parser.add_argument("--bitrate", "-b", type=int, default=250000, help="CAN Bitrate (e.g. 250000, 500000)")
     parser.add_argument("--log-level", type=str, default="INFO", help="Logging level (DEBUG, INFO, WARNING, ERROR)")
 
     args = parser.parse_args(argv if argv is not None else sys.argv[1:])
@@ -215,7 +220,15 @@ def main(argv: list[str] | None = None) -> int:
 
     # Launch Modern Native Desktop GUI (WebView2 + React + Tailwind)
     app = UniversalCanDesktopApp(channel=args.channel, bitrate=args.bitrate, interface=args.interface)
-    app.run()
+    try:
+        app.run()
+    finally:
+        gui_bus = getattr(app, "bus", None)
+        if gui_bus is not None and hasattr(gui_bus, "disconnect"):
+            try:
+                gui_bus.disconnect()
+            except Exception as exc:  # noqa: BLE001 — teardown must not mask the exit
+                logger.warning("GUI bus disconnect failed", extra={"error": str(exc)})
     return 0
 
 

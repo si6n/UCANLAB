@@ -13,6 +13,7 @@ BLF format (K3-b): Vector binary logging format parsed via python-can BLFReader.
 from __future__ import annotations
 
 import csv
+import math
 import re
 from collections.abc import Iterator
 from pathlib import Path
@@ -54,6 +55,46 @@ def _check_frame_cap(count: int) -> None:
         raise ValueError(f"Trace frame cap exceeded ({MAX_TRACE_FRAMES})")
 
 
+# Trace timestamps are stored as ``np.uint64`` nanoseconds downstream
+# (`src/engine/buffer/ring_buffer.py`), so anything beyond that width cannot
+# be represented by the telemetry pipeline and is a malformed row (I-09).
+_MAX_TIMESTAMP_NS: int = 2**64 - 1
+
+
+def _asc_timestamp_ns(raw_time: str) -> int:
+    """Convert an ASC timestamp column (decimal seconds) to nanoseconds (I-09).
+
+    Raises ValueError for a timestamp the replay platform cannot represent,
+    so the caller's per-line recovery skips just that ROW instead of aborting
+    the whole load:
+
+    - non-finite: a decimal literal long enough to overflow ``float`` to
+      ``inf`` (e.g. 400 nines);
+    - OverflowError during the nanosecond conversion: a finite but huge value
+      (e.g. ``1e300``) whose ``* 1e9`` overflows to ``inf`` — treated exactly
+      like ValueError per the I-09 contract;
+    - outside the uint64 nanosecond range the telemetry buffers use (e.g. the
+      task example ``99999999999999999999999999999.0`` → ~1e38 ns, above
+      ``np.uint64`` max). The ASC regex only admits non-negative decimals,
+      matching the CSV parser's ``time_sec < 0`` rejection.
+
+    Mirrors the CSV parser's ``math.isfinite`` guard; BLF parity is the
+    OverflowError recovery added for Y-06.
+    """
+    time_sec = float(raw_time)
+    if not math.isfinite(time_sec):
+        raise ValueError(f"non-finite ASC timestamp {raw_time!r}")
+    try:
+        timestamp_ns = int(time_sec * 1_000_000_000)
+    except OverflowError as exc:
+        raise ValueError(f"unrepresentable ASC timestamp {raw_time!r}") from exc
+    if not 0 <= timestamp_ns <= _MAX_TIMESTAMP_NS:
+        raise ValueError(
+            f"ASC timestamp {raw_time!r} is outside the uint64 nanosecond range"
+        )
+    return timestamp_ns
+
+
 # Standard Vector ASCII log line regex
 # Example: "   0.001250 1  18FEEE00x       Rx   d 8 01 02 03 04 05 06 07 08"
 # ReDoS guard: data group is bounded (classic <= 8 payload bytes).
@@ -71,6 +112,10 @@ FD_ASC_REGEX = re.compile(
 
 class VectorAscParser:
     """Parser for Vector CANoe/CANalyzer ASCII (.asc) trace log files."""
+
+    # FIX: non-comment/non-header lines that match neither frame regex are
+    # counted here and warned about instead of silently vanishing.
+    unmatched_lines: ClassVar[int] = 0
 
     @classmethod
     def parse_file(cls, file_path: str | Path, channel_prefix: str = "ch") -> list[CanFrame]:
@@ -100,7 +145,10 @@ class VectorAscParser:
                     continue
                 try:
                     frame = cls.parse_line(line, line_no, channel_prefix)
-                except ValueError as exc:
+                # I-09: OverflowError joins ValueError — a corrupt timestamp
+                # (``int(inf * 1e9)``) used to escape this per-line guard and
+                # abort the whole load, mirroring the BLF parser's recovery.
+                except (ValueError, OverflowError) as exc:
                     logger.warning(
                         "Skipping malformed ASC line",
                         extra={"line_no": line_no, "error": str(exc)},
@@ -123,7 +171,9 @@ class VectorAscParser:
         # Check Classic CAN format
         match_classic = CLASSIC_ASC_REGEX.match(line)
         if match_classic:
-            time_sec = float(match_classic.group("time"))
+            # I-09: finite/representable timestamp or ValueError (row skipped
+            # by parse_file_iter's per-line recovery) — never a whole-file abort.
+            timestamp_ns = _asc_timestamp_ns(match_classic.group("time"))
             channel_num = match_classic.group("channel")
             raw_id = match_classic.group("id")
             is_extended = match_classic.group("ext") == "x"
@@ -134,7 +184,6 @@ class VectorAscParser:
             data_bytes = bytes.fromhex(data_hex)
 
             arb_id = int(raw_id, 16)
-            timestamp_ns = int(time_sec * 1_000_000_000)
 
             return CanFrame(
                 channel_id=f"{channel_prefix}{channel_num}",
@@ -151,7 +200,9 @@ class VectorAscParser:
         # Check CAN-FD format
         match_fd = FD_ASC_REGEX.match(line)
         if match_fd:
-            time_sec = float(match_fd.group("time"))
+            # I-09: same finite/representable timestamp guard as the classic
+            # branch — one malformed ROW never aborts the whole parse.
+            timestamp_ns = _asc_timestamp_ns(match_fd.group("time"))
             channel_num = match_fd.group("channel")
             raw_id = match_fd.group("id")
             is_extended = match_fd.group("ext") == "x"
@@ -174,7 +225,6 @@ class VectorAscParser:
                 raise ValueError(f"CAN-FD declared length {decl_len} does not match actual data {len(data_bytes)} bytes")
 
             arb_id = int(raw_id, 16)
-            timestamp_ns = int(time_sec * 1_000_000_000)
 
             return CanFrame(
                 channel_id=f"{channel_prefix}{channel_num}",
@@ -190,6 +240,10 @@ class VectorAscParser:
                 source="replay",
             )
 
+        # FIX: frame-shaped line that matched neither regex — log + count
+        # (warning, not silent) so a systematic format drift is visible.
+        cls.unmatched_lines += 1
+        logger.warning("Skipping unmatched ASC line", extra={"line_no": line_no})
         return None
 
 
@@ -297,7 +351,16 @@ class CsvParser:
             logger.warning("Skipping malformed CSV row", extra={"row": row_no, "error": str(exc)})
             return None
 
-        if time_sec < 0 or arb_id < 0 or arb_id > 0x1FFFFFFF or len(data_bytes) > 64:
+        # FIX 2: `float("inf")` passes the `< 0` gate and `int(inf * 1e9)`
+        # later raises OverflowError, aborting the whole load (Y-06). Reject
+        # non-finite timestamps in-row.
+        if (
+            not math.isfinite(time_sec)
+            or time_sec < 0
+            or arb_id < 0
+            or arb_id > 0x1FFFFFFF
+            or len(data_bytes) > 64
+        ):
             logger.warning("Skipping out-of-range CSV row", extra={"row": row_no})
             return None
 
@@ -382,12 +445,14 @@ class VectorBlfParser:
         try:
             reader = can.BLFReader(str(path))
             for msg in reader:
-                _check_frame_cap(len(frames))
                 try:
                     frame = cls._convert_message(msg, channel_prefix=channel_prefix)
                     if frame is not None:
                         frames.append(frame)
-                except (ValueError, can.CanError) as rec_exc:
+                # FIX 3a: `int(ts * 1e9)` on a corrupt timestamp raises
+                # OverflowError — it escaped the per-message guard and aborted
+                # the load (Y-06: one bad message never aborts a trace).
+                except (ValueError, OverflowError, can.CanError) as rec_exc:
                     logger.debug("Skipping malformed BLF message", extra={"error": str(rec_exc)})
                     continue
         except Exception as exc:
@@ -395,6 +460,11 @@ class VectorBlfParser:
                 "Error reading BLF trace file or corrupted content",
                 extra={"file": str(path), "error": str(exc)},
             )
+
+        # FIX 3b: the frame-cap check sits OUTSIDE the swallowing try — the
+        # 5M-frame ValueError must propagate, not be logged as "corrupted
+        # content" and returned as a silent partial list.
+        _check_frame_cap(len(frames))
 
         logger.info(
             "Loaded BLF trace",
@@ -424,7 +494,7 @@ class VectorBlfParser:
         direction = "rx" if is_rx else "tx"
 
         raw_dlc = getattr(msg, "dlc", None)
-        if raw_dlc is not None and 0 <= raw_dlc <= 15:
+        if is_fd and raw_dlc is not None and 0 <= raw_dlc <= 15:
             if dlc_to_length(raw_dlc) >= len(data_bytes):
                 dlc = raw_dlc
             else:

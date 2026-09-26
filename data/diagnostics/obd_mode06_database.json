@@ -119,8 +119,8 @@
     },
     "last_updated": "2026-09-12",
     "sources": [
-      "gsi.ext.gm.com/gmspo/mode6 — GM Mode $06 data definitions (GMLAN)",
-      "gsi.ext.gm.com/gmspo/mode6 — GM Mode $06 data definitions (J1850/Class2)"
+      "https://gsi.ext.gm.com/gmspo/mode6/pdf/GM CAN mode $06 data final_dm.pdf — GM Mode $06 data definitions (GMLAN)",
+      "https://gsi.ext.gm.com/gmspo/mode6/pdf/GM J1850 mode $06 data.pdf — GM Mode $06 data definitions (J1850/Class2)"
     ],
     "class2_monitors": 9,
     "class2_tests": 54

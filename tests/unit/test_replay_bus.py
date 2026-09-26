@@ -431,6 +431,79 @@ base hex  timestamps absolute
         tmp_path.unlink(missing_ok=True)
 
 
+def test_vector_asc_parser_skips_huge_timestamp_row() -> None:
+    """I-09: a huge-decimal timestamp must skip the ROW, not abort the load.
+
+    Pre-fix, the classic branch did ``int(float(t) * 1e9)`` with no
+    finiteness/overflow guard, and the per-line recovery only caught
+    ValueError — an ``inf`` timestamp raised OverflowError straight out of
+    ``parse_file``. The row must be dropped and the FOLLOWING valid row must
+    still be parsed.
+    """
+    content = """date Mon Aug 24 12:00:00 2026
+base hex  timestamps absolute
+   99999999999999999999999999999.0 1  111       Rx   d 2 AA BB
+   0.050000 1  456       Rx   d 2 CC DD
+"""
+    with tempfile.NamedTemporaryFile("w", suffix=".asc", delete=False) as tmp:
+        tmp.write(content)
+        tmp_path = Path(tmp.name)
+
+    try:
+        frames = VectorAscParser.parse_file(tmp_path)  # must NOT raise
+        assert len(frames) == 1
+        assert frames[0].arbitration_id == 0x456
+        assert frames[0].data == b"\xCC\xDD"
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+
+def test_vector_asc_parser_skips_infinite_timestamp_row() -> None:
+    """I-09: a decimal long enough to overflow float to ``inf`` is a bad row.
+
+    ``float('9' * 400 + '.0')`` is ``inf``; ``int(inf * 1e9)`` raised
+    OverflowError past the ValueError-only per-line guard.
+    """
+    huge = "9" * 400 + ".0"
+    content = (
+        "date Mon Aug 24 12:00:00 2026\n"
+        "base hex  timestamps absolute\n"
+        f"   {huge} 1  111       Rx   d 2 AA BB\n"
+        "   0.050000 1  456       Rx   d 2 CC DD\n"
+    )
+    with tempfile.NamedTemporaryFile("w", suffix=".asc", delete=False) as tmp:
+        tmp.write(content)
+        tmp_path = Path(tmp.name)
+
+    try:
+        frames = VectorAscParser.parse_file(tmp_path)  # must NOT raise
+        assert [f.arbitration_id for f in frames] == [0x456]
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+
+def test_vector_asc_parser_skips_huge_timestamp_fd_row() -> None:
+    """I-09: the CAN-FD branch carries the same timestamp guard."""
+    content = (
+        "date Mon Aug 24 12:00:00 2026\n"
+        "base hex  timestamps absolute\n"
+        "   99999999999999999999999999999.0 CANFD 1 Rx 123 1 0 2 2 AA BB\n"
+        "   0.050000 CANFD 1 Rx 456 1 0 2 2 CC DD\n"
+    )
+    with tempfile.NamedTemporaryFile("w", suffix=".asc", delete=False) as tmp:
+        tmp.write(content)
+        tmp_path = Path(tmp.name)
+
+    try:
+        frames = VectorAscParser.parse_file(tmp_path)  # must NOT raise
+        assert len(frames) == 1
+        assert frames[0].arbitration_id == 0x456
+        assert frames[0].is_fd is True
+        assert frames[0].timestamp_ns == 50_000_000
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+
 # ============================================================================
 # REVIEW 3: thread-safety & callback fault tolerance
 # ============================================================================

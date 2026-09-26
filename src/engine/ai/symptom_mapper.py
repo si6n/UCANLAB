@@ -44,6 +44,21 @@ def _normalize_text(text: str) -> str:
     return re.sub(r"\s+", " ", t)
 
 
+def _keyword_hits(norm_kw: str, norm_query: str) -> bool:
+    """Match ONE normalized keyword against the normalized query.
+
+    Keywords shorter than 4 characters ("def", "ure", "scr", "nox", "abs",
+    "esp") must stand as WHOLE words: bare substring matching let ordinary
+    prose fire the profile ("bir defa" -> DEF/AdBlue, "süre" -> "ure",
+    "absürt" -> ABS) and mis-triaged unrelated complaints. Longer keywords
+    keep substring matching so inflected forms ("rejenerasyonu", "basmiyordu")
+    still hit.
+    """
+    if len(norm_kw) < 4:
+        return re.search(rf"(?<![0-9a-z]){re.escape(norm_kw)}(?![0-9a-z])", norm_query) is not None
+    return norm_kw in norm_query
+
+
 # Curated symptom mapping dictionary (grounded in standard automotive & marine failure modes)
 SYMPTOM_KNOWLEDGE_BASE: list[dict[str, Any]] = [
     {
@@ -274,7 +289,7 @@ def map_symptoms_to_systems(query: str) -> SymptomMatchResult:
         hit = False
         for kw in entry["keywords"]:
             norm_kw = _normalize_text(kw)
-            if norm_kw in norm_query:
+            if _keyword_hits(norm_kw, norm_query):
                 hit = True
                 break
         if hit:

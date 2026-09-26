@@ -16,6 +16,7 @@ caveat (over-trust risk, plan §Riskler).
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -34,26 +35,32 @@ class CaseMatch:
 
     case_id: str
     similarity: float
-    reasons: list[str] = field(default_factory=list)
+    reasons: tuple[str, ...] = field(default_factory=lambda: ())
 
     def to_dict(self) -> dict[str, object]:
         return {"case_id": self.case_id, "similarity": round(self.similarity, 3), "reasons": list(self.reasons)}
 
 
+#: The SPN number of a code in ANY documented spelling: "SPN 100 FMI 1",
+#: "SPN 100", "SPN100" (the KB/database key form, see j1939_severity) and
+#: "SPN_100". Without the no-space branch, "SPN100" and "SPN 100" never
+#: intersect in the Jaccard sets and the 0.50-weighted DTC channel silently
+#: scores 0 for the KB spelling.
+_SPN_CODE_RE = re.compile(r"^SPN[\s_]*(\d+)")
+
+
 def _normalize_code(code: str) -> str:
     """Canonicalize DTC code spellings for set comparison.
 
-    SPN/FMI forms normalize to "SPN <n>" (with or without FMI); P-codes and
-    friends are uppercased verbatim.
+    SPN/FMI forms normalize to "SPN <n>" (with or without FMI, with or
+    without the separating space); P-codes and friends are uppercased
+    verbatim.
     """
     cleaned = " ".join(code.strip().upper().split())
     if cleaned.startswith("SPN"):
-        parts = cleaned.split()
-        if len(parts) >= 2:
-            try:
-                return f"SPN {int(parts[1])}"
-            except ValueError:
-                return cleaned
+        m = _SPN_CODE_RE.match(cleaned)
+        if m:
+            return f"SPN {int(m.group(1))}"
     return cleaned
 
 
@@ -76,7 +83,7 @@ def _jaccard(a: frozenset[str], b: frozenset[str]) -> float:
     return len(a & b) / len(union)
 
 
-def _score_case(session: VehicleSession, case: GoldenCase) -> tuple[float, list[str]]:
+def _score_case(session: VehicleSession, case: GoldenCase) -> tuple[float, tuple[str, ...]]:
     reasons: list[str] = []
 
     session_codes = frozenset(_normalize_code(e.code) for e in session.events)
@@ -114,7 +121,7 @@ def _score_case(session: VehicleSession, case: GoldenCase) -> tuple[float, list[
     if dtc_sim == 0.0 and signal_sim == 0.0:
         score = min(score, 0.24)
         reasons.append("DTC/sinyal kanıtı yok — yalnız metadata eşleşmesi")
-    return score, reasons
+    return score, tuple(reasons)
 
 
 def find_similar_cases(

@@ -103,6 +103,8 @@ def run_nuitka_build(onefile: bool = False, console: bool = False) -> int:
     dbc_dir = root_dir / "data" / "dbc"
     # H-9 (P1-11): external diagnostic databases must ship in the bundle.
     diagnostics_dir = root_dir / "data" / "diagnostics"
+    knowledge_dir = root_dir / "data" / "knowledge"
+    golden_dir = root_dir / "data" / "golden_traces"
 
     if not entry_point.is_file():
         raise FileNotFoundError(f"Entry point not found: {entry_point}")
@@ -142,6 +144,12 @@ def run_nuitka_build(onefile: bool = False, console: bool = False) -> int:
     # drops ~98% of the DTC knowledge base to debug-level fallbacks.
     if diagnostics_dir.is_dir():
         cmd.append(f"--include-data-dir={diagnostics_dir}=data/diagnostics")
+
+    if knowledge_dir.is_dir():
+        cmd.append(f"--include-data-dir={knowledge_dir}=data/knowledge")
+
+    if golden_dir.is_dir():
+        cmd.append(f"--include-data-dir={golden_dir}=data/golden_traces")
 
     icon_file = root_dir / "assets" / "icon.ico"
     if icon_file.is_file():

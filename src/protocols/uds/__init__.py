@@ -9,14 +9,18 @@ from src.protocols.uds.firmware import (
     load_firmware,
 )
 from src.protocols.uds.isotp import (
+    CAN_ISOTP_WAIT_TX_DONE,
     FS_CTS,
     FS_OVERFLOW,
     FS_WAIT,
     IsoTpRxSession,
     IsoTpTransport,
+    SocketCanIsoTpGeneralOpts,
+    configure_socketcan_isotp_socket,
 )
 from src.protocols.uds.nrc import NRC_DESCRIPTIONS, UdsNrc
 from src.protocols.uds.services import (
+    AuthenticationTask,
     DiagnosticSessionType,
     ReadDtcInformationType,
     RoutineControlType,
@@ -26,6 +30,8 @@ from src.protocols.uds.services import (
 )
 
 __all__ = [
+    "AuthenticationTask",
+    "CAN_ISOTP_WAIT_TX_DONE",
     "FS_CTS",
     "FS_OVERFLOW",
     "FS_WAIT",
@@ -39,10 +45,12 @@ __all__ = [
     "ReadDtcInformationType",
     "RoutineControlType",
     "SRecordParser",
+    "SocketCanIsoTpGeneralOpts",
     "UdsClient",
     "UdsNrc",
     "UdsResponse",
     "UdsServiceBuilder",
     "UdsServiceId",
+    "configure_socketcan_isotp_socket",
     "load_firmware",
 ]

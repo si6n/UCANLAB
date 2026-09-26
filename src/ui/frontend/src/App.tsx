@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Toolbar } from './components/Toolbar';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { PanelLeft, PanelRight, Moon, Sun, Minus, Square, X, Sparkles, RotateCw, Activity } from 'lucide-react';
+import { TAB_LABELS } from './components/Toolbar';
 import { SideRail } from './components/SideRail';
 import { DataTable } from './components/dashboard/DataTable';
 import { SummaryStrip } from './components/dashboard/SummaryStrip';
 import { ScopePanel } from './components/dashboard/ScopePanel';
-import { StatusBar } from './components/StatusBar';
 
 // Other subsystem views
 import { SettingsView } from './components/settings/SettingsView';
@@ -115,12 +115,14 @@ export const App: React.FC = () => {
   const [isDraggingVertical, setIsDraggingVertical] = useState(false);
   const dashboardContainerRef = useRef<HTMLDivElement>(null);
 
-  // Rail collapse state (FIX 6) — persisted, icon-only ~48px vs full ~168px
+  // Rail collapse state — default collapsed (when open: fixed 25% width)
   const [isRailCollapsed, setIsRailCollapsed] = useState<boolean>(() => {
     try {
-      return localStorage.getItem('ucanlab.railCollapsed') === '1';
+      const saved = localStorage.getItem('ucanlab.railCollapsed');
+      if (saved !== null) return saved === '1';
+      return true;
     } catch {
-      return false;
+      return true;
     }
   });
   const handleToggleRail = useCallback(() => {
@@ -264,7 +266,7 @@ export const App: React.FC = () => {
 
       setTotalPackets((prev) => prev + 1);
       setBusLoad(Math.floor(12 + Math.random() * 6));
-    }, 45);
+    }, 120);
 
     return () => clearInterval(interval);
   }, [isSimulating, isEstopActive, channel]);
@@ -489,66 +491,229 @@ export const App: React.FC = () => {
     }
   };
 
-  // Convert CanPacketRow to CANFrame for legacy export/discovery views if needed
-  const canFramesCompat: CANFrame[] = packetRows.map((r, i) => ({
-    id: `compat-${r.id}-${i}`,
-    timeSec: r.timeSec,
-    timeFormatted: r.timestamp,
-    channel: r.channel,
-    canIdHex: r.canId,
-    canIdDec: parseInt(r.canId, 16) || 0,
-    dlc: r.dlc,
-    dataHex: r.dataBytes,
-    ascii: r.ascii,
-    dir: r.direction,
-    frameType: r.frameType === 'Ext' ? 'Ext' : 'Std',
-    isErrorFrame: r.isAnomaly,
-  }));
+  // I-13 (bounded): render/ingest decoupling. canFramesCompat used to
+  // re-map every row on every render (incl. 45ms ingest ticks); memoize on
+  // packetRows with stable keys (no per-render index suffix) so downstream
+  // views skip re-render. Virtualization skipped as overkill at cap 300 —
+  // measure first (ponytail: add windowing if rows grow past ~1k).
+  const canFramesCompat: CANFrame[] = useMemo(
+    () =>
+      packetRows.map((r) => ({
+        id: `compat-${r.id}`,
+        timeSec: r.timeSec,
+        timeFormatted: r.timestamp,
+        channel: r.channel,
+        canIdHex: r.canId,
+        canIdDec: parseInt(r.canId, 16) || 0,
+        dlc: r.dlc,
+        dataHex: r.dataBytes,
+        ascii: r.ascii,
+        dir: r.direction,
+        frameType: r.frameType === 'Ext' ? 'Ext' : 'Std',
+        isErrorFrame: r.isAnomaly,
+      })),
+    [packetRows]
+  );
 
-  const anomalyCount = packetRows.filter((r) => r.isAnomaly).length;
+  const anomalyCount = useMemo(() => packetRows.filter((r) => r.isAnomaly).length, [packetRows]);
+  const currentTabLabel = TAB_LABELS[activeTab] || 'Dashboard';
 
   return (
-    <div className="glass-workspace relative flex h-screen w-screen flex-row overflow-hidden text-text-body select-none">
-      {/* Ambient corner glow behind everything */}
-      <div className="app-ambient-glow" aria-hidden="true" />
+    <div className="glass-workspace relative flex h-screen w-screen flex-col overflow-hidden text-text-body select-none border border-border">
+      {/* TOP UNIFIED APPLICATION HEADER (Full width, Linear/Raycast standard: Brand, Live telemetry status, and integrated window controls) */}
+      <header className="pywebview-drag-region relative z-30 flex h-10 w-full shrink-0 items-center justify-between border-b border-border-whisper bg-bg-chrome px-3 backdrop-blur-md cursor-move select-none">
+        {/* Left Section: Sidebar Toggle, Brand & Breadcrumb */}
+        <div
+          className="flex items-center gap-2 min-w-0"
+          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+        >
+          <button
+            onClick={handleToggleRail}
+            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-[6px] transition-all cursor-pointer active:scale-95 ${
+              isRailCollapsed
+                ? 'bg-accent-soft text-accent hover:bg-accent/20'
+                : 'text-text-mid hover:bg-bg-row-hover hover:text-text-hi'
+            }`}
+            title={isRailCollapsed ? 'Gezinme Menüsünü Aç' : 'Gezinme Menüsünü Daralt'}
+            aria-label="Gezinme Menüsü"
+          >
+            <PanelLeft className="h-4 w-4" />
+          </button>
 
-      {/* Left Side Rail — continuous full-height column, integrated header with PanelLeft, zero cut lines */}
-      <SideRail
-        activeTab={activeTab}
-        onSelectTab={setActiveTab}
-        channel={channel}
-        isSimulating={isSimulating}
-        isEstopActive={isEstopActive}
-        collapsed={isRailCollapsed}
-        onToggleCollapse={handleToggleRail}
-      />
+          <div className="flex items-center gap-1.5 pl-0.5 shrink-0">
+            <div className="flex h-5 w-5 items-center justify-center rounded-[5px] bg-accent-soft text-accent border border-accent-line">
+              <Activity className="h-3 w-3" />
+            </div>
+            <div className="flex items-center gap-1.5 font-sans">
+              <span className="text-[12.5px] font-bold tracking-tight text-text-hi whitespace-nowrap">
+                Universal CAN-Bus
+              </span>
+              <span className="hidden sm:inline-block rounded-[4px] surface-inset px-1.5 py-0.5 font-mono text-[9px] font-semibold text-text-mid">
+                PRO
+              </span>
+            </div>
+          </div>
 
-      {/* Right Column: Toolbar + Main Workspace + StatusBar */}
-      <div className="relative flex flex-1 min-w-0 flex-col overflow-hidden" style={{ zIndex: 10 }}>
-        {/* Top bar over the main workspace: Yük, Paket, E-STOP, Başlat, Hata, Sun/Moon, Copilot, Window controls */}
-        <div className="relative shrink-0" style={{ zIndex: 20 }}>
-          <Toolbar
-            channel={channel}
-            baudRate={baudRate}
-            busLoad={busLoad}
-            totalPackets={totalPackets}
-            isSimulating={isSimulating}
-            isEstopActive={isEstopActive}
-            activeScenario={activeScenario}
-            isCopilotOpen={isCopilotOpen}
-            theme={theme}
-            onToggleTheme={handleToggleTheme}
-            onToggleSimulator={handleToggleSimulator}
-            onSelectScenario={handleSelectScenario}
-            onInjectFault={handleInjectFault}
-            onEstop={handleEstop}
-            onToggleCopilot={() => setIsCopilotOpen((prev) => !prev)}
-          />
+          <div className="hidden sm:block h-3.5 w-px bg-border/60 mx-1 shrink-0" />
+
+          {/* Breadcrumb / Active Module */}
+          <div className="hidden sm:flex items-center gap-1 text-[11.5px] font-medium min-w-0">
+            <span className="text-text-low font-normal hidden md:inline">Modül:</span>
+            <span className="font-semibold text-text-hi truncate max-w-[110px] md:max-w-none">{currentTabLabel}</span>
+          </div>
         </div>
 
-        {/* Main Workspace + Copilot Drawer */}
-        <div className="relative flex flex-1 min-h-0 w-full overflow-hidden">
-          <main className="relative flex flex-1 min-w-0 flex-col overflow-hidden bg-transparent p-3">
+        {/* Center Section: Live Telemetry Status (Seamless inline header, no pill container) */}
+        <div className="hidden sm:flex items-center gap-2 font-mono text-[11px] select-none text-text-mid">
+          <div className="flex items-center gap-1.5">
+            <span
+              className={`h-2 w-2 rounded-full transition-all ${
+                isSimulating
+                  ? 'bg-add shadow-[0_0_8px_rgba(52,211,153,0.7)] animate-pulse'
+                  : 'bg-text-faint'
+              }`}
+            />
+            <span className={isSimulating ? 'font-semibold text-text-hi' : 'text-text-low'}>
+              {isSimulating ? `${frameRate} FPS` : 'Durduruldu'}
+            </span>
+          </div>
+
+          <span className="text-border-strong select-none">·</span>
+
+          <div className="flex items-center gap-1">
+            <span className="text-text-hi font-medium">{channel}</span>
+            <span className="hidden lg:inline text-text-faint">@</span>
+            <span className="hidden lg:inline">{baudRate}</span>
+          </div>
+
+          {busLoad !== undefined && (
+            <>
+              <span className="text-border-strong select-none">·</span>
+              <div className="flex items-center gap-1">
+                <span className="text-text-low">Yük:</span>
+                <span className={`font-semibold ${busLoad > 70 ? 'text-del' : busLoad > 40 ? 'text-warn' : 'text-text-hi'}`}>
+                  %{busLoad.toFixed(1)}
+                </span>
+              </div>
+            </>
+          )}
+
+          <span className="text-border-strong select-none">·</span>
+          <div className="flex items-center gap-1">
+            <span className="text-text-low">Paket:</span>
+            <span className="font-semibold text-text-hi tabular-nums">
+              {totalPackets.toLocaleString('tr-TR')}
+            </span>
+          </div>
+
+          {isEstopActive && (
+            <>
+              <span className="text-border-strong select-none">·</span>
+              <span className="rounded-tag border border-danger-border bg-delbg px-1.5 py-0.5 text-[10px] font-bold text-del animate-pulse">
+                E-STOP KİLİTLİ
+              </span>
+            </>
+          )}
+        </div>
+
+        {/* Right Section: Seamless Window & View Controls (Integrated into Header, no floating card) */}
+        <div
+          className="flex items-center gap-1 select-none"
+          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+        >
+          {/* Theme toggle */}
+          <button
+            onClick={handleToggleTheme}
+            className="flex h-7 w-7 items-center justify-center rounded-[6px] text-text-mid transition-colors hover:bg-bg-row-hover hover:text-text-hi active:scale-95 cursor-pointer"
+            title={theme === 'dark' ? 'Açık Temaya Geç' : 'Koyu Temaya Geç'}
+            aria-label="Toggle Theme"
+          >
+            {theme === 'dark' ? (
+              <Sun className="h-3.5 w-3.5 text-brandamber" />
+            ) : (
+              <Moon className="h-3.5 w-3.5 text-accent" />
+            )}
+          </button>
+
+          {/* Copilot toggle */}
+          <button
+            onClick={() => setIsCopilotOpen((prev) => !prev)}
+            className={`flex h-7 w-7 items-center justify-center rounded-[6px] transition-all active:scale-95 cursor-pointer ${
+              isCopilotOpen
+                ? 'bg-accent-soft text-accent shadow-xs'
+                : 'text-text-mid hover:bg-bg-row-hover hover:text-accent'
+            }`}
+            title={isCopilotOpen ? 'Teşhis Copilot Kapat' : 'Teşhis Copilot Aç'}
+            aria-label="Toggle Copilot"
+          >
+            <PanelRight className="h-3.5 w-3.5" />
+          </button>
+
+          <div className="h-3.5 w-px bg-border/60 mx-1" />
+
+          {/* Native Window Controls */}
+          <button
+            onClick={() => DesktopBridge.minimizeWindow()}
+            className="flex h-7 w-7 items-center justify-center rounded-[6px] text-text-low transition-colors hover:bg-bg-row-hover hover:text-text-hi active:scale-95 cursor-pointer"
+            title="Simge Durumuna Küçült"
+            aria-label="Minimize"
+          >
+            <Minus className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={() => DesktopBridge.maximizeWindow()}
+            className="flex h-7 w-7 items-center justify-center rounded-[6px] text-text-low transition-colors hover:bg-bg-row-hover hover:text-text-hi active:scale-95 cursor-pointer"
+            title="Ekranı Kapla"
+            aria-label="Maximize"
+          >
+            <Square className="h-2.5 w-2.5" />
+          </button>
+          <button
+            onClick={() => DesktopBridge.closeWindow()}
+            className="flex h-7 w-7 items-center justify-center rounded-[6px] text-text-low transition-colors hover:bg-del hover:text-white active:scale-95 cursor-pointer"
+            title="Pencereyi Kapat"
+            aria-label="Close"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </header>
+
+      {/* WORKSPACE ROW: 3-column layout below Top Header */}
+      <div className="relative flex flex-1 min-h-0 w-full flex-row overflow-hidden">
+        {/* LEFT COLUMN: Fixed 230px Clean Width Sidebar */}
+        <aside
+          className={`relative flex h-full shrink-0 flex-col overflow-hidden glass-rail z-20 zeron-sidebar-transition border-r border-border/80 ${
+            isRailCollapsed ? 'pointer-events-none' : ''
+          }`}
+          style={{
+            width: isRailCollapsed ? 0 : 230,
+          }}
+        >
+          {/* Fixed Inner Column (230px wide): prevents label wrap/squish during width animation with GPU layer */}
+          <div
+            className="flex flex-col h-full shrink-0"
+            style={{ width: 230, minWidth: 230, transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
+          >
+            {/* Sidebar Navigation */}
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <SideRail
+                activeTab={activeTab}
+                onSelectTab={setActiveTab}
+                channel={channel}
+                isSimulating={isSimulating}
+                isEstopActive={isEstopActive}
+                collapsed={false}
+                onToggleCollapse={handleToggleRail}
+              />
+            </div>
+          </div>
+        </aside>
+
+        {/* MIDDLE COLUMN: Main Workspace */}
+        <div className="relative flex flex-1 min-w-0 flex-col h-full overflow-hidden" style={{ zIndex: 10 }}>
+          {/* Main Workspace */}
+          <main className="relative flex flex-1 min-w-0 flex-col overflow-hidden bg-transparent p-3 pt-2">
             {activeTab === 'dashboard' && (
               <div
                 ref={dashboardContainerRef}
@@ -563,7 +728,14 @@ export const App: React.FC = () => {
                   rows={packetRows}
                   isStreaming={isSimulating}
                   frameRate={frameRate}
+                  busLoad={busLoad}
+                  totalPackets={totalPackets}
+                  isEstopActive={isEstopActive}
+                  activeScenario={activeScenario}
                   onToggleStreaming={handleToggleSimulator}
+                  onSelectScenario={handleSelectScenario}
+                  onInjectFault={handleInjectFault}
+                  onEstop={handleEstop}
                   onClearBuffer={handleClearBuffer}
                   selectedRowId={selectedRowId}
                   onSelectRow={setSelectedRowId}
@@ -649,16 +821,62 @@ export const App: React.FC = () => {
             </div>
           )}
         </main>
+      </div>
 
-        {/* Right Drawer: AI Diagnostic Copilot — Smooth desktop width transition matching SideRail */}
-        <aside
-          className={`copilot-drawer relative my-3 flex shrink-0 flex-col overflow-hidden rounded-[12px] glass-panel ${
-            isCopilotOpen
-              ? 'w-[420px] mr-3 p-2.5 opacity-100 pointer-events-auto border border-border shadow-2xl'
-              : 'w-0 mr-0 p-0 opacity-0 pointer-events-none border-0 shadow-none'
-          }`}
+      {/* RIGHT COLUMN: Full-Height AI Diagnostic Copilot Panel (matching Left SideRail) */}
+      <aside
+        className={`relative flex h-full shrink-0 flex-col overflow-hidden glass-rail z-20 zeron-sidebar-transition border-l border-border/80 ${
+          isCopilotOpen ? 'pointer-events-auto' : 'pointer-events-none'
+        }`}
+        style={{
+          width: isCopilotOpen ? 'min(380px, 32vw)' : 0,
+        }}
+      >
+        {/* Fixed Inner Column: prevents label wrap/squish during width animation with GPU layer */}
+        <div
+          className="flex flex-col h-full shrink-0"
+          style={{
+            width: 'min(380px, 32vw)',
+            minWidth: 'min(380px, 32vw)',
+            transform: 'translateZ(0)',
+            backfaceVisibility: 'hidden',
+          }}
         >
-          <div className="flex h-full w-[420px] min-w-[420px] flex-col overflow-hidden">
+          {/* Copilot Header: clean, sleek sub-header with rescan & close button */}
+          <div className="flex h-9 shrink-0 items-center justify-between px-3 select-none border-b border-border/40">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="flex h-5 w-5 items-center justify-center rounded-[5px] bg-accent-soft text-accent">
+                <Sparkles className="h-3 w-3" />
+              </div>
+              <span className="font-sans text-[12px] font-semibold text-text-hi tracking-tight truncate select-none">
+                CAN Teşhis Copilot
+              </span>
+              <span className="flex h-1.5 w-1.5 rounded-full bg-add" title="Çevrimdışı Uzman Motoru Aktif" />
+            </div>
+
+            <div className="flex items-center gap-1">
+              <button
+                onClick={handleRescan}
+                disabled={isAiLoading}
+                className="flex h-6 w-6 items-center justify-center rounded-[5px] text-text-mid transition-colors hover:bg-bg-row-hover hover:text-text-hi active:scale-95 cursor-pointer disabled:opacity-50"
+                title="Yeniden Tara"
+                aria-label="Yeniden Tara"
+              >
+                <RotateCw className={`h-3.5 w-3.5 transition-transform ${isAiLoading ? 'animate-spin text-accent' : ''}`} />
+              </button>
+              <button
+                onClick={() => setIsCopilotOpen(false)}
+                className="flex h-6 w-6 items-center justify-center rounded-[5px] text-text-low transition-colors hover:bg-bg-row-hover hover:text-text-hi active:scale-95 cursor-pointer"
+                title="Copilot Kapat"
+                aria-label="Copilot Kapat"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Copilot Body */}
+          <div className="flex-1 min-h-0 overflow-hidden">
             <AiCopilotPanel
               diagnosticState={diagnosticState}
               chatMessages={chatMessages}
@@ -667,19 +885,12 @@ export const App: React.FC = () => {
               onSendMessage={handleSendMessage}
               onExecuteAction={handleExecuteAction}
               onClose={() => setIsCopilotOpen(false)}
+              hideHeader={true}
             />
           </div>
-        </aside>
+        </div>
+      </aside>
       </div>
-
-      {/* 3. Global Status Bar (Bottom Strip) */}
-      <StatusBar
-        channel={channel}
-        isSimulating={isSimulating}
-        isEstopActive={isEstopActive}
-        nodeName="DESKTOP-CAN-NODE"
-      />
     </div>
-  </div>
-);
+  );
 };

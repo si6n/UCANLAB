@@ -147,14 +147,27 @@ def _make_pinned_https_handler(pins: frozenset[bytes]) -> urllib.request.HTTPSHa
 
 
 class _SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
-    """Strip authentication credentials (Cookie, Authorization) on cross-origin redirects.
+    """Fail-closed redirect policy for authenticated cloud requests (I-07).
 
-    REVIEW (scheme downgrade): origin equality used to compare netloc only —
-    an HTTPS->HTTP redirect on the SAME host kept the session cookie and
-    Authorization header, silently moving credentials onto cleartext
-    transport. The comparison now covers scheme, hostname and effective
-    port; any mismatch (including a scheme downgrade) strips credentials.
+    The previous policy FOLLOWED cross-origin redirects and merely stripped
+    Cookie/Authorization — a redirect to an attacker host still received an
+    unauthenticated request, and per-destination scheme/host/IP was never
+    re-validated. New policy: follow ONLY same-origin (scheme+host+port)
+    HTTPS redirects (loopback http allowed for dev); anything else —
+    cross-origin, scheme downgrade, non-allowlisted host, literal-IP
+    private/loopback mismatch — refuses the redirect (returns None, so
+    urllib surfaces the 3xx as an error instead of re-sending credentials).
     """
+
+    def __init__(
+        self,
+        allowed_hosts: tuple[str, ...] | None = None,
+        enforce_allowlist: bool = False,
+        require_https: bool = True,
+    ) -> None:
+        self._allowed_hosts = allowed_hosts
+        self._enforce_allowlist = enforce_allowlist
+        self._require_https = require_https
 
     @staticmethod
     def _origin(url: str) -> tuple[str, str, int] | None:
@@ -173,22 +186,55 @@ class _SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
         return (scheme, host, port)
 
     def redirect_request(self, req: Any, fp: Any, code: int, msg: str, headers: Any, newurl: str) -> Any:
-        new_req = super().redirect_request(req, fp, code, msg, headers, newurl)
-        if new_req is None:
-            return None
+        # Fail CLOSED with a typed error (never follow-and-strip, never
+        # return None into urllib which would surface as an untyped crash
+        # downstream). Each refusal names the destination.
         orig = self._origin(req.full_url)
         new = self._origin(newurl)
-        same_origin = orig is not None and new is not None and orig == new
-        if not same_origin:
-            # Cross-origin OR scheme/port downgrade redirect: strip sensitive
-            # credentials to prevent leakage (an https->http downgrade on the
-            # same host is a credential-transport downgrade, not a no-op).
-            new_req.headers.pop("Cookie", None)
-            new_req.headers.pop("Authorization", None)
-            if hasattr(new_req, "unredirected_hdrs"):
-                new_req.unredirected_hdrs.pop("Cookie", None)
-                new_req.unredirected_hdrs.pop("Authorization", None)
-        return new_req
+        if orig is None or new is None or orig != new:
+            raise SecurityError(
+                f"Refusing cross-origin/scheme-downgrade cloud redirect to {newurl!r}",
+                code="CLOUD_REDIRECT_REFUSED",
+                details={"from": req.full_url, "to": newurl},
+            )
+        new_parts = urllib.parse.urlsplit(newurl)
+        new_host = (new_parts.hostname or "").lower()
+        new_scheme = (new_parts.scheme or "").lower()
+        if new_scheme == "http" and not CloudConfig._is_loopback(newurl):
+            raise SecurityError(
+                f"Refusing cloud redirect to non-loopback plain HTTP {newurl!r}",
+                code="CLOUD_REDIRECT_REFUSED",
+                details={"to": newurl},
+            )
+        if self._enforce_allowlist or is_production():
+            allowed = _allowed_hosts(self._allowed_hosts)
+            if new_host not in allowed:
+                raise SecurityError(
+                    f"Refusing cloud redirect to non-allowlisted host {new_host!r}",
+                    code="CLOUD_REDIRECT_REFUSED",
+                    details={"to": newurl},
+                )
+        try:
+            import ipaddress
+
+            try:
+                ip = ipaddress.ip_address(new_host)
+            except ValueError:
+                ip = None
+            # Literal-IP destinations only (no DNS lookup on the hot path —
+            # DNS-rebinding cover is the allowlist's job). ponytail: resolve
+            # + re-check if redirect targets ever leave the allowlist.
+            if ip is not None and (ip.is_private or ip.is_loopback) and new_host not in DEV_ONLY_CLOUD_HOSTS:
+                raise SecurityError(
+                    f"Refusing cloud redirect to private/reserved IP {new_host!r}",
+                    code="CLOUD_REDIRECT_REFUSED",
+                    details={"to": newurl},
+                )
+        except SecurityError:
+            raise
+        except Exception:
+            pass
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 _SESSION_SECRET_NAME = "CLOUD_SESSION_TOKEN"
 _DEVICE_TOKEN_SECRET_NAME = "CLOUD_DEVICE_TOKEN"
@@ -499,7 +545,13 @@ class CloudClient:
         SPKI is installed, so a swapped certificate is rejected even if it
         chains to a trusted CA (and the standard CA check still runs first).
         """
-        handlers: list[Any] = [_SafeRedirectHandler()]
+        handlers: list[Any] = [
+            _SafeRedirectHandler(
+                allowed_hosts=self.config.allowed_hosts,
+                enforce_allowlist=self.config.enforce_allowlist,
+                require_https=self.config.require_https,
+            )
+        ]
         pins = self._pinned_spki_digests
         if pins and url.lower().startswith("https://"):
             handlers.append(_make_pinned_https_handler(pins))
@@ -583,6 +635,7 @@ class CloudClient:
             require_https=self.config.require_https,
             allowed_hosts=self.config.allowed_hosts,
             enforce_allowlist=self.config.enforce_allowlist,
+            pinned_spki_sha256=self.config.pinned_spki_sha256,
         )
         # Only swap after the constructor validated the new URL.
         self.config = new_config
@@ -598,6 +651,11 @@ class CloudClient:
 
     def has_session_token(self) -> bool:
         return self._secrets.has_secret(_SESSION_SECRET_NAME)
+
+    def get_session_token(self) -> str | None:
+        if not self._secrets.has_secret(_SESSION_SECRET_NAME):
+            return None
+        return self._secrets.get_secret(_SESSION_SECRET_NAME).decode("utf-8")
 
     def clear_session_token(self) -> None:
         if self._secrets.has_secret(_SESSION_SECRET_NAME):
@@ -633,6 +691,91 @@ class CloudClient:
         """Persist the signed license ticket for offline re-verification (grace)."""
         self._secrets.store_secret(LICENSE_TICKET_SECRET_NAME, ticket_token.encode("utf-8"))
         logger.info("Cloud license ticket stored (DPAPI)")
+
+    # ------------------------------------------------------------------
+    # User session & Subscription management
+    # ------------------------------------------------------------------
+    def login(self, email: str, password: str) -> dict[str, Any]:
+        """Authenticate with cloud portal using email and password.
+
+        Sends credentials to /auth/login. Extracts session token from
+        response JSON or Set-Cookie header, validates it, and persists in DPAPI.
+        """
+        if not email or not isinstance(email, str) or "@" not in email:
+            raise SecurityError("Geçerli bir e-posta adresi giriniz", code="INVALID_EMAIL")
+        if not password or not isinstance(password, str):
+            raise SecurityError("Şifre gereklidir", code="INVALID_PASSWORD")
+
+        resp = self.request(
+            "POST",
+            "/auth/login",
+            json_body={"email": email.strip(), "password": password},
+        )
+        data = resp.json_object() if resp.body else {}
+        if resp.status not in (200, 201):
+            detail = data.get("detail") or data.get("error") or f"Giriş başarısız (HTTP {resp.status})"
+            raise SecurityError(detail, code="LOGIN_FAILED")
+
+        token = data.get("token") or data.get("session_token") or data.get("access_token")
+        if not token:
+            cookie_hdr = resp.headers.get("Set-Cookie", "") or resp.headers.get("set-cookie", "")
+            if "ucan_session=" in cookie_hdr:
+                import re
+
+                m = re.search(r"ucan_session=([^;,\s]+)", cookie_hdr)
+                if m:
+                    token = m.group(1)
+        if not token:
+            raise SecurityError(
+                "Giriş yanıtında geçerli oturum belirteci bulunamadı",
+                code="NO_SESSION_TOKEN",
+            )
+
+        self.store_session_token(token)
+        return data
+
+    def login_with_token(self, token: str) -> dict[str, Any]:
+        """Authenticate using an existing web session token.
+
+        I-06: verify with a request-scoped credential BEFORE persisting.
+        The token is validated against /auth/me using the override path
+        (never touches the shared vault); only an HTTP 200 persists to
+        DPAPI. Bridge success derives from the verified response, so a
+        bad/expired token returns success False instead of True+None.
+        """
+        validated = validate_session_token(token)
+        user_info: dict[str, Any] | None = None
+        try:
+            resp = self.request("GET", "/auth/me", session_token=validated)
+            if resp.status == 200 and resp.body:
+                user_info = resp.json_object()
+        except Exception as exc:
+            logger.warning("Token login verification failed: %s", exc)
+            user_info = None
+        if user_info is None:
+            return {"success": False, "token": None, "user": None}
+        self.store_session_token(validated)
+        return {"success": True, "token": validated, "user": user_info}
+
+    def logout(self) -> None:
+        """Clear local session token and cached license ticket."""
+        self.clear_session_token()
+        if self._secrets.has_secret(LICENSE_TICKET_SECRET_NAME):
+            self._secrets.delete_secret(LICENSE_TICKET_SECRET_NAME)
+        logger.info("Cloud session logged out; tokens cleared (DPAPI)")
+
+    def get_current_user_and_subscription(self) -> dict[str, Any] | None:
+        """Query /auth/me for current user identity and subscription status."""
+        if not self.has_session_token():
+            return None
+        try:
+            resp = self.request("GET", "/auth/me")
+            if resp.status == 200 and resp.body:
+                return resp.json_object()
+            return None
+        except Exception as exc:
+            logger.warning("Failed to fetch user and subscription from cloud: %s", exc)
+            return None
 
     # ------------------------------------------------------------------
     # HTTP core (urllib to stay dependency-free; PyInstaller friendly)
@@ -698,6 +841,7 @@ class CloudClient:
             # a bridge call — neither has passed this gate yet.
             session = validate_session_token(session)
             headers["Cookie"] = f"ucan_session={session}"
+            headers["Authorization"] = f"Bearer {session}"
         # B4: sanitized AFTER the session cookie is applied â€” extra headers
         # can neither replace nor strip it.
         headers.update(_sanitize_extra_headers(extra_headers))

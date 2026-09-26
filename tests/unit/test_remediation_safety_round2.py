@@ -566,6 +566,32 @@ class TestS14EvictionTombstone:
         )
         assert result.verdict == E2EStatus.INITIAL, "S-14: reset must be a sanctioned resync"
 
+    def test_s14_reopen_seeds_continuity_for_following_frame(self) -> None:
+        validator = E2ESafetyValidator()
+        profile = E2EProfileConfig.create_autosar_profile_1(data_id=0x12)
+        packager = E2ESafetyPackager()
+        valid, _c, _crc = packager.package_payload(b"\x01\x02", profile, arbitration_id=0x100)
+
+        for i in range(E2ESafetyValidator.MAX_TRACKED_STREAMS):
+            validator.validate_raw(
+                channel_id=f"ch_{i}", arbitration_id=0x100 + i, data=valid, profile=profile
+            )
+        validator.validate_raw(channel_id="ch_new", arbitration_id=0x999, data=valid, profile=profile)
+
+        first = validator.validate_raw(
+            channel_id="ch_0", arbitration_id=0x100, data=valid, profile=profile
+        )
+        assert first.verdict == E2EStatus.WRONG_SEQUENCE
+        # The seeded counter must make the NEXT frame continuity-checked,
+        # not re-initialised as a fresh (valid) stream.
+        second = validator.validate_raw(
+            channel_id="ch_0", arbitration_id=0x100, data=valid, profile=profile
+        )
+        assert second.verdict != E2EStatus.INITIAL, (
+            "S-14: reopen must not reset continuity to INITIAL"
+        )
+        assert second.is_valid is False
+
 
 # ---------------------------------------------------------------------------
 # S-15 — arm refused while E-Stop protection is downgraded

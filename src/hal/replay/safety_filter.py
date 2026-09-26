@@ -460,6 +460,11 @@ class ReplaySafetyFilter:
                             self._register_first_frame(frame, sid)
                         if self._prohibited_sid(sid):
                             return False, f"PROHIBITED_11BIT_UDS_SID: 0x{sid:02X}"
+                else:
+                    # FIX 10d: mirror the 29-bit fail-closed branch — a
+                    # sub-2-byte payload on a diagnostic ID carries no
+                    # verifiable SID and must not pass silently.
+                    return False, "TRUNCATED_11BIT_DIAGNOSTIC_PAYLOAD"
 
         return True, ""
 

@@ -7,7 +7,7 @@
 # CAN Hardware & Protocol Stack
 python-can>=4.4.0,<5  # pinned upper bound (supply-chain)
 can-isotp>=2.0.2,<3  # pinned upper bound (supply-chain)
-cantools>=39.0.0,<41  # pinned upper bound (supply-chain)
+cantools>=39.0.0,<44  # pinned upper bound (supply-chain); lock pins 43.0.0
 
 # Telemetry & Math Processing
 # CI NOTE (windows-latest, python 3.13): numpy only publishes cp313 win_amd64

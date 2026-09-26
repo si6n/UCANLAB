@@ -58,7 +58,9 @@ def _make_launcher(
     target_executable: Path | None = None,
 ) -> UniversalCanLauncher:
     """Launcher whose ONLY unsatisfied gate is the license (by default)."""
-    launcher = UniversalCanLauncher(current_version="13.0.0")
+    secrets = EphemeralSecretBackend()
+    auth_manager = LauncherAuthManager(secret_provider=secrets)
+    launcher = UniversalCanLauncher(current_version="13.0.0", auth_manager=auth_manager)
 
     monkeypatch.setattr(
         app_mod.PrereqChecker,

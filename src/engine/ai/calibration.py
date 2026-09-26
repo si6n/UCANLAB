@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import threading
 import time
 from dataclasses import dataclass
@@ -118,7 +119,21 @@ _CONCEPT_TERMS: dict[str, tuple[str, ...]] = {
 def _concepts_in(text: str) -> frozenset[str]:
     """Concept ids named by ``text`` (case-insensitive, bilingual)."""
     low = text.lower()
-    return frozenset(name for name, forms in _CONCEPT_TERMS.items() if any(f in low for f in forms))
+    # Word-boundary match: bare substrings let short forms ("scr", "def",
+    # "ray") hit English prose ("describe", "definitions", "array") and
+    # inflate cal_factor. Short forms (<4 chars) must stand as whole words —
+    # a hard skip would also drop legitimate standalone acronyms (EGR, DPF)
+    # and break the golden-corpus hit floor (measured 28 -> 26 when skipped).
+    # 4+ char forms get a leading word boundary only, so prefix forms like
+    # "partikül filt" still match "partikül filtresi".
+    return frozenset(
+        name
+        for name, forms in _CONCEPT_TERMS.items()
+        if any(
+            re.search(r"\b" + re.escape(f) + (r"\b" if len(f) < 4 else r""), low)
+            for f in forms
+        )
+    )
 
 
 @dataclass(slots=True, frozen=True)

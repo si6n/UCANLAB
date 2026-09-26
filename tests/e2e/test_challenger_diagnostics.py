@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import asyncio
 import threading
-import time
 from typing import Any
 
 import pytest
@@ -633,7 +632,6 @@ class TestPollerConcurrencyAndStarvationStress:
             try:
                 for _ in range(100):
                     poller.step()
-                    time.sleep(0.0001)
             except Exception as e:
                 errors.append(e)
 

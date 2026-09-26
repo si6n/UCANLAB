@@ -1,5 +1,6 @@
 import asyncio
 import concurrent.futures
+import math
 import threading
 import time
 from unittest.mock import MagicMock
@@ -295,6 +296,29 @@ def test_safety_gateway_nan_and_negative_speed_fail_closed() -> None:
     gateway.update_vehicle_speed(0.0)
     gateway.update_vehicle_speed(-15.0)
     assert gateway._last_speed_update_ns == 0
+
+    with pytest.raises(SpeedDataStaleError):
+        gateway.validate_and_transmit(frame, is_critical_command=True, user_confirmed=True)
+
+    estop.reset(estop.create_reset_token())
+
+    # Corrupt with physically implausible speed (> SPEED_MAX_PLAUSIBLE_KMH)
+    gateway.update_vehicle_speed(0.0)
+    assert gateway._last_speed_update_ns > 0
+    gateway.update_vehicle_speed(gateway.SPEED_MAX_PLAUSIBLE_KMH + 0.1)
+    assert gateway._last_speed_update_ns == 0
+    assert math.isnan(gateway._physical_speed_kmh)
+
+    with pytest.raises(SpeedDataStaleError):
+        gateway.validate_and_transmit(frame, is_critical_command=True, user_confirmed=True)
+
+    estop.reset(estop.create_reset_token())
+
+    # Corrupt with infinity
+    gateway.update_vehicle_speed(0.0)
+    gateway.update_vehicle_speed(float("inf"))
+    assert gateway._last_speed_update_ns == 0
+    assert math.isnan(gateway._physical_speed_kmh)
 
     with pytest.raises(SpeedDataStaleError):
         gateway.validate_and_transmit(frame, is_critical_command=True, user_confirmed=True)

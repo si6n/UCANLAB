@@ -345,16 +345,23 @@ class DialogueSession:
             try:
                 val = float(answer.value)
                 name = f"OP:{answer.question_id}"
-                sample = SignalSample(
-                    timestamp_ns=time.monotonic_ns(),
-                    name=name,
-                    raw_value=int(round(val)) if abs(val) < 2**31 else 0,
-                    physical_value=val,
-                    unit=answer.unit or "",
-                    source=SignalSource.J1939,
-                    confidence=1.0,
-                )
-                session.samples.append(sample)
+                # No int32 fit: omit the sample instead of fabricating raw 0 —
+                # the OperatorAnswer keeps the physical value (AGENTS.md §2.3).
+                if abs(val) < 2**31:
+                    sample = SignalSample(
+                        timestamp_ns=time.monotonic_ns(),
+                        name=name,
+                        raw_value=int(round(val)),
+                        physical_value=val,
+                        unit=answer.unit or "",
+                        # Operator-entered chat measurement, not a bus capture.
+                        # SignalSource has no OPERATOR member (core model is out
+                        # of scope), so DISCOVERED — the only non-bus source —
+                        # carries it with its mandatory confidence < 1.0.
+                        source=SignalSource.DISCOVERED,
+                        confidence=0.9,
+                    )
+                    session.samples.append(sample)
             except (ValueError, TypeError):
                 pass
 
@@ -465,7 +472,13 @@ class DialogueSession:
             "requires_operator_confirm": True,
             "is_mutating": True,
         }
-        self.proposed_actions.append(clear_action)
+        # Mutating proposals need a LIVE operator confirmation + 0.0 km/h
+        # interlock context; neither exists here at proposal time, so the gate
+        # fail-closes exactly like the read-only gate above and the proposal is
+        # withheld instead of appended ungated.
+        allowed, msg = validate_ai_dialogue_action(clear_action["type"])
+        if allowed:
+            self.proposed_actions.append(clear_action)
 
     def _generate_candidate_questions(
         self,
@@ -521,7 +534,16 @@ class DialogueSession:
             if not node:
                 continue
             for sig in node.evidence_signals:
-                if sig not in observed_signals and f"OP:{sig}" not in observed_signals:
+                # Recorded measurement names are OP:<question_id> (built in
+                # record_answer): OP:Q_SIG_<sig> for gap questions (:Q_SIG_ ids)
+                # and OP:Q_NODE_<node>_<sig> for graph questions — the old
+                # OP:<sig> check matched neither, so answered measurements never
+                # suppressed a duplicate question.
+                if sig not in observed_signals and not any(
+                    n == f"OP:Q_SIG_{sig}"
+                    or (n.startswith("OP:Q_NODE_") and n.endswith(f"_{sig}"))
+                    for n in observed_signals
+                ):
                     candidates.append(
                         DiagnosticQuestion(
                             id=f"Q_NODE_{h.id}_{sig}",

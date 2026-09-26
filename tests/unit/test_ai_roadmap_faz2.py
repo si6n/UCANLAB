@@ -91,6 +91,25 @@ def test_symptom_mapper_extended_profiles() -> None:
     assert "U0100" in res_can.candidate_dtcs
 
 
+def test_symptom_mapper_short_keywords_are_whole_words() -> None:
+    """Short (<4 char) keywords ("def", "ure", "abs", ...) must NOT fire on
+    ordinary prose containing them as substrings.
+
+    Before the fix "bir defa" matched the DEF/AdBlue profile, "süre" (→
+    "sure") matched "ure" and "absürt" matched "abs" — mis-triaging unrelated
+    complaints with SCR/ABS candidate DTCs. Legitimate whole-word uses keep
+    working (the assertions below pin that side too).
+    """
+    # Substring false positives — must match NOTHING.
+    assert map_symptoms_to_systems("motor bir süre sonra stop ediyor").matched_symptoms == ()
+    assert map_symptoms_to_systems("kontağı bir defa çevirdim").matched_symptoms == ()
+    assert map_symptoms_to_systems("hava absürt şekilde çıkıyor").matched_symptoms == ()
+
+    # Whole-word legitimate uses — must still match.
+    assert "def-scr-adblue-warning" in map_symptoms_to_systems("def lambası yanıyor").matched_symptoms
+    assert "abs-esp-traction-fault" in map_symptoms_to_systems("abs lambası yanıyor").matched_symptoms
+
+
 def test_symptom_mapper_empty_query() -> None:
     res = map_symptoms_to_systems("")
     assert len(res.matched_symptoms) == 0

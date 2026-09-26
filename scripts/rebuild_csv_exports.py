@@ -54,6 +54,10 @@ UDS_JSON = DIAG_DIR / "uds_did_database.json"
 UDS_CSV = DIAG_DIR / "uds_did_database.csv"
 J1939_JSON = DIAG_DIR / "j1939_spn_fmi_database.json"
 J1939_CSV = DIAG_DIR / "j1939_spn_fmi_database.csv"
+MODE06_JSON = DIAG_DIR / "obd_mode06_database.json"
+MODE06_CSV = DIAG_DIR / "obd_mode06_database.csv"
+CANONICAL_SYMPTOMS_JSON = DIAG_DIR / "canonical_symptoms.json"
+CANONICAL_SYMPTOMS_CSV = DIAG_DIR / "canonical_symptoms.csv"
 
 # Kanıt: git f80eb36:data/diagnostics/j1939_spn_fmi_database.csv başlığı, aynı
 # düzeni scripts/expand_j1939_spn_database.py (apply(), satır 575-579) üretir.
@@ -177,6 +181,79 @@ def _build_j1939_rows() -> list[list[object]]:
     return rows
 
 
+def _build_mode06_rows() -> list[list[object]]:
+    js = json.loads(MODE06_JSON.read_text(encoding="utf-8"))
+    uasid_map = js.get("metadata", {}).get("uasid_scaling_formulas", {})
+    rows: list[list[object]] = []
+    for mid_key, m in js.get("monitors", {}).items():
+        for t in m.get("tests", []):
+            uasid = t.get("uasid", "")
+            sf = uasid_map.get(uasid, {})
+            scale = str(sf.get("scale", "1.0")) if uasid else ""
+            offset = str(sf.get("offset", "0.0")) if uasid else ""
+            rows.append([
+                m.get("mid_hex", ""),
+                m.get("name", ""),
+                m.get("name_tr", ""),
+                m.get("subsystem", ""),
+                t.get("tid_hex", ""),
+                t.get("name", ""),
+                t.get("name_tr", ""),
+                uasid,
+                t.get("default_unit") or sf.get("unit", ""),
+                t.get("formula") or sf.get("formula", ""),
+                scale,
+                offset,
+                t.get("cid_hex", ""),
+                t.get("limit_type", ""),
+                t.get("hex_range", ""),
+            ])
+    for c2_key, m in js.get("class2_monitors", {}).items():
+        for t in m.get("tests", []):
+            uasid = t.get("uasid", "")
+            sf = uasid_map.get(uasid, {})
+            scale = str(sf.get("scale", "1.0")) if uasid else ""
+            offset = str(sf.get("offset", "0.0")) if uasid else ""
+            rows.append([
+                m.get("mid_hex", ""),
+                m.get("name", ""),
+                m.get("name_tr", ""),
+                m.get("subsystem", "J1850/Class2"),
+                t.get("tid_hex", ""),
+                t.get("name", ""),
+                t.get("name_tr", ""),
+                uasid,
+                t.get("default_unit") or sf.get("unit", "") or t.get("ideal_range", ""),
+                t.get("formula") or sf.get("formula", ""),
+                scale,
+                offset,
+                t.get("cid_hex", ""),
+                t.get("limit_type", ""),
+                t.get("hex_range", ""),
+            ])
+    return rows
+
+
+def _build_canonical_symptoms_rows() -> list[list[object]]:
+    js = json.loads(CANONICAL_SYMPTOMS_JSON.read_text(encoding="utf-8"))
+    rows: list[list[object]] = []
+    for sid, r in js.get("symptoms", {}).items():
+        dtcs = r.get("candidate_dtcs", [])
+        rows.append([
+            r.get("symptom_id", sid),
+            r.get("name_tr", ""),
+            r.get("name_en", ""),
+            r.get("category", ""),
+            r.get("domain", ""),
+            "1" if r.get("observable", True) else "0",
+            "1" if r.get("operator_reported", True) else "0",
+            len(dtcs),
+            ";".join(dtcs),
+            r.get("authority", ""),
+        ])
+    return rows
+
+
 def _report(name: str, path: Path, header: list[str], rows: list[list[object]]) -> None:
     filled, blank = _hollow_stats(path)
     print(f"[{name}]")
@@ -190,6 +267,8 @@ def run(check_only: bool) -> int:
         ("dtc_database.csv", DTC_CSV, _read_existing_header(DTC_CSV), _build_dtc_rows()),
         ("uds_did_database.csv", UDS_CSV, _read_existing_header(UDS_CSV), _build_uds_rows()),
         ("j1939_spn_fmi_database.csv", J1939_CSV, J1939_HEADER, _build_j1939_rows()),
+        ("obd_mode06_database.csv", MODE06_CSV, _read_existing_header(MODE06_CSV), _build_mode06_rows()),
+        ("canonical_symptoms.csv", CANONICAL_SYMPTOMS_CSV, _read_existing_header(CANONICAL_SYMPTOMS_CSV), _build_canonical_symptoms_rows()),
     ]
 
     for name, path, header, rows in jobs:

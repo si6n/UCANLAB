@@ -125,6 +125,28 @@ export interface CapturedFrameRecord {
   stimulusPercent: number;
 }
 
+/**
+ * REVIEW (M-05) — DBC identifier sanitizer.
+ *
+ * DBC's grammar allows only letters, digits and underscore in identifiers, and
+ * an identifier may not start with a digit. Operator-entered names ("Gaz
+ * Pedalı %", "0x123", `a"b`) previously flowed straight into `SG_` and into the
+ * exported filename, producing files that cantools / Vector CANdb++ reject or
+ * mis-parse (a raw `"` also breaks the quoted `CM_` comment).
+ *
+ * Rules: keep [A-Za-z0-9_], collapse every invalid run to a single `_`, trim
+ * leading/trailing underscores, prefix `_` when the result starts with a digit,
+ * cap at 64 characters, and fall back to `fallback` when nothing usable remains.
+ */
+export function sanitizeDbcIdentifier(name: string, fallback = 'Discovered_Signal'): string {
+  const collapsed = String(name ?? '')
+    .replace(/[^A-Za-z0-9_]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  if (!collapsed) return fallback;
+  const prefixed = /^[0-9]/.test(collapsed) ? `_${collapsed}` : collapsed;
+  return prefixed.slice(0, 64);
+}
+
 export class ReverseEngineeringEngine {
   /**
    * Extract bit-level integer value from Hex payload using startBit, bitLength, Endianness and Signedness.
@@ -522,6 +544,10 @@ export class ReverseEngineeringEngine {
     const canIdDec = idNum > 0x7FF ? (idNum | 0x80000000) >>> 0 : idNum;
     const endianBit = candidate.endian === 'Intel' ? '1' : '0';
     const signChar = candidate.isSigned ? '-' : '+';
+    // REVIEW (M-05): DBC identifiers have a restricted grammar; a raw operator
+    // string (spaces, Turkish chars, quotes) produced an unparseable DBC.
+    const signalName = sanitizeDbcIdentifier(candidate.signalName);
+    const safeMessageName = sanitizeDbcIdentifier(messageName, 'Discovered_Message');
     // REVIEW (negative scale): physical = raw * scale + offset. With a
     // negative scale (inversely proportional signals) the DBC range must
     // swap — [0|negative] is invalid (min > max) and cantools rejects it.
@@ -533,8 +559,8 @@ export class ReverseEngineeringEngine {
       `NS_ :\n\n` +
       `BS_:\n\n` +
       `BU_: ECU TESTER\n\n` +
-      `BO_ ${canIdDec} ${messageName}: 8 ECU\n` +
-      ` SG_ ${candidate.signalName} : ${candidate.startBit}|${candidate.bitLength}@${endianBit}${signChar} (${candidate.scale},${candidate.offset}) [${physMin}|${physMax}] "${candidate.unit}" Vector__XXX\n\n` +
-      `CM_ SG_ ${canIdDec} ${candidate.signalName} "Reverse engineered by Universal CAN-Bus AI Signal Discovery (Confidence: ${(candidate.confidenceScore * 100).toFixed(1)}%)";\n`;
+      `BO_ ${canIdDec} ${safeMessageName}: 8 ECU\n` +
+      ` SG_ ${signalName} : ${candidate.startBit}|${candidate.bitLength}@${endianBit}${signChar} (${candidate.scale},${candidate.offset}) [${physMin}|${physMax}] "${candidate.unit}" Vector__XXX\n\n` +
+      `CM_ SG_ ${canIdDec} ${signalName} "Reverse engineered by Universal CAN-Bus AI Signal Discovery (Confidence: ${(candidate.confidenceScore * 100).toFixed(1)}%)";\n`;
   }
 }

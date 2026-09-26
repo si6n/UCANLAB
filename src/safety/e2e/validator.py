@@ -6,6 +6,7 @@ detecting dropped or duplicated frames, and emitting formal functional safety ve
 
 from __future__ import annotations
 
+import collections
 import threading
 import time
 from dataclasses import dataclass
@@ -88,6 +89,14 @@ class E2ESafetyValidator:
     # otherwise grow the per-ID state dict without limit (GBs/hour).
     # Oldest-last-seen streams are evicted first.
     MAX_TRACKED_STREAMS: ClassVar[int] = 1024
+    # A3-F1: the S-14 tombstone ledger is ALSO bounded. Every eviction adds
+    # one key here and the set was never pruned (reset() aside), so an
+    # ID-scanning flood grew it without limit — the same exhaustion P2-14
+    # closed for _streams. Tombstones are a SECURITY state (they force
+    # WRONG_SEQUENCE on the stream's return), so the cap is enforced with
+    # the same oldest-eviction discipline: the ledger can never exceed twice
+    # the stream table.
+    MAX_TOMBSTONE_STREAMS: ClassVar[int] = 2048
 
     def __init__(self) -> None:
         self._lock = threading.RLock()
@@ -96,8 +105,12 @@ class E2ESafetyValidator:
         # frame of an evicted stream was re-created with `last_counter=None`
         # and reported INITIAL — a verdict `is_valid` counts as good — so an
         # ID-scanning flood could launder continuity gaps. A tombstoned key
-        # yields RESYNC_REQUIRED (is_valid=False) on the frame that re-opens it.
+        # yields WRONG_SEQUENCE (is_valid=False) on the frame that re-opens it,
+        # seeding `last_counter` so the FOLLOWING frame is continuity-checked.
         self._evicted_streams: set[tuple[str, int]] = set()
+        # A3-F1: insertion-ordered tombstone queue mirroring the set, so the
+        # cap below evicts oldest-first (a set alone has no eviction order).
+        self._evicted_order: collections.deque[tuple[str, int]] = collections.deque()
 
     def validate(self, frame: CanFrame, profile: E2EProfileConfig) -> E2EValidationResult:
         """Validate an incoming CanFrame against the given E2EProfileConfig."""
@@ -135,7 +148,7 @@ class E2ESafetyValidator:
                     self._streams.pop(oldest_key, None)
                     # S-14: record the tombstone so this ID cannot masquerade as
                     # a brand-new (INITIAL, "valid") stream when it returns.
-                    self._evicted_streams.add(oldest_key)
+                    self._record_tombstone(oldest_key)
                 self._streams[stream_key] = StreamRxState(
                     channel_id=channel_id,
                     arbitration_id=arbitration_id,
@@ -147,13 +160,19 @@ class E2ESafetyValidator:
             state.last_seen_monotonic_ns = now_mono_ns
 
             # S-14: an evicted stream's next frame must NOT be reported INITIAL
-            # (which `is_valid` counts as good). Continuity was lost across the
-            # eviction, so the frame is WRONG_SEQUENCE / RESYNC_REQUIRED until
-            # the caller explicitly resyncs the stream.
+            # (which `is_valid` counts as good): continuity was lost across the
+            # eviction. This frame stays WRONG_SEQUENCE, and when its payload
+            # can yield a counter, that counter seeds `state.last_counter` so
+            # the FOLLOWING frame is continuity-checked instead of resetting to
+            # INITIAL. A payload too short to carry a counter keeps the
+            # tombstone (still flagged). `reset()` is the sanctioned resync.
             if tombstoned:
-                self._evicted_streams.discard(stream_key)
                 state.sequence_errors += 1
                 state.last_verdict = E2EStatus.WRONG_SEQUENCE
+                if len(data) > profile.counter_byte_offset:
+                    self._evicted_streams.discard(stream_key)
+                    self._drop_tombstone(stream_key)
+                    state.last_counter = extract_counter(data, profile)
                 return E2EValidationResult(
                     verdict=E2EStatus.WRONG_SEQUENCE,
                     expected_crc=-1,
@@ -272,7 +291,33 @@ class E2ESafetyValidator:
                 repeated_frames=state.repeated_frames,
                 dropped_frames_estimated=state.dropped_frames_estimated,
                 last_timestamp_ns=state.last_timestamp_ns,
+                last_seen_monotonic_ns=state.last_seen_monotonic_ns,
             )
+
+    def _record_tombstone(self, stream_key: tuple[str, int]) -> None:
+        """A3-F1: add an eviction tombstone, enforcing the ledger ceiling.
+
+        Caller MUST hold ``self._lock``. Oldest-first eviction: beyond
+        MAX_TOMBSTONE_STREAMS the oldest tombstone is dropped — that stream
+        then re-establishes as INITIAL on return (documented residual: a
+        >2048-ID scan flood eventually recycles tombstones, same discipline
+        as the stream table itself).
+        """
+        if stream_key in self._evicted_streams:
+            return
+        self._evicted_streams.add(stream_key)
+        self._evicted_order.append(stream_key)
+        while len(self._evicted_streams) > self.MAX_TOMBSTONE_STREAMS:
+            oldest = self._evicted_order.popleft()
+            self._evicted_streams.discard(oldest)
+
+    def _drop_tombstone(self, stream_key: tuple[str, int]) -> None:
+        """Remove a consumed tombstone from both the set and the order queue."""
+        self._evicted_streams.discard(stream_key)
+        try:
+            self._evicted_order.remove(stream_key)
+        except ValueError:
+            pass
 
     def reset(self, channel_id: str | None = None, arbitration_id: int | None = None) -> None:
         """Reset stream state(s). If no parameters given, resets all streams.
@@ -285,19 +330,22 @@ class E2ESafetyValidator:
             if channel_id is None and arbitration_id is None:
                 self._streams.clear()
                 self._evicted_streams.clear()
+                self._evicted_order.clear()
             elif channel_id is not None and arbitration_id is not None:
                 self._streams.pop((channel_id, arbitration_id), None)
-                self._evicted_streams.discard((channel_id, arbitration_id))
+                self._drop_tombstone((channel_id, arbitration_id))
             elif channel_id is not None:
                 keys_to_remove = [k for k in self._streams if k[0] == channel_id]
                 for k in keys_to_remove:
                     self._streams.pop(k, None)
-                self._evicted_streams = {k for k in self._evicted_streams if k[0] != channel_id}
+                for k in [k for k in self._evicted_streams if k[0] == channel_id]:
+                    self._drop_tombstone(k)
             elif arbitration_id is not None:
                 keys_to_remove = [k for k in self._streams if k[1] == arbitration_id]
                 for k in keys_to_remove:
                     self._streams.pop(k, None)
-                self._evicted_streams = {k for k in self._evicted_streams if k[1] != arbitration_id}
+                for k in [k for k in self._evicted_streams if k[1] == arbitration_id]:
+                    self._drop_tombstone(k)
 
     def get_all_states(self) -> dict[tuple[str, int], StreamRxState]:
         """Retrieve copy of all active stream states."""

@@ -7,7 +7,7 @@
   "dedup": "domain zaten sources'ta varsa EKLEME",
   "blacklist": "blacklist listesindekilere DOKUNMA"
  },
- "updated": "2026-09-24T12:00",
+ "updated": "2026-09-25T20:35",
  "credits": {
   "hesap2": {
    "zone": "scraping_browser1",
@@ -173,10 +173,13 @@
    "domain": "truckfaultcode.com",
    "type": "dtc",
    "method": "free",
-   "status": "pending",
+   "status": "done",
    "credits_used": 0,
    "tur": "T45-B",
-   "notes": "KAYNAK DEGERI YOK: 48 SPN sayfasi yalniz egitim amacli genel metin; gercek semptom/neden/adim yok - tekrar tarama"
+   "notes": "T74 (2026-09-24) TAMAMLANDI — T45-B notu BAYAT ÇIKTI: o dönemde görülen '48 sayfa, yalnız genel metin' tablosu site büyüdükten sonra geçersiz. Güncel ölçüm: 634/634 detay sayfası hasat edildi (0 hata), 88 ayrık SPN, 223 SPN+FMI çifti, 71 çok-üreticili SPN. KALİTE: sayfa düzeyinde distinctness sym 0.56 / cau 0.59 / stp 0.67 (çok-FMI'lı aynı SPN sayfaları paylaşır — DOĞRU davranış); MERGE BİRİMİ SPN düzeyinde sym 0.8031 / cau 0.9210 / stp 0.9104, en büyük özdeş liste grubu 2, çapraz-sistem yanlış-atıf 0 (4 paylaşılan dize alan-doğru çıktı). MERGE: +28 semptom, +21 diagnostic_steps, +86 prosedür paketi (multi-source append). md5 B4AFB190→A53D49D0; 2. apply 0 yeni paket (idempotent — ilk denemede bundle source_url eksikliğinden çoğalma olmuştu, onarıldı: Tuzaklar §41). Bilinen kaynak kusuru: %7.3 kayıtta em-dash çevresi U+FFFD (kaynak baytı; düz ayırıcıya çevrildi, metin uydurulmadı).",
+   "applied": true,
+   "artifact": "output/t74_work/scan_t74_truckfaultcode.json",
+   "quality": "high"
   },
   {
    "id": "quickserve_cummins_com",
@@ -209,8 +212,8 @@
    "status": "done",
    "credits_used": 0,
    "tur": "T45-C",
-   "notes": "4515 DTC (meaning+causes) — DIKKAT: kaynakta symptoms==causes kopyasi, symptoms gecersiz | T46: 4515 satir merge edildi (4178 giris bu kaynaktan). T71 (2026-09-23): tekrar olcum - in_DB 5315, (no_desc AND no_cause) kesisimi 0, NEW 91 (donuk sayim) -> doldurulabilir bos alan yok: TUKETILDI. | T72 (2026-09-24): applied=true isaretlendi (T46 merge zaten tam, dry-run 0 fields_written, idempotent).",
-   "artifact": "tests/unit/test_t46_merge.py",
+   "notes": "T75c (2026-09-25) TAMAMLANDI: 1086/1086 sayfa, 1085 RICH. Kalite MÜKEMMEL: causes distinctness 0.9788, meaning 0.9991. AMA merge getirisi +1: causes_en/description_en alanları ZATEN DOLU (obdhut T66'da bu alanların kaynağıydı); gerçek boşluk symptoms_en (1085/1085 boş) ve site semptom YAYINLAMIYOR. diagnose katmanı %100 şablon (kod-adı nötrlendiğinde 1 distinct) → RED. Ders: kaynak zenginliği ≠ merge getirisi; doğru soru 'boş alanımıza ne veriyor'.",
+   "artifact": "output/scan_t75_obdhut.json",
    "applied": true
   },
   {
@@ -232,10 +235,12 @@
    "domain": "engine-codes.com",
    "type": "dtc",
    "method": "brightdata",
-   "status": "pending",
+   "status": "done",
    "credits_used": 1,
    "tur": "T45-C",
-   "notes": "627KB ham"
+   "notes": "T74b/c (2026-09-24) TAMAMLANDI. BrightData hesap5 (bedir4679) Cloudflare'i çözüyor AMA yerel IP karalistesi (407 ip_blacklisted) canlı hasadı engelledi. ÜCRETSİZ Wayback yolu: (1) DÜZ-şekil 801 hedef → 801/801 hasat, 533 içerikli; katmanlar causes 0.699 KABUL + fixes 1.0 KABUL + symptoms 0.30 RED → MERGE +6. (2) HEX-suffix: CDX envanteri 1.977 hex sayfa → 303 gap kesişimi → 303/303 hasat, 278 içerikli; katmanlar symptoms 0.783 KABUL + fixes 1.0 KABUL + causes 0.58 RED → MERGE +12. Toplam +18 dolum; 2. apply 0 (idempotent); kayıt 14.484 DONUK. ALTYAPI: t66_merge.py sha256 tmp-doğrulaması Windows CRLF çevirimi yüzünden her apply'ı kilitliyordu — newline='' ile düzeltildi (T74c).",
+   "applied": true,
+   "quality": "medium"
   },
   {
    "id": "ecmtrucks_com",
@@ -358,8 +363,8 @@
    "status": "done",
    "credits_used": 47,
    "tur": "T55-C",
-   "notes": "T69 (2026-09-22): 11 kayit MERGE EDILDI (B0001=404 haric). Ayni append yolu ile cok-kaynakli hale geldi. 589 DTC URL'si output/t67_work/t2_dtc_urls.json'da; tam tarama T70 adayi. T70-G (2026-09-23): TAM TARAMA 572/572 HTTP 200, 0 kredi (BrightData customer_suspended -> free urllib). Kirlilik 0.8311 adim dizesi (T69 0.8273/ T64 0.09 oncelegi ile >=0.80 -> ACCEPT). 6 ayristirma kacagi ayristirildi (2 inc sayfa + 4 sablon varyanti). MERGE 553 doldu; md5 FEDC9466->FF8B6D3B; 2. apply bayit (IDEMPOTENT).",
-   "artifact": "output/scan_t70_obd2pros.json",
+   "notes": "T76 (2026-09-25) TAMAMLANDI: 361/361 sayfa, hepsi EN+RICH. symptoms 0.7005 / causes 0.9621 / steps 0.9992 → üçü de KABUL. MERGE +359 (hepsi symptoms_en!) — semptom boşluğuna İLK gerçek kod-spesifik kaynak. DTC symptoms_en %47,0→%49,5. md5 7F0036B5→4EABDAAE; 2. apply 0 (idempotent). Dil kapısı gerekliydi (bazı sayfalar Almanca). summary katmanı çıkarılamadı (markup).",
+   "artifact": "output/scan_t76_obd2.json",
    "applied": true
   },
   {
@@ -665,16 +670,16 @@
    "domain": "truckcodex.com",
    "type": "dtc",
    "method": "brightdata",
-   "status": "pending",
+   "status": "done",
    "credits_used": 5,
    "tur": "KESIF-2026-09-17-w1",
    "quality": "high",
    "est_items": 300,
    "license": "public-record compilation; robots Content-Signal: search=yes, ai-input=yes, ai-train=no (attribution: link + 'TruckCodex' + access date)",
    "sitemap": "https://truckcodex.com/sitemap.xml -> sitemap/codes.xml (J1939 ~94 SPN sayfasi + OBD2 ~224 kod sayfasi = ~318)",
-   "notes": "T67 (2026-09-22): robots.txt HTTP 200 -> ACIK RIZA: 'Content-Signal: search=yes,ai-input=yes,ai-train=no' + 'Allow: /'; yalniz /api/ ve /compare/ disallow. Sitemap erisilebilir (34 loc). HANGI YOLUN fault-code tasidigi DOGRULANMADI (butce doldu) -> T68'de sitemap deseni cikarilmali.",
+   "notes": "T73b (2026-09-24) TAMAMLANDI: hedefli 37/37 sayfa. İKİ KİMLİK KUSURU YAKALANDI VE DÜZELTİLDİ: (1) sitemap J1939 slug 0-31 = FMI tanım sayfaları (SPN değil!) — 23 kayıt adaptörde elendi (uydurma önlendi); (2) 6 gerçek SPN sayfasından 3'ünde başlık/DB adı çakışması (235/3241/899) → elendi. Adım katmanı REDDEDİLDİ (5-satır site şablonu, 4/5 satır site-wide). MERGE: +3 SPN symptoms (SPN 172/183/974); j1939 md5 634B32A7→B4AFB190; 2. apply bayt-özdeş; SPN sayısı 4.291 sabit.",
    "applied": true,
-   "artifact": "output/scan_t66_j1939_truckcodex.com.json"
+   "artifact": "output/scan_t73_truckcodex.json"
   },
   {
    "id": "obdfyi_com",
@@ -784,14 +789,16 @@
    "domain": "tuningbot.com",
    "type": "dtc",
    "method": "free",
-   "status": "pending",
+   "status": "done",
    "credits_used": 0,
    "tur": "KESIF-2026-09-17-w4",
    "quality": "high",
    "est_items": 17319,
    "license": "belirsiz (ticari ECU tuning sitesi; free reference)",
    "sitemap": "https://tuningbot.com/dtc-codes/ (116 sayfa, sayfalanmis; 29 marka + 21 sistem filtre)",
-   "notes": "YENI KESIF. 17.319 kayit (9.208 generic OBD-II + 8.111 manufacturer-specific), 29 marka (VAG=1608, Ford=1080, BMW=295, PSA=958, Toyota...), 21 sistem. Her kod sayfasi: meaning + symptoms + possible causes + recommended checks. PSA ECU-seviye kayitlar. Hedef: DTC symptoms + causes (DB'de 13.521 symptoms bos!). | T71 (2026-09-23): HEDEF SECILDI - robots /dtc-codes/ acik (yalniz ?dtc= kapali), EN sitemap 10750 alfa-kod URL, in_DB 10578, HEDEF (no_sym OR no_desc OR no_proc OR no_title) 6735 sayfa (no_sym=6301). Serbest sahne provasi: u0179 tam sablon (symptoms+causes+checks li), p0531 kismi (causes p), c054c/p001f ince (bolum yok); no_sym ornekinde icerikli 8/16=%50. hasat: output/t71_work/t71_tuningbot_free.py"
+   "notes": "YENI KESIF. 17.319 kayit (9.208 generic OBD-II + 8.111 manufacturer-specific), 29 marka (VAG=1608, Ford=1080, BMW=295, PSA=958, Toyota...), 21 sistem. Her kod sayfasi: meaning + symptoms + possible causes + recommended checks. PSA ECU-seviye kayitlar. Hedef: DTC symptoms + causes (DB'de 13.521 symptoms bos!). | T71 (2026-09-23): HEDEF SECILDI - robots /dtc-codes/ acik (yalniz ?dtc= kapali), EN sitemap 10750 alfa-kod URL, in_DB 10578, HEDEF (no_sym OR no_desc OR no_proc OR no_title) 6735 sayfa (no_sym=6301). Serbest sahne provasi: u0179 tam sablon (symptoms+causes+checks li), p0531 kismi (causes p), c054c/p001f ince (bolum yok); no_sym ornekinde icerikli 8/16=%50. hasat: output/t71_work/t71_tuningbot_free.py | T71 (2026-09-23/24) TAMAMLANDI: 6.735/6.735 sayfa, 0 ücretlenmemiş, HTTP 200 6.735/6.735. Semptom taşıyan 1.983 (kapı 500 ✓), tam şablon 1.895. KİRLİLİK: adım dizesi 0.0276 (252/9.140) — mekanik kapı (≥0.80) REJECT. ŞABLON ÇÖKÜŞÜ ÖLÇÜLDÜ: 2.026 adım-taşıyan sayfa → yalnız 105 farklı adım listesi; EN BÜYÜK GRUP 737 sayfa (736'sı U-prefix CAN kodu) özdeş 5-adımlı listeyi paylaşıyor (T64 emsali: 66 sayfa → RED). YANLIŞ ATAMA: 36 fren kodu (C056A..C05BF, P0555-P0559) turbo semptom/adımları taşıyor (elle doğrulandı, ham HTML). Site-wide adım 9. HÜKÜM (ön-kayıtlı, verdict_framework_t71.md): şablon katmanları (symptoms/causes/steps/procedures) REDDEDİLDİ — DB'ye YAZILMADI. CARVE-OUT KABUL: description+title (yanlış-atama sayfalarının 36/36'sında desc kendi konusuna doğru; desc benzersizliği %98.85; token yeniliği 0.593). MERGE: +423 title_en (12.531→12.954), +4 description_en (12.677→12.681); md5 FF8B6D3B→198B053E; 2. apply bayt-özdeş (IDEMPOTENT); kayıt sayısı 14.484 sabit. Artefaktlar: output/scan_t71_tuningbot.json, output/t71_tuningbot_report.md, output/t71_work/verdict_framework_t71.md, output/t71_work/t71_carveout.py.",
+   "applied": true,
+   "artifact": "output/scan_t71_tuningbot.json"
   },
   {
    "id": "openlaborproject_com",
@@ -1503,6 +1510,114 @@
    "credits_used": 53,
    "tur": "T66-scout",
    "notes": "T66-scout: ilk 40 sayfa. T69: 19 kayit multi-source prosedur hattina baglandi (3 kaynak/647 adim). T69-F (2026-09-22/23): TAM KORPUS taramasi — 98 makale / 41 kod / 8 marka, 185 charged sayfa (200 butce), 85 uncharged abort (CDP oturumu ~290s'de sunucu tarafi geri donusum; site hic dokunulmadi). Sablon-kirliligi BAGIMSIZ olculdu: adim imzasi 3.200/3.880 = %82,5 (ajanin raporu %100 dedi — olcum hatasi duzeltildi). Ayrica: ajanin 28 HTML kanit iddiasina karsi 29 dosya bulundu. 3 sablon varyanti kesfedildi (T67 parser'i yalnizca 1'ini isliyordu) — output/t69_work/t69_parse_ext.py ile yeniden ayristirildi. Merge: 58 kayit procedures_full_multi kazandi. T69-G: merge kurali zenginlik-farkinda yapildi (ayni URL daha zengin donerse degistirir) — P0117 40->75 adim yukseltildi; DB 14.484 kayit SABIT ve merge IDEMPOTAN."
+  },
+  {
+   "id": "carberry_pro",
+   "url": "carberry.pro/obd/{CODE}",
+   "domain": "carberry.pro",
+   "type": "dtc",
+   "method": "free",
+   "status": "done",
+   "credits_used": 0,
+   "tur": "T72-kesif",
+   "quality": "high",
+   "est_items": 8665,
+   "license": "belirsiz (robots Allow: /, Crawl-delay: 1; site kendi icerigi)",
+   "sitemap": "https://carberry.pro/sitemap.xml -> sitemap-obd-1.xml (8665 loc)",
+   "notes": "T73 (2026-09-24) TAMAMLANDI: 4.001/4.001 hedefli sayfa (DB'de dolgu getirebilen kodlar; 8.665'in tamamı çekilmedi — kayıt sayısı donuk), 0 hata, 0 parse kaçağı. HÜKÜM: KATMANLI. ŞABLON KATMANLARI REDDEDİLDİ: adım kirliliği 0.6591 < 0.80 kapısı (T73c dtclookup 0.6764 ile aynı sınıf ve o REDDEDİLMİŞTİ); site-wide dize olayların %31.8'i. LEHTE: çapraz-konu adımlar 1/4.001 = %0.02 (T71'in %2.1'ine karşı 100× temiz); en büyük özdeş adım listesi grubu 10 (rezerve kodlar — özdeş adım DOĞRU). CARVE-OUT KABUL: title_en 4.001/4.001 benzersiz + description_en %98.3; MERGE +695 kayıt (481 title_en + 693 description_en; 216'sı DB'de junk fallback başlıklı kodların TEK gerçek anlamı). md5 4A874CAF→1EA60145; 2. apply bayt-özdeş; kayıt 14.484 sabit. Ham şablon katmanları scan dosyasında saklı (ileride yeniden değerlendirme için).",
+   "applied": true,
+   "artifact": "output/scan_t73_carberry.json"
+  },
+  {
+   "id": "dtclookup_com",
+   "url": "dtclookup.com/obd-ii/{code}/",
+   "domain": "dtclookup.com",
+   "type": "dtc",
+   "method": "free",
+   "status": "done",
+   "credits_used": 0,
+   "tur": "T72-kesif",
+   "quality": "high",
+   "est_items": 3088,
+   "license": "belirsiz (robots'ta eslesen kural yok = Allow; site kendi icerigi)",
+   "sitemap": "https://www.dtclookup.com/sitemap.xml (17600 loc; 3088 OBD-II kod sayfasi + 11677 BMW marka-ozel)",
+   "notes": "T73c (2026-09-24) TAMAMLANDI: 454/454 sayfa, 0 parse kaçağı, 454 semptom+neden+adım. HÜKÜM: REJECT — adım dizesi kirliliği 0.6764 < 0.80 (5.253 dizenin 3.553'ü tekil; site-wide ≥3 kod 202 dize). Liste-seviyesi çöküş YOK (454/454 ayrı liste) ama dize şablonları geri dönüştürülüyor ('Clear the DTC...' 122 kodda). Bağımsız doğrulama (orchestrator): semptom uniq 0.3686, neden 0.5456, description 1.0000 — carve-out denendi: description_en/title_en hedefi 0 (DB'de zaten dolu) → kaynak tükendi. DB'ye YAZILMADI. Artefakt: output/scan_t73_dtclookup.json + t73_dtclookup_report.md.",
+   "applied": false
+  },
+  {
+   "id": "autofixdb_com",
+   "url": "autofixdb.com/codes/{code}-{slug}.html",
+   "domain": "autofixdb.com",
+   "type": "dtc",
+   "method": "free",
+   "status": "done",
+   "credits_used": 0,
+   "tur": "T72-kesif",
+   "quality": "high",
+   "est_items": 594,
+   "license": "belirsiz (robots Allow: /; site kendi icerigi)",
+   "sitemap": "https://www.autofixdb.com/sitemap.xml (4118 loc; 594 kod sayfasi)",
+   "notes": "T73d (2026-09-24) TAMAMLANDI: 527/527 sayfa, 0 parse kaçağı. HÜKÜM: ACCEPT — adım kirliliği 0.9983, neden 1.0000, adım listesi 527/527 ayrı, en büyük özdeş grup 1; tek site-wide dize 5 kodda (1/5 adım). MERGE: 527 kayıt, 526 procedures_full + 509 symptoms_en + 17 causes_en + 15 desc/title; 2. apply bayt-özdeş (IDEMPOTENT); sayı 14.484 sabit. misdiagnoses alanı tarama dosyasında saklı (DB alanı yok).",
+   "applied": true,
+   "artifact": "output/scan_t73_autofixdb.json"
+  },
+  {
+   "id": "theerrorcodes_com",
+   "url": "theerrorcodes.com/auto/codes/{code}",
+   "domain": "theerrorcodes.com",
+   "type": "dtc",
+   "method": "free",
+   "status": "done",
+   "credits_used": 0,
+   "tur": "T72-kesif",
+   "quality": "medium",
+   "est_items": 9745,
+   "license": "belirsiz (robots Allow: /; site kendi icerigi)",
+   "sitemap": "https://theerrorcodes.com/sitemap.xml (21591 loc; 9745 kod sayfasi)",
+   "notes": "T73e (2026-09-24) B/U/C hedefli hasat TAMAMLANDI: 2.126/2.126 sayfa, 0 hata, 876 içerikli (%41 — ön ölçümle uyumlu: B %40, U %40, C %28). HÜKÜM: KATMANLI. ŞABLON KATMANLARI REDDEDİLDİ: neden 2.628 öğede yalnız 12 farklı dize (0.0046), semptom 62 farklı dize (0.0236), 'Warning light(s) on' + 'One or more systems not functioning' 518'er kodda — T64/T71 boilerplate sınıfı. CARVE-OUT KABUL: title_en 2.126/2.126 benzersiz; MERGE +496 kayıt (503 title_en hedefi + 128 desc hedefi; kısmi örtüşme). md5 1EA60145→B9AABB19; 2. apply bayt-özdeş; kayıt 14.484 sabit. P ailesi (5.329 URL, zengin oran ~%12) KASITLI olarak hasat edilmedi. T74-P (2026-09-24) P AİLESİ KAPANDI: 120 sayfalık stratifiye ön-test — semptom 168 öğe/6 farklı (0.0357), neden 168/3 (0.0179), adım 0; site-wide 'Check Engine Light on' 56 kodda. ŞABLON KATMANLARI RED — 4.991 sayfalık toplu hasat BURADA DURDURULDU (100 dk harcamak sıfır getiri olurdu). CARVE-OUT KABUL: title_en/desc_en BOŞ olan 256 P kodu hasat edildi (256/256, 0 hata; başlık benzersizlik 1.0000, junk 0) → MERGE +143 dolum (title_en +139, description_en +44). md5 B9AABB19→BAAE5C3B; 2. apply bayt-özdeş. P-aile semptom boşluğu (5.218) bu kaynakla KAPATILAMADI.",
+   "applied": true,
+   "artifact": "output/scan_t73_tec_buc.json"
+  },
+  {
+   "id": "enginetroublecode_com",
+   "url": "enginetroublecode.com",
+   "domain": "enginetroublecode.com",
+   "type": "dtc",
+   "method": "free",
+   "status": "rejected",
+   "credits_used": 0,
+   "tur": "T72-kesif",
+   "quality": "none",
+   "est_items": 15996,
+   "license": "belirsiz",
+   "sitemap": "https://enginetroublecode.com/sitemap.xml (21074 loc)",
+   "notes": "T72 kesif (2026-09-23): RED - sablon + yanlis atama. 6 farkli kodda semptom kartlari byte-byte AYNI; B0001 (govde kodu) sayfasi powertrain anlamlari listeliyor. Distinctness 0/13. Ek not: robots Crawl-delay: 15 alt alan adlarinda uygulanmadi (kesif ajani kaydi; veri ALINMADI)."
+  },
+  {
+   "id": "nhtsa_tsb",
+   "url": "static.nhtsa.gov/odi/tsbs",
+   "domain": "static.nhtsa.gov",
+   "type": "j1939",
+   "method": "free",
+   "status": "done",
+   "applied": true,
+   "tur": "T77",
+   "quality": "high",
+   "artifact": "output/t77_work/scan_t77_nhtsa_tsb.json",
+   "notes": "T77 (2026-09-25): ABD kamu malı OEM TSB PDF'leri. 21.069 PDF envanteri (CDX); 41 prosedür çıkarıldı, 11 gap SPN. steps distinctness 0.8908, biggest group 1 → MERGE +11 SPN +11 paket. md5 0D7EDF12→2628427F; idempotent."
+  },
+  {
+   "id": "geekobd_com",
+   "url": "geekobd.com",
+   "domain": "geekobd.com",
+   "type": "dtc",
+   "method": "free",
+   "status": "done",
+   "applied": true,
+   "tur": "T77b",
+   "quality": "high",
+   "artifact": "output/mr_t77b_geekobd.json",
+   "notes": "T77b (2026-09-25) TAMAMLANDI: 5.480/5.480 hedef, hepsi EN+RICH. **HEX-SUFFIX KİLİDİ KIRILDI** (1.468 hex gap kodu). Katmanlar: symptoms 0.8864 / causes 0.9993 KABUL; steps 0.5307 RED. **MERGE +6.330 symptoms +1.211 causes** — DTC symptoms %49,5→%93,2, causes %86,9→%95,2. Dict-leak olayı: 110 kayıt onarıldı. md5 AA216522; idempotent."
   }
  ],
  "blacklist": [

@@ -129,7 +129,11 @@ class DiagnosticReportGenerator:
   </table>
 """
 
-        # Compute tamper-evident hash of full canonical report content (E1)
+        # Compute the tamper-evident session seal (E1). SCOPE: the digest covers
+        # the canonical METADATA + DTC list + stats + date record below — NOT
+        # the rendered HTML bytes. Editing a rendered cell (e.g. a DTC
+        # description) is not detectable by this seal; its guarantee is that
+        # the canonical diagnostic record itself is unmodified.
         canonical_dtcs = []
         for dm in dm_messages:
             for dtc in dm.dtcs:
@@ -204,7 +208,9 @@ class DiagnosticReportGenerator:
 </html>
 """
         # Residual item #2: atomic write — a report carrying a session seal must
-        # never be observed truncated (the hash must match complete contents).
+        # never be observed truncated (a half-written file would fail to load
+        # or render, not merely mismatch the seal, which does not cover the
+        # HTML bytes — see the scope note above).
         atomic_write_text(path, html_content)
 
         logger.info("Generated Diagnostic Service HTML Report", extra={"file": str(path), "hash": report_sha256})

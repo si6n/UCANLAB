@@ -97,6 +97,7 @@ class TxSafetyGateway:
 
     MAX_TX_RATE_PER_SEC: ClassVar[int] = 100  # Max 100 msg/s to prevent bus starvation
     SPEED_NOISE_THRESHOLD_KMH: ClassVar[float] = 0.5  # Permitted sensor jitter / noise threshold
+    SPEED_MAX_PLAUSIBLE_KMH: ClassVar[float] = 300.0  # Max physically plausible vehicle speed (fail-closed ceiling)
     SPEED_VALIDITY_TIMEOUT_NS: ClassVar[int] = 1_000_000_000  # 1.0 second speed freshness timeout
     RATE_LIMIT_WINDOW_NS: ClassVar[int] = 1_000_000_000  # 1.0 second sliding window (nanoseconds)
     # P1-9: consecutive default-lane rejections tolerated before escalating
@@ -785,8 +786,17 @@ class TxSafetyGateway:
                     raise DualConfirmationRequiredError(
                         "Critical command rejected: confirmation token action mismatch",
                     )
+            else:
+                # Fail-closed: a context-bound token presented without an
+                # expected context can never be verified — reject instead of
+                # silently skipping the binding check.
+                raise DualConfirmationRequiredError(
+                    "Critical command rejected: confirmation token action binding not verified",
+                )
         elif expected_context is not None:
-            # Legacy unbound token presented where a bound one is required.
+            # Legacy unbound token presented where a bound one is required —
+            # reject (I-03: flash steps always demand bound tokens, so a
+            # legacy arb+expiry-only token can never authorize a flash write).
             raise DualConfirmationRequiredError(
                 "Critical command rejected: confirmation token lacks action binding",
             )
@@ -996,7 +1006,7 @@ class TxSafetyGateway:
                     float(speed_kmh) if math.isfinite(speed_kmh) and speed_kmh >= 0.0 else float("nan")
                 )
                 return
-            if not math.isfinite(speed_kmh) or speed_kmh < 0.0:
+            if not math.isfinite(speed_kmh) or speed_kmh < 0.0 or speed_kmh > self.SPEED_MAX_PLAUSIBLE_KMH:
                 # G-8: corrupted PHYSICAL telemetry fails the interlock closed.
                 self._physical_speed_kmh = float("nan")
                 self._display_speed_kmh = float("nan")
@@ -1059,7 +1069,7 @@ class TxSafetyGateway:
             return "ok", speed
 
     @staticmethod
-    def _iso_tp_service_byte(data: bytes) -> int | None:
+    def _iso_tp_service_byte(data: bytes, is_fd: bool = False) -> int | None:
         """Extract the UDS service byte from an ISO-TP frame payload.
 
         Handles classic CAN and the CAN-FD / extended-length escape sequence
@@ -1069,10 +1079,11 @@ class TxSafetyGateway:
         payload).
 
         Layouts:
-          * SingleFrame  classic:  ``[0x0L][SID][...]``            -> SID at 1
+          * SingleFrame  classic:  ``[0x0L][SID][...]``            -> SID at 1 (L = 1..7)
           * FirstFrame   classic:  ``[0x1L LL][SID][...]``         -> SID at 2
-          * escape SF:             ``[0x00][0x00][DL32][SID][...]``-> SID at 6
-          * escape FF:             ``[0x10][0x00][DL32][SID][...]``-> SID at 6
+          * escape SF (FD only):   ``[0x00][0x00][DL32][SID][...]``-> SID at 6
+          * CAN-FD extended SF:    ``[0x00][DL8][SID][...]``       -> SID at 2 (DL8 = 8..62)
+          * escape FF (FD only):   ``[0x10][0x00][DL32][SID][...]``-> SID at 6
         """
         if not data:
             return None
@@ -1080,14 +1091,24 @@ class TxSafetyGateway:
         if pci == 0x0:
             if len(data) < 2:
                 return None
-            if data[1] == 0x00:
-                # Escape: 4-byte length at [2..5], SID at [6].
-                return data[6] if len(data) >= 7 else None
+            if data[0] == 0x00:
+                if not is_fd:
+                    return None
+                if data[1] == 0x00:
+                    # Escape: 4-byte length at [2..5], SID at [6].
+                    return data[6] if len(data) >= 7 else None
+                # CAN-FD Extended Single Frame (ISO 15765-2:2016 §9.2):
+                # 1-byte length (8..62) at [1], SID at [2].
+                if 8 <= data[1] <= 62:
+                    return data[2] if len(data) >= 3 else None
+                return None
             return data[1]
         if pci == 0x1:
             if len(data) < 2:
                 return None
             if data[1] == 0x00:
+                if not is_fd:
+                    return None
                 # Escape FirstFrame: 4-byte length at [2..5], SID at [6].
                 return data[6] if len(data) >= 7 else None
             return data[2] if len(data) >= 3 else None
@@ -1149,11 +1170,18 @@ class TxSafetyGateway:
             if not data:
                 return False
             is_extended = bool(getattr(frame, "is_extended", False))
+            is_fd = bool(getattr(frame, "is_fd", False))
 
             if not is_extended:
-                if frame.arbitration_id not in self.whitelist_ids:
+                # Mirror Stage 3 exactly: a mask-authorized ID is whitelisted
+                # too — membership alone must not skip Stage 4/5 for 11-bit
+                # frames whose authorization came from a whitelist pattern.
+                if frame.arbitration_id not in self.whitelist_ids and not any(
+                    mask != 0 and (frame.arbitration_id & mask) == value
+                    for value, mask in self.whitelist_masks
+                ):
                     return False
-                sid = self._iso_tp_service_byte(data)
+                sid = self._iso_tp_service_byte(data, is_fd=is_fd)
                 return sid is not None and sid in self.CRITICAL_UDS_SIDS
 
             if not (self.whitelist_ids or self.whitelist_masks):
@@ -1165,7 +1193,7 @@ class TxSafetyGateway:
             if pf in (self.ISOTP_29BIT_PF, self.ISOTP_29BIT_FUNCTIONAL_PF):
                 # S1-P1-1 + A1-F1: 29-bit physical (0xDA) AND global
                 # functional (0xDB) ISO-TP to an ECU share one derivation.
-                sid = self._iso_tp_service_byte(data)
+                sid = self._iso_tp_service_byte(data, is_fd=is_fd)
                 if sid is None:
                     # A1-F2, narrowed: ONLY a truncated SF/FF header (lone
                     # [0x02]/[0x10], short escape header — the PCI claims MORE
@@ -1180,6 +1208,10 @@ class TxSafetyGateway:
                     # multi-frame read behind the interlock + dual confirm.
                     pci = data[0] >> 4
                     if pci in (0x0, 0x1):
+                        # If pci is 0x0 and data[0] is 0x00, only critical if is_fd
+                        # (escape/extended header that was truncated)
+                        if pci == 0x0 and data[0] == 0x00 and not is_fd:
+                            return False
                         return True
                     return False
                 return sid in self.CRITICAL_UDS_SIDS
@@ -1556,10 +1588,10 @@ class TxSafetyGateway:
                     f"Global TX envelope exceeded ({self.MAX_TOTAL_TX_PER_SEC} msg/s across all lanes)"
                 )
             self._total_overload_streak = 0
-            # R2-G2: identity-carrying global-envelope stamp (rollback-safe).
-            self._stamp_seq += 1
-            total_stamp = (now_ns, threading.get_ident(), self._stamp_seq)
-            self._tx_total_timestamps.append(total_stamp)
+            # I-01: reservation AFTER admission checks — the simulation-lane
+            # sanity check below rejects without leaving a total_stamp leak.
+            # (Rollback on all reject paths via _rollback_tx_reservation is the
+            # belt-and-suspenders layer; ordering is the primary fix.)
 
             # M-23 (P2-4): the simulation lane's generous budget (500/250)
             # exists for the DEMO generator's synthetic multi-ECU traffic. A
@@ -1584,6 +1616,14 @@ class TxSafetyGateway:
                             "bus_interface": getattr(self._bus, "interface", None),
                         },
                     )
+
+            # I-01: the global-envelope stamp is reserved AFTER all admission
+            # checks above (envelope limit, simulation-lane sanity) so a
+            # reject leaves no orphan total_stamp to starve the cross-lane
+            # budget. Later reject paths roll back via _rollback_tx_reservation.
+            self._stamp_seq += 1
+            total_stamp = (now_ns, threading.get_ident(), self._stamp_seq)
+            self._tx_total_timestamps.append(total_stamp)
 
             if budget_category == "default":
                 # Default lane: sliding window only (single meter)

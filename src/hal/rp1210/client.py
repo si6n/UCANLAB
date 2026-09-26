@@ -545,6 +545,11 @@ class RP1210Client:
         L-20 (P2-27): a DLL without the SendCommand export now fails LOUDLY
         — the old `return 0` reported success for configuration that never
         happened (silent misconfiguration of filters/baud).
+
+        NOTE (fix 10f): a NON-ZERO vendor return on an actual command is only
+        LOGGED (warning) and returned — this method warns-and-returns, it does
+        NOT raise on command failure. Callers MUST check the returned code
+        instead of assuming success.
         """
         with self._lifecycle_lock:
             if not self._dll:
@@ -574,6 +579,10 @@ class RP1210Client:
 
     def get_error_message(self, error_code: int) -> str:
         """Fetch descriptive error string from RP1210 DLL or fallback dictionary."""
+        # FIX 10b: RP1210 functions return NEGATIVE codes (connect failure
+        # passes the raw negative client_id here) — normalize the magnitude so
+        # the DLL lookup and the enum fallback both resolve a real description.
+        error_code = abs(error_code)
         if self._dll and hasattr(self._dll, "RP1210_GetErrorMsg"):
             desc_buf = ctypes.create_string_buffer(256)
             ret = self._dll.RP1210_GetErrorMsg(ctypes.c_short(error_code), desc_buf)

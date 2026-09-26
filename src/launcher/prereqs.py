@@ -51,7 +51,10 @@ class PrereqChecker:
         tokens = sys.argv[1:] if argv is None else list(argv)
         if os.environ.get("UCANLAB_CLI_MODE", "").strip() == "1":
             return True
-        return any(str(tok).split("=", 1)[0] in ("--cli", "-c") for tok in tokens)
+        # M-1 correction: "-c" is the documented short form of --channel
+        # (README:72), NOT of --cli — counting it here let "-c <channel>"
+        # GUI runs skip the WebView2 criticality gate.
+        return any(str(tok).split("=", 1)[0] == "--cli" for tok in tokens)
 
     @classmethod
     def check_webview2(cls, *, cli_mode: bool = False) -> PrereqStatus:

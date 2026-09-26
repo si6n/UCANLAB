@@ -109,13 +109,15 @@ def check_metadata_totals(findings: list[dict[str, str]]) -> dict[str, Any]:
 # --------------------------------------------------------------------------
 # 3 — CSV ikizleri
 # --------------------------------------------------------------------------
-# (csv, json, beklenen satır kuralı) — kural: one_to_one | dids | pids | fault_matrix
+# (csv, json, beklenen satır kuralı) — kural: one_to_one | dids | pids | fault_matrix | mode06_tests
 _CSV_EXPECTATIONS: tuple[tuple[str, str, str], ...] = (
     ("dtc_database.csv", "dtc_database.json", "one_to_one"),
     ("uds_did_database.csv", "uds_did_database.json", "dids"),
     ("extended_pid_database.csv", "extended_pid_database.json", "pids"),
     ("j1939_spn_fmi_database.csv", "j1939_spn_fmi_database.json", "fault_matrix"),
     ("nhtsa_can_recalls_database.csv", "nhtsa_can_recalls_database.json", "one_to_one"),
+    ("obd_mode06_database.csv", "obd_mode06_database.json", "mode06_tests"),
+    ("canonical_symptoms.csv", "canonical_symptoms.json", "symptoms"),
 )
 
 
@@ -148,6 +150,16 @@ def _expected_rows(key: str) -> int | None:
         if key == "fault_matrix":
             spns = _load_json(DIAG_DIR / "j1939_spn_fmi_database.json")["spns"]
             return sum(len(entry.get("fault_matrix") or {}) for entry in spns.values())
+        if key == "mode06_tests":
+            data = _load_json(DIAG_DIR / "obd_mode06_database.json")
+            monitors = data.get("monitors", {})
+            c2 = data.get("class2_monitors", {})
+            m_tests = sum(len(m.get("tests") or []) for m in monitors.values())
+            c2_tests = sum(len(m.get("tests") or []) for m in c2.values()) if isinstance(c2, dict) else 0
+            return m_tests + c2_tests
+        if key == "symptoms":
+            data = _load_json(DIAG_DIR / "canonical_symptoms.json")
+            return len(data.get("symptoms", {}))
     except (OSError, KeyError, json.JSONDecodeError):
         return None
     return None

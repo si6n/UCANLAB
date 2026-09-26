@@ -15,18 +15,29 @@ from src.hal.replay.safety_filter import ReplaySafetyFilter
 
 logger = get_logger("hal.replay")
 
+SUPPORTED_EXTENSIONS: frozenset[str] = frozenset({".asc", ".csv", ".blf"})
+
 
 class ReplayBus:
-    """Deterministic in-memory and file-based CAN traffic replay engine."""
+    """Deterministic in-memory and file-based CAN traffic replay engine.
 
-    # HAL-11: callback attributes that mark a consumer as a LIVE-TX path.
-    # `play(callback=bus.send)` (or any bound driver `send`/`privileged_send`/
-    # `_send_raw`/`transmit` method) used to replay trace frames straight onto
-    # a real bus with NO ReplaySafetyFilter in between — a replayed DM11 /
-    # Address Claim / ECU Reset reached the wire unchecked, bypassing the
-    # AGENTS.md §2.1 choke-point. Such a callback now requires an explicit
-    # `allow_unfiltered_tx=True` opt-in AND is refused outright unless a
-    # safety filter is supplied.
+    B-06 — ALWAYS-FILTER CONTRACT (structural, not heuristic):
+    ``play()`` routes EVERY frame through a ``ReplaySafetyFilter`` before it
+    reaches the callback. When no ``safety_filter`` was supplied (to
+    ``__init__`` or the ``safety_filter`` keyword of ``play()``), a default
+    ``ReplaySafetyFilter()`` is used. Blocked frames are DROPPED and counted
+    via ``filtered_frames``. There is no opt-in escape hatch: no callback
+    shape — lambda, ``functools.partial``, callable object, module function,
+    or a bound driver method such as ``bus.send`` — can ever receive an
+    unfiltered replay frame. The previous heuristic guard
+    (``_is_tx_callback``) only recognised bound methods and was bypassable by
+    any wrapper; it now emits an informational WARNING only and is NOT a
+    security gate.
+    """
+
+    # B-06: callback names that mark a consumer as a LIVE-TX path. Used ONLY
+    # to emit an informational warning — the always-filter contract above is
+    # what actually protects the wire (AGENTS.md §2.1 choke-point).
     _TX_CALLBACK_NAMES: ClassVar[frozenset[str]] = frozenset(
         {"send", "privileged_send", "_send_raw", "transmit", "send_message", "write"}
     )
@@ -48,22 +59,28 @@ class ReplayBus:
         # of silently killing the replay worker thread.
         self.callback_errors: int = 0
         self.dropped_frames: int = 0
-        # HAL-11: optional ReplaySafetyFilter. When provided, `play()` routes
-        # EVERY frame through it and drops whatever it blocks, so the replay
-        # path cannot deliver an unsafe frame regardless of the callback.
+        # B-06: optional ReplaySafetyFilter used by `play()`. Filtering is
+        # ALWAYS active — when this is None, `play()` substitutes a default
+        # ReplaySafetyFilter(), so every callback receives only filtered
+        # frames (see `play()` docstring).
         self.safety_filter: ReplaySafetyFilter | None = safety_filter
         self.filtered_frames: int = 0
 
     @classmethod
     def _is_tx_callback(cls, callback: object) -> bool:
-        """HAL-11: heuristically detect a callback bound to a driver TX method.
+        """B-06: heuristically detect a callback bound to a driver TX method.
 
         Matches a BOUND method whose name is one of the canonical HAL TX
         entry points (``AbstractBus.send`` / ``privileged_send`` / the legacy
-        ``_send_raw`` shim). A module-level function or a lambda that merely
-        forwards somewhere is not detectable this way — that residual gap is
-        why the documented recommendation is to pass an explicit
-        `safety_filter` rather than rely on this heuristic alone.
+        ``_send_raw`` shim). A module-level function, a lambda, a
+        ``functools.partial`` or a callable object that merely forwards
+        somewhere is not detectable this way.
+
+        INFORMATIONAL ONLY: this predicate is used to emit a WARNING
+        ("TX-shaped callback receiving filtered replay stream") and is NOT a
+        security gate. Filtering is structural — every callback receives only
+        frames that already passed ``filter_frame`` — so the heuristic's
+        blind spots no longer open a bypass.
         """
         if not callable(callback):
             return False
@@ -92,6 +109,8 @@ class ReplayBus:
         logger.info("Loaded BLF trace into ReplayBus", extra={"file": str(file_path), "frame_count": len(frames)})
         return cls(frames)
 
+    SUPPORTED_EXTENSIONS: ClassVar[frozenset[str]] = SUPPORTED_EXTENSIONS
+
     @classmethod
     def from_trace_file(cls, file_path: str | Path) -> ReplayBus:
         """Load a trace by file extension: .asc → Vector ASCII, .csv → CSV, .blf → Vector BLF.
@@ -99,6 +118,11 @@ class ReplayBus:
         Unknown extensions raise ValueError.
         """
         suffix = Path(file_path).suffix.lower()
+        if suffix not in cls.SUPPORTED_EXTENSIONS:
+            supported = ", ".join(sorted(cls.SUPPORTED_EXTENSIONS))
+            raise ValueError(
+                f"Unsupported trace format '{suffix or '(none)'}' — supported: {supported}"
+            )
         if suffix == ".asc":
             return cls.from_asc_file(file_path)
         if suffix == ".csv":
@@ -106,7 +130,7 @@ class ReplayBus:
         if suffix == ".blf":
             return cls.from_blf_file(file_path)
         raise ValueError(
-            f"Unsupported trace format '{suffix or '(none)'}' — supported: .asc, .csv, .blf"
+            f"Unsupported trace format '{suffix or '(none)'}' — supported: {', '.join(sorted(cls.SUPPORTED_EXTENSIONS))}"
         )
 
     def load_frames(self, frames: Sequence[CanFrame]) -> None:
@@ -145,7 +169,7 @@ class ReplayBus:
         speed: float = 1.0,
         stop_event: Any | None = None,
         loop: bool = False,
-        allow_unfiltered_tx: bool = False,
+        safety_filter: ReplaySafetyFilter | None = None,
     ) -> None:
         """Play through frames with accurate inter-frame timing delta.
 
@@ -153,23 +177,22 @@ class ReplayBus:
         REVIEW 3: shared state is only touched under ``_lock`` (never while
         sleeping) and callback exceptions are counted, never propagated.
 
-        HAL-11 — LIVE-TX RISK, EXPLICIT CONTRACT:
-        ``callback`` receives the replay frames VERBATIM. If the callback
-        transmits (``callback=bus.send`` is the canonical example), replay
-        traffic reaches a real bus with no safety policy in between. Two
-        (and only two) ways to do that safely are supported:
+        B-06 — ALWAYS-FILTER CONTRACT (structural, no opt-in):
+        EVERY frame delivered to ``callback`` has passed through
+        ``ReplaySafetyFilter.filter_frame``. The effective filter is
+        ``safety_filter`` (this keyword) or ``self.safety_filter`` (from
+        ``__init__``), defaulting to a fresh ``ReplaySafetyFilter()`` when
+        neither is supplied. Blocked frames are DROPPED and counted via
+        ``filtered_frames``. No callback shape — lambda, ``partial``,
+        callable object, module function, or a bound driver method such as
+        ``bus.send`` — can receive an unfiltered frame; ``callback=bus.send``
+        therefore transmits only filtered replay traffic. There is no
+        ``allow_unfiltered_tx`` opt-in: an unfiltered replay TX path does not
+        exist (AGENTS.md §2.1 choke-point).
 
-        1. Pass a `safety_filter` (to ``__init__`` or the ``safety_filter``
-           keyword here). Every frame is then routed through
-           ``filter_frame`` and anything the filter blocks is DROPPED —
-           the callback never sees it. This is the recommended path.
-        2. Pass ``allow_unfiltered_tx=True`` to acknowledge that you are
-           deliberately issuing raw, unfiltered frames (e.g. a privileged
-           bench harness). This is an auditable opt-in, never a default.
-
-        A TX-looking callback without either one raises ``ValueError``
-        (fail-closed) instead of silently opening a bypass around the
-        `TxSafetyGateway` choke-point (AGENTS.md §2.1).
+        A TX-shaped callback (see ``_is_tx_callback``) additionally logs an
+        informational WARNING ("TX-shaped callback receiving filtered replay
+        stream"). That heuristic is NOT a security gate.
         """
         if not self._frames:
             return
@@ -182,13 +205,18 @@ class ReplayBus:
             raise ValueError(f"Replay speed must be positive and in range 0.01..100, got {speed!r}")
         speed = float(speed)
 
-        effective_filter = self.safety_filter
-        if self._is_tx_callback(callback) and effective_filter is None and not allow_unfiltered_tx:
-            raise ValueError(
-                "play() was given a callback that looks like a live-TX driver method "
-                f"({getattr(callback, '__name__', callback)!r}) but no ReplaySafetyFilter: "
-                "that would transmit replay frames unfiltered. Pass a ReplaySafetyFilter "
-                "or set allow_unfiltered_tx=True to acknowledge the risk explicitly."
+        # B-06: STRUCTURAL filtering — the callback never sees an unfiltered
+        # frame regardless of its shape. An explicit play() filter wins; the
+        # constructor filter is the fallback; a default filter is the floor.
+        effective_filter = safety_filter or self.safety_filter or ReplaySafetyFilter()
+
+        if self._is_tx_callback(callback):
+            logger.warning(
+                "TX-shaped callback receiving filtered replay stream",
+                extra={
+                    "callback": getattr(callback, "__name__", repr(callback)),
+                    "filter": type(effective_filter).__name__,
+                },
             )
 
         while True:
@@ -214,14 +242,15 @@ class ReplayBus:
                 if frame is None:
                     break
 
-                if effective_filter is not None:
-                    filtered = effective_filter.filter_frame(frame)
-                    if filtered is None:
-                        with self._lock:
-                            self.filtered_frames += 1
-                            self.dropped_frames += 1
-                        continue
-                    frame = filtered
+                # B-06: unconditional — `effective_filter` is never None, so
+                # this is the single delivery gate for every callback shape.
+                filtered = effective_filter.filter_frame(frame)
+                if filtered is None:
+                    with self._lock:
+                        self.filtered_frames += 1
+                        self.dropped_frames += 1
+                    continue
+                frame = filtered
 
                 # REVIEW3 #17: replay deltas are clamped to >= 0 — a
                 # wall-clock backward jump in a capture (NTP step, hibernate

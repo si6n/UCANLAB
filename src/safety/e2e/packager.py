@@ -157,6 +157,7 @@ class E2ESafetyPackager:
                 is_extended=frame.is_extended,
                 is_fd=frame.is_fd,
                 brs=frame.brs,
+                esi=frame.esi,
                 dlc=effective_dlc,
                 direction="tx",
                 timestamp_ns=ts,

@@ -1,7 +1,0 @@
-'OP:EngineCoolantTemp' findings= [('OP:EngineCoolantTemp', True)]
-   hyps(anomalies): []
-   hyps(anomalies=[]): []
-'EngineCoolantTemp' findings= [('EngineCoolantTemp', False)]
-   hyps(anomalies): [('b2920-gm-mode-06-monitor-kaniti-oem-this-dtc-checks-the-he', 1.0), ('b2922-gm-mode-06-monitor-kaniti-oem-this-dtc-checks-the-he', 1.0), ('b2923-gm-mode-06-monitor-kaniti-oem-this-dtc-checks-the-he', 1.0), ('b3656-gm-mode-06-monitor-kaniti-oem-this-dtc-determines-if', 1.0)]
-   hyps(anomalies=[]): []
-

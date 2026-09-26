@@ -78,7 +78,7 @@ class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
     scheme downgrade and arbitrary-origin fetch fail closed instead.
     """
 
-    def redirect_request(self, req: Any, fp: Any, code: Any, msg: Any, hdrs: Any, newurl: Any) -> None:  # type: ignore[override]
+    def redirect_request(self, req: Any, fp: Any, code: Any, msg: Any, hdrs: Any, newurl: Any) -> None:
         return None
 
 
@@ -369,11 +369,10 @@ class UpdateManager:
         """Verify Ed25519 signature of the downloaded binary file (SEC-U-001).
 
         H-6: the byte ceiling is enforced from ``stat()`` BEFORE any payload is
-        read, and the streaming SHA-256 digest is computed incrementally (no
-        chunk list, no ``b"".join``). Ed25519 (via ``cryptography``) signs the
-        *message*, not a digest, so an in-cap file is read once into the
-        verify call — but an over-cap file is now refused without buffering it
-        first, which was the actual memory-spike defect.
+        read. Ed25519 (via ``cryptography``) signs the *message*, not a digest,
+        so an in-cap file is read once into the verify call — but an over-cap
+        file is refused without buffering it first, which was the actual
+        memory-spike defect.
         """
         path = Path(file_path)
         if not path.is_file() or not signature_b64.strip():
@@ -396,26 +395,11 @@ class UpdateManager:
             pad_len = -len(raw_sig) % 4
             sig_bytes = base64.b64decode(raw_sig + ("=" * pad_len), validate=True)
 
-            # Streaming read: an incremental digest bounded by the shared
-            # ceiling — the payload is never accumulated in a chunk list.
-            hasher = hashlib.sha256()
-            total = 0
-            with open(path, "rb") as f:
-                while True:
-                    chunk = f.read(cls._VERIFY_CHUNK_BYTES)
-                    if not chunk:
-                        break
-                    total += len(chunk)
-                    if total > cls._VERIFY_MAX_BYTES:
-                        logger.error("Update package too large for signature verification")
-                        return False
-                    hasher.update(chunk)
-            # ``cryptography``'s verify() needs the message; read it once here
-            # (now provably <= _VERIFY_MAX_BYTES).
+            # ``cryptography``'s verify() needs the message: one bounded read
+            # (size already capped via stat() above).
             with open(path, "rb") as f:
                 payload = f.read()
             public_key.verify(sig_bytes, payload)
-            del hasher
             return True
         except (InvalidSignature, ValueError, OSError) as exc:
             logger.error("Update package Ed25519 signature verification failed", extra={"error": str(exc)})

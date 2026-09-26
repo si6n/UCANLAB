@@ -1,6 +1,6 @@
 """Unit tests for verified mathematical virtual channels."""
 
-from src.engine.virtual_channels.channel_engine import VirtualChannelEngine
+from src.engine.virtual_channels.channel_engine import VirtualCalculations, VirtualChannelEngine
 
 
 def test_calculate_torque_and_power() -> None:
@@ -57,3 +57,22 @@ def test_calculate_propeller_slip() -> None:
     )
     assert slip is not None
     assert abs(slip - 15.13) <= 0.2
+
+
+def test_output_finiteness_fail_closed() -> None:
+    """AGENTS.md §2.3: finite inputs that OVERFLOW must not return an infinite
+    'measurement'. Before the fix calculate_torque_and_power(1e300, 125, 1e300)
+    returned (1.25e300, inf, inf) and the marine/road divisors could overflow
+    to inf; an overflowed propeller theoretical speed fabricated a slip of
+    exactly 100 %."""
+    assert VirtualChannelEngine.calculate_torque_and_power(1e300, 125.0, 1e300) == (None, None, None)
+    assert VirtualChannelEngine.calculate_marine_fuel_efficiency(1e308, 0.5) is None
+    assert VirtualChannelEngine.calculate_road_fuel_consumption(1e308, 1.0) is None
+    assert VirtualChannelEngine.calculate_propeller_slip(1e300, 1.0, 1e300, 20.0) is None
+
+
+def test_virtual_calculations_is_flagged_synthetic() -> None:
+    """AGENTS.md §2.3: derived channels must be explicitly flagged
+    synthetic/virtual so a future telemetry consumer cannot merge them with
+    measured channels unflagged."""
+    assert VirtualCalculations().is_synthetic is True

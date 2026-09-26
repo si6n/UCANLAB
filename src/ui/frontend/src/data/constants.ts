@@ -21,7 +21,7 @@ export const NAV_GROUPS: NavGroup[] = [
     id: 'tehis',
     title: 'TEŞHİS',
     items: [
-      { id: 'dashboard', label: 'CAN Dashboard', icon: 'LayoutDashboard' },
+      { id: 'dashboard', label: 'Dashboard', icon: 'LayoutDashboard' },
       { id: 'signal_discovery', label: 'Reverse Engineer', icon: 'Cpu' },
     ],
   },

@@ -404,11 +404,11 @@ def test_a5_4_copilot_query_bound_is_enforced() -> None:
 
 
 def test_d6_cloud_methods_validate_input() -> None:
-    """D6: both cloud bridge methods validate before calling the client."""
+    """D6: cloud bridge methods validate before calling the client."""
     source = (Path(__file__).resolve().parents[2] / "src" / "ui" / "desktop_app.py").read_text(
         encoding="utf-8"
     )
-    for method in ("def cloud_register_device", "def cloud_activate_license"):
+    for method in ("def cloud_register_device",):
         body = source.split(method, 1)[1].split("\n    def ", 1)[0]
         assert "_validate_bridge_text" in body, f"{method} must validate its input"
 

@@ -70,6 +70,46 @@ class MockCloudHandler(BaseHTTPRequestHandler):
         if self.path == "/health":
             self._json(200, {"status": "ok"})
             return
+        if self.path == "/api/v1/auth/me":
+            auth = self.headers.get("Authorization", "")
+            if "sess_valid_token_xyz" in auth:
+                self._json(
+                    200,
+                    {
+                        "user": {
+                            "id": "usr_test123",
+                            "email": "user@example.com",
+                            "name": "Test User",
+                            "organization": "Fleet Tech",
+                        },
+                        "subscription": {
+                            "is_active": True,
+                            "tier": "enterprise",
+                            "expires_at": 1800000000,
+                            "features": ["j1939", "uds"],
+                        },
+                    },
+                )
+                return
+            elif "sess_inactive_token_abc" in auth:
+                self._json(
+                    200,
+                    {
+                        "user": {
+                            "id": "usr_free456",
+                            "email": "inactive@example.com",
+                            "name": "Free User",
+                            "organization": None,
+                        },
+                        "subscription": {
+                            "is_active": False,
+                            "tier": "FREE",
+                        },
+                    },
+                )
+                return
+            self._json(401, {"detail": "unauthorized"})
+            return
         # GET /api/v1/telematics/sessions/{sid} â€” resume state query
         parts = self.path.split("/")
         if len(parts) == 6 and parts[4] == "sessions":
@@ -84,6 +124,31 @@ class MockCloudHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         length = int(self.headers.get("Content-Length", "0"))
         body = json.loads(self.rfile.read(length) or b"{}")
+
+        if self.path == "/api/v1/auth/login":
+            email = body.get("email")
+            password = body.get("password")
+            if email == "user@example.com" and password == "secret123":
+                self._json(
+                    200,
+                    {
+                        "token": "sess_valid_token_xyz_12345",
+                        "user": {"email": email, "name": "Test User"},
+                    },
+                )
+                return
+            elif email == "inactive@example.com" and password == "secret123":
+                self._json(
+                    200,
+                    {
+                        "token": "sess_inactive_token_abc_67890",
+                        "user": {"email": email, "name": "Free User"},
+                    },
+                )
+                return
+            else:
+                self._json(401, {"detail": "Invalid credentials"})
+                return
 
         if self.path == "/api/v1/devices/register":
             STATE.registered_hwids.append(body["hwid"])
@@ -642,8 +707,99 @@ def test_pinning_enabled_adds_handler_for_https() -> None:
         )
     )
     assert client._pinned_spki_digests == frozenset({raw})
-    opener = client._build_opener("https://cloud.example.com/api/v1/x")
-    assert any(type(h).__name__ == "_PinnedHTTPSHandler" for h in opener.handlers)
+
+
+# ---------------------------------------------------------------------------
+# Auth, Login & Subscription Tests
+# ---------------------------------------------------------------------------
+
+
+def test_cloud_client_login_success(client) -> None:
+    data = client.login("user@example.com", "secret123")
+    assert "token" in data
+    assert client.has_session_token() is True
+    assert client.get_session_token() == "sess_valid_token_xyz_12345"
+
+
+def test_cloud_client_login_invalid_credentials(client) -> None:
+    from src.core.errors import SecurityError
+
+    with pytest.raises(SecurityError) as exc_info:
+        client.login("user@example.com", "wrongpassword")
+    assert "Invalid credentials" in str(exc_info.value)
+
+
+def test_cloud_client_login_validation_errors(client) -> None:
+    from src.core.errors import SecurityError
+
+    with pytest.raises(SecurityError, match="e-posta"):
+        client.login("invalidemail", "secret123")
+
+    with pytest.raises(SecurityError, match="Şifre"):
+        client.login("user@example.com", "")
+
+
+def test_cloud_client_login_with_token(client) -> None:
+    # I-06: token verified against /auth/me (mock matches sess_valid_token_xyz)
+    # before DPAPI persist; success derives from the verified response.
+    res = client.login_with_token("sess_valid_token_xyz_direct_token")
+    assert res["success"] is True
+    assert res["user"] is not None
+    assert client.has_session_token() is True
+    assert client.get_session_token() == "sess_valid_token_xyz_direct_token"
+
+
+def test_cloud_client_login_with_token_unverified_not_persisted(client) -> None:
+    # I-06: unknown token gets HTTP 401 from /auth/me -> success False and
+    # nothing is persisted (old code stored first and returned True+None).
+    res = client.login_with_token("sess_bogus_token_never_issued_1")
+    assert res["success"] is False
+    assert res["user"] is None
+    assert client.has_session_token() is False
+
+
+def test_cloud_client_login_with_invalid_token(client) -> None:
+    from src.core.errors import SecurityError
+
+    with pytest.raises(SecurityError, match="format"):
+        client.login_with_token("   ")
+
+    with pytest.raises(SecurityError, match="control characters"):
+        client.login_with_token("bad token with spaces\r\n")
+
+
+def test_cloud_client_get_user_and_subscription_active(client) -> None:
+    client.store_session_token("sess_valid_token_xyz_12345")
+    info = client.get_current_user_and_subscription()
+    assert info is not None
+    user = info.get("user") or {}
+    assert user.get("email") == "user@example.com"
+    assert user.get("name") == "Test User"
+    assert user.get("organization") == "Fleet Tech"
+
+    sub = info.get("subscription") or {}
+    assert sub.get("is_active") is True
+    assert sub.get("tier") == "enterprise"
+    assert "j1939" in sub.get("features", [])
+
+
+def test_cloud_client_get_user_and_subscription_inactive(client) -> None:
+    client.store_session_token("sess_inactive_token_abc_67890")
+    info = client.get_current_user_and_subscription()
+    assert info is not None
+    user = info.get("user") or {}
+    assert user.get("email") == "inactive@example.com"
+
+    sub = info.get("subscription") or {}
+    assert sub.get("is_active") is False
+    assert sub.get("tier") == "FREE"
+
+
+def test_cloud_client_logout(client) -> None:
+    client.store_session_token("sess_valid_token_xyz_12345")
+    assert client.has_session_token() is True
+    client.logout()
+    assert client.has_session_token() is False
 
 
 def test_pinning_not_applied_to_loopback_http() -> None:

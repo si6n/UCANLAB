@@ -39,11 +39,12 @@ class LicensePayload:
     """Decoded and verified license parameters."""
 
     user_id: str
-    tier: str  # "FREE" | "PRO" | "ENTERPRISE"
+    tier: str  # "FREE" | "PRO" | "ENTERPRISE" | "READ_ONLY"
     hardware_fingerprint: str
     issued_at: int
     expires_at: int
     features: tuple[str, ...] = field(default_factory=tuple)
+    is_read_only: bool = False
 
 
 class LicenseValidator:
@@ -75,8 +76,10 @@ class LicenseValidator:
         secret_provider: SecretProvider | None = None,
         clock: ClockProvider | None = None,
         require_hwm_persistence: bool = False,
+        degrade_to_read_only_on_offline: bool = False,
     ) -> None:
         self.public_key = public_key
+        self.degrade_to_read_only_on_offline = bool(degrade_to_read_only_on_offline)
         self.hardware_fingerprint = (
             hardware_fingerprint if hardware_fingerprint is not None else generate_hardware_fingerprint()
         )
@@ -337,6 +340,53 @@ class LicenseValidator:
                         code="CLOCK_MONOTONIC_MISMATCH",
                     )
 
+            # SEC-REVIEW: parse + Ed25519-verify BEFORE the seal/anchor
+            # advance. The old order persisted `seal_hwm(...)` and rolled the
+            # in-memory anchor forward BEFORE `public_key.verify`, so a forged
+            # (bad-signature) token still advanced the anti-rollback floor —
+            # an attacker could raise the HWM at will, permanently bricking a
+            # legitimate older token. Every decode/verify error path now skips
+            # the seal entirely.
+            # Parse token: <payload_b64>.<sig_b64>
+            parts = token_str.strip().split(".")
+            if len(parts) != 2:
+                raise LicenseError("Invalid license token format", code="INVALID_TOKEN_FORMAT")
+
+            payload_b64, sig_b64 = parts[0], parts[1]
+
+            try:
+                payload_bytes = base64.urlsafe_b64decode(payload_b64.encode("ascii"))
+                sig_bytes = base64.urlsafe_b64decode(sig_b64.encode("ascii"))
+            except Exception as exc:
+                raise LicenseError(
+                    f"Failed to decode license base64: {exc}",
+                    code="TOKEN_DECODE_ERROR",
+                    cause=exc,
+                ) from exc
+
+            # Cryptographic Signature Verification
+            try:
+                self.public_key.verify(sig_bytes, payload_bytes)
+            except InvalidSignature as exc:
+                # RFC 8785 (JCS) canonical verification fallback
+                verified_jcs = False
+                try:
+                    from src.security.license.jcs import canonicalize
+                    raw_obj = json.loads(payload_bytes.decode("utf-8"))
+                    jcs_bytes = canonicalize(raw_obj)
+                    self.public_key.verify(sig_bytes, jcs_bytes)
+                    verified_jcs = True
+                except Exception:
+                    pass
+
+                if not verified_jcs:
+                    logger.error("License token Ed25519 signature verification failed!")
+                    raise LicenseError(
+                        "License token signature is invalid or has been tampered with.",
+                        code="INVALID_SIGNATURE",
+                        cause=exc,
+                    ) from exc
+
             # Persist high water mark to disk (G2: two-field format keeps the
             # grace-period anchor stable across restarts; HMAC covers both
             # fields; G6: temp+replace so a crash mid-write never truncates the
@@ -380,33 +430,6 @@ class LicenseValidator:
                     )
                 self.last_known_clock_ts = now
 
-        # Parse token: <payload_b64>.<sig_b64>
-        parts = token_str.strip().split(".")
-        if len(parts) != 2:
-            raise LicenseError("Invalid license token format", code="INVALID_TOKEN_FORMAT")
-
-        payload_b64, sig_b64 = parts[0], parts[1]
-
-        try:
-            payload_bytes = base64.urlsafe_b64decode(payload_b64.encode("ascii"))
-            sig_bytes = base64.urlsafe_b64decode(sig_b64.encode("ascii"))
-        except Exception as exc:
-            raise LicenseError(
-                f"Failed to decode license base64: {exc}",
-                code="TOKEN_DECODE_ERROR",
-                cause=exc,
-            ) from exc
-
-        # Cryptographic Signature Verification
-        try:
-            self.public_key.verify(sig_bytes, payload_bytes)
-        except InvalidSignature as exc:
-            logger.error("License token Ed25519 signature verification failed!")
-            raise LicenseError(
-                "License token signature is invalid or has been tampered with.",
-                code="INVALID_SIGNATURE",
-                cause=exc,
-            ) from exc
 
         # Parse + validate JSON payload.
         # SEC-14 (Batch B): this used to be a key-presence check only, with
@@ -506,6 +529,25 @@ class LicenseValidator:
         offline_elapsed = now - self.last_online_sync_ts
         if offline_elapsed > self.MAX_OFFLINE_GRACE_SEC:
             logger.warning("Offline grace period expired", extra={"elapsed_days": offline_elapsed / 86400})
+            if self.degrade_to_read_only_on_offline:
+                # Aksiyon 33: Offline usage degrades to read-only diagnostics
+                degraded_features = tuple(
+                    f for f in payload.features
+                    if not any(crit in f.lower() for crit in ("flash", "write", "tx", "actuator", "calibration"))
+                )
+                logger.warning(
+                    "License degraded to READ_ONLY mode due to offline grace expiration",
+                    extra={"user_prefix": sha256_prefix(payload.user_id)},
+                )
+                return LicensePayload(
+                    user_id=payload.user_id,
+                    tier="READ_ONLY",
+                    hardware_fingerprint=payload.hardware_fingerprint,
+                    issued_at=payload.issued_at,
+                    expires_at=payload.expires_at,
+                    features=degraded_features,
+                    is_read_only=True,
+                )
             raise LicenseError(
                 "7-day offline grace period has expired. Please connect to the internet to re-validate.",
                 code="OFFLINE_GRACE_EXPIRED",

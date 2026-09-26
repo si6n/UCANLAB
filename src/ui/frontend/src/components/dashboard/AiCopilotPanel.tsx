@@ -21,29 +21,62 @@ import { DesktopBridge, UserDiagnosticCard } from '../../services/bridge';
 // Karar Kartı — Sadece gerçek arıza/analiz durumunda gösterilir (RED/YELLOW/GREEN)
 // ────────────────────────────────────────────────────────────────────────
 const RISK_UI: Record<string, { icon: string; badge: string; text: string; edge: string; bg: string }> = {
-  RED: { icon: '🔴', badge: 'KRİTİK ARİZA', text: 'text-del', edge: 'border-del/40', bg: 'bg-delbg' },
-  YELLOW: { icon: '🟡', badge: 'DİKKAT — SERVİS KONTROLÜ', text: 'text-accent-text', edge: 'border-accent/40', bg: 'bg-accent-soft' },
-  GREEN: { icon: '🟢', badge: 'NOMİNAL — BİLGİ', text: 'text-add', edge: 'border-addedge/40', bg: 'bg-addbg' },
+  RED: { icon: '🔴', badge: 'KRİTİK ARIZA', text: 'text-del', edge: 'border-del/40', bg: 'bg-del/10' },
+  YELLOW: { icon: '🟡', badge: 'DİKKAT — SERVİS KONTROLÜ', text: 'text-brandamber', edge: 'border-brandamber/40', bg: 'bg-brandamber/10' },
+  GREEN: { icon: '🟢', badge: 'NOMİNAL — BİLGİ', text: 'text-add', edge: 'border-add/40', bg: 'bg-add/10' },
 };
 
 const DecisionCard: React.FC<{ card: UserDiagnosticCard }> = ({ card }) => {
   const ui = RISK_UI[card.risk_level];
   if (!ui) return null;
 
+  // T67-G: the card used to state one reading of the fault and stop. The
+  // engineering report ranks every competing explanation and lists every cause
+  // the database carries, so the owner is shown them too — collapsed by
+  // default so the card stays readable, with the count visible.
+  const alternatives = card.technical?.alternatives_tr ?? [];
+  const [showAlternatives, setShowAlternatives] = React.useState(false);
+
   return (
-    <div className={`rounded-[10px] border ${ui.edge} ${ui.bg} p-3 text-[12.5px] leading-relaxed space-y-1.5`}>
+    <div className={`rounded-[8px] border ${ui.edge} ${ui.bg} p-3 text-[12px] leading-relaxed space-y-1.5`}>
       <div className="flex items-center gap-2">
         <span className="text-sm">{ui.icon}</span>
         <span className={`font-sans text-[11px] font-bold uppercase tracking-wider ${ui.text}`}>
           {ui.badge}
         </span>
       </div>
-      <div className="font-sans text-[13px] font-semibold text-text-hi">
+      <div className="font-sans text-[12.5px] font-semibold text-text-hi">
         {card.headline_tr}
       </div>
-      <p className="whitespace-pre-line font-sans text-text-body text-[12px]">
+      <p className="whitespace-pre-line font-sans text-text-body text-[11.5px]">
         {card.summary_tr}
       </p>
+      {card.technical?.confidence_label && (
+        <div className="font-sans text-[11px] text-text-low">
+          Güven: {card.technical.confidence_label}
+        </div>
+      )}
+      {alternatives.length > 0 && (
+        <div className="pt-0.5">
+          <button
+            type="button"
+            onClick={() => setShowAlternatives((v) => !v)}
+            className="font-sans text-[11px] font-semibold text-text-body underline decoration-dotted underline-offset-2 hover:text-text-hi cursor-pointer"
+            aria-expanded={showAlternatives}
+          >
+            {showAlternatives ? '▲' : '▼'} Diğer olasılıklar ({alternatives.length})
+          </button>
+          {showAlternatives && (
+            <ul className="mt-1 space-y-0.5 pl-3 font-sans text-[11.5px] text-text-body">
+              {alternatives.map((alt, i) => (
+                <li key={`${i}-${alt.slice(0, 24)}`} className="list-disc">
+                  {alt}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
       {card.source_badges && card.source_badges.length > 0 && (
         <div className="pt-1 font-mono text-[10px] text-text-low">
           Kaynak: {card.source_badges.join(', ')}
@@ -82,6 +115,7 @@ interface AiCopilotPanelProps {
   onSendMessage: (query: string) => void;
   onExecuteAction?: (action: CopilotAction) => Promise<void>;
   onClose?: () => void;
+  hideHeader?: boolean;
 }
 
 export const AiCopilotPanel: React.FC<AiCopilotPanelProps> = ({
@@ -92,6 +126,7 @@ export const AiCopilotPanel: React.FC<AiCopilotPanelProps> = ({
   onSendMessage,
   onExecuteAction,
   onClose,
+  hideHeader = false,
 }) => {
   const [inputText, setInputText] = useState('');
   const [executingActionId, setExecutingActionId] = useState<string | null>(null);
@@ -257,45 +292,46 @@ export const AiCopilotPanel: React.FC<AiCopilotPanelProps> = ({
 
   return (
     <div className="flex h-full flex-col overflow-hidden text-text-body select-none">
-      {/* Top Header — clean, modern, zero clutter */}
-      <div className="flex shrink-0 items-center justify-between border-b border-border/40 px-3.5 py-2.5">
-        <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-[8px] bg-accent-soft text-accent shadow-xs">
-            <Sparkles className="h-3.5 w-3.5" />
-          </div>
-          <div>
+      {/* Top Header — clean, modern, minimal */}
+      {!hideHeader && (
+        <div className="flex shrink-0 items-center justify-between border-b border-border/50 px-3 py-2 bg-surface-inset/30">
+          <div className="flex items-center gap-2">
+            <div className="flex h-6 w-6 items-center justify-center rounded-[6px] bg-bg-row-selected text-text-hi border border-border shadow-2xs">
+              <Sparkles className="h-3 w-3" />
+            </div>
             <div className="flex items-center gap-1.5">
-              <h2 className="text-[12.5px] font-semibold text-text-hi">CAN Teşhis Copilot</h2>
+              <h2 className="text-[12px] font-semibold text-text-hi tracking-tight">CAN Teşhis Copilot</h2>
               <span className="flex h-1.5 w-1.5 rounded-full bg-add" title="Çevrimdışı Teşhis Motoru Aktif" />
             </div>
-            <p className="text-[10px] text-text-low font-mono">Çevrimdışı Uzman Analiz Motoru</p>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={onRescan}
+              className="flex h-6 w-6 items-center justify-center rounded-[5px] text-text-low transition-colors hover:bg-bg-row-hover hover:text-text-hi cursor-pointer active:scale-95"
+              title="CAN veri yolunu yeniden tara"
+              aria-label="Yeniden Tara"
+            >
+              <RotateCw className="h-3 w-3" />
+            </button>
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="flex h-6 w-6 items-center justify-center rounded-[5px] text-text-low transition-colors hover:bg-del/20 hover:text-del cursor-pointer active:scale-95"
+                title="Paneli Kapat"
+                aria-label="Kapat"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
         </div>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={onRescan}
-            className="flex h-6 w-6 items-center justify-center rounded-[6px] text-text-mid transition-colors hover:bg-bg-row-hover hover:text-text-hi"
-            title="CAN veri yolunu yeniden tara"
-          >
-            <RotateCw className="h-3.5 w-3.5" />
-          </button>
-          {onClose && (
-            <button
-              onClick={onClose}
-              className="flex h-6 w-6 items-center justify-center rounded-[6px] text-text-mid transition-colors hover:bg-bg-row-hover hover:text-del"
-              title="Paneli Kapat"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          )}
-        </div>
-      </div>
+      )}
 
       {/* Scrollable Conversation & Diagnostic Area */}
-      <div className="flex-1 space-y-3.5 overflow-y-auto p-3.5">
+      <div className="flex-1 space-y-3 overflow-y-auto p-3">
         {/* Critical Bus Fault Alert (Only when active DTCs exist) */}
         {isFault && (
-          <div className="flex items-start gap-2.5 rounded-[10px] border border-del/40 bg-delbg p-2.5 text-xs text-del">
+          <div className="flex items-start gap-2.5 rounded-[8px] border border-del/30 bg-del/10 p-2.5 text-xs text-del">
             <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
             <div className="flex-1">
               <span className="font-semibold">Kritik Arıza Tespiti ({diagnosticState.dtcCount} DTC)</span>
@@ -313,14 +349,14 @@ export const AiCopilotPanel: React.FC<AiCopilotPanelProps> = ({
 
         {/* Interactive Diagnostic Question Card */}
         {activeQuestion && (
-          <div className="rounded-[10px] border border-accent-line/50 bg-accent-soft/40 p-3 text-xs space-y-2.5">
+          <div className="rounded-[8px] border border-border/70 bg-surface-inset/60 p-3 text-xs space-y-2">
             <div className="flex items-center justify-between">
-              <span className="font-semibold text-accent-text flex items-center gap-1.5">
-                <HelpCircle className="h-3.5 w-3.5" />
+              <span className="font-semibold text-text-hi flex items-center gap-1.5">
+                <HelpCircle className="h-3.5 w-3.5 text-text-mid" />
                 <span>İnteraktif Teşhis Sorusu</span>
               </span>
               {activeQuestion.unit && (
-                <span className="font-mono text-[10px] text-text-mid">
+                <span className="font-mono text-[10px] text-text-low">
                   Birim: {activeQuestion.unit}
                 </span>
               )}
@@ -339,13 +375,13 @@ export const AiCopilotPanel: React.FC<AiCopilotPanelProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowHowToMeasure(!showHowToMeasure)}
-                  className="flex items-center gap-1 text-[10.5px] font-medium text-accent-text hover:underline"
+                  className="flex items-center gap-1 text-[10.5px] font-medium text-text-mid hover:text-text-hi hover:underline cursor-pointer"
                 >
                   {showHowToMeasure ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                   <span>Nasıl Ölçerim? (Talimat)</span>
                 </button>
                 {showHowToMeasure && (
-                  <p className="mt-1 rounded-[6px] border border-surface-inset-border bg-surface-inset p-2 text-[10.5px] leading-relaxed text-text-body">
+                  <p className="mt-1 rounded-[6px] border border-border/50 bg-surface-inset p-2 text-[10.5px] leading-relaxed text-text-body">
                     {activeQuestion.how_to_measure}
                   </p>
                 )}
@@ -359,21 +395,21 @@ export const AiCopilotPanel: React.FC<AiCopilotPanelProps> = ({
                   <button
                     disabled={isSubmitting}
                     onClick={() => handleAnswer('Evet')}
-                    className="rounded-[6px] border border-border/80 bg-surface-inset px-3 py-1 font-medium text-text-body transition-all hover:border-accent-line hover:text-accent disabled:opacity-50"
+                    className="rounded-[6px] border border-border bg-surface-inset px-3 py-1 font-medium text-text-body transition-all hover:bg-bg-row-hover hover:text-text-hi hover:border-border-strong disabled:opacity-50 cursor-pointer"
                   >
                     Evet
                   </button>
                   <button
                     disabled={isSubmitting}
                     onClick={() => handleAnswer('Hayır')}
-                    className="rounded-[6px] border border-border/80 bg-surface-inset px-3 py-1 font-medium text-text-body transition-all hover:border-del hover:text-del disabled:opacity-50"
+                    className="rounded-[6px] border border-border bg-surface-inset px-3 py-1 font-medium text-text-body transition-all hover:border-del hover:text-del disabled:opacity-50 cursor-pointer"
                   >
                     Hayır
                   </button>
                   <button
                     disabled={isSubmitting}
                     onClick={() => handleAnswer(null, true)}
-                    className="rounded-[6px] px-2.5 py-1 text-text-low transition-colors hover:text-text-mid disabled:opacity-50"
+                    className="rounded-[6px] px-2.5 py-1 text-text-low transition-colors hover:text-text-mid disabled:opacity-50 cursor-pointer"
                   >
                     Bilmiyorum
                   </button>
@@ -387,7 +423,7 @@ export const AiCopilotPanel: React.FC<AiCopilotPanelProps> = ({
                       key={idx}
                       disabled={isSubmitting}
                       onClick={() => handleAnswer(ch)}
-                      className="rounded-[6px] border border-border/80 bg-surface-inset px-2.5 py-1 text-[11px] font-medium text-text-body transition-all hover:border-accent-line hover:text-accent"
+                      className="rounded-[6px] border border-border bg-surface-inset px-2.5 py-1 text-[11px] font-medium text-text-body transition-all hover:bg-bg-row-hover hover:text-text-hi hover:border-border-strong cursor-pointer"
                     >
                       {ch}
                     </button>
@@ -395,7 +431,7 @@ export const AiCopilotPanel: React.FC<AiCopilotPanelProps> = ({
                   <button
                     disabled={isSubmitting}
                     onClick={() => handleAnswer(null, true)}
-                    className="rounded-[6px] px-2 py-1 text-[11px] text-text-low hover:text-text-mid"
+                    className="rounded-[6px] px-2 py-1 text-[11px] text-text-low hover:text-text-mid cursor-pointer"
                   >
                     Bilmiyorum
                   </button>
@@ -414,19 +450,19 @@ export const AiCopilotPanel: React.FC<AiCopilotPanelProps> = ({
                         ? `Aralık: ${activeQuestion.expected_range[0]} - ${activeQuestion.expected_range[1]}`
                         : 'Ölçüm değeri'
                     }
-                    className="w-32 rounded-[6px] border border-surface-inset-border bg-surface-inset px-2.5 py-1 font-mono text-[11px] text-text-hi placeholder:text-text-faint focus:border-border-focus focus:outline-none"
+                    className="w-32 rounded-[6px] border border-border bg-surface-inset px-2.5 py-1 font-mono text-[11px] text-text-hi placeholder:text-text-faint focus:border-border-focus focus:outline-none"
                   />
                   <button
                     disabled={isSubmitting || !measurementVal.trim()}
                     onClick={() => handleAnswer(parseFloat(measurementVal))}
-                    className="rounded-[6px] border border-accent-line bg-accent-soft px-3 py-1 font-medium text-accent-text transition-all hover:bg-accent hover:text-white disabled:opacity-50"
+                    className="rounded-[6px] border border-border-strong bg-text-hi text-bg-app px-3 py-1 font-medium transition-all hover:opacity-90 disabled:opacity-50 cursor-pointer"
                   >
                     Kaydet
                   </button>
                   <button
                     disabled={isSubmitting}
                     onClick={() => handleAnswer(null, true)}
-                    className="rounded-[6px] px-2 py-1 text-[11px] text-text-low hover:text-text-mid"
+                    className="rounded-[6px] px-2 py-1 text-[11px] text-text-low hover:text-text-mid cursor-pointer"
                   >
                     Bilmiyorum
                   </button>
@@ -438,12 +474,12 @@ export const AiCopilotPanel: React.FC<AiCopilotPanelProps> = ({
 
         {/* Quick Suggestion Chips (Shown on clean initial chat) */}
         {chatMessages.length <= 1 && (
-          <div className="rounded-[10px] border border-border/60 bg-surface-inset/30 p-3 space-y-2.5">
-            <div className="flex items-center gap-2">
-              <Bot className="h-3.5 w-3.5 text-accent" />
-              <span className="text-[11.5px] font-semibold text-text-hi">Hızlı Teşhis Başlıkları</span>
+          <div className="rounded-[8px] border border-border/60 bg-surface-inset/50 p-3 space-y-2">
+            <div className="flex items-center gap-1.5">
+              <Bot className="h-3.5 w-3.5 text-text-hi" />
+              <span className="text-[11.5px] font-semibold text-text-hi tracking-tight">Hızlı Teşhis Konuları</span>
             </div>
-            <p className="text-[11px] text-text-mid leading-relaxed">
+            <p className="text-[11px] text-text-low leading-relaxed">
               CAN veri yolunu analiz etmek veya arıza teşhisi başlatmak için bir konu seçebilirsiniz:
             </p>
             <div className="flex flex-wrap gap-1.5 pt-0.5">
@@ -457,7 +493,7 @@ export const AiCopilotPanel: React.FC<AiCopilotPanelProps> = ({
                   key={chip}
                   type="button"
                   onClick={() => onSendMessage(chip)}
-                  className="rounded-[6px] border border-border/80 bg-surface-inset px-2.5 py-1 text-[11px] font-medium text-text-body transition-all hover:border-accent-line hover:text-accent-text active:scale-95"
+                  className="rounded-full border border-border bg-surface-inset px-2.5 py-1 text-[11px] font-medium text-text-mid transition-all hover:border-border-strong hover:bg-bg-row-hover hover:text-text-hi active:scale-95 cursor-pointer"
                 >
                   {chip}
                 </button>
@@ -467,32 +503,32 @@ export const AiCopilotPanel: React.FC<AiCopilotPanelProps> = ({
         )}
 
         {/* Chat Messages Feed */}
-        <div className="space-y-3 pt-1">
+        <div className="space-y-3 pt-0.5">
           {chatMessages.map((msg) =>
             msg.sender === 'user' ? (
               <div
                 key={msg.id}
-                className="ml-auto max-w-[85%] rounded-[10px] border border-border/60 bg-surface-inset px-3 py-2 shadow-xs"
+                className="ml-auto max-w-[85%] rounded-[10px] border border-border-strong bg-bg-row-selected px-3 py-2 shadow-2xs"
               >
-                <div className="mb-1 flex items-center justify-end gap-1.5 font-mono text-[10px] text-text-low">
+                <div className="mb-1 flex items-center justify-end gap-1.5 font-mono text-[9.5px] text-text-low">
                   <span>Siz</span>
                   <span>·</span>
                   <span>{msg.timestamp}</span>
                 </div>
-                <div>{renderFormattedText(msg.text, false)}</div>
+                <div className="text-[12px] text-text-hi">{renderFormattedText(msg.text, false)}</div>
               </div>
             ) : (
               <div key={msg.id} className="mr-auto max-w-[95%] space-y-1">
-                <div className="flex items-center gap-1.5 font-mono text-[10.5px] text-text-mid">
-                  <div className="flex h-4 w-4 items-center justify-center rounded-[4px] bg-accent-soft text-accent">
-                    <Sparkles className="h-2.5 w-2.5" />
+                <div className="flex items-center gap-1.5 font-mono text-[10px] text-text-low">
+                  <div className="flex h-3.5 w-3.5 items-center justify-center rounded bg-bg-row-selected text-text-hi">
+                    <Sparkles className="h-2 w-2" />
                   </div>
-                  <span className="font-semibold text-text-hi">Teşhis Asistanı</span>
+                  <span className="font-semibold text-text-mid">Teşhis Copilot</span>
                   <span className="text-text-faint">·</span>
-                  <span className="text-text-low">{msg.timestamp}</span>
+                  <span>{msg.timestamp}</span>
                 </div>
 
-                <div className="rounded-[10px] border border-border/40 bg-surface-inset/30 px-3 py-2 text-[12.5px] text-text-body">
+                <div className="rounded-[10px] border border-border bg-surface-inset px-3 py-2.5 text-[12px] leading-relaxed text-text-body shadow-2xs">
                   {renderFormattedText(msg.text, true)}
                 </div>
 
@@ -504,7 +540,7 @@ export const AiCopilotPanel: React.FC<AiCopilotPanelProps> = ({
                         key={act.id}
                         onClick={() => handleActionClick(act)}
                         disabled={executingActionId === act.id || isAiLoading}
-                        className="inline-flex items-center gap-1.5 rounded-[6px] border border-accent-line/40 bg-accent-soft px-2.5 py-1 font-sans text-[11px] font-semibold text-accent-text transition-all hover:bg-accent hover:text-white active:scale-95 disabled:opacity-50"
+                        className="inline-flex items-center gap-1.5 rounded-[6px] border border-border-strong bg-bg-row-selected px-2.5 py-1 font-sans text-[11px] font-medium text-text-hi transition-all hover:bg-bg-row-hover active:scale-95 disabled:opacity-50 cursor-pointer"
                         title={act.confirm_text || act.label}
                       >
                         {executingActionId === act.id ? (
@@ -524,7 +560,7 @@ export const AiCopilotPanel: React.FC<AiCopilotPanelProps> = ({
           {/* Typing / Processing indicator */}
           {isAiLoading && (
             <div className="flex items-center space-x-2 font-mono text-[11px] text-text-mid">
-              <Bot className="h-3.5 w-3.5 animate-pulse text-accent" />
+              <Bot className="h-3.5 w-3.5 animate-pulse text-text-hi" />
               <span>Copilot analiz ediyor...</span>
             </div>
           )}
@@ -540,14 +576,14 @@ export const AiCopilotPanel: React.FC<AiCopilotPanelProps> = ({
             <div className="flex items-center gap-2">
               <button
                 onClick={() => handleFeedback(true)}
-                className="flex-1 flex items-center justify-center gap-1 rounded-[6px] border border-addedge/40 px-2 py-1 text-[11px] font-medium text-add hover:bg-addbg transition-colors"
+                className="flex-1 flex items-center justify-center gap-1 rounded-[6px] border border-add/40 px-2 py-1 text-[11px] font-medium text-add hover:bg-add/10 transition-colors cursor-pointer"
               >
                 <ThumbsUp className="h-3 w-3" />
                 <span>Sorunu Çözdü</span>
               </button>
               <button
                 onClick={() => setShowFeedbackBox(!showFeedbackBox)}
-                className="flex-1 flex items-center justify-center gap-1 rounded-[6px] border border-deledge/40 px-2 py-1 text-[11px] font-medium text-del hover:bg-delbg transition-colors"
+                className="flex-1 flex items-center justify-center gap-1 rounded-[6px] border border-del/40 px-2 py-1 text-[11px] font-medium text-del hover:bg-del/10 transition-colors cursor-pointer"
               >
                 <ThumbsDown className="h-3 w-3" />
                 <span>Farklıydı</span>
@@ -560,12 +596,12 @@ export const AiCopilotPanel: React.FC<AiCopilotPanelProps> = ({
                   value={technicianNote}
                   onChange={(e) => setTechnicianNote(e.target.value)}
                   placeholder="Gerçek kök neden / onarım detayı..."
-                  className="w-full rounded-[6px] border border-surface-inset-border bg-surface-inset px-2 py-1 text-[11px] text-text-hi placeholder:text-text-faint focus:outline-none"
+                  className="w-full rounded-[6px] border border-border/60 bg-surface-inset px-2 py-1 text-[11px] text-text-hi placeholder:text-text-faint focus:outline-none"
                 />
                 <button
                   disabled={!technicianNote.trim()}
                   onClick={() => handleFeedback(false)}
-                  className="w-full rounded-[6px] border border-border px-2 py-1 text-[11px] font-medium text-text-body hover:bg-bg-row-hover disabled:opacity-50"
+                  className="w-full rounded-[6px] border border-border px-2 py-1 text-[11px] font-medium text-text-body hover:bg-bg-row-hover disabled:opacity-50 cursor-pointer"
                 >
                   Düzeltmeyi Kaydet
                 </button>
@@ -576,21 +612,27 @@ export const AiCopilotPanel: React.FC<AiCopilotPanelProps> = ({
       </div>
 
       {/* Modern Composer Input at Bottom */}
-      <div className="flex shrink-0 items-center gap-2 border-t border-border/40 px-3.5 py-2.5 bg-transparent">
-        <input
-          type="text"
-          value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="CAN telemetrisi veya arıza sorusu yazın..."
-          className="h-8 flex-1 rounded-[8px] border border-surface-inset-border bg-surface-inset px-3 font-sans text-[12px] text-text-hi placeholder:text-text-faint transition-colors focus:border-border-focus focus:outline-none"
-        />
+      <div className="flex shrink-0 items-center gap-2 border-t border-border px-3 py-2 bg-surface-inset/30">
+        <div className="relative flex flex-1 items-center rounded-[7px] border border-border bg-surface-inset px-2.5 py-1 transition-all focus-within:border-border-focus">
+          <input
+            type="text"
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="CAN telemetrisi veya arıza sorusu yazın..."
+            className="w-full bg-transparent font-sans text-[12px] text-text-hi placeholder:text-text-faint focus:outline-none"
+          />
+        </div>
         <button
           onClick={handleSend}
           disabled={!inputText.trim() || isAiLoading}
           aria-label="Mesaj Gönder"
-          title="Mesaj Gönder"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border/80 bg-surface-inset text-text-hi transition-all hover:border-accent-line hover:text-accent active:scale-95 disabled:opacity-40"
+          title="Mesaj Gönder (Enter)"
+          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-[6px] transition-all active:scale-95 disabled:opacity-30 cursor-pointer ${
+            inputText.trim()
+              ? 'bg-text-hi text-bg-app font-semibold shadow-xs'
+              : 'border border-border bg-surface-inset text-text-low hover:text-text-hi'
+          }`}
         >
           <ArrowUp className="h-3.5 w-3.5" />
         </button>

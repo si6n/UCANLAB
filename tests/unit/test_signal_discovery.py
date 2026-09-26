@@ -226,6 +226,25 @@ def test_signal_segmenter_bit_packed_12bit() -> None:
     assert c12[0].max_value == 1000.0 + 39 * 7
 
 
+def test_signal_segmenter_signed_candidate_exports_signed_range() -> None:
+    """A signed-flagged 16-bit candidate must export the SIGNED physical range.
+
+    Before the fix the min/max were computed on the RAW unsigned series even
+    when the two's-complement heuristic fired: an observed -20..39 range was
+    exported as 0..65535 with is_signed=True — a bound no signed 16-bit
+    signal can even represent. cantools still decoded correctly, so the
+    operator was shown a bogus export bound, not a wrong decode.
+    """
+    import struct
+
+    payloads = [struct.pack("<h", v) + b"\x00" for v in range(-20, 40)]
+    hypotheses = SignalSegmenter.segment(payloads, dlc=3)
+    signed = [h for h in hypotheses if h.length == 16 and h.is_signed]
+    assert signed, "signed candidate not emitted for two's-complement series"
+    assert signed[0].min_value == -20.0
+    assert signed[0].max_value == 39.0
+
+
 def test_analyze_id_populates_bit_classes() -> None:
     """HIGH-3: analyze_id wires compute_flip_rates/classify_bits into the report."""
     engine = SignalDiscoveryEngine()

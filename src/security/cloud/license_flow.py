@@ -20,7 +20,7 @@ import secrets as pysecrets
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric import ed25519
@@ -129,15 +129,17 @@ class LicenseFlow:
         boot_realtime: float | None = None,
         boot_monotonic: float | None = None,
         hwm_path: Path | None = None,
+        clock_provider: Callable[[], float] | None = None,
     ) -> None:
         self.client = client
         self.public_key = public_key
         self.app_version = app_version
+        self._clock_provider: Callable[[], float] = clock_provider if clock_provider is not None else time.time
         # SEC-C-006: verification keys resolve through the key ring by the
         # ticket's `kid`; the constructor key remains the default/fallback
         # so existing wiring keeps working.
         self._trusted_keys: dict[str, ed25519.Ed25519PublicKey] = dict(trusted_keys) if trusted_keys else {"v1": public_key}
-        self.boot_realtime: float = boot_realtime if boot_realtime is not None else time.time()
+        self.boot_realtime: float = boot_realtime if boot_realtime is not None else self._clock_provider()
         self.boot_monotonic: float = boot_monotonic if boot_monotonic is not None else time.monotonic()
         # M-19 (P2-13): persistent anti-rollback high-water mark. The old
         # in-memory anchor reset on every restart — a clock rollback performed
@@ -431,8 +433,10 @@ class LicenseFlow:
         data = resp.json_object()
         claims = self.verify_cloud_ticket(data["license_token"])
         if claims.nonce and claims.nonce != sent_nonce:
+            _redacted_sent = f"{sent_nonce[:6]}...{sent_nonce[-4:]}" if len(sent_nonce) > 10 else "[redacted]"
+            _redacted_got = f"{claims.nonce[:6]}...{claims.nonce[-4:]}" if len(claims.nonce) > 10 else "[redacted]"
             raise LicenseError(
-                f"Cloud license anti-replay nonce mismatch (expected {sent_nonce}, got {claims.nonce})",
+                f"Cloud license anti-replay nonce mismatch (expected {_redacted_sent}, got {_redacted_got})",
                 code="NONCE_MISMATCH",
             )
 
@@ -629,7 +633,7 @@ class LicenseFlow:
             )
 
 
-        now = time.time()
+        now = self._clock_provider()
         # Anti-Clock Rollback and monotonic drift cross-check (HIGH-4)
         if now < self.last_known_clock_ts - 1.0:
             logger.critical(

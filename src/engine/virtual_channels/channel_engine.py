@@ -12,8 +12,18 @@ from typing import ClassVar
 
 @dataclass(slots=True)
 class VirtualCalculations:
-    """Calculated mathematical physical parameters from raw sensor streams."""
+    """Calculated mathematical physical parameters from raw sensor streams.
 
+    AGENTS.md §2.3 (No Fabricated Telemetry): every value in this record is a
+    DERIVED channel computed from measured inputs, never a raw sensor reading.
+    ``is_synthetic`` is ``True`` by construction so a future consumer that
+    wires these into a telemetry path cannot merge them with measured channels
+    unflagged — the engine also returns ``None`` (never a guess) when an input
+    is missing, and ``None`` when the result is not a finite, physically
+    plausible number.
+    """
+
+    is_synthetic: bool = True
     torque_nm: float | None = None
     power_kw: float | None = None
     power_hp: float | None = None
@@ -71,6 +81,11 @@ class VirtualChannelEngine:
         # Negative torque represents engine braking / retarder
         power_kw = (rpm * torque_nm) / cls.TORQUE_CONSTANT
         power_hp = power_kw * cls.KW_TO_HP_FACTOR
+        # Input finiteness does not imply output finiteness: finite inputs
+        # (e.g. 1e300 * 1e300) overflow to inf, and an infinite value is NOT
+        # a measurement (AGENTS.md §2.3).
+        if not (math.isfinite(torque_nm) and math.isfinite(power_kw) and math.isfinite(power_hp)):
+            return None, None, None
 
         return round(torque_nm, 2), round(power_kw, 2), round(power_hp, 2)
 
@@ -90,7 +105,10 @@ class VirtualChannelEngine:
             return None
         if speed_over_ground_knots < 0.5 or fuel_rate_lph < 0:
             return None
-        return round(fuel_rate_lph / speed_over_ground_knots, 3)
+        result = fuel_rate_lph / speed_over_ground_knots
+        if not math.isfinite(result):
+            return None  # finite inputs can overflow to inf — not a measurement
+        return round(result, 3)
 
     @classmethod
     def calculate_road_fuel_consumption(
@@ -106,7 +124,10 @@ class VirtualChannelEngine:
             return None
         if vehicle_speed_kmh < 1.0 or fuel_rate_lph < 0:
             return None
-        return round((fuel_rate_lph * 100.0) / vehicle_speed_kmh, 2)
+        result = (fuel_rate_lph * 100.0) / vehicle_speed_kmh
+        if not math.isfinite(result):
+            return None  # finite inputs can overflow to inf — not a measurement
+        return round(result, 2)
 
     #: P2-8: physically plausible bounds for propeller slip (%). A propeller
     #: cannot drive a hull faster than its own pitch speed, so slip below
@@ -150,7 +171,9 @@ class VirtualChannelEngine:
         shaft_rpm = engine_rpm / gear_ratio
         theoretical_speed_knots = (shaft_rpm * prop_pitch_inches) / cls.KNOTS_PITCH_CONSTANT
 
-        if theoretical_speed_knots <= 0:
+        # An overflowed (infinite) theoretical speed turns any finite boat
+        # speed into a fabricated slip of exactly 100 % — not a measurement.
+        if not math.isfinite(theoretical_speed_knots) or theoretical_speed_knots <= 0:
             return None
 
         slip = (1.0 - (boat_speed_knots / theoretical_speed_knots)) * 100.0

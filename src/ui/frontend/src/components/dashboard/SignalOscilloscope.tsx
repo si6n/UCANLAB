@@ -325,9 +325,9 @@ export const SignalOscilloscope: React.FC<SignalOscilloscopeProps> = ({
       className={`focus-ring flex h-7 w-7 items-center justify-center rounded-lg border transition-all duration-150 active:scale-[0.94] ${
         active
           ? danger
-            ? 'border-rose-300 bg-rose-50 text-rose-600'
-            : 'border-brand-300 bg-brand-50 text-brand-600'
-          : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700'
+            ? 'border-del/40 bg-del-bg text-del'
+            : 'border-accent/40 bg-accent-soft text-accent'
+          : 'border-border bg-surface-inset text-text-mid hover:border-border-strong hover:text-text-hi'
       }`}
     >
       {children}
@@ -337,12 +337,12 @@ export const SignalOscilloscope: React.FC<SignalOscilloscopeProps> = ({
   return (
     <div ref={containerRef} className="panel-flat relative flex h-full flex-col overflow-hidden">
       {/* Header: title + value legend + controls all in one bar */}
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1.5 border-b border-white/[0.07] bg-transparent px-3 py-2">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1.5 border-b border-border bg-transparent px-3 py-2">
         <div className="flex items-center space-x-2.5">
-          <div className="flex h-5 w-5 items-center justify-center rounded-md border border-brand-200 bg-brand-50 text-brand-600">
+          <div className="flex h-5 w-5 items-center justify-center rounded-md border border-accent/20 bg-accent-soft text-accent">
             <LineChart className="h-3 w-3 stroke-[2.2]" />
           </div>
-          <span className="text-xs font-bold tracking-tight text-slate-900">Grafik & Sinyal Analizi</span>
+          <span className="text-xs font-bold tracking-tight text-text-hi">Grafik & Sinyal Analizi</span>
 
           {/* Inline value legend (mirrors canvas colors) */}
           {viewMode === 'oscilloscope' && (
@@ -402,28 +402,28 @@ export const SignalOscilloscope: React.FC<SignalOscilloscopeProps> = ({
           )}
 
           {/* Mode switcher */}
-          <div className="inline-flex shrink-0 rounded-lg border border-slate-200/80 bg-slate-100 p-0.5 text-xs font-medium">
+          <div className="inline-flex shrink-0 rounded-lg border border-border bg-surface-inset p-0.5 text-xs font-medium">
             <button
               onClick={() => setViewMode('oscilloscope')}
-              className={`flex items-center space-x-1.5 rounded-md px-2.5 py-1 transition-all ${
+              className={`flex items-center space-x-1.5 rounded-md px-2.5 py-1 transition-all active:scale-[0.98] ${
                 viewMode === 'oscilloscope'
-                  ? 'bg-white font-semibold text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-bg-panel font-semibold text-text-hi shadow-xs'
+                  : 'text-text-mid hover:text-text-hi'
               }`}
             >
-              <Activity className="h-3 w-3 text-brand-600" />
+              <Activity className="h-3 w-3 text-accent-text" />
               <span>Osiloskop</span>
             </button>
 
             <button
               onClick={() => setViewMode('heatmap')}
-              className={`flex items-center space-x-1.5 rounded-md px-2.5 py-1 transition-all ${
+              className={`flex items-center space-x-1.5 rounded-md px-2.5 py-1 transition-all active:scale-[0.98] ${
                 viewMode === 'heatmap'
-                  ? 'bg-white font-semibold text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-bg-panel font-semibold text-text-hi shadow-xs'
+                  : 'text-text-mid hover:text-text-hi'
               }`}
             >
-              <Flame className="h-3 w-3 text-brand-600" />
+              <Flame className="h-3 w-3 text-accent-text" />
               <span>Isı Haritası</span>
             </button>
           </div>
@@ -459,18 +459,18 @@ export const SignalOscilloscope: React.FC<SignalOscilloscopeProps> = ({
         {viewMode === 'heatmap' && (
           <div className="flex h-full w-full flex-col space-y-2 overflow-y-auto">
             {/* Spectrum Info Bar */}
-            <div className="flex shrink-0 items-center justify-between rounded-lg border border-slate-200/80 bg-slate-50 px-3 py-1.5 text-xs">
+            <div className="flex shrink-0 items-center justify-between rounded-lg border border-border bg-surface-inset px-3 py-1.5 text-xs">
               <div className="flex items-center space-x-2.5">
-                <span className="rounded-full bg-brand-50 px-2 py-0.5 font-mono text-xs font-bold text-brand-700">
+                <span className="rounded-full bg-accent-soft border border-accent/20 px-2 py-0.5 font-mono text-xs font-bold text-accent-text">
                   {HEATMAP_CAN_IDS.length} Aktif Düğüm
                 </span>
                 <div className="flex items-center space-x-1 font-mono">
-                  <span className="text-slate-500">Bus Yükü:</span>
-                  <span className={`font-bold ${busLoad > 70 ? 'text-rose-600' : 'text-slate-800'}`}>%{busLoad}</span>
+                  <span className="text-text-mid">Bus Yükü:</span>
+                  <span className={`font-bold ${busLoad > 70 ? 'text-del' : 'text-text-hi'}`}>%{busLoad}</span>
                 </div>
               </div>
 
-              <div className="flex items-center space-x-1 text-xs text-slate-500">
+              <div className="flex items-center space-x-1 text-xs text-text-mid">
                 <MousePointer className="h-3 w-3" />
                 <span>Kartlara sağ tıklayarak AI analizi yapın</span>
               </div>
@@ -501,16 +501,16 @@ export const SignalOscilloscope: React.FC<SignalOscilloscopeProps> = ({
                     onContextMenu={(e) => handleCardContextMenu(e, timingState)}
                     className={`group flex cursor-context-menu select-none flex-col justify-between rounded-xl border p-2.5 transition-all ${
                       isCritical
-                        ? 'border-rose-300 bg-rose-50/40 ring-1 ring-rose-300'
+                        ? 'border-del/40 bg-del-bg ring-1 ring-del/30'
                         : isWarning
-                          ? 'border-amber-300 bg-amber-50/40'
-                          : 'border-slate-200 hover:border-brand-300 hover:bg-brand-50/20'
+                          ? 'border-warn/40 bg-warn-bg'
+                          : 'border-border bg-surface-inset hover:border-accent/40 hover:bg-bg-row-hover'
                     }`}
                     title="Sağ tıkla: AI Analiz, Kopyala"
                   >
                     <div>
                       <div className="mb-1 flex items-center justify-between">
-                        <span className="font-mono text-xs font-bold tracking-tight text-slate-900">
+                        <span className="font-mono text-xs font-bold tracking-tight text-text-hi">
                           {item.idHex}
                         </span>
                         <span
@@ -521,40 +521,40 @@ export const SignalOscilloscope: React.FC<SignalOscilloscopeProps> = ({
                         </span>
                       </div>
 
-                      <div className="truncate text-xs font-semibold text-slate-700" title={item.name}>
+                      <div className="truncate text-xs font-semibold text-text-hi" title={item.name}>
                         {item.name}
                       </div>
-                      <div className="truncate font-mono text-xs text-slate-500">
+                      <div className="truncate font-mono text-xs text-text-mid">
                         {item.protocol}
                       </div>
 
-                      <div className="my-2 grid grid-cols-2 gap-1.5 rounded-lg border border-white/[0.06] bg-white/[0.02] p-1.5 font-mono text-xs transition-colors">
+                      <div className="my-2 grid grid-cols-2 gap-1.5 rounded-lg border border-border bg-bg-app p-1.5 font-mono text-xs transition-colors">
                         <div>
-                          <span className="block text-xs text-slate-500">Jitter</span>
-                          <span className="font-semibold text-slate-700">{jitter} ms</span>
+                          <span className="block text-xs text-text-mid">Jitter</span>
+                          <span className="font-semibold text-text-hi">{jitter} ms</span>
                         </div>
                         <div>
-                          <span className="block text-xs text-slate-500">Yük Payı</span>
-                          <span className="font-semibold text-slate-700">%{timingState.busLoadContribution}</span>
+                          <span className="block text-xs text-text-mid">Yük Payı</span>
+                          <span className="font-semibold text-text-hi">%{timingState.busLoadContribution}</span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between border-t border-slate-100 pt-1.5 text-xs">
+                    <div className="flex items-center justify-between border-t border-border pt-1.5 text-xs">
                       <div className="flex items-center space-x-1 font-semibold">
                         {isCritical ? (
-                          <span className="flex items-center space-x-1 text-rose-700">
-                            <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
+                          <span className="flex items-center space-x-1 text-del">
+                            <AlertTriangle className="h-3.5 w-3.5 text-del" />
                             <span>Kritik Sapma</span>
                           </span>
                         ) : isWarning ? (
-                          <span className="flex items-center space-x-1 text-amber-700">
-                            <Clock className="h-3.5 w-3.5 text-amber-600" />
+                          <span className="flex items-center space-x-1 text-warn">
+                            <Clock className="h-3.5 w-3.5 text-warn" />
                             <span>Zamanlama Sapması</span>
                           </span>
                         ) : (
-                          <span className="flex items-center space-x-1 text-signal-600">
-                            <CheckCircle2 className="h-3.5 w-3.5 text-signal-500" />
+                          <span className="flex items-center space-x-1 text-add">
+                            <CheckCircle2 className="h-3.5 w-3.5 text-add" />
                             <span>Normal</span>
                           </span>
                         )}
@@ -576,38 +576,38 @@ export const SignalOscilloscope: React.FC<SignalOscilloscopeProps> = ({
               top: `${contextMenu.y}px`,
               left: `${contextMenu.x}px`,
             }}
-            className="fixed z-[9999] w-56 select-none rounded-xl border border-slate-200/80 bg-white/95 p-1.5 text-xs text-slate-700 shadow-card-elevated ring-1 ring-slate-950/5 backdrop-blur-xl animate-scale-in"
+            className="fixed z-[9999] w-56 select-none rounded-xl border border-border-strong bg-bg-popover/95 p-1.5 text-xs text-text-body shadow-card-elevated ring-1 ring-white/5 backdrop-blur-xl animate-scale-in"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-2.5 py-1.5 font-mono text-xs font-bold text-slate-500">
-              <span>{contextMenu.timingState.idHex}</span>
-              <span className="font-sans text-xs text-brand-600">{contextMenu.timingState.observedFreqHz} Hz</span>
+            <div className="flex items-center justify-between border-b border-border bg-surface-inset px-2.5 py-1.5 font-mono text-xs font-bold text-text-mid">
+              <span className="text-accent-text">{contextMenu.timingState.idHex}</span>
+              <span className="font-sans text-xs text-accent-text">{contextMenu.timingState.observedFreqHz} Hz</span>
             </div>
 
             <div className="py-1">
               <button
                 onClick={() => handleInspectCanTiming(contextMenu.timingState)}
-                className="flex w-full items-center space-x-2.5 rounded-lg px-2.5 py-2 text-left font-semibold text-brand-700 transition-colors hover:bg-brand-50"
+                className="flex w-full items-center space-x-2.5 rounded-lg px-2.5 py-2 text-left font-semibold text-accent-text transition-colors hover:bg-accent-soft"
               >
-                <Bot className="h-4 w-4 shrink-0 text-brand-600" />
+                <Bot className="h-4 w-4 shrink-0 text-accent-text" />
                 <span>AI Copilot'a Analiz Ettir</span>
               </button>
 
-              <div className="my-1 border-t border-slate-100"></div>
+              <div className="my-1 border-t border-border"></div>
 
               <button
                 onClick={() => copyToClipboard(contextMenu.timingState.idHex, 'CAN ID')}
-                className="flex w-full items-center space-x-2.5 rounded-lg px-2.5 py-1.5 text-left text-slate-700 transition-colors hover:bg-slate-50"
+                className="flex w-full items-center space-x-2.5 rounded-lg px-2.5 py-1.5 text-left text-text-body transition-colors hover:bg-bg-row-hover hover:text-text-hi"
               >
-                <Copy className="h-3.5 w-3.5 shrink-0 text-slate-500" />
+                <Copy className="h-3.5 w-3.5 shrink-0 text-text-mid" />
                 <span>CAN ID Kopyala</span>
               </button>
 
               <button
                 onClick={() => copyToClipboard(`${contextMenu.timingState.name} (${contextMenu.timingState.protocol})`, 'Sinyal Bilgisi')}
-                className="flex w-full items-center space-x-2.5 rounded-lg px-2.5 py-1.5 text-left text-slate-700 transition-colors hover:bg-slate-50"
+                className="flex w-full items-center space-x-2.5 rounded-lg px-2.5 py-1.5 text-left text-text-body transition-colors hover:bg-bg-row-hover hover:text-text-hi"
               >
-                <Copy className="h-3.5 w-3.5 shrink-0 text-slate-500" />
+                <Copy className="h-3.5 w-3.5 shrink-0 text-text-mid" />
                 <span>Protokol & Sinyali Kopyala</span>
               </button>
             </div>
@@ -617,8 +617,8 @@ export const SignalOscilloscope: React.FC<SignalOscilloscopeProps> = ({
 
       {/* Copied Toast */}
       {copiedToast && (
-        <div className="absolute bottom-4 right-4 z-50 flex items-center space-x-2 rounded-lg bg-slate-900/95 px-3 py-1.5 text-xs text-white shadow-lg backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-150">
-          <Check className="h-3.5 w-3.5 text-signal-400" />
+        <div className="absolute bottom-4 right-4 z-50 flex items-center space-x-2 rounded-lg bg-bg-popover border border-border-strong px-3 py-1.5 text-xs text-text-hi shadow-lg backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-150">
+          <Check className="h-3.5 w-3.5 text-add" />
           <span>{copiedToast}</span>
         </div>
       )}
@@ -629,7 +629,7 @@ export const SignalOscilloscope: React.FC<SignalOscilloscopeProps> = ({
 const LegendItem: React.FC<{ color: string; label: string; value: string }> = ({ color, label, value }) => (
   <span className="flex items-center gap-1.5">
     <span className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
-    <span className="text-slate-500">{label}</span>
-    <span className="font-bold text-slate-900">{value}</span>
+    <span className="text-text-mid">{label}</span>
+    <span className="font-bold text-text-hi">{value}</span>
   </span>
 );
