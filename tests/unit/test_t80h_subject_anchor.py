@@ -377,27 +377,31 @@ class TestFieldTypeLimit:
     so a block on a symptom list is usually a FALSE block.
     """
 
-    @pytest.mark.parametrize("title,symptoms", [
-        # P2688: fuel-supply heater -> hard cold starting is CORRECT
+    @pytest.mark.parametrize("title,symptoms,expected", [
+        # P2688: fuel-supply heater -> hard cold starting. The symptom names
+        # no system at all, so the gate ABSTAINS (a coverage limit, not a
+        # conflict).
         ("Fuel Supply Heater Control Circuit Low",
-         "Hard starting, especially in cold weather. Rough idle."),
-        # C1139: wheel-speed tone ring -> ABS lamp is CORRECT
+         "Hard starting, especially in cold weather. Rough idle.", "abstain"),
+        # C1139: wheel-speed tone ring -> ABS lamp. The gate BLOCKS, but the
+        # content is CORRECT — a false block.
         ("Wheel Speed Sensor Center Tone Ring Missing Tooth Fault",
          "ABS warning light illuminated on the dashboard. Traction control "
-         "warning light illuminated."),
-        # P2A05: O2 sensor -> fuel-economy drop is CORRECT
+         "warning light illuminated.", "block"),
+        # P2A05: O2 sensor -> fuel-economy drop. The gate BLOCKS on 'fuel',
+        # but "decreased fuel economy" is a correct downstream symptom.
         ("Heated oxygen sensor (H02S) 3, bank 2 - range/performance",
-         "Check Engine Light illuminated. Decreased fuel economy. Rough idle."),
+         "Check Engine Light illuminated. Decreased fuel economy. Rough idle.",
+         "block"),
     ])
-    def test_symptom_effects_produce_false_blocks(self, title, symptoms):
-        """Documents the limit: these block, but the content is correct."""
+    def test_symptom_effects_are_not_reliable_blocks(self, title, symptoms,
+                                                     expected):
+        """Documents the measured limit: a symptom list must not be reverted
+        on the gate's verdict alone."""
         v = check_subject_anchor(title, symptoms)
-        assert v.status == "block", (
-            "this case documents the false-block behaviour; if the gate ever "
-            "stops blocking here, revisit the T82 field-type warning")
-        # and the decisive check: the symptom text is NOT about another code
-        assert "abs" in symptoms.lower() or "econom" in symptoms.lower() \
-            or "starting" in symptoms.lower()
+        assert v.status == expected, (
+            "this case documents the measured behaviour; if it changes, "
+            "revisit the T82 field-type warning in the module docstring")
 
     def test_fault_statement_text_blocks_reliably(self):
         """The same gate on a fault STATEMENT is a true block (T82c)."""
