@@ -1315,6 +1315,126 @@ scancode-toolkit --license,file --copyright,file data/  # beyan metadata'sı olm
 
 ---
 
+---
+
+# BÖLÜM L — `src/` BAĞLAMA DENETİMİ (YEREL TARAMA, 2026-09-26)
+
+> **Yöntem:** `wc -l`, AST tabanlı import grafiği, literal grep, doğrudan dosya okuması. Salt-okunur. Her iddia `file:line` kanıtlı.
+
+## L.0 `src/` envanteri
+
+**141 Python dosyası, 50.528 satır.**
+
+| Paket | Satır | En büyük dosyalar |
+|---|---:|---|
+| `src/core/` | 1.152 | `exceptions.py` 321 · `contracts/ports.py` 318 · `models/can_frame.py` 277 |
+| `src/hal/` | 2.163 | `rp1210/bus.py` 465 · `replay/safety_filter.py` 460 · `replay/parsers.py` 454 · `drivers/pcan_kvaser.py` 441 |
+| `src/safety/` | 5.361 | `gateway.py` 1.828 · `secret_provider.py` 962 · `estop.py` 920 · `state_machine.py` 653 |
+| `src/protocols/` | 8.449 | `j1939/transport.py` 1.671 · `obd/pids.py` 1.441 · `uds/isotp.py` 1.402 · `uds/flasher.py` 1.119 |
+| `src/engine/` | **20.478** | ⭐ **`ai/diagnostic_copilot.py` 5.060** · `pipeline/reassembly_pipeline.py` 1.094 · `buffer/rolling_disk.py` 952 · `ai/dialogue_engine.py` 588 · `decoder/dbc_decoder.py` 584 |
+| `src/security/` | 2.978 | `cloud/client.py` 694 · `license_flow.py` 639 · `license/validator.py` 483 · `hwid/collector.py` 333 · 🔴 **`cloud/updater.py` — 0 satır (BOŞ DOSYA)** |
+| `src/ui/` | 4.611 | `desktop_app.py` 4.394 · `frontend_server.py` 212 |
+| `src/launcher/` | 1.352 | `app.py` 536 · `updater.py` 421 · `auth.py` 207 |
+
+## L.1 Yol çözümleme — `src/` içinde yalnız **4 desen** var
+
+| Desen | Konum | Not |
+|---|---|---|
+| **(A)** frozen-first + repo fallback, `Path(__file__).resolve().parents[3]` | `diagnostic_copilot.py:1650-1655`, `anomaly_detector.py:54-59`, `hypothesis_engine.py:89-94`, `user_kb.py:49-54`, `golden_cases.py:34-39` | Depo kökü = `src/engine/ai/*.py`'den 4 seviye yukarı |
+| **(B)** 🔴 **repo-only `parents[3]`, frozen dalı YOK** | `diagnostic_copilot.py:2052` (`_DBC_DATA_DIR`), `procedure_validator.py:195`, `:221` | ⭐ **L.4'ün kök nedeni** |
+| **(C)** app-data-root göreli | `desktop_app.py:846`, `:908` | |
+| **(D)** yalnız operatör argümanı | tüm `*_database(data_path=...)` | |
+
+> 🔴 **`importlib.resources` hiçbir yerde kullanılmıyor.** `src/` içinde `subprocess` ile data okuyan yok.
+
+## L.2 ⭐ `data/dbc` — 33 dosya katalog DIŞINDA (sha256 ile doğrulandı)
+
+**Kod yolları yalnız 2 gerçek okuma:**
+- `diagnostic_copilot.py:2052` `_DBC_DATA_DIR` · `:2061` `catalog.json` okuma
+- `diagnostic_copilot.py:528` **`heavy_duty/j1939_canboat.dbc`** → `DbcSignalDecoder.from_dbc_file()` (tembel, `:520-533`)
+
+> ⭐ **Ölçülen ve doğrulanan tutarsızlık:** `catalog.json` `total_files = 186` bildiriyor; **186'nın hepsi** diskte mevcut ve `size_bytes`+`sha256` eşleşiyor (186'nın tamamı yeniden hash'lendi). Ama **diskte 219 `.dbc` var** ⇒ **33 dosya katalog dışında, test edilmemiş ve envanter dışı.** Aralarında kodun **yorumlarda alıntıladığı** dosyalar var:
+> `isobus_dd11783.dbc` · `isobus_vdma.dbc` · `j1939_canboat.dbc` (kök) · `j1939_ccvs1_extra.dbc` · `j1939_isobus_ag.dbc` · `j1939_isobus_vdma_all.dbc` · `n2k_canboat.dbc` · `marine/canboat_refs/canboat.dbc` + 12 `passenger/_*.dbc` parçası
+
+> 🔴 **Kök seviyesi tekrarlar mevcut ve yalnız `heavy_duty/` kopyası kataloglanmış** — ama `src/protocols/j1939/oem/registry.py:21` ve `src/protocols/volvo/volvo_decoder.py:116` **KÖK** yolu alıntılıyor. Yorumlar kataloğun dışındaki bir yola işaret ediyor.
+
+**Paketleme (COPY):** `build_nuitka.py:60,95-96` `--include-data-dir` · `installer.iss:55` `Source: "..\data\dbc\*"` · `build_installer.py:64,86-90` ön-uçuş sayımı
+**Referans vermeyenler:** `build_exe.py` · `ucanlab.spec` · `ucanlab_launcher.spec` · `.gitlab-ci.yml` · `.github/workflows/ci.yml` · `pyproject.toml` · `conftest.py` · `main.py`
+
+## L.3 🔴 `data/traces` — daha kesin bulgu
+
+> 🔴 **`data/traces` içinde TEK BİR `.asc` ve TEK BİR `.blf` dosyası YOK.**
+> `player.py:62-70` yalnız `.asc` / `.csv` / `.blf` kabul ediyor, gerisinde `Unsupported trace format` atıyor. **Yüklenebilir olan yalnız 4 `.csv` dosyası:**
+> `sample3_GPSMAP820_…n2klog.csv` · `sample3_GPSMAP4008_…csv` · `project_haris/vessel.csv` · `project_haris/combined.csv`
+
+**Uzantı sayımı vs parser yeteneği:**
+
+| ext | adet | `player.py` yükleyebilir mi? |
+|---|---:|---|
+| `.raw` | 90 | ✗ |
+| `.out` | 27 | ✗ |
+| `.err` | 26 | ✗ |
+| `.in` | 25 | ✗ |
+| `.txt`/`.TXT` | 16 | ✗ |
+| `.log` | 8 | ✗ 🔴 **ama allowlist'te** |
+| `.ebl` | 7 | ✗ |
+| `.md` | 5 | ✗ |
+| **`.csv`** | **4** | ✅ |
+| `.all` | 3 | ✗ |
+| `.trc`/`.pcap`/`.json`/`.dle`/`.gitkeep`/`.data` | 6 | ✗ |
+
+> ⭐⭐ **İKİNCİ, BAĞIMSIZ KUSUR:** `desktop_app.py:914-916` `REPLAY_EXTENSION_HINTS` listesi `.log`, `.json`, `.mf4`, `.mdf`, `.bin`, `.zst` içeriyor — ama `player.py:63-70` **yalnız** `.asc/.csv/.blf` kabul ediyor. **`data/traces`'taki 8 `.log` dosyası güvenlik allowlist'ini geçiyor, sonra parser'da başarısız oluyor.** 🔴 **Uzantı listesi parser'ın yetenek kümesinden türetilmemiş.** `parsers.py:1` docstring'i doğruluyor.
+
+> 🔴 **Test kirliliği:** `test_t56d_replay_path_allowlist.py:36-41` deponun **kendi `data/traces`** dizinine `mkdir` yapıp `.asc` **yazıyor**; `:90-98` aynı dizine `.exe` (MZ baytları) **yazıyor**. `_app_data_root()` non-frozen modda depo kökünü döndürüyor (`desktop_app.py:185-186`).
+
+> 🔴 **`.gitignore:93-99`** — `data/traces/*` **ignore edilmiş**, yalnız `marine/{canboat_samples,canboat_analyzer_tests}/**` geri dahil edilmiş. ⇒ diskteki 289 MB **izlenen ve yerel-izlenmeyen içeriğin karışımı.**
+
+## L.4 ⭐ `data/knowledge` — sessiz kaybın KESİN mekanizması
+
+**Desen (B) — `sys.frozen` dalı yok.** `procedure_validator.py:194-196` ve `:220-222`:
+```python
+target_dir = dir_path or (Path(__file__).resolve().parents[3] / "data" / "knowledge" / "dtc_procedures")
+```
+`:198-200` → `if not target_dir.is_dir(): return None` — 🔴 **fail-silent, log yok**
+`:223` → `if not target_dir.is_dir(): return {}` — 🔴 **fail-silent, log yok**
+
+> ⭐ **Kesin sonuç:** Frozen build'de `__file__` = `<_MEIPASS>/src/engine/ai/procedure_validator.py` ⇒ `parents[3]` = `_MEIPASS` ⇒ yol `<_MEIPASS>/data/knowledge/dtc_procedures`. 🔴 **Hiçbir build script bu dizini asla oluşturmuyor** (`build_exe.py`, `build_nuitka.py`, `installer.iss` — üçü de sıfır referans). **601 prosedür `return None`/`return {}` ile kayboluyor, tek bir log satırı olmadan.**
+
+## L.5 ⭐ `data/diagnostics` — tam bağlı ama iki yeni kusur
+
+**Bağlı olan (10 loader, hepsi desen A):** `dtc_database.json` (`:1705`) · `j1939_spn_fmi_database.json` (`:1783`) · `nhtsa_can_complaints_database.json` (`:1811`) · `uds_did_database.json` (`:1833`) · `obd_mode06_database.json` (`:1856`) · `extended_pid_database.json` (`:1968`) · `nhtsa_can_recalls_database.json` (`:2125`) · `telemetry_thresholds.json` · `root_cause_graph.json` · `user_kb.json`
+
+> ⭐ **YENİ KUSUR 1 — `data/` dizinine TEK yazma:** `user_kb.py:115` `return _resolve_kb_path().parent / "user_feedback.json"` ⇒ **`data/diagnostics/user_feedback.json`** · `:152-153` `mkdir(parents=True)` + `write_text(...)` = **WRITE**. Dosya diskte yok (`.gitignore:85` ile ignore).
+> **Sonuc:** salt-okunur kurulumda (`Program Files`) ya da frozen onefile'da UI köprüsünden kaydedilen operatör geri bildirimi **geçici `_MEIPASS` çıkarma dizinine** yazılır ve **çıkışta kaybolur.**
+
+> ⭐ **YENİ KUSUR 2 — 6 CSV ikizinin `src/` okuyucusu YOK:** `obd_mode06_database.csv` · `uds_did_database.csv` · `extended_pid_database.csv` · `nhtsa_can_recalls_database.csv` · `j1939_spn_fmi_database.csv` · `dtc_database.csv`. **Tüm `src/engine/decoder`, `src/hal`, `src/protocols` ağacı hiçbir `.csv` açmıyor.** Yalnız `test_data_integrity.py:45-51` ve `scripts/rebuild_csv_exports.py:49` tarafından tüketiliyorlar.
+
+**Referans vermeyen dosyalar:** `PROVENANCE.md` (yalnız docs) · `dbc_sync_report.json` (yalnız docs) · 🔴 `nhtsa_hd_trucks_STAGING.json` — **`scripts/fetch_nhtsa_hd_trucks.py:6,25` yazıyor, hiçbir şey okumuyor**
+
+**Script tarafı — 12 merge/expand script'i JSON'a YAZIYOR:** `expand_j1939_spn_database.py:21-23` · `merge_t45_dtc.py:52` · `merge_t44_recovery.py:52` · `t63_merge.py:23-24` · `t63_adapter.py:26` · `t53_j1939_text_cleanup.py:22` · `fix_f05_scraped_artifacts.py:24` · `t_df0cf373_merge.py:22-23` · `_fix_merge.py:11` · `_restore_en.py:10` (🔴 `subprocess` ile `git show HEAD:data/…`) · `rebuild_csv_exports.py:49` · `merge_harvested_diagnostics.py:12-13`
+
+## L.6 `data/golden_traces` — bağlı, `sys._MEIPASS` dalı **VAR**
+
+`golden_cases.py:34-39` → `if sys.frozen: _MEIPASS/"data"/"golden_traces"/"cases"`; `is_dir()` değilse `parents[3]/…` fallback'i. ⭐ **Bu, `data/diagnostics` ile `data/knowledge`'nin aksine doğru deseni kullanıyor** — yani düzeltme için hazır bir örnek depoda mevcut.
+
+## L.7 Test kapsamı
+
+| data dizini | Test edilen invariant |
+|---|---|
+| `data/dbc` | `test_curated_dbc_pack.py:24-38` manifest+catalog varlığı, `total_files >= 70`, `total_messages >= 10000`, `total_signals >= 40000`, 5 kategori; `:40-60` EEC1 → `Engine_RPM == 1600.0` · `test_data_integrity.py:127-137` **katalogdaki her girdi yeniden hash'leniyor** |
+| `data/diagnostics` | `test_data_integrity.py:37-51` JSON↔CSV satır eşitliği (5 çift) · `:90-118` metadata toplamları · `test_harvest_validator.py:65` · `test_ai_fabrication_fixes.py:217` · `test_ai_roadmap_faz2.py:114-118` canlı UI yolu |
+| `data/knowledge` | `test_data_integrity.py:157-169` varlık, `schema_version==1`, `symptoms`+`measurement_steps`, dosya↔`dtc` tutarlılığı, **öksüzlük denetimi** · `test_ai_roadmap_faz2.py:50-55` `>= 3` |
+| `data/golden_traces` | `test_golden_cases.py` + `test_data_integrity.py:143-154` şema + taslak dışlama |
+| `data/traces` | 🔴 **yalnız izin listesi testi** — **korpusun kendisi test edilmiyor** |
+
+🔴 **`data/traces` için 289 MB'lık gerçek korpusun hiçbir testi yok.**
+
+## L.8 Boş dosya
+
+🔴 **`src/security/cloud/updater.py` — 0 satır.** Kardeşi `src/launcher/updater.py` 421 satır.
+
+---
+
 ## SONUÇ
 
 Turun kapsamı: **yerel envanter (1.123 dosya) + 20+ alt araştırma dalı.** Çıktı:
