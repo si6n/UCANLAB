@@ -363,6 +363,45 @@ _GRAPH_CACHE: dict[tuple[str, int, int], list["GraphNode"]] = {}
 _GRAPH_CACHE_LOCK = threading.Lock()
 
 
+# ---------------------------------------------------------------------------
+# NODE-DERIVATION CACHE (T84d, measured 2026-09-26)
+#
+# `rank_hypotheses` walks every graph node on EVERY `analyze_session`, and for
+# each node it re-derived three pure functions of immutable fields:
+# `norm_dtcs_with_qualifiers`, `canonical_evidence_signals` and
+# `canonical_contradicting_signals`. Measured with cProfile over 20 sessions:
+# 177,680 calls to `norm_dtcs_with_qualifiers` costing 0.98 s of a 2.43 s
+# total — the single largest term, and pure recomputation.
+#
+# The inputs are immutable tuples held by a frozen dataclass, so the results
+# are stable for the life of the process: caching them cannot change an
+# answer, only stop recomputing it. The `aliases` mapping is part of the key
+# because a caller may pass a different one; it is passed as a hashable
+# `frozenset` of items for exactly that reason.
+# ---------------------------------------------------------------------------
+def _cached_norm_dtcs_with_qualifiers(
+        expected_dtcs: tuple[str, ...]) -> frozenset[tuple[str, int | None]]:
+    """Derive the node's declared ``(code, fmi)`` pairs.
+
+    Named "cached" for its call sites, but deliberately NOT memoised in a
+    process-global cache: the graph loader already derives this exactly once
+    per graph generation (the real hot path), and an ``lru_cache`` keyed only
+    on the code tuple would let an UNALIASED caller poison an ALIASED one —
+    measured as three golden-case failures that only appeared when the test
+    file ran as a whole. Correctness over a micro-optimisation on a path that
+    is no longer hot.
+    """
+    return frozenset(_split_code_qualifier(c) for c in expected_dtcs)
+
+
+def _cached_canonical_signals(
+        signals: tuple[str, ...],
+        aliases: dict[str, str] | None = None,
+) -> frozenset[str]:
+    """Canonicalise a node's signal names (same caveat as above)."""
+    return frozenset(canonicalize_signal(s, aliases) for s in signals)
+
+
 @dataclass(slots=True, frozen=True)
 class GraphNode:
     """One KB-derived root-cause node."""
@@ -373,26 +412,61 @@ class GraphNode:
     expected_dtcs: tuple[str, ...]
     contradicting_signals: tuple[str, ...]
     source_ref: str
+    # T84d: pre-computed at LOAD time (see ``load_root_cause_graph``). These
+    # are pure functions of the fields above, and the graph list is cached
+    # keyed on the file's mtime/size, so they are derived once per graph
+    # generation instead of once per node per session. Defaults keep
+    # hand-built nodes (tests, fixtures) working unchanged.
+    norm_dtcs_with_qualifiers: frozenset[tuple[str, int | None]] = frozenset()
+    canonical_evidence: frozenset[str] = frozenset()
+    canonical_contradicting: frozenset[str] = frozenset()
+
+    def __post_init__(self) -> None:
+        """Fill any pre-computed field a hand-built node left at its default.
+
+        The loader passes all three explicitly, so production pays for them
+        once per graph generation. A test or fixture that constructs a
+        ``GraphNode`` directly gets them derived here instead — the same
+        values, so behaviour is identical either way.
+
+        ``aliases=None`` means "use the shipped alias map" to
+        ``canonicalize_signal``, so the two paths agree by construction. The
+        alias map is read through its own mtime/size-keyed cache, so the
+        default path costs one lookup, not one file read.
+
+        ``frozen=True`` forbids normal assignment, so the fields are set
+        through ``object.__setattr__``. Only an EMPTY field is filled, so an
+        explicitly-passed empty result is recomputed to the same empty result
+        and nothing is overwritten.
+        """
+        if not self.norm_dtcs_with_qualifiers:
+            object.__setattr__(
+                self, "norm_dtcs_with_qualifiers",
+                _cached_norm_dtcs_with_qualifiers(self.expected_dtcs))
+        # `canonical_evidence` / `canonical_contradicting` are deliberately
+        # NOT derived here: they depend on the alias map, which only the
+        # caller holds. `rank_hypotheses` derives them per node with its own
+        # map (see the loader note).
 
     @property
     def norm_dtcs(self) -> frozenset[str]:
         return frozenset(_normalize_code(c) for c in self.expected_dtcs)
 
-    def norm_dtcs_with_qualifiers(self) -> frozenset[tuple[str, int | None]]:
+    def norm_dtcs_with_qualifiers_computed(self) -> frozenset[tuple[str, int | None]]:
         """``(code, fmi)`` pairs the node claims, FMI ``None`` when undeclared.
 
-        Nodes that declare no qualifier keep their bare normalized code and can
-        still match an event with or without an FMI (see the FMI gating note).
+        Kept for callers that build a node by hand (tests, fixtures); the
+        production path reads the pre-computed field of the same name.
         """
-        return frozenset(_split_code_qualifier(c) for c in self.expected_dtcs)
+        return _cached_norm_dtcs_with_qualifiers(self.expected_dtcs)
 
     def canonical_evidence_signals(self, aliases: dict[str, str] | None = None) -> frozenset[str]:
         """Evidence signals in canonical form (T2-8 alias resolution)."""
-        return frozenset(canonicalize_signal(s, aliases) for s in self.evidence_signals)
+        return _cached_canonical_signals(self.evidence_signals, aliases)
 
     def canonical_contradicting_signals(self, aliases: dict[str, str] | None = None) -> frozenset[str]:
         """Contradicting signals in canonical form (T2-8 alias resolution)."""
-        return frozenset(canonicalize_signal(s, aliases) for s in self.contradicting_signals)
+        return _cached_canonical_signals(self.contradicting_signals, aliases)
 
 
 @dataclass(slots=True, frozen=True)
@@ -551,6 +625,20 @@ def load_root_cause_graph(data_path: Path | None = None) -> list[GraphNode]:
     if not isinstance(payload, dict):
         raise RootCauseGraphError("graph payload must be a JSON object")
     _validate_graph_payload(payload)
+    # T84d: derive the session-independent per-node values HERE, once per
+    # graph generation. `rank_hypotheses` runs on every analyze_session and
+    # used to recompute them for every node every time (measured: 177,680
+    # calls per 20-session profile, the dominant latency term).
+    #
+    # ONLY the alias-INDEPENDENT value is derived here. `canonical_evidence`
+    # and `canonical_contradicting` depend on the alias map, which lives in a
+    # SEPARATE cache with its own mtime/size key — baking them in would make
+    # the graph's content depend on which alias map happened to load first.
+    # That is not hypothetical: a test that monkeypatches an EMPTY alias map
+    # and then calls this loader poisoned the graph for every later caller
+    # (measured — three golden-case failures that appeared only when the test
+    # file ran as a whole). The alias-dependent half is derived per node in
+    # `rank_hypotheses`, where the caller's map is in hand.
     nodes = [
         GraphNode(
             id=n["id"],
@@ -559,6 +647,8 @@ def load_root_cause_graph(data_path: Path | None = None) -> list[GraphNode]:
             expected_dtcs=tuple(n["expected_dtcs"]),
             contradicting_signals=tuple(n["contradicting_signals"]),
             source_ref=n["source_ref"],
+            norm_dtcs_with_qualifiers=frozenset(
+                _split_code_qualifier(c) for c in n["expected_dtcs"]),
         )
         for n in payload["nodes"]
     ]
@@ -647,12 +737,42 @@ def rank_hypotheses(
     # P0-6: id -> node, so the post-sort pass can read each node's declared
     # observable/contradicting signals without a second graph scan.
     node_lookup = {n.id: n for n in graph}
+
+    # T84d (measured 2026-09-26): PRE-COMPUTE THE SESSION-INDEPENDENT HALF.
+    #
+    # The loop below walks every graph node (8,884 of them in the shipped
+    # graph) on every `analyze_session`, but most of what it reads is a pure
+    # function of the node's own immutable fields: its declared (code, fmi)
+    # pairs, its canonical evidence signals and its canonical contradicting
+    # signals. Those cannot change between sessions, yet they were re-derived
+    # 177,680 times per 20-session profile (cProfile, T84d) — the dominant
+    # term in a 50 ms/session budget.
+    #
+    # Hoisting them into one pass keeps the loop's semantics identical: every
+    # value read below is the same value the methods returned, computed once.
+    # T84d (measured 2026-09-26): derive the alias-dependent half in ONE pass.
+    #
+    # The alias map is a SEPARATE cache from the graph (its own mtime/size
+    # key), so it cannot be baked into the graph nodes without making the
+    # graph's content depend on which alias map loaded first — a real defect
+    # that broke three golden cases. Deriving it inside the loop instead
+    # re-canonicalised 373,144 signal names per 21-session profile (0.45 s).
+    # This pass runs once per `rank_hypotheses` call, not once per node per
+    # consumer, and the result is keyed by node identity.
+    node_signals: dict[int, tuple[frozenset[str], frozenset[str]]] = {}
     for node in graph:
+        node_signals[id(node)] = (
+            _cached_canonical_signals(node.evidence_signals, aliases),
+            _cached_canonical_signals(node.contradicting_signals, aliases),
+        )
+
+    for node in graph:
+        node_qualified = node.norm_dtcs_with_qualifiers
+        node_evidence, node_contradicting = node_signals[id(node)]
         support: list[str] = []
         contradict: list[str] = []
         score = 0.0
 
-        node_qualified = node.norm_dtcs_with_qualifiers()
         dtc_hits = frozenset(code for code, _ in node_qualified) & active_codes
         # FMI GATE (T2-8, one-sided by design — see the module-level note): a
         # node that DECLARES a qualifier fires only when the event carries the
@@ -694,7 +814,6 @@ def rank_hypotheses(
             for code, fmi in sorted(qualified_hits):
                 support.append(f"FMI nitelik eşleşmesi: {code} FMI {fmi}")
 
-        node_evidence = node.canonical_evidence_signals(aliases)
         signal_hits = sorted(node_evidence & anomaly_signals)
         if signal_hits:
             # Synthetic (operator-declared) anomalies weigh half (FAZ 3.2).
@@ -741,7 +860,7 @@ def rank_hypotheses(
             # for the discriminating-tests diff; no score effect.)
             _ = sig
 
-        contradicting = sorted(node.canonical_contradicting_signals(aliases) & observed_signals - anomaly_signals)
+        contradicting = sorted(node_contradicting & observed_signals - anomaly_signals)
         if contradicting:
             score -= CONTRADICTION_PENALTY
             contradict.append(
