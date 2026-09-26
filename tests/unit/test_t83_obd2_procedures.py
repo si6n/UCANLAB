@@ -27,7 +27,7 @@ import pytest
 
 DTC_DB = "data/diagnostics/dtc_database.json"
 MARK = "procedures_obd2_t83"
-N_MERGED = 388
+N_MERGED = 389  # 388 from the first pass + B1614 recovered on the second
 
 
 @pytest.fixture(scope="module")
@@ -84,15 +84,33 @@ class TestExclusions:
         assert not db["P0642"].get(MARK), (
             "the anchor-blocked page must never be merged")
 
-    def test_too_few_steps_was_excluded(self, db):
-        """Exactly one page carried <4 steps and was not merged."""
+    def test_b1614_was_recovered_after_a_thin_first_pass(self, db):
+        """B1614's first extraction pass found <4 steps and was skipped.
+
+        The harvesting agent then re-fetched it with a keyword-based
+        extractor, found 6 real steps, and folded them into the checkpoint —
+        a documented recovery, not a silent inclusion. The merge therefore
+        accepts it on the second pass.
+        """
         d = json.load(open("output/t83_work/obd2_390_checkpoint.json",
                            encoding="utf-8"))
-        thin = [c for c, p in d["pages"].items()
-                if not isinstance(p.get("steps"), list)
-                or len(p["steps"]) < 4]
-        assert len(thin) == 1, f"expected 1 thin page, got {thin}"
-        assert not db[thin[0]].get(MARK)
+        page = d["pages"].get("B1614")
+        assert page is not None, "B1614 must be present in the checkpoint"
+        steps = page.get("steps")
+        assert isinstance(steps, list) and len(steps) >= 4, (
+            "B1614's recovered steps must satisfy the admission threshold")
+        assert db["B1614"].get(MARK), "the recovered page must be merged"
+
+    def test_no_page_below_threshold_was_merged(self, db):
+        """The admission rule still holds for every other page."""
+        d = json.load(open("output/t83_work/obd2_390_checkpoint.json",
+                           encoding="utf-8"))
+        for code, p in d["pages"].items():
+            steps = p.get("steps")
+            if isinstance(steps, list) and len(steps) >= 4:
+                continue
+            assert not db[code].get(MARK), (
+                f"{code} carries {len(steps or [])} steps but was merged")
 
 
 class TestCalibrationContract:

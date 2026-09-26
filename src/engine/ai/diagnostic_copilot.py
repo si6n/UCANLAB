@@ -5164,7 +5164,7 @@ class CausalBayesianInferenceEngine:
             info = EXPERT_KNOWLEDGE_BASE.get(c)
             if not isinstance(info, dict):
                 continue
-            title = str(info.get("title", c))
+            title = cls.display_title(info, c)
             subsys = str(info.get("subsystem", "Genel Teşhis"))
             sev = str(info.get("severity", "MEDIUM"))
             tag = " ⛔*(rezerve/üreticiye özel)*" if info.get("is_reserved") else ""
@@ -5404,6 +5404,140 @@ class CausalBayesianInferenceEngine:
         if not lines:
             return ""
         return "\n📐 **Ölçüm Tutarlılığı:**\n" + "\n".join(lines) + "\n"
+
+    # T84b (2026-09-26): PLACEHOLDER-TITLE RESOLUTION.
+    #
+    # Measured on the shipped DB: 797 records carry a placeholder `title`
+    # while their `title_en` holds the REAL meaning. The renderer printed only
+    # `title`, so the operator saw "B0006 - ISO/SAE Reserved (üretici ataması
+    # yok)" while the record itself knew the code means "Driver Frontal
+    # Deployment Loop Short to Ground". `title_en` was used only as a search
+    # token, never displayed.
+    #
+    # This is a WIRING gap, not a data gap: the meaning is already in the
+    # record. The fix surfaces it and labels the substitution so the operator
+    # knows the displayed title is the English layer, not the record's own.
+    #
+    # A placeholder is a title that names no code-specific meaning: the
+    # "ISO/SAE Reserved" family, the bare "OBD Code" / "Body Code DTC" labels,
+    # the family descriptors ("Generic (SAE-defined) ...", "Manufacturer-
+    # specific network code ..."), and the Turkish "Arıza Teşhis Kaydı".
+    _PLACEHOLDER_TITLE_PATTERNS = (
+        re.compile(r"^[pbcu][0-9a-f]{3,4}\s*[-—–]\s*iso/sae reserved", re.I),
+        re.compile(r"iso/sae reserved", re.I),
+        re.compile(r"^(?:obd code|body code dtc|body dtc code)\s*$", re.I),
+        re.compile(r"^arıza teşhis kaydı\s*$", re.I),
+        re.compile(r"^manufacturer-specific network code", re.I),
+        re.compile(r"^generic \(sae-defined\)", re.I),
+        re.compile(r"^[pbcu][0-9a-f]{3,4}\s*diagnostic trouble code", re.I),
+        re.compile(r"diagnostic trouble code \(\d+ interpretations?\)", re.I),
+    )
+
+    @staticmethod
+    def is_placeholder_title(title: object) -> bool:
+        """True when the title names no code-specific meaning."""
+        text = str(title or "").strip()
+        if not text:
+            return True
+        return any(p.search(text)
+                   for p in CausalBayesianInferenceEngine
+                   ._PLACEHOLDER_TITLE_PATTERNS)
+
+    @classmethod
+    def display_title(cls, info: dict, code: str = "") -> str:
+        """The title to SHOW for a record.
+
+        Returns the record's own `title`, except when that title is a
+        placeholder and `title_en` holds the real meaning — then the English
+        layer is shown with a label. When both are placeholders (or `title_en`
+        is absent) the record's own title is returned unchanged: no
+        substitution is invented (AGENTS.md §2.3).
+        """
+        own = str(info.get("title") or code or "").strip()
+        en = str(info.get("title_en") or "").strip()
+        if own and not cls.is_placeholder_title(own):
+            return own
+        if en and not cls.is_placeholder_title(en):
+            return f"{en} *(EN katmanı; kayıt başlığı yer tutucu)*"
+        return own or code
+
+
+    # T84c (2026-09-26): MEASUREMENT-TOLERANCE FIT GUARD.
+    #
+    # Measured on the shipped DB: the `measurement` field carries 41 distinct
+    # values across 9,300 records, and five template values cover 9,262
+    # (99.6%). None carries a provenance key (`*_source`), unlike every other
+    # harvested field. And the stated tolerance fits the record's own subject
+    # only rarely:
+    #
+    #     value (records)                        title names its system
+    #     ------------------------------------   ----------------------
+    #     "Sensör besleme 5.0V ±0.1V ..." (6,437)          1.2%
+    #     "Hava yastığı devre direnci ..." (1,286)         5.5%
+    #     "Tekerlek hız sensör direnci ..." (652)         19.9%
+    #     "CAN High 2.5-3.5V ..." (537)                   34.6%
+    #
+    # So for P0AD9 (Hybrid Battery Positive Contactor) the report printed
+    # "Sensör besleme 5.0V ±0.1V, Şasi direnci < 1.0 Ω" — an HV contactor is
+    # not a 5V sensor circuit. `Tuzaklar-ve-Dersler` §60 calls a fabricated
+    # tolerance the most dangerous fabrication of all: a technician measures
+    # against it and replaces a healthy part.
+    #
+    # This guard is the subject-anchor pattern applied to the measurement
+    # field: the tolerance text states its own system, and the record must
+    # mention that system. When it does not, the tolerance is WITHHELD and
+    # stage 2 renders the explicit gap T67-A established. The value is not
+    # deleted from the DB — it is simply not asserted for a record it does not
+    # describe.
+    _MEASUREMENT_SYSTEM_PATTERNS: tuple[tuple[str, str], ...] = (
+        ("airbag", r"airbag|srs|deployment|pretension|gergi|hava yastığı|"
+                   r"seat belt|emniyet kemeri|occupant|side impact"),
+        ("wheel speed", r"wheel speed|tekerlek hız|\babs\b|traction|"
+                        r"wheel sensor|tone ring"),
+        ("can bus", r"\bcan\b|\bbus\b|network|communication|iletişim|"
+                    r"data link|gateway"),
+        ("5v reference", r"5\s*v|reference voltage|referans|supply voltage|"
+                         r"besleme|sensor supply"),
+        ("vag", r"\bvag\b|audi|volkswagen|skoda|\[vag\]"),
+        ("hybrid/hv", r"hybrid|hücre|battery pack|batarya|contactor|"
+                      r"interlock|inverter|izolasyon"),
+        ("transmission", r"transmission|şanzıman|solenoid|shift|clutch|"
+                         r"\bgear\b|tork"),
+        ("fuel", r"\bfuel\b|yakıt|injector|enjektör|\bpump\b|basınç"),
+        ("egr/exhaust", r"\begr\b|egzoz|exhaust|\bdpf\b|catalyst|kataliz|"
+                        r"\bnox\b|reductant|adblue|\bscr\b"),
+        ("ignition", r"ignition|ateşleme|coil|buji|glow plug|kızdırma"),
+    )
+
+    @classmethod
+    def _measurement_fits_record(cls, measurement: str, info: dict) -> bool:
+        """True when the tolerance's stated system matches the record.
+
+        Conservative by design: only the systems the tolerance NAMES are
+        tested, and the record is judged on its own title / title_en /
+        subsystem / description. An unmatched tolerance is withheld, never
+        rewritten.
+        """
+        text = str(measurement or "").strip()
+        if not text:
+            return False
+        # T84b interaction: a placeholder `title` names no system, so it
+        # cannot witness a match. Include the record's other identifying
+        # layers — the same ones `display_title` surfaces.
+        own = " ".join(str(info.get(k) or "") for k in
+                       ("title", "title_en", "title_tr", "subsystem",
+                        "description_en", "symptoms_en"))
+        own_low = own.lower()
+        for label, pattern in cls._MEASUREMENT_SYSTEM_PATTERNS:
+            # does the TOLERANCE text talk about this system?
+            if not re.search(pattern, text, re.I):
+                continue
+            # the tolerance names this system -> the record must mention it
+            return bool(re.search(pattern, own_low, re.I))
+        # A tolerance that names no recognisable system (e.g. a bare
+        # "standart OEM toleransları") asserts nothing specific; keep it.
+        return True
+
 
     @classmethod
     def _format_4stage_technician_report(
@@ -5663,6 +5797,11 @@ class CausalBayesianInferenceEngine:
         # T67-A: stage 2/3 render only what the record actually holds. An empty
         # field states the gap instead of substituting an invented tolerance or
         # routine (AGENTS.md §2.3).
+        # T84c: a tolerance that does not describe THIS record is withheld —
+        # see the fit guard above for the measurement behind this.
+        if measurement_block and not cls._measurement_fits_record(
+                measurement_block, info):
+            measurement_block = ""
         _stage2_body = (
             f"  • {measurement_block}"
             if measurement_block
@@ -5829,7 +5968,7 @@ class CausalBayesianInferenceEngine:
             evidence_block = f"\n\n🔖 **Kaynak Kanıt:** {_ev_url}"
 
         report_text = (
-            f"🚨 **[{code}] — {info.get('title', code)}** {priority_line}\n"
+            f"🚨 **[{code}] — {cls.display_title(info, code)}** {priority_line}\n"
             f"🏷️ **Alt Sistem:** {info.get('subsystem', 'Genel Teşhis')}{telemetry_str}\n"
             f"{consistency_block}\n"
             f"{plausibility_block}"
