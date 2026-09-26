@@ -20,7 +20,10 @@ sys.path.insert(0, "C:/Users/canak/Desktop/Universal-CAN-BUS-Tool")
 
 from src.ui.desktop_app import _DesktopAuthCallbackHandler  # noqa: E402
 
-TOKEN = "tok_abcdefghijklmnop123456"
+# A deliberately FAKE, non-secret fixture value. Kept low-entropy and
+# obviously synthetic so secret scanners do not flag it as a live
+# credential: a real token never looks like this.
+TOKEN = "tok_test_0000000000000000"
 
 
 class BrokenWriter:

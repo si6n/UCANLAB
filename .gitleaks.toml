@@ -74,3 +74,16 @@ regexTarget = "match"
 regexes = [
   '''OBSIDIAN_API_KEY''',
 ]
+
+[[allowlists]]
+description = "Synthetic auth-callback test fixture, not a credential. The value is a low-entropy placeholder ('tok_abcdefghijklmnop123456', replaced at HEAD by 'tok_test_0000000000000000') used to assert that a completed login stores the token it was given. It authenticates nothing and appears only in a one-off verification script that no production path imports."
+# ONE exact path, anchored at the repo root.
+paths = [
+  '''^scripts/verify_auth_callback_fix\.py$''',
+]
+# Belt-and-braces: the match must be the TOKEN fixture line, so any REAL
+# secret later added to this file is still reported.
+regexTarget = "match"
+regexes = [
+  '''TOKEN\s*=\s*"tok_''',
+]

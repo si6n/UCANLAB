@@ -88,7 +88,7 @@ class TestMeasuredPopulation:
     def test_the_gap_is_real_and_bounded(self, db):
         """The population this fix serves, re-measured against the live DB."""
         n = 0
-        for code, e in db.items():
+        for _code, e in db.items():
             if not isinstance(e, dict):
                 continue
             if (E.is_placeholder_title(e.get("title"))

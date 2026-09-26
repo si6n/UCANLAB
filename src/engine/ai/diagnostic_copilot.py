@@ -5444,7 +5444,7 @@ class CausalBayesianInferenceEngine:
                    ._PLACEHOLDER_TITLE_PATTERNS)
 
     @classmethod
-    def display_title(cls, info: dict, code: str = "") -> str:
+    def display_title(cls, info: dict[str, Any], code: str = "") -> str:
         """The title to SHOW for a record.
 
         Returns the record's own `title`, except when that title is a
@@ -5510,7 +5510,8 @@ class CausalBayesianInferenceEngine:
     )
 
     @classmethod
-    def _measurement_fits_record(cls, measurement: str, info: dict) -> bool:
+    def _measurement_fits_record(cls, measurement: str,
+                                 info: dict[str, Any]) -> bool:
         """True when the tolerance's stated system matches the record.
 
         Conservative by design: only the systems the tolerance NAMES are
@@ -5528,7 +5529,7 @@ class CausalBayesianInferenceEngine:
                        ("title", "title_en", "title_tr", "subsystem",
                         "description_en", "symptoms_en"))
         own_low = own.lower()
-        for label, pattern in cls._MEASUREMENT_SYSTEM_PATTERNS:
+        for _label, pattern in cls._MEASUREMENT_SYSTEM_PATTERNS:
             # does the TOLERANCE text talk about this system?
             if not re.search(pattern, text, re.I):
                 continue
