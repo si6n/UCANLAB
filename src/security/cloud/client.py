@@ -185,6 +185,64 @@ class _SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
             return None
         return (scheme, host, port)
 
+    @staticmethod
+    def _resolve_ips(host: str) -> list[str]:
+        """Resolve a hostname to every address it currently maps to.
+
+        Redirect targets are a cold path, so the DNS lookup cost is
+        acceptable; a name that cannot be resolved yields an empty list and
+        the caller fails closed.
+        """
+        import socket as _socket
+
+        try:
+            infos = _socket.getaddrinfo(host, None, proto=_socket.IPPROTO_TCP)
+        except OSError:
+            return []
+        ips: list[str] = []
+        for _family, _type, _proto, _canon, sockaddr in infos:
+            addr = str(sockaddr[0])
+            if addr not in ips:
+                ips.append(addr)
+        return ips
+
+    def _reject_private_resolution(self, host: str, newurl: str) -> None:
+        """DNS-rebinding cover: every address a redirect host resolves to
+        must be public. A name that resolves to loopback/private/link-local
+        (or fails to resolve) is refused fail-closed, so an attacker cannot
+        pass the allowlist with a public A record and then serve a private
+        one on the redirect hop.
+        """
+        if host in DEV_ONLY_CLOUD_HOSTS:
+            return  # explicit dev exception (loopback dev server)
+        import ipaddress
+
+        resolved = self._resolve_ips(host)
+        if not resolved:
+            raise SecurityError(
+                f"Refusing cloud redirect to unresolvable host {host!r}",
+                code="CLOUD_REDIRECT_REFUSED",
+                details={"to": newurl},
+            )
+        for addr in resolved:
+            try:
+                ip = ipaddress.ip_address(addr)
+            except ValueError:
+                continue
+            if (
+                ip.is_private
+                or ip.is_loopback
+                or ip.is_link_local
+                or ip.is_reserved
+                or ip.is_multicast
+                or ip.is_unspecified
+            ):
+                raise SecurityError(
+                    f"Refusing cloud redirect: {host!r} resolves to non-public {addr!r}",
+                    code="CLOUD_REDIRECT_REFUSED",
+                    details={"to": newurl, "resolved": addr},
+                )
+
     def redirect_request(self, req: Any, fp: Any, code: int, msg: str, headers: Any, newurl: str) -> Any:
         # Fail CLOSED with a typed error (never follow-and-strip, never
         # return None into urllib which would surface as an untyped crash
@@ -221,15 +279,18 @@ class _SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
                 ip = ipaddress.ip_address(new_host)
             except ValueError:
                 ip = None
-            # Literal-IP destinations only (no DNS lookup on the hot path —
-            # DNS-rebinding cover is the allowlist's job). ponytail: resolve
-            # + re-check if redirect targets ever leave the allowlist.
+            # Literal-IP destinations: reject private/loopback outright.
             if ip is not None and (ip.is_private or ip.is_loopback) and new_host not in DEV_ONLY_CLOUD_HOSTS:
                 raise SecurityError(
                     f"Refusing cloud redirect to private/reserved IP {new_host!r}",
                     code="CLOUD_REDIRECT_REFUSED",
                     details={"to": newurl},
                 )
+            if ip is None:
+                # Hostname destination: resolve and verify every address is
+                # public (DNS-rebinding cover — previously deferred; the
+                # redirect hop is cold so the lookup is affordable).
+                self._reject_private_resolution(new_host, newurl)
         except SecurityError:
             raise
         except Exception:

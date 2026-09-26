@@ -148,14 +148,14 @@ class _PgnScopedSessionTable(dict):
             return matches[0]
         return None
 
-    def __contains__(self, key: object) -> bool:  # type: ignore[override]
+    def __contains__(self, key: object) -> bool:
         if dict.__contains__(self, key):
             return True
         if self._is_legacy_key(key):
             return self._resolve_legacy(key) is not None  # type: ignore[arg-type]
         return False
 
-    def __getitem__(self, key: tuple):  # type: ignore[override]
+    def __getitem__(self, key: tuple):
         try:
             return dict.__getitem__(self, key)
         except KeyError:
@@ -165,13 +165,13 @@ class _PgnScopedSessionTable(dict):
                     return dict.__getitem__(self, full)
             raise
 
-    def get(self, key: tuple, default=None):  # type: ignore[override]
+    def get(self, key: tuple, default=None):
         try:
             return self.__getitem__(key)
         except KeyError:
             return default
 
-    def pop(self, key: tuple, *args):  # type: ignore[override]
+    def pop(self, key: tuple, *args):
         try:
             return dict.pop(self, key)
         except KeyError:
@@ -183,7 +183,7 @@ class _PgnScopedSessionTable(dict):
                 return args[0]
             raise
 
-    def __delitem__(self, key: tuple) -> None:  # type: ignore[override]
+    def __delitem__(self, key: tuple) -> None:
         try:
             dict.__delitem__(self, key)
             return
@@ -196,7 +196,7 @@ class _PgnScopedSessionTable(dict):
                 return
         raise KeyError(key)
 
-    def __setitem__(self, key: tuple, value) -> None:  # type: ignore[override]
+    def __setitem__(self, key: tuple, value) -> None:
         if self._is_legacy_key(key):
             pgn = getattr(value, "target_pgn", None)
             if isinstance(pgn, int):

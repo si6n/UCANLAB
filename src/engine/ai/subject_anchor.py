@@ -83,7 +83,9 @@ adapter or from the orchestrator before a merge.
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
+from typing import Any
 
 # System lexicon: (canonical name, pattern). Ordered; a text may name several.
 # Patterns are deliberately generous on abbreviations because the sources use
@@ -229,7 +231,7 @@ _PLACEHOLDER_TITLE = re.compile(
 )
 
 
-def systems_in(text) -> set[str]:
+def systems_in(text: object) -> set[str]:
     """Canonical system names mentioned in `text` (deterministic)."""
     t = str(text or "")
     return {name for name, pat in _SYSTEMS if pat.search(t)}
@@ -249,7 +251,7 @@ class AnchorVerdict:
         return self.status != "block"
 
 
-def check_subject_anchor(title, subject_claim) -> AnchorVerdict:
+def check_subject_anchor(title: object, subject_claim: object) -> AnchorVerdict:
     """Does the source's own meaning claim describe the record's subject?
 
     Returns `pass` when the two texts share a system (or when either side
@@ -337,12 +339,12 @@ _CODE_TOKEN = re.compile(
 )
 
 
-def masked_text(text) -> str:
+def masked_text(text: object) -> str:
     """Replace any DTC/SPN code token so template text can be compared."""
     return _CODE_TOKEN.sub("<C>", str(text or ""))
 
 
-def masked_distinctness(texts) -> float:
+def masked_distinctness(texts: Iterable[object]) -> float:
     """Distinctness after masking code tokens (1.0 = every text is unique
     beyond the code name; low = one template with the code substituted)."""
     norm = [masked_text(t).strip() for t in texts]
@@ -367,7 +369,7 @@ class LayerVerdict:
 
 
 def check_layer_admission(
-    records,
+    records: Iterable[dict[str, Any]],
     *,
     min_masked_distinctness: float = 0.60,
 ) -> LayerVerdict:
@@ -422,3 +424,73 @@ def check_layer_admission(
                         masked_distinctness=dist, anchor_pass=passed,
                         anchor_block=blocked, anchor_abstain=abstained,
                         reason=reason)
+
+
+# ============================================================================
+# T82d: ASSERTED-FOREIGN-COMPONENT — the precision signal for symptom text
+# ============================================================================
+#
+# MEASURED (2026-09-26). The plain anchor gate produces FALSE blocks on
+# symptom lists, because a symptom legitimately names downstream systems:
+#
+#   P2688 "Fuel Supply Heater Control Circuit Low"
+#         "Hard starting, especially in cold weather"        -> correct
+#   C1139 "Wheel Speed Sensor Tone Ring Missing Tooth"
+#         "ABS warning light illuminated"                    -> correct
+#
+# But a DIFFERENT, reliably-wrong pattern exists: text that names an effect
+# AND then ASSERTS a component as the cause of a code it is not about:
+#
+#   C0093 title "4WD/AWD Power Transfer Unit Temperature Sensor"
+#         "Check engine light stays on constantly, indicating a malfunction
+#          in the BRAKE PRESSURE SENSOR."                    -> misattributed
+#
+# The discriminating feature is the assertion phrase. Measured on three real
+# corpora:
+#
+#   geekobd T81d reverts (misattributed)  n=1956  foreign assertion 14.0%
+#   obd2.com symptoms     (legitimate)    n=4307  foreign assertion  0.0%
+#   obdhut T82a fills     (accepted)      n=298   foreign assertion  0.0%
+#
+# So an asserted foreign component is a HIGH-PRECISION signal: when present,
+# the text is almost certainly misattributed. Its absence proves nothing.
+
+_ASSERTION = re.compile(
+    r"(?:indicating|indicat\w+|signaling|suggesting|due to|resulting from|"
+    r"caused by)\s+(?:a\s+|an\s+|the\s+)?"
+    r"(?:malfunction|fault|failure|issue|problem|error)\s+"
+    r"(?:in|with|of|on)\s+(?:the\s+|your\s+)?"
+    r"([a-z0-9 '\"\-/]+)",
+    re.I,
+)
+
+
+def asserted_components(text: object) -> list[str]:
+    """Component phrases the text explicitly blames as the cause.
+
+    Returns the raw phrases (verbatim from the text, truncated at a sentence
+    boundary). Empty when the text only lists effects.
+    """
+    out: list[str] = []
+    for m in _ASSERTION.finditer(str(text or "")):
+        phrase = m.group(1).strip()
+        phrase = re.split(r"[.,;]| that | which | and ", phrase)[0].strip()
+        if 3 <= len(phrase) <= 60:
+            out.append(phrase)
+    return out
+
+
+def asserts_foreign_component(title: object, text: object) -> list[str]:
+    """The components `text` blames that the `title` is not about.
+
+    Empty when the text asserts nothing, or asserts only the title's own
+    system. A NON-empty result is high-precision evidence of misattribution;
+    an empty result is NOT evidence of correctness.
+    """
+    t_sys = systems_in(title)
+    out: list[str] = []
+    for comp in asserted_components(text):
+        c_sys = systems_in(comp)
+        if c_sys and t_sys and not (c_sys & t_sys):
+            out.append(comp)
+    return out

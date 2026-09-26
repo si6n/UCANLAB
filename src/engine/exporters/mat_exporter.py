@@ -11,7 +11,7 @@ import numpy as np
 try:
     from scipy.io import savemat  # type: ignore[import-untyped]
 except ImportError:  # pragma: no cover
-    savemat = None  # type: ignore[assignment]
+    savemat = None
 
 from src.core.logging import get_logger
 from src.engine.exporters.path_guard import (

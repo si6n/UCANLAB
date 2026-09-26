@@ -4787,7 +4787,7 @@ class UniversalCanDesktopApp:
         # onto the live vehicle network.
         _is_replay_frame = getattr(frame, "source", "") == "replay"
         try:
-            completed, resp = self.j1939_tp.handle_rx_frame(  # type: ignore[arg-type]
+            completed, resp = self.j1939_tp.handle_rx_frame(
                 frame, suppress_tx_responses=_is_replay_frame
             )
         except TypeError:
@@ -5049,7 +5049,7 @@ class UniversalCanDesktopApp:
                     # non-blocking (timeout 0) so an empty queue costs ~0
                     # instead of a 10 ms park per frame at high speed mults.
                     while drained < 200:
-                        frame = bus_snapshot.recv(timeout_s=0.01 if drained == 0 else 0.0)  # type: ignore[union-attr]
+                        frame = bus_snapshot.recv(timeout_s=0.01 if drained == 0 else 0.0)
                         if frame is None:
                             break
                         self._ingest_live_frame(frame)
@@ -5399,7 +5399,7 @@ class UniversalCanDesktopApp:
             if nav_stop is not None:
                 nav_stop.set()
             if getattr(self, "_frontend_server", None) is not None:
-                self._frontend_server.stop()  # type: ignore[union-attr]
+                self._frontend_server.stop()
                 self._frontend_server = None  # type: ignore[assignment]
             if hasattr(self, "_thread") and self._thread and self._thread.is_alive():
                 self._thread.join(timeout=2.0)

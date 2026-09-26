@@ -814,3 +814,42 @@ def test_pinning_not_applied_to_loopback_http() -> None:
     opener = client._build_opener("http://127.0.0.1:8000/api/v1/x")
     assert not any(type(h).__name__ == "_PinnedHTTPSHandler" for h in opener.handlers)
 
+
+def test_safe_redirect_handler_cross_origin_refused() -> None:
+    from urllib.request import Request
+    from src.core.errors import SecurityError
+    from src.security.cloud.client import _SafeRedirectHandler
+
+    handler = _SafeRedirectHandler(enforce_allowlist=False)
+    req = Request("https://api.universalcan.example.com/api/v1/x")
+    with pytest.raises(SecurityError, match="Refusing cross-origin"):
+        handler.redirect_request(req, None, 302, "Found", {}, "https://evil.example.com/api/v1/x")
+
+
+def test_safe_redirect_handler_rejects_private_dns_resolution(monkeypatch) -> None:
+    from urllib.request import Request
+    from src.core.errors import SecurityError
+    from src.security.cloud.client import _SafeRedirectHandler
+
+    handler = _SafeRedirectHandler(enforce_allowlist=False)
+    req = Request("https://api.universalcan.example.com/api/v1/x")
+
+    # Mock DNS resolution to return a loopback/private address
+    monkeypatch.setattr(handler, "_resolve_ips", lambda host: ["192.168.1.100"])
+    with pytest.raises(SecurityError, match="resolves to non-public"):
+        handler.redirect_request(req, None, 302, "Found", {}, "https://api.universalcan.example.com/api/v1/y")
+
+
+def test_safe_redirect_handler_rejects_unresolvable_dns(monkeypatch) -> None:
+    from urllib.request import Request
+    from src.core.errors import SecurityError
+    from src.security.cloud.client import _SafeRedirectHandler
+
+    handler = _SafeRedirectHandler(enforce_allowlist=False)
+    req = Request("https://api.universalcan.example.com/api/v1/x")
+
+    monkeypatch.setattr(handler, "_resolve_ips", lambda host: [])
+    with pytest.raises(SecurityError, match="unresolvable host"):
+        handler.redirect_request(req, None, 302, "Found", {}, "https://api.universalcan.example.com/api/v1/y")
+
+

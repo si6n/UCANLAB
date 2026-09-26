@@ -212,18 +212,18 @@ class _ExpiringAddressTable(UserDict[int, J1939Name]):
         self._prune()
         return len(self.data)
 
-    def keys(self) -> Any:  # type: ignore[override]
+    def keys(self) -> Any:
         self._prune()
         return list(self.data.keys())
 
-    def items(self) -> Any:  # type: ignore[override]
+    def items(self) -> Any:
         self._prune()
         for sa, entry in list(self.data.items()):
             name = self._unwrap(entry)
             if name is not None:
                 yield sa, name
 
-    def values(self) -> Any:  # type: ignore[override]
+    def values(self) -> Any:
         self._prune()
         for _sa, entry in list(self.data.items()):
             name = self._unwrap(entry)
