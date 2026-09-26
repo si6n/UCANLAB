@@ -182,7 +182,7 @@ class _ExpiringAddressTable(UserDict[int, J1939Name]):
 
     def __contains__(self, key: object) -> bool:
         self._prune()
-        return self._unwrap(self.data.get(key)) is not None
+        return self._unwrap(self.data.get(key)) is not None  # type: ignore[call-overload]
 
     def __getitem__(self, key: int) -> J1939Name:
         self._prune()
@@ -197,10 +197,13 @@ class _ExpiringAddressTable(UserDict[int, J1939Name]):
         return name if name is not None else default
 
     def __setitem__(self, key: int, value: J1939Name | tuple[J1939Name, float]) -> None:
+        # NOTE: the internal storage holds (NAME, expiry) tuples behind a
+        # NAME-shaped read view, so these two writes intentionally store a
+        # tuple where the public generic says J1939Name.
         if isinstance(value, J1939Name):
-            self.data[key] = (value, time.monotonic() + AddressClaimEngine.ADDRESS_TABLE_TTL_S)
+            self.data[key] = (value, time.monotonic() + AddressClaimEngine.ADDRESS_TABLE_TTL_S)  # type: ignore[assignment]
         else:
-            self.data[key] = value
+            self.data[key] = value  # type: ignore[assignment]
 
     def __iter__(self) -> Any:
         """L1: iterate ONLY over live (pruned) SAs — never over raw tuples."""
@@ -492,7 +495,9 @@ class AddressClaimEngine:
             # L1: write the raw (NAME, expiry) tuple through the internal
             # `data` mapping — `__setitem__` would re-stamp the TTL and the
             # write-through-`__setitem__` path is the legacy convenience API.
-            self._address_table.data[source_address] = (other_name, now + self.ADDRESS_TABLE_TTL_S)
+            # The internal mapping intentionally holds tuples behind the
+            # NAME-shaped view (see `_ExpiringAddressTable`).
+            self._address_table.data[source_address] = (other_name, now + self.ADDRESS_TABLE_TTL_S)  # type: ignore[assignment]
             return self._handle_contention_locked(source_address, other_name)
 
     def _prune_address_table(self, now: float) -> None:

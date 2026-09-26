@@ -15,7 +15,6 @@ from __future__ import annotations
 import hashlib
 import hmac
 import struct
-import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -136,9 +135,9 @@ class MerkleTree:
             # Move to parent level
             next_level: list[bytes] = []
             for i in range(0, level_len, 2):
-                l = current_level[i]
-                r = current_level[i + 1] if i + 1 < level_len else l
-                next_level.append(cls.hash_pair(l, r))
+                left = current_level[i]
+                right = current_level[i + 1] if i + 1 < level_len else left
+                next_level.append(cls.hash_pair(left, right))
             current_level = next_level
             curr_idx //= 2
 

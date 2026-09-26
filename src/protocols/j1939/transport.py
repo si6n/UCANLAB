@@ -10,7 +10,7 @@ import collections
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from src.core.contracts.ports import ClockProvider
 from src.core.exceptions import (
@@ -115,7 +115,7 @@ class CompletedMessage:
     channel_id: str
 
 
-class _PgnScopedSessionTable(dict):
+class _PgnScopedSessionTable(dict[tuple[int, int, str, int], "ReassemblySession"]):
     """RX session table keyed by (SA, DA, channel, PGN) with legacy lookup.
 
     REVIEW hardening: the old 3-tuple (SA, DA, channel) key let a spoofed
@@ -134,7 +134,7 @@ class _PgnScopedSessionTable(dict):
     def _is_legacy_key(key: object) -> bool:
         return isinstance(key, tuple) and len(key) == 3
 
-    def _resolve_legacy(self, key: tuple) -> tuple | None:
+    def _resolve_legacy(self, key: tuple[int, int, str]) -> tuple[int, int, str, int] | None:
         matches = [
             k
             for k in dict.keys(self)
@@ -155,55 +155,59 @@ class _PgnScopedSessionTable(dict):
             return self._resolve_legacy(key) is not None  # type: ignore[arg-type]
         return False
 
-    def __getitem__(self, key: tuple):
+    def __getitem__(self, key: tuple[int, int, str, int]) -> "ReassemblySession":
         try:
             return dict.__getitem__(self, key)
         except KeyError:
             if self._is_legacy_key(key):
-                full = self._resolve_legacy(key)
+                full = self._resolve_legacy(key)  # type: ignore[arg-type]
                 if full is not None:
                     return dict.__getitem__(self, full)
             raise
 
-    def get(self, key: tuple, default=None):
+    def get(  # type: ignore[override]
+        self,
+        key: tuple[int, int, str, int],
+        default: "ReassemblySession | None" = None,
+    ) -> "ReassemblySession | None":
         try:
             return self.__getitem__(key)
         except KeyError:
             return default
 
-    def pop(self, key: tuple, *args):
+    def pop(self, key: tuple[int, int, str, int], *args: Any) -> "ReassemblySession":
         try:
             return dict.pop(self, key)
         except KeyError:
             if self._is_legacy_key(key):
-                full = self._resolve_legacy(key)
+                full = self._resolve_legacy(key)  # type: ignore[arg-type]
                 if full is not None:
                     return dict.pop(self, full)
             if args:
-                return args[0]
+                return args[0]  # type: ignore[no-any-return]
             raise
 
-    def __delitem__(self, key: tuple) -> None:
+    def __delitem__(self, key: tuple[int, int, str, int]) -> None:
         try:
             dict.__delitem__(self, key)
             return
         except KeyError:
             pass
         if self._is_legacy_key(key):
-            full = self._resolve_legacy(key)
+            full = self._resolve_legacy(key)  # type: ignore[arg-type]
             if full is not None:
                 dict.__delitem__(self, full)
                 return
         raise KeyError(key)
 
-    def __setitem__(self, key: tuple, value) -> None:
+    def __setitem__(self, key: tuple[int, int, str, int], value: "ReassemblySession") -> None:
         if self._is_legacy_key(key):
             pgn = getattr(value, "target_pgn", None)
             if isinstance(pgn, int):
-                dict.__setitem__(self, (key[0], key[1], key[2], pgn), value)
+                legacy = (key[0], key[1], key[2], pgn)
+                dict.__setitem__(self, legacy, value)
                 return
         dict.__setitem__(self, key, value)
-
 
 @dataclass(slots=True)
 class TransportAnomalyMetrics:
@@ -930,7 +934,7 @@ class J1939TransportProtocol:
         return True
 
     def _release_session_slot(
-        self, key: tuple, session: ReassemblySession | None
+        self, key: tuple[int, int, str, int], session: ReassemblySession | None
     ) -> None:
         """Remove a session and decrement its per-SA quota slot.
 
@@ -953,7 +957,7 @@ class J1939TransportProtocol:
 
     def _lookup_dt_session(
         self, sa: int, da: int, channel_id: str, seq_num: int | None = None
-    ) -> tuple[tuple | None, ReassemblySession | None]:
+    ) -> tuple[tuple[int, int, str, int] | None, ReassemblySession | None]:
         """Resolve the RX session owning a TP.DT frame.
 
         TP.DT carries no PGN, so the 4-tuple key cannot be built directly.

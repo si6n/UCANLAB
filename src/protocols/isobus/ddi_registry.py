@@ -90,7 +90,7 @@ class IsobusDdiRegistry:
 
         # List known DDI additions between the two releases
         added_entities = []
-        for ddi_key, info in self._data.get("core_ddi_dictionary", {}).items():
+        for _ddi_key, info in self._data.get("core_ddi_dictionary", {}).items():
             if info.get("added_in") == new_release:
                 added_entities.append(info)
 

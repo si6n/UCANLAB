@@ -18,14 +18,12 @@ import csv
 import hashlib
 import json
 import re
-from collections.abc import Iterable, Iterator
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from src.core.logging import get_logger
-from src.core.models.can_frame import CanFrame
 
 logger = get_logger("hal.replay.n2k_converter")
 
