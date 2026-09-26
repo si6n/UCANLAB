@@ -368,11 +368,15 @@ class LicenseValidator:
             try:
                 self.public_key.verify(sig_bytes, payload_bytes)
             except InvalidSignature as exc:
-                # RFC 8785 (JCS) canonical verification fallback
+                # RFC 8785 (JCS) canonical verification fallback.
+                # SEC-14: decode through the SHARED parser (never a local
+                # `json.loads`), so the non-finite-constant rejection and the
+                # object-shape gate are identical in both verifiers.
                 verified_jcs = False
                 try:
+                    from src.security.license.claims import parse_license_json
                     from src.security.license.jcs import canonicalize
-                    raw_obj = json.loads(payload_bytes.decode("utf-8"))
+                    raw_obj = parse_license_json(payload_bytes, origin="JCS fallback payload")
                     jcs_bytes = canonicalize(raw_obj)
                     self.public_key.verify(sig_bytes, jcs_bytes)
                     verified_jcs = True

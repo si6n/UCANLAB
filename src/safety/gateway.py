@@ -1195,9 +1195,14 @@ class TxSafetyGateway:
                 # functional (0xDB) ISO-TP to an ECU share one derivation.
                 sid = self._iso_tp_service_byte(data, is_fd=is_fd)
                 if sid is None:
-                    # A1-F2, narrowed: ONLY a truncated SF/FF header (lone
-                    # [0x02]/[0x10], short escape header — the PCI claims MORE
-                    # bytes than the wire carries) is fail-closed critical.
+                    # A1-F2: a truncated SF/FF header (the PCI claims MORE
+                    # bytes than the wire carries) is fail-closed critical —
+                    # the frame cannot be PROVEN non-critical, so it must
+                    # answer to Stage 4/5. This includes the lone [0x00]
+                    # classic SF (SF_DL=0, no SID on the wire): the replay
+                    # filter already blocks it as TRUNCATED_29BIT_DIAGNOSTIC_
+                    # PAYLOAD, and the gateway must agree with the filter on
+                    # the same vector (A1-F2 contract).
                     # ConsecutiveFrame (0x2) / FlowControl (0x3) carry no SID
                     # BY DESIGN — the pre-A1 contract (locked by
                     # test_29bit_consecutive_frame_is_not_escalated_by_itself)
@@ -1208,10 +1213,6 @@ class TxSafetyGateway:
                     # multi-frame read behind the interlock + dual confirm.
                     pci = data[0] >> 4
                     if pci in (0x0, 0x1):
-                        # If pci is 0x0 and data[0] is 0x00, only critical if is_fd
-                        # (escape/extended header that was truncated)
-                        if pci == 0x0 and data[0] == 0x00 and not is_fd:
-                            return False
                         return True
                     return False
                 return sid in self.CRITICAL_UDS_SIDS
