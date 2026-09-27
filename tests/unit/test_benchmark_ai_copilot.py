@@ -64,6 +64,7 @@ class TestCatalogShape:
 class TestBenchmarkLoadTimes:
     """Cold-load wall time for each production database."""
 
+    @pytest.mark.no_cover  # a load-time budget must not measure coverage overhead
     def test_benchmark_dtc_db_load_time(self) -> None:
         t0 = time.perf_counter()
         data = json.loads(DTC_DB.read_text(encoding="utf-8", errors="replace"))

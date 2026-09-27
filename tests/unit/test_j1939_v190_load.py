@@ -189,6 +189,7 @@ class TestCopilotSession:
         )
         assert rep is not None
 
+    @pytest.mark.no_cover  # a timing budget must not measure coverage overhead
     def test_analysis_latency_under_50ms(self, copilot: AiDiagnosticCopilot) -> None:
         # BASELINE TRIAGE. This assertion
         # was failing when the test ran in isolation (deterministic, ~51-180 ms).
