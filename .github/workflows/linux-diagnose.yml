@@ -42,11 +42,8 @@ jobs:
             echo "python: $(python --version 2>&1)"
             echo "UCANLAB_TEST_MODE=[${UCANLAB_TEST_MODE}]"
             echo
-            echo "=== the test alone, verbose, no capture ==="
-            pytest "tests/e2e/test_safety_wiring.py::test_safety_wiring_rx_continues_during_tx_cutoff" -v -s -p no:cacheprovider --tb=long 2>&1
-            echo
-            echo "=== the whole file (ordering effects) ==="
-            pytest tests/e2e/test_safety_wiring.py -q -p no:cacheprovider --tb=line 2>&1 | tail -25
+            echo "=== FULL SUITE with the coverage gate (mirrors the CI job) ==="
+            pytest -q -p no:cacheprovider --tb=line --cov=src --cov-fail-under=81 2>&1 | tail -60
           } > diagnose.txt 2>&1
           echo "exit=$?"
           wc -l diagnose.txt
