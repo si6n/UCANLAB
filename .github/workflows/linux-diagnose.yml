@@ -1,9 +1,9 @@
 name: Linux Diagnose
 
-# Temporary: explain why test_safety_wiring_rx_continues_during_tx_cutoff
-# fails on Linux. It is the last remaining Linux failure; the job logs and
-# artifacts need admin rights here, so the explanation is committed to a
-# scratch branch. Delete once resolved.
+# Temporary: explain the last Linux failure
+# (test_safety_wiring_rx_continues_during_tx_cutoff). Job logs need admin
+# rights here, so the explanation is committed to a scratch branch.
+# Delete once resolved.
 
 on:
   workflow_dispatch:
@@ -32,58 +32,24 @@ jobs:
           pip install --require-hashes -r requirements.lock
           pip install -r requirements-dev.txt
 
-      - name: Probe the harness state around the failure
+      - name: Run the failing test with full output
         env:
           QT_QPA_PLATFORM: offscreen
         run: |
           set +e
-          python - > diagnose.txt 2>&1 <<'PY'
-          import sys, queue
-          sys.path.insert(0, ".")
-          sys.path.insert(0, "tests")
-          from src.core.models.can_frame import CanFrame
-          from tests.e2e.test_safety_wiring import SafetyWiringHarness
-
-          print("platform:", sys.platform)
-          h = SafetyWiringHarness(watchdog_timeout_ms=60.0, whitelist_ids={0x7E0})
-          try:
-              h.clock.advance(0.15)
-              h.watchdog.poll_once()
-              print("fault:", h.supervisor.is_fault, "estop:", h.estop.is_engaged)
-
-              # how many subscribers does the router hold, and what filters?
-              subs = getattr(h.router, "_route_snapshot", None)
-              print("subscriber count:", len(subs) if subs is not None else "?")
-              for s in (subs or []):
-                  print("   sub", s.sub_id, "channel=", s.channel_id,
-                        "filter_ids=", s.filter_ids,
-                        "queue=", None if s.frame_queue is None else s.frame_queue.maxsize,
-                        "callback=", s.callback)
-
-              rx = CanFrame.create(channel_id="vcan_test", arbitration_id=0x7E8,
-                                   data=b"\x06\x50\x01\x00\x32\x01\xF4")
-              matched = h.router.route_frame(rx)
-              print("route_frame matched:", matched)
-
-              q = h.safe_bus.rx_queue
-              print("safe_bus queue size after route:", q.qsize() if q else None)
-              try:
-                  got = q.get_nowait() if q else None
-                  print("direct get_nowait:", None if got is None else got.arbitration_id)
-                  if got is not None and q is not None:
-                      q.put_nowait(got)   # restore for the real recv below
-              except queue.Empty:
-                  print("direct get_nowait: EMPTY")
-
-              received = h.safe_bus.recv(timeout_s=2.0)
-              print("recv ->", None if received is None else received.arbitration_id)
-              print("stats:", h.router.stats() if hasattr(h.router, "stats") else "?")
-          finally:
-              h.stop_watchdog()
-              h.close()
-          PY
+          {
+            echo "platform: $(uname -s)"
+            echo "python: $(python --version 2>&1)"
+            echo "UCANLAB_TEST_MODE=[${UCANLAB_TEST_MODE}]"
+            echo
+            echo "=== the test alone, verbose, no capture ==="
+            pytest "tests/e2e/test_safety_wiring.py::test_safety_wiring_rx_continues_during_tx_cutoff" -v -s -p no:cacheprovider --tb=long 2>&1
+            echo
+            echo "=== the whole file (ordering effects) ==="
+            pytest tests/e2e/test_safety_wiring.py -q -p no:cacheprovider --tb=line 2>&1 | tail -25
+          } > diagnose.txt 2>&1
           echo "exit=$?"
-          cat diagnose.txt
+          wc -l diagnose.txt
 
       - name: Commit the diagnostic output
         run: |
@@ -91,46 +57,5 @@ jobs:
           git config user.email "linux-diagnose@users.noreply.github.com"
           git checkout -B linux-diagnose-output
           git add -f diagnose.txt
-          git commit -m "diagnose: safety-wiring RX state for ${{ github.sha }}"
+          git commit -m "diagnose: safety-wiring RX output for ${{ github.sha }}"
           git push -f origin linux-diagnose-output
-
-  diagnose-windows:
-    name: List the Windows 3.12 pytest failures
-    runs-on: windows-latest
-
-    steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
-        with:
-          python-version: '3.12'
-          cache: 'pip'
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install --require-hashes -r requirements.lock
-          pip install -r requirements-dev.txt
-
-      - name: Run the suite and record the failures
-        env:
-          QT_QPA_PLATFORM: offscreen
-        run: |
-          pytest -q -p no:cacheprovider --tb=line > suite312.log 2>&1
-          $code = $LASTEXITCODE
-          "exit=$code" | Out-File -Encoding utf8 win312.txt
-          "python: $(python --version 2>&1)" | Out-File -Encoding utf8 -Append win312.txt
-          "=== FAILED / ERROR ===" | Out-File -Encoding utf8 -Append win312.txt
-          Select-String -Path suite312.log -Pattern '^(FAILED|ERROR)' | ForEach-Object { $_.Line } | Out-File -Encoding utf8 -Append win312.txt
-          "=== summary ===" | Out-File -Encoding utf8 -Append win312.txt
-          Get-Content suite312.log -Tail 3 | Out-File -Encoding utf8 -Append win312.txt
-
-      - name: Commit the diagnostic output
-        shell: bash
-        run: |
-          git config user.name  "linux-diagnose[bot]"
-          git config user.email "linux-diagnose@users.noreply.github.com"
-          git checkout -B win312-diagnose-output
-          git add -f win312.txt
-          git commit -m "diagnose: windows 3.12 failures for ${{ github.sha }}"
-          git push -f origin win312-diagnose-output
