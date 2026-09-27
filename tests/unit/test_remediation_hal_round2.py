@@ -8,9 +8,9 @@ real transceiver behaviour.
 
 from __future__ import annotations
 
+import sys
 import threading
 import time
-import sys
 
 import can
 import pytest
