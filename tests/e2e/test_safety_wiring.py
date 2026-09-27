@@ -436,8 +436,27 @@ def test_safety_wiring_rx_continues_during_tx_cutoff(harness_factory) -> None:
     harness = harness_factory(watchdog_timeout_ms=60.0, whitelist_ids={0x7E0})
 
     try:
-        # Advance virtual time past the lease and run one monitor iteration â€”
-        # watchdog latches FAULT + E-Stop deterministically (no real sleep).
+        # STOP THE MONITOR THREAD BEFORE DRIVING THE CLOCK.
+        #
+        # The harness starts supervision in __init__ (S-08, deliberate), and
+        # `start()` anchors the lease to TWO clocks at once:
+        #     _last_heartbeat_time    = VirtualClock.now_monotonic()  # frozen
+        #     _last_heartbeat_wall_ns = VirtualClock.now_wall_ns()    # REAL
+        # The thread then evaluates `elapsed_wall` against the real wall clock
+        # while the virtual monotonic clock stands still, so its
+        # suspend-detection branch (`elapsed_wall > timeout and
+        # elapsed_wall - elapsed > timeout/2`) fires on its own within ~150 ms
+        # of real time — measured: fault=True estop=True after 0.15 s real with
+        # the virtual clock at 0.000. On a fast machine the thread may not get
+        # a slice before poll_once(); on a loaded CI runner it does, which is
+        # exactly why this test passed on Windows and failed on Linux.
+        #
+        # The assertion below is about the CASCADE, not about which of the two
+        # paths triggered it, so the deterministic drive is: stop the thread,
+        # advance the virtual clock, poll once. `poll_once(force=True)` runs the
+        # same `_monitor_loop_once` body the thread runs, so the cascade under
+        # test is unchanged.
+        harness.watchdog.stop()
         harness.clock.advance(0.15)
         harness.watchdog.poll_once()
         assert harness.supervisor.is_fault is True

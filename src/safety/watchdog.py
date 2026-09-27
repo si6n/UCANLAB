@@ -288,6 +288,36 @@ class TxWatchdogSupervisor:
             self._stop_event.clear()
             self._is_running = True
             if not self._started_once:
+                # MIXED-CLOCK HAZARD (measured 2026-09-27, T84).
+                #
+                # These two anchors come from DIFFERENT clocks whenever the
+                # injected provider virtualises monotonic time but not wall
+                # time — which is exactly what `VirtualClock` does (it
+                # virtualises monotonic by design; wall time stays real so
+                # licence/file comparisons keep working). The monitor thread
+                # then compares them in the suspend-detection branch:
+                #
+                #   elapsed      = now_monotonic() - _last_heartbeat_time    # frozen
+                #   elapsed_wall = now_wall_ns()   - _last_heartbeat_wall_ns # grows
+                #   if elapsed_wall > timeout and (elapsed_wall - elapsed) > timeout/2:
+                #       suspend_detected = True
+                #
+                # With the virtual clock standing still, `elapsed_wall` alone
+                # crosses the threshold after ~150 ms of REAL time and the
+                # thread takes the suspend path unprompted. Measured on a
+                # harness with timeout_ms=60: fault=True estop=True after
+                # 0.15 s of real time with the virtual clock still at 0.000 s.
+                #
+                # The behaviour is CORRECT for the case it was written for (a
+                # real OS suspend makes wall time leap while monotonic lags)
+                # and it fails CLOSED, so it is deliberately NOT changed here.
+                # It is recorded because it makes any test that injects a
+                # VirtualClock and leaves the monitor thread running
+                # machine-speed dependent: on a fast host the thread may not
+                # get a slice before the test drives `poll_once()`; on a loaded
+                # CI runner it does. A test in that position must stop the
+                # thread before advancing the clock — see the note in
+                # tests/e2e/test_safety_wiring.py.
                 self._last_heartbeat_time = self._clock.now_monotonic()
                 self._last_heartbeat_wall_ns = self._clock.now_wall_ns()
                 self._started_once = True
