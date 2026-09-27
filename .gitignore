@@ -81,6 +81,12 @@ data/*
 !data/traces/
 !data/diagnostics/
 !data/diagnostics/**
+# Attribution / licence files are LEGAL NOTICES, not runtime data: a fresh
+# clone must carry them. They were excluded by `data/*` until now, so
+# tests/unit/test_data_attributions.py raised FileNotFoundError on every CI
+# runner while passing on a machine that had them on disk.
+!data/licenses/
+!data/licenses/**
 data/diagnostics/*.bak_t*
 data/diagnostics/user_feedback.json
 !data/golden_traces/

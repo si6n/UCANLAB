@@ -1,0 +1,43 @@
+# NOTICE — canboat
+
+This product includes data derived from **CANboat**.
+
+    CANboat
+    (C) 2009-2026, Kees Verruijt, Harlingen, The Netherlands.
+    Licensed under the Apache License, Version 2.0.
+
+    You may obtain a copy of the License at
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+## Source
+
+- Repository: https://github.com/canboat/canboat
+- Pinned commit: `f7f088b49d58f5b4a0feb9b29c288b0ae18a7880`
+- Upstream license file: `LICENSE` (614 B, sha256
+  `ec0704d2efcacadb11d846ed2c353c57625756647a2dd735094682a3f7bf7721`)
+- Vendored license copy: `tools/data_ingest/licenses/LICENSE.canboat`
+
+## What is included
+
+| Artifact | Upstream path | Content |
+|---|---|---|
+| `data/diagnostics/canboat_pgn_reference.json` | `docs/canboat.json` (Version 8.1.0, SchemaVersion 2.6.0) | 628 NMEA-2000 PGN records (PGN numbers 59392–131012) |
+| `data/diagnostics/canboat_pgn_reference.json` (`j1939` section) | `database/j1939/pgns/065226-activeTroubleCodes.yaml` | J1939 PGN 65226 (DM1, Active Trouble Codes) field layout |
+| `data/dbc/marine/n2k_canboat.dbc`, `data/dbc/heavy_duty/j1939_canboat.dbc` | (pre-existing conversions) | DBC conversions from the same upstream |
+
+The license text above is reproduced verbatim from the upstream `LICENSE` file.
+`data/diagnostics/canboat_pgn_reference.json` additionally carries
+`_source_license: "Apache-2.0"` and `_source_ref` on **every** PGN record.
+
+> Apache-2.0 §4(d): if the Work includes a "NOTICE" text file, any derivative
+> distribution must include a readable copy of the attribution notices it
+> contains. CANboat's repository ships `LICENSE` (reproduced above) and its
+> README carries the copyright attribution (reproduced above). No separate
+> upstream `NOTICE` file exists at the pinned commit; this file records that
+> fact and preserves the attribution text instead of inventing one.

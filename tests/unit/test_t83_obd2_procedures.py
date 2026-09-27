@@ -91,25 +91,27 @@ class TestExclusions:
         extractor, found 6 real steps, and folded them into the checkpoint —
         a documented recovery, not a silent inclusion. The merge therefore
         accepts it on the second pass.
+
+        The assertion reads the MERGED RECORD, not the harvest checkpoint:
+        `output/` is gitignored (`.gitignore:196`), so a test that opened the
+        checkpoint passed locally and raised FileNotFoundError on CI — the
+        suite must only depend on tracked files.
         """
-        d = json.load(open("output/t83_work/obd2_390_checkpoint.json",
-                           encoding="utf-8"))
-        page = d["pages"].get("B1614")
-        assert page is not None, "B1614 must be present in the checkpoint"
-        steps = page.get("steps")
-        assert isinstance(steps, list) and len(steps) >= 4, (
+        pf = db["B1614"].get("procedures_full")
+        assert isinstance(pf, list) and len(pf) >= 4, (
             "B1614's recovered steps must satisfy the admission threshold")
         assert db["B1614"].get(MARK), "the recovered page must be merged"
 
-    def test_no_page_below_threshold_was_merged(self, db):
-        """The admission rule still holds for every other page."""
-        d = json.load(open("output/t83_work/obd2_390_checkpoint.json",
-                           encoding="utf-8"))
-        for code, p in d["pages"].items():
-            steps = p.get("steps")
-            if isinstance(steps, list) and len(steps) >= 4:
-                continue
-            assert not db[code].get(MARK), (
+    def test_no_merged_record_has_fewer_than_four_steps(self, db, merged):
+        """The admission rule: every merged record carries >= 4 steps.
+
+        This is the same invariant the harvest-side check enforced, asserted
+        against the merged data so it holds in a fresh clone where `output/`
+        does not exist.
+        """
+        for code, e in merged.items():
+            steps = e.get("procedures_full")
+            assert isinstance(steps, list) and len(steps) >= 4, (
                 f"{code} carries {len(steps or [])} steps but was merged")
 
 
