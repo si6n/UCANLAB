@@ -44,17 +44,30 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
         run: |
+          set +e
+          echo "pytest: $(which pytest)"
+          pytest --version
+          echo "cwd: $(pwd)"
           pytest -v -k "vcan or virtual_bus or hardware" \
-            --tb=long -p no:cacheprovider > vcan.log 2>&1 || true
-          tail -60 vcan.log
+            --tb=long -p no:cacheprovider > vcan.log 2>&1
+          echo "pytest exit=$?"
+          echo "lines=$(wc -l < vcan.log)"
+          echo "--- head ---"
+          head -40 vcan.log
 
       - name: Run the full suite and capture everything
         continue-on-error: true
         env:
           QT_QPA_PLATFORM: offscreen
         run: |
-          pytest -q --tb=long -p no:cacheprovider > full.log 2>&1 || true
-          grep -E "^(FAILED|ERROR)" full.log | head -40 || true
+          set +e
+          pytest -q --tb=long -p no:cacheprovider > full.log 2>&1
+          echo "pytest exit=$?"
+          echo "lines=$(wc -l < full.log)"
+          echo "--- head (collection errors live here) ---"
+          head -60 full.log
+          echo "--- failures ---"
+          grep -E "^(FAILED|ERROR)" full.log | head -40
 
       - name: Summarise the failures into the job summary
         run: |
