@@ -1,0 +1,84 @@
+name: Linux Diagnose
+
+# One-off diagnostic: the Linux pytest jobs have failed since a729feb and the
+# job logs are not readable from this side (403, admin required). This
+# workflow runs the same two selections and uploads the FULL pytest output as
+# a downloadable artifact, plus a machine-readable failure list in the job
+# summary. Delete once the failures are fixed.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  diagnose:
+    name: Diagnose Linux pytest failures
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install --require-hashes -r requirements.lock
+          pip install -r requirements-dev.txt
+
+      - name: Create vcan0 (mirrors the failing jobs)
+        run: |
+          sudo modprobe vcan || true
+          sudo ip link add dev vcan0 type vcan || true
+          sudo ip link set up vcan0 || true
+          sudo apt-get update -qq && sudo apt-get install -y -qq libgl1 libegl1 || true
+
+      - name: Run the vcan slice and capture everything
+        continue-on-error: true
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          pytest -v -k "vcan or virtual_bus or hardware" \
+            --tb=long -p no:cacheprovider > vcan.log 2>&1 || true
+          tail -60 vcan.log
+
+      - name: Run the full suite and capture everything
+        continue-on-error: true
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          pytest -q --tb=long -p no:cacheprovider > full.log 2>&1 || true
+          grep -E "^(FAILED|ERROR)" full.log | head -40 || true
+
+      - name: Summarise the failures into the job summary
+        run: |
+          {
+            echo "## vcan slice failures"
+            echo '```'
+            grep -E "^(FAILED|ERROR)" vcan.log | head -40 || echo "(none)"
+            echo '```'
+            echo "## full suite failures"
+            echo '```'
+            grep -E "^(FAILED|ERROR)" full.log | head -40 || echo "(none)"
+            echo '```'
+            echo "## full suite tail"
+            echo '```'
+            tail -25 full.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-diagnose-logs
+          path: |
+            vcan.log
+            full.log
+          retention-days: 7

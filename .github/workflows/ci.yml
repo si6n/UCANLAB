@@ -38,6 +38,17 @@ jobs:
           cache-dependency-path: 'requirements*.txt'
 
       - name: Verify Action Pins (E-7)
+        # A tag pin can drift upstream, and this step is here to catch that.
+        # It must NOT fail for any other reason: the previous version split the
+        # `git ls-remote` output on TAB and read element [0], so an empty
+        # result (transient network failure, or a resolver returning nothing)
+        # produced a null SHA that compared unequal to the pin and reported a
+        # FALSE "Pin drift" — the exact failure that turned both Python jobs
+        # red on run 36274771953 while `git ls-remote` answered correctly from
+        # a normal shell. Three guards now separate "drift" from "could not
+        # check": the command's exit code, an emptiness test, and an explicit
+        # `refs/tags/<tag>` match so a peeled `^{}` line cannot be mistaken for
+        # the tag itself.
         run: |
           $errorActionPreference = 'Stop'
           $expected = @{
@@ -46,8 +57,18 @@ jobs:
           }
           foreach ($repo in $expected.Keys) {
             $tag, $pinnedSha = $expected[$repo]
-            $actual = (git ls-remote "https://github.com/$repo" "refs/tags/$tag") -split "`t"
-            $actualSha = $actual[0].Trim()
+            $ref = "refs/tags/$tag"
+            $raw = git ls-remote "https://github.com/$repo" $ref
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error "cannot verify ${repo} ${tag}: git ls-remote exited $LASTEXITCODE"
+            }
+            # Keep only the line whose REF is the tag itself (not the peeled
+            # `^{}` line an annotated tag would add).
+            $line = $raw | Where-Object { ($_ -split "`t")[1] -eq $ref } | Select-Object -First 1
+            if (-not $line) {
+              Write-Error "cannot verify ${repo} ${tag}: ls-remote returned no line for $ref (got: $raw)"
+            }
+            $actualSha = ($line -split "`t")[0].Trim()
             if ($actualSha -ne $pinnedSha) {
               Write-Error "Pin drift for ${repo}: expected $pinnedSha, upstream $tag resolves to $actualSha"
             } else {
