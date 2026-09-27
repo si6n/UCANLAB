@@ -59,9 +59,17 @@ jobs:
       - name: Summarise the failures into the job summary
         run: |
           {
+            echo "## vcan log head (collection errors)"
+            echo '```'
+            head -60 vcan.log
+            echo '```'
             echo "## vcan slice failures"
             echo '```'
             grep -E "^(FAILED|ERROR)" vcan.log | head -40 || echo "(none)"
+            echo '```'
+            echo "## full log head (collection errors)"
+            echo '```'
+            head -60 full.log
             echo '```'
             echo "## full suite failures"
             echo '```'
