@@ -18,6 +18,7 @@ addopts = "-v --strict-markers"
 #   pytest -m benchmark            (yalnız ölçüm)
 markers = [
     "benchmark: performans/ölçüm testleri (gecikme, bellek, indeks maliyeti)",
+    "no_cover: coverage ölçümünden muaf zaman bütçesi testleri (ci.yml'de ayrı, coverage'siz koşarlar)",
 ]
 
 [tool.ruff]

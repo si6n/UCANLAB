@@ -124,10 +124,28 @@ jobs:
           }
 
       - name: Run PyTest Conformance & Safety Tests
+        # The two timing budgets are DESELECTED here and run in their own
+        # coverage-free step below. `--cov=src` instruments every line the
+        # graph walk touches, and the walk touches ~8,900 nodes per session:
+        # measured on the same runner, the latency test costs 38 ms with
+        # coverage off and 266 ms with it on. A budget that measures the
+        # instrumentation is not measuring the property it names, and the
+        # `@pytest.mark.no_cover` marker is not enough — it stops the
+        # controller, not the line tracing the module-level --cov installs.
+        # NOTE: default shell on windows-latest is pwsh, so continuation is
+        # a backtick (a trailing `\` would NOT work here).
         env:
           QT_QPA_PLATFORM: offscreen
         run: |
-          pytest -v --durations=10 --cov=src --cov-fail-under=81
+          pytest -v --durations=10 --cov=src --cov-fail-under=81 `
+            --deselect tests/unit/test_j1939_v190_load.py::TestCopilotSession::test_analysis_latency_under_50ms `
+            --deselect tests/unit/test_benchmark_ai_copilot.py::TestBenchmarkLoadTimes::test_benchmark_dtc_db_load_time
+
+      - name: Run the timing budgets without coverage
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          pytest -v tests/unit/test_j1939_v190_load.py::TestCopilotSession::test_analysis_latency_under_50ms tests/unit/test_benchmark_ai_copilot.py::TestBenchmarkLoadTimes::test_benchmark_dtc_db_load_time
 
       - name: Run Bandit Security Lint
         run: |
@@ -289,10 +307,20 @@ jobs:
           sudo apt-get update -qq && sudo apt-get install -y -qq libgl1 libegl1 || true
 
       - name: Run full PyTest suite with coverage gate
+        # Timing budgets are deselected here and run coverage-free below —
+        # see the note in the conformance job for the measurement.
         env:
           QT_QPA_PLATFORM: offscreen
         run: |
-          pytest -v --durations=10 --cov=src --cov-fail-under=81
+          pytest -v --durations=10 --cov=src --cov-fail-under=81 \
+            --deselect tests/unit/test_j1939_v190_load.py::TestCopilotSession::test_analysis_latency_under_50ms \
+            --deselect tests/unit/test_benchmark_ai_copilot.py::TestBenchmarkLoadTimes::test_benchmark_dtc_db_load_time
+
+      - name: Run the timing budgets without coverage
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          pytest -v tests/unit/test_j1939_v190_load.py::TestCopilotSession::test_analysis_latency_under_50ms tests/unit/test_benchmark_ai_copilot.py::TestBenchmarkLoadTimes::test_benchmark_dtc_db_load_time
 
   frontend-build:
     name: Frontend React Build
@@ -420,10 +448,16 @@ jobs:
           python -c "import sys, pathlib; sys.path.insert(0, '.'); from scripts.build_exe import _assert_dist_offline; _assert_dist_offline(pathlib.Path('src/ui/frontend/dist')); print('bundle is offline: OK')"
 
       - name: Run tests (release gate)
+        # Timing budgets deselected: same coverage-instrumentation skew as the
+        # conformance jobs (266ms vs 38ms under --cov). Tag builds would fail
+        # the release gate otherwise.
         env:
           QT_QPA_PLATFORM: offscreen
         run: |
-          pytest -q --cov=src --cov-fail-under=81
+          pytest -q --cov=src --cov-fail-under=81 \
+            --deselect tests/unit/test_j1939_v190_load.py::TestCopilotSession::test_analysis_latency_under_50ms \
+            --deselect tests/unit/test_benchmark_ai_copilot.py::TestBenchmarkLoadTimes::test_benchmark_dtc_db_load_time
+          pytest -q tests/unit/test_j1939_v190_load.py::TestCopilotSession::test_analysis_latency_under_50ms tests/unit/test_benchmark_ai_copilot.py::TestBenchmarkLoadTimes::test_benchmark_dtc_db_load_time
 
       - name: Build EXE
         run: |
