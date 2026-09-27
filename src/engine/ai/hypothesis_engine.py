@@ -660,6 +660,68 @@ def load_root_cause_graph(data_path: Path | None = None) -> list[GraphNode]:
     return nodes
 
 
+# ---------------------------------------------------------------------------
+# NODE-SIGNAL MEMO, keyed by node IDENTITY plus the alias map's CONTENT
+#
+# `rank_hypotheses` walks every graph node per call, and the canonical-signal
+# half of each node depends on the alias map. Recomputing it per call cost
+# 88,854 `_cached_canonical_signals` invocations per 5-session profile
+# (measured 2026-09-27), which is most of the per-session budget.
+#
+# The memo is keyed on `id(node)` — the node objects are owned by the graph
+# cache and live for the process, so their identity is stable — and the
+# ALIAS MAP'S CONTENT, not its identity. `id(aliases)` is NOT usable here: an
+# id is a memory address, and CPython reuses it once an object is freed, so a
+# fresh alias dict can land on a dead one's address and silently inherit its
+# memo (measured: two tests failed exactly that way). A frozen items-tuple is
+# a value key, so a different map always misses.
+# ---------------------------------------------------------------------------
+#: (alias-map content, node signal tuple) -> canonical signals.
+#:
+#: BOTH parts of the key are VALUES, and that is deliberate. An earlier version
+#: keyed the inner part on `id(node)` and broke 16 tests: CPython reuses an id
+#: as soon as the object is freed, so a node built fresh by the next test could
+#: land on a dead node's address and silently inherit its memo. `id(aliases)`
+#: failed the same way one iteration earlier. Identity is not a key; content is.
+#: The node's signal tuples are immutable and hashable, so they key cleanly.
+_NODE_SIGNAL_MEMO: dict[tuple[tuple[tuple[str, str], ...] | None,
+                              tuple[str, ...],
+                              tuple[str, ...]],
+                         tuple[frozenset[str], frozenset[str]]] = {}
+_NODE_SIGNAL_MEMO_LOCK = threading.Lock()
+_NODE_SIGNAL_MEMO_CAP = 65536
+
+
+def _node_signal_map(
+        graph: list["GraphNode"],
+        aliases: dict[str, str] | None,
+) -> dict[int, tuple[frozenset[str], frozenset[str]]]:
+    """Per-node (evidence, contradicting) canonical signals for this alias map.
+
+    Returns a map keyed by `id(node)` for the caller's convenience — the nodes
+    in `graph` are alive for the whole call, so the ids are unambiguous WITHIN
+    this dict. The MEMO above is keyed on content, so nothing survives an
+    object's death.
+    """
+    alias_key = tuple(sorted(aliases.items())) if aliases else None
+    out: dict[int, tuple[frozenset[str], frozenset[str]]] = {}
+    for node in graph:
+        key = (alias_key, node.evidence_signals, node.contradicting_signals)
+        with _NODE_SIGNAL_MEMO_LOCK:
+            hit = _NODE_SIGNAL_MEMO.get(key)
+        if hit is None:
+            hit = (
+                _cached_canonical_signals(node.evidence_signals, aliases),
+                _cached_canonical_signals(node.contradicting_signals, aliases),
+            )
+            with _NODE_SIGNAL_MEMO_LOCK:
+                if len(_NODE_SIGNAL_MEMO) >= _NODE_SIGNAL_MEMO_CAP:
+                    _NODE_SIGNAL_MEMO.clear()
+                _NODE_SIGNAL_MEMO[key] = hit
+        out[id(node)] = hit
+    return out
+
+
 def rank_hypotheses(
     session: VehicleSession,
     anomalies: list[AnomalyFinding],
@@ -750,21 +812,12 @@ def rank_hypotheses(
     #
     # Hoisting them into one pass keeps the loop's semantics identical: every
     # value read below is the same value the methods returned, computed once.
-    # T84d (measured 2026-09-26): derive the alias-dependent half in ONE pass.
-    #
-    # The alias map is a SEPARATE cache from the graph (its own mtime/size
-    # key), so it cannot be baked into the graph nodes without making the
-    # graph's content depend on which alias map loaded first — a real defect
-    # that broke three golden cases. Deriving it inside the loop instead
-    # re-canonicalised 373,144 signal names per 21-session profile (0.45 s).
-    # This pass runs once per `rank_hypotheses` call, not once per node per
-    # consumer, and the result is keyed by node identity.
-    node_signals: dict[int, tuple[frozenset[str], frozenset[str]]] = {}
-    for node in graph:
-        node_signals[id(node)] = (
-            _cached_canonical_signals(node.evidence_signals, aliases),
-            _cached_canonical_signals(node.contradicting_signals, aliases),
-        )
+    # T84d (measured 2026-09-26; memoised 2026-09-27): the alias-dependent
+    # half of every node. The alias map cannot be baked into the graph cache
+    # (that broke three golden cases — see the loader note), so it is derived
+    # here but MEMOISED on (graph, alias-map) identity, which is stable for
+    # as long as both underlying caches serve the same generation.
+    node_signals = _node_signal_map(graph, aliases)
 
     for node in graph:
         node_qualified = node.norm_dtcs_with_qualifiers
