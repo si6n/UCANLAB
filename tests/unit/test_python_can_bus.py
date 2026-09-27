@@ -9,7 +9,7 @@ from src.hal.drivers.pcan_kvaser import PythonCanBus
 
 
 def test_virtual_bus_connect_send_recv() -> None:
-    # Safe-by-default regression (CONTRIBUTING.md: listen-only PASSIVE out of
+    # Safe-by-default regression (listen-only PASSIVE out of
     # the box): the TX-capable path must now be requested explicitly.
     bus1 = PythonCanBus(interface="virtual", channel="vchan0", listen_only=False)
     bus2 = PythonCanBus(interface="virtual", channel="vchan0", listen_only=False)

@@ -38,7 +38,7 @@ def build_bus(interface: str, channel: str, bitrate: int, listen_only: bool = Tr
     rp1210 uses the RP1210Bus adapter over the vendor client (device id from
     --channel, e.g. "1"); all other interfaces go through python-can.
 
-    Safe-by-default (CONTRIBUTING.md): every production wiring path opens
+    Safe-by-default: every production wiring path opens
     the bus listen-only unless the caller explicitly opts into active TX
     (CLI --tx flag). Protocol engines that need to transmit reconnect
     through this factory with listen_only=False after the operator arms TX.

@@ -1744,7 +1744,7 @@ class UniversalCanDesktopApp:
         # F-30: composition root owns exactly ONE bus instance — injected when
         # available, created once otherwise. Settings changes reconnect it.
         # K4-a: rp1210 goes through the RP1210Bus adapter; the rest python-can.
-        # Safe-by-default (CONTRIBUTING.md): the app opens its bus listen-only;
+        # Safe-by-default: the app opens its bus listen-only;
         # the operator must explicitly arm TX before any transmission path is
         # unblocked by the SafetySupervisor (PASSIVE → ARMED_TX).
         if bus is not None:
