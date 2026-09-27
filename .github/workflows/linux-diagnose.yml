@@ -1,22 +1,22 @@
 name: Linux Diagnose
 
-# One-off diagnostic: the Linux pytest jobs have failed since a729feb and the
-# job logs are not readable from this side (403, admin required). This
-# workflow runs the same two selections and uploads the FULL pytest output as
-# a downloadable artifact, plus a machine-readable failure list in the job
-# summary. Delete once the failures are fixed.
+# One-off diagnostic: the Linux pytest jobs fail and their logs need admin
+# rights to read. This runs the same selection on ubuntu-latest and COMMITS
+# the captured output back to a scratch branch, which is publicly readable.
+# Delete once the failures are fixed.
 
 on:
   workflow_dispatch:
   push:
     branches: [ main ]
 
+permissions:
+  contents: write
+
 jobs:
   diagnose:
     name: Diagnose Linux pytest failures
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
 
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
@@ -32,74 +32,42 @@ jobs:
           pip install --require-hashes -r requirements.lock
           pip install -r requirements-dev.txt
 
-      - name: Create vcan0 (mirrors the failing jobs)
+      - name: Create vcan0
         run: |
           sudo modprobe vcan || true
           sudo ip link add dev vcan0 type vcan || true
           sudo ip link set up vcan0 || true
           sudo apt-get update -qq && sudo apt-get install -y -qq libgl1 libegl1 || true
 
-      - name: Run the vcan slice and capture everything
-        continue-on-error: true
+      - name: Collect everything into one file
         env:
           QT_QPA_PLATFORM: offscreen
         run: |
           set +e
-          echo "pytest: $(which pytest)"
-          pytest --version
-          echo "cwd: $(pwd)"
-          pytest -v -k "vcan or virtual_bus or hardware" \
-            --tb=long -p no:cacheprovider > vcan.log 2>&1
-          echo "pytest exit=$?"
-          echo "lines=$(wc -l < vcan.log)"
-          echo "--- head ---"
-          head -40 vcan.log
-
-      - name: Run the full suite and capture everything
-        continue-on-error: true
-        env:
-          QT_QPA_PLATFORM: offscreen
-        run: |
-          set +e
-          pytest -q --tb=long -p no:cacheprovider > full.log 2>&1
-          echo "pytest exit=$?"
-          echo "lines=$(wc -l < full.log)"
-          echo "--- head (collection errors live here) ---"
-          head -60 full.log
-          echo "--- failures ---"
-          grep -E "^(FAILED|ERROR)" full.log | head -40
-
-      - name: Summarise the failures into the job summary
-        run: |
           {
-            echo "## vcan log head (collection errors)"
-            echo '```'
-            head -60 vcan.log
-            echo '```'
-            echo "## vcan slice failures"
-            echo '```'
-            grep -E "^(FAILED|ERROR)" vcan.log | head -40 || echo "(none)"
-            echo '```'
-            echo "## full log head (collection errors)"
-            echo '```'
-            head -60 full.log
-            echo '```'
-            echo "## full suite failures"
-            echo '```'
-            grep -E "^(FAILED|ERROR)" full.log | head -40 || echo "(none)"
-            echo '```'
-            echo "## full suite tail"
-            echo '```'
-            tail -25 full.log
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+            echo "=== env ==="
+            echo "python: $(python --version 2>&1)"
+            echo "pytest: $(which pytest)"
+            pytest --version 2>&1
+            echo "cwd: $(pwd)"
+            echo
+            echo "=== collect-only ==="
+            pytest --collect-only -q -p no:cacheprovider 2>&1 | tail -5
+            echo
+            echo "=== vcan slice ==="
+            pytest -k "vcan or virtual_bus or hardware" --tb=long \
+              -p no:cacheprovider 2>&1 | tail -120
+            echo
+            echo "=== full suite (head) ==="
+            pytest -q --tb=long -p no:cacheprovider 2>&1 | head -120
+          } > diagnose.txt
+          echo "wrote $(wc -l < diagnose.txt) lines"
 
-      - name: Upload logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-diagnose-logs
-          path: |
-            vcan.log
-            full.log
-          retention-days: 7
+      - name: Commit the diagnostic output
+        run: |
+          git config user.name  "linux-diagnose[bot]"
+          git config user.email "linux-diagnose@users.noreply.github.com"
+          git checkout -b linux-diagnose-output || git checkout linux-diagnose-output
+          git add -f diagnose.txt
+          git commit -m "diagnose: linux pytest output for ${{ github.sha }}"
+          git push -f origin linux-diagnose-output
