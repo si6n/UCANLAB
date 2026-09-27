@@ -1,0 +1,70 @@
+name: Linux Diagnose
+
+# Temporary: surface WHICH tests fail on Linux. Job logs and artifacts need
+# admin rights from this side, so the failure list is committed to a scratch
+# branch instead. Delete once the Linux failures are fixed.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    name: List the Linux pytest failures
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install --require-hashes -r requirements.lock
+          pip install -r requirements-dev.txt
+
+      - name: Create vcan0
+        run: |
+          sudo modprobe vcan || true
+          sudo ip link add dev vcan0 type vcan || true
+          sudo ip link set up vcan0 || true
+          sudo apt-get update -qq && sudo apt-get install -y -qq libgl1 libegl1 || true
+
+      - name: Run the suite and record the failures
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          set +e
+          pytest -q -p no:cacheprovider --tb=line > suite.log 2>&1
+          echo "exit=$?"
+          {
+            echo "python: $(python --version 2>&1)"
+            echo "platform: $(uname -a)"
+            echo "exit: $(grep -c . suite.log) log lines"
+            echo
+            echo "=== FAILED / ERROR ==="
+            grep -E "^(FAILED|ERROR)" suite.log
+            echo
+            echo "=== summary line ==="
+            tail -3 suite.log
+            echo
+            echo "=== one-line traces for the failures ==="
+            grep -E "^/home/runner|^tests/|Error|assert" suite.log | head -80
+          } > diagnose.txt
+
+      - name: Commit the diagnostic output
+        run: |
+          git config user.name  "linux-diagnose[bot]"
+          git config user.email "linux-diagnose@users.noreply.github.com"
+          git checkout -B linux-diagnose-output
+          git add -f diagnose.txt
+          git commit -m "diagnose: linux failures for ${{ github.sha }}"
+          git push -f origin linux-diagnose-output
