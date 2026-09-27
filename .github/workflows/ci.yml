@@ -22,6 +22,9 @@ jobs:
     name: PyTest & Conformance (Python ${{ matrix.python-version }})
     runs-on: windows-latest
     strategy:
+      # fail-fast:false — one version's red must not cancel the sibling; both
+      # reports are needed (observed: 3.12 fail cancelled 3.13 and vice versa).
+      fail-fast: false
       matrix:
         python-version: [ '3.12', '3.13' ]
 
@@ -146,6 +149,32 @@ jobs:
           QT_QPA_PLATFORM: offscreen
         run: |
           pytest -v tests/unit/test_j1939_v190_load.py::TestCopilotSession::test_analysis_latency_under_50ms tests/unit/test_benchmark_ai_copilot.py::TestBenchmarkLoadTimes::test_benchmark_dtc_db_load_time
+
+      - name: Upload pytest failure log (Windows ${{ matrix.python-version }})
+        # The failing conformance step only reports exit code 1; the FAILED
+        # lines live in the job log (needs admin to fetch via API). Re-run
+        # the suite TB-line-only into a log and upload it so the cause is
+        # visible on the run page. Runs only when the suite failed.
+        if: failure()
+        shell: pwsh
+        run: |
+          $errorActionPreference = 'Continue'
+          $env:QT_QPA_PLATFORM = 'offscreen'
+          pytest -q -p no:cacheprovider --tb=line > pytest-fail-${{ matrix.python-version }}.log 2>&1
+          "=== FAILED / ERROR ===" | Out-File -Encoding utf8 -Append pytest-fail-${{ matrix.python-version }}.log
+          Select-String -Path pytest-fail-${{ matrix.python-version }}.log -Pattern '^(FAILED|ERROR)' |
+            ForEach-Object { $_.Line } | Out-File -Encoding utf8 -Append pytest-fail-${{ matrix.python-version }}.log
+          "=== summary ===" | Out-File -Encoding utf8 -Append pytest-fail-${{ matrix.python-version }}.log
+          Get-Content pytest-fail-${{ matrix.python-version }}.log -Tail 3 | Out-File -Encoding utf8 -Append pytest-fail-${{ matrix.python-version }}.log
+          exit 0
+
+      - name: Publish failure log artifact (Windows ${{ matrix.python-version }})
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: pytest-fail-win-${{ matrix.python-version }}
+          path: pytest-fail-${{ matrix.python-version }}.log
+          retention-days: 7
 
       - name: Run Bandit Security Lint
         run: |
