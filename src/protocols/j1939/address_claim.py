@@ -281,6 +281,12 @@ class AddressClaimEngine:
         """Return True if an address is successfully claimed and active for TX."""
         return self.state == AddressClaimState.CLAIMED and self.current_address != NULL_ADDRESS
 
+    @property
+    def address_table(self) -> dict[int, J1939Name]:
+        """Return a snapshot of the active (unexpired) SA -> J1939Name map."""
+        with self._engine_lock:
+            return self._live_address_table()
+
     def start_claiming(self, auto_arm_timer: bool = True) -> CanFrame:
         """Initiate address claiming sequence and return the Address Claim frame to transmit."""
         with self._engine_lock:

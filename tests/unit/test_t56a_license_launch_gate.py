@@ -69,6 +69,7 @@ def _make_launcher(
         classmethod(lambda cls: _no_critical_prereqs()),
     )
     monkeypatch.setattr(launcher.update_manager, "check_for_updates", lambda: _no_update())
+    monkeypatch.setattr(launcher, "_obligation_armed", lambda: False)
     monkeypatch.setattr(launcher.auth_manager, "get_current_status", lambda: auth_status)
     if target_executable is not None:
         monkeypatch.setattr(

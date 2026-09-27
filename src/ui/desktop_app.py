@@ -28,6 +28,7 @@ from typing import Any, ClassVar
 import webview
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
+from src.core.contracts.ports import QueueRxSubscription
 from src.core.errors import HardwareError, SafetyError, SecurityError
 from src.core.logging import get_logger
 from src.core.models.can_frame import CanFrame, length_to_dlc
@@ -42,18 +43,28 @@ from src.engine.ai.diagnostic_copilot import AiDiagnosticCopilot
 from src.engine.buffer.ring_buffer import BinaryRingBuffer
 from src.engine.buffer.rolling_disk import RollingDiskBuffer
 from src.engine.discovery.engine import SignalDiscoveryEngine
-from src.engine.pipeline.reassembly_pipeline import j1939_protocol_response_masks
+from src.engine.pipeline.reassembly_pipeline import (
+    ReassembledMessage,
+    ReassemblyPipeline,
+    decode_vin_payload,
+    j1939_protocol_response_masks,
+)
 from src.engine.router import FrameRouter
 from src.hal.base import BusState
 from src.hal.drivers.pcan_kvaser import PythonCanBus
 from src.hal.replay.player import ReplayBus
 from src.hal.replay.safety_filter import ReplaySafetyFilter
+from src.protocols.j1939.address_claim import (
+    AddressClaimEngine,
+    J1939Name,
+)
 from src.protocols.j1939.diagnostics import J1939DiagnosticService
 from src.protocols.j1939.oem.registry import OemJ1939Registry
 from src.protocols.j1939.pgn import build_j1939_id, parse_j1939_id
 from src.protocols.j1939.transport import J1939TransportProtocol
 from src.protocols.nmea2000.fast_packet import Nmea2000FastPacketDecoder
 from src.protocols.nmea2000.pgn_library import PGN_ENGINE_DYNAMIC, Nmea2000PgnDecoder
+from src.protocols.obd.poller import ActiveDiagnosticPoller, ObdPidResult
 from src.protocols.uds.client import UdsClient
 from src.protocols.uds.flasher import (
     EcuFlashingEngine,
@@ -62,6 +73,9 @@ from src.protocols.uds.flasher import (
     FlashingStep,
 )
 from src.protocols.uds.services import DiagnosticSessionType
+from src.safety.e2e.packager import E2ESafetyPackager
+from src.safety.e2e.profiles import E2EProfileConfig
+from src.safety.e2e.validator import E2ESafetyValidator
 from src.safety.estop import EmergencyStopSystem, EStopTriggerSource
 from src.safety.gateway import TxSafetyGateway
 from src.safety.multiplexer import SafeMultiplexedBus
@@ -653,6 +667,12 @@ class DesktopApiBridge:
         "get_session_evidence_summary": "read",
         "oem_list_decoders": "read",
         "reset_diagnostic_session": "safety",
+        "j1939_get_address_claim_status": "read",
+        "j1939_start_address_claim": "safety",
+        "reassembly_get_stats": "read",
+        "register_e2e_profile": "config",
+        "start_obd_polling": "safety",
+        "stop_obd_polling": "safety",
         "save_settings": "config",
         "search_nhtsa_recalls": "read",
         "select_scenario": "config",
@@ -842,6 +862,33 @@ class DesktopApiBridge:
     def oem_list_decoders(self) -> list[str]:
         """List active OEM proprietary J1939 decoders (Cummins, Cat, Scania, Volvo, Detroit, Actros)."""
         return self.app.oem_list_decoders()
+    # ------------------------------------------------------------------
+    # Diagnostic Poller, Transport Reassembly & E2E Safety Bridge APIs
+    # ------------------------------------------------------------------
+    def start_obd_polling(self, pids: list[int] | None = None, rate_hz: float = 10.0) -> dict[str, Any]:
+        """Start active OBD-II diagnostic polling."""
+        return self.app.start_obd_polling(pids=pids, rate_hz=rate_hz)
+
+    def stop_obd_polling(self) -> dict[str, Any]:
+        """Stop active OBD-II diagnostic polling."""
+        return self.app.stop_obd_polling()
+
+    def j1939_start_address_claim(self, preferred_address: int = 0xF9) -> dict[str, Any]:
+        """Initiate J1939-81 dynamic address claiming."""
+        return self.app.j1939_start_address_claim(preferred_address=preferred_address)
+
+    def j1939_get_address_claim_status(self) -> dict[str, Any]:
+        """Get current J1939 address claim state and live discovered nodes."""
+        return self.app.j1939_get_address_claim_status()
+
+    def register_e2e_profile(self, arbitration_id: int, profile_name: str = "AUTOSAR_P01") -> dict[str, Any]:
+        """Register an E2E safety profile for an arbitration ID."""
+        return self.app.register_e2e_profile_by_name(arbitration_id=arbitration_id, profile_name=profile_name)
+
+    def reassembly_get_stats(self) -> dict[str, Any]:
+        """Get statistics from the multi-packet reassembly pipeline."""
+        return self.app.reassembly_get_stats()
+
 
     # ------------------------------------------------------------------
     # Deterministic Trace Replay Bridge APIs
@@ -1850,6 +1897,7 @@ class UniversalCanDesktopApp:
             # acknowledge that override explicitly rather than silently
             # accepting every masked ID.
             whitelist_superset_allowed=True,
+            e2e_packager=E2ESafetyPackager(),
         )
         self.copilot = AiDiagnosticCopilot()
         # F-32: copilot LLM calls run off the UI/bridge thread
@@ -1948,6 +1996,44 @@ class UniversalCanDesktopApp:
         self._upload_approvals_lock = threading.Lock()
         self.discovery_engine = SignalDiscoveryEngine()
         self.oem_registry = OemJ1939Registry()
+        # ── E2E Rx Safety Validator & Profiles ──
+        self.e2e_validator = E2ESafetyValidator()
+        self._rx_e2e_profiles: dict[int, E2EProfileConfig] = {}
+        self._e2e_lock = threading.Lock()
+
+        # ── Multi-Packet Transport Reassembly Pipeline ──
+        # Sniffer/passive mode avoids duplicating flow control frames on the live bus.
+        self.reassembly_pipeline = ReassemblyPipeline(
+            router=self.router,
+            auto_subscribe_router=True,
+            flow_control_enabled=False,
+            on_reassembled=self._handle_reassembled_message,
+        )
+
+        # ── Active OBD-II / UDS Diagnostic Poller ──
+        self.obd_poller: ActiveDiagnosticPoller | None = None
+        self._obd_poller_rx_sub: QueueRxSubscription | None = None
+        self._obd_router_sub_id: int | None = None
+        self._obd_lock = threading.Lock()
+
+        # ── J1939-81 Dynamic Address Claiming Engine ──
+        self.address_claim_engine = AddressClaimEngine(
+            name=J1939Name(
+                industry_group=1,
+                vehicle_system=0,
+                vehicle_system_instance=0,
+                function=0,
+                function_instance=0,
+                ecu_instance=0,
+                manufacturer_code=100,
+                identity_number=1,
+                arbitrary_address_capable=True,
+            ),
+            preferred_address=0xF9,
+            channel_id=self.channel_name or "can0",
+        )
+        self._address_claim_lock = threading.Lock()
+        self._detected_vin: str | None = None
         self.replay_bus: ReplayBus | None = None
         self.replay_safety_filter: ReplaySafetyFilter | None = None
         self._replay_thread: threading.Thread | None = None
@@ -3600,6 +3686,176 @@ class UniversalCanDesktopApp:
         return {"success": True}
 
     # ------------------------------------------------------------------
+    # Transport Reassembly, E2E Safety, OBD Poller & J1939 Address Claim
+    # ------------------------------------------------------------------
+    def reassembly_get_stats(self) -> dict[str, Any]:
+        """Get metrics from the multi-packet reassembly pipeline."""
+        if hasattr(self, "reassembly_pipeline") and self.reassembly_pipeline is not None:
+            return self.reassembly_pipeline.get_stats()
+        return {}
+
+    def _handle_reassembled_message(self, msg: ReassembledMessage) -> None:
+        """Process completely reassembled multi-packet messages (J1939 BAM/RTS-CTS, ISO-TP)."""
+        if msg.synthetic_frame is not None:
+            self.discovery_engine.ingest_frame(msg.synthetic_frame)
+
+        if msg.pgn == 65226:  # DM1 Active DTCs
+            if msg.diagnostics is not None and hasattr(msg.diagnostics, "dtcs"):
+                dm = msg.diagnostics
+                self._last_dm1 = {
+                    "source": dm.source_address,
+                    "dtc_count": len(dm.dtcs),
+                    "lamps": getattr(dm, "lamps", ""),
+                }
+                self._error_count = len(dm.dtcs)
+                self._record_dm1_events(dm.dtcs)
+        elif msg.pgn == 65260:  # Vehicle Identification (VIN)
+            vin = decode_vin_payload(msg.bytes)
+            if vin:
+                self._detected_vin = vin
+                logger.info("Reassembled vehicle VIN", extra={"vin": vin})
+
+    def register_e2e_profile(self, arbitration_id: int, profile: E2EProfileConfig) -> None:
+        """Register an E2E profile directly for RX verification and TX packaging."""
+        with self._e2e_lock:
+            self._rx_e2e_profiles[arbitration_id] = profile
+        self.gateway.register_e2e_profile(arbitration_id, profile)
+
+    def register_e2e_profile_by_name(self, arbitration_id: int, profile_name: str = "AUTOSAR_P01") -> dict[str, Any]:
+        """Register an E2E safety profile by standard name for an arbitration ID."""
+        try:
+            name_norm = profile_name.upper().strip()
+            if name_norm in ("AUTOSAR_P01", "AUTOSAR_PROFILE_1", "AUTOSAR_1"):
+                profile = E2EProfileConfig.create_autosar_profile_1(data_id=arbitration_id & 0xFFFF)
+            elif name_norm in ("AUTOSAR_P02", "AUTOSAR_PROFILE_2", "AUTOSAR_2"):
+                data_ids = tuple((arbitration_id + i) & 0xFF for i in range(16))
+                profile = E2EProfileConfig.create_autosar_profile_2(data_id_list=data_ids)
+            elif name_norm in ("SAE_J1850", "J1850"):
+                profile = E2EProfileConfig.create_sae_j1850()
+            elif name_norm == "TOYOTA":
+                profile = E2EProfileConfig.create_toyota()
+            elif name_norm == "VOLVO":
+                profile = E2EProfileConfig.create_volvo()
+            elif name_norm == "VAG_MQB":
+                profile = E2EProfileConfig.create_vag_mqb(data_id=arbitration_id & 0xFFFF)
+            else:
+                return {"success": False, "error": f"Unknown E2E profile: {profile_name}"}
+
+            self.register_e2e_profile(arbitration_id, profile)
+            return {"success": True, "arbitration_id": arbitration_id, "profile": name_norm}
+        except Exception as exc:
+            return {"success": False, "error": str(exc)}
+
+    def start_obd_polling(self, pids: list[int] | None = None, rate_hz: float = 10.0) -> dict[str, Any]:
+        """Start active OBD-II diagnostic polling via ActiveDiagnosticPoller."""
+        with self._obd_lock:
+            if self.obd_poller is not None and getattr(self.obd_poller, "_running", False):
+                return {"success": False, "error": "OBD poller already running"}
+
+            rx_sub = QueueRxSubscription()
+            obd_resp_ids = set(range(0x7E8, 0x7F0))
+            sub_id, _queue = self.router.subscribe(
+                filter_ids=obd_resp_ids,
+                channel_id=self.channel_name,
+                use_queue=False,
+                callback=lambda f: rx_sub.put_nowait(f),
+            )
+            self._obd_router_sub_id = sub_id
+            self._obd_poller_rx_sub = rx_sub
+
+            self.obd_poller = ActiveDiagnosticPoller(
+                tx_port=self.safe_bus,
+                rx_subscription=rx_sub,
+                tx_id=0x7DF,
+                rx_id=0x7E8,
+                max_rate_hz=rate_hz,
+                channel_id=self.channel_name or "can0",
+            )
+            poll_pids = pids if pids else [0x0C, 0x0D, 0x05]
+            for p in poll_pids:
+                self.obd_poller.register_pid(
+                    pid=p,
+                    rate_hz=min(rate_hz, 10.0),
+                    callback=self._handle_obd_pid_result,
+                )
+
+            self.obd_poller.start()
+            return {"success": True, "pids": poll_pids, "rate_hz": rate_hz}
+
+    def _handle_obd_pid_result(self, result: ObdPidResult) -> None:
+        """Handle decoded OBD-II PID telemetry results."""
+        if not result.success or result.value is None:
+            return
+        try:
+            if result.pid == 0x0C:
+                self._current_rpm = float(result.value)
+                self._record_signal_sample("EngineSpeed", int(result.value), self._current_rpm, "rpm")
+            elif result.pid == 0x0D:
+                speed_val = float(result.value)
+                self._record_signal_sample("VehicleSpeed", int(result.value), speed_val, "km/h")
+            elif result.pid == 0x05:
+                self._current_temp = float(result.value)
+                self._record_signal_sample("EngineCoolantTemp", int(result.value), self._current_temp, "C")
+        except (ValueError, TypeError) as exc:
+            logger.debug("Failed to record OBD PID sample", extra={"error": str(exc), "pid": result.pid})
+
+    def stop_obd_polling(self) -> dict[str, Any]:
+        """Stop active OBD-II diagnostic polling."""
+        with self._obd_lock:
+            if self.obd_poller is not None:
+                self.obd_poller.stop()
+                self.obd_poller = None
+            if self._obd_poller_rx_sub is not None:
+                self._obd_poller_rx_sub.unsubscribe()
+                self._obd_poller_rx_sub = None
+            if self._obd_router_sub_id is not None:
+                self.router.unsubscribe(self._obd_router_sub_id)
+                self._obd_router_sub_id = None
+            return {"success": True}
+
+    def j1939_start_address_claim(self, preferred_address: int = 0xF9) -> dict[str, Any]:
+        """Initiate J1939-81 dynamic address claiming."""
+        with self._address_claim_lock:
+            if self.address_claim_engine is None:
+                return {"success": False, "error": "AddressClaimEngine not configured"}
+            self.address_claim_engine.preferred_address = preferred_address
+            claim_frame = self.address_claim_engine.start_claiming(auto_arm_timer=True)
+            try:
+                self.gateway.send_sync(claim_frame, budget_category="j1939")
+                self.address_claim_engine.on_claim_transmitted()
+                return {
+                    "success": True,
+                    "address": self.address_claim_engine.current_address,
+                    "state": self.address_claim_engine.state.value,
+                }
+            except Exception as exc:
+                self.address_claim_engine.on_claim_transmission_failed()
+                logger.warning("Failed to transmit J1939 Address Claim frame", extra={"error": str(exc)})
+                return {"success": False, "error": str(exc)}
+
+    def j1939_get_address_claim_status(self) -> dict[str, Any]:
+        """Get current J1939 address claim state and live discovered nodes."""
+        with self._address_claim_lock:
+            if self.address_claim_engine is None:
+                return {"claimed": False, "state": "UNINITIALIZED", "address": None, "nodes": {}}
+            table = self.address_claim_engine.address_table
+            nodes = {
+                f"0x{sa:02X}": {
+                    "name_hex": f"0x{name.to_int64():016X}",
+                    "industry_group": name.industry_group,
+                    "function": name.function,
+                    "manufacturer_code": name.manufacturer_code,
+                }
+                for sa, name in table.items()
+            }
+            return {
+                "claimed": self.address_claim_engine.is_address_claimed,
+                "state": self.address_claim_engine.state.value,
+                "address": self.address_claim_engine.current_address,
+                "nodes": nodes,
+            }
+
+    # ------------------------------------------------------------------
     # OEM J1939 Registry Methods
     # ------------------------------------------------------------------
     def oem_list_decoders(self) -> list[str]:
@@ -4703,6 +4959,15 @@ class UniversalCanDesktopApp:
                 # (only dtc_count survived). Record them as DiagnosticEvents
                 # now — severity from the SPN DB / KB, never invented.
                 self._record_dm1_events(dm.dtcs)
+            # Address Claim (PGN 60928) or Request PGN (59904)
+            elif pgn in (60928, 59904) and isinstance(frame, CanFrame):
+                if self.address_claim_engine is not None:
+                    resp = self.address_claim_engine.handle_rx_frame(frame)
+                    if resp is not None and not getattr(frame, "is_replay", False):
+                        try:
+                            self.gateway.send_sync(resp, budget_category="j1939", inbound_triggered=True)
+                        except Exception as exc:
+                            logger.warning("Failed to send J1939 address claim response", extra={"error": str(exc)})
 
             # OEM Proprietary J1939 Decoders (Cummins, Caterpillar, Scania, Volvo, Detroit, Actros)
             # I-10 / P2-15: gate on is_valid AND confidence. LOW-confidence
@@ -4768,6 +5033,15 @@ class UniversalCanDesktopApp:
         # Router fans out to protocol engines (J1939 TP, N2K Fast Packet)
         self.router.route_frame(frame)
         if isinstance(frame, CanFrame):
+            with self._e2e_lock:
+                rx_profile = self._rx_e2e_profiles.get(frame.arbitration_id)
+            if rx_profile is not None:
+                res = self.e2e_validator.validate(frame, rx_profile)
+                if not res.is_valid:
+                    logger.warning(
+                        "E2E validation failed on live frame",
+                        extra={"can_id": hex(frame.arbitration_id), "verdict": res.verdict.value},
+                    )
             self.discovery_engine.ingest_frame(frame)
             if self.rolling_disk is not None:
                 try:
@@ -5430,5 +5704,20 @@ class UniversalCanDesktopApp:
             if hasattr(self, "rolling_disk") and self.rolling_disk:
                 try:
                     self.rolling_disk.close()
+                except Exception:
+                    pass
+            if hasattr(self, "stop_obd_polling"):
+                try:
+                    self.stop_obd_polling()
+                except Exception:
+                    pass
+            if hasattr(self, "reassembly_pipeline") and self.reassembly_pipeline:
+                try:
+                    self.reassembly_pipeline.close()
+                except Exception:
+                    pass
+            if hasattr(self, "address_claim_engine") and self.address_claim_engine:
+                try:
+                    self.address_claim_engine.cancel_pending_claim_timer()
                 except Exception:
                     pass

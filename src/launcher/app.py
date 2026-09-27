@@ -614,7 +614,6 @@ class UniversalCanLauncher:
         from src.launcher.updater import UpdateManager as _UpdateManager
 
         if recorded is None:
-            self._clear_mandatory_obligation()
             return True
         current = _UpdateManager._parse_semver(self.version)
         obligated = _UpdateManager._parse_semver(recorded)

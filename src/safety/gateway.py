@@ -397,6 +397,16 @@ class TxSafetyGateway:
         if self.supervisor:
             self.supervisor.register_callback(self._on_safety_state_changed)
 
+    def register_e2e_profile(self, arbitration_id: int, profile: E2EProfileConfig) -> None:
+        """Register or update an E2E profile for an arbitration ID (thread-safe)."""
+        self._validate_e2e_profiles({arbitration_id: profile})
+        with self._lock:
+            if self.e2e_packager is None:
+                self.e2e_packager = E2ESafetyPackager()
+            new_profiles = dict(self.e2e_profiles)
+            new_profiles[arbitration_id] = profile
+            self.e2e_profiles = new_profiles
+
     def _decay_whitelist_miss_streak(self, now_ns: int) -> None:
         """S-09: reset the whitelist-miss streak only after an idle window.
 
