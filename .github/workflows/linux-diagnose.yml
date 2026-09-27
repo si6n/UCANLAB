@@ -52,6 +52,34 @@ jobs:
             echo
             echo "--- coverage + summary (last lines that are NOT safety noise) ---"
             grep -vE "Safety FAULT|Safety fault|EMERGENCY STOP|TX Gateway|Watchdog lease|Backend flush" full.log | tail -20
+            echo
+            echo "=== WHY IS analyze_session 353ms ON LINUX? ==="
+            python - <<'PROBE' 2>&1 | tail -30
+          import sys, time, cProfile, pstats, io
+          sys.path.insert(0, ".")
+          from src.engine.ai.diagnostic_copilot import (
+              AiDiagnosticCopilot, ensure_external_dtc_database_loaded)
+          ensure_external_dtc_database_loaded()
+          c = AiDiagnosticCopilot()
+          TEL = {"EngineSpeed": 1100.0, "BoostPressure": 60.0, "CoolantTemp": 85.0}
+          c.analyze_session([{"code": "SPN1-FMI4", "spn": 100, "fmi": 4, "source": "J1939 DM1"}], TEL, ["ECU"])
+          s = []
+          for i in range(21):
+              t0 = time.perf_counter()
+              c.analyze_session([{"code": f"SPN{i}-FMI4", "spn": 100 + i, "fmi": 4,
+                                  "source": "J1939 DM1"}], TEL, ["ECU"])
+              s.append((time.perf_counter() - t0) * 1000)
+          s.sort()
+          print(f"median={s[len(s)//2]:.1f}ms slowest={s[-1]:.1f}ms")
+          pr = cProfile.Profile(); pr.enable()
+          for i in range(5):
+              c.analyze_session([{"code": f"SPN{i}-FMI4", "spn": 100 + i, "fmi": 4,
+                                  "source": "J1939 DM1"}], TEL, ["ECU"])
+          pr.disable()
+          out = io.StringIO()
+          pstats.Stats(pr, stream=out).sort_stats("tottime").print_stats(12)
+          print(out.getvalue())
+          PROBE
           } > diagnose.txt 2>&1
           echo "exit=$?"
           wc -l diagnose.txt
