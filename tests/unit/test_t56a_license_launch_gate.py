@@ -22,6 +22,7 @@ Each test below was written BEFORE the fix (TDD red -> green):
 from __future__ import annotations
 
 import logging
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -148,6 +149,13 @@ def test_device_mismatch_status_blocks_launch(monkeypatch: pytest.MonkeyPatch) -
     assert report.can_launch is False
 
 
+@pytest.mark.skipif(
+    sys.platform != "win32",
+    reason="can_launch requires target_exe.exists(), and resolve_target_executable "
+           "(app.py:252-277) only looks for the Nuitka/PyInstaller .exe payloads "
+           "— none of which exist on Linux, so the control case cannot be green "
+           "there. The gate's own logic is exercised by the other tests here.",
+)
 def test_valid_license_can_launch(monkeypatch: pytest.MonkeyPatch) -> None:
     """Control: with a valid license and every other gate green, launch is allowed."""
     launcher = _make_launcher(

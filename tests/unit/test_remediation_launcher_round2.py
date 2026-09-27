@@ -38,6 +38,7 @@ import hashlib
 import json
 import os
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -799,6 +800,12 @@ def test_m1_cli_mode_detected_from_argv(monkeypatch: pytest.MonkeyPatch) -> None
     assert PrereqChecker.is_cli_mode([]) is True
 
 
+@pytest.mark.skipif(
+    sys.platform != "win32",
+    reason="check_vcredist returns early on non-Windows ('Non-Windows OS', "
+           "available=True) because the VC++ runtime is a Windows-only "
+           "prerequisite, so the DLL-evidence path under test cannot run there",
+)
 def test_m1_vcredist_probes_more_than_one_source(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """M-1: the runtime DLL / WinSxS evidence path must exist and be used."""
     assert "msvcp140.dll" in PrereqChecker.VCRUNTIME_DLLS

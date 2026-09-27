@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import threading
 import time
+import sys
 
 import can
 import pytest
@@ -378,6 +379,12 @@ def test_hal06_bitrate_suffixed_into_protocol_wire_string() -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.skipif(
+    sys.platform != "win32",
+    reason="_is_vendor_declared_dll returns False on non-Windows (client.py:125-126 "
+           "— the RP1210 vendor INI is a Windows facility), so a monkeypatched "
+           "declaration can never be consulted there",
+)
 def test_hal07_vendor_dll_accepted_when_ini_declares_it(monkeypatch: pytest.MonkeyPatch) -> None:
     """HAL-07: a vendor basename declared in `[VendorDIL]` is allowlisted."""
     import src.hal.rp1210.client as client_mod

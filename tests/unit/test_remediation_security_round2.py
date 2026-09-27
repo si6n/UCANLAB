@@ -373,7 +373,15 @@ def test_sec06_observe_only_is_an_explicit_opt_in() -> None:
 
 
 def test_sec05_check_remote_debugger_uses_wintypes_prototypes() -> None:
-    """SEC-05: `c_bool` (1 byte) and an unset GetCurrentProcess restype are gone."""
+    """SEC-05: `c_bool` (1 byte) and an unset GetCurrentProcess restype are gone.
+
+    The source-text assertions hold on every platform. The two `sizeof`
+    checks document WHY the old code was wrong and are Windows-only:
+    `ctypes.wintypes` does not exist on Linux, so reaching for
+    `ctypes.wintypes.BOOL` there raises AttributeError before it can compare
+    anything — the same AttributeError the guard's own import would raise if
+    the module were imported outside a `sys.platform` branch (it is not).
+    """
     import ctypes
 
     source = Path("src/security/anti_tamper/guard.py").read_text(encoding="utf-8")
@@ -382,7 +390,8 @@ def test_sec05_check_remote_debugger_uses_wintypes_prototypes() -> None:
     assert "POINTER(ctypes.c_bool)" not in source
     assert "current_proc = get_current_process()" in source
     assert ctypes.sizeof(ctypes.c_bool) == 1  # documents why the old code was wrong
-    assert ctypes.sizeof(ctypes.wintypes.BOOL) == 4
+    if sys.platform == "win32":
+        assert ctypes.sizeof(ctypes.wintypes.BOOL) == 4
 
 
 # ---------------------------------------------------------------------------
@@ -582,8 +591,17 @@ def test_sec10_mac_query_is_deterministic() -> None:
 
 
 def test_sec10_mac_query_passes_the_powershell_guard() -> None:
-    """SEC-10: the hardened (longer) query must survive the injection guard."""
+    """SEC-10: the hardened (longer) query must survive the injection guard.
+
+    Windows-only: `_run_powershell` returns "" immediately on a non-Windows
+    platform (collector.py:85-86 — PowerShell is a Windows facility), so
+    `subprocess.run` is never reached and the assertion below cannot hold
+    there. The guard being tested is the Windows code path.
+    """
     import re
+
+    if sys.platform != "win32":
+        pytest.skip("PowerShell probing is a Windows-only code path")
 
     from src.security.hwid.collector import _run_powershell
 

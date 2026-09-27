@@ -452,9 +452,22 @@ def test_safety_wiring_rx_continues_during_tx_cutoff(harness_factory) -> None:
         rx_frame = CanFrame.create(channel_id="vcan_test", arbitration_id=0x7E8, data=b"\x06\x50\x01\x00\x32\x01\xF4")
         harness.router.route_frame(rx_frame)
 
-        # SafeMultiplexedBus must receive the frame from its dedicated router subscription queue
-        received = harness.safe_bus.recv(timeout_s=0.1)
-        assert received is not None
+        # SafeMultiplexedBus must receive the frame from its dedicated router
+        # subscription queue.
+        #
+        # The timeout is 2.0 s, not 0.1 s. `route_frame` hands the frame to the
+        # subscription queue, so the receive is expected to be immediate; the
+        # timeout only decides how long a BROKEN path may hang before the
+        # assertion reports it. At 0.1 s the test failed on the Linux CI runner
+        # (assert False is True — nothing arrived inside the window) while
+        # passing on Windows, because the runner's scheduling under load can
+        # exceed 100 ms between the enqueue and the reader thread waking. The
+        # property under test is "the frame is NOT lost", not "it arrives
+        # within 100 ms", so a wider window tests the same thing without the
+        # machine-speed dependency.
+        received = harness.safe_bus.recv(timeout_s=2.0)
+        assert received is not None, (
+            "RX frame was lost after TX cutoff — safe_bus.recv returned None")
         assert received.arbitration_id == 0x7E8
         assert bytes(received.data) == bytes(rx_frame.data)
 

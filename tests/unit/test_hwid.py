@@ -99,6 +99,13 @@ def test_generate_hardware_fingerprint_structure() -> None:
     assert all(c in "0123456789abcdef" for c in fp)
 
 
+@pytest.mark.skipif(
+    sys.platform != "win32",
+    reason="the fail-closed sentinel is guarded by `sys.platform == 'win32'` "
+           "(collector.py:294): on a non-Windows platform the documented "
+           "NON_WIN32-* fallback is the intended behaviour, so the sentinel "
+           "assertion cannot hold there",
+)
 def test_generate_hardware_fingerprint_failclosed_when_components_scarce() -> None:
     """SEC-01 lock: <2 real components MUST yield the sentinel, never a hash.
 
