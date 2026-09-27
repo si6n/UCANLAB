@@ -43,7 +43,15 @@ jobs:
             echo "UCANLAB_TEST_MODE=[${UCANLAB_TEST_MODE}]"
             echo
             echo "=== FULL SUITE with the coverage gate (mirrors the CI job) ==="
-            pytest -q -p no:cacheprovider --tb=line --cov=src --cov-fail-under=81 2>&1 | tail -60
+            pytest -q -p no:cacheprovider --tb=line --cov=src --cov-fail-under=81 > full.log 2>&1
+            echo "exit=$?"
+            echo "log lines: $(wc -l < full.log)"
+            echo
+            echo "--- FAILED / ERROR ---"
+            grep -E "^(FAILED|ERROR)" full.log || echo "(none)"
+            echo
+            echo "--- coverage + summary (last lines that are NOT safety noise) ---"
+            grep -vE "Safety FAULT|Safety fault|EMERGENCY STOP|TX Gateway|Watchdog lease|Backend flush" full.log | tail -20
           } > diagnose.txt 2>&1
           echo "exit=$?"
           wc -l diagnose.txt
