@@ -34,8 +34,6 @@ dist/
 *.build/
 *.egg-info/
 *.spec
-!ucanlab.spec
-!ucanlab_launcher.spec
 
 # IDE & Editors
 .vs/
