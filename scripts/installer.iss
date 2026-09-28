@@ -24,7 +24,6 @@ AppUpdatesURL={#MyAppURL}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
-LicenseFile=..\LICENSE
 OutputDir=..\dist
 OutputBaseFilename=UCanLab_Setup_v1
 UninstallDisplayIcon={app}\{#MyAppExeName}
@@ -54,9 +53,8 @@ Source: "..\dist\{#MyAppLauncherExeName}"; DestDir: "{app}"; Flags: ignoreversio
 ; Curated Automotive/Marine/Heavy-Duty DBC Knowledge Catalog (Offline Ready)
 Source: "..\data\dbc\*"; DestDir: "{app}\data\dbc"; Flags: ignoreversion recursesubdirs createallsubdirs
 
-; Documentation and legal
+; Documentation
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
-Source: "..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"

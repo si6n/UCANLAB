@@ -2,7 +2,6 @@
 
 [![CI Pipeline](https://github.com/si6n/Universal-CAN-BUS-Tool/actions/workflows/ci.yml/badge.svg)](https://github.com/si6n/Universal-CAN-BUS-Tool/actions/workflows/ci.yml)
 [![Python 3.12 | 3.13](https://img.shields.io/badge/python-3.12%20%7C%203.13-blue.svg)](https://www.python.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 [![Platform: Windows](https://img.shields.io/badge/platform-Windows%20WebView2-lightgrey.svg)](https://github.com/si6n/Universal-CAN-BUS-Tool)
 
@@ -108,4 +107,7 @@ decoders, exporters, discovery), `src/protocols` (J1939, UDS, N2K, Volvo),
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+Proprietary. uCAN Lab is a commercial licensed product; licensing terms,
+trial and purchase options: https://ucanlab.org. Copying, redistribution
+or reverse engineering outside the terms of a purchased license is not
+permitted.

@@ -7,7 +7,7 @@ WHY (measured 2026-09-26)
 a consumer following the field-name convention could not find the provenance.
 The provenance WAS on the record under source-specific keys
 (`_source_ref_sitrak`, `_source_license_sitrak`, CC-BY-4.0) — a naming
-inconsistency, not missing data. `scripts/t80k_j1939_desc_source.py` copied
+inconsistency, not missing data. The T80k backfill copied
 the existing reference into the conventional field (no fabrication).
 
 LOCKED INVARIANTS

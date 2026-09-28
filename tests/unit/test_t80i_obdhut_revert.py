@@ -14,8 +14,8 @@ DB `title`:
 
 Seven of those have an INDEPENDENT arbiter (the pinned OBDex corpus) that
 confirms the DB `title` and contradicts obdhut; zero have an arbiter
-confirming obdhut. Those seven were reverted by
-`scripts/t80i_revert_obdhut.py`.
+confirming obdhut. Those seven were reverted in the T80i apply (the one-shot
+script has been removed; the audit trail below is the surviving evidence).
 
 LOCKED INVARIANTS
 -----------------

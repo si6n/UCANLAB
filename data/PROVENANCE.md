@@ -10,6 +10,10 @@ birbirini tamamlar, biri diğerinin yerine geçmez.
 - Ingest tarafı: `tools/data_ingest/PROVENANCE.md`, `tools/data_ingest/provenance.json`
 - Bağımsız decode kanıtı: `tools/data_ingest/verification.json` (**5 pass / 0 fail**)
 - Merge aracı: `tools/data_ingest/merge_staging_into_data.py` (idempotent, katmanlı)
+  — **kaldırıldı (2026-09-28)**: tek seferlik ingest pipeline'ı repo dışında
+  tutuluyor. Aşağıdaki `merge_staging_into_data.py` komutları geçmişe ait
+  yeniden üretim adımlarıdır; kanıt (`sha256`, `provenance.json`,
+  `verification.json`, `licenses/`) bu dosyada dondurulmuştur.
 - Lisans/atıf dosyaları: `data/licenses/`
 
 > **Runtime tamamen çevrimdışıdır.** Bu veri **build-time vendor** edilmiştir;

@@ -1,6 +1,6 @@
 """t66_adapter.py — convert T66 scan outputs into merge-ready records (T63 schema).
 
-The merge tool (`scripts/t63_merge.py`) expects per-record:
+The merge tool (`scripts/t66_merge.py`) expects per-record:
   - code / key / spn / fmi
   - evidence (>= 20 chars, verbatim)
   - the fields it may fill, in the shape it understands

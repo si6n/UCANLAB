@@ -5,6 +5,13 @@ Generated: `2026-09-21T14:15:42+00:00`  |  by `tools/data_ingest/fetch_sources.p
 > **Build-time vendor data only.** The product is fully offline; runtime reads
 > these files from disk. No LLM, no cloud call, no network dependency ships.
 > Nothing here is merged into `data/` — that is Tur-2's job.
+>
+> **2026-09-28 — ingest tooling removed.** `fetch_sources.py`,
+> `merge_staging_into_data.py`, `verify_records.py`, `write_provenance.py` and
+> `staging/` are gone; this document, `provenance.json`, `verification.json`
+> and `licenses/` remain as the frozen evidence record for the shipped
+> `data/` knowledge base. Commands below that name a removed script are
+> historical.
 
 ## Verified licenses (read from the actual LICENSE file, not the README)
 

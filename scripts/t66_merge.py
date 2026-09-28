@@ -2,7 +2,7 @@
 
 Merges T66-adapted scan records into the production diagnostics DBs.
 
-Safety contract (mirrors scripts/t63_merge.py + scripts/merge_t45_dtc.py):
+Safety contract (mirrors scripts/merge_t45_dtc.py):
   * single writer: only the orchestrator runs this with --apply
   * .bak backup written before any DB write
   * record counts are FROZEN (new keys are skipped, never added)
