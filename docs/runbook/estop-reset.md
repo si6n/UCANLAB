@@ -24,8 +24,8 @@ E-Stop (AGENTS.md §2.5).
 
 - Tokens are single-use and bound to (epoch, nonce, timestamp, ESTOP_RESET).
   A replayed or expired token fails closed.
-- A process restart clears the process-local latch (accepted trade-off,
-  see SECURITY.md). The ceremony above is still required for any
+- A process restart clears the process-local latch (accepted trade-off).
+  The ceremony above is still required for any
   remote/JS-initiated recovery attestation.
 - Every mint is audit-logged by the tool (OS user + epoch). Keep these
   lines with the workshop's service records.

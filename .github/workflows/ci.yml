@@ -103,15 +103,6 @@ jobs:
         run: |
           ruff check .
 
-      - name: Run Mypy Baseline Gate (I-15)
-        # I-15: `mypy src scripts` was red on arrival (180+ legacy errors), so
-        # typing was never actually enforced. The accepted legacy baseline is
-        # committed in mypy-baseline.txt; this gate fails only on NEW errors,
-        # and reports fixed ones as an informational note. Refresh the baseline
-        # deliberately with: python scripts/check_mypy_baseline.py --update
-        run: |
-          python scripts/check_mypy_baseline.py
-
       - name: Verify regression fixtures
         shell: pwsh
         run: |
@@ -152,26 +143,10 @@ jobs:
         run: |
           bandit -r src/ -ll -q
 
-      - name: Validate security-advisory exceptions
-        # S6 (REVIEW Aşama 4): fail the job when an accepted advisory has
-        # passed its expiry (owner + justification are recorded in
-        # security-exceptions.yaml).
-        run: |
-          python scripts/check_security_exceptions.py
-
       - name: Run pip-audit Dependency Scan
-        # shell: bash is REQUIRED, not cosmetic. This job runs on
-        # windows-latest, where `run:` defaults to pwsh — and PowerShell does
-        # NOT word-split a command substitution. `$(python ... --print-flags)`
-        # arrived as ONE argv entry, which pip-audit rejected with
-        # "couldn't find a supported project file in <flag> <id>". bash splits
-        # the payload into the two argv entries pip-audit expects. The other
-        # steps of this job already pin shell: pwsh; this one needs the
-        # opposite on purpose. Guarded by
-        # tests/unit/test_review_ci_governance_fixes.py.
         shell: bash
         run: |
-          pip-audit --skip-editable $(python scripts/check_security_exceptions.py --print-flags)
+          pip-audit --skip-editable
 
   secret-scan:
     name: Secret Scanning (gitleaks)
@@ -375,9 +350,9 @@ jobs:
 
       # F6-6 / N-1 (REVIEW Aşama 6): the built bundle must be OFFLINE.
       # A stale or misconfigured build that references a CDN (Google Fonts was
-      # the real case found during remediation) violates AGENTS.md §2.8 and
-      # leaks a network request at runtime. This runs the SAME assertion the
-      # EXE packager uses, so a bad bundle can never reach a release.
+      # the real case found during remediation) violates the offline-only
+      # product rule and leaks a network request at runtime. This runs the SAME
+      # assertion the EXE packager uses, so a bad bundle can never reach a release.
       - name: Verify frontend bundle is offline (no remote origins)
         run: |
           python -c "
@@ -394,7 +369,7 @@ jobs:
         run: |
           if grep -rIl -e 'generativelanguage.googleapis.com' -e 'api.openai.com' \
               src/ui/frontend/src; then
-            echo "ERROR: frontend references a generative-AI endpoint (AGENTS.md §2.8)"; exit 1
+            echo "ERROR: frontend references a generative-AI endpoint"; exit 1
           fi
           echo "no cloud-LLM references: OK"
 

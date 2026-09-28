@@ -55,7 +55,6 @@ adlandırıldığında bu tablo aynı PR'da güncellenir.
 |---|---|---|---|
 | F-36 | P1 | CI hardening | `ci.yml`: coverage ≥ %80, bandit, pip-audit, vcan job, CodeQL |
 | F-37 | P1 | .gitignore sızıntısı | `machine_seed.bin`, `*.lic`, `*.dpapi`, `data/` yüklü |
-| F-38 | P2 | CODEOWNERS | `.github/CODEOWNERS` (safety/security/devops) |
 | F-42 | P1 | Doküman-kod senkron | Bu matris + README tek kaynak ilkeleri |
 
 ## N Serisi — İnceleme Kapanışları

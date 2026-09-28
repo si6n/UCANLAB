@@ -1,9 +1,7 @@
 # Universal CAN-Bus Diagnostic & Telemetry Platform
 
-[![CI Pipeline](https://github.com/si6n/Universal-CAN-BUS-Tool/actions/workflows/ci.yml/badge.svg)](https://github.com/si6n/Universal-CAN-BUS-Tool/actions/workflows/ci.yml)
 [![Python 3.12 | 3.13](https://img.shields.io/badge/python-3.12%20%7C%203.13-blue.svg)](https://www.python.org/)
-[![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
-[![Platform: Windows](https://img.shields.io/badge/platform-Windows%20WebView2-lightgrey.svg)](https://github.com/si6n/Universal-CAN-BUS-Tool)
+[![Platform: Windows](https://img.shields.io/badge/platform-Windows%20WebView2-lightgrey.svg)](https://ucanlab.org)
 
 A professional-grade CAN/CAN-FD diagnostics, telemetry, and ECU flashing
 platform for automotive, heavy-duty, industrial, and marine applications.
@@ -51,9 +49,10 @@ ISO 14229-1 (UDS) · ISO 15765-2 (DoCAN) · NMEA 2000 · TMC RP1210 (A/B/C)
 
 ## Quick Start
 
+Download the installer or source package from https://ucanlab.org
+(license required), then:
+
 ```bash
-git clone https://github.com/si6n/Universal-CAN-BUS-Tool.git
-cd Universal-CAN-BUS-Tool
 python -m venv venv && venv\Scripts\activate
 pip install -r requirements.txt
 

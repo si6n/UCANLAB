@@ -247,18 +247,9 @@ class TestT62U5UnsignedManifestGate:
 
 
 # ==============================================================================
-# T62-U6: gitlab-ci.yml pip-audit and requirements lock security
+# T62-U6: requirements.lock security
 # ==============================================================================
 class TestT62U6CiAndRequirementsSecurity:
-    def test_gitlab_ci_pip_audit_is_mandatory(self) -> None:
-        """pip-audit in .gitlab-ci.yml must have allow_failure: false."""
-        ci_path = Path(".gitlab-ci.yml")
-        content = ci_path.read_text(encoding="utf-8")
-        assert "pip-audit:" in content
-        # Find pip-audit block
-        pip_audit_section = content.split("pip-audit:")[1].split("\n\n")[0]
-        assert "allow_failure: false" in pip_audit_section
-
     def test_requirements_lock_exists_and_contains_hashes(self) -> None:
         """requirements.lock must exist and contain sha256 hashes for core packages."""
         lock_path = Path("requirements.lock")

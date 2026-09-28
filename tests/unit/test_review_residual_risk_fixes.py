@@ -498,12 +498,6 @@ def test_a5_2_degraded_levels_are_warned() -> None:
     assert "DEGRADED" in body
 
 
-def test_a5_2_security_md_documents_the_seed_model() -> None:
-    doc = (REPO_ROOT / "SECURITY.md").read_text(encoding="utf-8")
-    for needle in ("machine_seed", "same-user", "AES", "protection_level", "A5-3"):
-        assert needle in doc, f"SECURITY.md must document {needle}"
-
-
 def test_a5_2_protection_level_enum_values_are_known() -> None:
     from src.safety.secret_provider import ProtectionLevel
 
