@@ -1,0 +1,400 @@
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import {
+  AlertTriangle,
+  Anchor,
+  ArrowLeft,
+  Car,
+  Check,
+  ChevronRight,
+  Loader2,
+  Lock,
+  Plug,
+  Tractor,
+  Truck,
+  Wrench,
+  Cpu,
+} from 'lucide-react';
+import {
+  AuthEntitlements,
+  DesktopBridge,
+  MechanicMode,
+  MechanicResult,
+  VehicleIdentityResult,
+  VehicleProfileInfo,
+  VehicleTypeInfo,
+} from '../../services/bridge';
+import { BTN_PRIMARY, BTN_SECONDARY, L, messageOf, pick } from './text';
+
+/**
+ * Mechanic flow, Aşama 4 (docs/product/MECHANIC_FLOW.md §3.4-3.8).
+ *
+ * Mode choice (asked once, remembered in Python, changeable in Settings) →
+ * vehicle type → make/engine with honest coverage labels → plug guide.
+ * Engineer mode goes straight to the existing expert screens. Nothing here
+ * talks to the bus: the connection wizard (Aşama 5) starts after the plug guide.
+ */
+
+type Phase = 'checking' | 'mode' | 'type' | 'vehicle' | 'plug' | 'app';
+
+interface MechanicModeApi {
+  mode: MechanicMode | null;
+  entitlements: AuthEntitlements | null;
+  vehicle: VehicleProfileInfo | null;
+  setMode: (mode: MechanicMode) => Promise<MechanicResult>;
+  changeVehicle: () => void;
+}
+
+const MechanicModeContext = createContext<MechanicModeApi | null>(null);
+
+/** Null outside the native shell (dev browser) — callers hide mode controls then. */
+export const useMechanicMode = (): MechanicModeApi | null => useContext(MechanicModeContext);
+
+const TYPE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  car: Car,
+  truck: Truck,
+  boat: Anchor,
+  construction: Tractor,
+};
+
+const Card: React.FC<{ children: React.ReactNode; wide?: boolean }> = ({ children, wide }) => (
+  <div className="flex min-h-screen items-center justify-center bg-bg-app px-4 py-10 text-text-body">
+    <div
+      className={`flex w-full ${wide ? 'max-w-2xl' : 'max-w-md'} flex-col gap-5 rounded-2xl border border-border-whisper bg-bg-card p-6 shadow-sm`}
+    >
+      {children}
+    </div>
+  </div>
+);
+
+const BackButton: React.FC<{ onClick: () => void }> = ({ onClick }) => (
+  <button type="button" className="inline-flex items-center gap-1 self-start text-sm text-accent-text" onClick={onClick}>
+    <ArrowLeft className="h-4 w-4" />
+    {L('Geri', 'Back')}
+  </button>
+);
+
+function coverageBadge(p: VehicleProfileInfo): { text: string; tone: string } {
+  if (p.coverage === 'enriched') return { text: L('Markaya özel veri', 'Maker data'), tone: 'text-ok border-ok' };
+  if (p.coverage === 'standard') return { text: L('Genel tarama', 'General scan'), tone: 'text-text-mid border-border-strong' };
+  return { text: L('Desteklenmiyor', 'Not supported'), tone: 'text-text-low border-border-whisper' };
+}
+
+/** "I don't know" pick: the type's generic profile, else its first selectable one. */
+function generalProfileFor(typeId: string, profiles: VehicleProfileInfo[]): VehicleProfileInfo | undefined {
+  const own = profiles.filter((p) => p.type === typeId && p.selectable);
+  return own.find((p) => p.id === `${typeId}_generic`) ?? own[0];
+}
+
+export const IdentityNotice: React.FC<{
+  result: VehicleIdentityResult | null;
+  profiles: VehicleProfileInfo[];
+  onSwitch: (profileId: string) => void;
+}> = ({ result, profiles, onSwitch }) => {
+  if (!result || !result.success || result.status !== 'mismatch') return null;
+  const suggestion = profiles.find((p) => p.id === result.suggested_profile_id);
+  const detected = pick(result, 'detected');
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-warn bg-bg-card p-3 text-sm" role="alert">
+      <div className="flex items-start gap-2">
+        <AlertTriangle className="mt-0.5 h-4 w-4 flex-none text-warn" />
+        <span>
+          {L(
+            `Seçtiğiniz araç ile aracın kendisi uyuşmuyor. Araç kendini "${detected}" olarak bildiriyor.`,
+            `Your selection doesn't match the vehicle. It reports itself as "${detected}".`,
+          )}
+        </span>
+      </div>
+      {suggestion && (
+        <button type="button" className={BTN_SECONDARY} onClick={() => onSwitch(suggestion.id)}>
+          {L(`${pick(suggestion, 'label')} olarak değiştir`, `Switch to ${pick(suggestion, 'label')}`)}
+        </button>
+      )}
+    </div>
+  );
+};
+
+export const MechanicFlow: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [phase, setPhase] = useState<Phase>('checking');
+  const [mode, setModeState] = useState<MechanicMode | null>(null);
+  const [entitlements, setEntitlements] = useState<AuthEntitlements | null>(null);
+  const [types, setTypes] = useState<VehicleTypeInfo[]>([]);
+  const [profiles, setProfiles] = useState<VehicleProfileInfo[]>([]);
+  const [typeId, setTypeId] = useState<string | null>(null);
+  const [vehicle, setVehicle] = useState<VehicleProfileInfo | null>(null);
+  const [notice, setNotice] = useState('');
+  const [identity, setIdentity] = useState<VehicleIdentityResult | null>(null);
+  const [native, setNative] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [state, catalog] = await Promise.all([DesktopBridge.mechanicGetState(), DesktopBridge.vehicleCatalog()]);
+        if (cancelled) return;
+        if (state === null) {
+          setNative(false); // dev browser: no native bridge, show the app as before
+          setPhase('app');
+          return;
+        }
+        const allProfiles = catalog.success ? catalog.profiles ?? [] : [];
+        setTypes(catalog.success ? catalog.types ?? [] : []);
+        setProfiles(allProfiles);
+        setEntitlements(state.entitlements);
+        const remembered = allProfiles.find((p) => p.id === state.vehicle_profile_id && p.selectable) ?? null;
+        setVehicle(remembered);
+        const allowedMode = state.mode === 'engineer' && !state.entitlements.engineer ? null : state.mode;
+        setModeState(allowedMode);
+        if (allowedMode === null) setPhase('mode');
+        else if (allowedMode === 'engineer') setPhase('app');
+        else setPhase(catalog.success ? 'type' : 'app');
+      } catch {
+        if (!cancelled) {
+          setNative(false);
+          setPhase('app'); // capability missing: the app's own guards apply
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const setMode = useCallback(async (next: MechanicMode): Promise<MechanicResult> => {
+    const res = await DesktopBridge.mechanicSetMode(next);
+    if (res.success) {
+      setModeState(next);
+      setNotice('');
+      setPhase(next === 'engineer' ? 'app' : 'type');
+    } else {
+      setNotice(messageOf(res) || L('Mod değiştirilemedi.', 'Could not change the mode.'));
+    }
+    return res;
+  }, []);
+
+  const selectVehicle = useCallback(async (profileId: string) => {
+    const res = await DesktopBridge.vehicleSelect(profileId);
+    if (!res.success || !res.profile) {
+      setNotice(messageOf(res) || L('Bu araç seçilemedi.', 'This vehicle cannot be selected.'));
+      return;
+    }
+    setNotice('');
+    setIdentity(null);
+    setVehicle(res.profile);
+    setTypeId(res.profile.type);
+    setPhase('plug');
+    // Only reports something once the bus has spoken (VIN / J1939 address claims).
+    DesktopBridge.vehicleCheckIdentity().then(setIdentity).catch(() => setIdentity(null));
+  }, []);
+
+  const changeVehicle = useCallback(() => {
+    setNotice('');
+    setPhase('type');
+  }, []);
+
+  const api = useMemo<MechanicModeApi | null>(
+    () => (native ? { mode, entitlements, vehicle, setMode, changeVehicle } : null),
+    [native, mode, entitlements, vehicle, setMode, changeVehicle],
+  );
+
+  const vtype = types.find((t) => t.id === (vehicle?.type ?? typeId)) ?? null;
+
+  let screen: React.ReactNode = null;
+
+  if (phase === 'checking') {
+    screen = (
+      <Card>
+        <div className="flex items-center gap-3 text-text-mid">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          {L('UCanLab hazırlanıyor…', 'Getting UCanLab ready…')}
+        </div>
+      </Card>
+    );
+  }
+
+  if (phase === 'mode') {
+    const engineerLocked = !entitlements?.engineer;
+    screen = (
+      <Card>
+        <h1 className="text-xl font-semibold text-text-hi">{L('Uygulamayı nasıl kullanacaksınız?', 'How will you use the app?')}</h1>
+        <button
+          type="button"
+          data-testid="mode-mechanic"
+          className="flex items-start gap-3 rounded-xl border border-border-strong p-4 text-left transition-colors hover:border-accent"
+          onClick={() => void setMode('mechanic')}
+        >
+          <Wrench className="mt-0.5 h-6 w-6 flex-none text-accent" />
+          <span>
+            <span className="block font-semibold text-text-hi">{L('Tamirci', 'Mechanic')}</span>
+            <span className="block text-sm">
+              {L('Arızayı bul, ne yapacağımı söyle. Teknik bilgi gerekmez.', 'Find the fault and tell me what to do. No technical knowledge needed.')}
+            </span>
+          </span>
+        </button>
+        <button
+          type="button"
+          data-testid="mode-engineer"
+          disabled={engineerLocked}
+          className="flex items-start gap-3 rounded-xl border border-border-strong p-4 text-left transition-colors enabled:hover:border-accent disabled:opacity-60"
+          onClick={() => void setMode('engineer')}
+        >
+          {engineerLocked ? <Lock className="mt-0.5 h-6 w-6 flex-none text-text-low" /> : <Cpu className="mt-0.5 h-6 w-6 flex-none text-accent" />}
+          <span>
+            <span className="block font-semibold text-text-hi">{L('Mühendis', 'Engineer')}</span>
+            <span className="block text-sm">
+              {L('Ham CAN verisi, sinyal analizi ve uzman araçları.', 'Raw CAN data, signal analysis and expert tools.')}
+            </span>
+            {engineerLocked && (
+              <span className="mt-1 block text-xs text-text-low">{L('Bu mod paketinizde yok.', 'Not included in your plan.')}</span>
+            )}
+          </span>
+        </button>
+        {notice && (
+          <p className="text-sm text-del" role="alert">
+            {notice}
+          </p>
+        )}
+        <p className="text-xs text-text-low">
+          {L("Bunu daha sonra Ayarlar'dan değiştirebilirsiniz.", 'You can change this later in Settings.')}
+        </p>
+      </Card>
+    );
+  }
+
+  if (phase === 'type') {
+    screen = (
+      <Card>
+        <h1 className="text-xl font-semibold text-text-hi">{L('Hangi aracı kontrol ediyorsunuz?', 'What are you checking?')}</h1>
+        {vehicle && (
+          <button
+            type="button"
+            data-testid="vehicle-last"
+            className="flex items-center justify-between gap-3 rounded-xl border border-accent p-4 text-left"
+            onClick={() => void selectVehicle(vehicle.id)}
+          >
+            <span>
+              <span className="block text-xs text-text-low">{L('Son seçilen araç', 'Last vehicle')}</span>
+              <span className="block font-semibold text-text-hi">{pick(vehicle, 'label')}</span>
+            </span>
+            <ChevronRight className="h-5 w-5 text-accent" />
+          </button>
+        )}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {types.map((t) => {
+            const Icon = TYPE_ICONS[t.id] ?? Car;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                data-testid={`vehicle-type-${t.id}`}
+                className="flex items-start gap-3 rounded-xl border border-border-strong p-4 text-left transition-colors hover:border-accent"
+                onClick={() => {
+                  setTypeId(t.id);
+                  setNotice('');
+                  setPhase('vehicle');
+                }}
+              >
+                <Icon className="mt-0.5 h-6 w-6 flex-none text-accent" />
+                <span>
+                  <span className="block font-semibold text-text-hi">{pick(t, 'label')}</span>
+                  <span className="block text-xs text-text-mid">{pick(t, 'sub')}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </Card>
+    );
+  }
+
+  if (phase === 'vehicle' && typeId) {
+    const list = profiles.filter((p) => p.type === typeId);
+    const general = generalProfileFor(typeId, profiles);
+    screen = (
+      <Card wide>
+        <BackButton onClick={() => setPhase('type')} />
+        <h1 className="text-xl font-semibold text-text-hi">{L('Marka veya motoru seçin', 'Choose the make or engine')}</h1>
+        <ul className="flex flex-col divide-y divide-border-whisper rounded-xl border border-border-whisper">
+          {list.map((p) => {
+            const badge = coverageBadge(p);
+            return (
+              <li key={p.id}>
+                <button
+                  type="button"
+                  data-testid={`vehicle-${p.id}`}
+                  disabled={!p.selectable}
+                  className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors enabled:hover:bg-bg-row-hover disabled:cursor-not-allowed disabled:opacity-60"
+                  onClick={() => void selectVehicle(p.id)}
+                >
+                  <span className="min-w-0">
+                    <span className="block font-medium text-text-hi">{pick(p, 'label')}</span>
+                    {pick(p, 'note') && <span className="block text-xs text-text-mid">{pick(p, 'note')}</span>}
+                  </span>
+                  <span className="flex flex-none items-center gap-2">
+                    {p.high_voltage && (
+                      <span className="rounded-full border border-warn px-2 py-0.5 text-[11px] font-semibold text-warn">
+                        {L('Yüksek voltaj', 'High voltage')}
+                      </span>
+                    )}
+                    <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${badge.tone}`}>{badge.text}</span>
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+        {notice && (
+          <p className="text-sm text-del" role="alert">
+            {notice}
+          </p>
+        )}
+        {general && (
+          <button type="button" data-testid="vehicle-general" className={BTN_SECONDARY} onClick={() => void selectVehicle(general.id)}>
+            {L('Bilmiyorum, genel tarama yap', "I don't know — run a general scan")}
+          </button>
+        )}
+      </Card>
+    );
+  }
+
+  if (phase === 'plug' && vehicle && vtype) {
+    screen = (
+      <Card>
+        {vehicle.high_voltage && (
+          <div className="flex items-start gap-2 rounded-lg border border-del bg-bg-card p-3 text-sm" role="alert">
+            <AlertTriangle className="mt-0.5 h-4 w-4 flex-none text-del" />
+            <span>
+              {L(
+                'Yüksek voltajlı araç: turuncu kablolara dokunmayın. Bu araçta yalnız okuma yapılır.',
+                'High-voltage vehicle: do not touch orange cables. Only reading is done on this vehicle.',
+              )}
+            </span>
+          </div>
+        )}
+        <div className="flex items-center justify-between gap-2 text-sm">
+          <span>
+            <span className="text-text-low">{L('Araç: ', 'Vehicle: ')}</span>
+            <span className="font-semibold text-text-hi">{pick(vehicle, 'label')}</span>
+          </span>
+          <button type="button" className="text-accent-text" onClick={changeVehicle}>
+            {L('Değiştir', 'Change')}
+          </button>
+        </div>
+        <IdentityNotice result={identity} profiles={profiles} onSwitch={(id) => void selectVehicle(id)} />
+        <h1 className="flex items-center gap-2 text-xl font-semibold text-text-hi">
+          <Plug className="h-5 w-5 text-accent" />
+          {L('Adaptörü araca takın', 'Plug the adapter into the vehicle')}
+        </h1>
+        <p className="text-sm">{pick(vtype, 'plug')}</p>
+        <p className="text-xs text-text-low">{pick(vtype, 'passive_note')}</p>
+        <button type="button" data-testid="plug-done" className={BTN_PRIMARY} onClick={() => setPhase('app')}>
+          <Check className="h-4 w-4" />
+          {L('Taktım, kontak açık', 'Plugged in, ignition on')}
+        </button>
+      </Card>
+    );
+  }
+
+  return (
+    <MechanicModeContext.Provider value={api}>{phase === 'app' || screen === null ? children : screen}</MechanicModeContext.Provider>
+  );
+};

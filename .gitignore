@@ -76,6 +76,8 @@ secrets.bin
 # and the vendored marine trace samples (canboat v8.1.0, Apache-2.0).
 data/*
 !data/PROVENANCE.md
+# Vehicle catalog for the mechanic flow (Aşama 4): source data, not runtime output.
+!data/vehicle_profiles.json
 !data/dbc/
 !data/traces/
 !data/diagnostics/

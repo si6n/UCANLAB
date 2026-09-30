@@ -257,6 +257,16 @@ OBD-II arıza kodu (Mode 03/07/0A), VIN (Mode 09 PID 02) ve UDS `0x19`/`0x22` ok
 
 Araç profili (Aşama 4 veri modeli): `vehicle_type, make, engine_family, protocol, bitrate_candidates[], socket_type, expected_ecus[] (SA/PGN veya CAN ID), dbc_files[], supported: bool, notes`.
 
+### 8.1 Aşama 4 uygulaması (E5–E7)
+
+- **Katalog:** `data/vehicle_profiles.json` — 4 araç türü (protokol, soket, bit hızı adayları, pasif dinlemede beklenen PGN'ler, takma yönergesi) ve 41 marka/motor profili. Kapsam etiketi üç değerdir: `enriched` (markaya özel veri), `standard` (genel tarama), `unsupported` (gri, seçilemez, nedeni yazılı).
+- **Dürüstlük denetimi:** `src/engine/vehicle/profiles.py::load_catalog` her yüklemede doğrular: `enriched` profilin `dbc_globs` deseni `data/dbc` altında gerçek bir dosyaya uymalı ya da `oem_decoder` kayıtlı bir J1939 OEM çözücüsü olmalı; `standard`/`unsupported` profil marka verisine atıf yapamaz; her türün en az bir seçilebilir profili olmalı. Uymayan katalog yüklenmez (`CATALOG_INVALID`).
+- **Kimlik karşılaştırma:** `src/engine/vehicle/identity.py` — VIN'in WMI öneki (en uzun eşleşme, aynı tür öncelikli) ve J1939 adres taleplerindeki NAME üretici kodu (canboat tablosu + OEM çözücü eşlemesi). Sonuç `match / mismatch / unknown`; bilinmeyen WMI veya genel profil **asla tahmin üretmez**. VIN log'a yalnız maskeli yazılır (`YS2**********9401`).
+- **Tercih:** mod ve son araç `%APPDATA%/…/mechanic_prefs.json` içinde atomik yazılır; bozuk dosya "yeniden sor" demektir. Lisans Mühendis modunu kapsamıyorsa köprü `ENGINEER_NOT_ALLOWED` döner ve hatırlanan Mühendis tercihi yok sayılır.
+- **Köprü:** `mechanic_get_state`, `vehicle_catalog`, `vehicle_check_identity` (read); `mechanic_set_mode`, `vehicle_select` (config). Hiçbiri veriyoluna yazmaz.
+- **Arayüz:** `MechanicFlow.tsx` (mod → tür → marka → takma yönergesi), Ayarlar › Donanım › "Kullanım modu". Yüksek voltajlı profilde güvenlik uyarısı ilk satırdadır. "Taktım, kontak açık" düğmesi Aşama 5'te bağlantı sihirbazına bağlanacak; bu aşamada mevcut ekrana geçer.
+- **Doğrulama:** `tests/unit/test_vehicle_profiles.py` (katalog, kimlik, tercih, köprü) + tarayıcıda sahte köprüyle ekran görüntüsü. Gerçek araçta VIN/NAME okuması **doğrulanmadı** → `HARDWARE_TEST_CHECKLIST.md` W4-*.
+
 ## 9. Mevcut kod neyi zaten karşılıyor (kanıt)
 
 | İhtiyaç | Durum | Kanıt |

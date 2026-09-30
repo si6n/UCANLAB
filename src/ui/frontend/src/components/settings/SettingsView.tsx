@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { DesktopBridge, CloudStatus } from '../../services/bridge';
 import { SettingsAttributionPanel } from './SettingsAttributionPanel';
+import { UsageModeGroup } from '../mechanic/UsageModeGroup';
 import {
   SectionHeader,
   SettingsGroup,
@@ -498,6 +499,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 title="Donanım"
                 description="Veriyolunun fiziksel veya sanal arayüzü, bit hızı ve bulut sunucu bağlantısı buradan yapılandırılır."
               />
+
+              <UsageModeGroup />
 
               <SettingsGroup label="Veriyolu" icon={<Gauge className="h-3 w-3" />}>
                 <SettingRow

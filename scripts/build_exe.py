@@ -201,6 +201,13 @@ def build_exe() -> int:
     if dbc_dir.is_dir():
         data_args.append(f"{dbc_dir};data/dbc")
 
+    # Aşama 4: the mechanic-flow vehicle catalog (validated against data/dbc).
+    vehicle_catalog = root_dir / "data" / "vehicle_profiles.json"
+    if vehicle_catalog.is_file():
+        data_args.append(f"{vehicle_catalog};data")
+    else:
+        print("[UYARI] data/vehicle_profiles.json bulunamadi — arac secimi calismayacak.")
+
     cmd = [
         sys.executable,
         "-m",
