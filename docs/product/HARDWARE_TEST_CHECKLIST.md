@@ -38,6 +38,23 @@
 | W4-6 | VIN yayını (PGN 65260) olan kamyonda doğru marka seçili iken kimlik kontrolü. | Uyarı çıkmaz; log'da VIN yalnız maskeli (`YS2**********1234`) görünür. | ☐ |
 | W4-7 | Kimlik bilgisi yayınlamayan araçta (otomobil, OBD isteği yapılmadan). | Uyarı çıkmaz ("bilinmiyor" sessiz kalır); tahmin üretilmez. | ☐ |
 
+## Aşama 5 — Adaptör ve bağlantı testi (Windows + gerçek adaptör/araç)
+
+| # | Adım | Beklenen | Durum |
+|---|---|---|---|
+| W5-1 | PEAK sürücüsü **kurulu değilken** PCAN-USB tak, adaptör ekranını aç. | "PCAN adaptörü için sürücü kurulu değil… peak-system.com" uyarısı; uygulama çökmez. | ☐ |
+| W5-2 | Sürücüyü kur, "Kurdum, tekrar dene". | "PCAN-USB bulundu ✓". | ☐ |
+| W5-3 | Kvaser Leaf takılı ve takılı değilken tara. | Takılıyken "Kvaser … bulundu"; takılı değilken Kvaser **sanal** kanalları listede görünmez. | ☐ |
+| W5-4 | RP1210 VCI (ör. Nexiq USB-Link, DG DPA5) sürücüsü kurulu makinede tara. | "RP1210 (…)" satırı; bağlantı testinde cihaz takılı değilse "Adaptör açılamadı…" | ☐ |
+| W5-5 | Kamyonda (J1939 250k) kontak açık, bağlantı testi. | "Hazır ✓ … N kontrol ünitesi görüldü"; test sırasında adaptörün TX LED'i yanmaz / bus analizöründe adaptörden **hiç çerçeve yok** (ACK dahil). | ☐ |
+| W5-6 | Aynı kamyonda kontak kapalı. | "Araçtan veri gelmiyor. Kontak açık mı?…" | ☐ |
+| W5-7 | Kamyon seçiliyken 500k ağa (ör. bazı yeni kamyonlar) bağlan. | 250k'da hata çerçevesi → 500k'da "Hazır"; log'da iki deneme. | ☐ |
+| W5-8 | Otomobilde (gateway'li, OBD soketi sessiz) test. | "Adaptör takılı ama araç şu an kendiliğinden veri göndermiyor…" (kullanılabilir). | ☐ |
+| W5-9 | PGN 65271 yayınlayan kamyonda akü zayıfken (≤23 V). | "Akü zayıf (… V)" uyarısı ve "Yine de devam". Değer bir multimetre ölçümüyle karşılaştırılır. | ☐ |
+| W5-10 | Test sürerken USB kablosunu çek. | "Adaptör açılamadı…" ya da "Hatta trafik yok"; uygulama donmaz, E-Stop tetiklenmez. | ☐ |
+| W5-11 | Başarılı testten sonra Uzman ekranında veri yolu durumu. | Seçilen adaptör + bulunan hız, durum **PASSIVE**, TX kilitli. | ☐ |
+| W5-12 | PCAN donanım dinleme onayı (`PCAN_LISTEN_ONLY` okuması) desteklenmeyen eski bir PCAN'da test. | Log'da "hardware listen-only could not be independently verified" uyarısı; test yine yalnız dinler. | ☐ |
+
 ## Sonraki aşamalar
 
-Aşama 5 (adaptör, soket, dinleme testi), Aşama 6 ve Aşama 7 (uçtan uca) maddeleri ilgili aşamalarda bu dosyaya eklenecek.
+Aşama 6 ve Aşama 7 (uçtan uca) maddeleri ilgili aşamalarda bu dosyaya eklenecek.

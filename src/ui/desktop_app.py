@@ -42,6 +42,9 @@ from src.core.models.diagnostics import (
 from src.engine.ai.diagnostic_copilot import AiDiagnosticCopilot
 from src.engine.buffer.ring_buffer import BinaryRingBuffer
 from src.engine.buffer.rolling_disk import RollingDiskBuffer
+from src.engine.connection.adapters import AdapterInfo, discover_adapters
+from src.engine.connection.simulated_vehicle import SCENARIOS as SIMULATOR_SCENARIOS
+from src.engine.connection.wizard import ConnectionWizard
 from src.engine.discovery.engine import SignalDiscoveryEngine
 from src.engine.pipeline.reassembly_pipeline import (
     ReassembledMessage,
@@ -117,6 +120,13 @@ logger = get_logger("app.desktop")
 # ("SPN <n> FMI <m>"); the copilot's J1939 KB path needs the numeric fields,
 # so the bridge re-derives them here. Anchored on the SPN token so an FMI-less
 # code still yields its SPN, and a non-SPN code yields no match at all.
+def _listen_only_bus(interface: str, channel: str, bitrate: int) -> Any:
+    """Connection-test bus factory: the app's own builder, forced listen-only."""
+    from src.main import build_bus
+
+    return build_bus(interface=interface, channel=channel, bitrate=bitrate, listen_only=True)
+
+
 _SPN_FMI_RE = re.compile(r"SPN\s+(\d+)(?:\s+FMI\s+(\d+))?", re.I)
 
 
@@ -661,6 +671,10 @@ class DesktopApiBridge:
         "vehicle_catalog": "read",
         "vehicle_select": "config",
         "vehicle_check_identity": "read",
+        "adapter_scan": "read",
+        "connection_test_start": "config",
+        "connection_test_status": "read",
+        "connection_test_cancel": "config",
         "cloud_start_web_login": "config",
         "cloud_check_web_login_status": "read",
         "cloud_cancel_web_login": "config",
@@ -1571,6 +1585,43 @@ class DesktopApiBridge:
         result = compare_vehicle_identity(catalog, profile, vin=vin, j1939_manufacturer_codes=codes)
         return {"success": True, **result.as_dict()}
 
+    # ------------------------------------------------------------------
+    # Connection wizard (Aşama 5): adapter discovery + listen-only test
+    # ------------------------------------------------------------------
+
+    def adapter_scan(self) -> dict[str, Any]:
+        """Adapters the mechanic can use; opens nothing, sends nothing."""
+        adapters = discover_adapters()
+        self.app._last_adapters = {a.as_dict()["id"]: a for a in adapters}
+        return {"success": True, "adapters": [a.as_dict() for a in adapters]}
+
+    def connection_test_start(self, adapter_id: str, scenario: str | None = None) -> dict[str, Any]:
+        """Start the listen-only connection test for the selected vehicle type."""
+        known: dict[str, AdapterInfo] = getattr(self.app, "_last_adapters", {}) or {}
+        adapter = known.get(adapter_id) if isinstance(adapter_id, str) else None
+        if adapter is None or not adapter.usable:
+            return {"success": False, "error_code": "ADAPTER_UNKNOWN"}
+        if scenario is not None and (adapter.kind != "simulator" or scenario not in SIMULATOR_SCENARIOS):
+            return {"success": False, "error_code": "INVALID_SCENARIO"}
+        prefs = self.app.mechanic_prefs.load()
+        catalog = default_vehicle_catalog()
+        profile = catalog.profile(prefs.vehicle_profile_id or "")
+        vtype = catalog.type_by_id(profile.type) if profile is not None else None
+        if vtype is None:
+            return {"success": False, "error_code": "NO_VEHICLE_SELECTED"}
+        try:
+            test_id = self.app.connection_wizard.start(adapter, vtype, scenario=scenario)
+        except RuntimeError:
+            return {"success": False, "error_code": "TEST_RUNNING"}
+        return {"success": True, "test_id": test_id}
+
+    def connection_test_status(self) -> dict[str, Any]:
+        return {"success": True, **self.app.connection_wizard.status()}
+
+    def connection_test_cancel(self) -> dict[str, Any]:
+        self.app.connection_wizard.cancel()
+        return {"success": True}
+
     def cloud_logout(self) -> dict[str, Any]:
         """Log out current user and clear local credentials."""
         try:
@@ -2136,6 +2187,13 @@ class UniversalCanDesktopApp:
         self._device_login_ticket: DeviceLoginTicket | None = None
         # Aşama 4: remembered usage mode + vehicle (per-user app data root).
         self.mechanic_prefs = MechanicPrefsStore(_app_data_root() / "mechanic_prefs.json")
+        # Aşama 5: listen-only connection wizard. Real adapters are opened by
+        # the same factory as the app bus (always listen_only=True).
+        self.connection_wizard = ConnectionWizard(
+            bus_factory=_listen_only_bus,
+            park_app_bus=self._park_bus_for_connection_test,
+            commit_app_bus=self._commit_connection_bus,
+        )
         self.telemetry_uploader = TelemetryUploader(self.cloud_client, progress_callback=self._on_upload_progress)
         self._web_login_lock = threading.Lock()
         self._web_login_server: HTTPServer | None = None
@@ -4867,6 +4925,14 @@ class UniversalCanDesktopApp:
                 self.cloud_client.store_session_token(str(tok).strip())
             elif tok == "":
                 self.cloud_client.clear_session_token()
+
+    def _park_bus_for_connection_test(self) -> None:
+        """Release the physical channel so the connection test can open it exclusively."""
+        self._reconnect_bus("virtual", "ucanlab_park", self.bitrate_val)
+
+    def _commit_connection_bus(self, adapter: AdapterInfo, bitrate: int) -> None:
+        """Bind the app bus to the adapter/bitrate the listen-only test found (still listen-only)."""
+        self._reconnect_bus(adapter.interface, adapter.channel, bitrate)
 
     def _reconnect_bus(self, new_interface: str | None = None, new_channel: str | int | None = None, new_bitrate: int | None = None) -> None:
         """Rebind the single bus instance to the new interface/channel/bitrate transactionally (F-30, B-25, CRITICAL-4).

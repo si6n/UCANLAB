@@ -267,6 +267,15 @@ Araç profili (Aşama 4 veri modeli): `vehicle_type, make, engine_family, protoc
 - **Arayüz:** `MechanicFlow.tsx` (mod → tür → marka → takma yönergesi), Ayarlar › Donanım › "Kullanım modu". Yüksek voltajlı profilde güvenlik uyarısı ilk satırdadır. "Taktım, kontak açık" düğmesi Aşama 5'te bağlantı sihirbazına bağlanacak; bu aşamada mevcut ekrana geçer.
 - **Doğrulama:** `tests/unit/test_vehicle_profiles.py` (katalog, kimlik, tercih, köprü) + tarayıcıda sahte köprüyle ekran görüntüsü. Gerçek araçta VIN/NAME okuması **doğrulanmadı** → `HARDWARE_TEST_CHECKLIST.md` W4-*.
 
+### 8.2 Aşama 5 uygulaması (E8–E11)
+
+- **Adaptör bulma** (`src/engine/connection/adapters.py`): PCAN (`PCANBasic` + bağlı kanallar), Kvaser (`canlib32`; Kvaser'in sanal kanalları gizlenir), RP1210 (INI `[VendorDIL]` satıcıları; cihazın takılı olduğu ancak bağlanınca anlaşılır → `driver_ready`), Linux SocketCAN (geliştirme), Simülatör. "Sürücü yok" ile "adaptör takılı değil" ayrı mesajlardır; bir üreticinin DLL'i çökerse yalnız o satır "kontrol edilemedi" olur.
+- **Bağlantı testi** (`src/engine/connection/listen_test.py`): araç türünün bit hızı adaylarında sırayla **yalnız dinleme**; temiz trafik bulunan ilk hızda durur. Sonuç kodları ve sade mesajlar §4 tablosuyla birebir: `READY`, `QUIET_VEHICLE` (otomobil kendiliğinden konuşmuyor — normal), `EXPECTED_MISSING` (trafik var, beklenen PGN yok → başka soket), `NO_TRAFFIC`, `WRONG_BITRATE`, `BUS_ERROR`, `ADAPTER_ERROR`, `LISTEN_ONLY_UNAVAILABLE`, `CANCELLED`. J1939 PGN 65271 yayını varsa akü gerilimi okunur (12 V < 11.8, 24 V < 23.6 → uyarı, S6).
+- **Güvenlik:** `listen_only=True` bayrağı olmayan veri yolu **açılmadan** reddedilir; bağlandıktan sonra durum `PASSIVE` değilse kapatılıp reddedilir; sürücünün `HARDWARE_LISTEN_ONLY_UNSUPPORTED` hatası "güvenli dinleme desteklenmiyor" mesajına çevrilir. Test kodu `send` çağırmaz; simülatörün `send`'i her zaman `SafetyError` verir. Gerçek adaptörde uygulamanın kendi veri yolu test süresince sanal kanala "park" edilir, başarıdan sonra bulunan hızla **yine dinleme modunda** adaptöre bağlanır (`_reconnect_bus` TX yetkisini de düşürür).
+- **Simülatör** (`simulated_vehicle.py`): türün gerçek yayın PGN'leriyle (EEC1, ETC1, CCVS, ET1, EBC1, VEP1; N2K 127488/127489/127508; otomobil 11-bit) donanımsız çalışır; yanlış hızda yalnız hata çerçevesi üretir. Senaryolar: `ok`, `ignition_off`, `wrong_socket`, `weak_battery`, `bus_short`, `no_listen_only`. Çerçeveler `source="synthetic"` işaretlidir.
+- **Köprü:** `adapter_scan`, `connection_test_status` (read); `connection_test_start`, `connection_test_cancel` (config). Arayüz: `ConnectWizard.tsx` (adaptör bekle → takma yönergesi → dinleme → Hazır / sorun).
+- **Doğrulama:** `tests/unit/test_connection_wizard.py` (33 test; her §4 yolu simülatörde). Gerçek PCAN/Kvaser/RP1210 ile **doğrulanmadı** → `HARDWARE_TEST_CHECKLIST.md` W5-*.
+
 ## 9. Mevcut kod neyi zaten karşılıyor (kanıt)
 
 | İhtiyaç | Durum | Kanıt |
