@@ -2132,6 +2132,10 @@ def _derive_severity(code: str, info: dict[str, Any]) -> str | None:
         return None
 
 
+_SEVERITY_MEMO: dict[tuple[str, str, str], str] = {}
+_SEVERITY_MEMO_RULES: object | None = None
+
+
 def _reconcile_knowledge_base_severities() -> int:
     """Apply the SAE J2012 rule table to every OBD-II KB entry (P0-1).
 
@@ -2141,6 +2145,7 @@ def _reconcile_knowledge_base_severities() -> int:
     rung is preserved under `_source_severity` for auditability. J1939 SPN keys
     are skipped: the table has no authority over them.
     """
+    global _SEVERITY_MEMO_RULES
     try:
         from src.engine.ai.severity_rules import (
             is_obd_code,
@@ -2148,11 +2153,20 @@ def _reconcile_knowledge_base_severities() -> int:
             resolve_severity,
         )
 
-        if not load_severity_rules():
+        rules = load_severity_rules()
+        if not rules:
             return 0
     except Exception as exc:  # noqa: BLE001
         logger.warning("Severity reconciliation unavailable: %s", exc)
         return 0
+
+    # resolve_severity is a pure function of (code, title, subsystem) and the
+    # rule table. The sweep runs on every KB load over ~14k entries and is
+    # regex-bound (~2 s on CI), so results are memoised per input and dropped
+    # whenever load_severity_rules() hands out a different table object.
+    if _SEVERITY_MEMO_RULES is not rules:
+        _SEVERITY_MEMO.clear()
+        _SEVERITY_MEMO_RULES = rules
 
     changed = 0
     for code, entry in list(EXPERT_KNOWLEDGE_BASE.items()):
@@ -2160,14 +2174,14 @@ def _reconcile_knowledge_base_severities() -> int:
             continue
         if not is_obd_code(code):
             continue
-        try:
-            derived = resolve_severity(
-                code,
-                str(entry.get("title") or ""),
-                str(entry.get("subsystem") or ""),
-            ).value
-        except Exception:  # noqa: BLE001 - one bad entry must not abort the sweep
-            continue
+        key = (code, str(entry.get("title") or ""), str(entry.get("subsystem") or ""))
+        derived = _SEVERITY_MEMO.get(key)
+        if derived is None:
+            try:
+                derived = resolve_severity(*key).value
+            except Exception:  # noqa: BLE001 - one bad entry must not abort the sweep
+                continue
+            _SEVERITY_MEMO[key] = derived
         current = str(entry.get("severity") or "")
         if not current:
             continue
@@ -2277,6 +2291,17 @@ def load_external_dtc_database(data_path: Path | str | None = None) -> int:
             # is exactly as trustworthy as a fresh one.
             _cur = EXPERT_KNOWLEDGE_BASE[code]
             if not isinstance(_cur, dict):
+                continue
+            # Fill-if-empty can only change a field that is empty in the
+            # current entry AND non-empty in the record. When there is none,
+            # the quarantine gate's result cannot matter, so it is skipped.
+            # This is what makes a repeat load cheap: after the first merge
+            # every code is present, and re-running the gate on all ~14k
+            # records was most of the 5-7 s a no-op reload cost on CI.
+            if not any(
+                _value not in (None, "", [], {}) and _cur.get(_field) in (None, "", [], {})
+                for _field, _value in info.items()
+            ):
                 continue
             try:
                 from src.engine.ai.harvest_validator import validate_dtc_record
