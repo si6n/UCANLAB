@@ -213,6 +213,8 @@ Her ekranda sağ üstte küçük "Uzman Modu" geçişi ve "Yardım" vardır. Met
 2. **`ucanlab://auth/callback` (ek):** Windows'ta kayıt defteri protokol işleyicisi gerektirir (kurulum paketinin işi). Özel URI şemaları başka bir uygulama tarafından da kaydedilebildiği için (RFC 8252 §8.8) **PKCE zorunlu** ve kod tek kullanımlık; tek başına güven kaynağı değildir.
 3. **Cihaz kodu (yedek):** RFC 8628. Tarayıcı dönüşü mümkün değilse. Sunucuda **henüz yok** → `CLOUD_AUTH_CONTRACT.md`.
 
+**Aşama 3 kararı:** Lisanssız makinede ana uygulama hiç başlamaz (launcher L-1 kapısı). Bu kapıyı gevşetmemek için ilk giriş **launcher'da, kapının önünde** yapılır: launcher tarayıcıyı açar, kodu kendi loopback dinleyicisinde alır, lisansı etkinleştirir ve ön kontrolü yeniden çalıştırır. Uygulama içindeki giriş ekranı (`SignInGate`) yalnız çalışırken süre dolması ve doğrudan başlatma durumları içindir. Ayrıntı: [`CLOUD_AUTH_CONTRACT.md`](CLOUD_AUTH_CONTRACT.md).
+
 ### 6.2 Akış
 `state` (CSRF, 24 bayt) + PKCE S256 verifier uygulama sürecinde kalır → tarayıcı yalnız challenge görür → web `POST /auth/desktop/authorize` → kod loopback'e → uygulama `POST /auth/desktop/token` (verifier ile) → oturum jetonu DPAPI'ye → cihaz kaydı (`/devices/register`, HWID) → lisans bileti (`/licenses/activate`) → Ed25519 doğrulama → mod yetkisi.
 
