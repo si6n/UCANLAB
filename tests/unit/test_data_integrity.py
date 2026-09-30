@@ -6,7 +6,7 @@ Neden var:
     yalnız başlık kaldı. Hiçbir test CSV içeriğini doğrulamadığı için bu sessiz veri
     kaybı depoya girdi. Bu modül o sınıf hatayı CI'da durdurur.
 
-Kanıt/rapor: docs/audit/data_integrity_2026-09-19.md
+Kanıt/rapor: docs/audit/data_integrity_2026-09-26.md
     python scripts/data_integrity_audit.py     (tam denetim)
     python scripts/rebuild_csv_exports.py      (CSV ikizlerini JSON'dan yeniden üretir)
 

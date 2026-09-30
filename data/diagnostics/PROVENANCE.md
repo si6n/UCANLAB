@@ -1,5 +1,7 @@
 # PROVENANCE — data/diagnostics Kaynak ve Doğrulama Kaydı
 
+> **Not (2026-09-30):** Bu dosyadaki `tools/data_ingest/*` komutları ve `staging/` yolları tarihsel yeniden üretim adımlarıdır; araçlar depodan kaldırılmıştır. Kanıt kaydı olarak korunur.
+
 Bu klasördeki teşhis bilgi tabanlarının kaynak zinciri, doğrulama yöntemi ve
 güncelleme geçmişi burada tutulur. `data/dbc/LICENSES.md` ile aynı disiplini
 izler: içerik üretilmez, kamuya açık kaynaklar ve resmî belgeler referans alınır.

@@ -109,14 +109,13 @@ decoders, exporters, discovery), `src/protocols` (J1939, UDS, N2K, Volvo),
 | Path | Content |
 | :--- | :--- |
 | `PROJECT.md` | Architecture summary and feature inventory |
-| `docs/architecture/MASTER_PLAN.md` | Master specification and roadmap (normative body; see its status notes) |
+| `docs/architecture/MASTER_PLAN.md` | Architecture specification, kept in sync with the code (section numbers are referenced from source) |
 | `docs/adrs/` | Architecture decision records (hexagonal layers, TX safety choke-point) |
 | `docs/OFFLINE_AI_ENGINE.md` | Offline diagnostic copilot design |
 | `docs/ai_context/` | Layered architecture, safety invariants, protocols, OEM matrix, testing guide |
 | `docs/protocols/`, `docs/specs/` | J1939 / UDS references and subsystem specifications |
 | `docs/runbook/` | Operational procedures (e.g. E-Stop reset) |
 | `docs/audit/` | Data-integrity audit reports |
-| `docs/research/` | Background research (historical; may reference removed tooling) |
 | `data/PROVENANCE.md` | Origin and licensing of every shipped data set |
 
 ## Data

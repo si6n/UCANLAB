@@ -1,54 +1,17 @@
 # Universal CAN-Bus Diagnostic & Telemetry Platform
-# GRAND UNIFIED MASTER ARCHITECTURAL SPECIFICATION
-## Nihai Bütünleşik Master Mimari Şartname ve Görev Yol Haritası (`MASTER_PLAN.md`)
-*Tarih: 2026-09-17 | Sürüm: 13.1 Grand Unified Industrial Master (Pure Architecture Specification)*
-*Bu doküman; SAE International (J1939-21, J1939-71, J1939-73, J1939-81), ISO 11898-1/2:2015-2024, ISO 14229 UDS, TMC RP1210 (A/B/C), NMEA 2000, Microsoft Learn (Win32/DPAPI/CIM), OWASP Top 10, RFC 8032 Ed25519, İyzico V3, PayTR ve TimescaleDB standartlarıyla doğrulanmış, hakem denetiminden geçmiş ve tüm alt şartnameleri tek çatı altında toplayan BÜTÜNLEŞİK NİHAİ MASTER ŞARTNAMEDİR.*
+# Mimari Şartname (`MASTER_PLAN.md`)
+*Son güncelleme: 2026-09-30 | Sürüm: 14.0 (koda göre yeniden yazıldı)*
 
-> **Durum Notu (2026-09-17, v13.1):** Normatif gövde değişmedi; yalnızca durum
-> bilgileri eklendi. Masaüstü ürün tarafında M1–M7 kilometre taşları tamamlandı
-> (OBD/UDS bilgi tabanları, OEM J1939, çok paketli taşıma, E2E güvenlik, bulut
-> istemcisi, tam-çevrimdışı AI + P1 veri modeli + Golden-Traces formatı).
-> AI katmanı operatör kararıyla **tam çevrimdışıdır** (bulut LLM anlatıcı
-> kaldırıldı). T47–T61 güvenlik/teşhis review turu kapatıldı; kayıtlar vault
-> (`Review-Dogrulama-T56-T59`) ve git geçmişindedir. FAZ 5 sunucu tarafı ayrı
-> depodadır (`Universal-CAN-Cloud`). Uygulama sapmaları §19.1 sonundaki
-> "Uygulama Durum Notu"ndadır.
-
-> **Uygulama Sapmaları (2026-09-30):** Bu belge hedef şartnamedir; kod ile bazı
-> yol/teknoloji farkları vardır. Güncel gerçek: UI, PySide6 yerine
-> **React 18 + TypeScript (WebView2)** ile `src/ui/frontend/` altındadır
-> (`src/ui/engineer/...` yolları uygulanmadı); hata/log modülleri
-> `src/core/errors.py`, `src/core/exceptions.py`, `src/core/logging.py` dosyalarıdır;
-> bulut istemcisi `src/security/cloud/` altındadır (`src/cloud/` yok);
-> `tests/golden_traces/` yerine veri `data/golden_traces/` altındadır.
-> PySide6/LGPLv3 maddeleri (§2.1, ADR-010) mevcut React/WebView2 mimarisi için
-> geçerli değildir; ürün lisansı için `README.md` ve https://ucanlab.org esas alınır.
+> **Kapsam ve durum:** Bu belge masaüstü ürünün (bu depo) mimari referansıdır ve
+> **mevcut koda göre güncellenmiştir**. Kod dosyalarının atıf yaptığı bölüm
+> numaraları (ör. §3.2, §4.1, §9.2, §11.2) korunmuştur. Web/SaaS/ödeme tarafı
+> ayrı depodadır (`Universal-CAN-Cloud`) ve burada yalnızca istemci sözleşmesi
+> tutulur (§13–16). Özet ve özellik envanteri için `PROJECT.md`, karar kayıtları
+> için `docs/adrs/`, veri kaynakları için `data/PROVENANCE.md` esas alınır.
+> Standartlar: SAE J1939-21/-71/-73/-81, ISO 11898-1, ISO 14229, ISO 15765-2,
+> NMEA 2000, TMC RP1210.
 
 ---
-
-# İÇİNDEKİLER
-1. **BÖLÜM 1: Sistem Vizyonu, Hedef Persona ve 6 Katmanlı Normatif Mimari**
-2. **BÖLÜM 2: Lisanslama Modeli, Hukuki Standartlar (LGPLv3) ve Tehdit Modeli**
-3. **BÖLÜM 3: Kanonik Lisans Token Şeması (RFC 8032 Ed25519 SSOT) & Cihaz Güvenliği (DPAPI)**
-4. **BÖLÜM 4: Ağır Vasıta & Marin Protokol Standartları (J1939 BAM/CMDT, J1939-81 64-bit NAME, N2K, Volvo MID)**
-5. **BÖLÜM 5: CAN-FD (Flexible Data-Rate, ISO 11898-1:2015/2024), 64-Bayt DLC & Donanımsal CRC-17/21**
-6. **BÖLÜM 6: Çift Yönlü Aktif Testler, Teşhis Profilleri ve Merkezi TX Gateway (Core Safety Floor)**
-7. **BÖLÜM 7: Sinyal Keşif Asistanı ve Kanıt Motoru (Signal Discovery & Evidence Engine)**
-8. **BÖLÜM 8: Doğrulanmış Matematiksel Kanallar & Sanal Sensörler (Virtual Channels)**
-9. **BÖLÜM 9: Donanım Soyutlama Katmanı (HAL), TMC RP1210 (A/B/C), ReplayBus & CanFrame (dlc dahil)**
-10. **BÖLÜM 10: Binary Ring Buffer Kara Kutu (38 MB RAM + Rolling Chunks) & Çoklu Dışa Aktarım (MDF4, MAT, KML)**
-11. **BÖLÜM 11: Masaüstü Arayüzü (Technician vs Engineer Mode) & Performans (5.000 msg/s @ 60 FPS)**
-12. **BÖLÜM 12: Araç Bilgi Paketleri Mimarisi (Knowledge Pack .pack, manifest.json.sig, JSON Şemaları)**
-13. **BÖLÜM 13: Kurumsal Web SaaS, Multi-Tenancy (B2B Atölye Modeli) ve RBAC**
-14. **BÖLÜM 14: Ticaret, Ödeme & Webhook Güvenliği (İyzico V3 / PayTR İki Aşamalı Hash)**
-15. **BÖLÜM 15: 3 Katmanlı Bulut Telemetri (S3 + PostgreSQL + TimescaleDB Hypertables)**
-16. **BÖLÜM 16: OpenAPI v1 REST Uç Noktaları Sözleşmesi ve Resumable Chunk Upload**
-17. **BÖLÜM 17: Kapsamlı 10 Katmanlı FMEA Risk Kütüğü ve Önleyici Savunma Kılavuzu**
-18. **BÖLÜM 18: Çok Katmanlı Test Piramidi (15 Golden Trace, Fuzzing, Hypothesis Property Tests)**
-19. **BÖLÜM 19: Mimari Karar Kayıtları (ADR-001 ~ ADR-012) & Bütünleşik Görev Yol Haritası (Roadmap & DoD)**
-
----
-
 # BÖLÜM 1: Sistem Vizyonu, Hedef Persona ve 6 Katmanlı Normatif Mimari
 
 **Universal CAN-Bus Diagnostic & Telemetry Platform**, bağımsız marin ve ağır vasıta atölyeleri, saha teknisyenleri ve filo yöneticileri için tasarlanmış **donanım-bağımsız, çoklu-protokol destekli ticari bir teşhis (DTC), aktif servis testi ve canlı telemetri ekosistemidir.**
@@ -63,7 +26,7 @@
 
 ```text
 ┌───────────────────────────────────────────────────────────────────────────┐
-│ 1. SUNUM & ARAYÜZ (Technician Mode / Engineer Mode / Reports / Next.js)   │
+│ 1. SUNUM & ARAYÜZ (React 18 + TypeScript / pywebview-WebView2 / Reports) │
 ├───────────────────────────────────────────────────────────────────────────┤
 │ 2. ALAN & ANLAMSAL MODEL (Vehicle / ECU / Signal / DTC / Test Result)    │
 ├───────────────────────────────────────────────────────────────────────────┤
@@ -79,16 +42,17 @@
 
 ---
 
-# BÖLÜM 2: Lisanslama Modeli, Hukuki Standartlar (LGPLv3) ve Tehdit Modeli
+---
 
-### 2.1. PySide6 / LGPLv3 Hukuki Uyumluluk Şartı
-* **Dinamik Bağlantı Standartı**: PySide6 (Qt6), LGPLv3 lisansı altında dağıtılmaktadır. Ticari ve kapalı kaynaklı dağıtım koşullarına %100 uymak adına:
-  - Qt6 DLL'leri ve PySide6 C-uzantıları (`.dll`, `.pyd`) Nuitka'nın `--standalone` modunda ayrı dinamik kütüphaneler olarak paketlenir; statik olarak tek ikiliye gömülmez.
-  - Kullanıcının Qt DLL'lerini yenisiyle değiştirebilme hakkı korunur.
-  - Şirkete ait tescilli iş mantığı, teşhis algoritmaları ve lisans kontrol mekanizmaları Nuitka ile C++ makine koduna derlenir.
+# BÖLÜM 2: Lisanslama Modeli, Paketleme ve Tehdit Modeli
+
+### 2.1. Paketleme ve Dağıtım
+* Arayüz **React 18 + TypeScript** (`src/ui/frontend/`), masaüstü kabuk **pywebview / WebView2** (`src/ui/desktop_app.py`); Qt/PySide6 kullanılmaz (PyInstaller derlemesinde açıkça hariç tutulur, `scripts/build_exe.py`).
+* Derleme: PyInstaller tek dosya `.exe` (`scripts/build_exe.py`), Nuitka C-seviyesi derleme (`scripts/build_nuitka.py`), Inno Setup kurulum paketi (`scripts/installer.iss`, `scripts/build_installer.py`).
+* Ürün ticari, lisanslı ve kapalı kaynaktır (bkz. `README.md`). Windows Defender/SmartScreen yanlış pozitiflerini azaltmak için dağıtım EV kod imzalama ile yapılır.
 
 ### 2.2. Gerçekçi DRM Modeli ve Bulut Değer Çapası (Cloud Value Anchor)
-* İstemci tarafındaki koruma (HWID + Nuitka + Anti-Debug) **"Gündelik korsanlığı ve yetkisiz lisans dağıtımını caydırıcı profesyonel bir kilit"** olarak konumlandırılır.
+* İstemci tarafındaki koruma (HWID + derleme + Anti-Debug) **"Gündelik korsanlığı ve yetkisiz lisans dağıtımını caydırıcı profesyonel bir kilit"** olarak konumlandırılır.
 * Platformun asıl çalınamaz ve kırılamaz değeri **Sunucu Tarafındaki Bulut Servislerinde** toplanır:
   1. Kriptografik imzalı **Knowledge Pack (Araç Kütüphanesi)** güncellemeleri.
   2. Filo telematik kayıtları ve servis geçmişi bulut hesap tabanlıdır.
@@ -107,6 +71,8 @@
 1. **High-Water Mark**: Her başarılı çalışmada geçerli zaman damgası şifrelenerek `%ProgramData%\<app>\` altındaki ACL korumalı yerel yapılandırmaya yazılır. `Mevcut Saat < Son_Kaydedilen_Saat` ise program kilitlenir.
 2. **Monotonic Counter**: Windows `GetTickCount64()` donanımsal sistem çalışma sayacı (milisaniye) ile saat artışı çapraz kontrol edilir. Sistem saati geriye alınsa dahi `GetTickCount64` geriye gidemez.
 3. **Fırsatçı NTP Doğrulaması**: İnternet bağlantısı yakalandığı anda Google/Cloudflare NTP ile yerel saat doğrulanır (İnternetsiz sahada kilitlenme yapılmaz).
+
+---
 
 ---
 
@@ -277,7 +243,7 @@ Bilinmeyen bir CAN hattında kesinlik iddiası yerine çok katmanlı kanıt topl
 
 ### 9.1. Endüstriyel Donanım Desteği
 * **TMC RP1210 (A/B/C) C-API**: NEXIQ USB-Link 2/3, DG DPA5, Noregon DLA 2.0 doğrudan sürücü desteği.
-* **Doğrudan CAN**: PEAK PCAN (USB/FD), Kvaser (Leaf/FD), Vector (VN16xx), candleLight/GS_USB, SLCAN, J2534 PassThru.
+* **Doğrudan CAN (python-can üzerinden, `src/hal/drivers/pcan_kvaser.py`)**: PEAK PCAN, Kvaser, Vector (donanımda test edilmedi), GS_USB, Linux SocketCAN (donanımda test edilmedi), sanal kanal.
 * **ReplayBus Engine**: Deterministik adımlama, hızlandırma, hata enjeksiyonu ve Golden Trace oynatıcı.
 
 ### 9.2. Çoklu Hat `CanFrame` Veri Sözleşmesi (Kanonik Model)
@@ -312,11 +278,13 @@ class CanFrame:
 
 ---
 
-# BÖLÜM 11: Masaüstü Arayüzü (Technician vs Engineer Mode) & Performans
+# BÖLÜM 11: Masaüstü Arayüzü ve Performans
 
-* **Technician Mode**: Sade göstergeler, Türkçe/İngilizce DTC listesi, yönlendirmeli aktif testler, e-imzalı PDF servis raporu.
-* **Engineer Mode**: 5000 msg/s sanal tablolu (`QTableView`) raw CAN sniffer, 60 FPS osiloskop (`PyQtGraph`), bitfield ısı haritası, Sinyal Keşif Asistanı.
-* **Performans Mimarisi**: RX worker $\to$ C/NumPy Ring Buffer $\to$ 30-60 Hz QTimer toplu güncelleme (0 Frame Drop).
+* **Teknoloji**: React 18 + TypeScript + Tailwind (`src/ui/frontend/`), Python arka uçla pywebview köprüsü üzerinden konuşur (`src/ui/desktop_app.py`, `src/ui/frontend_server.py`).
+* **Ekranlar**: canlı kokpit/dashboard, CAN sniffer tablosu, sinyal osiloskobu, ECU/teşhis (DTC), AI copilot, sinyal keşfi, pinout, raporlar, ayarlar (`src/ui/frontend/src/components/`).
+* **Hata modeli (§11.2)**: `PlatformError` kökünden `HardwareError`, `TransportError`, `ProtocolError`, `SafetyError`, `LicenseError`, `SecurityError` (`src/core/errors.py`, `src/core/exceptions.py`); yapılandırılmış loglama `structlog` (`src/core/logging.py`).
+* **Performans mimarisi**: RX worker → NumPy ring buffer → toplu UI güncelleme (hedef 60 FPS, kare kaybı olmadan).
+* **Alarm/atıf**: `src/ui/alarm_model.py`, `src/ui/data_attribution_catalog.py`.
 
 ---
 
@@ -335,53 +303,26 @@ Vehicle Knowledge Pack (.pack)
 
 ---
 
-# BÖLÜM 13: Kurumsal Web SaaS, Multi-Tenancy (B2B Atölye Modeli) ve RBAC
+# BÖLÜM 13–15: Web SaaS, Ödeme ve Bulut Telemetri (ayrı depo)
 
-* **Multi-Tenancy**: Ana müşteri sınırı `Organization`'dır. Roller: `OWNER`, `ADMIN`, `TECHNICIAN`, `VIEWER`, `BILLING`.
-* **Kiracı İzolasyonu**: $\mathtt{WHERE\ id = :resource\_id\ AND\ organization\_id = :authenticated\_org\_id}$.
-* **Oturum Güvenliği**: OWASP `HttpOnly + Secure + SameSite=Strict` çerezler + `Argon2id` parola hashlemesi.
-
----
-
-# BÖLÜM 14: Ticaret, Ödeme & Webhook Güvenliği (İyzico V3 / PayTR İki Aşamalı Hash)
-
-* **Model Ayrımı**: `orders` (Sepet/Sipariş) $\to$ `payment_transactions` (Ödeme Denemesi) $\to$ `payment_events` (Webhook Bildirimi - `provider_event_id UNIQUE`).
-* **İyzico 3D Secure**: `X-IYZ-SIGNATURE-V3` başlığı üzerinden `HMAC_SHA256(secret_key, request_body)` doğrulaması.
-* **PayTR İki Aşamalı Hash Formülleri**:
-  - **Başlatma Token Hash'i (`PAYTR_INIT_TOKEN_HASH`)**:
-    $$\text{Token Hash} = \text{Base64}(\text{HMAC\_SHA256}(\text{merchant\_key}, \text{merchant\_id} + \text{user\_ip} + \text{merchant\_oid} + \text{email} + \text{amount} + \text{type} + \text{installment} + \text{currency} + \text{merchant\_salt}))$$
-  - **Bildirim Doğrulama Hash'i (`PAYTR_CALLBACK_HASH`)**:
-    $$\text{Callback Hash} = \text{Base64}(\text{HMAC\_SHA256}(\text{merchant\_key}, \text{merchant\_oid} + \text{merchant\_salt} + \text{status} + \text{total\_amount}))$$
+Kurumsal web platformu (multi-tenancy/RBAC), ödeme entegrasyonları ve bulut
+telemetri depolama (PostgreSQL + S3 + TimescaleDB) **`Universal-CAN-Cloud`
+deposunun** kapsamındadır ve bu depoda uygulanmaz. Masaüstü istemcinin
+bağımlı olduğu sözleşme §16'da; istemci kodu `src/security/cloud/` altındadır.
 
 ---
 
-# BÖLÜM 15: 3 Katmanlı Bulut Telemetri (S3 + PostgreSQL + TimescaleDB Hypertables)
-
-1. **PostgreSQL**: Organizasyon, araç (VIN/HIN), teknisyen, seans özeti ve DTC arıza indeksleri.
-2. **S3 / MinIO Object Storage**: Zstandard sıkıştırılmış ham MDF4 (`.mf4.zst`) ve e-imzalı PDF servis raporları.
-3. **TimescaleDB Zaman Serisi**: PostgreSQL hypertable continuous aggregates ile webde anlık çizdirilen sensör grafikleri.
-
----
-
-# BÖLÜM 16: OpenAPI v1 REST Uç Noktaları Sözleşmesi ve Resumable Upload
+# BÖLÜM 16: Bulut İstemci Sözleşmesi (OpenAPI v1, istemci tarafı)
 
 ```text
-AUTH & ORGANIZATIONS:
-  POST   /api/v1/auth/login                      (HttpOnly Cookie ile giriş)
-  POST   /api/v1/devices/register                (Cihaz kaydı & device_token alma)
-  POST   /api/v1/licenses/activate               (Ed25519 lisans bileti alma)
-
-COMMERCE & PAYMENTS:
-  POST   /api/v1/orders/checkout                 (Sipariş & Ödeme başlat)
-  POST   /api/v1/webhooks/iyzico                 (İyzico V3 Idempotent Webhook)
-  POST   /api/v1/webhooks/paytr                  (PayTR Callback Idempotent Webhook)
-
-TELEMATICS & SESSIONS:
-  POST   /api/v1/telematics/sessions             (Seans başlatma & boyut bildirme)
-  PUT    /api/v1/telematics/sessions/{id}/chunks/{idx} (Resumable chunk yükleme)
-  POST   /api/v1/telematics/sessions/{id}/complete (SHA256 doğrulama & S3 kaydetme)
-  GET    /api/v1/oem-packages                    (İmzalı Knowledge Pack manifestleri)
+POST   /api/v1/devices/register                        (cihaz kaydı & device_token, DPAPI ile saklanır)
+POST   /api/v1/licenses/activate                       (Ed25519 lisans bileti)
+POST   /api/v1/telematics/sessions                     (seans başlatma & boyut bildirme)
+PUT    /api/v1/telematics/sessions/{id}/chunks/{idx}   (5 MB resumable parça yükleme)
+POST   /api/v1/telematics/sessions/{id}/complete       (SHA-256 doğrulama)
+GET    /api/v1/oem-packages                            (imzalı Knowledge Pack manifestleri)
 ```
+İstemci: `src/security/cloud/{client,license_flow,telemetry_uploader,updater}.py`.
 
 ---
 
@@ -395,151 +336,47 @@ TELEMATICS & SESSIONS:
 | **4** | **J1939 Protokol** | Adres almadan hatta yazma | TX Gateway Kilidi (`is_address_claimed == True`) + 10 Alan NAME |
 | **5** | **Aktif Testler** | Hareket halinde motor durdurma | Core Safety Floor (Hız=0, Vites=Boşta) + Disclaim Onayı |
 | **6** | **Güvenlik / Abort** | İletişim kopmasında ECU kilitlenmesi | 1500 ms TesterPresent + 20-50 ms Best-Effort Abort |
-| **7** | **Masaüstü GUI** | 5000 msg/s'de GUI donması | Binary Ring Buffer (38MB RAM) + 30-60 Hz Toplu QTimer |
+| **7** | **Masaüstü GUI** | 5000 msg/s'de UI donması | Binary Ring Buffer (300K frame) + toplu UI güncelleme |
 | **8** | **Lisanslama** | Sistem saatini geriye alma hilesi | `GetTickCount64()` + High-Water Mark şifreleme |
-| **9** | **Bulut / SaaS** | Webhook tekrarı & Kiracı veri sızıntısı | `provider_event_id UNIQUE` + Tenant Context Middleware |
-| **10**| **Telemetri** | PostgreSQL'in devasa loglarla çökmesi | S3 Object Storage + TimescaleDB Hypertables |
+| **9** | **Bulut / SaaS** | Webhook tekrarı & Kiracı veri sızıntısı | Sunucu tarafı (`Universal-CAN-Cloud`) |
+| **10**| **Telemetri** | PostgreSQL'in devasa loglarla çökmesi | Sunucu tarafı (`Universal-CAN-Cloud`) |
 
 ---
 
-# BÖLÜM 18: Çok Katmanlı Test Piramidi (15 Golden Trace, Fuzzing, Hypothesis)
+# BÖLÜM 18: Test Piramidi
 
-> **Durum Notu (2026-09-17):** Aşağıdaki 15 vektör hedef listedir. Mevcut
-> durum: `data/golden_traces/cases/` altında v1 şema + 1 taslak tohum vaka
-> (`volvo_penta_d4_300_nonstart.json`, operatör verisi bekliyor);
-> `tests/golden_traces/` dizini henüz kurulmadı. Kalibrasyona uygun vaka
-> birikince vektörler buradan beslenecek.
-
-`tests/golden_traces/` dizini altındaki 15 adet gerçek araç benchmark vektörü:
-1. `j1939_dm1_single.asc`, 2. `j1939_dm1_bam_multiframe.asc`, 3. `j1939_cmdt_rts_cts.asc`, 4. `j1939_address_claim_win.asc`, 5. `j1939_address_claim_loss.asc`, 6. `j1939_dm11_clear_ack.asc`, 7. `n2k_engine_rapid.asc`, 8. `n2k_fast_packet_dynamic.asc`, 9. `n2k_transmission_dynamic.asc`, 10. `n2k_fluid_level.asc`, 11. `volvo_mid128_pid100.asc`, 12. `volvo_evc_prop_a.asc`, 13. `uds_iso15765_flow_control.asc`, 14. `uds_routine_compression.asc`, 15. `canfd_64byte_high_load.asc`.
-* **Doğrulama**: L1 (Byte Exact), L2 (Frame Semantic), L3 (Diagnostic Semantic).
-* **Property-Based Testing**: `hypothesis` ile SPN/FMI, DLC 0..15 ve Sentinel sınır değerleri.
+* **Dizinler**: `tests/unit/` (çekirdek, protokol, HAL, AI, veri bütünlüğü, adversarial, benchmark), `tests/safety/` (TX choke-point, AI-TX izolasyonu, link-fault E-Stop), `tests/integration/`, `tests/e2e/`; ayrıntı için `docs/ai_context/05_TESTING_AND_VERIFICATION.md`.
+* **Benchmark vektörleri**: `tests/fixtures/benchmarks/vectors/` altında 14 `.asc` izi (J1939 DM1/BAM/CMDT/address claim/DM11, N2K, Volvo MID128, UDS/ISO-TP) ve `expected/` beklentileri; `tests/integration/test_benchmark_vectors.py` doğrular.
+* **Golden vakalar**: teşhis vakaları `data/golden_traces/cases/` altındadır (v1 şema; çoğunda canlı kayıt referansı henüz yok, bkz. `docs/audit/data_integrity_2026-09-26.md`).
+* **Doğrulama seviyeleri**: L1 (Byte Exact), L2 (Frame Semantic), L3 (Diagnostic Semantic).
+* **Property-based**: `hypothesis` ile SPN/FMI, DLC 0..15 ve sentinel sınır değerleri.
 
 ---
 
-# BÖLÜM 19: Mimari Karar Kayıtları (ADR-001 ~ ADR-012) & Bütünleşik Görev Yol Haritası
+# BÖLÜM 19: Mimari Karar Kayıtları ve Uygulama Durumu
 
-### 19.1. Mimari Karar Kayıtları Özeti (ADR)
-* `ADR-001`: Python 3.12+ / PySide6 & Nuitka C++ Native Compiler.
-* `ADR-002`: RFC 8032 Ed25519 Asimetrik Lisanslama.
-* `ADR-003`: 3 Katmanlı Telemetri (S3 + PostgreSQL + TimescaleDB).
-* `ADR-004`: Merkezi TX Gateway & Core Safety Floor.
-* `ADR-005`: HAL Katmanında TMC RP1210 ve ReplayBus Önceliği.
-* `ADR-006`: Araç Bilgi Paketleri (.pack & manifest.json.sig).
-* `ADR-007`: OWASP HttpOnly Cookie & Argon2id.
-* `ADR-008`: B2B Multi-Tenancy (Organization-Centric Model).
-* `ADR-009`: İyzico V3 & PayTR İki Aşamalı Idempotent Webhook.
-* `ADR-010`: Nuitka Standalone & LGPLv3 Dinamik Bağlantı.
-* `ADR-011`: Zaman Serisi Depolama Katmanı Seçimi (TimescaleDB).
-* `ADR-012`: Masaüstü Cihaz Kimlik Doğrulama Akışı & Windows DPAPI.
+### 19.1. Karar Kayıtları
+Yazılı ADR'ler: `docs/adrs/0001_hexagonal_architecture.md`, `docs/adrs/0002_tx_safety_chokepoint.md`.
+Ek kalıcı kararlar (kod ve testlerde kilitli):
+* Ed25519 (RFC 8032) asimetrik lisanslama (`src/security/license/`, §3).
+* Merkezi TX Gateway + Core Safety Floor; hiçbir bileşen (AI dahil) doğrudan TX yapamaz (`tests/safety/`).
+* AI copilot tamamen çevrimdışıdır: bulut LLM yok, API anahtarı yok (`test_ai_tx_isolation.py` AST ile kilitler).
+* Araç Bilgi Paketleri: Ed25519 imzalı `.pack` (`src/security/knowledge_pack/`, §12).
+* Windows DPAPI ile cihaz token saklama (§3.2).
+* Python `>=3.11` (CI: 3.12 ve 3.13); arayüz React 18 + pywebview.
 
-> **Uygulama Durum Notu (2026-09-17):** ADR'ler karar tarihindeki haliyle
-> korunur; aşağıdaki sapmalar bilinçli güncel durumdur:
-> - ADR-001 "Python 3.12+ / PySide6": uygulamada `pyproject.toml`
->   `requires-python = ">=3.11"` ve masaüstü arayüz **pywebview + React 18**
->   (`src/ui/desktop_app.py`, `src/ui/frontend/`) kullanılır.
-> - Test ve güvenlik izolasyon kilitleri `tests/safety/` altındadır
->   (`test_ai_tx_isolation.py` AI katmanı çevrimdışılığını AST ile kilitler).
+### 19.2. Uygulama Durumu (masaüstü)
 
----
+| Faz | Kapsam | Kod | Durum |
+| :--- | :--- | :--- | :---: |
+| 0 | Hata hiyerarşisi, `CanFrame`, RP1210, ReplayBus, python-can sürücüleri | `src/core/`, `src/hal/` | Tamam |
+| 1 | Ring buffer + rolling disk, DBC decoder, UI konsolu | `src/engine/buffer/`, `src/engine/decoder/`, `src/ui/` | Tamam |
+| 2 | J1939 Address Claim, TP (BAM/CMDT), DM1–DM11, sentinel | `src/protocols/j1939/` | Tamam |
+| 3 | NMEA 2000, Volvo Penta, sanal kanallar, MDF4/MAT/KML/rapor | `src/protocols/nmea2000/`, `src/protocols/volvo/`, `src/engine/virtual_channels/`, `src/engine/exporters/` | Tamam |
+| 4 | TX Gateway, E-Stop, UDS/ISO-TP, Knowledge Pack, lisans, anti-tamper | `src/safety/`, `src/protocols/uds/`, `src/security/` | Tamam |
+| 5 | Bulut istemcisi (kayıt, lisans, parçalı yükleme) | `src/security/cloud/` | Tamam (istemci) |
+| 5 | Sunucu, web panel, ödeme | `Universal-CAN-Cloud` (ayrı depo) | Bu depo dışı |
 
-### 19.2. Bütünleşik ve Güncellenmiş Görev Yol Haritası (Grand Unified Roadmap & DoD)
-
-Status Legend:
-- `[ ]` Pending
-- `[-]` In Progress
-- `[x]` Completed
-
-```
-                      BÜTÜNLEŞİK 6 AŞAMALI GELİŞTİRME PLANI
- 
- ┌─ [FAZ 0: MİMARİ TEMEL & HAL]──> PlatformError, CanFrame (dlc), ReplayBus, RP1210 Wrapper
- ├─ [FAZ 1: CAN ENGINE & GUI]  ──> Binary Ring Buffer (38MB), 60 FPS Osiloskop, QTableView Sniffer
- ├─ [FAZ 2: J1939 TEŞHİS & TP] ──> J1939-81 (10 Alan), BAM/CMDT (PGN 60416 Abort), DM1/DM2/DM11
- ├─ [FAZ 3: MARİN & TELEMETRİ] ──> N2K FastPacket, Volvo MID, Sanal Kanallar, MDF4, PDF Rapor
- ├─ [FAZ 4: AKTİF TEŞHİS & PACK]─> TX Gateway (Core Safety Floor), UDS 0x31, Knowledge Pack (.pack)
- └─ [FAZ 5: BULUT, SAAS & WEB] ──> Next.js, FastAPI, İyzico/PayTR, TimescaleDB, S3 Telemetri
-```
-
----
-
-#### 🧱 FAZ 0: Mimari Temel, HAL & Donanım Katmanı
-- [x] **Task 0.1: Proje Dizin İskeleti, Ortak Hata Hiyerarşisi (`PlatformError`) & Yapılandırılmış Loglama** (`src/core/errors/`, `src/core/logging/`).
-  > *Kabul Kriteri (DoD)*: `PlatformError` tabanlı `HardwareError`, `TransportError`, `ProtocolError`, `SafetyError`, `LicenseError`, `SecurityError` sınıfları tanımlandı; `structlog` JSON formatter ile nanosaniye hassasiyetli loglama birim testlerle doğrulandı.
-- [x] **Task 0.2: Çoklu Hat `CanFrame` Veri Modeli (`dlc: int` dahil) & Yardımcı Dönüştürücüler** (`src/core/models/can_frame.py`).
-  > *Kabul Kriteri (DoD)*: `CanFrame` dataclass'ı 15 alanı eksiksiz içerir (`dlc: int` 0..15 kodu dahil); CAN Classic (0-8B) ve CAN-FD (12, 16, 20, 24, 32, 48, 64B) padding dönüşümleri `hypothesis` testleriyle %100 kapsandı.
-- [x] **Task 0.3: TMC RP1210 (A/B/C) C-API Sürücüsü & İzole Ctypes Sarmalayıcısı** (`src/hal/rp1210/`).
-  > *Kabul Kriteri (DoD)*: `RP1210_ClientConnect`, `RP1210_ReadMessage`, `RP1210_SendMessage` çağrıları struct padding hizalaması ile sarıldı; NEXIQ ve DPA5 DLL'leri bulunamadığında kontrollü `HardwareError` fırlatır.
-- [x] **Task 0.4: ReplayBus Deterministik Oynatıcı & ASC/BLF Okuyucu** (`src/hal/replay/`).
-  > *Kabul Kriteri (DoD)*: Vector `.asc` ve `.blf` log dosyalarını nanosaniye zaman damgalarıyla deterministik oynatır; adım adım (step-by-step) ve hızlandırma modları `pytest` ile test edildi.
-- [x] **Task 0.5: PEAK PCAN, Kvaser, Vector, GS_USB & J2534 HAL Sürücüleri** (`src/hal/drivers/`).
-  > *Kabul Kriteri (DoD)*: `python-can` entegrasyonu tamamlandı; Listen-Only bitrate tarama ve FTDI 1ms latency timer ayarı doğrulandı.
-
----
-
-#### ⚡ FAZ 1: CAN Mühendislik Motoru & Yüksek Hızlı Masaüstü GUI
-- [x] **Task 1.1: 5.000 msg/s Sabit Genişlikli C/NumPy Binary Ring Buffer & Rolling Disk Chunks** (`src/engine/buffer/`).
-  > *Kabul Kriteri (DoD)*: 60 saniyelik RAM Ring ($300.000\text{ frame} \approx 38\text{ MB RAM}$) kesintisiz döner; 10 dakikalık geçmiş 5 MB'lık sıkıştırılmış disk bloklarına taşma olmadan yazılır.
-- [x] **Task 1.2: PySide6 `QTableView` + `QAbstractTableModel` Sanal Kaydırmalı CAN Sniffer** (`src/ui/engineer/sniffer/`).
-  > *Kabul Kriteri (DoD)*: 5.000 msg/s yük altında 60 FPS render sağlar; Python GIL kilitlenmesi yaşanmaz; frame drop oranı %0'dır.
-- [x] **Task 1.3: 60 FPS Osiloskop Grafik Motoru (`PyQtGraph`) & Bitfield Isı Haritası** (`src/ui/engineer/scope/`).
-  > *Kabul Kriteri (DoD)*: Seçilen sinyaller donma olmadan canlı çizdirilir; baytların değişim sıklığı renk skalasında gösterilir.
-- [x] **Task 1.4: DBC Ayrıştırma & Canlı Sinyal Kod Çözücü Motoru** (`src/engine/decoder/`).
-  > *Kabul Kriteri (DoD)*: `cantools` entegrasyonu ile gelen CAN çerçeveleri anlık olarak fiziksel mühendislik birimlerine dönüştürülür.
-
----
-
-#### 🚛 FAZ 2: SAE J1939 Ağır Vasıta Teşhis & Taşıma Katmanı
-- [x] **Task 2.1: SAE J1939-81 Address Claim State Machine & 10 Alt Alanlı 64-Bit NAME** (`src/protocols/j1939/address_claim.py`).
-  > *Kabul Kriteri (DoD)*: 64-bit NAME önceliğine göre adres kazanma, çakışma durumunda alternatif adres talep etme ve Null Address (`0xFE`) geçişi birim testlerle doğrulandı.
-- [x] **Task 2.2: SAE J1939-21 BAM & CMDT (RTS/CTS) Taşıma Katmanı Motoru** (`src/protocols/j1939/transport.py`).
-  > *Kabul Kriteri (DoD)*: $T_1=750\text{ms}, T_2=1250\text{ms}, T_3=1250\text{ms}, T_4=1050\text{ms}$ zamanlama kurallarına uyulur; hata durumunda `TP.Conn_Abort (PGN 60416, Control Byte 0xFF)` yayınlanır; oturum bellek sızıntısı olmadan temizlenir.
-- [x] **Task 2.3: SAE J1939-73 Teşhis Servisleri: DM1, DM2, DM3, DM11 & Tam FMI 0-31 Tablosu** (`src/protocols/j1939/diagnostics.py`).
-  > *Kabul Kriteri (DoD)*: Aktif ve geçmiş arıza kodları SPN, FMI, OC olarak ayrıştırılır; Türkçe/İngilizce açıklamalar ve olası kök nedenler ekrana basılır.
-- [x] **Task 2.4: SAE J1939-71 MSB Sentinel Filtresi & Sınır Değer Doğrulayıcı** (`src/protocols/j1939/sentinel.py`).
-  > *Kabul Kriteri (DoD)*: `0xFE` (ERROR) ve `0xFF` (NOT AVAILABLE) durumları doğru sınıflandırılır; geçersiz veriler sensör grafiğine sokulmaz.
-
----
-
-#### ⚓ FAZ 3: Marin Protokolleri, Sanal Sensörler & Telemetri Raporlama
-- [x] **Task 3.1: NMEA 2000 Fast Packet Dekoderi & Standart PGN Kütüphanesi** (`src/protocols/nmea2000/`).
-  > *Kabul Kriteri (DoD)*: `PGN 127488`, `127489`, `127493`, `127497` Fast Packet birleştirme mantığı ile %100 doğrulandı.
-- [x] **Task 3.2: Volvo Penta EDC (MID 128 PID/SID) & EVC Dekoderi** (`src/protocols/volvo/`).
-  > *Kabul Kriteri (DoD)*: J1587 ve CAN üzerindeki özel Volvo Penta parametreleri ve arıza kodları ayrıştırılır.
-- [x] **Task 3.3: Doğrulanmış Matematiksel Sanal Kanallar Motoru** (`src/engine/virtual_channels/`).
-  > *Kabul Kriteri (DoD)*: SPN 513/544 Güç ($\text{kW/HP}$), Seyir Verimliliği ($\text{L/NM}$), Karayolu Tüketimi ($\text{L/100km}$) ve Marin Pervane Kayması ($\text{Slip \%}$) doğru formüllerle hesaplanır.
-- [x] **Task 3.4: ASAM MDF4 (`.mf4`), MATLAB (`.mat`), KML & Kurumsal PDF Servis Raporu** (`src/engine/exporters/`).
-  > *Kabul Kriteri (DoD)*: Seans kayıtları standart ASAM MDF4 ve e-imzalı kurumsal HTML/PDF formatında hatasız dışa aktarılır.
-
----
-
-#### 🛡️ FAZ 4: Çift Yönlü Aktif Testler, TX Gateway & Knowledge Pack
-- [x] **Task 4.1: Merkezi TX Gateway & Çekirdek Güvenlik Bariyeri (`CORE_SAFETY_FLOOR`)** (`src/safety/gateway.py`, `src/safety/estop.py`).
-  > *Kabul Kriteri (DoD)*: `VehicleSpeed == 0`, `Dual Confirmation Token`, `Whitelist Filter` ve `Rate Limiting (100 msg/s)` şartları sağlanmadan hiçbir CAN TX paketine izin verilmez; 10-tetikleyicili E-Stop ile tam koruma mühürlendi.
-- [x] **Task 4.2: UDS (ISO 14229 / ISO 15765-2) & J1939 DM7/DM8 Aktif Servis Testleri** (`src/protocols/uds/`).
-  > *Kabul Kriteri (DoD)*: Silindir Cut-out, Kompresyon Testi, DPF Rejenerasyonu komut dizileri (0x10, 0x22, 0x2E, 0x31, 0x3E, 0x7F NRC) ve DoCAN ISO-TP multi-frame (SF, FF, CF, FC) motoru %100 doğrulandı.
-- [x] **Task 4.3: Araç Bilgi Paketleri (Knowledge Pack `.pack`) Yükleyici & `manifest.json.sig` Doğrulayıcı** (`src/security/knowledge_pack/`).
-  > *Kabul Kriteri (DoD)*: Ed25519 ile imzalanmış `.pack` arşivleri diske yazılmadan doğrudan RAM'de AES-256-GCM ile çözülür; `secure_zero_memory` ile bellek sıfırlanır.
-- [x] **Task 4.4: Ed25519 Lisans Biletleme, 7-Gün Çevrimdışı Grace Period & Anti-Debug** (`src/security/license/`, `src/security/anti_tamper/`, `src/hal/power/`).
-  > *Kabul Kriteri (DoD)*: Ed25519 lisans doğrulaması, HWID kilidi, saat manipülasyonu engelleme, SetThreadExecutionState USB uyku koruması ve Win32 Anti-Debug modülü tamamlandı.
-
----
-
-#### ☁️ FAZ 5: Kurumsal Web Platformu, Multi-Tenancy, Ödeme & Bulut Telemetri
-> **Durum Notu (2026-09-17):** Masaüstü istemci tarafı tamamlandı (M6:
-> cihaz kaydı, Ed25519 lisans aktivasyonu, 5 MB parçalı MDF4 yükleme;
-> `src/cloud/`). Aşağıdaki Task 5.x maddeleri sunucu tarafı
-> (`Universal-CAN-Cloud` deposu) kapsamıdır.
-- [ ] **Task 5.1: FastAPI REST API İskeleti, TimescaleDB & PostgreSQL Şeması** (`backend/app/`).
-  > *Kabul Kriteri (DoD)*: Multi-Tenant `Organization` modeli, TimescaleDB hypertables ve S3/MinIO istemcisi çalışır.
-- [ ] **Task 5.2: İyzico 3D Secure (V3) & PayTR İki Aşamalı Idempotent Webhook Entegrasyonu** (`backend/app/routers/payments.py`).
-  > *Kabul Kriteri (DoD)*: `PAYTR_INIT_TOKEN_HASH` ve `PAYTR_CALLBACK_HASH` ile `provider_event_id UNIQUE` idempotency kuralları doğrulanır; başarılı ödemede otomatik Ed25519 lisansı üretilir.
-- [ ] **Task 5.3: Masaüstü Cihaz Kaydı (`device_token`), Windows DPAPI & Ed25519 Lisans Dağıtımı** (`backend/app/routers/licenses.py`).
-  > *Kabul Kriteri (DoD)*: 30 takvim gününde 1 kez HWID sıfırlama hakkı tanınır; kanonik lisans token şeması döner.
-- [ ] **Task 5.4: Parçalı & Resumable Telemetri Yükleme (`Content-Range` + S3 + TimescaleDB)** (`backend/app/routers/telematics.py`).
-  > *Kabul Kriteri (DoD)*: MDF4 dosyaları parça parça yüklenir; S3'e arşivlenir; sensör verileri TimescaleDB continuous aggregates ile webde Recharts üzerinden çizdirilir.
-- [ ] **Task 5.5: Next.js Müşteri & Teknisyen Dashboard'u, Fiyatlandırma Vitrini ve SuperAdmin Paneli** (`web/`).
-  > *Kabul Kriteri (DoD)*: Dark marine tasarım, lisans/cihaz yönetimi, filo telematik haritası ve audit log izleme ekranları tamamlanır.
-- [ ] **Task 5.6: Nuitka C++ Standalone Derleme Pipeline'ı & EV Kod İmzalama** (`build/`).
-  > *Kabul Kriteri (DoD)*: LGPLv3 dinamik bağlantı kurallarına uygun, tek tıklamayla çalışan `Universal_CAN_Setup.exe` üretilir.
-
+Ek modüller (planın dışında eklendi): OBD-II (`src/protocols/obd/`), CANopen, ISOBUS,
+OEM J1939 çözücüleri (`src/protocols/j1939/oem/`), Signal Discovery (`src/engine/discovery/`),
+çevrimdışı AI copilot (`src/engine/ai/`, bkz. `docs/OFFLINE_AI_ENGINE.md`).
