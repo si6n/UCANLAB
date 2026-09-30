@@ -47,6 +47,7 @@ from __future__ import annotations
 #: state-mutating and were added.
 CRITICAL_UDS_SIDS: frozenset[int] = frozenset(
     {
+        0x04,  # OBD-II Mode 04 (SAE J1979) — clears stored/pending emission DTCs
         0x10,  # DiagnosticSessionControl   — switches to programming session
         0x11,  # ECUReset                   — resets the ECU
         0x14,  # ClearDiagnosticInformation — wipes DTC evidence

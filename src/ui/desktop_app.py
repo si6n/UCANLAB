@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import concurrent.futures
 import hashlib
@@ -34,7 +35,6 @@ from src.core.logging import get_logger
 from src.core.models.can_frame import CanFrame, length_to_dlc
 from src.core.models.diagnostics import (
     DiagnosticDomain,
-    DiagnosticEvent,
     SignalSample,
     SignalSource,
     VehicleSession,
@@ -45,6 +45,9 @@ from src.engine.buffer.rolling_disk import RollingDiskBuffer
 from src.engine.connection.adapters import AdapterInfo, discover_adapters
 from src.engine.connection.simulated_vehicle import SCENARIOS as SIMULATOR_SCENARIOS
 from src.engine.connection.wizard import ConnectionWizard
+from src.engine.diagnosis.events import dm1_to_events
+from src.engine.diagnosis.obd_reader import ObdReadOutcome, read_obd_fault_codes
+from src.engine.diagnosis.scan import LiveScanBackend, ScanRequest, ScanRunner, SimulatorScanBackend
 from src.engine.discovery.engine import SignalDiscoveryEngine
 from src.engine.pipeline.reassembly_pipeline import (
     ReassembledMessage,
@@ -86,6 +89,7 @@ from src.safety.e2e.validator import E2ESafetyValidator
 from src.safety.estop import EmergencyStopSystem, EStopTriggerSource
 from src.safety.gateway import TxSafetyGateway
 from src.safety.multiplexer import SafeMultiplexedBus
+from src.safety.read_only_policy import ReadOnlyPolicy
 from src.safety.secret_provider import get_default_secret_provider
 from src.safety.state_machine import SafetyState, SafetySupervisor
 from src.safety.watchdog import TxWatchdogSupervisor
@@ -675,6 +679,10 @@ class DesktopApiBridge:
         "connection_test_start": "config",
         "connection_test_status": "read",
         "connection_test_cancel": "config",
+        "scan_start": "safety",
+        "scan_status": "read",
+        "scan_cancel": "config",
+        "scan_save_report": "data",
         "cloud_start_web_login": "config",
         "cloud_check_web_login_status": "read",
         "cloud_cancel_web_login": "config",
@@ -1622,6 +1630,75 @@ class DesktopApiBridge:
         self.app.connection_wizard.cancel()
         return {"success": True}
 
+    # ------------------------------------------------------------------
+    # Mechanic scan (Aşama 6): listen → consented read-only OBD → result
+    # ------------------------------------------------------------------
+
+    def scan_start(self, allow_read: bool = False) -> dict[str, Any]:
+        """Start a scan on the connected vehicle (or the simulator).
+
+        ``allow_read`` is the mechanic's "Allow reading" choice. For a real
+        car it opens a read-only OBD session, so the OS-native confirmation
+        dialog must also be accepted (the renderer's boolean alone is never
+        consent). Listen-only scans and the simulator never transmit.
+        """
+        connection = getattr(self.app.connection_wizard, "connection", None)
+        if connection is None:
+            return {"success": False, "error_code": "NOT_CONNECTED"}
+        catalog = default_vehicle_catalog()
+        profile = catalog.profile(self.app.mechanic_prefs.load().vehicle_profile_id or "")
+        if profile is None:
+            return {"success": False, "error_code": "NO_VEHICLE_SELECTED"}
+        wants_read = allow_read is True and profile.type == "car"
+        if wants_read and not connection.simulator and not self._require_native_presence(
+            "Araca arıza kodu OKUMA isteği gönderilecek (silme/yazma yok)"
+        ):
+            return {"success": False, "error_code": "CONSENT_REQUIRED"}
+        result = connection.result or {}
+        request = ScanRequest(
+            vehicle_label=profile.label_tr, vehicle_type=profile.type, high_voltage=profile.high_voltage,
+            simulator=connection.simulator, allow_read=wants_read,
+            listen_seconds=3.0 if connection.simulator else 15.0,
+            battery_message_tr=str(result.get("battery_message_tr") or ""),
+            scenario=connection.scenario or "ok",
+        )
+        try:
+            scan_id = self.app.scan_runner.start(request)
+        except RuntimeError:
+            return {"success": False, "error_code": "SCAN_RUNNING"}
+        return {"success": True, "scan_id": scan_id, "reading": wants_read}
+
+    def scan_status(self) -> dict[str, Any]:
+        return {"success": True, **self.app.scan_runner.status()}
+
+    def scan_cancel(self) -> dict[str, Any]:
+        self.app.scan_runner.cancel()
+        return {"success": True}
+
+    def scan_save_report(self, workshop: str = "") -> dict[str, Any]:
+        """Save the last scan's customer report as a printable HTML page."""
+        from src.engine.diagnosis.mechanic_result import customer_report_text
+
+        result = self.app.scan_runner.last_result
+        if result is None:
+            return {"success": False, "error_code": "NO_RESULT"}
+        problem = _validate_bridge_text(workshop or "", field="workshop", max_chars=80, allow_empty=True)
+        if problem is not None:
+            return {"success": False, "error_code": "INVALID_WORKSHOP"}
+        text = customer_report_text(result, workshop=workshop or "")
+        body = "".join(f"<p>{html.escape(line)}</p>" if line else "<br>" for line in text.splitlines())
+        page = ("<!doctype html><html lang=\"tr\"><head><meta charset=\"utf-8\"><title>Araç kontrol raporu</title>"
+                "<style>body{font-family:sans-serif;max-width:720px;margin:32px auto;line-height:1.5}"
+                "p{margin:4px 0}</style></head><body>" + body + "</body></html>")
+        try:
+            reports_dir = _app_data_root() / "reports"
+            reports_dir.mkdir(parents=True, exist_ok=True)
+            out_path = reports_dir / f"musteri_raporu_{time.strftime('%Y%m%d_%H%M%S')}.html"
+            out_path.write_text(page, encoding="utf-8")
+        except OSError:
+            return {"success": False, "error_code": "WRITE_FAILED"}
+        return {"success": True, "path": str(out_path), "text": text}
+
     def cloud_logout(self) -> dict[str, Any]:
         """Log out current user and clear local credentials."""
         try:
@@ -2189,6 +2266,8 @@ class UniversalCanDesktopApp:
         self.mechanic_prefs = MechanicPrefsStore(_app_data_root() / "mechanic_prefs.json")
         # Aşama 5: listen-only connection wizard. Real adapters are opened by
         # the same factory as the app bus (always listen_only=True).
+        # Aşama 6: mechanic scan (listen → consented read-only OBD → result).
+        self.scan_runner = ScanRunner(self._scan_backend_for)
         self.connection_wizard = ConnectionWizard(
             bus_factory=_listen_only_bus,
             park_app_bus=self._park_bus_for_connection_test,
@@ -2482,42 +2561,9 @@ class UniversalCanDesktopApp:
         session = self._diag_session
         if session is None or self._is_simulating or not dtcs:
             return
-        from src.core.models.diagnostics import Severity
-        from src.engine.ai.diagnostic_copilot import get_j1939_spn_database
-
-        spn_db = get_j1939_spn_database().get("spns", {})
-        ts = time.monotonic_ns()
+        events = dm1_to_events(dtcs, time.monotonic_ns())
         with self._session_lock:
-            for dtc in dtcs:
-                spn, fmi = getattr(dtc, "spn", 0), getattr(dtc, "fmi", 0)
-                if spn in (0, 0xFF):
-                    continue
-                severity = Severity.UNKNOWN
-                rec = spn_db.get(f"SPN_{spn}")
-                if rec:
-                    fm = rec.get("fault_matrix", {})
-                    fmi_rec = fm.get(str(fmi)) if isinstance(fm, dict) else None
-                    if isinstance(fmi_rec, dict) and fmi_rec.get("severity"):
-                        try:
-                            severity = Severity(str(fmi_rec["severity"]))
-                        except ValueError:
-                            logger.warning(
-                                "KB severity outside the allowlist — recording as UNKNOWN",
-                                extra={"spn": spn, "fmi": fmi, "kb_severity": str(fmi_rec["severity"])},
-                            )
-                            severity = Severity.UNKNOWN
-                try:
-                    session.events.append(
-                        DiagnosticEvent(
-                            timestamp_ns=ts,
-                            code=f"SPN {spn} FMI {fmi}",
-                            domain=DiagnosticDomain.HEAVY_DUTY,
-                            severity=severity,
-                            status="ACTIVE",
-                        )
-                    )
-                except ValueError as exc:
-                    logger.debug("DiagnosticEvent rejected", extra={"error": str(exc), "spn": spn, "fmi": fmi})
+            session.events.extend(events)
 
     def reset_diagnostic_session(self) -> None:
         """Close the current evidence session and open a fresh one (FAZ 1)."""
@@ -2691,6 +2737,34 @@ class UniversalCanDesktopApp:
 
     def get_diagnostic_analysis(self) -> dict[str, Any]:
         """Full FAZ 2..6 analysis over the live evidence session (bridge)."""
+        session = self._diag_session
+        if session is None:
+            return {"success": False, "error": "Aktif teşhis oturumu yok"}
+        # F-07 (P1): the panel path used to pass an EMPTY telemetry dict
+        # (`analyze_session(dtc_payload, {}, [])`) while the *chat* path fed the
+        # same copilot the live `_current_rpm/_current_boost/_current_temp`.
+        # The two entry points therefore produced different severities and
+        # confidence scores for the same vehicle state, and the panel silently
+        # dropped every TELEMETRY-correlation cause. Rebuild the same snapshot
+        # the chat path uses, and omit a signal ENTIRELY when it is not
+        # trustworthy so the engine's "Veri Yok" logic (AGENTS.md §2.3) still
+        # fires instead of reading a stale 0.0 as a measured value.
+        return self._analyze_session(session, self._live_telemetry_snapshot(), is_simulating=self._is_simulating)
+
+    def _live_telemetry_snapshot(self) -> dict[str, Any]:
+        live_telemetry: dict[str, Any] = {}
+        if math.isfinite(self._current_rpm) and self._current_rpm > 0.0:
+            live_telemetry["EngineSpeed"] = self._current_rpm
+        if math.isfinite(self._current_boost):
+            live_telemetry["BoostPressure"] = self._current_boost
+        if math.isfinite(self._current_temp) and self._current_temp > 0.0:
+            live_telemetry["CoolantTemp"] = self._current_temp
+        return live_telemetry
+
+    def _analyze_session(
+        self, session: VehicleSession, live_telemetry: dict[str, Any], *, is_simulating: bool
+    ) -> dict[str, Any]:
+        """Analysis pipeline over any evidence session (live or simulator scan, Aşama 6)."""
         from src.engine.ai.anomaly_detector import detect_anomalies, load_thresholds
         from src.engine.ai.evidence_gate import evaluate_sufficiency
         from src.engine.ai.golden_similarity import find_similar_cases
@@ -2698,9 +2772,6 @@ class UniversalCanDesktopApp:
         from src.engine.ai.session_report import calibrated_hypotheses, report_summary_dict
         from src.engine.ai.user_report_composer import compose_user_card
 
-        session = self._diag_session
-        if session is None:
-            return {"success": False, "error": "Aktif teşhis oturumu yok"}
         sufficiency = evaluate_sufficiency(session)
         anomalies: list = []
         hypotheses: list = []
@@ -2740,24 +2811,8 @@ class UniversalCanDesktopApp:
                     "fmi": int(match.group(2)) if match and match.group(2) is not None else None,
                 }
             )
-        # F-07 (P1): the panel path used to pass an EMPTY telemetry dict
-        # (`analyze_session(dtc_payload, {}, [])`) while the *chat* path fed the
-        # same copilot the live `_current_rpm/_current_boost/_current_temp`.
-        # The two entry points therefore produced different severities and
-        # confidence scores for the same vehicle state, and the panel silently
-        # dropped every TELEMETRY-correlation cause. Rebuild the same snapshot
-        # the chat path uses, and omit a signal ENTIRELY when it is not
-        # trustworthy so the engine's "Veri Yok" logic (AGENTS.md §2.3) still
-        # fires instead of reading a stale 0.0 as a measured value.
-        live_telemetry: dict[str, Any] = {}
-        if math.isfinite(self._current_rpm) and self._current_rpm > 0.0:
-            live_telemetry["EngineSpeed"] = self._current_rpm
-        if math.isfinite(self._current_boost):
-            live_telemetry["BoostPressure"] = self._current_boost
-        if math.isfinite(self._current_temp) and self._current_temp > 0.0:
-            live_telemetry["CoolantTemp"] = self._current_temp
         report = self.copilot.analyze_session(dtc_payload, live_telemetry, [])
-        card = compose_user_card(report, session, is_simulating=self._is_simulating)
+        card = compose_user_card(report, session, is_simulating=is_simulating)
         return {
             "success": True,
             "user_card": card.card_to_dict(),
@@ -3009,6 +3064,14 @@ class UniversalCanDesktopApp:
                 return {"success": False, "error": "Cannot arm TX: vehicle speed is unknown (untrusted or implausible CCVS feed)"}
             if speed_state == "moving":
                 return {"success": False, "error": f"Cannot arm TX: Vehicle speed must be 0 km/h (current: {speed_val:.1f} km/h)"}
+            return self._arm_driver_and_supervisor(reason)
+        except Exception as exc:
+            logger.error("Failed to arm TX pipeline: %s", exc, exc_info=True)
+            return {"success": False, "error": str(exc)}
+
+    def _arm_driver_and_supervisor(self, reason: str) -> dict[str, Any]:
+        """Shared arm core: driver leaves listen-only, then supervisor ARMED_TX (with rollback)."""
+        try:
             # REVIEW (driver mode atomicity): the supervisor flips to ARMED_TX
             # only AFTER the physical driver actually left listen-only. An
             # unverified/silent backend keeps the protocol dead-but-armed.
@@ -3070,6 +3133,50 @@ class UniversalCanDesktopApp:
         except SafetyError:
             # No auth_secret configured -> supervisor keeps its legacy path.
             return None
+
+    # ------------------------------------------------------------------
+    # Read-only OBD session (Aşama 6, MECHANIC_FLOW §7.2)
+    # ------------------------------------------------------------------
+
+    READ_ONLY_SESSION_TTL_S: ClassVar[float] = 120.0
+
+    def open_read_only_session(self, reason: str = "Mechanic allowed reading fault codes") -> dict[str, Any]:
+        """Arm TX restricted to read-only OBD requests after explicit consent.
+
+        Differs from ``arm_tx`` in exactly one respect: an UNKNOWN vehicle
+        speed does not refuse the session, because a passenger car only
+        reports its speed when asked and read requests cannot actuate
+        anything. A MOVING vehicle still refuses. The gateway policy is
+        installed BEFORE arming, so there is no instant in which TX is armed
+        without the restriction; it is cleared when TX authority ends.
+        """
+        try:
+            if self.estop.is_engaged:
+                return {"success": False, "error_code": "ESTOP_ACTIVE"}
+            if self._is_simulating:
+                return {"success": False, "error_code": "SIMULATOR_ACTIVE"}
+            speed_state, speed_val = self.gateway.speed_interlock_state()
+            if speed_state == "moving":
+                return {"success": False, "error_code": "VEHICLE_MOVING", "speed_kmh": speed_val}
+            if self.supervisor.is_tx_permitted:
+                return {"success": False, "error_code": "TX_ALREADY_ARMED"}
+            self.gateway.install_read_only_policy(ReadOnlyPolicy(
+                expires_ns=time.monotonic_ns() + int(self.READ_ONLY_SESSION_TTL_S * 1e9), reason=reason,
+            ))
+            result = self._arm_driver_and_supervisor(reason)
+            if not result.get("success"):
+                self.gateway.clear_read_only_policy()
+                return {"success": False, "error_code": "ARM_FAILED"}
+            return {"success": True, "state": result.get("state")}
+        except Exception as exc:  # noqa: BLE001 — never leave a policy without a session
+            self.gateway.clear_read_only_policy()
+            logger.error("Failed to open read-only session", extra={"error": type(exc).__name__})
+            return {"success": False, "error_code": "ARM_FAILED"}
+
+    def close_read_only_session(self, reason: str = "Read-only session finished") -> dict[str, Any]:
+        result = self.disarm_tx(reason=reason)
+        self.gateway.clear_read_only_policy()
+        return result
 
     def disarm_tx(self, reason: str = "Operator returned system to PASSIVE mode") -> dict[str, Any]:
         """Transition SafetySupervisor back to PASSIVE mode."""
@@ -4925,6 +5032,46 @@ class UniversalCanDesktopApp:
                 self.cloud_client.store_session_token(str(tok).strip())
             elif tok == "":
                 self.cloud_client.clear_session_token()
+
+    def _scan_backend_for(self, request: ScanRequest) -> Any:
+        if request.simulator:
+            return SimulatorScanBackend(
+                request.vehicle_type, request.scenario,
+                analyze=lambda session: self._analyze_session(session, {}, is_simulating=True),
+            )
+        return LiveScanBackend(
+            new_session=self._new_scan_session,
+            read_obd=self._read_obd_codes_in_read_only_session,
+            analyze=lambda session: self._analyze_session(
+                session, self._live_telemetry_snapshot(), is_simulating=self._is_simulating),
+        )
+
+    def _new_scan_session(self, domain: DiagnosticDomain) -> VehicleSession:
+        """Fresh evidence session for one mechanic scan (the telemetry loop fills it)."""
+        session = VehicleSession(session_id=f"scan-{time.time_ns()}-{uuid.uuid4().hex[:8]}",
+                                 started_at_ns=time.monotonic_ns(), domain=domain)
+        with self._session_lock:
+            self._diag_session = session
+            self._signal_rings = {}
+            self._dialogue_session = None
+        return session
+
+    def _read_obd_codes_in_read_only_session(self) -> ObdReadOutcome:
+        """Mode 03/07/0A inside a read-only session that is always closed again."""
+        opened = self.open_read_only_session()
+        if not opened.get("success"):
+            logger.warning("Read-only session refused", extra={"error_code": opened.get("error_code")})
+            return ObdReadOutcome(status="refused")
+        try:
+            def subscribe(callback: Any) -> Any:
+                sub_id, _queue = self.router.subscribe(callback=callback, filter_ids=set(range(0x7E8, 0x7F0)))
+                return lambda: self.router.unsubscribe(sub_id)
+
+            with self._bus_lock:
+                channel_id = self.bus.channel_id
+            return asyncio.run(read_obd_fault_codes(self.gateway, subscribe, channel_id=channel_id))
+        finally:
+            self.close_read_only_session()
 
     def _park_bus_for_connection_test(self) -> None:
         """Release the physical channel so the connection test can open it exclusively."""
