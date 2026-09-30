@@ -70,12 +70,22 @@ class TestColdLoadLatency:
 
         saved = getattr(dc, "_CACHED_J1939_DB", None)
         try:
+            # Latency and memory are measured on two separate cold loads.
+            # tracemalloc hooks every allocation, so a load traced by it is
+            # several times slower than a real one (measured: 2.2-2.9 s traced
+            # on windows-latest vs. well under the budget untraced). Timing the
+            # traced load measured the profiler, not the loader.
             dc._CACHED_J1939_DB = None  # type: ignore[attr-defined]
             gc.collect()
-            tracemalloc.start()
             t0 = time.perf_counter()
             db = get_j1939_spn_database()
             cold_s = time.perf_counter() - t0
+
+            dc._CACHED_J1939_DB = None  # type: ignore[attr-defined]
+            db = None  # release the first copy before measuring retained memory
+            gc.collect()
+            tracemalloc.start()
+            db = get_j1939_spn_database()
             # T66 (2026-09-22): the metric is RETAINED memory, not `peak`.
             # `peak` includes json.load's transient parse buffers, which on
             # CPython 3.13 measure as arena-scattered fragments and are released
