@@ -10,6 +10,35 @@ Built on Python 3.12+ with a React 18 + TypeScript desktop UI (WebView2).
 **Standards:** ISO 11898-1 (CAN/CAN-FD) · SAE J1939-21/-71/-73/-81 ·
 ISO 14229-1 (UDS) · ISO 15765-2 (DoCAN) · NMEA 2000 · TMC RP1210 (A/B/C)
 
+## Product Purpose
+
+Mechanics often cannot locate a fault on their own and end up depending on an
+electronics/IT specialist. uCAN Lab exists to remove that dependency: plug the
+adapter into the vehicle or vessel, and a mechanic with **no technical
+background** should be able to find the fault and learn **what to do next**.
+Large fleets and teams are a secondary audience (multi-vehicle work, optional
+cloud telemetry).
+
+Design principles:
+
+1. **Mechanic first.** The main flow is: connect adapter → scan → plain-language
+   result → step-by-step guidance. Engineer tools (sniffer, oscilloscope, DBC,
+   signal discovery) are secondary.
+2. **No jargon.** Terms such as DTC, SPN/FMI or PGN come with a one-sentence
+   explanation; details stay one click away.
+3. **Honest diagnosis.** The copilot never fabricates measurements or
+   conclusions; when unsure it says so and states what data is missing.
+   Safety-relevant conditions (brakes, steering, high voltage, fire risk) are
+   warned about first.
+4. **Offline by default.** Workshops and vessels may have no internet; the cloud
+   is optional and used only for fleet telemetry.
+
+Current status vs. goal: the offline copilot, DTC/J1939/UDS/OBD-II knowledge
+bases and safety architecture are implemented. The fully guided mechanic
+workflow (automatic vehicle/bitrate detection, simplified UI) is the product
+direction and is **not complete yet**; today the channel and bitrate are chosen
+via CLI options or settings.
+
 ## Key Features
 
 - **Real-time telemetry** — 60 FPS live cockpit with CAN sniffer table and

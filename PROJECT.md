@@ -1,5 +1,8 @@
 # Project: Universal CAN-Bus Diagnostic & Telemetry Tool
 
+## Product Purpose
+The tool exists so that mechanics who cannot locate a fault can find it and learn what to do next **without technical knowledge and without depending on an IT/electronics specialist** (adapter in, plain-language diagnosis and step-by-step guidance out). Fleets and teams are a secondary audience. Guiding principles: mechanic-first main flow, no unexplained jargon, honest diagnosis (never fabricated; safety warnings first), offline by default. Engineer tooling (sniffer, oscilloscope, DBC, signal discovery) is kept as a secondary "expert" surface. Status: offline copilot, knowledge bases and safety core are implemented; the fully guided mechanic workflow (automatic detection, simplified UI) is the product direction and not yet complete.
+
 ## Architecture
 The Universal CAN-Bus Diagnostic & Telemetry Tool is built on a Python 3.12+ (CI: 3.12 & 3.13; `requires-python >=3.11`) Hexagonal (Ports & Adapters) architecture with strict functional safety invariants (ISO 26262 ASIL-B/D design principles):
 - **Core Domain & Models (`src/core/`)**: Immutable `CanFrame`, canonical telemetry types, error hierarchies (`PlatformError`), and port interfaces (`TxPort`, `RxSubscription`).
