@@ -1,7 +1,7 @@
 # Project: Universal CAN-Bus Diagnostic & Telemetry Tool
 
 ## Architecture
-The Universal CAN-Bus Diagnostic & Telemetry Tool is built on a Python 3.11+ Hexagonal (Ports & Adapters) architecture with strict functional safety invariants (ISO 26262 ASIL-B/D design principles):
+The Universal CAN-Bus Diagnostic & Telemetry Tool is built on a Python 3.12+ (CI: 3.12 & 3.13; `requires-python >=3.11`) Hexagonal (Ports & Adapters) architecture with strict functional safety invariants (ISO 26262 ASIL-B/D design principles):
 - **Core Domain & Models (`src/core/`)**: Immutable `CanFrame`, canonical telemetry types, error hierarchies (`PlatformError`), and port interfaces (`TxPort`, `RxSubscription`).
 - **Hardware Abstraction Layer (`src/hal/`)**: Multi-vendor CAN bus abstraction (`AbstractBus`, `PythonCanBus`, `VirtualBus`, `RP1210Client`) enforcing protected frame dispatch.
 - **Safety Subsystem (`src/safety/`)**: `TxSafetyGateway` 6-stage policy choke-point, `EmergencyStopSystem` HMAC-SHA256 reset tokens, monotonic clock watchdog leases, and the newly added `E2ESafetyValidator` / `E2ESafetyPackager`.

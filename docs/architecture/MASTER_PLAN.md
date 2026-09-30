@@ -14,6 +14,16 @@
 > depodadır (`Universal-CAN-Cloud`). Uygulama sapmaları §19.1 sonundaki
 > "Uygulama Durum Notu"ndadır.
 
+> **Uygulama Sapmaları (2026-09-30):** Bu belge hedef şartnamedir; kod ile bazı
+> yol/teknoloji farkları vardır. Güncel gerçek: UI, PySide6 yerine
+> **React 18 + TypeScript (WebView2)** ile `src/ui/frontend/` altındadır
+> (`src/ui/engineer/...` yolları uygulanmadı); hata/log modülleri
+> `src/core/errors.py`, `src/core/exceptions.py`, `src/core/logging.py` dosyalarıdır;
+> bulut istemcisi `src/security/cloud/` altındadır (`src/cloud/` yok);
+> `tests/golden_traces/` yerine veri `data/golden_traces/` altındadır.
+> PySide6/LGPLv3 maddeleri (§2.1, ADR-010) mevcut React/WebView2 mimarisi için
+> geçerli değildir; ürün lisansı için `README.md` ve https://ucanlab.org esas alınır.
+
 ---
 
 # İÇİNDEKİLER

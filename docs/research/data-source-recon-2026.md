@@ -1,3 +1,5 @@
+> **Tarihsel not (2026-09-30):** Bu rapor keşif aşamasına aittir. Bahsi geçen `data/dtc/`, `data/cases/`, `data/source-data/` gibi yollar ve ingest araçları artık yoktur; güncel veri düzeni için `data/PROVENANCE.md` ve `README.md` (Data bölümü) esas alınır.
+
 # Data-Source Recon Report — Offline CAN-Bus Diagnostic Copilot
 
 **Scope:** RECON ONLY. No files written to the repo (this report is the sole deliverable, staged under `docs/research/`; move or delete if the repo must stay untouched). No scraping executed. No crawler code written.

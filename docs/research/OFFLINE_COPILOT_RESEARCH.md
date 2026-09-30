@@ -952,7 +952,7 @@ stages:
 
   - unit: pytest tests/unit/ (hızlı)
 
-  - benchmark: pytest tests/benchmark/ --benchmark-json
+  - benchmark: pytest -m benchmark   # tests/unit/test_benchmark_*.py
 
   - regression: pytest tests/golden/ --golden-snapshot
 
@@ -960,7 +960,7 @@ stages:
 
   - integration: pytest tests/integration/ (canlı CAN sim ile)
 
-  - adversarial: pytest tests/adversarial/ (zero-day, injection)
+  - adversarial: pytest tests/unit/test_adversarial_*.py (zero-day, injection)
 
   - performance: locust / pytest-benchmark (latency SLA)
 
