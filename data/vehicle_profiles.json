@@ -1,0 +1,120 @@
+{
+  "schema_version": 1,
+  "_doc": "Mechanic-flow vehicle catalog (docs/product/MECHANIC_FLOW.md §8). coverage: enriched = maker data in this repo (DBC and/or OEM J1939 decoder); standard = generic OBD-II / J1939 / NMEA 2000 only; unsupported = no CAN diagnostics possible. src/engine/vehicle/profiles.py refuses a catalog whose 'enriched' claims are not backed by files that exist. wmi = VIN World Manufacturer Identifier prefixes (partial list; unknown prefixes are never guessed).",
+  "vehicle_types": [
+    {
+      "id": "car",
+      "label_tr": "Otomobil",
+      "label_en": "Car",
+      "sub_tr": "Benzinli, dizel, hibrit, elektrikli",
+      "sub_en": "Petrol, diesel, hybrid, electric",
+      "protocol": "OBD-II (ISO 15765-4)",
+      "socket": "obd2_16pin",
+      "bitrate_candidates": [500000, 250000],
+      "expected_traffic": [],
+      "plug_tr": "Adaptör kablosunu direksiyonun altındaki 16 pinli OBD soketine takın ve kontağı açın (motoru çalıştırmayın).",
+      "plug_en": "Plug into the 16-pin OBD socket under the steering wheel and turn the ignition on (don't start the engine).",
+      "passive_note_tr": "Otomobiller arıza kodlarını ancak sorulursa söyler; bağlantı testinde yalnız hattaki trafik kontrol edilir.",
+      "passive_note_en": "Cars only report fault codes when asked; the connection test only checks for bus traffic."
+    },
+    {
+      "id": "truck",
+      "label_tr": "Kamyon, otobüs",
+      "label_en": "Truck, bus",
+      "sub_tr": "Ağır vasıta, dizel",
+      "sub_en": "Heavy duty, diesel",
+      "protocol": "SAE J1939",
+      "socket": "deutsch_9pin",
+      "bitrate_candidates": [250000, 500000],
+      "expected_traffic": [
+        {"kind": "j1939_pgn", "pgn": 61444, "name_tr": "Motor beyni (EEC1)", "name_en": "Engine controller (EEC1)"},
+        {"kind": "j1939_pgn", "pgn": 65265, "name_tr": "Hız ve fren bilgisi (CCVS1)", "name_en": "Speed and brake info (CCVS1)"}
+      ],
+      "plug_tr": "9 pinli yeşil veya siyah Deutsch sokete takın (genelde sürücü tarafında, diz hizasında). Kontağı açın.",
+      "plug_en": "Plug into the 9-pin green or black Deutsch socket (usually driver side, knee level). Ignition on.",
+      "passive_note_tr": "Kamyon arıza kodlarını (DM1) kendiliğinden yayınlar; araca bir şey göndermeye gerek yoktur.",
+      "passive_note_en": "Trucks broadcast their fault codes (DM1) on their own; nothing needs to be sent."
+    },
+    {
+      "id": "boat",
+      "label_tr": "Tekne",
+      "label_en": "Boat",
+      "sub_tr": "NMEA 2000 ağı",
+      "sub_en": "NMEA 2000 network",
+      "protocol": "NMEA 2000",
+      "socket": "n2k_micro_c",
+      "bitrate_candidates": [250000],
+      "expected_traffic": [
+        {"kind": "n2k_pgn", "pgn": 127488, "name_tr": "Motor hızlı veri", "name_en": "Engine rapid update"},
+        {"kind": "n2k_pgn", "pgn": 127489, "name_tr": "Motor ayrıntılı veri", "name_en": "Engine dynamic data"}
+      ],
+      "plug_tr": "NMEA 2000 omurgasındaki boş bir T-bağlantısına takın. Omurga beslemesi açık olmalı.",
+      "plug_en": "Connect to a free T-connector on the NMEA 2000 backbone. Backbone power must be on.",
+      "passive_note_tr": "Tekne cihazları verilerini sürekli yayınlar; yalnız dinlemek yeterlidir.",
+      "passive_note_en": "Marine devices broadcast continuously; listening is enough."
+    },
+    {
+      "id": "construction",
+      "label_tr": "İş makinesi, traktör",
+      "label_en": "Construction, tractor",
+      "sub_tr": "J1939 ve ISOBUS",
+      "sub_en": "J1939 and ISOBUS",
+      "protocol": "SAE J1939 / ISO 11783",
+      "socket": "deutsch_9pin",
+      "bitrate_candidates": [250000],
+      "expected_traffic": [
+        {"kind": "j1939_pgn", "pgn": 61444, "name_tr": "Motor beyni (EEC1)", "name_en": "Engine controller (EEC1)"}
+      ],
+      "plug_tr": "Kabindeki 9 pinli teşhis soketine takın. Kontağı açın.",
+      "plug_en": "Plug into the 9-pin diagnostic socket in the cab. Ignition on.",
+      "passive_note_tr": "Makine arıza kodlarını (DM1) kendiliğinden yayınlar.",
+      "passive_note_en": "The machine broadcasts its fault codes (DM1) on its own."
+    }
+  ],
+  "profiles": [
+    {"id": "car_generic", "type": "car", "make": "Genel OBD-II", "label_tr": "Tüm markalar (genel OBD-II)", "label_en": "All makes (generic OBD-II)", "coverage": "standard", "note_tr": "Benzinli 2001+, dizel 2004+ araçlar. Standart arıza kodları okunur.", "note_en": "Petrol 2001+, diesel 2004+. Standard fault codes are read."},
+    {"id": "car_vw_group", "type": "car", "make": "Volkswagen Group", "label_tr": "Volkswagen Grubu (VW, Audi, Škoda, SEAT)", "label_en": "Volkswagen Group (VW, Audi, Škoda, SEAT)", "coverage": "enriched", "dbc_globs": ["passenger/vw_*.dbc"], "wmi": ["WVW", "WV1", "WV2", "WAU", "TMB", "VSS"]},
+    {"id": "car_toyota", "type": "car", "make": "Toyota", "label_tr": "Toyota / Lexus", "label_en": "Toyota / Lexus", "coverage": "enriched", "dbc_globs": ["passenger/toyota_*.dbc", "passenger/lexus_*.dbc"], "wmi": ["JT", "NMT", "SB1"]},
+    {"id": "car_ford", "type": "car", "make": "Ford", "label_tr": "Ford", "label_en": "Ford", "coverage": "enriched", "dbc_globs": ["passenger/ford_*.dbc", "passenger/FORD_*.dbc"], "wmi": ["1FA", "1FM", "1FT", "WF0", "NM0"]},
+    {"id": "car_hyundai_kia", "type": "car", "make": "Hyundai-Kia", "label_tr": "Hyundai / Kia", "label_en": "Hyundai / Kia", "coverage": "enriched", "dbc_globs": ["passenger/hyundai_*.dbc"], "wmi": ["KMH", "KNA"]},
+    {"id": "car_honda", "type": "car", "make": "Honda", "label_tr": "Honda / Acura", "label_en": "Honda / Acura", "coverage": "enriched", "dbc_globs": ["passenger/honda_*.dbc", "passenger/acura_*.dbc"], "wmi": ["JHM", "1HG", "SHH"]},
+    {"id": "car_nissan", "type": "car", "make": "Nissan", "label_tr": "Nissan", "label_en": "Nissan", "coverage": "enriched", "dbc_globs": ["passenger/nissan_*.dbc"], "wmi": ["JN1", "SJN"]},
+    {"id": "car_gm", "type": "car", "make": "GM", "label_tr": "GM (Chevrolet, Cadillac)", "label_en": "GM (Chevrolet, Cadillac)", "coverage": "enriched", "dbc_globs": ["passenger/gm_*.dbc", "passenger/cadillac_*.dbc"], "wmi": ["1G", "KL"]},
+    {"id": "car_stellantis", "type": "car", "make": "Stellantis", "label_tr": "Stellantis (Fiat, Peugeot, Citroën, Jeep)", "label_en": "Stellantis (Fiat, Peugeot, Citroën, Jeep)", "coverage": "enriched", "dbc_globs": ["passenger/fca_*.dbc", "passenger/psa_*.dbc", "passenger/stellantis_*.dbc", "passenger/chrysler_*.dbc"], "wmi": ["ZFA", "ZAR", "VF3", "VF7", "1C"]},
+    {"id": "car_mercedes", "type": "car", "make": "Mercedes-Benz", "label_tr": "Mercedes-Benz", "label_en": "Mercedes-Benz", "coverage": "enriched", "dbc_globs": ["passenger/mercedes_*.dbc"], "wmi": ["WDD", "WDB", "W1K"]},
+    {"id": "car_bmw", "type": "car", "make": "BMW", "label_tr": "BMW", "label_en": "BMW", "coverage": "enriched", "dbc_globs": ["passenger/bmw*.dbc"], "wmi": ["WBA"]},
+    {"id": "car_volvo", "type": "car", "make": "Volvo Cars", "label_tr": "Volvo (otomobil)", "label_en": "Volvo (cars)", "coverage": "enriched", "dbc_globs": ["passenger/volvo_*.dbc"], "wmi": ["YV1"]},
+    {"id": "car_mazda", "type": "car", "make": "Mazda", "label_tr": "Mazda", "label_en": "Mazda", "coverage": "enriched", "dbc_globs": ["passenger/mazda_*.dbc", "passenger/MX5ND_*.dbc"], "wmi": ["JM1", "JMZ"]},
+    {"id": "car_subaru", "type": "car", "make": "Subaru", "label_tr": "Subaru", "label_en": "Subaru", "coverage": "enriched", "dbc_globs": ["passenger/subaru_*.dbc"], "wmi": ["JF1", "JF2"]},
+    {"id": "car_tesla", "type": "car", "make": "Tesla", "label_tr": "Tesla", "label_en": "Tesla", "coverage": "enriched", "high_voltage": true, "dbc_globs": ["passenger/tesla_*.dbc"], "wmi": ["5YJ", "7SA", "LRW", "XP7"]},
+    {"id": "car_byd", "type": "car", "make": "BYD", "label_tr": "BYD", "label_en": "BYD", "coverage": "enriched", "high_voltage": true, "dbc_globs": ["passenger/byd_*.dbc"]},
+    {"id": "car_renault_dacia", "type": "car", "make": "Renault", "label_tr": "Renault / Dacia", "label_en": "Renault / Dacia", "coverage": "standard", "wmi": ["VF1", "UU1"], "note_tr": "Bu marka için özel veri yok; standart OBD-II kodları okunur.", "note_en": "No maker-specific data; standard OBD-II codes are read."},
+    {"id": "car_opel", "type": "car", "make": "Opel", "label_tr": "Opel", "label_en": "Opel", "coverage": "standard", "wmi": ["W0L", "W0V"], "note_tr": "Bu marka için güncel özel veri yok; standart OBD-II kodları okunur.", "note_en": "No current maker-specific data; standard OBD-II codes are read."},
+    {"id": "car_pre_obd", "type": "car", "make": "Pre-OBD", "label_tr": "2001 öncesi benzinli / 2004 öncesi dizel", "label_en": "Petrol before 2001 / diesel before 2004", "coverage": "unsupported", "note_tr": "Bu araçlarda standart OBD-II teşhisi yok.", "note_en": "These vehicles have no standard OBD-II diagnostics."},
+
+    {"id": "truck_generic", "type": "truck", "make": "Genel J1939", "label_tr": "Tüm markalar (genel J1939)", "label_en": "All makes (generic J1939)", "coverage": "standard", "note_tr": "Standart J1939 arıza kodları (SPN/FMI) ve canlı veriler.", "note_en": "Standard J1939 fault codes (SPN/FMI) and live data."},
+    {"id": "truck_scania", "type": "truck", "make": "Scania", "label_tr": "Scania", "label_en": "Scania", "coverage": "enriched", "oem_decoder": "Scania", "dbc_globs": ["heavy_duty/scania_*.dbc"], "wmi": ["YS2"]},
+    {"id": "truck_volvo", "type": "truck", "make": "Volvo Trucks", "label_tr": "Volvo Trucks", "label_en": "Volvo Trucks", "coverage": "enriched", "oem_decoder": "Volvo", "dbc_globs": ["heavy_duty/volvo_*.dbc"], "wmi": ["YV2", "4V4"]},
+    {"id": "truck_actros", "type": "truck", "make": "Mercedes-Benz", "label_tr": "Mercedes-Benz Actros", "label_en": "Mercedes-Benz Actros", "coverage": "enriched", "oem_decoder": "Mercedes-Benz", "dbc_globs": ["heavy_duty/actros_*.dbc"], "wmi": ["WDB"]},
+    {"id": "truck_cummins", "type": "truck", "make": "Cummins", "label_tr": "Cummins motorlu araçlar", "label_en": "Cummins-engined vehicles", "coverage": "enriched", "oem_decoder": "Cummins", "dbc_globs": ["heavy_duty/cummins_*.dbc"]},
+    {"id": "truck_detroit", "type": "truck", "make": "Detroit", "label_tr": "Detroit Diesel motorlu araçlar", "label_en": "Detroit Diesel-engined vehicles", "coverage": "enriched", "oem_decoder": "Detroit", "dbc_globs": ["heavy_duty/detroit_*.dbc"]},
+    {"id": "truck_man", "type": "truck", "make": "MAN", "label_tr": "MAN", "label_en": "MAN", "coverage": "standard", "wmi": ["WMA"]},
+    {"id": "truck_daf", "type": "truck", "make": "DAF", "label_tr": "DAF", "label_en": "DAF", "coverage": "standard", "wmi": ["XLR"]},
+    {"id": "truck_iveco", "type": "truck", "make": "Iveco", "label_tr": "Iveco", "label_en": "Iveco", "coverage": "standard", "wmi": ["ZCF"]},
+    {"id": "truck_ford_trucks", "type": "truck", "make": "Ford Trucks", "label_tr": "Ford Trucks", "label_en": "Ford Trucks", "coverage": "standard"},
+    {"id": "truck_renault", "type": "truck", "make": "Renault Trucks", "label_tr": "Renault Trucks", "label_en": "Renault Trucks", "coverage": "standard"},
+
+    {"id": "boat_n2k", "type": "boat", "make": "NMEA 2000", "label_tr": "NMEA 2000 motor ve sıvı izleme", "label_en": "NMEA 2000 engine & fluid monitoring", "coverage": "enriched", "dbc_globs": ["marine/canboat.dbc", "marine/n2k_canboat.dbc"], "note_tr": "Motor, yakıt, su ve akü değerleri.", "note_en": "Engine, fuel, water and battery values."},
+    {"id": "boat_volvo_penta", "type": "boat", "make": "Volvo Penta", "label_tr": "Volvo Penta", "label_en": "Volvo Penta", "coverage": "standard"},
+    {"id": "boat_yamaha", "type": "boat", "make": "Yamaha", "label_tr": "Yamaha dıştan takma", "label_en": "Yamaha outboard", "coverage": "standard"},
+    {"id": "boat_mercury", "type": "boat", "make": "Mercury", "label_tr": "Mercury dıştan takma", "label_en": "Mercury outboard", "coverage": "standard"},
+    {"id": "boat_nmea0183", "type": "boat", "make": "NMEA 0183", "label_tr": "Yalnız NMEA 0183 olan tekneler", "label_en": "NMEA 0183-only boats", "coverage": "unsupported", "note_tr": "NMEA 0183 bir CAN ağı değildir; bu adaptörle okunamaz.", "note_en": "NMEA 0183 is not a CAN network; this adapter cannot read it."},
+
+    {"id": "construction_generic", "type": "construction", "make": "Genel J1939", "label_tr": "Tüm markalar (genel J1939)", "label_en": "All makes (generic J1939)", "coverage": "standard"},
+    {"id": "construction_caterpillar", "type": "construction", "make": "Caterpillar", "label_tr": "Caterpillar motor", "label_en": "Caterpillar engine", "coverage": "enriched", "oem_decoder": "Caterpillar", "dbc_globs": ["heavy_duty/caterpillar_*.dbc"]},
+    {"id": "construction_isobus", "type": "construction", "make": "ISOBUS", "label_tr": "ISOBUS traktör / ekipman", "label_en": "ISOBUS tractor / implement", "coverage": "enriched", "dbc_globs": ["agriculture/isobus_*.dbc", "agriculture/j1939_isobus_*.dbc"]},
+    {"id": "construction_jcb", "type": "construction", "make": "JCB", "label_tr": "JCB", "label_en": "JCB", "coverage": "standard"},
+    {"id": "construction_komatsu", "type": "construction", "make": "Komatsu", "label_tr": "Komatsu", "label_en": "Komatsu", "coverage": "standard"},
+    {"id": "construction_hidromek", "type": "construction", "make": "Hidromek", "label_tr": "Hidromek", "label_en": "Hidromek", "coverage": "standard"}
+  ]
+}

@@ -70,6 +70,72 @@ export interface AuthLoginOutcome {
   message_en: string;
 }
 
+export type MechanicMode = 'mechanic' | 'engineer';
+
+export interface MechanicState {
+  success: boolean;
+  mode: MechanicMode | null;
+  vehicle_profile_id: string | null;
+  entitlements: AuthEntitlements;
+}
+
+export interface VehicleTypeInfo {
+  id: string;
+  label_tr: string;
+  label_en: string;
+  sub_tr: string;
+  sub_en: string;
+  protocol: string;
+  socket: string;
+  bitrate_candidates: number[];
+  plug_tr: string;
+  plug_en: string;
+  passive_note_tr: string;
+  passive_note_en: string;
+}
+
+export interface VehicleProfileInfo {
+  id: string;
+  type: string;
+  make: string;
+  label_tr: string;
+  label_en: string;
+  coverage: 'enriched' | 'standard' | 'unsupported';
+  selectable: boolean;
+  high_voltage: boolean;
+  has_oem_decoder: boolean;
+  dbc_file_count: number;
+  note_tr: string;
+  note_en: string;
+}
+
+export interface VehicleCatalogResult {
+  success: boolean;
+  types?: VehicleTypeInfo[];
+  profiles?: VehicleProfileInfo[];
+  error_code?: string;
+}
+
+export interface MechanicResult {
+  success: boolean;
+  error_code?: string;
+  message_tr?: string;
+  message_en?: string;
+  mode?: MechanicMode;
+  profile?: VehicleProfileInfo;
+  type?: VehicleTypeInfo | null;
+}
+
+export interface VehicleIdentityResult {
+  success: boolean;
+  error_code?: string;
+  status?: 'match' | 'mismatch' | 'unknown';
+  source?: 'vin' | 'j1939_name' | null;
+  detected_tr?: string;
+  detected_en?: string;
+  suggested_profile_id?: string | null;
+}
+
 export interface DeviceLoginStart {
   success: boolean;
   user_code?: string;
@@ -220,6 +286,11 @@ declare global {
         auth_start_device_login?: () => Promise<DeviceLoginStart>;
         auth_poll_device_login?: () => Promise<DeviceLoginPoll>;
         auth_cancel_device_login?: () => Promise<{ success: boolean }>;
+        mechanic_get_state?: () => Promise<MechanicState>;
+        mechanic_set_mode?: (mode: MechanicMode) => Promise<MechanicResult>;
+        vehicle_catalog?: () => Promise<VehicleCatalogResult>;
+        vehicle_select?: (profileId: string) => Promise<MechanicResult>;
+        vehicle_check_identity?: () => Promise<VehicleIdentityResult>;
         cloud_cancel_web_login?: () => Promise<{ success: boolean }>;
         cloud_logout?: () => Promise<{ success: boolean; error?: string }>;
         cloud_upload_session?: (filePath: string, vehicleVin?: string) => Promise<{ success: boolean; sessionId?: string; status?: string; error?: string }>;
@@ -725,6 +796,60 @@ export class DesktopBridge {
     if (this.isNative() && m) {
       await m();
     }
+  }
+
+  /**
+   * Mechanic flow (Aşama 4). Null outside the native shell: the flow is then
+   * skipped (dev browser), never faked.
+   */
+  public static async mechanicGetState(): Promise<MechanicState | null> {
+    const m = this.apiMethod('mechanic_get_state');
+    if (this.isNative() && m) {
+      return await m();
+    }
+    this.requireCapability('mechanic_get_state', 'mechanic mode state');
+    this.requireNativeOrDev();
+    return null;
+  }
+
+  public static async mechanicSetMode(mode: MechanicMode): Promise<MechanicResult> {
+    const m = this.apiMethod('mechanic_set_mode');
+    if (this.isNative() && m) {
+      return await m(mode);
+    }
+    this.requireCapability('mechanic_set_mode', 'mechanic mode change');
+    this.requireNativeOrDev();
+    return { success: false, error_code: 'NATIVE_BRIDGE_MISSING' };
+  }
+
+  public static async vehicleCatalog(): Promise<VehicleCatalogResult> {
+    const m = this.apiMethod('vehicle_catalog');
+    if (this.isNative() && m) {
+      return await m();
+    }
+    this.requireCapability('vehicle_catalog', 'vehicle catalog');
+    this.requireNativeOrDev();
+    return { success: false, error_code: 'NATIVE_BRIDGE_MISSING' };
+  }
+
+  public static async vehicleSelect(profileId: string): Promise<MechanicResult> {
+    const m = this.apiMethod('vehicle_select');
+    if (this.isNative() && m) {
+      return await m(profileId);
+    }
+    this.requireCapability('vehicle_select', 'vehicle selection');
+    this.requireNativeOrDev();
+    return { success: false, error_code: 'NATIVE_BRIDGE_MISSING' };
+  }
+
+  public static async vehicleCheckIdentity(): Promise<VehicleIdentityResult> {
+    const m = this.apiMethod('vehicle_check_identity');
+    if (this.isNative() && m) {
+      return await m();
+    }
+    this.requireCapability('vehicle_check_identity', 'vehicle identity check');
+    this.requireNativeOrDev();
+    return { success: false, error_code: 'NATIVE_BRIDGE_MISSING' };
   }
 
   public static async cloudCancelWebLogin(): Promise<{ success: boolean; execution_mode?: 'mock' | 'simulated' | 'native' }> {

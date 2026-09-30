@@ -50,6 +50,10 @@ from src.engine.pipeline.reassembly_pipeline import (
     j1939_protocol_response_masks,
 )
 from src.engine.router import FrameRouter
+from src.engine.vehicle.identity import compare_identity as compare_vehicle_identity
+from src.engine.vehicle.profiles import CatalogError as VehicleCatalogError
+from src.engine.vehicle.profiles import default_catalog as default_vehicle_catalog
+from src.engine.vehicle.profiles import profile_dict as vehicle_profile_dict
 from src.hal.base import BusState
 from src.hal.drivers.pcan_kvaser import PythonCanBus
 from src.hal.replay.player import ReplayBus
@@ -104,6 +108,8 @@ from src.security.cloud.desktop_auth import (
 from src.security.cloud.license_flow import LicenseFlow
 from src.security.cloud.telemetry_uploader import TelemetryUploader, UploadProgress
 from src.security.hwid.collector import generate_hardware_fingerprint
+from src.ui.mechanic_prefs import MODES as MECHANIC_MODES
+from src.ui.mechanic_prefs import MechanicPrefsStore
 
 logger = get_logger("app.desktop")
 
@@ -650,6 +656,11 @@ class DesktopApiBridge:
         "auth_start_device_login": "config",
         "auth_poll_device_login": "config",
         "auth_cancel_device_login": "config",
+        "mechanic_get_state": "read",
+        "mechanic_set_mode": "config",
+        "vehicle_catalog": "read",
+        "vehicle_select": "config",
+        "vehicle_check_identity": "read",
         "cloud_start_web_login": "config",
         "cloud_check_web_login_status": "read",
         "cloud_cancel_web_login": "config",
@@ -1483,6 +1494,83 @@ class DesktopApiBridge:
         self.app._device_login_ticket = None
         return {"success": True}
 
+    # ------------------------------------------------------------------
+    # Mechanic flow (Aşama 4): usage mode + vehicle selection
+    # ------------------------------------------------------------------
+
+    def _entitlements(self) -> dict[str, Any]:
+        return dict(self.auth_get_state()["license"]["entitlements"])
+
+    def mechanic_get_state(self) -> dict[str, Any]:
+        """Remembered mode + vehicle, and what the license allows."""
+        prefs = self.app.mechanic_prefs.load()
+        return {
+            "success": True,
+            "mode": prefs.mode,
+            "vehicle_profile_id": prefs.vehicle_profile_id,
+            "entitlements": self._entitlements(),
+        }
+
+    def mechanic_set_mode(self, mode: str) -> dict[str, Any]:
+        """Remember "mechanic" or "engineer". Engineer needs a tier that includes it."""
+        if mode not in MECHANIC_MODES:
+            return {"success": False, "error_code": "INVALID_MODE"}
+        if mode == "engineer" and not self._entitlements().get("engineer"):
+            return {
+                "success": False,
+                "error_code": "ENGINEER_NOT_ALLOWED",
+                "message_tr": "Mühendis modu paketinizde yok. ucanlab.org'dan paketinizi yükseltebilirsiniz.",
+                "message_en": "Engineer mode is not in your plan. You can upgrade on ucanlab.org.",
+            }
+        prefs = self.app.mechanic_prefs.update(mode=mode)
+        return {"success": True, "mode": prefs.mode}
+
+    def vehicle_catalog(self) -> dict[str, Any]:
+        """Vehicle types and profiles with honest coverage labels."""
+        try:
+            return {"success": True, **default_vehicle_catalog().as_dict()}
+        except VehicleCatalogError as exc:
+            logger.error("Vehicle catalog failed validation", extra={"error": str(exc)})
+            return {"success": False, "error_code": "CATALOG_INVALID"}
+
+    def vehicle_select(self, profile_id: str) -> dict[str, Any]:
+        """Remember the vehicle; unsupported profiles cannot be selected."""
+        if not isinstance(profile_id, str) or len(profile_id) > 64:
+            return {"success": False, "error_code": "INVALID_PROFILE"}
+        catalog = default_vehicle_catalog()
+        profile = catalog.profile(profile_id)
+        if profile is None:
+            return {"success": False, "error_code": "INVALID_PROFILE"}
+        if not profile.selectable:
+            return {"success": False, "error_code": "PROFILE_UNSUPPORTED",
+                    "message_tr": profile.note_tr, "message_en": profile.note_en}
+        self.app.mechanic_prefs.update(vehicle_profile_id=profile.id)
+        vtype = catalog.type_by_id(profile.type)
+        return {
+            "success": True,
+            "profile": vehicle_profile_dict(profile),
+            "type": next(t for t in catalog.as_dict()["types"] if t["id"] == profile.type) if vtype else None,
+        }
+
+    def vehicle_check_identity(self) -> dict[str, Any]:
+        """Compare the selected vehicle with the VIN / J1939 maker the bus reported."""
+        prefs = self.app.mechanic_prefs.load()
+        catalog = default_vehicle_catalog()
+        profile = catalog.profile(prefs.vehicle_profile_id or "")
+        if profile is None:
+            return {"success": False, "error_code": "NO_VEHICLE_SELECTED"}
+        vin = getattr(self.app, "_detected_vin", None)
+        codes: list[int] = []
+        claim_status = getattr(self.app, "j1939_get_address_claim_status", None)
+        if callable(claim_status):
+            try:
+                nodes = (claim_status() or {}).get("nodes", {})
+                codes = [int(n["manufacturer_code"]) for n in nodes.values() if "manufacturer_code" in n]
+            except Exception:  # noqa: BLE001 — identity is advisory; never break the flow
+                codes = []
+        result = compare_vehicle_identity(catalog, profile, vin=vin, j1939_manufacturer_codes=codes)
+        return {"success": True, **result.as_dict()}
+
     def cloud_logout(self) -> dict[str, Any]:
         """Log out current user and clear local credentials."""
         try:
@@ -2046,6 +2134,8 @@ class UniversalCanDesktopApp:
         )
         self.device_login = DeviceCodeLogin(self.cloud_client)
         self._device_login_ticket: DeviceLoginTicket | None = None
+        # Aşama 4: remembered usage mode + vehicle (per-user app data root).
+        self.mechanic_prefs = MechanicPrefsStore(_app_data_root() / "mechanic_prefs.json")
         self.telemetry_uploader = TelemetryUploader(self.cloud_client, progress_callback=self._on_upload_progress)
         self._web_login_lock = threading.Lock()
         self._web_login_server: HTTPServer | None = None

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { KeyRound, Laptop, Loader2, ShieldCheck, WifiOff } from 'lucide-react';
 import { AuthLicenseState, AuthLoginOutcome, DesktopBridge, DeviceLoginStart } from '../../services/bridge';
+import { BTN_PRIMARY, BTN_SECONDARY, L, messageOf } from './text';
 
 /**
  * Mechanic-flow start gate (Aşama 3, docs/product/MECHANIC_FLOW.md §3.2-3.3).
@@ -12,29 +13,7 @@ import { AuthLicenseState, AuthLoginOutcome, DesktopBridge, DeviceLoginStart } f
  * a short code approved on ucanlab.org/cihaz.
  */
 
-const BTN_PRIMARY =
-  'inline-flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-4 py-3 text-sm font-semibold text-bg-app transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
-const BTN_SECONDARY =
-  'inline-flex w-full items-center justify-center gap-2 rounded-lg border border-border-strong px-4 py-3 text-sm font-semibold text-text-hi transition-colors hover:border-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
-
 type Phase = 'checking' | 'ready' | 'login' | 'browser' | 'code' | 'finishing';
-
-const lang = (): 'tr' | 'en' => {
-  try {
-    const saved = localStorage.getItem('ucanlab.lang');
-    if (saved === 'en' || saved === 'tr') return saved;
-  } catch {
-    /* storage unavailable: default below */
-  }
-  return 'tr';
-};
-
-const L = (tr: string, en: string): string => (lang() === 'en' ? en : tr);
-
-function messageOf(state: { message_tr?: string; message_en?: string } | null | undefined): string {
-  if (!state) return '';
-  return (lang() === 'en' ? state.message_en : state.message_tr) || '';
-}
 
 export const SignInGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [phase, setPhase] = useState<Phase>('checking');

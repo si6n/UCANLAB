@@ -26,6 +26,18 @@
 | W3-16 | Hesap rolü "Görüntüleyici" iken giriş. | "Hesap rolünüz cihaz eklemeye izin vermiyor…" mesajı. | ☐ |
 | W3-17 | 47820-47822 portlarından birini başka bir programla meşgul et, girişi dene. | Bir sonraki boş porta geçer; üçü de doluysa doğrudan cihaz koduna düşer. | ☐ |
 
+## Aşama 4 — Mod ve araç seçimi (Windows + gerçek araç)
+
+| # | Adım | Beklenen | Durum |
+|---|---|---|---|
+| W4-1 | Kurulu uygulamada ilk açılış (starter lisans). | "Uygulamayı nasıl kullanacaksınız?" çıkar; Mühendis kartı kilitli ve "Bu mod paketinizde yok" yazar. | ☐ |
+| W4-2 | Tamirci'yi seç, uygulamayı kapat-aç. | Mod sorusu tekrar gelmez; "Son seçilen araç" kartı görünür. `%APPDATA%` altında `mechanic_prefs.json` oluşmuştur. | ☐ |
+| W4-3 | Pro lisansla Ayarlar › Donanım › Kullanım modu › "Mühendis moduna geç". | Uzman ekranları açılır; tekrar açılışta Mühendis hatırlanır. | ☐ |
+| W4-4 | Kurulu (PyInstaller) sürümde araç listesini aç. | Liste dolu gelir (katalog paketlenmiş); `CATALOG_INVALID` görülmez. | ☐ |
+| W4-5 | Gerçek bir J1939 kamyonda (ör. Scania) dinleme bağlantısı + adres talepleri görüldükten sonra yanlış marka (Volvo) seçili iken kimlik kontrolü. | "Seçtiğiniz araç ile aracın kendisi uyuşmuyor… Scania" uyarısı ve "Scania olarak değiştir" düğmesi. | ☐ |
+| W4-6 | VIN yayını (PGN 65260) olan kamyonda doğru marka seçili iken kimlik kontrolü. | Uyarı çıkmaz; log'da VIN yalnız maskeli (`YS2**********1234`) görünür. | ☐ |
+| W4-7 | Kimlik bilgisi yayınlamayan araçta (otomobil, OBD isteği yapılmadan). | Uyarı çıkmaz ("bilinmiyor" sessiz kalır); tahmin üretilmez. | ☐ |
+
 ## Sonraki aşamalar
 
-Aşama 5 (adaptör, soket, dinleme testi) ve Aşama 7 (uçtan uca) maddeleri ilgili aşamalarda bu dosyaya eklenecek.
+Aşama 5 (adaptör, soket, dinleme testi), Aşama 6 ve Aşama 7 (uçtan uca) maddeleri ilgili aşamalarda bu dosyaya eklenecek.
