@@ -1,6 +1,6 @@
 # Signal Discovery & Evidence Engine — Uygulama Tasarım Önerisi
 
-Hedef yol: `src/engine/discovery/` — **ANA PROJEYE HENÜZ YAZILMAZ**; onay sonrası uygulanır.
+Hedef yol: `src/engine/discovery/` — **UYGULANDI** (tasarım belgesi olarak korunur; güncel davranış için kod esastır).
 Uyumluluk: MASTER_PLAN BÖLÜM 7 & 18; mevcut FrameRouter / DbcSignalDecoder / CanFrame ile
 birebir uyumlu (bkz. metodoloji_ve_gap.md §1).
 

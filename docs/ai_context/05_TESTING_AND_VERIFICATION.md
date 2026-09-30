@@ -24,12 +24,13 @@ Bu kart, projede yeni kod yazılırken veya refactor yapılırken testlerin nas�
 
 | Dizin | Kapsam | Örnek Dosyalar |
 |---|---|---|
-| `tests/unit/core/` | Core Domain, CanFrame, PlatformError | `test_frame.py`, `test_types.py` |
-| `tests/unit/safety/` | Safety Gateway, E-Stop, Watchdog | `test_safety_gateway.py`, `test_estop.py` |
-| `tests/unit/protocols/` | J1939 TP, UDS Client, OBD Poller | `test_j1939_transport.py`, `test_uds_client.py` |
-| `tests/unit/hal/` | AbstractBus, VirtualBus, RP1210 | `test_virtual_bus.py`, `test_rp1210.py` |
-| `tests/property/` | Hypothesis tabanlı rastgele veri fuzzer'ları | `test_crc_properties.py`, `test_buffer_properties.py` |
-| `tests/e2e/` | Uçtan uca entegrasyon ve yük testleri | `test_e2e_pipeline.py`, `test_e2e_diagnostics.py` |
+| `tests/unit/` | Düz dizin: core, protokoller, HAL, AI copilot, veri bütünlüğü, anti-tamper, bulut istemcisi, adversarial ve benchmark testleri (`test_*.py`) | `test_can_frame.py`, `test_dbc_decoder.py`, `test_ai_copilot.py`, `test_data_integrity.py`, `test_benchmark_ai_copilot.py` |
+| `tests/safety/` | TX choke-point mimarisi, AI-TX izolasyonu, link-fault E-Stop, E2E safety audit | `test_tx_chokepoint_architecture.py`, `test_ai_tx_isolation.py` |
+| `tests/integration/` | Benchmark vektörleri | `test_benchmark_vectors.py` |
+| `tests/e2e/` | Uçtan uca güvenlik/taşıma/teşhis senaryoları | `test_phase1_e2e.py`, `test_safety_wiring.py` |
+| `tests/fixtures/` | Ortak test verisi | — |
+
+> Benchmark testleri `benchmark` marker'ı ile işaretlidir (`pytest -m "not benchmark"` ile atlanır).
 
 ## 3. Test Koşturma Komutları
 
@@ -44,8 +45,11 @@ pytest -v
 ruff check .
 ruff format --check .
 
-# Hypothesis property-based testleri
-pytest tests/property/
+# Yalnız safety testleri
+pytest tests/safety/
+
+# Benchmark'ları atla (hızlı yineleme)
+pytest -m "not benchmark"
 ```
 
 ## 4. AI İçin Test Kuralları

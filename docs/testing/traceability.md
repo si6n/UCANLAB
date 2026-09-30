@@ -1,9 +1,9 @@
 # Risk → Test İzlenebilirlik Matrisi
 
 Her remediation risk maddesinin (F-xx) hangi test dosyası ve test adıyla
-karşılığı olduğunu gösterir. CI'da P0 satırlarının %100 karşılığı zorunludur:
-`pytest --collect-only` çıktısı bu matristeki test adlarını içermiyorsa
-pipeline başarısız sayılır.
+karşılığı olduğunu gösterir. P0 satırlarının karşılığı manuel olarak korunur; matrisi
+`pytest --collect-only` çıktısıyla karşılaştıran otomatik bir CI kontrolü
+şu an **yoktur** (yapılması gereken iş).
 
 Bakım kuralı: yeni bir F maddesi eklendiğinde veya bir test yeniden
 adlandırıldığında bu tablo aynı PR'da güncellenir.

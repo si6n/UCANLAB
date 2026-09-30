@@ -80,7 +80,7 @@ python scripts/build_nuitka.py    # Nuitka C-level compiled build
 ## Testing & Quality
 
 ```bash
-pytest -v                         # full suite (1000+ tests)
+pytest -v                         # full suite (3,500+ test functions)
 ruff check .                      # lint / static analysis
 ```
 
@@ -103,6 +103,28 @@ decoders, exporters, discovery), `src/protocols` (J1939, UDS, N2K, Volvo),
 `src/safety` (E-Stop, gateway, watchdog, state machine), `src/security`
 (Ed25519 licensing, HWID, anti-tamper, cloud client), `src/hal` (drivers),
 `src/ui` (desktop bridge + React frontend), `tests/` (pytest suite).
+
+## Documentation
+
+| Path | Content |
+| :--- | :--- |
+| `PROJECT.md` | Architecture summary and feature inventory |
+| `docs/architecture/MASTER_PLAN.md` | Architecture specification, kept in sync with the code (section numbers are referenced from source) |
+| `docs/adrs/` | Architecture decision records (hexagonal layers, TX safety choke-point) |
+| `docs/OFFLINE_AI_ENGINE.md` | Offline diagnostic copilot design |
+| `docs/ai_context/` | Layered architecture, safety invariants, protocols, OEM matrix, testing guide |
+| `docs/protocols/`, `docs/specs/` | J1939 / UDS references and subsystem specifications |
+| `docs/runbook/` | Operational procedures (e.g. E-Stop reset) |
+| `docs/audit/` | Data-integrity audit reports |
+| `data/PROVENANCE.md` | Origin and licensing of every shipped data set |
+
+## Data
+
+`data/` ships the offline knowledge base used by the copilot and decoders:
+`diagnostics/` (DTC, J1939 SPN/FMI, PID, Mode 06, symptoms, root-cause graph,
+thresholds), `dbc/` (curated DBC packs by segment), `knowledge/`,
+`golden_traces/` and `traces/`. Each data set is documented in its
+`PROVENANCE.md` / `licenses/` entry.
 
 ## License
 

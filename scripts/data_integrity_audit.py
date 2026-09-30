@@ -3,7 +3,7 @@
 
 Amaç: `data/` altındaki bilgi tabanlarında sessiz veri kaybını yakalamak.
 Bu aracın ilk koşumu 2026-09-19'da `f8bb892` commit'inin üç CSV ikizinin veri
-satırlarını boşalttığını ortaya çıkardı (bkz. docs/audit/data_integrity_2026-09-19.md).
+satırlarını boşalttığını ortaya çıkardı (bkz. docs/audit/data_integrity_2026-09-26.md).
 
 Denetimler:
     1. json_assets          : her JSON ayrışır mı, kayıt sayısı nedir

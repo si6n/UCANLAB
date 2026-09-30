@@ -1,7 +1,7 @@
 # Project: Universal CAN-Bus Diagnostic & Telemetry Tool
 
 ## Architecture
-The Universal CAN-Bus Diagnostic & Telemetry Tool is built on a Python 3.11+ Hexagonal (Ports & Adapters) architecture with strict functional safety invariants (ISO 26262 ASIL-B/D design principles):
+The Universal CAN-Bus Diagnostic & Telemetry Tool is built on a Python 3.12+ (CI: 3.12 & 3.13; `requires-python >=3.11`) Hexagonal (Ports & Adapters) architecture with strict functional safety invariants (ISO 26262 ASIL-B/D design principles):
 - **Core Domain & Models (`src/core/`)**: Immutable `CanFrame`, canonical telemetry types, error hierarchies (`PlatformError`), and port interfaces (`TxPort`, `RxSubscription`).
 - **Hardware Abstraction Layer (`src/hal/`)**: Multi-vendor CAN bus abstraction (`AbstractBus`, `PythonCanBus`, `VirtualBus`, `RP1210Client`) enforcing protected frame dispatch.
 - **Safety Subsystem (`src/safety/`)**: `TxSafetyGateway` 6-stage policy choke-point, `EmergencyStopSystem` HMAC-SHA256 reset tokens, monotonic clock watchdog leases, and the newly added `E2ESafetyValidator` / `E2ESafetyPackager`.
@@ -12,30 +12,30 @@ The Universal CAN-Bus Diagnostic & Telemetry Tool is built on a Python 3.11+ Hex
 - **Engine Subsystem (`src/engine/`)**: Pub-Sub `FrameRouter`, LRU-cached `DbcSignalDecoder` with J1939 PGN mask matching, `BinaryRingBuffer`, `RollingDiskBuffer` (HMAC & Zstd), and the newly added `ReassemblyPipeline` bridging multi-packet streams to decoders.
 
 ## Feature Inventory
-| # | Feature | Description | Milestone | Source |
-|---|---|---|---|---|
-| 1 | OBD-II Mode 01 PID Database | Full registry of SAE J1979 Mode 01 PIDs (0x00..0xFF), bitmask decoders, formulas, scaling, units, min/max | M1 | ORIGINAL_REQUEST §R1 |
-| 2 | UDS ISO 14229 DID Knowledge Base | Standard DIDs (0xF190 VIN, 0xF188 SW, 0xF191 HW, 0xF187 Part No, 0xF197 System Name, 0xF1A0..0xF1AF, battery voltage) | M1 | ORIGINAL_REQUEST §R1 |
-| 3 | Active Diagnostic Poller & Scheduler | Configurable periodic poller (10Hz, 5Hz, 1Hz), prioritization, TxPort integration, request/response state machine | M1 | ORIGINAL_REQUEST §R1 |
-| 4 | Diagnostic Physical Value Converter | High-precision conversion engine mapping raw diagnostic byte buffers to validated physical telemetry values | M1 | ORIGINAL_REQUEST §R1 |
-| 5 | J1939 Proprietary A/B Mapping Engine | PGN 61184 (0xEF00 Proprietary A) and PGN 65280-65535 (0xFF00-0xFFFF Proprietary B) dispatch and matching | M2 | ORIGINAL_REQUEST §R2 |
-| 6 | Cummins OEM J1939 Decoders | DPF soot mass, active/inhibit regen, DEF dosing rate & tank level, cylinder balancing, fuel rail pressure | M2 | ORIGINAL_REQUEST §R2 |
-| 7 | Caterpillar OEM J1939 Decoders | Cat engine diagnostics, cylinder cutout, compression brake/retarder stages, fuel delivery trimming | M2 | ORIGINAL_REQUEST §R2 |
-| 8 | Scania OEM J1939 Decoders | Scania EMS/AdBlue dosing, DPF soot mass, retarder braking torque steps, cylinder balance | M2 | ORIGINAL_REQUEST §R2 |
-| 9 | Volvo OEM J1939 Decoders | Volvo V-MAC / EMS / D13 DPF soot mass, DEF dosing & tank level, VEB engine brake retarder stages | M2 | ORIGINAL_REQUEST §R2 |
-| 10 | Detroit Diesel OEM J1939 Decoders | DD13/DD15 DPF soot & ash accumulation, DEF dosing pressure/quality, cylinder power balance | M2 | ORIGINAL_REQUEST §R2 |
-| 11 | Mercedes Actros OEM J1939 Decoders | OM471/Actros retarder braking levels, AdBlue injection rate, DPF soot load, cylinder trimming | M2 | ORIGINAL_REQUEST §R2 |
-| 12 | J1939 TP BAM & RTS/CTS Transport | SAE J1939-21 multi-packet transport (PGN 60416 TP.CM & PGN 60160 TP.DT), BAM, RTS/CTS CMDT state machines | M3 | ORIGINAL_REQUEST §R3 |
-| 13 | ISO 15765-2 DoCAN Transport | Multi-frame ISO-TP (SF, FF, CF, FC), Standard 11-bit & Extended 29-bit addressing, Flow Control with STmin pacing | M3 | ORIGINAL_REQUEST §R3 |
-| 14 | Auto-Reassembly Pipeline Engine | Deterministic, thread-safe pipeline subscribing to FrameRouter, reassembling multi-packet frames to DbcSignalDecoder | M3 | ORIGINAL_REQUEST §R3 |
-| 15 | Multi-DTC DM1 & VIN Reassembly | Reassembly and signal parsing of multi-packet broadcast messages (multi-DTC DM1, VIN PGN 65260; Component Identification PGN 65259 handled separately) | M3 | ORIGINAL_REQUEST §R3 |
-| 16 | Mathematical CRC Foundation | Precomputed 256-entry lookup tables and algorithms for CRC-8 Polynomial 0x1D (J1850 / P1) and 0x2F (P2 / MQB) | M4 | ORIGINAL_REQUEST §R4 |
-| 17 | AUTOSAR E2E Profile 1 & 2 Engine | AUTOSAR E2E Profile 1 (Data ID, counter 0..14/15, CRC 0x1D) and Profile 2 (Data ID list, counter 0..15, CRC 0x2F) | M4 | ORIGINAL_REQUEST §R4 |
-| 18 | CRC-8 SAE J1850 Engine | Standard SAE J1850 CRC-8 calculation, verification, and frame error detection | M4 | ORIGINAL_REQUEST §R4 |
-| 19 | OEM Checksum & Rolling Counter Profiles | Toyota (modulo-256 + counter), VAG MQB (CRC-8 0x2F + counter), Volvo (checksum/counter) safety profiles | M4 | ORIGINAL_REQUEST §R4 |
-| 20 | Rx E2E Safety Validator | Stateful validation engine detecting frame corruption, sequence jumps, repeated frames, and CRC mismatches | M4 | ORIGINAL_REQUEST §R4 |
-| 21 | Tx E2E Safety Packager | Outgoing frame safety wrapper stamping rolling counters and computing CRC bytes before TxPort dispatch | M4 | ORIGINAL_REQUEST §R4 |
-| 22 | Comprehensive E2E & Unit Test Suite | 100% test pass for the full suite (1000+ unit/e2e tests) + comprehensive new test suites covering Tiers 1-4 | M5 | ORIGINAL_REQUEST §R5/AC5 |
+| # | Feature | Description | Milestone |
+|---|---|---|---|
+| 1 | OBD-II Mode 01 PID Database | Full registry of SAE J1979 Mode 01 PIDs (0x00..0xFF), bitmask decoders, formulas, scaling, units, min/max | M1 |
+| 2 | UDS ISO 14229 DID Knowledge Base | Standard DIDs (0xF190 VIN, 0xF188 SW, 0xF191 HW, 0xF187 Part No, 0xF197 System Name, 0xF1A0..0xF1AF, battery voltage) | M1 |
+| 3 | Active Diagnostic Poller & Scheduler | Configurable periodic poller (10Hz, 5Hz, 1Hz), prioritization, TxPort integration, request/response state machine | M1 |
+| 4 | Diagnostic Physical Value Converter | High-precision conversion engine mapping raw diagnostic byte buffers to validated physical telemetry values | M1 |
+| 5 | J1939 Proprietary A/B Mapping Engine | PGN 61184 (0xEF00 Proprietary A) and PGN 65280-65535 (0xFF00-0xFFFF Proprietary B) dispatch and matching | M2 |
+| 6 | Cummins OEM J1939 Decoders | DPF soot mass, active/inhibit regen, DEF dosing rate & tank level, cylinder balancing, fuel rail pressure | M2 |
+| 7 | Caterpillar OEM J1939 Decoders | Cat engine diagnostics, cylinder cutout, compression brake/retarder stages, fuel delivery trimming | M2 |
+| 8 | Scania OEM J1939 Decoders | Scania EMS/AdBlue dosing, DPF soot mass, retarder braking torque steps, cylinder balance | M2 |
+| 9 | Volvo OEM J1939 Decoders | Volvo V-MAC / EMS / D13 DPF soot mass, DEF dosing & tank level, VEB engine brake retarder stages | M2 |
+| 10 | Detroit Diesel OEM J1939 Decoders | DD13/DD15 DPF soot & ash accumulation, DEF dosing pressure/quality, cylinder power balance | M2 |
+| 11 | Mercedes Actros OEM J1939 Decoders | OM471/Actros retarder braking levels, AdBlue injection rate, DPF soot load, cylinder trimming | M2 |
+| 12 | J1939 TP BAM & RTS/CTS Transport | SAE J1939-21 multi-packet transport (PGN 60416 TP.CM & PGN 60160 TP.DT), BAM, RTS/CTS CMDT state machines | M3 |
+| 13 | ISO 15765-2 DoCAN Transport | Multi-frame ISO-TP (SF, FF, CF, FC), Standard 11-bit & Extended 29-bit addressing, Flow Control with STmin pacing | M3 |
+| 14 | Auto-Reassembly Pipeline Engine | Deterministic, thread-safe pipeline subscribing to FrameRouter, reassembling multi-packet frames to DbcSignalDecoder | M3 |
+| 15 | Multi-DTC DM1 & VIN Reassembly | Reassembly and signal parsing of multi-packet broadcast messages (multi-DTC DM1, VIN PGN 65260; Component Identification PGN 65259 handled separately) | M3 |
+| 16 | Mathematical CRC Foundation | Precomputed 256-entry lookup tables and algorithms for CRC-8 Polynomial 0x1D (J1850 / P1) and 0x2F (P2 / MQB) | M4 |
+| 17 | AUTOSAR E2E Profile 1 & 2 Engine | AUTOSAR E2E Profile 1 (Data ID, counter 0..14/15, CRC 0x1D) and Profile 2 (Data ID list, counter 0..15, CRC 0x2F) | M4 |
+| 18 | CRC-8 SAE J1850 Engine | Standard SAE J1850 CRC-8 calculation, verification, and frame error detection | M4 |
+| 19 | OEM Checksum & Rolling Counter Profiles | Toyota (modulo-256 + counter), VAG MQB (CRC-8 0x2F + counter), Volvo (checksum/counter) safety profiles | M4 |
+| 20 | Rx E2E Safety Validator | Stateful validation engine detecting frame corruption, sequence jumps, repeated frames, and CRC mismatches | M4 |
+| 21 | Tx E2E Safety Packager | Outgoing frame safety wrapper stamping rolling counters and computing CRC bytes before TxPort dispatch | M4 |
+| 22 | Comprehensive E2E & Unit Test Suite | 100% test pass for the full suite (1000+ unit/e2e tests) + comprehensive new test suites covering Tiers 1-4 | M5 |
 | 23 | Cloud Client — HTTP Transport & Credential Store | DPAPI-backed session/device token storage, retrying HTTP transport (429/5xx backoff, Retry-After), health check (MASTER_PLAN §3.2) | M6 | MASTER_PLAN Task 5.3/5.4 |
 | 24 | Cloud Client — Device Registration & Ed25519 License Activation | HWID registration, device_token acquisition, canonical ticket verification with embedded public key (13-field schema, iss/aud/exp) | M6 | MASTER_PLAN §3.1 |
 | 25 | Cloud Client — Resumable Telemetry Upload | 5 MB chunked MDF4 upload (sessions -> chunks -> complete), SHA-256 declaration, progress callbacks, resume support | M6 | MASTER_PLAN §16 |
