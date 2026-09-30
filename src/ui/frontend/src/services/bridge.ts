@@ -35,6 +35,63 @@ export interface CloudStatus {
   error?: string;
 }
 
+// Mechanic flow sign-in (Aşama 3) — mirrors src/security/cloud/desktop_auth.py
+export interface AuthEntitlements {
+  tier: string;
+  mechanic: boolean;
+  engineer: boolean;
+  active_tests: boolean;
+  dtc_clear: boolean;
+}
+
+export interface AuthLicenseState {
+  status: 'active' | 'missing' | 'expired' | 'clock_problem' | 'invalid';
+  entitlements: AuthEntitlements;
+  offline_seconds_left: number;
+  offline_days_left: number;
+  error_code: string | null;
+  message_tr: string;
+  message_en: string;
+}
+
+export interface AuthState {
+  success: boolean;
+  signedIn: boolean;
+  loginRequired: boolean;
+  license: AuthLicenseState;
+  refreshed?: boolean;
+}
+
+export interface AuthLoginOutcome {
+  status: 'ready' | 'no_license' | 'error';
+  license: AuthLicenseState;
+  error_code: string | null;
+  message_tr: string;
+  message_en: string;
+}
+
+export interface DeviceLoginStart {
+  success: boolean;
+  user_code?: string;
+  verification_uri?: string;
+  verification_uri_complete?: string;
+  expires_in?: number;
+  interval?: number;
+  error_code?: string;
+  message_tr?: string;
+  message_en?: string;
+}
+
+export interface DeviceLoginPoll {
+  success: boolean;
+  status: 'idle' | 'pending' | 'completed' | 'denied' | 'expired' | 'failed';
+  interval?: number;
+  login?: AuthLoginOutcome | null;
+  error_code?: string;
+  message_tr?: string;
+  message_en?: string;
+}
+
 export interface CloudUploadProgress {
   sessionId?: string;
   totalChunks: number;
@@ -157,7 +214,12 @@ declare global {
         cloud_get_status?: () => Promise<CloudStatus>;
         cloud_register_device?: (deviceName?: string) => Promise<{ success: boolean; deviceId?: string; resetsRemaining?: number; error?: string }>;
         cloud_start_web_login?: () => Promise<{ success: boolean; login_url?: string; port?: number; error?: string }>;
-        cloud_check_web_login_status?: () => Promise<{ success: boolean; status: 'idle' | 'pending' | 'completed' | 'error' | 'cancelled'; user?: any; subscription?: any; error?: string }>;
+        cloud_check_web_login_status?: () => Promise<{ success: boolean; status: 'idle' | 'pending' | 'completed' | 'error' | 'cancelled'; user?: any; subscription?: any; error?: string; login?: AuthLoginOutcome | null }>;
+        auth_get_state?: () => Promise<AuthState>;
+        auth_refresh_license?: () => Promise<AuthState>;
+        auth_start_device_login?: () => Promise<DeviceLoginStart>;
+        auth_poll_device_login?: () => Promise<DeviceLoginPoll>;
+        auth_cancel_device_login?: () => Promise<{ success: boolean }>;
         cloud_cancel_web_login?: () => Promise<{ success: boolean }>;
         cloud_logout?: () => Promise<{ success: boolean; error?: string }>;
         cloud_upload_session?: (filePath: string, vehicleVin?: string) => Promise<{ success: boolean; sessionId?: string; status?: string; error?: string }>;
@@ -613,7 +675,7 @@ export class DesktopBridge {
     return { success: false, error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
   }
 
-  public static async cloudCheckWebLoginStatus(): Promise<{ success: boolean; status: 'idle' | 'pending' | 'completed' | 'error' | 'cancelled'; user?: any; subscription?: any; error?: string; execution_mode?: 'mock' | 'simulated' | 'native' }> {
+  public static async cloudCheckWebLoginStatus(): Promise<{ success: boolean; status: 'idle' | 'pending' | 'completed' | 'error' | 'cancelled'; user?: any; subscription?: any; error?: string; login?: AuthLoginOutcome | null; execution_mode?: 'mock' | 'simulated' | 'native' }> {
     const m = this.apiMethod('cloud_check_web_login_status');
     if (this.isNative() && m) {
       const res = await m();
@@ -622,6 +684,47 @@ export class DesktopBridge {
     this.requireCapability('cloud_check_web_login_status', 'cloud check web login status');
     this.requireNativeOrDev();
     return { success: false, status: 'error', error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
+  }
+
+  /**
+   * Mechanic-flow sign-in state. Returns null outside the native shell (dev
+   * browser): the start gate is then skipped, never faked as "licensed".
+   */
+  public static async authGetState(refreshOnline = false): Promise<AuthState | null> {
+    const m = this.apiMethod(refreshOnline ? 'auth_refresh_license' : 'auth_get_state');
+    if (this.isNative() && m) {
+      return await m();
+    }
+    this.requireCapability(refreshOnline ? 'auth_refresh_license' : 'auth_get_state', 'sign-in state');
+    this.requireNativeOrDev();
+    return null;
+  }
+
+  public static async authStartDeviceLogin(): Promise<DeviceLoginStart> {
+    const m = this.apiMethod('auth_start_device_login');
+    if (this.isNative() && m) {
+      return await m();
+    }
+    this.requireCapability('auth_start_device_login', 'code sign-in');
+    this.requireNativeOrDev();
+    return { success: false, error_code: 'NATIVE_BRIDGE_MISSING' };
+  }
+
+  public static async authPollDeviceLogin(): Promise<DeviceLoginPoll> {
+    const m = this.apiMethod('auth_poll_device_login');
+    if (this.isNative() && m) {
+      return await m();
+    }
+    this.requireCapability('auth_poll_device_login', 'code sign-in poll');
+    this.requireNativeOrDev();
+    return { success: false, status: 'failed', error_code: 'NATIVE_BRIDGE_MISSING' };
+  }
+
+  public static async authCancelDeviceLogin(): Promise<void> {
+    const m = this.apiMethod('auth_cancel_device_login');
+    if (this.isNative() && m) {
+      await m();
+    }
   }
 
   public static async cloudCancelWebLogin(): Promise<{ success: boolean; execution_mode?: 'mock' | 'simulated' | 'native' }> {

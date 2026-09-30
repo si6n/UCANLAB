@@ -1,0 +1,114 @@
+{
+  "contract": "ucanlab-desktop-auth",
+  "version": 1,
+  "base_path": "/api/v1",
+  "error_envelope": {
+    "shape": {"error": {"code": "string", "message": "string", "request_id": "string"}},
+    "note": "Every non-2xx response uses this envelope. Device-flow poll errors put the RFC 8628 error name in error.message."
+  },
+  "endpoints": [
+    {
+      "id": "desktop_authorize",
+      "method": "POST",
+      "path": "/auth/desktop/authorize",
+      "auth": "browser_session_cookie",
+      "caller": "web",
+      "request": {"port": "int", "code_challenge": "string", "code_challenge_method": "S256", "state": "string"},
+      "response_200": {"code": "string", "redirect_uri": "string", "expires_in": "int"},
+      "errors": {"400": "loopback port is not allowed", "401": "not signed in"}
+    },
+    {
+      "id": "desktop_token",
+      "method": "POST",
+      "path": "/auth/desktop/token",
+      "auth": "none",
+      "caller": "desktop",
+      "request": {"code": "string", "code_verifier": "string", "redirect_uri": "string"},
+      "response_200": {"session_token": "string", "token_type": "string", "user": "object"},
+      "errors": {"400": "invalid_grant", "429": "rate_limit_exceeded"}
+    },
+    {
+      "id": "device_start",
+      "method": "POST",
+      "path": "/auth/desktop/device/start",
+      "auth": "none",
+      "caller": "desktop",
+      "request": {"code_challenge": "string", "code_challenge_method": "S256", "client_name": "string"},
+      "response_200": {"device_code": "string", "user_code": "string", "verification_uri": "string", "verification_uri_complete": "string", "expires_in": "int", "interval": "int"},
+      "errors": {"429": "rate_limit_exceeded"}
+    },
+    {
+      "id": "device_approve",
+      "method": "POST",
+      "path": "/auth/desktop/device/approve",
+      "auth": "browser_session_cookie",
+      "caller": "web",
+      "request": {"user_code": "string", "decision": "approve|deny"},
+      "response_200": {"status": "approved|denied", "client_name": "string"},
+      "errors": {"400": "invalid_user_code", "401": "not signed in", "429": "rate_limit_exceeded"}
+    },
+    {
+      "id": "device_token",
+      "method": "POST",
+      "path": "/auth/desktop/device/token",
+      "auth": "none",
+      "caller": "desktop",
+      "request": {"device_code": "string", "code_verifier": "string"},
+      "response_200": {"session_token": "string", "token_type": "string", "user": "object"},
+      "errors": {"400": "authorization_pending|slow_down|expired_token|access_denied|invalid_grant", "429": "rate_limit_exceeded"}
+    },
+    {
+      "id": "me",
+      "method": "GET",
+      "path": "/auth/me",
+      "auth": "session_cookie",
+      "caller": "desktop",
+      "request": {},
+      "response_200": {"id": "uuid", "email": "string", "organization_id": "uuid"},
+      "errors": {"401": "not signed in"}
+    },
+    {
+      "id": "device_register",
+      "method": "POST",
+      "path": "/devices/register",
+      "auth": "session_cookie",
+      "caller": "desktop",
+      "request": {"device_name": "string", "hwid": "hex64", "app_version": "string"},
+      "response_201": {"device_id": "uuid", "device_token": "string", "hwid_resets_remaining": "int"},
+      "errors": {"401": "not signed in", "403": "role not allowed", "409": "ambiguous device migration"}
+    },
+    {
+      "id": "license_list",
+      "method": "GET",
+      "path": "/licenses",
+      "auth": "session_cookie",
+      "caller": "desktop",
+      "request": {},
+      "response_200_items": {"id": "uuid", "license_ref": "string", "tier": "string", "features": "list[string]", "expires_at": "datetime", "offline_until": "datetime", "is_active": "bool", "organization_id": "uuid", "device_id": "uuid|null"},
+      "errors": {"401": "not signed in"}
+    },
+    {
+      "id": "license_activate",
+      "method": "POST",
+      "path": "/licenses/activate",
+      "auth": "session_cookie",
+      "caller": "desktop",
+      "request": {"device_token": "string", "license_ref": "string", "nonce": "string"},
+      "response_200": {"license_token": "string", "expires_at": "string", "offline_until": "string"},
+      "errors": {"403": "device token, license or tier mismatch", "409": "license bound to another device", "503": "signing key not configured"}
+    }
+  ],
+  "constants": {
+    "loopback_ports": [47820, 47821, 47822],
+    "loopback_callback_path": "/callback",
+    "deep_link_scheme": "ucanlab",
+    "deep_link_callback": "ucanlab://auth/callback",
+    "device_verification_path": "/cihaz",
+    "device_code_ttl_seconds": 600,
+    "device_poll_interval_seconds": 5,
+    "user_code_alphabet": "BCDFGHJKLMNPQRSTVWXZ23456789",
+    "user_code_format": "XXXX-XXXX",
+    "ticket_schema_version": 1,
+    "offline_grace_days": 7
+  }
+}

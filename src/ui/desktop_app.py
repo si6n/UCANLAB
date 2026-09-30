@@ -29,7 +29,7 @@ import webview
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
 from src.core.contracts.ports import QueueRxSubscription
-from src.core.errors import HardwareError, SafetyError, SecurityError
+from src.core.errors import HardwareError, LicenseError, PlatformError, SafetyError, SecurityError
 from src.core.logging import get_logger
 from src.core.models.can_frame import CanFrame, length_to_dlc
 from src.core.models.diagnostics import (
@@ -86,7 +86,20 @@ from src.security.cloud.client import (
     CANONICAL_CLOUD_HOSTS,
     CloudClient,
     CloudConfig,
-    validate_session_token,
+)
+from src.security.cloud.desktop_auth import (
+    MISSING_LICENSE_STATE,
+    DesktopAuthorizer,
+    DeviceCodeLogin,
+    DeviceLoginTicket,
+    DevicePollStatus,
+    exchange_authorization_code,
+    license_state_from_claims,
+    license_state_from_error,
+    pkce_challenge,
+    pkce_verifier,
+    portal_url_for,
+    user_message,
 )
 from src.security.cloud.license_flow import LicenseFlow
 from src.security.cloud.telemetry_uploader import TelemetryUploader, UploadProgress
@@ -397,14 +410,13 @@ class _ExclusiveHTTPServer(HTTPServer):
 
 
 def _pkce_verifier() -> str:
-    """RFC 7636 §4.1 verifier: 43-128 chars of unreserved characters."""
-    return secrets.token_urlsafe(32)
+    """RFC 7636 §4.1 verifier (canonical helper lives in desktop_auth)."""
+    return pkce_verifier()
 
 
 def _pkce_challenge(verifier: str) -> str:
-    """S256 challenge: base64url(SHA256(ASCII(verifier))) without padding."""
-    digest = hashlib.sha256(verifier.encode("ascii")).digest()
-    return base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+    """S256 challenge (canonical helper lives in desktop_auth)."""
+    return pkce_challenge(verifier)
 
 
 def _bind_loopback_server() -> tuple[HTTPServer, int]:
@@ -537,30 +549,19 @@ class _DesktopAuthCallbackHandler(BaseHTTPRequestHandler):
             # The code is worthless without the verifier, which never left this
             # process — a local attacker who intercepted the redirect cannot
             # complete this exchange.
-            resp = app.cloud_client.request(
-                "POST",
-                "/auth/desktop/token",
-                json_body={
-                    "code": code,
-                    "code_verifier": verifier,
-                    "redirect_uri": redirect_uri,
-                },
-            )
-            payload = resp.json_object() or {}
-            token = payload.get("session_token")
-            if not token:
-                raise SecurityError(
-                    "Token exchange returned no session_token",
-                    code="WEB_LOGIN_EXCHANGE_FAILED",
-                )
+            validated_token = exchange_authorization_code(app.cloud_client, code, verifier, redirect_uri)
 
-            validated_token = validate_session_token(token)
-            app.cloud_client.store_session_token(validated_token)
-            if getattr(app, "license_flow", None) and not app.cloud_client.get_device_token():
-                try:
-                    app.license_flow.register_device(device_name="Desktop Diagnostic Tool")
-                except Exception as reg_exc:
-                    logger.warning("Automatic device registration during web login skipped: %s", reg_exc)
+            # Mechanic flow (Aşama 3): signing in also registers the device and
+            # activates the organisation's license, so the app is authorised
+            # without a license key. A license problem does not undo the
+            # sign-in; it is reported to the UI with a plain message.
+            authorizer = getattr(app, "desktop_authorizer", None)
+            if authorizer is not None:
+                outcome = authorizer.complete_login(validated_token)
+                _DesktopAuthCallbackHandler.auth_result["login"] = outcome.as_dict()
+                _DesktopAuthCallbackHandler.auth_result["login_outcome"] = outcome
+            else:
+                app.cloud_client.store_session_token(validated_token)
         except Exception as exc:
             # A genuine authentication failure: the token was NOT stored, so
             # the login really did fail and the UI must be told.
@@ -644,6 +645,11 @@ class DesktopApiBridge:
         "record_technician_feedback": "data",
         "get_dialogue_state": "read",
         "ask_copilot": "read",
+        "auth_get_state": "read",
+        "auth_refresh_license": "config",
+        "auth_start_device_login": "config",
+        "auth_poll_device_login": "config",
+        "auth_cancel_device_login": "config",
         "cloud_start_web_login": "config",
         "cloud_check_web_login_status": "read",
         "cloud_cancel_web_login": "config",
@@ -1336,11 +1342,7 @@ class DesktopApiBridge:
                 self.app._web_login_state = {"status": "error", "error": f"Yerel sunucu başlatılamadı: {exc}"}
                 return {"success": False, "error": str(exc)}
 
-            base_url = self.app.cloud_client.config.base_url.rstrip("/")
-            if "ucanlab.org" in base_url:
-                portal_url = "https://ucanlab.org"
-            else:
-                portal_url = base_url
+            portal_url = portal_url_for(self.app.cloud_client.config.base_url)
 
             hwid = generate_hardware_fingerprint()
             login_url = (
@@ -1375,6 +1377,8 @@ class DesktopApiBridge:
                     "success": True,
                     "user": cloud_status.get("user"),
                     "subscription": cloud_status.get("subscription"),
+                    # Aşama 3: device registration + license activation result.
+                    "login": state.get("login"),
                 }
             if status == "error":
                 return {
@@ -1396,6 +1400,87 @@ class DesktopApiBridge:
                     pass
                 self.app._web_login_server = None
             self.app._web_login_state = {"status": "cancelled"}
+        return {"success": True}
+
+    # ------------------------------------------------------------------
+    # Mechanic flow sign-in (Aşama 3): license state + device-code fallback
+    # ------------------------------------------------------------------
+
+    def auth_get_state(self) -> dict[str, Any]:
+        """Offline-first license state for the start screen.
+
+        Verifies the stored Ed25519 ticket locally (no network): the app works
+        until min(exp, offline_until), then asks for a new sign-in.
+        """
+        signed_in = self.app.cloud_client.has_session_token()
+        flow = self.app.license_flow
+        state = MISSING_LICENSE_STATE
+        if flow is not None and self.app._secret_provider.has_secret("CLOUD_LICENSE_TICKET"):
+            ticket = self.app._secret_provider.get_secret("CLOUD_LICENSE_TICKET").decode("utf-8")
+            try:
+                claims = flow.verify_cloud_ticket(ticket, is_offline=True)
+                state = license_state_from_claims(claims, time.time())
+            except LicenseError as exc:
+                state = license_state_from_error(exc.code)
+            except Exception:  # noqa: BLE001 — a corrupt vault must not crash the start screen
+                state = license_state_from_error("LICENSE_INVALID")
+        return {
+            "success": True,
+            "signedIn": signed_in,
+            "loginRequired": state.status != "active",
+            "license": state.as_dict(),
+        }
+
+    def auth_refresh_license(self) -> dict[str, Any]:
+        """Roll the offline window forward when online; harmless when offline."""
+        authorizer = self.app.desktop_authorizer
+        outcome = authorizer.refresh_online() if authorizer is not None else None
+        result = self.auth_get_state()
+        result["refreshed"] = bool(outcome and outcome.status == "ready")
+        return result
+
+    def auth_start_device_login(self) -> dict[str, Any]:
+        """Start the code sign-in fallback; returns the code to show."""
+        try:
+            ticket = self.app.device_login.start()
+        except PlatformError as exc:
+            tr, en = user_message(exc.code if exc.code in ("RATE_LIMITED", "CLOUD_UNREACHABLE") else None)
+            return {"success": False, "error_code": exc.code, "message_tr": tr, "message_en": en}
+        self.app._device_login_ticket = ticket
+        return {"success": True, **ticket.public_view(time.monotonic())}
+
+    def auth_poll_device_login(self) -> dict[str, Any]:
+        """Poll once. On approval, finishes device registration + license activation."""
+        ticket = self.app._device_login_ticket
+        if ticket is None:
+            return {"success": False, "status": "idle"}
+        try:
+            result = self.app.device_login.poll(ticket)
+        except PlatformError as exc:
+            # Network hiccup: keep the ticket, the UI polls again.
+            return {"success": True, "status": "pending", "error_code": exc.code}
+
+        if result.status in (DevicePollStatus.PENDING, DevicePollStatus.SLOW_DOWN):
+            return {"success": True, "status": "pending", "interval": ticket.interval}
+
+        self.app._device_login_ticket = None
+        if result.status is DevicePollStatus.COMPLETED and result.session_token:
+            authorizer = self.app.desktop_authorizer
+            if authorizer is None:
+                self.app.cloud_client.store_session_token(result.session_token)
+                return {"success": True, "status": "completed", "login": None}
+            outcome = authorizer.complete_login(result.session_token)
+            return {"success": True, "status": "completed", "login": outcome.as_dict()}
+
+        code = {
+            DevicePollStatus.DENIED: "DEVICE_CODE_DENIED",
+            DevicePollStatus.EXPIRED: "DEVICE_CODE_EXPIRED",
+        }.get(result.status, "SIGN_IN_FAILED")
+        tr, en = user_message(code)
+        return {"success": False, "status": result.status.value, "error_code": code, "message_tr": tr, "message_en": en}
+
+    def auth_cancel_device_login(self) -> dict[str, Any]:
+        self.app._device_login_ticket = None
         return {"success": True}
 
     def cloud_logout(self) -> dict[str, Any]:
@@ -1954,6 +2039,13 @@ class UniversalCanDesktopApp:
             if self._cloud_pubkey
             else None
         )
+        # Mechanic flow (Aşama 3): sign-in → device registration → license
+        # activation in one step, plus the device-code fallback.
+        self.desktop_authorizer: DesktopAuthorizer | None = (
+            DesktopAuthorizer(self.cloud_client, self.license_flow) if self.license_flow else None
+        )
+        self.device_login = DeviceCodeLogin(self.cloud_client)
+        self._device_login_ticket: DeviceLoginTicket | None = None
         self.telemetry_uploader = TelemetryUploader(self.cloud_client, progress_callback=self._on_upload_progress)
         self._web_login_lock = threading.Lock()
         self._web_login_server: HTTPServer | None = None
