@@ -25,8 +25,14 @@ def _contract() -> dict:
     return json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
 
 
+def _normalized_bytes() -> bytes:
+    # Windows checkouts may convert LF to CRLF (core.autocrlf); the digest is
+    # over the LF form so both repos and every OS agree on one value.
+    return CONTRACT_PATH.read_bytes().replace(b"\r\n", b"\n")
+
+
 def test_contract_digest_is_pinned() -> None:
-    digest = hashlib.sha256(CONTRACT_PATH.read_bytes()).hexdigest()
+    digest = hashlib.sha256(_normalized_bytes()).hexdigest()
     assert digest == CONTRACT_SHA256, (
         "cloud_auth_contract.v1.json changed: copy it to UCANLAB-CLOUD backend/tests/contracts/ and update "
         "CONTRACT_SHA256 in both repos"
