@@ -490,9 +490,19 @@ jobs:
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@5ba2889ada762081db2c4f32a729827dce632c7b # v3 (SHA-pinned, L-7)
         with:
-          # Code scanning is not enabled for this private repository, so the
-          # SARIF upload is refused on pull_request runs ("Code scanning is not
-          # enabled for this repository") and the job ends in a configuration
-          # error even though the analysis itself succeeded. PR runs still build
-          # the databases and run every query; only pushes upload results.
-          upload: ${{ github.event_name == 'push' && 'always' || 'never' }}
+          # Code scanning is not enabled for this private repository, so every
+          # SARIF upload (push and pull_request) is refused ("Code scanning is
+          # not enabled for this repository") and the job ends in a
+          # configuration error although the analysis succeeded. Results are
+          # kept as a workflow artifact instead; switch back to uploading once
+          # code scanning is enabled in the repository settings.
+          upload: never
+          output: codeql-results
+
+      - name: Keep CodeQL results as a workflow artifact
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: codeql-sarif
+          path: codeql-results
+          if-no-files-found: ignore
