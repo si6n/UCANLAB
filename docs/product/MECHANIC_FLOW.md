@@ -290,6 +290,12 @@ Araç profili (Aşama 4 veri modeli): `vehicle_type, make, engine_family, protoc
 - **Kod silme:** Sonuç ekranında yalnız lisans `dtc_clear` içeriyorsa görünür. Mevcut meydan okuma jetonu + TX Gateway + E-Stop yolundan geçer (`request_diagnostic_challenge` → `execute_diagnostic_action`); hız kilidi ve onay kuralları değişmedi.
 - **Doğrulama:** `tests/unit/test_mechanic_scan.py` (45 test), tüm paket yerelde (xdist) 4450 geçti. Gerçek araçta **doğrulanmadı** → `HARDWARE_TEST_CHECKLIST.md` W6-*.
 
+### 8.4 Aşama 7 — uçtan uca doğrulama (simülatör)
+
+- `tests/e2e/test_mechanic_flow_e2e.py`: gerçek `UniversalCanDesktopApp` ve `DesktopApiBridge`, yalnız simülatör. Mod → araç → adaptör → dinleme testi → tarama → sonuç → müşteri raporu. Kamyon, otomobil (okuma izniyle / izinsiz), tekne ve yüksek voltaj senaryoları; bağlantı hata yolları (kontak kapalı, yanlış soket, kısa devre/bus-off, dinleme modu yok, sessiz otomobil, zayıf akü) ve desteklenmeyen araç. Her testte değişmezler kontrol edilir: TX geçidine **hiç çerçeve gitmez**, supervisor ARMED_TX'e geçmez.
+- `tests/ui_e2e/test_mechanic_ui.py` (Playwright): derlenmiş React arayüzü gerçek köprüye HTTP üzerinden bağlanır (`window.pywebview.api` → `fetch` → `DesktopApiBridge`). Yalnız lisans okuması sabitlenir (bulut yok). Playwright, Chromium ya da `dist` yoksa atlanır (CI'da atlanır). Ekran görüntüleri: `docs/product/screenshots/01…09-*.png`.
+- **Doğrulanmayanlar:** gerçek adaptör/araç/Windows (bkz. `HARDWARE_TEST_CHECKLIST.md`), pywebview'in kendisi (testte HTTP köprüsü kullanılıyor) ve işletim sistemi onay penceresi (testte simülatör yolu onay istemez).
+
 ## 9. Mevcut kod neyi zaten karşılıyor (kanıt)
 
 | İhtiyaç | Durum | Kanıt |
@@ -333,6 +339,18 @@ Araç profili (Aşama 4 veri modeli): `vehicle_type, make, engine_family, protoc
 | E13 | Sonuç kartında "olası nedenler (gerekçeli)", "ne yapmalı", "eksik veri", "jargon sözlüğü" yok | 6 |
 | E14 | Müşteri raporu (sade dil) yok | 6 |
 | E15 | Tamirci akışı için Playwright E2E + ekran görüntüleri yok | 7 |
+
+### 10.1 Durum (Aşama 7 sonunda)
+
+| # | Durum |
+|---|---|
+| E1–E4 | Tamam (Aşama 3). Donanım/Windows doğrulaması: W3-*. |
+| E5–E7 | Tamam (Aşama 4). W4-*. |
+| E8–E10 | Tamam (Aşama 5). W5-*. |
+| E11 | Kısmen: akü gerilimi yalnız J1939 PGN 65271 yayınından okunuyor; PCAN/Kvaser gerilim bildirmez. RP1210 VCI gerilim okuması yok. |
+| E12 | Tamam (Aşama 6, salt-okuma kanalı). W6-*. |
+| E13–E14 | Tamam (Aşama 6). PDF çıktı yok; yazdırılabilir HTML var. |
+| E15 | Tamam (Aşama 7, simülatör). Gerçek donanımda uçtan uca: W7-*. |
 
 ## 11. Açık sorular
 

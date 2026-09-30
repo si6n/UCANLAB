@@ -70,6 +70,28 @@
 | W6-9 | Müşteri raporu kaydet → tarayıcıda aç → yazdır. | Tek sayfa, Türkçe karakterler doğru, son satır "son karar ustanındır". | ☐ |
 | W6-10 | `dtc_clear` yetkili lisansla kod sil (motor kapalı). | Mevcut onay jetonu akışı; sonuç mesajı; yeniden taramada kodlar yok (arıza giderildiyse). | ☐ |
 
-## Sonraki aşamalar
+## Aşama 7 — Uçtan uca (Windows + gerçek adaptör + gerçek araç)
 
-Aşama 7 (uçtan uca) maddeleri ilgili aşamalarda bu dosyaya eklenecek.
+| # | Adım | Beklenen | Durum |
+|---|---|---|---|
+| W7-1 | Temiz Windows'ta kurulum → launcher → tarayıcıda giriş → ilk açılış. | Mod sorusu; Tamirci → araç türü → araç → adaptör → takma → dinleme → Hazır → tarama → sonuç, kesintisiz. | ☐ |
+| W7-2 | Aynı akış, pywebview içinde (EdgeChromium). | Testteki HTTP köprüsüyle aynı ekranlar; konsolda JS hatası yok. | ☐ |
+| W7-3 | W7-1 boyunca bus analizörü kaydı (kamyon, dinleme taraması). | Adaptörden hiç çerçeve yok (ACK dahil). | ☐ |
+| W7-4 | Otomobilde "Okumaya izin ver" ile tam akış + analizör. | Yalnız W6-2'deki okuma çerçeveleri; akış sonunda PASSIVE. | ☐ |
+| W7-5 | İnternet kesikken (bilet geçerli) tam akış. | Her adım çalışır; üst çubukta çevrimdışı gün sayısı. | ☐ |
+| W7-6 | Ekran okuyucu / 125 % ölçek / 1366×768 ekran. | Metinler taşmaz, düğmeler erişilebilir. | ☐ |
+
+## Doğrulama özeti (neyin nerede doğrulandığı)
+
+| Alan | CI / simülatör | Gerçek donanım / Windows |
+|---|---|---|
+| Giriş, PKCE, cihaz kodu, lisans seçimi | ✅ birim testleri + sahte bulut sunucusu | ☐ W3-* |
+| Mod, araç kataloğu, kimlik karşılaştırma | ✅ birim + uçtan uca | ☐ W4-* |
+| Adaptör bulma (PCAN/Kvaser/RP1210) | ✅ taklit sürücülerle | ☐ W5-1…W5-4 |
+| Dinleme testi, hız tarama, hata yolları | ✅ simülatör | ☐ W5-5…W5-12 |
+| Salt-okuma kanalı, OBD okuma | ✅ politika + geçit + uygulama oturumu + sahte ECU | ☐ W6-1…W6-6 |
+| Sonuç kartı, müşteri raporu | ✅ gerçek analiz motoru, simülatör | ☐ W6-7…W6-9 |
+| Arıza silme (mevcut akış) | ✅ mevcut testler | ☐ W6-10 |
+| React ekranları | ✅ Playwright + gerçek köprü (HTTP) | ☐ W7-2 (pywebview) |
+
+**İlk gerçek donanım denemesinde dikkat:** W5-5 / W6-2 / W7-3 (analizörle "hiç çerçeve yok" ve "yalnız okuma çerçevesi" doğrulaması) ilk yapılacak adımlardır. Bunlar geçmeden araçta okuma izni kullanılmamalı.
