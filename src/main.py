@@ -110,7 +110,36 @@ def _anti_tamper_gate() -> bool:
     return True
 
 
+def _handle_deep_link(raw_args: list[str]) -> int | None:
+    """Windows starts a new process for ``ucanlab://…``; hand the code over and exit.
+
+    Returns an exit code when the arguments were a deep link (handled or
+    refused), or None when this is a normal launch. The forwarder never opens a
+    window, never touches the bus and never stores anything: it only passes a
+    single-use code to the running app's loopback listener.
+    """
+    if len(raw_args) != 1 or not raw_args[0].lower().startswith("ucanlab:"):
+        return None
+    from src.security.cloud.desktop_auth import forward_deep_link
+
+    try:
+        return 0 if forward_deep_link(raw_args[0]) else 1
+    except SecurityError as exc:
+        logger.warning("Refused ucanlab:// deep link", extra={"error_code": exc.code})
+        return 2
+
+
 def main(argv: list[str] | None = None) -> int:
+    raw_args = argv if argv is not None else sys.argv[1:]
+    deep_link_exit = _handle_deep_link(raw_args)
+    if deep_link_exit is not None:
+        return deep_link_exit
+    if raw_args == ["--register-url-protocol"]:
+        from src.launcher.url_protocol import register_url_protocol
+
+        setup_logging(level=logging.INFO)
+        return 0 if register_url_protocol() else 1
+
     parser = argparse.ArgumentParser(description="Universal CAN-Bus Diagnostic & Telemetry Tool")
     parser.add_argument("--cli", action="store_true", help="Run in CLI mode instead of GUI")
     # M-7: the launcher forwards the README short flags (-i/-c/-b), so the

@@ -777,6 +777,31 @@ def _prompt_license_key() -> str:
         return ""
 
 
+def _print_device_code(view: dict[str, object]) -> None:
+    print("-" * 65)
+    print("Tarayıcıdan dönüş olmadı. Telefonunuzdan veya bilgisayarınızdan şu adrese gidin:")
+    print(f"    {view.get('verification_uri')}")
+    print(f"ve bu kodu girin:  {view.get('user_code')}   (kod {int(view.get('expires_in', 0)) // 60} dk geçerli)")  # type: ignore[call-overload]
+    print("-" * 65)
+
+
+def _run_sign_in(launcher: UniversalCanLauncher, error_code: str | None = None) -> bool:
+    """Browser sign-in (device-code fallback). Returns True when a license is active."""
+    if error_code:
+        from src.security.cloud.desktop_auth import user_message
+
+        print(user_message(error_code)[0])
+    print("Hesabınıza giriş yapın: tarayıcıda ucanlab.org açılıyor…")
+    outcome = launcher.auth_manager.sign_in(on_device_code=_print_device_code)
+    data = outcome.as_dict()
+    if outcome.status == "ready":
+        days = data["license"]["offline_days_left"]
+        print(f"Giriş tamam. Lisans etkin; internetsiz {days} gün çalışabilir.")
+        return True
+    print(data.get("message_tr") or "Giriş tamamlanamadı.")
+    return False
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Universal CAN Platform - Launcher & Auto-Updater")
     parser.add_argument("--check-only", action="store_true", help="Run preflight checks and exit")
@@ -784,6 +809,9 @@ def main() -> int:
     parser.add_argument("--activate", action="store_true", help="Activate a cloud license key (prompts, hidden input)")
     parser.add_argument("--device-name", type=str, default="Desktop Diagnostic Tool", help="Device name for registration")
     parser.add_argument("--launch", action="store_true", help="Launch the main application immediately")
+    parser.add_argument(
+        "--no-sign-in", action="store_true", help="Do not open the browser sign-in when no license is present"
+    )
 
     args, unknown = parser.parse_known_args()
     launcher = UniversalCanLauncher()
@@ -803,6 +831,13 @@ def main() -> int:
             return 1
 
     report = launcher.run_preflight()
+    interactive = bool(getattr(sys.stdin, "isatty", lambda: False)())
+    if not report.auth_status.has_valid_license and not args.check_only and not args.no_sign_in and interactive:
+        # Mechanic flow (Aşama 3): no license on this machine → sign in on the
+        # web and activate automatically, THEN re-run the gate. The core binary
+        # is still only reached through a passing preflight (L-1 unchanged).
+        if _run_sign_in(launcher, getattr(report.auth_status, "error_code", None)):
+            report = launcher.run_preflight()
     print("=" * 65)
     print("UNIVERSAL CAN-BUS PLATFORM - LAUNCHER PRE-FLIGHT DIAGNOSTICS")
     print("=" * 65)

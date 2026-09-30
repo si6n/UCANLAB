@@ -7,14 +7,28 @@ and securely stores/validates cryptographic Ed25519 license tokens in Windows DP
 from __future__ import annotations
 
 import base64
+import time
+import webbrowser
 from dataclasses import dataclass
+from types import SimpleNamespace
+from typing import Callable
 
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
-from src.core.errors import LicenseError
+from src.core.errors import LicenseError, PlatformError
 from src.core.logging import get_logger
 from src.safety.secret_provider import SecretProvider, get_default_secret_provider
 from src.security.cloud.client import CloudClient, CloudConfig
+from src.security.cloud.desktop_auth import (
+    DesktopAuthorizer,
+    DeviceCodeLogin,
+    DevicePollStatus,
+    LoginOutcome,
+    PkceSession,
+    build_browser_login_url,
+    license_state_from_error,
+    portal_url_for,
+)
 from src.security.cloud.license_flow import (
     DEFAULT_EMBEDDED_CLOUD_PUBLIC_KEY_B64,
     CloudLicenseClaims,
@@ -38,6 +52,8 @@ class AuthStatus:
     expires_at: int = 0
     offline_until: int = 0
     error: str | None = None
+    #: LicenseError code behind a failed verification (e.g. OFFLINE_GRACE_EXPIRED).
+    error_code: str | None = None
 
 
 class LauncherAuthManager:
@@ -177,6 +193,7 @@ class LauncherAuthManager:
                 hwid=hwid,
                 tier="EXPIRED",
                 error=str(exc),
+                error_code=getattr(exc, "code", None),
             )
 
     def login_web_session(self, session_token: str) -> bool:
@@ -210,6 +227,102 @@ class LauncherAuthManager:
         # 2. Activate license key
         claims = self.flow.activate_license(license_key.strip())
         return claims
+
+    def sign_in(
+        self,
+        *,
+        open_browser: Callable[[str], object] = webbrowser.open,
+        browser_timeout_s: float = 300.0,
+        on_device_code: Callable[[dict[str, object]], None] | None = None,
+        device_timeout_s: float = 600.0,
+        sleep: Callable[[float], None] = time.sleep,
+    ) -> LoginOutcome:
+        """Mechanic flow sign-in, run by the launcher BEFORE the license gate.
+
+        The license gate (L-1) stays closed: nothing here launches the core
+        binary. The browser opens ucanlab.org; the single-use code comes back
+        to a loopback listener in THIS process (PKCE verifier never leaves it);
+        the device is registered and the organisation's license activated. When
+        the browser never returns (firewall, other device), the device-code
+        fallback runs if ``on_device_code`` is given to show the code.
+        """
+        from src.ui.desktop_app import _bind_loopback_server, _DesktopAuthCallbackHandler
+
+        # No internet: say so now instead of waiting minutes for a browser
+        # page that cannot load. Any HTTP answer (even an error) means online.
+        try:
+            self.client.request("GET", "/health", health_endpoint=True)
+        except PlatformError:
+            return LoginOutcome(status="error", state=license_state_from_error("CLOUD_UNREACHABLE"),
+                                error_code="CLOUD_UNREACHABLE")
+
+        authorizer = DesktopAuthorizer(self.client, self.flow, hwid_provider=lambda: self.hwid)
+        session = PkceSession.new()
+        handler = _DesktopAuthCallbackHandler
+        result: dict[str, object] = {"status": "pending", "error": None}
+        try:
+            server, port = _bind_loopback_server()
+        except OSError:
+            server = None
+            logger.warning("No loopback port free for browser sign-in; using the code fallback")
+        if server is not None:
+            handler.app_instance = SimpleNamespace(cloud_client=self.client, desktop_authorizer=authorizer)
+            handler.expected_state = session.state
+            handler.code_verifier = session.verifier
+            handler.redirect_uri = f"http://127.0.0.1:{port}/callback"
+            handler.auth_result = result
+            try:
+                url = build_browser_login_url(portal_url_for(self.client.config.base_url), port, session, self.hwid)
+                try:
+                    open_browser(url)
+                except Exception as exc:  # noqa: BLE001 — no browser: fall through to the code
+                    logger.warning("Could not open the system browser", extra={"error": type(exc).__name__})
+                deadline = time.monotonic() + browser_timeout_s
+                server.timeout = 0.5
+                while result.get("status") == "pending" and time.monotonic() < deadline:
+                    server.handle_request()
+            finally:
+                handler.code_verifier = ""
+                server.server_close()
+            outcome = result.get("login_outcome")
+            if result.get("status") == "completed" and isinstance(outcome, LoginOutcome):
+                return outcome
+
+        if on_device_code is None:
+            return LoginOutcome(status="error", state=license_state_from_error("SIGN_IN_FAILED"),
+                                error_code="SIGN_IN_FAILED")
+        return self._sign_in_with_device_code(authorizer, on_device_code, device_timeout_s, sleep)
+
+    def _sign_in_with_device_code(
+        self,
+        authorizer: DesktopAuthorizer,
+        on_device_code: Callable[[dict[str, object]], None],
+        timeout_s: float,
+        sleep: Callable[[float], None],
+    ) -> LoginOutcome:
+        login = DeviceCodeLogin(self.client)
+        try:
+            ticket = login.start()
+        except PlatformError as exc:
+            code = exc.code if exc.code in ("RATE_LIMITED", "CLOUD_UNREACHABLE") else "SIGN_IN_FAILED"
+            return LoginOutcome(status="error", state=license_state_from_error(code), error_code=code)
+        on_device_code(ticket.public_view(time.monotonic()))
+        deadline = time.monotonic() + timeout_s
+        while time.monotonic() < deadline:
+            sleep(max(0.0, ticket.next_poll_at - time.monotonic()))
+            try:
+                polled = login.poll(ticket)
+            except PlatformError:
+                continue  # transient network error: keep polling until the deadline
+            if polled.status is DevicePollStatus.COMPLETED and polled.session_token:
+                return authorizer.complete_login(polled.session_token)
+            if polled.status is DevicePollStatus.DENIED:
+                return LoginOutcome(status="error", state=license_state_from_error("DEVICE_CODE_DENIED"),
+                                    error_code="DEVICE_CODE_DENIED")
+            if polled.status in (DevicePollStatus.EXPIRED, DevicePollStatus.FAILED):
+                break
+        return LoginOutcome(status="error", state=license_state_from_error("DEVICE_CODE_EXPIRED"),
+                            error_code="DEVICE_CODE_EXPIRED")
 
     def logout(self) -> None:
         """Clear local session and license token from DPAPI."""
