@@ -186,7 +186,13 @@ class TestQueueRxSubscriptionConcurrencyStress:
         res_timed = await sub.recv(timeout_s=0.02)
         t_elapsed = time.perf_counter() - t0
         assert res_timed is None
-        assert 0.015 <= t_elapsed <= 0.15  # Tolerant to OS scheduler jitter
+        # asyncio schedules the timeout on time.monotonic(), which ticks every
+        # ~15.6 ms on Windows, while this test measures with perf_counter(). A
+        # 20 ms wait can therefore look as short as 20 ms minus one monotonic
+        # tick (observed: 5.1 ms on windows-latest). The lower bound allows
+        # exactly that granularity and no more; the upper bound is unchanged.
+        tick = time.get_clock_info("monotonic").resolution
+        assert max(0.0, 0.02 - tick - 0.001) <= t_elapsed <= 0.15
 
         # 4. Data arrives before timeout (put after 10ms)
         frame = CanFrame.create(channel_id="ch0", arbitration_id=0x400, data=b"\xAA\xBB")
