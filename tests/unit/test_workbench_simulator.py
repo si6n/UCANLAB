@@ -132,3 +132,37 @@ def test_failed_install_keeps_the_old_bus() -> None:
     with app._bus_lock:
         assert app._install_bus_locked(Broken("car", 500000), "simulator", "sim_vehicle", 500000) is False
     assert app.bus is old
+
+
+def _feed(app: Any, frames: list[CanFrame]) -> None:
+    for frame in frames:
+        app._ingest_live_frame(frame)
+
+
+def test_simulated_vehicle_never_becomes_diagnostic_evidence() -> None:
+    """Bulgu 7: simulator frames are decoded for the screens, never recorded as evidence."""
+    app = _app()
+    assert app.start_simulated_vehicle("truck")["success"]
+    sim_frames = [app.bus.recv(timeout_s=0.0) for _ in range(40)]
+    assert any(f.arbitration_id == 0x18FECA00 for f in sim_frames)  # DM1 with an active DTC
+    _feed(app, sim_frames)
+    session = app._diag_session
+    assert session is not None
+    assert session.samples == [] and session.events == []
+
+
+def test_same_frames_from_a_real_bus_do_become_evidence() -> None:
+    """Control for the test above: the gate is the bus, not a decoder that ignores these frames."""
+    app = _app()
+    sim = SimulatedVehicleBus("truck", 250000, sleep=False)
+    sim.connect()
+    frames = [sim.recv(timeout_s=0.0) for _ in range(40)]
+    real = [
+        CanFrame(channel_id="vcan0", arbitration_id=f.arbitration_id, dlc=f.dlc, data=f.data,
+                 is_extended=f.is_extended, source="physical")
+        for f in frames
+    ]
+    _feed(app, real)
+    session = app._diag_session
+    assert session is not None
+    assert session.samples or session.events
