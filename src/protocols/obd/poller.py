@@ -1201,11 +1201,23 @@ class ActiveDiagnosticPoller:
                 if self._loop_task is not None:
                     self._loop_task.cancel()
             else:
-                # Foreign thread: schedule the stop on the loop's own thread.
-                loop.call_soon_threadsafe(self._stop_event.set)
+                # Foreign thread: schedule the stop on the loop's own thread
+                # as ONE callback. Two separate calls raced: the first one
+                # ends run_until_complete, the worker closes the loop, and the
+                # second call_soon_threadsafe raised "Event loop is closed".
+                stop_event = self._stop_event
                 task = self._loop_task
-                if task is not None:
-                    loop.call_soon_threadsafe(task.cancel)
+
+                def _halt() -> None:
+                    stop_event.set()
+                    if task is not None:
+                        task.cancel()
+
+                try:
+                    loop.call_soon_threadsafe(_halt)
+                except RuntimeError:
+                    # Closed between is_running() and here: already stopped.
+                    pass
         else:
             # Loop already dead — no one to notify.
             self._stop_event.set()
