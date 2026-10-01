@@ -372,3 +372,95 @@ def test_aud08_enum_and_missing_values_are_recorded_safely() -> None:
     app = _app()
     app._record_signal_sample("TransmissionGear_0", 1, "forward", "enum")
     app._record_signal_sample("FluidLevel_0_0", 0xFFFF, None, "percent")
+
+
+# ---------------------------------------------------------------------------
+# AUD-11: the version string was hard-coded in six places (pyproject, frontend
+# package.json, Inno Setup script, launcher, update manager, license flow).
+# src/version.py is the single source; the packaging files must agree with it.
+# ---------------------------------------------------------------------------
+
+
+def test_aud11_version_is_consistent_across_packaging_files() -> None:
+    import json
+    import re
+    import tomllib
+    from pathlib import Path
+
+    from src.version import __version__
+
+    root = Path(__file__).resolve().parents[2]
+    pyproject = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
+    package = json.loads((root / "src/ui/frontend/package.json").read_text(encoding="utf-8"))
+    iss = (root / "scripts/installer.iss").read_text(encoding="utf-8")
+    iss_version = re.search(r'#define MyAppVersion "([^"]+)"', iss)
+
+    assert pyproject["project"]["version"] == __version__
+    assert package["version"] == __version__
+    assert iss_version is not None and iss_version.group(1) == __version__
+
+
+def test_aud11_runtime_defaults_use_the_single_version() -> None:
+    import inspect
+
+    from src.launcher.app import UniversalCanLauncher
+    from src.launcher.updater import UpdateManager
+    from src.security.cloud.license_flow import LicenseFlow
+    from src.version import __version__
+
+    for fn, param in (
+        (UniversalCanLauncher.__init__, "current_version"),
+        (UpdateManager.__init__, "current_version"),
+        (LicenseFlow.__init__, "app_version"),
+    ):
+        assert inspect.signature(fn).parameters[param].default == __version__
+
+
+def test_aud05_routine_start_with_payload_bound_token_passes_the_gateway() -> None:
+    bus, gateway, client = _production_rig()
+    ctx = "uds_routine:a1"
+    resp = client.start_routine(
+        0x0202,
+        user_confirmed=True,
+        confirmation_token=_bound_minter(gateway, ctx),
+        confirmation_context=ctx,
+    )
+    assert resp.is_positive
+
+
+def test_aud05_desktop_routine_action_presents_a_confirmation_token() -> None:
+    import inspect
+
+    from src.ui.desktop_app import UniversalCanDesktopApp
+
+    source = inspect.getsource(UniversalCanDesktopApp)
+    start = source.index('elif action_type in ("uds_routine"')
+    branch = source[start : source.index("# UDS 0x11 ECU Reset", start)]
+    assert "confirmation_token=self._confirm_token_for(client.tx_id, _ctx)" in branch
+    assert "confirmation_context=_ctx" in branch
+
+
+# ---------------------------------------------------------------------------
+# AUD-12: user-facing UDS result messages carried double-encoded UTF-8
+# ("âŒ" instead of "❌"), so the operator saw garbage in front of every
+# ECU answer. Source text must be clean UTF-8.
+# ---------------------------------------------------------------------------
+
+
+def test_aud12_no_double_encoded_utf8_in_python_sources() -> None:
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2] / "src"
+    # A UTF-8 lead byte read as cp1252 ("â", "Ã", "Ä", ...) followed by a
+    # continuation-byte character. junk_content_signatures.py is the mojibake
+    # DETECTOR and quotes the artefact in its comments on purpose.
+    mojibake = re.compile("[Â-ô][\u0080-¿ŒœŠšŸŽžƒ–—‘-„†-•…‰‹›€™]")
+    offenders = []
+    for path in root.rglob("*.py"):
+        if path.name == "junk_content_signatures.py":
+            continue
+        for no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            if mojibake.search(line):
+                offenders.append(f"{path.relative_to(root)}:{no}")
+    assert offenders == []
