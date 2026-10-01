@@ -1,8 +1,8 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { App } from './App';
 import { MechanicFlow } from './components/mechanic/MechanicFlow';
 import { SignInGate } from './components/mechanic/SignInGate';
+import { Workbench } from './components/workbench/Workbench';
 import './index.css';
 
 const rootElement = document.getElementById('root');
@@ -12,7 +12,7 @@ ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
     <SignInGate>
       <MechanicFlow>
-        <App />
+        <Workbench />
       </MechanicFlow>
     </SignInGate>
   </React.StrictMode>

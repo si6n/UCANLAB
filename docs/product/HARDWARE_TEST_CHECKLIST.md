@@ -84,6 +84,19 @@
 | W7-5 | İnternet kesikken (bilet geçerli) tam akış. | Her adım çalışır; üst çubukta çevrimdışı gün sayısı. | ☐ |
 | W7-6 | Ekran okuyucu / 125 % ölçek / 1366×768 ekran. | Metinler taşmaz, düğmeler erişilebilir. | ☐ |
 
+## Uzman masası B1 — Canlı trafik ve simüle hat (Windows + gerçek adaptör)
+
+| # | Adım | Beklenen | Durum |
+|---|---|---|---|
+| W8-1 | Mühendis modu, adaptör bağlı, motor çalışıyor. | Canlı trafikte yalnız araç çerçeveleri; hat çipinde adaptör + "Araç"; "Simülatör" hiçbir yerde yok. | ☐ |
+| W8-2 | Aynı anda bus analizörü kaydı. | Kimlik sayısı ve sıklıklar analizörle uyuşur; adaptörden hiç çerçeve yok. | ☐ |
+| W8-3 | "Yük ≈ %" çipi, 500 kbit/s otomobil ve 250 kbit/s kamyonda. | Analizörün ölçtüğü yükün biraz altında (bit doldurma hariç), hiçbir zaman üstünde değil. | ☐ |
+| W8-4 | 2000 kare/sn üzeri hat (kamyon + römork) 10 dk. | Pencere akıcı; donma yok; TX watchdog kirası düşmez (dinleme modunda zaten TX yok). | ☐ |
+| W8-5 | Simülatörü başlat → kapat (adaptör bağlıyken). | Önceki adaptöre geri döner; araç çerçeveleri tekrar akar. | ☐ |
+| W8-6 | E-Stop'a bas (araç bağlı). | "Güvenlik kilidi" bandı; kayıt sürer; simülatöre geçiş reddedilir. | ☐ |
+| W8-7 | Hat kısa devre / CAN-H kopuk. | Sürücü hata çerçevesi çipi ve BUS-OFF görünür. | ☐ |
+| W8-8 | Kayıt ve rapor → MDF4 dışa aktar, asammdf/CANape ile aç. | Dosya açılır, çerçeve sayısı tutar. | ☐ |
+
 ## Doğrulama özeti (neyin nerede doğrulandığı)
 
 | Alan | CI / simülatör | Gerçek donanım / Windows |
@@ -96,5 +109,6 @@
 | Sonuç kartı, müşteri raporu | ✅ gerçek analiz motoru, simülatör | ☐ W6-7…W6-9 |
 | Arıza silme (mevcut akış) | ✅ mevcut testler | ☐ W6-10 |
 | React ekranları | ✅ Playwright + gerçek köprü (HTTP) | ☐ W7-2 (pywebview) |
+| Uzman masası: canlı trafik, simüle hat, dışa aktarma | ✅ birim + Playwright (gerçek köprü + telemetri döngüsü, simülatör) | ☐ W8-* |
 
 **İlk gerçek donanım denemesinde dikkat:** W5-5 / W6-2 / W7-3 (analizörle "hiç çerçeve yok" ve "yalnız okuma çerçevesi" doğrulaması) ilk yapılacak adımlardır. Bunlar geçmeden araçta okuma izni kullanılmamalı.

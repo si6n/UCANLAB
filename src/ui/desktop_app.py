@@ -43,6 +43,7 @@ from src.engine.ai.diagnostic_copilot import AiDiagnosticCopilot
 from src.engine.buffer.ring_buffer import BinaryRingBuffer
 from src.engine.buffer.rolling_disk import RollingDiskBuffer
 from src.engine.connection.adapters import AdapterInfo, discover_adapters
+from src.engine.connection.simulated_vehicle import NATIVE_BITRATE, SimulatedVehicleBus
 from src.engine.connection.simulated_vehicle import SCENARIOS as SIMULATOR_SCENARIOS
 from src.engine.connection.wizard import ConnectionWizard
 from src.engine.diagnosis.events import dm1_to_events
@@ -679,6 +680,9 @@ class DesktopApiBridge:
         "connection_test_start": "config",
         "connection_test_status": "read",
         "connection_test_cancel": "config",
+        "sim_vehicle_start": "config",
+        "sim_vehicle_stop": "config",
+        "bus_get_info": "read",
         "scan_start": "safety",
         "scan_status": "read",
         "scan_cancel": "config",
@@ -1623,6 +1627,18 @@ class DesktopApiBridge:
         except RuntimeError:
             return {"success": False, "error_code": "TEST_RUNNING"}
         return {"success": True, "test_id": test_id}
+
+    def sim_vehicle_start(self, vehicle_type: str = "car") -> dict[str, Any]:
+        """Workbench: listen to the simulated vehicle (never transmits)."""
+        if not isinstance(vehicle_type, str):
+            return {"success": False, "error_code": "INVALID_VEHICLE_TYPE"}
+        return self.app.start_simulated_vehicle(vehicle_type.strip().lower())
+
+    def sim_vehicle_stop(self) -> dict[str, Any]:
+        return self.app.stop_simulated_vehicle()
+
+    def bus_get_info(self) -> dict[str, Any]:
+        return {"success": True, **self.app.bus_info()}
 
     def connection_test_status(self) -> dict[str, Any]:
         return {"success": True, **self.app.connection_wizard.status()}
@@ -5100,6 +5116,64 @@ class UniversalCanDesktopApp:
         """Release the physical channel so the connection test can open it exclusively."""
         self._reconnect_bus("virtual", "ucanlab_park", self.bitrate_val)
 
+    # ------------------------------------------------------------------
+    # Workbench simulator: the listen-only simulated vehicle as the app bus
+    # ------------------------------------------------------------------
+
+    def start_simulated_vehicle(self, vehicle_type: str) -> dict[str, Any]:
+        """Bind the listen-only simulated vehicle (frames tagged ``synthetic``).
+
+        Replaces the engineer screen's old in-browser packet generator: the
+        frames now come through the real ingest path (ring buffer, decoders,
+        recording) and carry their provenance. Refused while the E-Stop is
+        latched (the real bus keeps recording the forensic window) and while
+        TX is armed (the operator disarms first; nothing switches the channel
+        under an armed transmitter).
+        """
+        if vehicle_type not in NATIVE_BITRATE:
+            return {"success": False, "error_code": "INVALID_VEHICLE_TYPE"}
+        if self._is_estop or self.estop.is_engaged:
+            return {"success": False, "error_code": "ESTOP_ENGAGED"}
+        if self.supervisor.is_tx_permitted:
+            return {"success": False, "error_code": "TX_ARMED"}
+        with self._bus_lock:
+            if isinstance(self.bus, SimulatedVehicleBus):
+                return {"success": True, **self.bus_info()}
+            previous = (self.interface_val, self.channel_name, self.bitrate_val)
+            sim = SimulatedVehicleBus(vehicle_type, NATIVE_BITRATE[vehicle_type])
+            if not self._install_bus_locked(sim, "simulator", sim.channel_id, sim.bitrate):
+                return {"success": False, "error_code": "BIND_FAILED"}
+            self._pre_simulator_bus = previous
+        return {"success": True, **self.bus_info()}
+
+    def stop_simulated_vehicle(self) -> dict[str, Any]:
+        """Return to the adapter that was configured before the simulator."""
+        previous = getattr(self, "_pre_simulator_bus", None)
+        if previous is None or not isinstance(self.bus, SimulatedVehicleBus):
+            return {"success": True, **self.bus_info()}
+        self._pre_simulator_bus = None
+        self._reconnect_bus(*previous)
+        return {"success": True, **self.bus_info()}
+
+    def bus_info(self) -> dict[str, Any]:
+        """What the app is listening to right now (no I/O)."""
+        bus = self.bus
+        metrics = getattr(bus, "metrics", None)
+        simulated = isinstance(bus, SimulatedVehicleBus)
+        return {
+            "interface": self.interface_val,
+            "channel": str(self.channel_name),
+            "bitrate": int(self.bitrate_val or 0),
+            "connected": bool(getattr(bus, "is_connected", False)),
+            "simulated": simulated,
+            "vehicle_type": bus.vehicle_type if simulated else None,
+            "listen_only": bool(getattr(bus, "listen_only", True)),
+            # Driver-reported counters only. ``_error_count`` is not used here:
+            # it also carries the DM1 DTC count and would read as "errors".
+            "error_frames": int(getattr(metrics, "error_frames", 0) or 0),
+            "bus_state": str(getattr(getattr(metrics, "state", None), "value", "") or ""),
+        }
+
     def _commit_connection_bus(self, adapter: AdapterInfo, bitrate: int) -> None:
         """Bind the app bus to the adapter/bitrate the listen-only test found (still listen-only)."""
         self._reconnect_bus(adapter.interface, adapter.channel, bitrate)
@@ -5141,87 +5215,97 @@ class UniversalCanDesktopApp:
                 )
                 return
 
-            old_bus = self.bus
-            # REVIEW (irreversible reconnect): commit the new bus only after
-            # it actually connects WHEN the old channel is live — swapping
-            # first and connecting later lost the working channel forever on
-            # a failed connect(). If the old bus was never connected
-            # (DEMO-only mode), a failed connect degrades to DEMO-only as
-            # before and the settings change is still recorded.
-            old_channel_live = bool(getattr(old_bus, "is_connected", False))
-            if old_channel_live:
-                try:
-                    new_bus.connect()
-                except Exception as exc:  # noqa: BLE001 — new settings must not kill the old link
-                    logger.warning(
-                        "New CAN bus rejected the settings; keeping previous bus",
-                        extra={"interface": target_interface, "channel": target_channel, "error": str(exc)},
-                    )
-                    try:
-                        new_bus.disconnect()
-                    except Exception:
-                        pass
-                    return
-            else:
-                try:
-                    new_bus.connect()
-                    self.bus_degraded = False
-                except Exception as exc:  # noqa: BLE001 — was already DEMO-only; stay honest about it
-                    self.bus_degraded = True
-                    logger.warning(
-                        "CAN bus connect failed; DEMO-only mode (degraded-state flag set)",
-                        extra={"interface": target_interface, "channel": target_channel, "error": str(exc), "bus_degraded": True},
-                    )
+            self._install_bus_locked(new_bus, target_interface, target_channel, target_bitrate)
 
-            self.bus = new_bus
-            self.gateway.rebind_bus(self.bus)
-            if bool(getattr(self.bus, "is_connected", False)):
-                self.bus_degraded = False
-            self.interface_val = target_interface
-            self.channel_name = str(target_channel)
-            self.bitrate_val = target_bitrate
+    def _install_bus_locked(self, new_bus: Any, target_interface: str, target_channel: str | int, target_bitrate: int) -> bool:
+        """Connect and bind a constructed bus (caller holds ``_bus_lock``).
 
-            # REVIEW3 #41 (reconnect vs ARMED_TX): the reconnected bus is
-            # opened listen-only (Safe-by-Default), but the supervisor state
-            # used to survive the swap — ARMED_TX + a PASSIVE transceiver is
-            # a dead protocol (gateway passes, driver raises HardwareError,
-            # J1939 CTS/ACK and UDS responses die silently to T2/T3
-            # timeouts). A settings change is a physical-channel change: TX
-            # authority must be re-armed explicitly by the operator. Disarm
-            # to PASSIVE fail-closed on every successful rebind.
-            if self.supervisor.is_tx_permitted:
-                try:
-                    self.supervisor.transition_to(
-                        SafetyState.PASSIVE, reason="bus reconnect — TX re-arm required"
-                    )
-                    logger.warning(
-                        "Bus reconnected — supervisor disarmed to PASSIVE; operator must re-arm TX"
-                    )
-                except Exception as exc:  # noqa: BLE001 — disarm failure must not kill reconnect
-                    logger.error(
-                        "Supervisor disarm after reconnect failed — forcing FAULT",
-                        extra={"error": str(exc)},
-                    )
-                    self.supervisor._force_fault("reconnect disarm failed")
-
+        Shared by the settings reconnect and the workbench simulator so both
+        get the same fail-safe swap: keep a live old channel on a failed
+        connect, rebind the gateway, disarm TX, reset channel-bound state.
+        """
+        old_bus = self.bus
+        # REVIEW (irreversible reconnect): commit the new bus only after
+        # it actually connects WHEN the old channel is live — swapping
+        # first and connecting later lost the working channel forever on
+        # a failed connect(). If the old bus was never connected
+        # (DEMO-only mode), a failed connect degrades to DEMO-only as
+        # before and the settings change is still recorded.
+        old_channel_live = bool(getattr(old_bus, "is_connected", False))
+        if old_channel_live:
             try:
-                old_bus.disconnect()
-            except Exception as exc:  # noqa: BLE001 — old handle cleanup is best-effort
-                logger.debug("Old bus disconnect during reconnect failed", extra={"error": str(exc)})
+                new_bus.connect()
+            except Exception as exc:  # noqa: BLE001 — new settings must not kill the old link
+                logger.warning(
+                    "New CAN bus rejected the settings; keeping previous bus",
+                    extra={"interface": target_interface, "channel": target_channel, "error": str(exc)},
+                )
+                try:
+                    new_bus.disconnect()
+                except Exception:
+                    pass
+                return False
+        else:
+            try:
+                new_bus.connect()
+                self.bus_degraded = False
+            except Exception as exc:  # noqa: BLE001 — was already DEMO-only; stay honest about it
+                self.bus_degraded = True
+                logger.warning(
+                    "CAN bus connect failed; DEMO-only mode (degraded-state flag set)",
+                    extra={"interface": target_interface, "channel": target_channel, "error": str(exc), "bus_degraded": True},
+                )
 
-            # B-25: Reset channel-bound state on bus switch
-            self.ring_buffer.clear()
-            self.j1939_tp = J1939TransportProtocol(my_address=0xF9, channel_id=self.channel_name)
-            self.n2k_fp = Nmea2000FastPacketDecoder()
-            # B-05: bus reconnect / vehicle change drops CCVS trust — the new
-            # channel must re-establish it via address claim / vehicle profile
-            # / operator approval; stale-SA trust must never cross a rebind.
-            self._ccvs_trusted_sa = None
+        self.bus = new_bus
+        self.gateway.rebind_bus(self.bus)
+        if bool(getattr(self.bus, "is_connected", False)):
+            self.bus_degraded = False
+        self.interface_val = target_interface
+        self.channel_name = str(target_channel)
+        self.bitrate_val = target_bitrate
 
-            logger.info(
-                "CAN bus reconnected",
-                extra={"interface": self.interface_val, "channel": self.channel_name, "bitrate": self.bitrate_val},
-            )
+        # REVIEW3 #41 (reconnect vs ARMED_TX): the reconnected bus is
+        # opened listen-only (Safe-by-Default), but the supervisor state
+        # used to survive the swap — ARMED_TX + a PASSIVE transceiver is
+        # a dead protocol (gateway passes, driver raises HardwareError,
+        # J1939 CTS/ACK and UDS responses die silently to T2/T3
+        # timeouts). A settings change is a physical-channel change: TX
+        # authority must be re-armed explicitly by the operator. Disarm
+        # to PASSIVE fail-closed on every successful rebind.
+        if self.supervisor.is_tx_permitted:
+            try:
+                self.supervisor.transition_to(
+                    SafetyState.PASSIVE, reason="bus reconnect — TX re-arm required"
+                )
+                logger.warning(
+                    "Bus reconnected — supervisor disarmed to PASSIVE; operator must re-arm TX"
+                )
+            except Exception as exc:  # noqa: BLE001 — disarm failure must not kill reconnect
+                logger.error(
+                    "Supervisor disarm after reconnect failed — forcing FAULT",
+                    extra={"error": str(exc)},
+                )
+                self.supervisor._force_fault("reconnect disarm failed")
+
+        try:
+            old_bus.disconnect()
+        except Exception as exc:  # noqa: BLE001 — old handle cleanup is best-effort
+            logger.debug("Old bus disconnect during reconnect failed", extra={"error": str(exc)})
+
+        # B-25: Reset channel-bound state on bus switch
+        self.ring_buffer.clear()
+        self.j1939_tp = J1939TransportProtocol(my_address=0xF9, channel_id=self.channel_name)
+        self.n2k_fp = Nmea2000FastPacketDecoder()
+        # B-05: bus reconnect / vehicle change drops CCVS trust — the new
+        # channel must re-establish it via address claim / vehicle profile
+        # / operator approval; stale-SA trust must never cross a rebind.
+        self._ccvs_trusted_sa = None
+
+        logger.info(
+            "CAN bus reconnected",
+            extra={"interface": self.interface_val, "channel": self.channel_name, "bitrate": self.bitrate_val},
+        )
+        return True
 
     def _decode_j1939_payload(self, arb_id: int, source_address: int, data: bytes) -> None:
         """Decode a fully reassembled J1939 application message (no frame cap).

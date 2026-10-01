@@ -318,6 +318,23 @@ export interface UserDiagnosticCard {
   source_badges: string[];
 }
 
+/** What the app is listening to (workbench status bar). */
+export interface BusInfoResult {
+  success: boolean;
+  error_code?: string;
+  interface?: string;
+  channel?: string;
+  bitrate?: number;
+  connected?: boolean;
+  simulated?: boolean;
+  vehicle_type?: string | null;
+  listen_only?: boolean;
+  /** Driver-reported error frames on this channel. */
+  error_frames?: number;
+  /** Driver bus state: active / passive / bus_off / error / disconnected / stopped. */
+  bus_state?: string;
+}
+
 // Interface for pywebview Python backend bridge
 declare global {
   interface Window {
@@ -331,6 +348,10 @@ declare global {
         execute_diagnostic_action?: (action: Record<string, any>, confirmationToken?: string, userConfirmed?: boolean) => Promise<{ success: boolean; message?: string; error?: string; [key: string]: any }>;
         request_diagnostic_challenge?: (action: Record<string, any>) => Promise<{ success: boolean; token?: string; error?: string; [key: string]: any }>;
         get_bus_traffic_status?: () => Promise<Record<string, any>>;
+        get_safety_state?: () => Promise<string>;
+        sim_vehicle_start?: (vehicleType: string) => Promise<BusInfoResult>;
+        sim_vehicle_stop?: () => Promise<BusInfoResult>;
+        bus_get_info?: () => Promise<BusInfoResult>;
         export_logs: (format: string) => Promise<boolean>;
         save_settings: (settings: Record<string, any>) => Promise<void>;
         inject_fault?: (faultType: string) => Promise<void>;
@@ -712,6 +733,42 @@ export class DesktopBridge {
     }
     // Browser / Dev fallback
     this.requireCapability('get_bus_traffic_status', 'get Bus Traffic Status');
+    this.requireNativeOrDev();
+    return null;
+  }
+
+  /** Supervisor state (STARTUP/SAFE/PASSIVE/ARMED_TX/ACTIVE/FAULT); null outside the native shell. */
+  public static async getSafetyState(): Promise<string | null> {
+    const m = this.apiMethod('get_safety_state');
+    if (this.isNative() && m) {
+      return String(await m());
+    }
+    this.requireCapability('get_safety_state', 'safety state');
+    this.requireNativeOrDev();
+    return null;
+  }
+
+  /** Workbench: bind the listen-only simulated vehicle as the app bus. */
+  public static async simVehicleStart(vehicleType: string): Promise<BusInfoResult> {
+    const m = this.apiMethod('sim_vehicle_start');
+    if (this.isNative() && m) return await m(vehicleType);
+    this.requireCapability('sim_vehicle_start', 'simulated vehicle');
+    this.requireNativeOrDev();
+    return { success: false, error_code: 'NATIVE_BRIDGE_MISSING' };
+  }
+
+  public static async simVehicleStop(): Promise<BusInfoResult> {
+    const m = this.apiMethod('sim_vehicle_stop');
+    if (this.isNative() && m) return await m();
+    this.requireCapability('sim_vehicle_stop', 'simulated vehicle');
+    this.requireNativeOrDev();
+    return { success: false, error_code: 'NATIVE_BRIDGE_MISSING' };
+  }
+
+  public static async busGetInfo(): Promise<BusInfoResult | null> {
+    const m = this.apiMethod('bus_get_info');
+    if (this.isNative() && m) return await m();
+    this.requireCapability('bus_get_info', 'bus info');
     this.requireNativeOrDev();
     return null;
   }
