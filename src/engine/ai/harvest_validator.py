@@ -112,9 +112,10 @@ def validate_dtc_record(record: Dict[str, Any]) -> ValidationReport:
     return ValidationReport(True, [], warnings, res, fp)
 
 def validate_spn_record(record: Dict[str, Any]) -> ValidationReport:
-    errors, warnings = [], []
+    errors: list[str] = []
+    warnings: list[str] = []
     try:
-        spn = int(record.get("spn"))
+        spn = int(record["spn"])
         if not (0 <= spn <= 524287):
             errors.append(f"SPN {spn} out of 19-bit range")
     except Exception:
@@ -139,11 +140,11 @@ def validate_spn_record(record: Dict[str, Any]) -> ValidationReport:
     if causes:
         ok, err = validate_text(causes, "causes")
         if not ok:
-            errors.append(err)
+            errors.append(err or "causes invalid")
     if actions:
         ok, err = validate_text(actions, "actions")
         if not ok:
-            errors.append(err)
+            errors.append(err or "actions invalid")
 
     if not causes and not actions:
         errors.append(f"SPN {spn} missing both causes and actions")

@@ -86,6 +86,7 @@ def _finite_number(data: dict[str, Any], field: str) -> int:
             f"License payload field '{field}' must be a number, got {type(value).__name__}",
             code="MALFORMED_PAYLOAD",
         )
+    assert isinstance(value, (int, float))  # narrowed by the type() check above
     as_float = float(value)
     if not math.isfinite(as_float):
         raise LicenseError(

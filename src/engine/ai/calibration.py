@@ -184,7 +184,7 @@ def _case_to_vehicle_session(case: GoldenCase) -> tuple[VehicleSession, tuple[st
         session.events.append(
             DiagnosticEvent(
                 timestamp_ns=session.started_at_ns + 1000,
-                code=code_str,
+                code=str(code_str or ""),
                 domain=case.domain,
                 severity=Severity.HIGH,
                 status=status_str,

@@ -18,13 +18,15 @@ Usage:
 
 from __future__ import annotations
 
+from typing import Any
+
 __all__ = ["build_j1939_id", "parse_j1939_id", "pgn_from_id", "PGN_PDU1_BOUND"]
 
 # PF < 240 (0xF0) selects PDU1 (destination-specific); PF >= 240 is PDU2.
 PGN_PDU1_BOUND: int = 240
 
 
-def _impl():
+def _impl() -> tuple[Any, Any]:
     """Lazily import the registry implementation (breaks the import cycle).
 
     The j1939 package __init__ imports address_claim (and more), which

@@ -20,7 +20,7 @@ import secrets as pysecrets
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric import ed25519
@@ -195,7 +195,7 @@ class LicenseFlow:
         if secrets is not None:
             try:
                 if secrets.has_secret(HWM_SECRET_NAME):
-                    return secrets.get_secret(HWM_SECRET_NAME)
+                    return cast(bytes, secrets.get_secret(HWM_SECRET_NAME))
             except KeyError:
                 pass
 
@@ -238,7 +238,7 @@ class LicenseFlow:
                 "License HWM integrity key is not stably persisted; refusing to treat HWM as trustworthy.",
                 code="HWM_KEY_UNAVAILABLE",
             )
-        return stored
+        return cast(bytes, stored)
 
     def _hwm_read_keys(self) -> list[bytes]:
         """Every vault key an HWM file may verify under (SEC-02).
@@ -615,7 +615,7 @@ class LicenseFlow:
         # plus this isfinite check).
         for field_name in ("iat", "exp", "offline_until"):
             value = data.get(field_name)
-            if type(value) not in (int, float) or isinstance(value, bool) or not math.isfinite(float(value)):
+            if not isinstance(value, (int, float)) or isinstance(value, bool) or not math.isfinite(float(value)):
                 raise LicenseError(
                     f"Cloud ticket '{field_name}' must be a finite number",
                     code="MALFORMED_SCHEMA",

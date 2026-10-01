@@ -74,7 +74,7 @@ class IsoTpSession:
     """State tracking for an active ISO-TP multi-frame reception session."""
 
     rx_id: int
-    tx_id: int
+    tx_id: int | None
     channel_id: str
     total_bytes: int
     expected_sequence_number: int = 1
@@ -286,9 +286,13 @@ class ReassemblyPipeline:
         self._router_sub_id: int | None = None
         if self.router is not None and auto_subscribe_router:
             self._router_sub_id, _ = self.router.subscribe(
-                callback=self.process_frame,
+                callback=self._on_router_frame,
                 channel_id=self.channel_id,
             )
+
+    def _on_router_frame(self, frame: CanFrame) -> None:
+        """Router callback: the router ignores return values."""
+        self.process_frame(frame)
 
     # --------------------------------------------------------------------------
     # Time & Lifecycle Management

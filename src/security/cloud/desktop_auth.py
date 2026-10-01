@@ -542,7 +542,7 @@ _DEFINITIVE_REFRESH_REFUSALS: dict[str, str] = {
 def user_message(code: str | None) -> tuple[str, str]:
     """(TR, EN) plain-language text for an error code; generic fallback."""
     if code in _MESSAGES:
-        return _MESSAGES[code]  # type: ignore[index]
+        return _MESSAGES[code]
     if code and code.startswith("CLOCK_"):
         return _MESSAGES["CLOCK_ROLLBACK_DETECTED"]
     return _MESSAGES["LICENSE_INVALID"] if code else _MESSAGES["SIGN_IN_FAILED"]

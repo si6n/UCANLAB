@@ -10,10 +10,12 @@ hardware-untested, and ``python-can`` reports its absence at connect time.
 
 from __future__ import annotations
 
+import importlib
 import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 
 @dataclass(slots=True, frozen=True)
@@ -117,7 +119,8 @@ class PrereqChecker:
         3. the WinSxS side-by-side component store.
         """
         try:
-            import winreg
+            # importlib keeps this module type-checkable on every platform.
+            winreg: Any = importlib.import_module("winreg")
 
             key_path = r"SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64"
             with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, key_path) as key:
@@ -135,7 +138,7 @@ class PrereqChecker:
                     return f"Runtime DLL present ({directory.name}\\{dll})"
 
         try:
-            import winreg
+            winreg = importlib.import_module("winreg")
 
             winners = r"SOFTWARE\Microsoft\Windows\CurrentVersion\SideBySide\Winners"
             with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, winners):

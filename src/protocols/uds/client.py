@@ -676,7 +676,10 @@ class UdsClient:
                     self.tx_port.send_sync(frame)
             else:
                 try:
-                    self.tx_port.send_sync(
+                    # The TxPort protocol does not declare the proof kwargs;
+                    # a port that cannot take them raises TypeError (below).
+                    port: Any = self.tx_port
+                    port.send_sync(
                         frame,
                         budget_category=budget_category,
                         is_critical_command=is_critical_command,

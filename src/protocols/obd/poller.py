@@ -494,7 +494,7 @@ class ActiveDiagnosticPoller:
             return None, fc_frame
 
         sid = completed_payload[0]
-        cb_to_dispatch = None
+        cb_to_dispatch: tuple[Callable[[Any], None], ObdPidResult | ObdDtcResult | UdsDidResult] | None = None
 
         with self._lock:
             active = self._active_job
@@ -657,8 +657,8 @@ class ActiveDiagnosticPoller:
                 # match the active job's endpoint before completion.
                 did = (completed_payload[1] << 8) | completed_payload[2]
                 raw_data = completed_payload[3:]
-                result = self.uds_registry.decode(did, raw_data)
-                decoded_result = result
+                did_result = self.uds_registry.decode(did, raw_data)
+                decoded_result = did_result
 
                 if (
                     active is not None
@@ -673,7 +673,7 @@ class ActiveDiagnosticPoller:
                     active.retry_count = 0
                     self._state = PollerState.COMPLETED
                     self._active_job = None
-                    cb_to_dispatch = (active.callback, result)
+                    cb_to_dispatch = (active.callback, did_result)
 
         if cb_to_dispatch is not None:
             cb, res = cb_to_dispatch
@@ -1170,7 +1170,7 @@ class ActiveDiagnosticPoller:
                 finally:
                     new_loop.close()
 
-            self._thread = threading.Thread(target=_runner, daemon=True, name="active_diag_poller")
+            self._thread: threading.Thread | None = threading.Thread(target=_runner, daemon=True, name="active_diag_poller")
             self._thread.start()
 
     def stop(self) -> None:

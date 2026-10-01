@@ -767,6 +767,10 @@ class TxSafetyGateway:
                 "Critical command rejected: malformed confirmation token",
             )
         payload, mac = raw[:-32], raw[-32:]
+        if self._confirmation_secret is None:
+            raise DualConfirmationRequiredError(
+                "Critical command rejected: no confirmation secret configured",
+            )
         expected = hmac.new(self._confirmation_secret, payload, hashlib.sha256).digest()
         if not hmac.compare_digest(mac, expected):
             raise DualConfirmationRequiredError(
@@ -899,7 +903,7 @@ class TxSafetyGateway:
         instance = cls(bus=bus, estop=estop, whitelist_ids=whitelist_ids)
         # P16 (G-7): written through the name-mangled slot — the public
         # `_whitelist_bypass_for_testing` name is a read-only property.
-        instance._TxSafetyGateway__whitelist_bypass_for_testing = True
+        setattr(instance, "_TxSafetyGateway__whitelist_bypass_for_testing", True)  # noqa: B010
         return instance
 
     def _on_estop_triggered(self, event: object) -> None:

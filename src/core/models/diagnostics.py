@@ -12,6 +12,7 @@ import math
 import re
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any
 
 # 17-char VIN pattern (ISO 3779): excludes I, O, Q. Used fail-closed: a raw
 # VIN must NEVER enter a VehicleSession — only mask_vin_in_text output.
@@ -359,7 +360,7 @@ NON_KEY_DTC_FIELDS: frozenset[str] = frozenset({
 })
 
 
-def validate_dtc_provenance_dependent_required(record: dict | DtcRecord) -> None:
+def validate_dtc_provenance_dependent_required(record: dict[str, Any] | DtcRecord) -> None:
     """Enforce dependentRequired invariant: non-key diagnostic claims demand provenance.
 
     ISO 26262 ASIL-B / Konsolide Keşif Raporu H.2 Aksiyon 14:
@@ -388,13 +389,13 @@ def validate_dtc_provenance_dependent_required(record: dict | DtcRecord) -> None
             )
 
 
-def synthesize_provenance_from_legacy(code: str, record: dict) -> list[dict]:
+def synthesize_provenance_from_legacy(code: str, record: dict[str, Any]) -> list[dict[str, Any]]:
     """Synthesize formal provenance records conforming to F.2 schema from raw source metadata.
 
     Guarantees that 100% of diagnostic records with evidence satisfy the
     dtc_record_schema.json dependentRequired gate.
     """
-    prov: list[dict] = []
+    prov: list[dict[str, Any]] = []
     clean_code = str(code).strip().lower().replace(" ", "_").replace(":", "_")
     idx = 1
 

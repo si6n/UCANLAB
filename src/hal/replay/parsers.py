@@ -15,7 +15,7 @@ from __future__ import annotations
 import csv
 import math
 import re
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -25,6 +25,15 @@ from src.core.logging import get_logger
 from src.core.models.can_frame import CanFrame, dlc_to_length, length_to_dlc
 
 logger = get_logger("hal.replay.parsers")
+
+
+def _cell(row: dict[str, str | None], col: dict[str, str | None], key: str, default: str = "") -> str:
+    """Stripped text of the CSV cell mapped to ``key``; ``default`` when unmapped or empty."""
+    name = col.get(key)
+    if not name:
+        return default
+    return (row.get(name) or default).strip()
+
 
 MAX_TRACE_LINE_CHARS: int = 4096
 MAX_TRACE_FILE_BYTES: int = 256 * 1024 * 1024
@@ -317,7 +326,7 @@ class CsvParser:
         return frames
 
     @classmethod
-    def _resolve_columns(cls, fieldnames: list[str]) -> dict[str, str | None]:
+    def _resolve_columns(cls, fieldnames: Sequence[str]) -> dict[str, str | None]:
         """Map canonical field -> actual CSV column via alias sets."""
         normalized = {name.strip().lower(): name for name in fieldnames}
         resolved: dict[str, str | None] = {}
@@ -336,9 +345,9 @@ class CsvParser:
         row_no: int,
     ) -> CanFrame | None:
         """Parse one CSV row; returns None (and logs) on malformed content."""
-        raw_time = (row.get(col["time"]) or "").strip() if col.get("time") else ""
-        raw_id = (row.get(col["id"]) or "").strip() if col.get("id") else ""
-        raw_data = (row.get(col["data"]) or "").strip() if col.get("data") else ""
+        raw_time = _cell(row, col, "time", "")
+        raw_id = _cell(row, col, "id", "")
+        raw_data = _cell(row, col, "data", "")
         if not raw_time or not raw_id or not raw_data:
             logger.debug("Skipping empty CSV row", extra={"row": row_no})
             return None
@@ -364,13 +373,13 @@ class CsvParser:
             logger.warning("Skipping out-of-range CSV row", extra={"row": row_no})
             return None
 
-        raw_dlc = (row.get(col["dlc"]) or "").strip() if col.get("dlc") else ""
+        raw_dlc = _cell(row, col, "dlc", "")
         try:
             dlc = int(raw_dlc) if raw_dlc else len(data_bytes)
         except ValueError:
             dlc = len(data_bytes)
 
-        raw_ext = (row.get(col["extended"]) or "").strip().lower() if col.get("extended") else ""
+        raw_ext = _cell(row, col, "extended", "").lower()
         if raw_ext in ("1", "true", "yes"):
             is_extended = True
         elif raw_ext in ("0", "false", "no"):
@@ -378,11 +387,11 @@ class CsvParser:
         else:
             is_extended = arb_id > 0x7FF
 
-        raw_dir = (row.get(col["direction"]) or "rx").strip().lower() if col.get("direction") else "rx"
+        raw_dir = _cell(row, col, "direction", "rx").lower()
         direction = "tx" if raw_dir in ("tx", "t", "sent") else "rx"
 
         channel = (
-            (row.get(col["channel"]) or "").strip() if col.get("channel") and (row.get(col["channel"]) or "").strip() else default_channel
+            _cell(row, col, "channel") or default_channel
         )
         # HAL-17: the fallback channel is the FILE STEM, which is arbitrary
         # user filesystem text. `CanFrame.__post_init__` enforces the narrow

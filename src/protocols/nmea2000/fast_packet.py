@@ -184,7 +184,7 @@ class Nmea2000FastPacketDecoder:
         frame_index = header_byte & 0x1F
 
         pf = (pgn >> 8) & 0xFF
-        effective_da = da if pf < 240 else 0xFF
+        effective_da = da if (pf < 240 and da is not None) else 0xFF
 
         session_key = (source_address, effective_da, pgn, sequence_id, frame.channel_id)
         now = time.monotonic()
@@ -357,11 +357,11 @@ class Nmea2000FastPacketDecoder:
             self._sessions.pop(k, None)
         # Bound the restart-mark table alongside the session sweep.
         stale_marks = [
-            k for k, (start, _c) in self._restart_marks.items() if (now - start) > max(self.TIMEOUT_SEC, 1.0)
+            mk for mk, (start, _c) in self._restart_marks.items() if (now - start) > max(self.TIMEOUT_SEC, 1.0)
         ]
-        for k in stale_marks:
-            self._restart_marks.pop(k, None)
+        for mark_key in stale_marks:
+            self._restart_marks.pop(mark_key, None)
         if len(self._restart_marks) > self.MAX_CONCURRENT * 2:
             # Hard bound: drop oldest marks first.
-            for k in list(self._restart_marks)[: len(self._restart_marks) - self.MAX_CONCURRENT * 2]:
-                self._restart_marks.pop(k, None)
+            for mark_key in list(self._restart_marks)[: len(self._restart_marks) - self.MAX_CONCURRENT * 2]:
+                self._restart_marks.pop(mark_key, None)

@@ -219,7 +219,7 @@ class SystemClockProvider:
     def now_monotonic_ns(self) -> int:
         """Return suspend-aware monotonic time in nanoseconds."""
         if _HAS_CLOCK_BOOTTIME and _CLOCK_BOOTTIME is not None:
-            raw_ns = time.clock_gettime_ns(_CLOCK_BOOTTIME)
+            raw_ns = int(getattr(time, "clock_gettime_ns")(_CLOCK_BOOTTIME))  # noqa: B009 — absent on Windows
         elif _QIT_FUNC is not None:
             buf = ctypes.c_ulonglong()
             _QIT_FUNC(ctypes.byref(buf))

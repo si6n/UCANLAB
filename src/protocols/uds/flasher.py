@@ -15,7 +15,7 @@ import zlib
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric import ed25519
@@ -319,14 +319,14 @@ class EcuFlashingEngine:
         the step keeps the unbound token and presents no context.
         """
         if self._issuer_factory is not None:
-            return self._issuer_factory
+            return cast(Callable[..., bytes | str], self._issuer_factory)
         with self._state_lock:
             active = self._active_config
         if active is not None and active.confirmation_token_factory is not None:
             return None  # an explicit config factory keeps precedence (unbound)
         issuer = getattr(self.gateway, "issue_confirmation_token", None)
         if issuer is not None and self._gateway_has_confirmation_secret():
-            return issuer  # type: ignore[no-any-return]
+            return cast(Callable[..., bytes | str], issuer)
         return None
 
     def _confirmation_context(self) -> str | None:
@@ -335,7 +335,7 @@ class EcuFlashingEngine:
             return None
         return self._identity_context()
 
-    def _context_kwargs(self) -> dict[str, str]:
+    def _context_kwargs(self) -> dict[str, Any]:
         """``confirmation_context=`` for a client call, only when bound."""
         ctx = self._confirmation_context()
         return {} if ctx is None else {"confirmation_context": ctx}

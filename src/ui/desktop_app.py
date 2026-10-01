@@ -21,12 +21,12 @@ import urllib.parse
 import uuid
 import webbrowser
 from collections import deque
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from concurrent.futures import TimeoutError as FuturesTimeoutError
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Literal
 
 import webview
 from cryptography.hazmat.primitives.asymmetric import ed25519
@@ -65,7 +65,7 @@ from src.engine.vehicle.identity import mask_vin
 from src.engine.vehicle.profiles import CatalogError as VehicleCatalogError
 from src.engine.vehicle.profiles import default_catalog as default_vehicle_catalog
 from src.engine.vehicle.profiles import profile_dict as vehicle_profile_dict
-from src.hal.base import BusState
+from src.hal.base import AbstractBus, BusState
 from src.hal.drivers.pcan_kvaser import PythonCanBus
 from src.hal.replay.player import ReplayBus
 from src.hal.replay.safety_filter import ReplaySafetyFilter
@@ -79,7 +79,8 @@ from src.protocols.j1939.pgn import build_j1939_id, parse_j1939_id
 from src.protocols.j1939.transport import J1939TransportProtocol
 from src.protocols.nmea2000.fast_packet import Nmea2000FastPacketDecoder
 from src.protocols.nmea2000.pgn_library import PGN_ENGINE_DYNAMIC, Nmea2000PgnDecoder
-from src.protocols.obd.poller import ActiveDiagnosticPoller, ObdPidResult
+from src.protocols.obd.models import ObdPidResult
+from src.protocols.obd.poller import ActiveDiagnosticPoller
 from src.protocols.uds.client import UdsClient
 from src.protocols.uds.flasher import (
     EcuFlashingEngine,
@@ -419,7 +420,7 @@ class _ExclusiveHTTPServer(HTTPServer):
     """
 
     # Must be 0: Windows rejects SO_EXCLUSIVEADDRUSE together with SO_REUSEADDR.
-    allow_reuse_address = 0
+    allow_reuse_address = False
 
     def server_bind(self) -> None:
         if _SO_EXCLUSIVEADDRUSE is not None:
@@ -1902,6 +1903,7 @@ class DesktopApiBridge:
     # were confirmed exfiltratable. A positive root allowlist closes
     # traversal and symlink escapes by construction.
     # L-12 (P3-8): roots are anchored to the app data root, not the CWD.
+    @staticmethod
     def _upload_roots() -> tuple[Path, ...]:
         root = _app_data_root()
         return (
@@ -2252,6 +2254,7 @@ class UniversalCanDesktopApp:
         # Safe-by-default: the app opens its bus listen-only;
         # the operator must explicitly arm TX before any transmission path is
         # unblocked by the SafetySupervisor (PASSIVE → ARMED_TX).
+        self.bus: AbstractBus
         if bus is not None:
             self.bus = bus
         elif interface == "rp1210":
@@ -2394,7 +2397,9 @@ class UniversalCanDesktopApp:
 
         try:
             pub_bytes = base64.b64decode(DEFAULT_EMBEDDED_CLOUD_PUBLIC_KEY_B64)
-            self._cloud_pubkey = ed25519.Ed25519PublicKey.from_public_bytes(pub_bytes)
+            self._cloud_pubkey: ed25519.Ed25519PublicKey | None = ed25519.Ed25519PublicKey.from_public_bytes(
+                pub_bytes
+            )
         except Exception:
             self._cloud_pubkey = None
         # M-19 (P2-13): persistent HWM — anti-rollback survives restarts.
@@ -2511,6 +2516,7 @@ class UniversalCanDesktopApp:
         )
         self._address_claim_lock = threading.Lock()
         self._detected_vin: str | None = None
+        self._last_adapters: dict[str, AdapterInfo] = {}
         self.replay_bus: ReplayBus | None = None
         self.replay_safety_filter: ReplaySafetyFilter | None = None
         self._replay_thread: threading.Thread | None = None
@@ -2544,12 +2550,12 @@ class UniversalCanDesktopApp:
         self._dialogue_session: Any | None = None
         self._session_lock = threading.Lock()
         # Per-signal bounded evidence ring (O(1) append, RX hot-path safe).
-        self._signal_rings: dict[str, deque] = {}
+        self._signal_rings: dict[str, deque[SignalSample]] = {}
         # Workbench "Grafik" rings (B2): every decoded value the screens may
         # plot, real or simulated, tagged with its origin. Separate from the
         # evidence rings above so a simulated vehicle can be plotted without
         # ever becoming evidence.
-        self._plot_rings: dict[str, deque] = {}
+        self._plot_rings: dict[str, deque[Any]] = {}
         self._plot_meta: dict[str, dict[str, Any]] = {}
         self._plot_lock = threading.Lock()
         self._open_diagnostic_session()
@@ -2645,7 +2651,7 @@ class UniversalCanDesktopApp:
         with self._ui_state_lock:
             setattr(self, attr, getattr(self, attr) + delta)
 
-    def _set_ui_state(self, **kwargs) -> None:  # noqa: ANN001 — narrow helper
+    def _set_ui_state(self, **kwargs: Any) -> None:
         """Thread-safe UI state flag writes (E14)."""
         with self._ui_state_lock:
             for key, value in kwargs.items():
@@ -2853,7 +2859,7 @@ class UniversalCanDesktopApp:
             ring.append(sample)
             session.samples.append(sample)
 
-    def _record_dm1_events(self, dtcs: list) -> None:
+    def _record_dm1_events(self, dtcs: list[Any]) -> None:
         """Turn parsed DM1 SPN/FMI records into DiagnosticEvents (FAZ 1, Bulgu 1).
 
         Severity maps from the KB / SPN DB record; an unknown SPN gets
@@ -3106,9 +3112,9 @@ class UniversalCanDesktopApp:
         from src.engine.ai.user_report_composer import compose_user_card
 
         sufficiency = evaluate_sufficiency(session)
-        anomalies: list = []
-        hypotheses: list = []
-        similar: list = []
+        anomalies: list[Any] = []
+        hypotheses: list[Any] = []
+        similar: list[Any] = []
         if sufficiency.anomaly_sufficient:
             try:
                 thresholds = load_thresholds()
@@ -3132,7 +3138,7 @@ class UniversalCanDesktopApp:
         # present in DiagnosticEvent.code ("SPN <n> FMI <m>") — re-derive it
         # instead of dropping the information. Codes without the SPN form
         # keep (None, None): never fabricate an SPN from arbitrary text.
-        dtc_payload = []
+        dtc_payload: list[dict[str, object]] = []
         for e in session.events:
             if e.status != "ACTIVE":
                 continue
@@ -3208,8 +3214,8 @@ class UniversalCanDesktopApp:
         if session is None:
             return {"success": False, "error": "Aktif teşhis oturumu yok"}
         sufficiency = evaluate_sufficiency(session)
-        anomalies: list = []
-        similar: list = []
+        anomalies: list[Any] = []
+        similar: list[Any] = []
         if sufficiency.anomaly_sufficient:
             try:
                 thresholds = load_thresholds()
@@ -3963,7 +3969,8 @@ class UniversalCanDesktopApp:
                     "requires_confirmation=false — ignored (type-mandatory gate)",
                     action_type,
                 )
-        params = action.get("params") if isinstance(action.get("params"), dict) else {}
+        raw_params = action.get("params")
+        params: dict[str, Any] = raw_params if isinstance(raw_params, dict) else {}
 
         # 1. Safety Check: Emergency Stop
         if self._is_estop or self.estop.is_engaged:
@@ -4926,8 +4933,8 @@ class UniversalCanDesktopApp:
         folder = _app_data_root() / "exports"
         try:
             folder.mkdir(parents=True, exist_ok=True)
-            if sys.platform.startswith("win"):
-                os.startfile(str(folder))  # type: ignore[attr-defined]  # noqa: S606 — fixed app-owned folder
+            if sys.platform == "win32":
+                os.startfile(str(folder))  # noqa: S606 — fixed app-owned folder
             else:
                 opener = "open" if sys.platform == "darwin" else "xdg-open"
                 subprocess.Popen([opener, str(folder)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)  # noqa: S603
@@ -5837,7 +5844,7 @@ class UniversalCanDesktopApp:
             sim = SimulatedVehicleBus(vehicle_type, NATIVE_BITRATE[vehicle_type], animated=True)
             if not self._install_bus_locked(sim, "simulator", sim.channel_id, sim.bitrate):
                 return {"success": False, "error_code": "BIND_FAILED"}
-            self._pre_simulator_bus = previous
+            self._pre_simulator_bus: tuple[str, str, int] | None = previous
             self._sim_diag_session = VehicleSession(
                 session_id=f"sim-{time.time_ns()}-{uuid.uuid4().hex[:8]}",
                 started_at_ns=time.monotonic_ns(),
@@ -5936,7 +5943,7 @@ class UniversalCanDesktopApp:
             "bitrate": int(self.bitrate_val or 0),
             "connected": bool(getattr(bus, "is_connected", False)),
             "simulated": simulated,
-            "vehicle_type": bus.vehicle_type if simulated else None,
+            "vehicle_type": bus.vehicle_type if isinstance(bus, SimulatedVehicleBus) else None,
             "listen_only": bool(getattr(bus, "listen_only", True)),
             # Driver-reported counters only. ``_error_count`` is not used here:
             # it also carries the DM1 DTC count and would read as "errors".
@@ -5967,7 +5974,7 @@ class UniversalCanDesktopApp:
 
                     new_bus = build_bus(
                         interface=target_interface,
-                        channel=target_channel,
+                        channel=str(target_channel),
                         bitrate=target_bitrate,
                         listen_only=True,
                     )
@@ -6307,7 +6314,7 @@ class UniversalCanDesktopApp:
         except Exception:  # noqa: BLE001 — tracing must never kill ingestion
             pass
 
-    def _ingest_live_frame(self, frame: object) -> None:
+    def _ingest_live_frame(self, frame: CanFrame) -> None:
         """Feed one live frame through the router into decoders and UI (F-28).
 
         Perf (C-9): the ring buffer write is deferred to the caller's tick
@@ -6357,7 +6364,7 @@ class UniversalCanDesktopApp:
             # cannot express the suppression contract. Fall back to the plain
             # call and enforce suppression on the CALLER side below — the
             # replay frame must still never reach the gateway.
-            completed, resp = self.j1939_tp.handle_rx_frame(frame)  # type: ignore[arg-type]
+            completed, resp = self.j1939_tp.handle_rx_frame(frame)
             if _is_replay_frame:
                 resp = None
         if _is_replay_frame:
@@ -6446,7 +6453,7 @@ class UniversalCanDesktopApp:
         # packet filter, where 127488 (Engine Rapid: data[1] = RPM LSB,
         # e.g. idle 600 rpm -> 0x60 = 96 in 9..223) opened phantom 96-byte
         # sessions that swallowed the real RPM forever.
-        n2k_msg = self.n2k_fp.handle_rx_frame(frame)  # type: ignore[arg-type]
+        n2k_msg = self.n2k_fp.handle_rx_frame(frame)
         if n2k_msg is not None:
             self._decode_n2k_fast_payload(n2k_msg.pgn, n2k_msg.source_address, n2k_msg.data)
 
@@ -6522,7 +6529,7 @@ class UniversalCanDesktopApp:
         load = bits / (((now_ns - last) / 1e9) * bitrate) * 100.0
         return max(0, min(100, int(round(load))))
 
-    def _push_frames_to_ui_batch(self, frames: list[object]) -> None:
+    def _push_frames_to_ui_batch(self, frames: Sequence[object]) -> None:
         """Stream a tick's frames to the frontend in ONE evaluate_js call (E13).
 
         Per-frame JS evaluation (up to 200 frames / 50 ms tick) flooded the
@@ -6618,8 +6625,8 @@ class UniversalCanDesktopApp:
             # the stop); only the DEMO generator is skipped while latched.
             if not self._is_simulating:
                 drained = 0
-                tick_frames: list[object] = []
-                bus_snapshot: object | None = None
+                tick_frames: list[CanFrame] = []
+                bus_snapshot: AbstractBus | None = None
                 try:
                     with self._bus_lock:
                         bus_snapshot = self.bus
@@ -6680,7 +6687,7 @@ class UniversalCanDesktopApp:
                     continue
                 # Perf (C-9): ring buffer batch write — one lock acquisition
                 # per tick instead of one per frame.
-                self.ring_buffer.append_batch(tick_frames)  # type: ignore[arg-type]
+                self.ring_buffer.append_batch(tick_frames)
                 # Perf (C-9): packet counter bumped once per tick, not per frame
                 self._bump_stat("_total_packets", drained)
                 # E13: one JS evaluation per tick for the whole batch
@@ -6982,7 +6989,7 @@ class UniversalCanDesktopApp:
                     logger.warning("Stripping insecure %s in non-development environment", debug_var)
                     os.environ.pop(debug_var, None)
 
-            target_gui = "edgechromium" if sys.platform == "win32" else None
+            target_gui: Literal["edgechromium"] | None = "edgechromium" if sys.platform == "win32" else None
             webview.start(_apply_windows_acrylic, gui=target_gui, debug=False)
         finally:
             self._set_ui_state(_running=False)
