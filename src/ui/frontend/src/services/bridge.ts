@@ -136,6 +136,51 @@ export interface VehicleIdentityResult {
   suggested_profile_id?: string | null;
 }
 
+export interface AdapterEntry {
+  id: string;
+  kind: 'pcan' | 'kvaser' | 'rp1210' | 'socketcan' | 'simulator' | string;
+  interface: string;
+  channel: string;
+  label: string;
+  status: 'ready' | 'driver_ready' | 'driver_missing' | 'not_found' | 'probe_failed';
+  usable: boolean;
+  message_tr: string;
+  message_en: string;
+}
+
+export interface ConnectionTestResult {
+  code:
+    | 'READY'
+    | 'QUIET_VEHICLE'
+    | 'EXPECTED_MISSING'
+    | 'NO_TRAFFIC'
+    | 'WRONG_BITRATE'
+    | 'BUS_ERROR'
+    | 'ADAPTER_ERROR'
+    | 'LISTEN_ONLY_UNAVAILABLE'
+    | 'CANCELLED';
+  usable: boolean;
+  bitrate: number | null;
+  ecu_count: number;
+  frames: number;
+  expected: { pgn: number; name_tr: string; name_en: string; seen: boolean }[];
+  message_tr: string;
+  message_en: string;
+  battery_volts: number | null;
+  battery_warning: boolean;
+  battery_message_tr: string;
+  battery_message_en: string;
+}
+
+export interface ConnectionTestStatus {
+  success: boolean;
+  state?: 'idle' | 'running' | 'done';
+  step?: 'opening' | 'bitrate' | 'ecus' | 'done';
+  bitrate?: number | null;
+  result?: ConnectionTestResult | null;
+  error_code?: string;
+}
+
 export interface DeviceLoginStart {
   success: boolean;
   user_code?: string;
@@ -291,6 +336,10 @@ declare global {
         vehicle_catalog?: () => Promise<VehicleCatalogResult>;
         vehicle_select?: (profileId: string) => Promise<MechanicResult>;
         vehicle_check_identity?: () => Promise<VehicleIdentityResult>;
+        adapter_scan?: () => Promise<{ success: boolean; adapters: AdapterEntry[] }>;
+        connection_test_start?: (adapterId: string, scenario?: string | null) => Promise<{ success: boolean; test_id?: string; error_code?: string }>;
+        connection_test_status?: () => Promise<ConnectionTestStatus>;
+        connection_test_cancel?: () => Promise<{ success: boolean }>;
         cloud_cancel_web_login?: () => Promise<{ success: boolean }>;
         cloud_logout?: () => Promise<{ success: boolean; error?: string }>;
         cloud_upload_session?: (filePath: string, vehicleVin?: string) => Promise<{ success: boolean; sessionId?: string; status?: string; error?: string }>;
@@ -850,6 +899,45 @@ export class DesktopBridge {
     this.requireCapability('vehicle_check_identity', 'vehicle identity check');
     this.requireNativeOrDev();
     return { success: false, error_code: 'NATIVE_BRIDGE_MISSING' };
+  }
+
+  /** Connection wizard (Aşama 5). Listen-only: nothing is sent to the vehicle. */
+  public static async adapterScan(): Promise<AdapterEntry[]> {
+    const m = this.apiMethod('adapter_scan');
+    if (this.isNative() && m) {
+      const res = await m();
+      return res?.adapters ?? [];
+    }
+    this.requireCapability('adapter_scan', 'adapter scan');
+    this.requireNativeOrDev();
+    return [];
+  }
+
+  public static async connectionTestStart(adapterId: string, scenario?: string): Promise<{ success: boolean; test_id?: string; error_code?: string }> {
+    const m = this.apiMethod('connection_test_start');
+    if (this.isNative() && m) {
+      return await m(adapterId, scenario ?? null);
+    }
+    this.requireCapability('connection_test_start', 'connection test');
+    this.requireNativeOrDev();
+    return { success: false, error_code: 'NATIVE_BRIDGE_MISSING' };
+  }
+
+  public static async connectionTestStatus(): Promise<ConnectionTestStatus> {
+    const m = this.apiMethod('connection_test_status');
+    if (this.isNative() && m) {
+      return await m();
+    }
+    this.requireCapability('connection_test_status', 'connection test status');
+    this.requireNativeOrDev();
+    return { success: false, error_code: 'NATIVE_BRIDGE_MISSING' };
+  }
+
+  public static async connectionTestCancel(): Promise<void> {
+    const m = this.apiMethod('connection_test_cancel');
+    if (this.isNative() && m) {
+      await m();
+    }
   }
 
   public static async cloudCancelWebLogin(): Promise<{ success: boolean; execution_mode?: 'mock' | 'simulated' | 'native' }> {

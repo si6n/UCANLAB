@@ -1,14 +1,11 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import {
-  AlertTriangle,
   Anchor,
   ArrowLeft,
   Car,
-  Check,
   ChevronRight,
   Loader2,
   Lock,
-  Plug,
   Tractor,
   Truck,
   Wrench,
@@ -19,19 +16,19 @@ import {
   DesktopBridge,
   MechanicMode,
   MechanicResult,
-  VehicleIdentityResult,
   VehicleProfileInfo,
   VehicleTypeInfo,
 } from '../../services/bridge';
-import { BTN_PRIMARY, BTN_SECONDARY, L, messageOf, pick } from './text';
+import { ConnectWizard } from './ConnectWizard';
+import { BTN_SECONDARY, L, messageOf, pick } from './text';
 
 /**
  * Mechanic flow, Aşama 4 (docs/product/MECHANIC_FLOW.md §3.4-3.8).
  *
  * Mode choice (asked once, remembered in Python, changeable in Settings) →
- * vehicle type → make/engine with honest coverage labels → plug guide.
- * Engineer mode goes straight to the existing expert screens. Nothing here
- * talks to the bus: the connection wizard (Aşama 5) starts after the plug guide.
+ * vehicle type → make/engine with honest coverage labels → connection wizard
+ * (ConnectWizard, Aşama 5).
+ * Engineer mode goes straight to the existing expert screens.
  */
 
 type Phase = 'checking' | 'mode' | 'type' | 'vehicle' | 'plug' | 'app';
@@ -85,34 +82,6 @@ function generalProfileFor(typeId: string, profiles: VehicleProfileInfo[]): Vehi
   return own.find((p) => p.id === `${typeId}_generic`) ?? own[0];
 }
 
-export const IdentityNotice: React.FC<{
-  result: VehicleIdentityResult | null;
-  profiles: VehicleProfileInfo[];
-  onSwitch: (profileId: string) => void;
-}> = ({ result, profiles, onSwitch }) => {
-  if (!result || !result.success || result.status !== 'mismatch') return null;
-  const suggestion = profiles.find((p) => p.id === result.suggested_profile_id);
-  const detected = pick(result, 'detected');
-  return (
-    <div className="flex flex-col gap-2 rounded-lg border border-warn bg-bg-card p-3 text-sm" role="alert">
-      <div className="flex items-start gap-2">
-        <AlertTriangle className="mt-0.5 h-4 w-4 flex-none text-warn" />
-        <span>
-          {L(
-            `Seçtiğiniz araç ile aracın kendisi uyuşmuyor. Araç kendini "${detected}" olarak bildiriyor.`,
-            `Your selection doesn't match the vehicle. It reports itself as "${detected}".`,
-          )}
-        </span>
-      </div>
-      {suggestion && (
-        <button type="button" className={BTN_SECONDARY} onClick={() => onSwitch(suggestion.id)}>
-          {L(`${pick(suggestion, 'label')} olarak değiştir`, `Switch to ${pick(suggestion, 'label')}`)}
-        </button>
-      )}
-    </div>
-  );
-};
-
 export const MechanicFlow: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [phase, setPhase] = useState<Phase>('checking');
   const [mode, setModeState] = useState<MechanicMode | null>(null);
@@ -122,7 +91,6 @@ export const MechanicFlow: React.FC<{ children: React.ReactNode }> = ({ children
   const [typeId, setTypeId] = useState<string | null>(null);
   const [vehicle, setVehicle] = useState<VehicleProfileInfo | null>(null);
   const [notice, setNotice] = useState('');
-  const [identity, setIdentity] = useState<VehicleIdentityResult | null>(null);
   const [native, setNative] = useState(true);
 
   useEffect(() => {
@@ -178,12 +146,9 @@ export const MechanicFlow: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     setNotice('');
-    setIdentity(null);
     setVehicle(res.profile);
     setTypeId(res.profile.type);
     setPhase('plug');
-    // Only reports something once the bus has spoken (VIN / J1939 address claims).
-    DesktopBridge.vehicleCheckIdentity().then(setIdentity).catch(() => setIdentity(null));
   }, []);
 
   const changeVehicle = useCallback(() => {
@@ -358,39 +323,15 @@ export const MechanicFlow: React.FC<{ children: React.ReactNode }> = ({ children
 
   if (phase === 'plug' && vehicle && vtype) {
     screen = (
-      <Card>
-        {vehicle.high_voltage && (
-          <div className="flex items-start gap-2 rounded-lg border border-del bg-bg-card p-3 text-sm" role="alert">
-            <AlertTriangle className="mt-0.5 h-4 w-4 flex-none text-del" />
-            <span>
-              {L(
-                'Yüksek voltajlı araç: turuncu kablolara dokunmayın. Bu araçta yalnız okuma yapılır.',
-                'High-voltage vehicle: do not touch orange cables. Only reading is done on this vehicle.',
-              )}
-            </span>
-          </div>
-        )}
-        <div className="flex items-center justify-between gap-2 text-sm">
-          <span>
-            <span className="text-text-low">{L('Araç: ', 'Vehicle: ')}</span>
-            <span className="font-semibold text-text-hi">{pick(vehicle, 'label')}</span>
-          </span>
-          <button type="button" className="text-accent-text" onClick={changeVehicle}>
-            {L('Değiştir', 'Change')}
-          </button>
-        </div>
-        <IdentityNotice result={identity} profiles={profiles} onSwitch={(id) => void selectVehicle(id)} />
-        <h1 className="flex items-center gap-2 text-xl font-semibold text-text-hi">
-          <Plug className="h-5 w-5 text-accent" />
-          {L('Adaptörü araca takın', 'Plug the adapter into the vehicle')}
-        </h1>
-        <p className="text-sm">{pick(vtype, 'plug')}</p>
-        <p className="text-xs text-text-low">{pick(vtype, 'passive_note')}</p>
-        <button type="button" data-testid="plug-done" className={BTN_PRIMARY} onClick={() => setPhase('app')}>
-          <Check className="h-4 w-4" />
-          {L('Taktım, kontak açık', 'Plugged in, ignition on')}
-        </button>
-      </Card>
+      <ConnectWizard
+        key={vehicle.id}
+        vehicle={vehicle}
+        vtype={vtype}
+        profiles={profiles}
+        onChangeVehicle={changeVehicle}
+        onSwitchVehicle={(id) => void selectVehicle(id)}
+        onDone={() => setPhase('app')}
+      />
     );
   }
 
