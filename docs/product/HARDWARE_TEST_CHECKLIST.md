@@ -108,6 +108,10 @@
 | W8-18 | Gerçek hatta "Programlamayı başlat": Windows onay penceresi çıkar, "Hayır" denir. | İşlem başlamaz; adaptörden çerçeve yok. | ☐ |
 | W8-19 | Tezgâhta (araç dışı) yedek ECU, üreticinin imzalı yazılımı (> 64 KB). | Onay penceresi → ilerleme adımları → tamamlandı; ECU yeniden açılır, sürüm okunur. | ☐ |
 | W8-20 | W8-19 sırasında ACİL DURDUR. | Aktarım hemen durur, TX kolu düşer; ekranda "Başarısız/İptal". | ☐ |
+| W8-21 | Ayarlar → Bağlantı: PCAN, Kvaser ve RP1210 adaptörleri takılıyken "Yenile". | Her biri doğru adla "Hazır"; sürücüsü olmayan "Kullanılamaz" ve nedeni. | ☐ |
+| W8-22 | Kamyonda "Dinleyerek bağlan" (Kamyon), bus analizörü bağlı. | 250 kbps bulunur, EEC1/CCVS işaretli; adaptörden hiç çerçeve yok (ACK dahil). | ☐ |
+| W8-23 | Binek araçta "Sabit hızla bağlan" yanlış hız (250 kbps) ile. | Trafik gelmez ya da hata çerçeveleri sayılır; uygulama araca bir şey göndermez. | ☐ |
+| W8-24 | Adaptör başka program tarafından açıkken "Bağlan". | "Adaptör bu hızla açılamadı" uyarısı; önceki hat korunur. | ☐ |
 
 ## Doğrulama özeti (neyin nerede doğrulandığı)
 

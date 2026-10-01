@@ -442,6 +442,8 @@ declare global {
         sim_vehicle_stop?: () => Promise<BusInfoResult>;
         bus_get_info?: () => Promise<BusInfoResult>;
         flash_preconditions?: () => Promise<FlashPreconditions>;
+        workbench_connection_test_start?: (adapterId: string, vehicleType: string) => Promise<{ success: boolean; test_id?: string; error_code?: string }>;
+        workbench_bus_connect?: (adapterId: string, bitrate: number) => Promise<BusInfoResult>;
         stimulus_start?: () => Promise<StimulusStatus>;
         stimulus_set_phase?: (phase: 'rest' | 'active') => Promise<StimulusStatus>;
         stimulus_status?: () => Promise<StimulusStatus>;
@@ -885,6 +887,16 @@ export class DesktopBridge {
 
   public static flashPreconditions(): Promise<FlashPreconditions | null> {
     return this.call('flash_preconditions', 'flash preconditions', null);
+  }
+
+  /** Workbench: listen-only connection test for an engineer-chosen vehicle type. */
+  public static workbenchConnectionTestStart(adapterId: string, vehicleType: string): Promise<{ success: boolean; test_id?: string; error_code?: string }> {
+    return this.call('workbench_connection_test_start', 'connection test', { success: false, error_code: 'NATIVE_BRIDGE_MISSING' }, adapterId, vehicleType);
+  }
+
+  /** Workbench: bind the app bus to an adapter at a fixed bitrate (listen-only). */
+  public static workbenchBusConnect(adapterId: string, bitrate: number): Promise<BusInfoResult> {
+    return this.call('workbench_bus_connect', 'adapter connection', { success: false, error_code: 'NATIVE_BRIDGE_MISSING' }, adapterId, bitrate);
   }
 
   public static stimulusStart(): Promise<StimulusStatus> {

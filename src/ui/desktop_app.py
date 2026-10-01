@@ -679,6 +679,8 @@ class DesktopApiBridge:
         "vehicle_check_identity": "read",
         "adapter_scan": "read",
         "connection_test_start": "config",
+        "workbench_connection_test_start": "config",
+        "workbench_bus_connect": "config",
         "connection_test_status": "read",
         "connection_test_cancel": "config",
         "sim_vehicle_start": "config",
@@ -1692,6 +1694,14 @@ class DesktopApiBridge:
 
     def flash_preconditions(self) -> dict[str, Any]:
         return self.app.flash_preconditions()
+
+    def workbench_connection_test_start(self, adapter_id: Any, vehicle_type: Any) -> dict[str, Any]:
+        """Workbench: listen-only test for a vehicle type the engineer picks (no prefs)."""
+        return self.app.workbench_connection_test_start(adapter_id, vehicle_type)
+
+    def workbench_bus_connect(self, adapter_id: Any, bitrate: Any) -> dict[str, Any]:
+        """Workbench: bind the app bus to an adapter at a fixed bitrate (listen-only)."""
+        return self.app.workbench_bus_connect(adapter_id, bitrate)
 
     def connection_test_status(self) -> dict[str, Any]:
         return {"success": True, **self.app.connection_wizard.status()}
@@ -5574,6 +5584,9 @@ class UniversalCanDesktopApp:
             return {"success": False, "error_code": "ESTOP_ENGAGED"}
         if self.supervisor.is_tx_permitted:
             return {"success": False, "error_code": "TX_ARMED"}
+        if self.connection_wizard.status().get("state") == "running":
+            # The test would re-bind the app bus under the simulator when it ends.
+            return {"success": False, "error_code": "TEST_RUNNING"}
         with self._bus_lock:
             if isinstance(self.bus, SimulatedVehicleBus):
                 return {"success": True, **self.bus_info()}
@@ -5588,6 +5601,77 @@ class UniversalCanDesktopApp:
                 domain=self._domain_for_current_bus(),
             )
         return {"success": True, **self.bus_info()}
+
+    WORKBENCH_BITRATES = (125_000, 250_000, 500_000, 1_000_000)
+
+    def _channel_change_blocked(self) -> str | None:
+        """Nothing switches the channel under a latched E-Stop or an armed transmitter."""
+        if self._is_estop or self.estop.is_engaged:
+            return "ESTOP_ENGAGED"
+        if self.supervisor.is_tx_permitted:
+            return "TX_ARMED"
+        return None
+
+    def _scanned_real_adapter(self, adapter_id: Any) -> AdapterInfo | None:
+        """A usable physical adapter from the last ``adapter_scan`` (never the simulator)."""
+        known: dict[str, AdapterInfo] = getattr(self, "_last_adapters", {}) or {}
+        adapter = known.get(adapter_id) if isinstance(adapter_id, str) else None
+        if adapter is None or not adapter.usable or adapter.kind == "simulator":
+            return None
+        return adapter
+
+    def workbench_connection_test_start(self, adapter_id: Any, vehicle_type: Any) -> dict[str, Any]:
+        """Run the mechanic's listen-only connection test for an engineer-chosen vehicle type.
+
+        Same wizard, same guarantees: the channel is opened listen-only, the
+        bitrate candidates come from the vehicle type, and only a usable
+        result commits the app bus (still listen-only, TX disarmed).
+        """
+        adapter = self._scanned_real_adapter(adapter_id)
+        if adapter is None:
+            return {"success": False, "error_code": "ADAPTER_UNKNOWN"}
+        vtype = default_vehicle_catalog().type_by_id(vehicle_type) if isinstance(vehicle_type, str) else None
+        if vtype is None:
+            return {"success": False, "error_code": "INVALID_VEHICLE_TYPE"}
+        blocked = self._channel_change_blocked()
+        if blocked:
+            return {"success": False, "error_code": blocked}
+        try:
+            test_id = self.connection_wizard.start(adapter, vtype)
+        except RuntimeError:
+            return {"success": False, "error_code": "TEST_RUNNING"}
+        self._pre_simulator_bus = None
+        return {"success": True, "test_id": test_id}
+
+    def workbench_bus_connect(self, adapter_id: Any, bitrate: Any) -> dict[str, Any]:
+        """Bind the app bus to a scanned adapter at a fixed bitrate, listen-only.
+
+        For buses whose bitrate the vehicle-type candidates do not cover. The
+        reconnect is transactional: a rejected channel keeps the previous bus,
+        and the answer says so instead of claiming a connection.
+        """
+        adapter = self._scanned_real_adapter(adapter_id)
+        if adapter is None:
+            return {"success": False, "error_code": "ADAPTER_UNKNOWN"}
+        if isinstance(bitrate, bool) or bitrate not in self.WORKBENCH_BITRATES:
+            return {"success": False, "error_code": "INVALID_BITRATE"}
+        blocked = self._channel_change_blocked()
+        if blocked:
+            return {"success": False, "error_code": blocked}
+        if self.connection_wizard.status().get("state") == "running":
+            return {"success": False, "error_code": "TEST_RUNNING"}
+        self._pre_simulator_bus = None
+        self._reconnect_bus(adapter.interface, adapter.channel, int(bitrate))
+        info = self.bus_info()
+        bound = (
+            info["connected"]
+            and info["interface"] == adapter.interface
+            and info["channel"] == str(adapter.channel)
+            and info["bitrate"] == int(bitrate)
+        )
+        if not bound:
+            return {"success": False, "error_code": "CONNECT_FAILED", **info}
+        return {"success": True, **info}
 
     def stop_simulated_vehicle(self) -> dict[str, Any]:
         """Return to the adapter that was configured before the simulator."""

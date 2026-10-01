@@ -315,3 +315,67 @@ def test_ecu_dry_run_on_the_simulator_sends_nothing(wb: Any) -> None:
     assert prog["status"] == "completed" and prog["total_bytes"] == len(image)
     assert sent == []
     assert not app.supervisor.is_tx_permitted
+
+
+def _fake_adapters(monkeypatch: pytest.MonkeyPatch) -> None:
+    import src.ui.desktop_app as da
+    from src.engine.connection.adapters import READY, SIMULATOR, AdapterInfo
+
+    fake = AdapterInfo(kind="pcan", interface="virtual", channel="wb_ui_hw", label="PCAN-USB", status=READY)
+    monkeypatch.setattr(da, "discover_adapters", lambda: [fake, SIMULATOR])
+
+
+def test_settings_connects_an_adapter_listen_only(wb: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    page, app = wb
+    _fake_adapters(monkeypatch)
+    page.click("[data-testid=nav-settings]")
+    page.wait_for_selector("[data-testid='adapter-pcan:wb_ui_hw']")
+    assert page.locator("[data-testid='adapter-simulator:sim0']").count() == 0  # the toolbar owns the simulator
+    page.click("[data-testid=manual-bitrate-500000]")
+    page.click("[data-testid=manual-connect]")
+    page.wait_for_selector("[data-testid=settings-message][role=status]")
+    page.wait_for_function("document.querySelector('[data-testid=current-bus]').textContent.includes('wb_ui_hw')")
+    info = app.bus_info()
+    assert info["channel"] == "wb_ui_hw" and info["bitrate"] == 500_000 and info["listen_only"] is True
+    assert not app.supervisor.is_tx_permitted
+
+
+def test_settings_listen_test_reports_a_silent_bus_honestly(wb: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    page, app = wb
+    _fake_adapters(monkeypatch)
+    app.connection_wizard._window_s = 0.2
+    page.click("[data-testid=nav-settings]")
+    page.wait_for_selector("[data-testid='adapter-pcan:wb_ui_hw']")
+    page.click("[data-testid=vtype-boat]")
+    page.click("[data-testid=listen-test-start]")
+    page.wait_for_selector("[data-testid=listen-test-result]", timeout=15000)
+    assert page.is_visible("[data-testid=settings-message][role=alert]")
+    assert "0" in page.text_content("[data-testid=listen-test-result]")
+    assert app.bus_info()["channel"] != "wb_ui_hw"  # nothing committed without traffic
+
+
+def test_settings_licence_safety_and_sources_are_read_only_views(wb: Any) -> None:
+    page, _app = wb
+    page.click("[data-testid=nav-settings]")
+    page.click("[data-testid=settings-tab-licence]")
+    page.wait_for_selector("[data-testid=licence-status]")
+    assert "Etkin" in page.text_content("[data-testid=licence-status]")
+    assert "PRO" in page.text_content("[data-testid=settings-licence]")
+    page.click("[data-testid=settings-tab-safety]")
+    page.wait_for_selector("[data-testid=safety-supervisor]")
+    assert "yalnız dinleme" in page.text_content("[data-testid=safety-supervisor]")
+    page.click("[data-testid=settings-tab-sources]")
+    page.wait_for_selector("[data-testid=settings-sources] >> [data-testid^=source-]")
+
+
+def test_pinout_states_only_standard_assignments(wb: Any) -> None:
+    page, _app = wb
+    page.click("[data-testid=nav-pinout]")
+    page.wait_for_selector("[data-testid=pinout-view]")
+    assert "CAN High" in page.text_content("[data-testid=pinout-detail]")
+    assert "Kablo rengi" not in page.text_content("[data-testid=pinout-detail]")  # OBD-II has no standard colours
+    page.click("[data-testid=pin-13]")
+    assert "Üreticiye bırakılmış" in page.text_content("[data-testid=pinout-detail]")
+    page.click("[data-testid=connector-deutsch9]")
+    assert "Pin C" in page.text_content("[data-testid=pinout-detail]")
+    assert "Sarı" in page.text_content("[data-testid=pinout-detail]")

@@ -21,14 +21,14 @@ import { BusInfoResult, DesktopBridge } from '../../services/bridge';
 import { L } from '../mechanic/text';
 import { useMechanicMode } from '../mechanic/MechanicFlow';
 import { useUiHeartbeat } from '../mechanic/useUiHeartbeat';
-import { PinoutGuideView } from '../pinout/PinoutGuideView';
-import { SettingsView } from '../settings/SettingsView';
 import { AssistantView } from './AssistantView';
 import { DiscoveryView, discoveryKeyFromTrafficKey } from './DiscoveryView';
 import { EcuView } from './EcuView';
 import { LiveTraffic, SOURCE_LABEL } from './LiveTraffic';
+import { PinoutView } from './PinoutView';
 import { PlotView } from './PlotView';
 import { RecordsView } from './RecordsView';
+import { SettingsPanel } from './SettingsPanel';
 import { useBusStream } from './useBusStream';
 import { BTN_QUIET, Chip, Dot, Tone, cx } from './ui';
 
@@ -41,8 +41,7 @@ import { BTN_QUIET, Chip, Dot, Tone, cx } from './ui';
  *    the frames that really arrived (load is computed from them), the
  *    driver's own error counter and the supervisor state; with no data it
  *    says so instead of showing numbers;
- *  - the E-Stop is visible on every screen;
- *  - modules not yet rebuilt render their previous view, labelled as such.
+ *  - the E-Stop is visible on every screen.
  */
 
 type ModuleId = 'traffic' | 'plot' | 'discovery' | 'assistant' | 'records' | 'ecu' | 'pinout' | 'settings';
@@ -52,7 +51,6 @@ interface ModuleDef {
   icon: React.ComponentType<{ className?: string }>;
   title: () => string;
   hint: () => string;
-  legacy?: boolean;
 }
 
 const GROUPS: Array<{ label: () => string; items: ModuleDef[] }> = [
@@ -84,7 +82,7 @@ const GROUPS: Array<{ label: () => string; items: ModuleDef[] }> = [
         title: () => L('ECU programlama', 'ECU programming'),
         hint: () => L('Onay ve kilit ile yazılım yükleme', 'Gated firmware update'),
       },
-      { id: 'pinout', icon: Cable, title: () => L('Pin rehberi', 'Pinout guide'), hint: () => L('Konnektör ve kablolama', 'Connectors and wiring'), legacy: true },
+      { id: 'pinout', icon: Cable, title: () => L('Pin rehberi', 'Pinout guide'), hint: () => L('Konnektör ve kablolama', 'Connectors and wiring') },
     ],
   },
   {
@@ -100,7 +98,6 @@ const SETTINGS: ModuleDef = {
   icon: Settings,
   title: () => L('Ayarlar', 'Settings'),
   hint: () => L('Adaptör, lisans, güvenlik', 'Adapter, licence, safety'),
-  legacy: true,
 };
 
 const ALL: ModuleDef[] = [...GROUPS.flatMap((g) => g.items), SETTINGS];
@@ -194,8 +191,6 @@ export const Workbench: React.FC = () => {
   const [busInfo, setBusInfo] = useState<BusInfoResult | null>(null);
   const [simError, setSimError] = useState('');
   const [estopBusy, setEstopBusy] = useState(false);
-  const [channel, setChannel] = useState('vcan0');
-  const [baudRate, setBaudRate] = useState('250 kbps');
   const { snap, setPaused, clear } = useBusStream(true);
 
   // The TX watchdog lease follows this window being alive (same contract as
@@ -242,6 +237,7 @@ export const Workbench: React.FC = () => {
   const SIM_ERRORS: Record<string, () => string> = {
     ESTOP_ENGAGED: () => L('Acil durdurma kilitliyken simülatöre geçilmez; gerçek hat kaydı sürer.', 'Not while the E-Stop is latched; the real bus keeps recording.'),
     TX_ARMED: () => L('Araca yazma açıkken hat değiştirilmez. Önce yazmayı kapatın.', 'Not while transmit is armed. Disarm first.'),
+    TEST_RUNNING: () => L('Ayarlar’da bir bağlantı testi sürüyor; bitince yeniden deneyin.', 'A connection test is running in Settings; try again when it ends.'),
   };
 
   const startSimulator = async (vehicleType: string) => {
@@ -323,7 +319,7 @@ export const Workbench: React.FC = () => {
       body = <EcuView />;
       break;
     case 'pinout':
-      body = <PinoutGuideView />;
+      body = <PinoutView />;
       break;
     case 'records':
       body = (
@@ -342,14 +338,14 @@ export const Workbench: React.FC = () => {
       break;
     case 'settings':
       body = (
-        <SettingsView
-          channel={channel}
-          baudRate={baudRate}
-          onSave={(s) => {
-            setChannel(s.channel);
-            setBaudRate(s.baudRate);
-            void DesktopBridge.updateSettings(s);
+        <SettingsPanel
+          busInfo={native ? busInfo : null}
+          safety={native ? safety : null}
+          onBusChanged={() => {
+            clear();
+            void poll();
           }}
+          onSwitchToMechanic={mechanic ? () => void mechanic.setMode('mechanic') : null}
         />
       );
       break;
@@ -404,11 +400,6 @@ export const Workbench: React.FC = () => {
               <h1 className="text-[17px] font-semibold text-text-hi" data-testid="page-title">
                 {def.title()}
               </h1>
-              {def.legacy && (
-                <Chip title={L('Bu ekran henüz yeni tasarıma taşınmadı.', 'This screen has not been rebuilt yet.')}>
-                  {L('Önceki görünüm', 'Previous view')}
-                </Chip>
-              )}
             </div>
             <p className="text-[12.5px] text-text-mid">{def.hint()}</p>
           </div>
@@ -479,9 +470,7 @@ export const Workbench: React.FC = () => {
           </div>
         )}
 
-        <main className={cx('min-h-0 flex-1 p-4', def.legacy ? 'overflow-auto' : 'overflow-hidden')}>
-          {def.legacy ? <div className="h-full rounded-2xl border border-border-whisper bg-bg-card p-3">{body}</div> : body}
-        </main>
+        <main className="min-h-0 flex-1 overflow-hidden p-4">{body}</main>
       </div>
     </div>
   );
