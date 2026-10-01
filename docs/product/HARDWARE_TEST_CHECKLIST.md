@@ -96,6 +96,8 @@
 | W8-6 | E-Stop'a bas (araç bağlı). | "Güvenlik kilidi" bandı; kayıt sürer; simülatöre geçiş reddedilir. | ☐ |
 | W8-7 | Hat kısa devre / CAN-H kopuk. | Sürücü hata çerçevesi çipi ve BUS-OFF görünür. | ☐ |
 | W8-8 | Kayıt ve rapor → MDF4 dışa aktar, asammdf/CANape ile aç. | Dosya açılır, çerçeve sayısı tutar. | ☐ |
+| W8-9 | Grafik: kamyonda motor devri ve soğutma suyu, gaz verip bırakarak. | Değerler gösterge paneliyle uyuşur; "Simülatör" etiketi yok; gecikme < 1 sn. | ☐ |
+| W8-10 | Grafik açıkken adaptör ↔ simülatör geçişi. | Grafik boşalır; iki kaynağın eğrisi birleşmez. | ☐ |
 
 ## Doğrulama özeti (neyin nerede doğrulandığı)
 

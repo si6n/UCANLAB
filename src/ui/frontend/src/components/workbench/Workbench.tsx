@@ -4,6 +4,7 @@ import {
   Cable,
   Cpu,
   FileDown,
+  LineChart,
   Minus,
   Moon,
   OctagonX,
@@ -26,6 +27,7 @@ import { PinoutGuideView } from '../pinout/PinoutGuideView';
 import { SettingsView } from '../settings/SettingsView';
 import { BusFrame } from './frameBus';
 import { LiveTraffic, SOURCE_LABEL } from './LiveTraffic';
+import { PlotView } from './PlotView';
 import { RecordsView } from './RecordsView';
 import { useBusStream } from './useBusStream';
 import { BTN_QUIET, Chip, Dot, Tone, cx } from './ui';
@@ -43,7 +45,7 @@ import { BTN_QUIET, Chip, Dot, Tone, cx } from './ui';
  *  - modules not yet rebuilt render their previous view, labelled as such.
  */
 
-type ModuleId = 'traffic' | 'discovery' | 'records' | 'ecu' | 'pinout' | 'settings';
+type ModuleId = 'traffic' | 'plot' | 'discovery' | 'records' | 'ecu' | 'pinout' | 'settings';
 
 interface ModuleDef {
   id: ModuleId;
@@ -58,6 +60,7 @@ const GROUPS: Array<{ label: () => string; items: ModuleDef[] }> = [
     label: () => L('Veri', 'Data'),
     items: [
       { id: 'traffic', icon: Radio, title: () => L('Canlı trafik', 'Live traffic'), hint: () => L('Hattaki her çerçeve', 'Every frame on the bus') },
+      { id: 'plot', icon: LineChart, title: () => L('Grafik', 'Plot'), hint: () => L('Çözülmüş değerler zamanla', 'Decoded values over time') },
       {
         id: 'discovery',
         icon: Waypoints,
@@ -317,6 +320,9 @@ export const Workbench: React.FC = () => {
           onDiscover={() => setActive('discovery')}
         />
       );
+      break;
+    case 'plot':
+      body = <PlotView onOpenDiscovery={() => setActive('discovery')} />;
       break;
     case 'discovery':
       body = <SignalDiscoveryView latestFrame={legacyFrames[0] ?? null} frames={legacyFrames} />;

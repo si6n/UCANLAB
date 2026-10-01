@@ -335,6 +335,25 @@ export interface BusInfoResult {
   bus_state?: string;
 }
 
+/** One decoded signal Python can plot (workbench Grafik). */
+export interface PlotSignalInfo {
+  name: string;
+  unit: string;
+  simulated: boolean;
+  confidence: number;
+  count: number;
+  last: number;
+  last_age_s: number;
+}
+
+/** Points of one signal; `t` is seconds relative to now (<= 0). */
+export interface PlotSeries {
+  unit: string;
+  simulated: boolean;
+  t: number[];
+  v: number[];
+}
+
 // Interface for pywebview Python backend bridge
 declare global {
   interface Window {
@@ -352,6 +371,8 @@ declare global {
         sim_vehicle_start?: (vehicleType: string) => Promise<BusInfoResult>;
         sim_vehicle_stop?: () => Promise<BusInfoResult>;
         bus_get_info?: () => Promise<BusInfoResult>;
+        plot_signal_list?: () => Promise<{ success: boolean; signals: PlotSignalInfo[] }>;
+        plot_signal_series?: (names: string[], windowS: number) => Promise<{ success: boolean; window_s?: number; series: Record<string, PlotSeries>; error_code?: string }>;
         export_logs: (format: string) => Promise<boolean>;
         save_settings: (settings: Record<string, any>) => Promise<void>;
         inject_fault?: (faultType: string) => Promise<void>;
@@ -769,6 +790,25 @@ export class DesktopBridge {
     const m = this.apiMethod('bus_get_info');
     if (this.isNative() && m) return await m();
     this.requireCapability('bus_get_info', 'bus info');
+    this.requireNativeOrDev();
+    return null;
+  }
+
+  public static async plotSignalList(): Promise<{ success: boolean; signals: PlotSignalInfo[] } | null> {
+    const m = this.apiMethod('plot_signal_list');
+    if (this.isNative() && m) return await m();
+    this.requireCapability('plot_signal_list', 'plot signals');
+    this.requireNativeOrDev();
+    return null;
+  }
+
+  public static async plotSignalSeries(
+    names: string[],
+    windowS: number,
+  ): Promise<{ success: boolean; series: Record<string, PlotSeries>; error_code?: string } | null> {
+    const m = this.apiMethod('plot_signal_series');
+    if (this.isNative() && m) return await m(names, windowS);
+    this.requireCapability('plot_signal_series', 'plot series');
     this.requireNativeOrDev();
     return null;
   }
