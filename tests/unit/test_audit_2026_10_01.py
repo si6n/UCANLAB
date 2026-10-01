@@ -464,3 +464,24 @@ def test_aud12_no_double_encoded_utf8_in_python_sources() -> None:
             if mojibake.search(line):
                 offenders.append(f"{path.relative_to(root)}:{no}")
     assert offenders == []
+
+
+# ---------------------------------------------------------------------------
+# AUD-13: frozen-mode tests wrote the license HWM file into the real
+# ~/.local/state, so a second suite run failed. The session must never
+# resolve per-user state outside a temporary directory.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX data-root resolution")
+def test_aud13_frozen_data_root_stays_out_of_the_real_home(monkeypatch: pytest.MonkeyPatch) -> None:
+    import sys
+    import tempfile
+    from pathlib import Path
+
+    from src.ui import desktop_app
+
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    root = desktop_app._app_data_root()
+    assert Path(tempfile.gettempdir()).resolve() in root.parents
+    assert Path.home().resolve() / ".local" not in root.parents
