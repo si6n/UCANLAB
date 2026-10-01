@@ -224,8 +224,14 @@ def test_i03_flasher_mint_binds_target_identity() -> None:
     eng = EcuFlashingEngine(uds_client=client, gateway=_gw(), confirmation_token_factory=factory)
     eng._active_config = FlashingConfig(data=b"\x00" * 16, expected_vin="VIN123",
                                         require_signature=False, require_target_identity=False)
-    eng._confirmation_token()
+    # AUD-05: the bound token is minted against the exact SF/FF bytes the
+    # client builds, so the flasher hands the client a minter.
+    minter = eng._confirmation_token()
+    assert callable(minter)
+    frame_data = b"\x02\x10\x02\xaa\xaa\xaa\xaa\xaa"
+    assert minter(frame_data) == b"tok"
     assert "context" in seen and "VIN123" in str(seen["context"])
+    assert seen["payload_hash"] == TxSafetyGateway.confirmation_payload_hash(frame_data)
 
 
 # B-04 REFUTED: boot is listen-only; arm/disarm enforce driver mode.

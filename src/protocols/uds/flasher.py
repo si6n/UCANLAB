@@ -268,7 +268,7 @@ class EcuFlashingEngine:
         with self._state_lock:
             self._current_step = step
 
-    def _confirmation_token(self) -> bytes | str | None:
+    def _confirmation_token(self) -> bytes | str | Callable[[bytes], bytes | str] | None:
         """Mint a fresh single-use gateway confirmation token for a critical step.
 
         T57-D / F-2 (YÜKSEK): the flasher used to present NO token on any
@@ -300,47 +300,92 @@ class EcuFlashingEngine:
             context=None,
         )
 
+    def _identity_context(self, config: FlashingConfig | None = None) -> str | None:
+        """I-03: the target-identity + memory-address context of this flash."""
+        with self._state_lock:
+            active = config if config is not None else self._active_config
+        if active is None:
+            return None
+        ident = active.expected_vin or active.expected_serial
+        if not ident:
+            return None
+        return f"flash:{ident}:{active.memory_address:#x}"
+
+    def _binding_issuer(self) -> Callable[..., bytes | str] | None:
+        """An issuer that accepts payload_hash/context kwargs, if one is wired.
+
+        Only these can mint an I-03 bound token. A bare
+        ``config.confirmation_token_factory(arb_id)`` cannot bind, so with it
+        the step keeps the unbound token and presents no context.
+        """
+        if self._issuer_factory is not None:
+            return self._issuer_factory
+        with self._state_lock:
+            active = self._active_config
+        if active is not None and active.confirmation_token_factory is not None:
+            return None  # an explicit config factory keeps precedence (unbound)
+        issuer = getattr(self.gateway, "issue_confirmation_token", None)
+        if issuer is not None and self._gateway_has_confirmation_secret():
+            return issuer  # type: ignore[no-any-return]
+        return None
+
+    def _confirmation_context(self) -> str | None:
+        """Context to present with each critical step (None when unbound)."""
+        if self._binding_issuer() is None:
+            return None
+        return self._identity_context()
+
+    def _context_kwargs(self) -> dict[str, str]:
+        """``confirmation_context=`` for a client call, only when bound."""
+        ctx = self._confirmation_context()
+        return {} if ctx is None else {"confirmation_context": ctx}
+
     def _confirmation_token_for(
         self,
         *,
         config: FlashingConfig | None = None,
         payload: bytes | None = None,
         context: bytes | str | None = None,
-    ) -> bytes | str | None:
+    ) -> bytes | str | Callable[[bytes], bytes | str] | None:
         """I-03: mint a step token bound to payload + context + target/session.
 
-        The issuer closure receives payload_hash/context/target-identity/
-        session kwargs; the gateway enforces them for flash steps
-        (see `_verify_confirmation_token` + flash-context gate). Payload-swap
-        or context-swap replays fail closed at Stage 5.
+        The gateway verifies a context-bound token against the exact frame
+        that carries it (SF/FF bytes, PCI included). The flasher does not see
+        that frame — the UDS client builds it — so a context-bound step returns
+        a minter; the client calls it with the frame bytes after segmentation.
+        The previous code passed the context WITHOUT a payload hash, which made
+        the gateway issuer crash (TypeError) on every step of a flash that
+        named its target VIN/serial — i.e. every real flash by default.
+        Payload-swap or context-swap replays fail closed at Stage 5.
         """
         arb_id = int(getattr(self.uds_client, "tx_id", 0x7E0))
-        kwargs: dict[str, object] = {}
-        if payload is not None or context is not None:
-            import hashlib as _hl
-
+        bind_ctx = context if context is not None else self._identity_context(config)
+        binder = self._binding_issuer()
+        if binder is not None and bind_ctx is not None:
             if payload is not None:
-                kwargs["payload_hash"] = _hl.sha256(bytes(payload)).digest()[:8]
-            if context is not None:
-                kwargs["context"] = context
-        # I-03: target-identity + session binding — a token minted for one
-        # ECU/session must not authorize a different target.
+                return binder(
+                    arb_id,
+                    payload_hash=hashlib.sha256(bytes(payload)).digest()[:8],
+                    context=bind_ctx,
+                )
+
+            def _mint(frame_data: bytes) -> bytes | str:
+                return binder(
+                    arb_id,
+                    payload_hash=hashlib.sha256(bytes(frame_data)).digest()[:8],
+                    context=bind_ctx,
+                )
+
+            return _mint
+        if self._issuer_factory is not None:
+            return self._issuer_factory(arb_id)
         with self._state_lock:
             active = config if config is not None else self._active_config
-        if active is not None:
-            ident = active.expected_vin or active.expected_serial
-            if ident:
-                kwargs.setdefault("context", f"flash:{ident}:{active.memory_address:#x}")
-        if self._issuer_factory is not None:
-            return self._issuer_factory(arb_id, **kwargs) if kwargs else self._issuer_factory(arb_id)
-        if config is not None and config.confirmation_token_factory is not None:
-            return config.confirmation_token_factory(arb_id)
-        issuer = getattr(self.gateway, "issue_confirmation_token", None)
-        if issuer is None:
-            return None
-        if not self._gateway_has_confirmation_secret():
-            return None
-        return issuer(arb_id, ttl_s=30.0, **kwargs) if kwargs else issuer(arb_id, ttl_s=30.0)
+        if active is not None and active.confirmation_token_factory is not None:
+            return active.confirmation_token_factory(arb_id)
+        if binder is not None:
+            return binder(arb_id, ttl_s=30.0)
+        return None
 
     def _gateway_has_confirmation_secret(self) -> bool:
         """M13 (verified OPEN): ask the gateway whether it has a secret.
@@ -417,6 +462,7 @@ class EcuFlashingEngine:
                 is_critical_command=True,
                 user_confirmed=user_confirmed,
                 confirmation_token=self._confirmation_token(),
+                **self._context_kwargs(),
             )
         except TypeError as exc:
             raise SafetyError(
@@ -753,6 +799,7 @@ class EcuFlashingEngine:
                 DiagnosticSessionType.EXTENDED_DIAGNOSTIC_SESSION,
                 user_confirmed=True,
                 confirmation_token=self._confirmation_token(),
+                **self._context_kwargs(),
             )
             if not resp.is_positive:
                 raise ProtocolError(f"Genişletilmiş oturum açılamadı: {resp.nrc_description_tr} (NRC 0x{resp.nrc:02X})")
@@ -835,6 +882,7 @@ class EcuFlashingEngine:
                 DiagnosticSessionType.PROGRAMMING_SESSION,
                 user_confirmed=True,
                 confirmation_token=self._confirmation_token(),
+                **self._context_kwargs(),
             )
             if not resp.is_positive:
                 raise ProtocolError(f"Programlama oturumuna geçilemedi: {resp.nrc_description_tr}")
@@ -849,6 +897,7 @@ class EcuFlashingEngine:
                     level=sec_level,
                     user_confirmed=config.user_confirmed,
                     confirmation_token=self._confirmation_token(),
+                    **self._context_kwargs(),
                 )
                 if not seed_resp.is_positive:
                     raise ProtocolError(f"Güvenlik tohumu alınamadı: {seed_resp.nrc_description_tr}")
@@ -895,6 +944,7 @@ class EcuFlashingEngine:
                     key=key_bytes,
                     user_confirmed=config.user_confirmed,
                     confirmation_token=self._confirmation_token(),
+                    **self._context_kwargs(),
                 )
                 if not key_resp.is_positive:
                     raise ProtocolError(f"Güvenlik anahtarı reddedildi: {key_resp.nrc_description_tr}")
@@ -914,6 +964,7 @@ class EcuFlashingEngine:
                     options=config.erase_routine_options,
                     user_confirmed=config.user_confirmed,
                     confirmation_token=self._confirmation_token(),
+                    **self._context_kwargs(),
                 )
                 if not erase_resp.is_positive:
                     raise ProtocolError(f"Bellek silme rutini reddedildi: {erase_resp.nrc_description_tr}")
@@ -931,6 +982,7 @@ class EcuFlashingEngine:
                 memory_size=total_bytes,
                 user_confirmed=config.user_confirmed,
                 confirmation_token=self._confirmation_token(),
+                **self._context_kwargs(),
             )
             if not resp.is_positive:
                 raise ProtocolError(f"RequestDownload ECU tarafından reddedildi: {resp.nrc_description_tr}")
@@ -1004,6 +1056,7 @@ class EcuFlashingEngine:
                 is_critical_command=True,
                 user_confirmed=config.user_confirmed,
                 confirmation_token=self._confirmation_token(),
+                **self._context_kwargs(),
             )
             if not resp.is_positive:
                 raise ProtocolError(f"RequestTransferExit reddedildi: {resp.nrc_description_tr}")
@@ -1033,6 +1086,7 @@ class EcuFlashingEngine:
                 options=crc_bytes,
                 user_confirmed=config.user_confirmed,
                 confirmation_token=self._confirmation_token(),
+                **self._context_kwargs(),
             )
             if not resp.is_positive:
                 raise ProtocolError(f"Sağlama toplamı doğrulama başlatılamadı: {resp.nrc_description_tr}")
@@ -1052,7 +1106,12 @@ class EcuFlashingEngine:
             )
             deadline = time.monotonic() + 10.0
             while True:
-                result_resp = self.uds_client.request_routine_results(routine_id=config.checksum_routine_id)
+                result_resp = self.uds_client.request_routine_results(
+                    routine_id=config.checksum_routine_id,
+                    user_confirmed=config.user_confirmed,
+                    confirmation_token=self._confirmation_token(),
+                    **self._context_kwargs(),
+                )
                 if not result_resp.is_positive:
                     raise ProtocolError(f"Sağlama toplamı sonuç sorgusu reddedildi: {result_resp.nrc_description_tr}")
 
@@ -1101,6 +1160,7 @@ class EcuFlashingEngine:
                     reset_type=config.reset_type,
                     user_confirmed=config.user_confirmed,
                     confirmation_token=self._confirmation_token(),
+                    **self._context_kwargs(),
                 )
                 if not with_reset_resp.is_positive:
                     # REVIEW 3-HIGH: the flash image is verified on the ECU but
@@ -1161,6 +1221,7 @@ class EcuFlashingEngine:
             resp = self.uds_client.request_transfer_exit(
                 user_confirmed=config.user_confirmed,
                 confirmation_token=self._confirmation_token(),
+                **self._context_kwargs(),
             )
             if resp.is_positive:
                 self._log("Kurtarma: RequestTransferExit (0x37) kabul edildi — transfer ECU tarafından kapatıldı.", "info")

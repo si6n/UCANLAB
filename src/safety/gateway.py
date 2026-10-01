@@ -707,7 +707,18 @@ class TxSafetyGateway:
         payload = (
             int(arbitration_id).to_bytes(4, "big") + expiry_ns.to_bytes(8, "big", signed=False) + nonce
         )
-        if payload_hash is not None or context is not None:
+        if context is not None and payload_hash is None:
+            # A context-bound token is verified against the frame payload too
+            # (`_verify_confirmation_token`), so a token without a payload hash
+            # could never verify. This used to crash with a bare TypeError
+            # (bytes(None)); refuse explicitly instead. Callers that do not know
+            # the frame yet pass a minter to the UDS client, which binds the
+            # token to the exact SF/FF bytes after segmentation.
+            raise SafetyError(
+                "A context-bound confirmation token also needs the frame payload hash",
+                code="CONFIRMATION_PAYLOAD_UNBOUND",
+            )
+        if payload_hash is not None:
             payload += bytes(payload_hash)[:8].ljust(8, b"\x00") + self.confirmation_context_hash(context)
         mac = hmac.new(self._confirmation_secret, payload, hashlib.sha256).digest()
         return payload + mac

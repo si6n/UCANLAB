@@ -21,6 +21,7 @@ import urllib.parse
 import uuid
 import webbrowser
 from collections import deque
+from collections.abc import Callable
 from concurrent.futures import TimeoutError as FuturesTimeoutError
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -3704,41 +3705,37 @@ class UniversalCanDesktopApp:
     # ------------------------------------------------------------------
     # Diagnostic Challenge & Action Execution Subsystem (Dual Confirmation)
     # ------------------------------------------------------------------
-    def _mint_confirmation_token(self, context: str | None = None) -> str:
-        """Mint a single-use HMAC confirmation token via the gateway (P3 / G-3).
-
-        The token is produced from the `GATEWAY_CONFIRM_SECRET` by the SAME
-        component that verifies it in Stage 5, so it is cryptographic proof
-        bound to the canonical diagnostic arbitration ID — not an in-process
-        random string the renderer could mint for itself.
-
-        R2-EN2: process-internal ONLY — never returned to JS. The renderer
-        path (`request_diagnostic_challenge`) issues nonce challenges;
-        gateway tokens are minted here and consumed by the TX path.
-        R2-EN3: `context` (e.g. "action_type:action_id") binds the token to
-        the authorized action.
-        """
-        token = self.gateway.issue_confirmation_token(
-            _DIAGNOSTIC_CONFIRM_ARB_ID, ttl_s=30.0, context=context
-        )
-        return token.hex()
-
     def _confirm_token_for(
         self, arbitration_id: int, context: str | None = None
-    ) -> bytes | None:
+    ) -> bytes | Callable[[bytes], bytes] | None:
         """Fresh single-use gateway ConfirmationToken bound to `arbitration_id`.
 
         P3 (G-3): only the trusted composition root mints these; returns None
         when the gateway has no confirmation secret (legacy wiring), so the
         UDS client simply omits the parameter.
         R2-EN3: `context` binds the token to the calling action; the gateway
-        rejects the token when presented with a different context.
+        rejects the token when presented with a different context. A
+        context-bound token is also bound to the exact request frame, which
+        only the UDS client knows after segmentation, so with a context this
+        returns a minter the client calls with the SingleFrame/FirstFrame bytes
+        (it used to mint without the payload hash and crash with TypeError,
+        which made every confirmed UDS action fail on a production gateway).
         """
         if self.gateway._confirmation_secret is None:  # noqa: SLF001 - wiring introspection
             return None
-        return self.gateway.issue_confirmation_token(
-            arbitration_id, ttl_s=30.0, context=context
-        )
+        if context is None:
+            return self.gateway.issue_confirmation_token(arbitration_id, ttl_s=30.0)
+        gateway = self.gateway
+
+        def _mint(frame_data: bytes) -> bytes:
+            return gateway.issue_confirmation_token(
+                arbitration_id,
+                ttl_s=30.0,
+                payload_hash=TxSafetyGateway.confirmation_payload_hash(frame_data),
+                context=context,
+            )
+
+        return _mint
 
     @staticmethod
     def _compute_action_params_hash(action: dict[str, Any]) -> str:

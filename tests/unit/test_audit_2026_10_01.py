@@ -7,13 +7,22 @@ not as a green test over a stub.
 
 from __future__ import annotations
 
+import os
+import threading
 from typing import Any
 
 import pytest
 
+from src.core.errors import SafetyError
 from src.engine.pipeline.reassembly_pipeline import ReassembledMessage
+from src.hal.virtual import UdsServerEcu, VirtualBus
 from src.protocols.j1939.diagnostics import J1939DiagnosticService
 from src.protocols.obd.models import ObdPidResult
+from src.protocols.uds.client import UdsClient
+from src.safety.estop import EmergencyStopSystem
+from src.safety.exceptions import DualConfirmationRequiredError
+from src.safety.gateway import TxSafetyGateway
+from src.safety.state_machine import SafetyState, SafetySupervisor
 
 
 def _app() -> Any:
@@ -141,3 +150,197 @@ def test_aud04_a_real_ragged_tail_is_still_malformed() -> None:
     msg = J1939DiagnosticService.parse_dm1_or_dm2(data, pgn=65226)
     assert msg is not None
     assert msg.malformed is True
+
+
+# ---------------------------------------------------------------------------
+# AUD-05..07: confirmation tokens on a production-wired gateway.
+#
+# The desktop app always configures a gateway confirmation secret, so Stage 5
+# accepts only HMAC tokens. Three defects made every confirmed UDS action and
+# every real ECU flash fail there, while unit tests passed because they used
+# stub issuers / stub gateways:
+#   AUD-05  a context-bound token was minted without the frame payload hash
+#           -> TypeError (bytes(None)); flash steps naming a VIN and the
+#           clear-DTC / session / reset actions all crashed.
+#   AUD-06  the UDS client re-presented the single-use token on every
+#           Consecutive Frame -> "already consumed" on the first CF, so no
+#           multi-frame critical request (0x36 TransferData) could complete.
+#   AUD-07  the flasher polled RoutineControl results (0x31 0x03) with no
+#           token; the gateway classifies SID 0x31 as critical and refused it.
+# These tests run the real gateway, real UDS client and the simulated ECU.
+# ---------------------------------------------------------------------------
+
+_TEST_VIN = "VF1TESTVIN1234567"
+
+
+class _EcuBus(VirtualBus):
+    """Virtual bus with a simulated UDS ECU listening on the wire."""
+
+    server: UdsServerEcu | None = None
+
+    def send(self, frame: Any) -> None:
+        super().send(frame)
+        if self.server is not None:
+            self.server.process_frame(frame)
+
+
+def _production_rig() -> tuple[_EcuBus, TxSafetyGateway, UdsClient]:
+    estop = EmergencyStopSystem(reset_secret=os.urandom(32))
+    supervisor = SafetySupervisor(initial_state=SafetyState.PASSIVE, estop=estop)
+    supervisor.arm_tx("audit test arm")
+    bus = _EcuBus(channel_id="vcan0")
+    bus.connect()
+    bus.server = UdsServerEcu(bus=bus, rx_id=0x7E0, tx_id=0x7E8, channel_id="vcan0", vin=_TEST_VIN)
+    gateway = TxSafetyGateway(
+        bus=bus,
+        estop=estop,
+        supervisor=supervisor,
+        whitelist_ids={0x7E0},
+        confirmation_secret=os.urandom(32),
+    )
+    gateway.update_vehicle_speed(0.0, source="physical")
+    client = UdsClient(bus=bus, tx_port=gateway, tx_id=0x7E0, rx_id=0x7E8, channel_id="vcan0")
+    return bus, gateway, client
+
+
+def _bound_minter(gateway: TxSafetyGateway, context: str) -> Any:
+    def _mint(frame_data: bytes) -> bytes:
+        return gateway.issue_confirmation_token(
+            0x7E0,
+            payload_hash=TxSafetyGateway.confirmation_payload_hash(frame_data),
+            context=context,
+        )
+
+    return _mint
+
+
+def test_aud05_context_without_payload_hash_is_refused_explicitly() -> None:
+    _bus, gateway, _client = _production_rig()
+    with pytest.raises(SafetyError) as exc:
+        gateway.issue_confirmation_token(0x7E0, context="uds_clear_dtc:a1")
+    assert exc.value.code == "CONFIRMATION_PAYLOAD_UNBOUND"
+
+
+def test_aud05_payload_bound_minter_authorizes_exactly_its_action() -> None:
+    bus, gateway, client = _production_rig()
+    assert bus.server is not None
+    assert bus.server.dtcs
+
+    ctx = "uds_clear_dtc:a1"
+    resp = client.clear_dtc(
+        0xFFFFFF,
+        user_confirmed=True,
+        confirmation_token=_bound_minter(gateway, ctx),
+        confirmation_context=ctx,
+    )
+    assert resp.is_positive
+    assert bus.server.dtcs == []
+
+    # A token minted for one action/frame cannot authorize a different one.
+    stolen = _bound_minter(gateway, ctx)(b"\x04\x14\xff\xff\xff\xaa\xaa\xaa")
+    with pytest.raises(DualConfirmationRequiredError):
+        client.ecu_reset(
+            reset_type=0x01,
+            user_confirmed=True,
+            confirmation_token=stolen,
+            confirmation_context=ctx,
+        )
+
+
+def test_aud05_desktop_confirm_token_for_context_returns_a_payload_minter() -> None:
+    app = _app()
+    if not app.gateway.has_confirmation_secret():
+        pytest.skip("this build wires no gateway confirmation secret")
+    plain = app._confirm_token_for(0x7E0)
+    assert isinstance(plain, bytes)
+    minter = app._confirm_token_for(0x7E0, "uds_clear_dtc:a1")
+    assert callable(minter)
+    token = minter(b"\x04\x14\xff\xff\xff\xaa\xaa\xaa")
+    assert isinstance(token, bytes)
+    assert len(token) == TxSafetyGateway._CONFIRM_BIND_LEN + 32
+
+
+def test_aud06_multi_frame_critical_request_completes_with_one_token() -> None:
+    bus, gateway, client = _production_rig()
+    assert bus.server is not None
+    seed_key = bytes(b ^ 0xFF for b in bus.server.seed_challenge)
+    ctx = "flash:test:0x8000000"
+
+    assert client.change_session(
+        0x02, user_confirmed=True, confirmation_token=_bound_minter(gateway, ctx), confirmation_context=ctx
+    ).is_positive
+    assert client.security_access_request_seed(
+        level=0x01, user_confirmed=True, confirmation_token=_bound_minter(gateway, ctx), confirmation_context=ctx
+    ).is_positive
+    assert client.security_access_send_key(
+        level=0x01,  # the seed level; the client emits the key sub-function 0x02
+        key=seed_key,
+        user_confirmed=True,
+        confirmation_token=_bound_minter(gateway, ctx),
+        confirmation_context=ctx,
+    ).is_positive
+    assert client.request_download(
+        memory_address=0x08000000,
+        memory_size=64,
+        user_confirmed=True,
+        confirmation_token=_bound_minter(gateway, ctx),
+        confirmation_context=ctx,
+    ).is_positive
+
+    block = bytes(range(64))  # 0x36 + BSC + 64 bytes -> FF + 9 CFs
+    resp = client.transfer_data(
+        block_sequence=1,
+        data=block,
+        is_critical_command=True,
+        user_confirmed=True,
+        confirmation_token=_bound_minter(gateway, ctx),
+        confirmation_context=ctx,
+    )
+    assert resp.is_positive
+    assert bytes(bus.server.downloaded_data) == block
+
+
+def test_aud07_full_flash_completes_on_a_production_gateway() -> None:
+    from cryptography.hazmat.primitives.asymmetric import ed25519
+
+    from src.protocols.uds.flasher import EcuFlashingEngine, FlashingConfig
+
+    bus, gateway, client = _production_rig()
+    assert bus.server is not None
+    logs: list[str] = []
+    engine = EcuFlashingEngine(
+        uds_client=client,
+        gateway=gateway,
+        on_log=lambda msg, _lvl="info": logs.append(msg),
+        confirmation_token_factory=gateway.create_confirmation_issuer(),
+    )
+    signer = ed25519.Ed25519PrivateKey.generate()
+    image = bytes(range(256)) * 2
+    config = FlashingConfig(
+        memory_address=0x08000000,
+        data=image,
+        block_size=256,
+        security_key=bytes(b ^ 0xFF for b in bus.server.seed_challenge),
+        expected_vin=_TEST_VIN,
+        firmware_signature=signer.sign(image),
+        trusted_pubkey=signer.public_key(),
+        user_confirmed=True,
+    )
+
+    # Keep the speed interlock fed like the live telemetry loop does.
+    stop = threading.Event()
+
+    def _feed() -> None:
+        while not stop.wait(0.1):
+            gateway.update_vehicle_speed(0.0, source="physical")
+
+    feeder = threading.Thread(target=_feed, daemon=True)
+    feeder.start()
+    try:
+        ok = engine.execute_flash(config)
+    finally:
+        stop.set()
+        feeder.join(timeout=1.0)
+
+    assert ok is True, logs[-5:]
+    assert bytes(bus.server.downloaded_data) == image
