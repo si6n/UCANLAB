@@ -390,6 +390,30 @@ export interface DiscoveryReport {
   hypotheses?: DiscoveryHypothesis[];
 }
 
+export interface StimulusStatus {
+  success?: boolean;
+  error_code?: string;
+  running: boolean;
+  phase?: 'rest' | 'active';
+  switches?: number;
+  rest_frames?: number;
+  active_frames?: number;
+}
+
+export interface StimulusCandidate {
+  key: string;
+  arbitration_id: number;
+  extended: boolean;
+  kind: 'byte' | 'bit';
+  index: number;
+  rest: number;
+  active: number;
+  score: number;
+  rest_frames: number;
+  active_frames: number;
+  simulated: boolean;
+}
+
 // Interface for pywebview Python backend bridge
 declare global {
   interface Window {
@@ -407,6 +431,12 @@ declare global {
         sim_vehicle_start?: (vehicleType: string) => Promise<BusInfoResult>;
         sim_vehicle_stop?: () => Promise<BusInfoResult>;
         bus_get_info?: () => Promise<BusInfoResult>;
+        stimulus_start?: () => Promise<StimulusStatus>;
+        stimulus_set_phase?: (phase: 'rest' | 'active') => Promise<StimulusStatus>;
+        stimulus_status?: () => Promise<StimulusStatus>;
+        stimulus_result?: () => Promise<StimulusStatus & { candidates?: StimulusCandidate[] }>;
+        stimulus_stop?: () => Promise<{ success: boolean }>;
+        sim_vehicle_pedal?: (pressed: boolean) => Promise<{ success: boolean; error_code?: string }>;
         discovery_list?: () => Promise<{ success: boolean; min_frames: number; streams: DiscoveryStream[] }>;
         discovery_report?: (key: string) => Promise<DiscoveryReport>;
         discovery_set_approval?: (key: string, startBit: number, length: number, approved: boolean) => Promise<{ success: boolean; error_code?: string }>;
@@ -832,6 +862,34 @@ export class DesktopBridge {
     this.requireCapability('bus_get_info', 'bus info');
     this.requireNativeOrDev();
     return null;
+  }
+
+  private static async call<T>(name: string, what: string, fallback: T, ...args: unknown[]): Promise<T> {
+    const m = this.apiMethod(name);
+    if (this.isNative() && m) return (await m(...args)) as T;
+    this.requireCapability(name, what);
+    this.requireNativeOrDev();
+    return fallback;
+  }
+
+  public static stimulusStart(): Promise<StimulusStatus> {
+    return this.call('stimulus_start', 'stimulus experiment', { running: false, error_code: 'NATIVE_BRIDGE_MISSING' });
+  }
+
+  public static stimulusSetPhase(phase: 'rest' | 'active'): Promise<StimulusStatus> {
+    return this.call('stimulus_set_phase', 'stimulus experiment', { running: false, error_code: 'NATIVE_BRIDGE_MISSING' }, phase);
+  }
+
+  public static stimulusResult(): Promise<StimulusStatus & { candidates?: StimulusCandidate[] }> {
+    return this.call('stimulus_result', 'stimulus experiment', { running: false, error_code: 'NATIVE_BRIDGE_MISSING' });
+  }
+
+  public static stimulusStop(): Promise<{ success: boolean }> {
+    return this.call('stimulus_stop', 'stimulus experiment', { success: false });
+  }
+
+  public static simVehiclePedal(pressed: boolean): Promise<{ success: boolean; error_code?: string }> {
+    return this.call('sim_vehicle_pedal', 'simulated pedal', { success: false, error_code: 'NATIVE_BRIDGE_MISSING' }, pressed);
   }
 
   public static async discoveryList(): Promise<{ success: boolean; min_frames: number; streams: DiscoveryStream[] } | null> {

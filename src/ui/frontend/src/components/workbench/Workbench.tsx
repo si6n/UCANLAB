@@ -307,7 +307,7 @@ export const Workbench: React.FC = () => {
       body = <PlotView onOpenDiscovery={() => setActive('discovery')} />;
       break;
     case 'discovery':
-      body = <DiscoveryView initialKey={discoveryKey} />;
+      body = <DiscoveryView initialKey={discoveryKey} simulator={Boolean(busInfo?.simulated)} />;
       break;
     case 'ecu':
       body = <EcuFlashingView />;

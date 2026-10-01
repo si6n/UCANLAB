@@ -73,19 +73,27 @@ _CAR = (
 NATIVE_BITRATE = {"car": 500_000, "truck": 250_000, "boat": 250_000, "construction": 250_000}
 
 _EEC1_ID = _j1939_id(61444, 0x00, 3)
+_EEC2_ID = _j1939_id(61443, 0x00, 3)  # accelerator pedal position (byte 1, 0.4 %/bit)
 _ET1_ID = _j1939_id(65262, 0x00)
 _N2K_RAPID_ID = _j1939_id(127488, 0x10, 2)
 
 
-def _animated_payload(arbitration_id: int, data: bytes, t: float) -> bytes:
+def _animated_payload(arbitration_id: int, data: bytes, t: float, pedal: bool = False) -> bytes:
     """Workbench mode: a slowly varying engine instead of frozen bytes.
 
     Deterministic in the frame clock ``t`` (no randomness): idle speed swings
-    ~±50 rpm around 650 rpm, coolant warms from 70 °C toward 88 °C. Only the
-    signal bytes change; every other byte keeps the static payload.
+    ~±50 rpm around 650 rpm, coolant warms from 70 °C toward 88 °C. With the
+    simulated pedal pressed the pedal byte reads 60 % and the engine runs
+    ~900 rpm faster. Only the signal bytes change; every other byte keeps
+    the static payload.
     """
     out = bytearray(data)
     rpm = 650.0 + 40.0 * math.sin(2 * math.pi * t / 6.0) + 12.0 * math.sin(2 * math.pi * t / 0.9)
+    if pedal:
+        rpm += 900.0
+    if arbitration_id == _EEC2_ID:
+        out[1] = int(round((60.0 if pedal else 0.0) / 0.4))
+        return bytes(out)
     if arbitration_id == _EEC1_ID:
         raw = int(round(rpm / 0.125))
         out[3], out[4] = raw & 0xFF, raw >> 8
@@ -112,6 +120,8 @@ class SimulatedVehicleBus(AbstractBus):
         self.listen_only = scenario != "no_listen_only"
         self._sleep = sleep
         self.animated = animated
+        # Workbench stimulus experiment: the simulated "pedal" (animated only).
+        self.pedal_pressed = False
         self._i = 0
         if vehicle_type == "boat":
             self._schedule: tuple[_Tx, ...] = _BOAT
@@ -126,6 +136,8 @@ class SimulatedVehicleBus(AbstractBus):
         elif vehicle_type in ("truck", "construction"):
             volts = 22.9 if scenario == "weak_battery" else 27.6
             self._schedule = (*self._schedule, _Tx(_j1939_id(65271, 0x00), _vep1(volts)))
+            if animated:
+                self._schedule = (*self._schedule, _Tx(_EEC2_ID, bytes([0xFF, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF])))
 
     @property
     def native_bitrate(self) -> int:
@@ -164,7 +176,11 @@ class SimulatedVehicleBus(AbstractBus):
             self.metrics.error_frames += 1
             return None
         tx = self._schedule[self._i % len(self._schedule)]
-        data = _animated_payload(tx.arbitration_id, tx.data, self._i * self.FRAME_INTERVAL_S) if self.animated else tx.data
+        data = (
+            _animated_payload(tx.arbitration_id, tx.data, self._i * self.FRAME_INTERVAL_S, self.pedal_pressed)
+            if self.animated
+            else tx.data
+        )
         self._i += 1
         self.metrics.rx_frames += 1
         return CanFrame(channel_id=self.channel_id, arbitration_id=tx.arbitration_id, dlc=len(data),

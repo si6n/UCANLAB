@@ -3,7 +3,8 @@ import { Check, ChevronDown, FileDown, Loader2, Waypoints } from 'lucide-react';
 import { DesktopBridge, DiscoveryHypothesis, DiscoveryReport, DiscoveryStream } from '../../services/bridge';
 import { L } from '../mechanic/text';
 import { formatId } from './frameBus';
-import { BTN_GHOST, BTN_PRIMARY, Card, CardHeader, Chip, EmptyState, cx } from './ui';
+import { StimulusPanel } from './StimulusPanel';
+import { BTN_GHOST, BTN_PRIMARY, Card, CardHeader, Chip, EmptyState, Segmented, cx } from './ui';
 
 /**
  * Sinyal keşfi: the Python discovery engine's evidence for one stream —
@@ -153,7 +154,10 @@ const HypothesisRow: React.FC<{
   );
 };
 
-export const DiscoveryView: React.FC<{ initialKey: string | null }> = ({ initialKey }) => {
+type Tab = 'analysis' | 'experiment';
+
+export const DiscoveryView: React.FC<{ initialKey: string | null; simulator: boolean }> = ({ initialKey, simulator }) => {
+  const [tab, setTab] = useState<Tab>('analysis');
   const [streams, setStreams] = useState<DiscoveryStream[]>([]);
   const [minFrames, setMinFrames] = useState(10);
   const [loaded, setLoaded] = useState(false);
@@ -253,8 +257,37 @@ export const DiscoveryView: React.FC<{ initialKey: string | null }> = ({ initial
     );
   }
 
+  const tabs = (
+    <Segmented<Tab>
+      testId="discovery-tab"
+      value={tab}
+      onChange={setTab}
+      options={[
+        { value: 'analysis', label: L('Kimlik analizi', 'Id analysis') },
+        { value: 'experiment', label: L('Bas-bırak deneyi', 'Press-and-release') },
+      ]}
+    />
+  );
+
+  if (tab === 'experiment') {
+    return (
+      <div className="flex h-full min-h-0 flex-col gap-3 overflow-auto" data-testid="discovery-view">
+        <div>{tabs}</div>
+        <StimulusPanel
+          simulator={simulator}
+          onInspect={(key) => {
+            setSelected(key);
+            setTab('analysis');
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
-    <div className="flex h-full min-h-0 gap-3" data-testid="discovery-view">
+    <div className="flex h-full min-h-0 flex-col gap-3" data-testid="discovery-view">
+      <div>{tabs}</div>
+      <div className="flex min-h-0 flex-1 gap-3">
       <Card className="flex w-[280px] flex-none flex-col overflow-hidden">
         <CardHeader title={L('Kimlikler', 'Ids')} hint={L('Bir kimlik seçin; bitlerinin nasıl davrandığı sağda görünür.', 'Pick an id to see how its bits behave.')} />
         <ul className="flex-1 overflow-auto p-2">
@@ -370,6 +403,7 @@ export const DiscoveryView: React.FC<{ initialKey: string | null }> = ({ initial
             </p>
           )}
         </Card>
+      </div>
       </div>
     </div>
   );

@@ -241,3 +241,31 @@ def test_discovery_from_live_traffic_to_dbc(wb: Any) -> None:
         "() => document.querySelector('[data-testid=save-dbc-result]')?.textContent.includes('_SIMULATOR.dbc')", timeout=10000
     )
     assert app.discovery_save_dbc(True)["signals"] >= 1
+
+
+def test_press_and_release_experiment_finds_the_simulated_pedal(wb: Any) -> None:
+    page, app = wb
+    page.select_option("[data-testid=sim-type]", "truck")
+    page.click("[data-testid=start-simulator]")
+    page.wait_for_selector("[data-testid=id-table]", timeout=20000)
+    page.click("[data-testid=nav-discovery]")
+    page.click("[data-testid=discovery-tab-experiment]")
+    page.click("[data-testid=stimulus-start]")
+    page.wait_for_selector("[data-testid=stimulus-toggle]")
+    for _ in range(2):
+        page.wait_for_timeout(1500)
+        page.click("[data-testid=stimulus-toggle]")
+        page.wait_for_selector("[data-testid=stimulus-phase]:has-text('Uygulanıyor')")
+        page.wait_for_timeout(1500)
+        page.click("[data-testid=stimulus-toggle]")
+        page.wait_for_selector("[data-testid=stimulus-phase]:has-text('Dokunmayın')")
+    page.wait_for_selector("[data-testid=stimulus-results] li", timeout=10000)
+    page.wait_for_function(
+        "() => [...document.querySelectorAll('[data-testid=stimulus-results] li')].slice(0, 3)"
+        ".some((li) => li.textContent.includes('0x0CF00300') && li.textContent.includes('bayt 1'))",
+        timeout=10000,
+    )
+    assert app.bus.pedal_pressed is False  # released at the end of the last round
+    page.click("[data-testid=stimulus-stop]")
+    page.wait_for_selector("[data-testid=stimulus-start]")
+    assert app.stimulus_status() == {"running": False}

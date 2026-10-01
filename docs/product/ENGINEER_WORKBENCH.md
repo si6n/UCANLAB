@@ -103,7 +103,19 @@ uygulamanın hattı olarak bağlar:
   yeniden kurduğu için onay kayboluyor, "yalnız onaylılar" DBC'si boş çıkıyordu. Onaylar artık motorda kalıcı.
 * DBC `exports/dbc/` altına yol korumasıyla yazılır; simülatör verisi içeriyorsa dosya adı `_SIMULATOR` ile biter.
 * Hat değişiminde keşif verisi sıfırlanır (simülatör ve araç kimlikleri karışmaz).
-* Eski ekrandaki "pedala bas / bırak" uyaran deneyi tarayıcıdaki TS motorundaydı; Python'a taşınması **B3b**.
+* Eski ekrandaki "pedala bas / bırak" uyaran deneyi tarayıcıdaki TS motorundaydı; Python'a taşındı (**B3b**, §4.3).
+
+## 4.3 Bas-bırak deneyi (B3b)
+
+* `StimulusExperiment` (Python): operatör "Dokunmayın" ↔ "Şimdi uygula" arasında geçerken her çerçeve o anki aşamaya
+  kaydedilir. Sonuçta her kimliğin baytları **etki büyüklüğüyle** (aşama ortalamaları farkı / birleşik standart sapma)
+  ve bitleri **1 olma oranı farkıyla** sıralanır. Her iki aşamada da gürültülü olan bayt puan almaz; her aşamada sabit
+  olup aşamalar arasında değişen (temiz basamak) en üste çıkar.
+* Bu bir **ilişkidir, kanıt değil**: motor tepkisi gibi dolaylı etkiler de listelenir; ekran bunu açıkça söyler.
+* Uçlar: `stimulus_start / set_phase / stop` (`config`), `stimulus_status / result` (`read`). Hiçbir çerçeve gönderilmez.
+* Uzman masası simülatöründe deneme için **simüle pedal** var (`sim_vehicle_pedal`, `config`, yalnız hareketli simülatör):
+  EEC2 (PGN 61443) bayt 1 = %60 olur ve motor ~900 rpm hızlanır. Bağlantı sihirbazının simülatöründe pedal çerçevesi yoktur.
+* Hat değişiminde deney sonlanır.
 
 ## 5. Doğrulama durumu
 
@@ -112,6 +124,7 @@ uygulamanın hattı olarak bağlar:
 | Simüle hat bağlama/çözme, ret koşulları, sürücü sayaçları | `tests/unit/test_workbench_simulator.py` (CI, Linux + Windows) |
 | Gerçek köprü + gerçek telemetri döngüsü + simüle kamyon → Canlı trafik, filtre, dışa aktarma, E-Stop | `tests/ui_e2e/test_workbench_ui.py` (Playwright; yerelde koşar, CI'da Playwright yok → atlanır) |
 | Grafik: çizim halkası, sınırlar, simülatör işareti, hat değişiminde sıfırlama | `tests/unit/test_workbench_plot.py` (CI) + `test_workbench_ui.py` (yerel Playwright) |
+| Bas-bırak deneyi: sıralama, aşama/girdi doğrulama, simüle pedal | `tests/unit/test_stimulus_experiment.py` (CI) + `test_workbench_ui.py` (yerel Playwright) |
 | Sinyal keşfi: rapor, onayın kalıcılığı, DBC kaydı, girdi doğrulama | `tests/unit/test_workbench_discovery.py` (CI) + `test_workbench_ui.py` (yerel Playwright) |
 | Fiziksel adaptör (PCAN/Kvaser/RP1210) ile Canlı trafik, Grafik, Sinyal keşfi | **Doğrulanmadı.** `HARDWARE_TEST_CHECKLIST.md` W8 |
 | WebView2 (Windows) içinde görünüm ve 2000 kare/sn akışta akıcılık | **Doğrulanmadı.** `HARDWARE_TEST_CHECKLIST.md` W8 |
@@ -125,7 +138,7 @@ Ekran görüntüleri (`screenshots/workbench/`) simülatörle, Linux Chromium'da
 | B1 | `flow/b1-workbench` | Kabuk, Canlı trafik, Kayıt ve rapor (temel), simüle hat, bu belge |
 | B2 | `flow/b2-plot` | Grafik: Python'un çözdüğü sinyaller için okuma ucu + çizim |
 | B3 | `flow/b3-discovery` | Sinyal keşfi Python `discovery_*` üzerine (TS motoru B8'de silinir) |
-| B3b | `flow/b3b-stimulus` | Uyaran deneyi (bas/bırak) Python'da: iki pencere arasında değişen bitleri sıralar |
+| B3b | `flow/b3b-stimulus` | Uyaran deneyi (bas/bırak) Python'da: iki aşama arasında değişen bayt/bitleri sıralar |
 | B4 | `flow/b4-assistant` | Teşhis asistanı Python analiz üzerine; `_bus_load` / `_error_count` düzeltmesi |
 | B5 | `flow/b5-ecu` | ECU programlama ekranı (aynı güvenlik akışı) |
 | B6 | `flow/b6-settings` | Ayarlar (adaptör bağlantısı, lisans, mod, kaynak lisansları) + Pin rehberi |
