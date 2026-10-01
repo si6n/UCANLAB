@@ -4105,7 +4105,7 @@ class UniversalCanDesktopApp:
                             "data": {"service": "0x14", "group": hex(group)},
                         }
                     else:
-                        err = f"âŒ [UDS 0x14] ECU reddetti: NRC 0x{resp.nrc:02X} ({resp.nrc_description_tr})"
+                        err = f"❌ [UDS 0x14] ECU reddetti: NRC 0x{resp.nrc:02X} ({resp.nrc_description_tr})"
                         return {
                             "success": False,
                             "error": err,
@@ -4139,7 +4139,7 @@ class UniversalCanDesktopApp:
                             "data": {"did": f"0x{did:04X}", "value": val_str, "name": name},
                         }
                     else:
-                        err = f"âŒ [UDS 0x22] DID 0x{did:04X} okunamadı: NRC 0x{resp.nrc:02X} ({resp.nrc_description_tr})"
+                        err = f"❌ [UDS 0x22] DID 0x{did:04X} okunamadı: NRC 0x{resp.nrc:02X} ({resp.nrc_description_tr})"
                         return {
                             "success": False,
                             "error": err,
@@ -4175,7 +4175,7 @@ class UniversalCanDesktopApp:
                             "data": {"session_type": st},
                         }
                     else:
-                        err = f"âŒ [UDS 0x10] Oturum değiştirilemedi: NRC 0x{resp.nrc:02X} ({resp.nrc_description_tr})"
+                        err = f"❌ [UDS 0x10] Oturum değiştirilemedi: NRC 0x{resp.nrc:02X} ({resp.nrc_description_tr})"
                         return {
                             "success": False,
                             "error": err,
@@ -4188,7 +4188,7 @@ class UniversalCanDesktopApp:
                 if self._is_simulating:
                     return {
                         "success": True,
-                        "message": f"â–¶ï¸ [UDS 0x31] Teşhis rutini 0x{rid:04X} başarıyla başlatıldı (Pozitif Yanıt 0x71).",
+                        "message": f"▶️ [UDS 0x31] Teşhis rutini 0x{rid:04X} başarıyla başlatıldı (Pozitif Yanıt 0x71).",
                         "routine_id": hex(rid),
                         "data": {"routine_id": hex(rid)},
                     }
@@ -4197,15 +4197,23 @@ class UniversalCanDesktopApp:
                     if arm_err_resp is not None:
                         return arm_err_resp
                     client = self.create_uds_client()
-                    resp = client.start_routine(rid, user_confirmed=True)
+                    _ctx = f"{action_type}:{action_id}"
+                    # The gateway classifies RoutineControl (0x31) as critical;
+                    # without a token a production gateway refused this action.
+                    resp = client.start_routine(
+                        rid,
+                        user_confirmed=True,
+                        confirmation_token=self._confirm_token_for(client.tx_id, _ctx),
+                        confirmation_context=_ctx,
+                    )
                     if resp.is_positive:
                         return {
                             "success": True,
-                            "message": f"â–¶ï¸ [UDS 0x31] Rutin 0x{rid:04X} başlatıldı (Pozitif Yanıt 0x71).",
+                            "message": f"▶️ [UDS 0x31] Rutin 0x{rid:04X} başlatıldı (Pozitif Yanıt 0x71).",
                             "data": {"routine_id": hex(rid)},
                         }
                     else:
-                        err = f"âŒ [UDS 0x31] Rutin başlatılamadı: NRC 0x{resp.nrc:02X} ({resp.nrc_description_tr})"
+                        err = f"❌ [UDS 0x31] Rutin başlatılamadı: NRC 0x{resp.nrc:02X} ({resp.nrc_description_tr})"
                         return {
                             "success": False,
                             "error": err,
@@ -4241,7 +4249,7 @@ class UniversalCanDesktopApp:
                             "data": {"reset_type": rt},
                         }
                     else:
-                        err = f"âŒ [UDS 0x11] ECU Reset reddedildi: NRC 0x{resp.nrc:02X} ({resp.nrc_description_tr})"
+                        err = f"❌ [UDS 0x11] ECU Reset reddedildi: NRC 0x{resp.nrc:02X} ({resp.nrc_description_tr})"
                         return {
                             "success": False,
                             "error": err,
@@ -4291,7 +4299,7 @@ class UniversalCanDesktopApp:
                         }
                     except Exception as exc:
                         logger.error("J1939 DM11 transmission failed", exc_info=True)
-                        err = f"âŒ [J1939 DM11] Komut iletilemedi: {exc}"
+                        err = f"❌ [J1939 DM11] Komut iletilemedi: {exc}"
                         return {"success": False, "error": err, "message": err}
 
             # J1939 DM1 Query
@@ -5536,7 +5544,7 @@ class UniversalCanDesktopApp:
                 else:
                     lines.append("Hipotez üretilemedi (yetersiz kanıt / aktif DTC yok).")
                 return "\n".join(lines)
-            return f"âš ï¸ {res.get('error', 'Ölçüm kaydedilemedi.')}"
+            return f"⚠️ {res.get('error', 'Ölçüm kaydedilemedi.')}"
 
         # FAZ 5: "hipotezler" query — deterministic keyword gate on the
         # OPERATOR query (never foreign text), session analysis stays host-side.
@@ -5544,14 +5552,14 @@ class UniversalCanDesktopApp:
         if norm_q in {"hipotezler", "hipotez", "hipotheses", "hipotez sıralaması", "hipotez siralamasi"}:
             analysis = self.get_diagnostic_analysis()
             if not analysis.get("success"):
-                return "âš ï¸ Aktif teşhis oturumu yok."
+                return "⚠️ Aktif teşhis oturumu yok."
             gate = analysis.get("gate", {})
             hyps = analysis.get("hypotheses", [])
             anomalies = analysis.get("anomalies", [])
             cases = analysis.get("similar_cases", [])
             lines = ["**Teşhis Oturumu Analizi** (ağırlıklı kanıt skorları):"]
             lines.append("")
-            lines.append(f"- Kanıt kapısı: anomali {'✅ yeterli' if gate.get('anomaly_sufficient') else 'âŒ yetersiz'} | DTC/hipotez {'✅ yeterli' if gate.get('dtc_sufficient') else 'âŒ yetersiz'} ({gate.get('active_dtc_count', 0)} aktif DTC)")
+            lines.append(f"- Kanıt kapısı: anomali {'✅ yeterli' if gate.get('anomaly_sufficient') else '❌ yetersiz'} | DTC/hipotez {'✅ yeterli' if gate.get('dtc_sufficient') else '❌ yetersiz'} ({gate.get('active_dtc_count', 0)} aktif DTC)")
             for gap in gate.get("gaps", []):
                 lines.append(f"  - {gap}")
             if anomalies:
@@ -5638,7 +5646,7 @@ class UniversalCanDesktopApp:
                     future.cancel()
         except FuturesTimeoutError:
             logger.warning("Copilot query timed out", extra={"query": query[:50]})
-            return "âš ï¸ AI yanıtı zaman aşımına uğradı (15 s). Lütfen tekrar deneyin."
+            return "⚠️ AI yanıtı zaman aşımına uğradı (15 s). Lütfen tekrar deneyin."
 
     def export_logs(self, fmt: str) -> bool:
         """Export session telemetry and frames to disk (LOW-4).
