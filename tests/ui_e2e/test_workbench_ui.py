@@ -269,3 +269,20 @@ def test_press_and_release_experiment_finds_the_simulated_pedal(wb: Any) -> None
     page.click("[data-testid=stimulus-stop]")
     page.wait_for_selector("[data-testid=stimulus-start]")
     assert app.stimulus_status() == {"running": False}
+
+
+def test_assistant_labels_simulation_and_never_runs_vehicle_actions(wb: Any) -> None:
+    page, app = wb
+    page.select_option("[data-testid=sim-type]", "truck")
+    page.click("[data-testid=start-simulator]")
+    page.wait_for_selector("[data-testid=id-table]", timeout=20000)
+    page.wait_for_timeout(2500)
+    page.click("[data-testid=nav-assistant]")
+    page.wait_for_selector("[data-testid=assistant-headline]", timeout=20000)
+    assert page.is_visible("[data-testid=assistant-simulated]")
+    assert "DPF" in page.text_content("[data-testid=assistant-headline]")
+    if page.locator("[data-testid=answer-unknown]").count():
+        page.click("[data-testid=answer-unknown]")
+        page.wait_for_timeout(800)
+    assert app._diag_session.samples == [] and app._diag_session.events == []
+    assert not app.supervisor.is_tx_permitted

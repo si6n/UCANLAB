@@ -11,6 +11,7 @@ import {
   Radio,
   Settings,
   Square,
+  Stethoscope,
   Sun,
   Waypoints,
   Wrench,
@@ -23,6 +24,7 @@ import { useUiHeartbeat } from '../mechanic/useUiHeartbeat';
 import { EcuFlashingView } from '../ecu/EcuFlashingView';
 import { PinoutGuideView } from '../pinout/PinoutGuideView';
 import { SettingsView } from '../settings/SettingsView';
+import { AssistantView } from './AssistantView';
 import { DiscoveryView, discoveryKeyFromTrafficKey } from './DiscoveryView';
 import { LiveTraffic, SOURCE_LABEL } from './LiveTraffic';
 import { PlotView } from './PlotView';
@@ -43,7 +45,7 @@ import { BTN_QUIET, Chip, Dot, Tone, cx } from './ui';
  *  - modules not yet rebuilt render their previous view, labelled as such.
  */
 
-type ModuleId = 'traffic' | 'plot' | 'discovery' | 'records' | 'ecu' | 'pinout' | 'settings';
+type ModuleId = 'traffic' | 'plot' | 'discovery' | 'assistant' | 'records' | 'ecu' | 'pinout' | 'settings';
 
 interface ModuleDef {
   id: ModuleId;
@@ -70,6 +72,12 @@ const GROUPS: Array<{ label: () => string; items: ModuleDef[] }> = [
   {
     label: () => L('Araç', 'Vehicle'),
     items: [
+      {
+        id: 'assistant',
+        icon: Stethoscope,
+        title: () => L('Teşhis asistanı', 'Diagnostic assistant'),
+        hint: () => L('Kanıta dayalı değerlendirme', 'Evidence-based assessment'),
+      },
       {
         id: 'ecu',
         icon: Cpu,
@@ -308,6 +316,9 @@ export const Workbench: React.FC = () => {
       break;
     case 'discovery':
       body = <DiscoveryView initialKey={discoveryKey} simulator={Boolean(busInfo?.simulated)} />;
+      break;
+    case 'assistant':
+      body = <AssistantView />;
       break;
     case 'ecu':
       body = <EcuFlashingView />;
