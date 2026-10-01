@@ -4,6 +4,8 @@ import { DesktopBridge, PlotSeries, PlotSignalInfo } from '../../services/bridge
 import { L } from '../mechanic/text';
 import { BTN_GHOST, Card, CardHeader, Chip, EmptyState, Segmented, cx } from './ui';
 
+const originLabel = (origin?: string): string => (origin === 'replay' ? L('Kayıttan', 'Replay') : L('Simülatör', 'Simulator'));
+
 /**
  * Grafik: values Python actually decoded (J1939 / NMEA 2000 / OBD / OEM
  * decoders), one small chart per signal. Nothing is interpolated, smoothed
@@ -112,7 +114,7 @@ const SignalChart: React.FC<{ name: string; series: PlotSeries | undefined; wind
           <div className="truncate text-[14px] font-semibold text-text-hi">{signalLabel(name)}</div>
           <div className="text-[12px] text-text-mid">
             {name}
-            {series?.simulated ? ` · ${L('Simülatör', 'Simulator')}` : ''}
+            {series?.simulated ? ` · ${originLabel(series.origin)}` : ''}
           </div>
         </div>
         <div className="text-right">
@@ -277,7 +279,7 @@ export const PlotView: React.FC<{ onOpenDiscovery: () => void }> = ({ onOpenDisc
                       {stale ? ` · ${L(`${Math.round(s.last_age_s)} sn önce`, `${Math.round(s.last_age_s)} s ago`)}` : ''}
                     </span>
                     <span className="mt-1 flex flex-wrap gap-1">
-                      {s.simulated && <Chip tone="warn">{L('Simülatör', 'Simulator')}</Chip>}
+                      {s.simulated && <Chip tone="warn">{originLabel(s.origin)}</Chip>}
                       {s.confidence < 1 && (
                         <Chip title={L('Üreticiye özel çözücünün güveni düşük', 'Low confidence maker-specific decoder')}>
                           {L('Düşük güven', 'Low confidence')}

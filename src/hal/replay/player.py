@@ -145,6 +145,12 @@ class ReplayBus:
             return len(self._frames)
 
     @property
+    def position(self) -> int:
+        """Frames already handed out (the playhead)."""
+        with self._lock:
+            return self._index
+
+    @property
     def has_next(self) -> bool:
         with self._lock:
             return self._index < len(self._frames)

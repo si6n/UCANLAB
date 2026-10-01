@@ -112,6 +112,10 @@
 | W8-22 | Kamyonda "Dinleyerek bağlan" (Kamyon), bus analizörü bağlı. | 250 kbps bulunur, EEC1/CCVS işaretli; adaptörden hiç çerçeve yok (ACK dahil). | ☐ |
 | W8-23 | Binek araçta "Sabit hızla bağlan" yanlış hız (250 kbps) ile. | Trafik gelmez ya da hata çerçeveleri sayılır; uygulama araca bir şey göndermez. | ☐ |
 | W8-24 | Adaptör başka program tarafından açıkken "Bağlan". | "Adaptör bu hızla açılamadı" uyarısı; önceki hat korunur. | ☐ |
+| W8-25 | Kayıtlar → "Klasörü aç" (Windows). | Gezgin `exports` klasöründe açılır. | ☐ |
+| W8-26 | Gerçek hat dinlenirken bir .asc kaydını oynat, bus analizörü bağlı. | Canlı trafikte "Kayıttan" çerçeveler; adaptörden hiç çerçeve yok; teşhis asistanı ve rapor kayıttaki kodları göstermez. | ☐ |
+| W8-27 | Kamyonda CCVS kaynağı onaylıyken, araç hareket halindeyken (veya hız ≠ 0) 0 km/s içeren kaydı oynat. | Ayarlar → Güvenlik'te hız kilidi "Araç duruyor"a dönmez. | ☐ |
+| W8-28 | Oturum açıkken "Yükle", pencerede önce "Hayır" sonra "Evet". | "Hayır": hiçbir istek gitmez. "Evet": dosya buluta yüklenir, bulut panelinde görünür. | ☐ |
 
 ## Doğrulama özeti (neyin nerede doğrulandığı)
 

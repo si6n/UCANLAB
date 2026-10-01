@@ -335,11 +335,37 @@ export interface BusInfoResult {
   bus_state?: string;
 }
 
+/** A file the app wrote (workbench Kayıtlar); addressed by an opaque id, never a path. */
+export interface RecordEntry {
+  id: string;
+  name: string;
+  folder: 'exports' | 'logs' | 'traces' | 'reports';
+  kind: 'trace' | 'report' | 'dbc' | 'log' | 'other';
+  size: number;
+  /** Unix seconds. */
+  modified: number;
+  replayable: boolean;
+  uploadable: boolean;
+}
+
+export interface ReplayStatus {
+  success: boolean;
+  error_code?: string;
+  running?: boolean;
+  name?: string | null;
+  position?: number;
+  frame_count?: number;
+  /** Frames the replay safety filter dropped (address claim, DTC clear, transport). */
+  filtered?: number;
+}
+
 /** One decoded signal Python can plot (workbench Grafik). */
 export interface PlotSignalInfo {
   name: string;
   unit: string;
   simulated: boolean;
+  /** live = the vehicle now; simulator; replay = a recording playing. */
+  origin?: 'live' | 'simulator' | 'replay';
   confidence: number;
   count: number;
   last: number;
@@ -350,6 +376,7 @@ export interface PlotSignalInfo {
 export interface PlotSeries {
   unit: string;
   simulated: boolean;
+  origin?: 'live' | 'simulator' | 'replay';
   t: number[];
   v: number[];
 }
@@ -444,6 +471,12 @@ declare global {
         flash_preconditions?: () => Promise<FlashPreconditions>;
         workbench_connection_test_start?: (adapterId: string, vehicleType: string) => Promise<{ success: boolean; test_id?: string; error_code?: string }>;
         workbench_bus_connect?: (adapterId: string, bitrate: number) => Promise<BusInfoResult>;
+        records_list?: () => Promise<{ success: boolean; records: RecordEntry[]; truncated: boolean }>;
+        records_replay_start?: (recordId: string, speed: number) => Promise<ReplayStatus>;
+        records_replay_stop?: () => Promise<ReplayStatus>;
+        records_replay_status?: () => Promise<ReplayStatus>;
+        records_open_folder?: () => Promise<{ success: boolean; error_code?: string }>;
+        records_upload?: (recordId: string) => Promise<{ success: boolean; error_code?: string; session_id?: string; status?: string }>;
         stimulus_start?: () => Promise<StimulusStatus>;
         stimulus_set_phase?: (phase: 'rest' | 'active') => Promise<StimulusStatus>;
         stimulus_status?: () => Promise<StimulusStatus>;
@@ -892,6 +925,31 @@ export class DesktopBridge {
   /** Workbench: listen-only connection test for an engineer-chosen vehicle type. */
   public static workbenchConnectionTestStart(adapterId: string, vehicleType: string): Promise<{ success: boolean; test_id?: string; error_code?: string }> {
     return this.call('workbench_connection_test_start', 'connection test', { success: false, error_code: 'NATIVE_BRIDGE_MISSING' }, adapterId, vehicleType);
+  }
+
+  public static recordsList(): Promise<{ success: boolean; records: RecordEntry[]; truncated: boolean }> {
+    return this.call('records_list', 'records', { success: false, records: [], truncated: false });
+  }
+
+  public static recordsReplayStart(recordId: string, speed: number): Promise<ReplayStatus> {
+    return this.call('records_replay_start', 'replay', { success: false, error_code: 'NATIVE_BRIDGE_MISSING' }, recordId, speed);
+  }
+
+  public static recordsReplayStop(): Promise<ReplayStatus> {
+    return this.call('records_replay_stop', 'replay', { success: false, error_code: 'NATIVE_BRIDGE_MISSING' });
+  }
+
+  public static recordsReplayStatus(): Promise<ReplayStatus> {
+    return this.call('records_replay_status', 'replay', { success: false, error_code: 'NATIVE_BRIDGE_MISSING' });
+  }
+
+  public static recordsOpenFolder(): Promise<{ success: boolean; error_code?: string }> {
+    return this.call('records_open_folder', 'open folder', { success: false, error_code: 'NATIVE_BRIDGE_MISSING' });
+  }
+
+  /** Upload one record; Python shows the native approval dialog naming the file. */
+  public static recordsUpload(recordId: string): Promise<{ success: boolean; error_code?: string; session_id?: string; status?: string }> {
+    return this.call('records_upload', 'cloud upload', { success: false, error_code: 'NATIVE_BRIDGE_MISSING' }, recordId);
   }
 
   /** Workbench: bind the app bus to an adapter at a fixed bitrate (listen-only). */
