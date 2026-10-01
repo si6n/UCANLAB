@@ -283,10 +283,10 @@ Araç profili (Aşama 4 veri modeli): `vehicle_type, make, engine_family, protoc
 - **Uygulama:** `open_read_only_session` / `close_read_only_session` (`desktop_app.py`). `arm_tx` ile aynı çekirdeği kullanır (`_arm_driver_and_supervisor`). Tek fark: araç hızı **bilinmiyorsa** reddetmez, çünkü otomobil hızını ancak sorulunca söyler ve okuma isteği hiçbir şeyi hareket ettirmez. **Hareket eden araçta**, E-Stop'ta ve simülatör açıkken reddeder. Politika arm'dan **önce** kurulur; okuma bitince oturum her durumda kapatılır (`finally`). Tam `arm_tx` bilinmeyen hızda eskisi gibi kapalı kalır.
 - **Onay:** "Okumaya izin ver" düğmesi yetmez; gerçek araçta işletim sisteminin onay penceresi de kabul edilmelidir (`_require_native_presence`). Tarama ekranı açıkken UI nabzı (watchdog) atar; pencere gizlenirse TX kendiliğinden kapanır.
 - **Sıkılaştırma:** OBD Mode 04 (`0x04`, emisyon kodlarını siler) artık `CRITICAL_UDS_SIDS` içinde. Daha önce kritik sayılmıyordu.
-- **Okuyucu** (`src/engine/diagnosis/obd_reader.py`): mevcut `ActiveDiagnosticPoller` ile motor (0x7E0) ve şanzıman (0x7E1) ünitesinden Mode 03/07/0A okur. Fiziksel adres kullanılır, böylece çok çerçeveli yanıtın akış kontrolü de fiziksel adrese gider. Not: poller'ın işlevsel (0x7DF) istekte akış kontrolünü 0x7DF'ye göndermesi ISO 15765-4'e aykırı; bu yol kullanılmıyor, ayrıca düzeltilmeli.
+- **Okuyucu** (`src/engine/diagnosis/obd_reader.py`): mevcut `ActiveDiagnosticPoller` ile motor (0x7E0) ve şanzıman (0x7E1) ünitesinden Mode 03/07/0A okur. Fiziksel adres kullanılır, böylece çok çerçeveli yanıtın akış kontrolü de fiziksel adrese gider. Poller'ın işlevsel (0x7DF / 0x18DB33F1) istekte akış kontrolünü işlevsel adrese göndermesi ISO 15765-4'e aykırıydı; düzeltildi (`ActiveDiagnosticPoller._flow_control_id`).
 - **Tarama** (`scan.py`): dinle (kamyonda DM1 yayınları) → otomobilde izin varsa oku → analiz. Aynı kodun tekrar yayınları bir kez sayılır. Simülatörde aynı yol çalışır: kamyon DM1 (SPN 3251 FMI 0), otomobil için sahte ECU (P0301, P0420 kayıtlı; P0171 bekleyen), tekne için dürüst "kod yok".
 - **Sonuç kartı** (`mechanic_result.py`): §3.12 sırası sabit. Nedenler ve adımlar yalnız bilgi tabanı kayıtlarından ve analiz motorundan gelir, uydurma değer yoktur. İngilizce kaynak metinleri ve SPN genelindeki (başka alt sisteme ait olabilen) kayıtlar tamirciye gösterilmez, yalnız teknik detayda kalır. "kesin" kelimesi gösterilmez. Bilinmeyen kod için "Bu kodu tanımıyoruz. Uydurmamak için yorum yapmıyoruz." yazar. Terimler sözlüğü ve kaynak satırı vardır.
-- **Müşteri raporu:** sade metin + yazdırılabilir HTML (`scan_save_report`), atölye adı isteğe bağlı. Son satır: "Bu rapor otomatik teşhis önerisidir; son karar ustanındır."
+- **Müşteri raporu:** sade metin + yazdırılabilir HTML (`scan_save_report`), atölye adı isteğe bağlı; `scan_open_report` raporu varsayılan tarayıcıda açar, "Yazdır / PDF olarak kaydet" ile PDF alınır (ek PDF kütüphanesi yok). Son satır: "Bu rapor otomatik teşhis önerisidir; son karar ustanındır."
 - **Kod silme:** Sonuç ekranında yalnız lisans `dtc_clear` içeriyorsa görünür. Mevcut meydan okuma jetonu + TX Gateway + E-Stop yolundan geçer (`request_diagnostic_challenge` → `execute_diagnostic_action`); hız kilidi ve onay kuralları değişmedi.
 - **Doğrulama:** `tests/unit/test_mechanic_scan.py` (45 test), tüm paket yerelde (xdist) 4450 geçti. Gerçek araçta **doğrulanmadı** → `HARDWARE_TEST_CHECKLIST.md` W6-*.
 
@@ -347,9 +347,9 @@ Araç profili (Aşama 4 veri modeli): `vehicle_type, make, engine_family, protoc
 | E1–E4 | Tamam (Aşama 3). Donanım/Windows doğrulaması: W3-*. |
 | E5–E7 | Tamam (Aşama 4). W4-*. |
 | E8–E10 | Tamam (Aşama 5). W5-*. |
-| E11 | Kısmen: akü gerilimi yalnız J1939 PGN 65271 yayınından okunuyor; PCAN/Kvaser gerilim bildirmez. RP1210 VCI gerilim okuması yok. |
+| E11 | Kalıcı sınır: akü gerilimi yalnız aracın yayınladığı J1939 PGN 65271'den okunur. PCAN ve Kvaser adaptörlerinde gerilim ölçen donanım yoktur; RP1210 VCI'lerin gerilim okuması üreticiye özel (standart değil) olduğu için eklenmedi. Gerilim yoksa ekranda uyarı çıkmaz, eksik veri olarak kalır. |
 | E12 | Tamam (Aşama 6, salt-okuma kanalı). W6-*. |
-| E13–E14 | Tamam (Aşama 6). PDF çıktı yok; yazdırılabilir HTML var. |
+| E13–E14 | Tamam (Aşama 6). PDF: rapor tarayıcıda açılıp yazdırılarak alınır. |
 | E15 | Tamam (Aşama 7, simülatör). Gerçek donanımda uçtan uca: W7-*. |
 
 ## 11. Açık sorular

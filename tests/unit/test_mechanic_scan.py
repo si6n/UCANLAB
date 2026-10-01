@@ -391,6 +391,12 @@ def test_bridge_scan_flow(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> No
     runner.wait()
     assert bridge.scan_status()["result"]["technical"]["codes"][0]["code"] == "P0301"
     assert bridge.scan_save_report("x" * 81)["error_code"] == "INVALID_WORKSHOP"
+    assert bridge.scan_open_report()["error_code"] == "NO_REPORT"
     saved = bridge.scan_save_report("Usta Oto")
-    assert saved["success"] and Path(saved["path"]).read_text(encoding="utf-8").startswith("<!doctype html>")
+    page = Path(saved["path"]).read_text(encoding="utf-8")
+    assert saved["success"] and page.startswith("<!doctype html>") and "window.print()" in page
+    opened: list[str] = []
+    monkeypatch.setattr(da.webbrowser, "open", lambda url: opened.append(url) or True)
+    assert bridge.scan_open_report()["success"] is True
+    assert opened == [Path(saved["path"]).resolve().as_uri()]
     assert bridge.scan_cancel() == {"success": True}
