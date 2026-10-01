@@ -14,7 +14,6 @@ from cantools.database.conversion import BaseConversion
 
 from src.engine.discovery.hypotheses import IdReport
 
-
 #: DBC identifiers are C identifiers; tools commonly cap them (Vector: 32
 #: short names, long names via attributes). 64 keeps names readable and bounded.
 DBC_IDENTIFIER_MAX = 64
