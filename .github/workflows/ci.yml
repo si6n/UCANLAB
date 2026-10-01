@@ -282,6 +282,15 @@ jobs:
           sudo ip link set up vcan0 || true
           sudo apt-get update -qq && sudo apt-get install -y -qq libgl1 libegl1 || true
 
+      - name: Type check (mypy strict, Linux and Windows targets)
+        # pyproject.toml declares mypy strict; until the 2026-10-01 audit no
+        # job ran it and src/ carried 190 errors. Both platform targets are
+        # checked because the Windows-only code paths (DPAPI, winreg,
+        # SetThreadExecutionState) are only analysed under --platform win32.
+        run: |
+          mypy src
+          mypy --platform win32 src
+
       - name: Run full PyTest suite with coverage gate
         # Timing budgets are deselected here and run coverage-free below —
         # see the note in the conformance job for the measurement.
