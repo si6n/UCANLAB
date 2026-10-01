@@ -190,6 +190,22 @@ uygulamanın hattı olarak bağlar:
   gösterir, onaylanmazsa hiçbir şey gönderilmez; VIN eklenmez. Yükleme mevcut telemetri yükleyicisini kullanır
   (bulut tarafında değişiklik yok). Raporlar klasörü yükleme kökü değildir.
 
+## 4.8 Temizlik (B8)
+
+* `main.tsx`'den ulaşılamayan 34 dosya silindi: eski `App.tsx`, üst/yan çubuklar, dashboard (sniffer tablosu,
+  osiloskop, AI paneli), modallar (ayarlar, simülatör stüdyosu, tersine mühendislik), eski ECU/keşif/rapor/pin/ayar
+  ekranları ve TS motorları (`canSimulator`, `diagnosticEngine`, `anomalyDetector`, `reverseEngineeringEngine`,
+  `exportService`, `copilotContextBuilder`, `nativeFrameAdapter`). Tüm hesaplama artık Python'da.
+* `bridge.ts`: hiçbir ekranın çağırmadığı 26 sarmalayıcı ve bunların tip bildirimleri kaldırıldı; `any` yerine
+  `unknown` (pywebview IPC sınırındaki tek yer gerekçeli işaretle bırakıldı). E-Stop sıfırlama sarmalayıcıları
+  korunuyor: yeni ekranda henüz sıfırlama akışı yok (açık iş).
+* Ön yüz lint'i sıfır hata; CI'daki `continue-on-error` kaldırıldı, lint artık engelleyici.
+* Lisans atıf paneli `workbench/SettingsAttributionPanel.tsx`'e taşındı (Ayarlar → Veri lisansları); uyum testleri
+  ve gerçek DOM çizim testi yeni yolu kullanıyor.
+* M-05 DBC tanımlayıcı testleri silinen TS motorundan, uygulamanın gerçekten kullandığı Python
+  `dbc_builder._sanitize_c_identifier`'a taşındı; o fonksiyona 64 karakter sınırı ve ardışık karakter birleştirme
+  eklendi (benzersizlik eki de sınırı aşmaz).
+
 ## 5. Doğrulama durumu
 
 | Ne | Nasıl doğrulandı |

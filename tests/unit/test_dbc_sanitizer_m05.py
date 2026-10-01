@@ -1,111 +1,80 @@
-"""M-05 — DBC identifier sanitization (rendered through the real TS module).
+"""M-05 — DBC identifier sanitization for exported discovery databases.
 
-`src/ui/frontend/src/services/reverseEngineeringEngine.ts` emits
-``SG_ <name>`` signal lines and ``<name>_Discovered.dbc`` filenames from
-discovered signal names, which are derived from live bus data and are
-therefore untrusted text. An unsanitized name can produce a DBC that fails
-to reparse (spaces, punctuation, leading digits) — or worse, inject extra
-DBC statements.
+Signal names in an exported DBC can be derived from live bus data, so they are
+untrusted text. An unsanitized name can produce a DBC that fails to reparse
+(spaces, punctuation, leading digits) or inject extra DBC statements.
 
-This repo has no vitest, so the real TypeScript module is transpiled and
-executed in-process by ``tests/fixtures/render_dbc_sanitizer.cjs`` and the
-resulting rows are asserted here. Skips when the frontend toolchain is
-absent, so a Python-only environment still runs the rest of the suite.
+The workbench exports DBC files from the Python discovery engine
+(``src/engine/discovery/dbc_builder.py``); the browser-side
+``reverseEngineeringEngine.ts`` these tests used to drive was removed with the
+old frontend (B8), so the same contract is now asserted on the code that ships.
 """
 
 from __future__ import annotations
 
-import json
-import shutil
-import subprocess
-from pathlib import Path
+import re
 
+import cantools
 import pytest
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-FRONTEND = REPO_ROOT / "src" / "ui" / "frontend"
-HARNESS = REPO_ROOT / "tests" / "fixtures" / "render_dbc_sanitizer.cjs"
+from src.engine.discovery.dbc_builder import DBC_IDENTIFIER_MAX, DbcBuilder, _sanitize_c_identifier
+from src.engine.discovery.hypotheses import Hypothesis, IdReport
 
 # The DBC grammar's identifier rule (letters/digits/underscore, no leading digit).
-DBC_IDENTIFIER_RE = r"^[A-Za-z_][A-Za-z0-9_]*$"
+DBC_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+INPUTS = [
+    "EngineSpeed", "engine speed (rpm)", "a-b.c/d", "  spaced  ", "3WayCatTemp", "9lives", "", "   ",
+    "üöçşğÜÖÇŞĞ", "name;DROP TABLE", 'a".b', "a\nb\tc", "x" * 200, "__x__", "SG_ X : 0|8@1+ (1,0) [0|1]",
+]
 
 
-def _require_toolchain() -> str:
-    node = shutil.which("node")
-    if node is None:
-        pytest.skip("node is not installed; sanitizer proof unavailable")
-    if not (FRONTEND / "node_modules" / "typescript").exists():
-        pytest.skip("frontend typescript dep missing; run npm install first")
-    return node
+@pytest.mark.parametrize("raw", INPUTS)
+def test_every_output_is_dbc_safe_and_bounded(raw: str) -> None:
+    out = _sanitize_c_identifier(raw)
+    assert DBC_IDENTIFIER_RE.match(out), f"{raw!r} produced {out!r}"
+    assert 0 < len(out) <= DBC_IDENTIFIER_MAX
 
 
-@pytest.fixture(scope="module")
-def rows() -> list[dict[str, object]]:
-    node = _require_toolchain()
-    proc = subprocess.run(
-        [node, str(HARNESS), str(FRONTEND)],
-        cwd=str(FRONTEND),
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        timeout=120,
-    )
-    if proc.returncode != 0:
-        pytest.fail(
-            f"sanitizer harness failed:\nstdout: {proc.stdout[-2000:]}\n"
-            f"stderr: {proc.stderr[-2000:]}"
-        )
-    payload = json.loads(proc.stdout)
-    return payload["rows"]
+def test_spaces_and_punctuation_are_collapsed() -> None:
+    assert _sanitize_c_identifier("engine speed (rpm)") == "engine_speed_rpm"
+    assert _sanitize_c_identifier("a-b.c/d") == "a_b_c_d"
+    assert _sanitize_c_identifier("  spaced  ") == "spaced"
 
 
-class TestDbcSanitizer:
-    def test_every_output_is_dbc_safe(self, rows: list[dict[str, object]]) -> None:
-        """The core contract: whatever comes in, the identifier is valid."""
-        import re
+def test_leading_digit_is_prefixed() -> None:
+    assert _sanitize_c_identifier("3WayCatTemp") == "sig_3WayCatTemp"
+    assert _sanitize_c_identifier("9lives") == "sig_9lives"
 
-        offenders = [
-            row
-            for row in rows
-            if not row["dbcSafe"]
-            or not re.match(DBC_IDENTIFIER_RE, str(row["output"]))
-        ]
-        assert offenders == [], f"non-DBC-safe sanitizer outputs: {offenders}"
 
-    def test_output_length_is_bounded(self, rows: list[dict[str, object]]) -> None:
-        assert all(row["lengthOk"] for row in rows), "an output exceeded the 64-char cap"
+def test_empty_and_non_ascii_fall_back() -> None:
+    for raw in ("", "   ", "üöçşğÜÖÇŞĞ", None):
+        assert _sanitize_c_identifier(raw) == "signal"  # type: ignore[arg-type]
 
-    def test_spaces_and_punctuation_are_collapsed(self, rows: list[dict[str, object]]) -> None:
-        by_input = {str(row["input"]): str(row["output"]) for row in rows}
-        assert by_input["engine speed (rpm)"] == "engine_speed_rpm"
-        assert by_input["a-b.c/d"] == "a_b_c_d"
-        assert by_input["  spaced  "] == "spaced"
 
-    def test_leading_digit_is_prefixed(self, rows: list[dict[str, object]]) -> None:
-        by_input = {str(row["input"]): str(row["output"]) for row in rows}
-        assert by_input["3WayCatTemp"].startswith("_")
-        assert by_input["9lives"].startswith("_")
+def test_injection_attempts_cannot_escape_the_identifier() -> None:
+    for hostile in ("name;DROP TABLE", 'a".b', "a\nb\tc", "SG_ X : 0|8@1+ (1,0) [0|1]"):
+        out = _sanitize_c_identifier(hostile)
+        assert DBC_IDENTIFIER_RE.match(out)
+        assert not set(out) & set(';"\n\t :|@()[]')
 
-    def test_empty_and_non_ascii_fall_back(self, rows: list[dict[str, object]]) -> None:
-        by_input = {str(row["input"]): str(row["output"]) for row in rows}
-        assert by_input[""] == "Discovered_Signal"
-        assert by_input["   "] == "Discovered_Signal"
-        assert by_input["üöçşğÜÖÇŞĞ"] == "Discovered_Signal"
 
-    def test_injection_attempts_cannot_escape_the_identifier(
-        self, rows: list[dict[str, object]]
-    ) -> None:
-        """A payload trying to close the SG_ statement must stay one token."""
-        import re
+def test_long_names_are_truncated_not_rejected() -> None:
+    assert _sanitize_c_identifier("x" * 200) == "x" * DBC_IDENTIFIER_MAX
 
-        by_input = {str(row["input"]): str(row["output"]) for row in rows}
-        for hostile in ('name;DROP TABLE', 'a".b', "a\nb\tc"):
-            out = by_input[hostile]
-            assert re.match(DBC_IDENTIFIER_RE, out), f"{hostile!r} produced {out!r}"
-            assert ";" not in out and '"' not in out and "\n" not in out
 
-    def test_long_names_are_truncated_not_rejected(self, rows: list[dict[str, object]]) -> None:
-        by_input = {str(row["input"]): str(row["output"]) for row in rows}
-        long_out = by_input["x" * 200]
-        assert len(long_out) == 64
-        assert long_out == "x" * 64
+def test_exported_dbc_reparses_with_hostile_and_colliding_names() -> None:
+    """End to end: hostile names survive dump → cantools reparse as single identifiers."""
+    long_name = "y" * 100
+    hyps = [
+        Hypothesis(htype="SIGNAL", start_bit=0, length=8, name='rpm";\nBO_ 1 X: 8 Y', confidence=0.9),
+        Hypothesis(htype="SIGNAL", start_bit=8, length=8, name=long_name, confidence=0.9),
+        Hypothesis(htype="SIGNAL", start_bit=16, length=8, name=long_name, confidence=0.9),
+    ]
+    report = IdReport(arbitration_id=0x123, frame_count=10, rate_hz=10.0, dlc=8, hypotheses=hyps)
+    text = DbcBuilder.build_database({0x123: report}).as_dbc_string()
+    reparsed = cantools.database.load_string(text, database_format="dbc")
+    assert len(reparsed.messages) == 1
+    names = [s.name for s in reparsed.messages[0].signals]
+    assert len(names) == 3 and len(set(names)) == 3
+    assert all(DBC_IDENTIFIER_RE.match(n) and len(n) <= DBC_IDENTIFIER_MAX for n in names)

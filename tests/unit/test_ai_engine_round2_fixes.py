@@ -12,7 +12,9 @@ Safety context (AGENTS.md §2.3 / §2.8):
         button (including destructive `uds_ecu_reset`).
 - F-13  the frontend `extractDynamicActions` scanned the whole RESPONSE body
         for keywords ("0x14", "dm11"), minting destructive buttons from mere
-        prose. Mirrored defence now lives in `diagnosticEngine.ts`.
+        prose. The mirrored `diagnosticEngine.ts` defence was removed with the
+        old frontend (B8); the workbench renders Python's proposed actions as
+        text only and never runs them.
 - F-29  `0x46` (SAE J1979 Mode $06 positive response) was absent from
         `_UDS_KNOWN_SIDS`, so a legitimate monitor-response frame decoded to a
         bare CAN-ID line.

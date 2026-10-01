@@ -6753,8 +6753,8 @@ class UniversalCanDesktopApp:
         # ever written by the DEMO generator loop), and `oilPressureBar` is a
         # fixed demo constant — no live oil-pressure measurement exists yet.
         # `isSimulating` lets the frontend gate those fields off the live
-        # gauges the moment it registers the onTelemetryTick handler (see
-        # canSimulator.ts: "LIVE: real data arrives via ... onTelemetryTick").
+        # gauges the moment it registers the onTelemetryTick handler (the old
+        # canSimulator.ts did; the rebuilt workbench does not consume this push).
         telemetry_payload = {
             "timeSec": t,
             "timeFormatted": f"{t:.2f}s",

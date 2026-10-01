@@ -365,7 +365,9 @@ def test_settings_licence_safety_and_sources_are_read_only_views(wb: Any) -> Non
     page.wait_for_selector("[data-testid=safety-supervisor]")
     assert "yalnız dinleme" in page.text_content("[data-testid=safety-supervisor]")
     page.click("[data-testid=settings-tab-sources]")
-    page.wait_for_selector("[data-testid=settings-sources] >> [data-testid^=source-]")
+    page.wait_for_selector("[data-testid=attribution-source]")
+    # The CC BY 4.0 credit is painted inline (no click needed).
+    assert "megadata.pro" in page.text_content("[data-testid=settings-view]")
 
 
 def test_pinout_states_only_standard_assignments(wb: Any) -> None:
