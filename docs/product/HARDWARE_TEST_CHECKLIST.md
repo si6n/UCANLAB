@@ -100,6 +100,8 @@
 | W8-10 | Grafik açıkken adaptör ↔ simülatör geçişi. | Grafik boşalır; iki kaynağın eğrisi birleşmez. | ☐ |
 | W8-11 | Sinyal keşfi: binek araçta bilinen bir kimlik (ör. motor devri) 2 dk, gaz verip bırakarak. | Değişen bitler ızgarada görünür; doğru alan aday listesinde; onay sonrası DBC CANape/SavvyCAN'de açılır. | ☐ |
 | W8-12 | Gerçek araçla kaydedilen DBC'nin adı. | `_SIMULATOR` eki yok. | ☐ |
+| W8-13 | Bas-bırak deneyi: kamyonda gaz pedalı 3 tur (her aşama ~3 sn). | İlk sıralarda EEC2 (0x0CF003xx) bayt 1; devir baytları dolaylı etki olarak. Adaptörden hiç çerçeve yok. | ☐ |
+| W8-14 | Binek araçta fren pedalı veya sinyal kolu. | Üreticiye özel kimlikteki bit/bayt üst sıralarda. | ☐ |
 
 ## Doğrulama özeti (neyin nerede doğrulandığı)
 

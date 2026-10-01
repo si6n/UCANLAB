@@ -50,6 +50,7 @@ from src.engine.diagnosis.events import dm1_to_events
 from src.engine.diagnosis.obd_reader import ObdReadOutcome, read_obd_fault_codes
 from src.engine.diagnosis.scan import LiveScanBackend, ScanRequest, ScanRunner, SimulatorScanBackend
 from src.engine.discovery.engine import SignalDiscoveryEngine
+from src.engine.discovery.stimulus import StimulusExperiment
 from src.engine.pipeline.reassembly_pipeline import (
     ReassembledMessage,
     ReassemblyPipeline,
@@ -689,6 +690,12 @@ class DesktopApiBridge:
         "discovery_report": "read",
         "discovery_set_approval": "config",
         "discovery_save_dbc": "data",
+        "stimulus_start": "config",
+        "stimulus_set_phase": "config",
+        "stimulus_status": "read",
+        "stimulus_result": "read",
+        "stimulus_stop": "config",
+        "sim_vehicle_pedal": "config",
         "scan_start": "safety",
         "scan_status": "read",
         "scan_cancel": "config",
@@ -1664,6 +1671,24 @@ class DesktopApiBridge:
     def discovery_save_dbc(self, approved_only: Any = True) -> dict[str, Any]:
         return self.app.discovery_save_dbc(approved_only)
 
+    def stimulus_start(self) -> dict[str, Any]:
+        return self.app.stimulus_start()
+
+    def stimulus_set_phase(self, phase: Any) -> dict[str, Any]:
+        return self.app.stimulus_set_phase(phase)
+
+    def stimulus_status(self) -> dict[str, Any]:
+        return self.app.stimulus_status()
+
+    def stimulus_result(self) -> dict[str, Any]:
+        return self.app.stimulus_result()
+
+    def stimulus_stop(self) -> dict[str, Any]:
+        return self.app.stimulus_stop()
+
+    def sim_vehicle_pedal(self, pressed: Any) -> dict[str, Any]:
+        return self.app.sim_vehicle_pedal(pressed)
+
     def connection_test_status(self) -> dict[str, Any]:
         return {"success": True, **self.app.connection_wizard.status()}
 
@@ -2377,6 +2402,7 @@ class UniversalCanDesktopApp:
         self._upload_approvals: dict[str, tuple[float, str]] = {}
         self._upload_approvals_lock = threading.Lock()
         self.discovery_engine = SignalDiscoveryEngine()
+        self._stimulus: StimulusExperiment | None = None
         self.oem_registry = OemJ1939Registry()
         # ── E2E Rx Safety Validator & Profiles ──
         self.e2e_validator = E2ESafetyValidator()
@@ -4309,6 +4335,64 @@ class UniversalCanDesktopApp:
             "simulated": simulated,
         }
 
+    # ── Stimulus experiment (B3b): what moves when the operator acts ──
+    def stimulus_start(self) -> dict[str, Any]:
+        self._stimulus = StimulusExperiment()
+        return {"success": True, **self.stimulus_status()}
+
+    def stimulus_set_phase(self, phase: Any) -> dict[str, Any]:
+        experiment = self._stimulus
+        if experiment is None:
+            return {"success": False, "error_code": "NOT_RUNNING"}
+        if phase not in ("rest", "active"):
+            return {"success": False, "error_code": "INVALID_PHASE"}
+        experiment.set_phase(phase)
+        return {"success": True, **self.stimulus_status()}
+
+    def stimulus_status(self) -> dict[str, Any]:
+        experiment = self._stimulus
+        if experiment is None:
+            return {"running": False}
+        counts = experiment.frame_counts()
+        return {"running": True, "phase": experiment.phase, "switches": experiment.switches,
+                "rest_frames": counts["rest"], "active_frames": counts["active"]}
+
+    def stimulus_result(self) -> dict[str, Any]:
+        experiment = self._stimulus
+        if experiment is None:
+            return {"success": False, "error_code": "NOT_RUNNING"}
+        engine = self.discovery_engine
+        candidates = []
+        for c in experiment.analyze(limit=20):
+            candidates.append({
+                "key": self._discovery_key_text(c.key),
+                "arbitration_id": c.key[2],
+                "extended": c.key[1],
+                "kind": c.kind,
+                "index": c.index,
+                "rest": c.rest_value,
+                "active": c.active_value,
+                "score": c.score,
+                "rest_frames": c.rest_frames,
+                "active_frames": c.active_frames,
+                "simulated": bool(engine.key_sources(c.key) & {"synthetic", "simulator", "virtual"}),
+            })
+        return {"success": True, **self.stimulus_status(), "candidates": candidates}
+
+    def stimulus_stop(self) -> dict[str, Any]:
+        self._stimulus = None
+        return {"success": True}
+
+    def sim_vehicle_pedal(self, pressed: Any) -> dict[str, Any]:
+        """Press/release the simulated vehicle's pedal (workbench simulator only)."""
+        if not isinstance(pressed, bool):
+            return {"success": False, "error_code": "INVALID_INPUT"}
+        bus = self.bus
+        if not isinstance(bus, SimulatedVehicleBus) or not bus.animated:
+            return {"success": False, "error_code": "NOT_SIMULATED"}
+        bus.pedal_pressed = pressed
+        return {"success": True, "pressed": pressed}
+
     def discovery_clear(self) -> dict[str, Any]:
         """Clear discovery buffer."""
         self.discovery_engine.clear()
@@ -5539,6 +5623,7 @@ class UniversalCanDesktopApp:
         self.ring_buffer.clear()
         self._clear_plot_rings()
         self.discovery_engine.clear()
+        self._stimulus = None
         self.j1939_tp = J1939TransportProtocol(my_address=0xF9, channel_id=self.channel_name)
         self.n2k_fp = Nmea2000FastPacketDecoder()
         # B-05: bus reconnect / vehicle change drops CCVS trust — the new
@@ -5790,6 +5875,9 @@ class UniversalCanDesktopApp:
                         extra={"can_id": hex(frame.arbitration_id), "verdict": res.verdict.value},
                     )
             self.discovery_engine.ingest_frame(frame)
+            experiment = self._stimulus
+            if experiment is not None:
+                experiment.observe(frame)
             if self.rolling_disk is not None:
                 try:
                     self.rolling_disk.append(frame)
