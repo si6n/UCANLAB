@@ -148,6 +148,28 @@ uygulamanın hattı olarak bağlar:
   adımları gösterir, TX kolu kurulmaz, hiçbir çerçeve gönderilmez. E-Stop ve "araç duruyor" kilidi provada da geçerli.
   Gerçek/sanal hatta yerel (native) operatör onayı ve ağ geçidinin hız kilidi aynen gerekir.
 
+## 4.6 Ayarlar ve Pin rehberi (B6)
+
+* **Bağlantı:** adaptör listesi `adapter_scan` ile gelir (hiçbir kanal açılmaz; simülatör burada değil, trafik
+  ekranındaki düğmede). İki yol var, ikisi de adaptörü **yalnız dinleme** modunda açar ve araca hiçbir çerçeve göndermez:
+  * *Dinleyerek bağlan* (`workbench_connection_test_start`): tamircinin bağlantı testinin aynısı, ama araç tipini
+    mühendis seçer (tercih dosyasına yazılmaz). Hız aday listesi araç tipinden gelir; yalnız kullanılabilir bir sonuç
+    uygulama hattını o hıza bağlar. Trafik yoksa hiçbir şey bağlanmaz ve bu açıkça söylenir.
+  * *Sabit hızla bağlan* (`workbench_bus_connect`): 125/250/500/1000 kbit/s. Kanal açılamazsa önceki hat korunur ve
+    ekran "bağlandı" demez (`CONNECT_FAILED`).
+  * Acil durdurma kilitliyken ya da araca yazma açıkken hat değiştirilmez (simülatör geçişiyle aynı kural).
+* **Lisans:** `auth_get_state` / `auth_refresh_license` salt okunur gösterimi (durum, paket, çevrimdışı süre, açık
+  özellikler) ve kullanım modu geçişi. Eski ekrandaki elle sunucu adresi/oturum anahtarı girişi ve eski web girişi bu
+  ekrana alınmadı (giriş, tamirci akışındaki cihaz kodu ekranındadır).
+* **Güvenlik:** denetçi durumu, E-Stop ve hız kilidi canlı okunur; kurallar listesi yalnız uygulamanın gerçekten
+  zorladıklarını yazar. Eski ekrandaki "ISO 26262 ASIL-D", "Zero-GC" gibi doğrulanmamış ifadeler kaldırıldı.
+* **Veri lisansları:** `get_data_attributions` (ağa çıkmaz); okunamayan lisans dosyası kırmızı uyarıyla gösterilir.
+* **Pin rehberi:** OBD-II (SAE J1962), Deutsch 9 pin (SAE J1939-13) ve NMEA 2000 Micro-C; yalnız standardın atadığı
+  görevler. Eski rehber her OBD pinine bir kablo rengi veriyordu (standart renk yok), "Sarı" yazan CAN-H'yi mavi
+  gösteriyordu ve 13. pine "Flash yetkisi" gibi uydurma görevler yazıyordu; üreticiye bırakılmış pinler artık öyle
+  anılıyor. Kablo rengi yalnız standardın sabitlediği yerlerde (J1939 CAN çifti, NMEA 2000) var. Multimetre kontrol
+  değerleri ISO 11898-2'ye göredir ve uygulamanın ölçmediği açıkça yazılıdır.
+
 ## 5. Doğrulama durumu
 
 | Ne | Nasıl doğrulandı |
@@ -158,9 +180,11 @@ uygulamanın hattı olarak bağlar:
 | Teşhis asistanı: simülasyon oturumu ayrımı, ölçülmemiş/simüle telemetri, DTC/hata sayacı, hat yükü | `tests/unit/test_workbench_assistant.py` (CI) + `test_workbench_ui.py` (yerel Playwright) |
 | Bas-bırak deneyi: sıralama, aşama/girdi doğrulama, simüle pedal | `tests/unit/test_stimulus_experiment.py` (CI) + `test_workbench_ui.py` (yerel Playwright) |
 | ECU programlama: görüntü denetimi, özet bağlama (64 KB), kurcalanmış veri, simüle hatta prova (gönderim yok), native onay | `tests/unit/test_workbench_ecu.py` (CI) + `test_workbench_ui.py` (yerel Playwright) |
+| Ayarlar → Bağlantı: yalnız dinleme, sabit hız, trafikli/trafiksiz dinleme testi, E-Stop/TX kuralı, başarısız bağlantı | `tests/unit/test_workbench_settings.py` (CI) + `test_workbench_ui.py` (yerel Playwright, sanal kanal) |
 | Sinyal keşfi: rapor, onayın kalıcılığı, DBC kaydı, girdi doğrulama | `tests/unit/test_workbench_discovery.py` (CI) + `test_workbench_ui.py` (yerel Playwright) |
 | Fiziksel adaptör (PCAN/Kvaser/RP1210) ile Canlı trafik, Grafik, Sinyal keşfi | **Doğrulanmadı.** `HARDWARE_TEST_CHECKLIST.md` W8 |
 | Gerçek ECU'ya yazılım yükleme (UDS 0x34/0x36/0x37) | **Doğrulanmadı.** `HARDWARE_TEST_CHECKLIST.md` W8-17…W8-20 |
+| Ayarlar'dan gerçek PCAN/Kvaser/RP1210 adaptörüne bağlanma | **Doğrulanmadı.** `HARDWARE_TEST_CHECKLIST.md` W8-21…W8-24 |
 | WebView2 (Windows) içinde görünüm ve 2000 kare/sn akışta akıcılık | **Doğrulanmadı.** `HARDWARE_TEST_CHECKLIST.md` W8 |
 
 Ekran görüntüleri (`screenshots/workbench/`) simülatörle, Linux Chromium'da alınmıştır.
