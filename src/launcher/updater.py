@@ -426,7 +426,11 @@ class UpdateManager:
         """
         updates_root = Path(self._updates_root()).resolve()
         version_raw = str(update_info.latest_version or "").strip()
-        if not version_raw or not re.fullmatch(r"[A-Za-z0-9._-]{1,32}", version_raw):
+        if (
+            not version_raw
+            or version_raw in (".", "..")
+            or not re.fullmatch(r"[A-Za-z0-9._-]{1,32}", version_raw)
+        ):
             logger.error("Update rejected: invalid version for destination pinning")
             return False
         # Only the basename of the caller path is honored; directories are
@@ -439,21 +443,28 @@ class UpdateManager:
         # evaluated first — mkdir() is the first filesystem side effect and it
         # happens immediately before the download opens.
         #
-        # NOTE on `.resolve()`: `dest_dir`/`dest` are resolved for the
-        # containment gate below, but the temp file is derived from the
-        # UNRESOLVED `dest`. On Windows `Path(tmpdir).resolve()` re-expands an
-        # 8.3 short path (``RUNNER~1``) to the long form, and concurrent
-        # threads doing that under load intermittently disagree about the
-        # parent — each thread then derived its temp sibling from a different
-        # string and the containment gate compared apples to oranges. Deriving
-        # the temp name from the same literal string as `dest` keeps every
-        # thread's candidate inside `dest_dir`.
+        # The temp file below is derived from the UNRESOLVED `dest`, so every
+        # thread derives the same sibling name regardless of how Windows
+        # expands 8.3 short paths.
         dest_dir = updates_root / version_raw
         dest = dest_dir / safe_name
+        # Containment, in two parts:
+        # 1. Lexical (no filesystem access): the version and file name carry no
+        #    separators and are never "."/"..", so `dest` must sit textually
+        #    under the root. Resolving a NOT-YET-EXISTING path on Windows
+        #    expands 8.3 short names (RUNNER~1) only for the existing prefix,
+        #    and threads racing on mkdir saw different prefixes — the old
+        #    resolve-only gate then rejected a legitimate download.
+        # 2. Links/junctions: when the version directory already exists it
+        #    must resolve inside the resolved root (an existing path resolves
+        #    the same way in every thread).
         try:
-            if not dest.resolve().is_relative_to(updates_root.resolve()) or not dest_dir.resolve().is_relative_to(
-                updates_root.resolve()
-            ):
+            root_norm = os.path.normcase(os.path.abspath(updates_root))
+            dest_norm = os.path.normcase(os.path.abspath(dest))
+            escapes = os.path.commonpath([root_norm, dest_norm]) != root_norm or dest_norm == root_norm
+            if not escapes and dest_dir.exists():
+                escapes = not dest_dir.resolve().is_relative_to(updates_root.resolve())
+            if escapes:
                 logger.error("Update rejected: destination escapes updates root")
                 return False
         except Exception:
