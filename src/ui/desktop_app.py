@@ -2798,7 +2798,9 @@ class UniversalCanDesktopApp:
             }
         return {"success": True, "window_s": window, "series": series}
 
-    def _record_signal_sample(self, name: str, raw: int, physical: float, unit: str, confidence: float = 1.0) -> None:
+    def _record_signal_sample(
+        self, name: str, raw: int | None, physical: object, unit: str, confidence: float = 1.0
+    ) -> None:
         """Append one SignalSample under the session lock (FAZ 1, hook 2).
 
         Called from the live RX decode path only — the sim branch of
@@ -2810,6 +2812,17 @@ class UniversalCanDesktopApp:
         can never be mistaken for authoritative telemetry downstream.
         """
         self._record_plot_point(name, physical, unit, confidence)
+        # Decoders hand over enum text ("neutral") or None for "not available".
+        # SignalSample needs a finite float: an enum keeps its raw code, a
+        # missing value records nothing. Before, math.isfinite() raised
+        # TypeError here, which escaped the RX path and made the telemetry
+        # loop drop the whole tick (up to 200 frames, incl. the black-box
+        # batch) for every NMEA 2000 PGN 127493 or "no data" fluid frame.
+        if isinstance(physical, bool) or not isinstance(physical, (int, float)):
+            if isinstance(physical, str) and isinstance(raw, int):
+                physical = float(raw)
+            else:
+                return
         simulated = self._evidence_is_simulated()
         session = self._sim_diag_session if simulated else self._diag_session
         if session is None:
@@ -2818,13 +2831,13 @@ class UniversalCanDesktopApp:
             sample = SignalSample(
                 timestamp_ns=time.monotonic_ns(),
                 name=name,
-                raw_value=raw,
-                physical_value=physical,
+                raw_value=raw,  # type: ignore[arg-type]  # decoders may report no raw value
+                physical_value=float(physical),
                 unit=unit,
                 source=SignalSource.J1939,
                 confidence=confidence,
             )
-        except ValueError as exc:
+        except (TypeError, ValueError) as exc:
             logger.debug("SignalSample rejected", extra={"error": str(exc), "signal": name})
             return
         with self._session_lock:
@@ -6618,7 +6631,18 @@ class UniversalCanDesktopApp:
                         frame = bus_snapshot.recv(timeout_s=0.01 if drained == 0 else 0.0)
                         if frame is None:
                             break
-                        self._ingest_live_frame(frame)
+                        try:
+                            self._ingest_live_frame(frame)
+                        except HardwareError:
+                            raise
+                        except Exception as exc:  # noqa: BLE001 — one bad frame must not drop the tick
+                            # A decode fault is per frame: the frame is still
+                            # recorded (black box) and the rest of the tick is
+                            # processed. It used to discard every frame of the tick.
+                            logger.warning(
+                                "Frame decode error (frame kept in recording, decode skipped)",
+                                extra={"error": f"{type(exc).__name__}: {exc}"[:200]},
+                            )
                         tick_frames.append(frame)
                         drained += 1
                 except HardwareError as exc:

@@ -344,3 +344,31 @@ def test_aud07_full_flash_completes_on_a_production_gateway() -> None:
 
     assert ok is True, logs[-5:]
     assert bytes(bus.server.downloaded_data) == image
+
+
+# ---------------------------------------------------------------------------
+# AUD-08: decoders hand _record_signal_sample enum text ("neutral") or None
+# ("not available"); math.isfinite() then raised TypeError, which escaped the
+# RX path. The telemetry loop caught it per TICK, so one NMEA 2000 PGN 127493
+# frame dropped every frame of that tick, including the black-box batch.
+# ---------------------------------------------------------------------------
+
+
+def _n2k_frame(pgn: int, data: bytes, sa: int = 0x10) -> Any:
+    from src.core.models.can_frame import CanFrame
+
+    arbitration_id = (2 << 26) | (pgn << 8) | sa
+    return CanFrame.create(channel_id="vcan0", arbitration_id=arbitration_id, data=data, is_extended=True)
+
+
+def test_aud08_n2k_transmission_gear_frame_does_not_raise() -> None:
+    app = _app()
+    # PGN 127493: instance 0, gear "forward" (code 1), oil pressure/temp N/A.
+    frame = _n2k_frame(127493, bytes([0x00, 0x01, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]))
+    app._ingest_live_frame(frame)  # must not raise
+
+
+def test_aud08_enum_and_missing_values_are_recorded_safely() -> None:
+    app = _app()
+    app._record_signal_sample("TransmissionGear_0", 1, "forward", "enum")
+    app._record_signal_sample("FluidLevel_0_0", 0xFFFF, None, "percent")
