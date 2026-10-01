@@ -13,6 +13,7 @@ import os
 import re
 import secrets
 import socket
+import subprocess
 import sys
 import threading
 import time
@@ -655,6 +656,12 @@ class DesktopApiBridge:
         "replay_load": "safety",
         "replay_start": "safety",
         "replay_stop": "safety",
+        "records_list": "read",
+        "records_replay_start": "safety",
+        "records_replay_stop": "safety",
+        "records_replay_status": "read",
+        "records_open_folder": "data",
+        "records_upload": "data",
         "set_simulation_speed": "safety",
         "export_logs": "data",
         "export_session_report": "data",
@@ -999,6 +1006,52 @@ class DesktopApiBridge:
         """Stop active trace playback."""
         return self.app.stop_replay()
 
+    def records_list(self) -> dict[str, Any]:
+        return self.app.records_list()
+
+    def records_replay_start(self, record_id: Any, speed: Any = 1.0) -> dict[str, Any]:
+        return self.app.records_replay_start(record_id, speed)
+
+    def records_replay_stop(self) -> dict[str, Any]:
+        self.app.stop_replay()
+        return self.app.records_replay_status()
+
+    def records_replay_status(self) -> dict[str, Any]:
+        return self.app.records_replay_status()
+
+    def records_open_folder(self) -> dict[str, Any]:
+        return self.app.records_open_folder()
+
+    def records_upload(self, record_id: Any) -> dict[str, Any]:
+        """Upload one app-owned file to the UCanLab cloud after a native, file-specific approval.
+
+        The VIN is never attached here. Nothing leaves the machine unless the
+        operator confirms the OS dialog that names the file and its size.
+        """
+        path = self.app._resolve_record(record_id)
+        if path is None or path.suffix.lower() not in self.UPLOAD_EXTENSION_HINTS:
+            return {"success": False, "error_code": "RECORD_UNKNOWN"}
+        if not self.app.cloud_client.has_session_token():
+            return {"success": False, "error_code": "NOT_SIGNED_IN"}
+        try:
+            safe_path = self._validate_telemetry_upload_path(str(path))
+        except ValueError:
+            return {"success": False, "error_code": "RECORD_UNKNOWN"}
+        size_kb = max(1, round(safe_path.stat().st_size / 1024))
+        message = (
+            f"'{safe_path.name}' ({size_kb} KB) UCanLab bulutuna yüklenecek. "
+            "Araç kimlik numarası (VIN) gönderilmez. Devam edilsin mi?"
+        )
+        if not self._require_native_presence("cloud_upload", message=message):
+            return {"success": False, "error_code": "NOT_CONFIRMED"}
+        try:
+            result = self.app.telemetry_uploader.upload_file(file_path=safe_path, vehicle_vin=None, user_consented=False)
+        except Exception as exc:  # noqa: BLE001 — network/cloud errors become a code, not a traceback
+            logger.warning("Record upload failed", extra={"file": safe_path.name, "error": type(exc).__name__})
+            return {"success": False, "error_code": "UPLOAD_FAILED"}
+        logger.info("Record uploaded", extra={"file": safe_path.name, "session": result.session_id})
+        return {"success": True, "session_id": result.session_id, "status": result.status}
+
     # ------------------------------------------------------------------
     # UDS / ISO-TP ECU Flashing Bridge APIs
     # ------------------------------------------------------------------
@@ -1143,7 +1196,7 @@ class DesktopApiBridge:
             return {"success": False, "error": "Native confirmation required (fail-closed)."}
         return self.app.disarm_tx(reason=reason)
 
-    def _native_confirmed(self, action: str) -> bool:
+    def _native_confirmed(self, action: str, message: str | None = None) -> bool:
         """B-01: OS-level user-presence check. Never trusts JS booleans."""
         window = getattr(self.app, "_window", None)
         if window is None:
@@ -1152,13 +1205,13 @@ class DesktopApiBridge:
         try:
             return bool(window.create_confirmation_dialog(
                 "Onay Gerekli",
-                f"Kritik islem: {action}. Devam edilsin mi?",
+                message or f"Kritik islem: {action}. Devam edilsin mi?",
             ))
         except Exception as exc:
             logger.warning("Native confirmation failed: %s refused (%s)", action, exc)
             return False
 
-    def _require_native_presence(self, action: str) -> bool:
+    def _require_native_presence(self, action: str, message: str | None = None) -> bool:
         """B-01: user presence for a renderer-initiated sensitive mint.
 
         Production: an OS-native confirmation dialog must actually run (the
@@ -1167,7 +1220,7 @@ class DesktopApiBridge:
         """
         if os.environ.get("UCANLAB_TEST_MODE") == "1":
             return True
-        return self._native_confirmed(action)
+        return self._native_confirmed(action, message)
 
     def estop_request_challenge(self) -> dict[str, Any]:
         """Issue a cryptographic reset challenge for multi-operator/independent verification."""
@@ -2641,7 +2694,20 @@ class UniversalCanDesktopApp:
         screens show them), but they must never become diagnostic evidence,
         a DM1 event or a line in the technician report.
         """
-        return bool(self._is_simulating) or isinstance(self.bus, SimulatedVehicleBus)
+        return bool(self._is_simulating) or isinstance(self.bus, SimulatedVehicleBus) or self._replay_active()
+
+    def _replay_active(self) -> bool:
+        """A recording is playing into the decoders (its values are not the vehicle's now)."""
+        thread = self._replay_thread
+        return thread is not None and thread.is_alive()
+
+    def _data_origin(self) -> str:
+        """Where the decoded values come from right now: live / simulator / replay."""
+        if self._replay_active():
+            return "replay"
+        if self._is_simulating or isinstance(self.bus, SimulatedVehicleBus):
+            return "simulator"
+        return "live"
 
     def _record_plot_point(self, name: str, physical: Any, unit: str, confidence: float) -> None:
         """Append one decoded value to its plot ring (O(1); non-numeric values are not plotted)."""
@@ -2661,7 +2727,9 @@ class UniversalCanDesktopApp:
                 ring = deque(maxlen=self._PLOT_RING_MAX)
                 self._plot_rings[name] = ring
             ring.append((now, value))
-            self._plot_meta[name] = {"unit": unit or "", "simulated": simulated, "confidence": float(confidence)}
+            self._plot_meta[name] = {
+                "unit": unit or "", "simulated": simulated, "origin": self._data_origin(), "confidence": float(confidence),
+            }
 
     def _clear_plot_rings(self) -> None:
         with self._plot_lock:
@@ -2679,6 +2747,7 @@ class UniversalCanDesktopApp:
                 "name": name,
                 "unit": meta.get("unit", ""),
                 "simulated": bool(meta.get("simulated", False)),
+                "origin": str(meta.get("origin", "live")),
                 "confidence": float(meta.get("confidence", 1.0)),
                 "count": count,
                 "last": last[1],
@@ -2721,6 +2790,7 @@ class UniversalCanDesktopApp:
             series[name] = {
                 "unit": meta.get("unit", ""),
                 "simulated": bool(meta.get("simulated", False)),
+                "origin": str(meta.get("origin", "live")),
                 "t": [round(t - now, 3) for t, _ in kept],
                 "v": [v for _, v in kept],
             }
@@ -4669,19 +4739,38 @@ class UniversalCanDesktopApp:
         safety_filter = ReplaySafetyFilter()
         self.replay_safety_filter = safety_filter
 
+        # Replayed frames are shown on the live traffic screen (labelled by
+        # their source="replay") in ~50 ms batches, but never enter the
+        # raw-capture ring buffer: an export must not pass a recording off
+        # as a capture of the vehicle.
+        ui_batch: list[CanFrame] = []
+        last_push = [time.monotonic()]
+
+        def _flush_ui() -> None:
+            if ui_batch:
+                self._push_frames_to_ui_batch(list(ui_batch))
+                ui_batch.clear()
+            last_push[0] = time.monotonic()
+
         def _safe_replay_callback(frame: CanFrame) -> None:
             filtered = safety_filter.filter_frame(frame)
             if filtered is not None:
                 self._ingest_live_frame(filtered)
+                ui_batch.append(filtered)
+                if len(ui_batch) >= 200 or time.monotonic() - last_push[0] >= 0.05:
+                    _flush_ui()
 
         def _worker() -> None:
             assert self.replay_bus is not None
-            self.replay_bus.play(
-                callback=_safe_replay_callback,
-                speed=speed,
-                stop_event=self._replay_stop_event,
-                loop=loop,
-            )
+            try:
+                self.replay_bus.play(
+                    callback=_safe_replay_callback,
+                    speed=speed,
+                    stop_event=self._replay_stop_event,
+                    loop=loop,
+                )
+            finally:
+                _flush_ui()
 
         self._replay_thread = threading.Thread(target=_worker, name="replay_bus", daemon=True)
         self._replay_thread.start()
@@ -4690,6 +4779,135 @@ class UniversalCanDesktopApp:
     def stop_replay(self) -> dict[str, Any]:
         """Stop trace replay."""
         self._replay_stop_event.set()
+        return {"success": True}
+
+    # ------------------------------------------------------------------
+    # Workbench records (B7): app-owned files, addressed by an opaque id
+    # ------------------------------------------------------------------
+
+    RECORD_FOLDERS: ClassVar[dict[str, tuple[str, ...]]] = {
+        "exports": ("exports",),
+        "logs": ("logs",),
+        "traces": ("data", "traces"),
+        "reports": ("reports",),
+    }
+    RECORDS_MAX: ClassVar[int] = 500
+    RECORD_ID_MAX_CHARS: ClassVar[int] = 512
+    REPLAY_SPEEDS: ClassVar[tuple[float, ...]] = (0.5, 1.0, 2.0, 5.0, 10.0)
+
+    def _record_root(self, folder: str) -> Path:
+        return _app_data_root().joinpath(*self.RECORD_FOLDERS[folder]).resolve()
+
+    @staticmethod
+    def _record_kind(path: Path) -> str:
+        ext = path.suffix.lower()
+        if ext in ReplayBus.SUPPORTED_EXTENSIONS:
+            return "trace"
+        if ext == ".dbc":
+            return "dbc"
+        if ext in (".json", ".md"):
+            return "report"
+        return "log" if ext in (".log", ".txt") else "other"
+
+    def records_list(self) -> dict[str, Any]:
+        """Files the app wrote (exports, logs, traces), newest first; no absolute paths."""
+        items: list[dict[str, Any]] = []
+        for folder in self.RECORD_FOLDERS:
+            root = self._record_root(folder)
+            if not root.is_dir():
+                continue
+            for path in root.rglob("*"):
+                rel = path.relative_to(root)
+                if any(part.startswith(".") for part in rel.parts) or len(rel.parts) > 3:
+                    continue
+                try:
+                    if not path.is_file() or path.is_symlink():
+                        continue
+                    st = path.stat()
+                except OSError:
+                    continue
+                ext = path.suffix.lower()
+                items.append({
+                    "id": f"{folder}/{rel.as_posix()}",
+                    "name": path.name,
+                    "folder": folder,
+                    "kind": self._record_kind(path),
+                    "size": int(st.st_size),
+                    "modified": float(st.st_mtime),
+                    "replayable": ext in ReplayBus.SUPPORTED_EXTENSIONS,
+                    # Same roots as the upload path policy (reports/ is not one of them).
+                    "uploadable": folder != "reports" and ext in DesktopApiBridge.UPLOAD_EXTENSION_HINTS,
+                })
+        items.sort(key=lambda r: r["modified"], reverse=True)
+        return {"success": True, "records": items[: self.RECORDS_MAX], "truncated": len(items) > self.RECORDS_MAX}
+
+    def _resolve_record(self, record_id: Any) -> Path | None:
+        """Map an id from ``records_list`` back to its file, or None (fail-closed)."""
+        if not isinstance(record_id, str) or not record_id or len(record_id) > self.RECORD_ID_MAX_CHARS:
+            return None
+        folder, _, rel = record_id.partition("/")
+        if folder not in self.RECORD_FOLDERS or not rel or "\\" in rel or "\x00" in rel:
+            return None
+        parts = rel.split("/")
+        if any(p in ("", ".", "..") or p.startswith(".") for p in parts):
+            return None
+        root = self._record_root(folder)
+        path = root.joinpath(*parts)
+        try:
+            if path.is_symlink() or not path.is_file():
+                return None
+            resolved = path.resolve()
+        except OSError:
+            return None
+        return resolved if resolved.is_relative_to(root) else None
+
+    def records_replay_start(self, record_id: Any, speed: Any = 1.0) -> dict[str, Any]:
+        """Play a recording into the decoders (never onto the bus).
+
+        While it plays the values are labelled "replay" and stay out of the
+        diagnostic evidence, and its CCVS frames cannot feed the speed
+        interlock (both gate on the frame's provenance).
+        """
+        path = self._resolve_record(record_id)
+        if path is None or path.suffix.lower() not in ReplayBus.SUPPORTED_EXTENSIONS:
+            return {"success": False, "error_code": "RECORD_UNKNOWN"}
+        if isinstance(speed, bool) or speed not in self.REPLAY_SPEEDS:
+            return {"success": False, "error_code": "INVALID_SPEED"}
+        if self._replay_active():
+            return {"success": False, "error_code": "REPLAY_RUNNING"}
+        loaded = self.load_replay(str(path))
+        if not loaded.get("success") or not loaded.get("frame_count"):
+            # Unparseable, or parsed to nothing: never report an empty replay as playing.
+            return {"success": False, "error_code": "RECORD_UNREADABLE"}
+        self._replay_name = path.name
+        started = self.start_replay(speed=float(speed), loop=False)
+        if not started.get("success"):
+            return {"success": False, "error_code": "REPLAY_RUNNING"}
+        return {"success": True, **self.records_replay_status()}
+
+    def records_replay_status(self) -> dict[str, Any]:
+        bus = self.replay_bus
+        return {
+            "success": True,
+            "running": self._replay_active(),
+            "name": getattr(self, "_replay_name", None) if bus is not None else None,
+            "position": bus.position if bus is not None else 0,
+            "frame_count": bus.frame_count if bus is not None else 0,
+            "filtered": int(getattr(bus, "filtered_frames", 0) or 0) if bus is not None else 0,
+        }
+
+    def records_open_folder(self) -> dict[str, Any]:
+        """Open the exports folder in the system file manager (fixed path, no input)."""
+        folder = _app_data_root() / "exports"
+        try:
+            folder.mkdir(parents=True, exist_ok=True)
+            if sys.platform.startswith("win"):
+                os.startfile(str(folder))  # type: ignore[attr-defined]  # noqa: S606 — fixed app-owned folder
+            else:
+                opener = "open" if sys.platform == "darwin" else "xdg-open"
+                subprocess.Popen([opener, str(folder)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)  # noqa: S603
+        except (OSError, FileNotFoundError):
+            return {"success": False, "error_code": "OPEN_FAILED"}
         return {"success": True}
 
     # ------------------------------------------------------------------
@@ -5878,6 +6096,11 @@ class UniversalCanDesktopApp:
             arb = frame.arbitration_id  # type: ignore[attr-defined]
             data = frame.data  # type: ignore[attr-defined]
             pgn, sa, _da, _priority = parse_j1939_id(arb)
+            # Only a frame that came off the wire may feed the TX speed
+            # interlock. A replayed recording (source="replay") or the
+            # simulated vehicle ("synthetic") can carry the trusted SA's CCVS
+            # with a recorded 0 km/h; those are display-only.
+            from_wire = getattr(frame, "source", "physical") == "physical"
 
             # EEC1 (PGN 61444): engine speed + torque (B-10 sentinel filter)
             if pgn == 61444 and len(data) >= 5:
@@ -5909,7 +6132,7 @@ class UniversalCanDesktopApp:
                     # B-05: default-closed — only a trusted SA feeds the
                     # interlock. None = untrusted: display the reading, but
                     # the interlock feed stays stale/unknown (fail-closed).
-                    if sa == self._ccvs_trusted_sa:
+                    if sa == self._ccvs_trusted_sa and from_wire:
                         plausible = True
                         if speed_kmh <= self.SPEED_PLAUSIBILITY_KMH and self._current_rpm > self.SPEED_PLAUSIBILITY_RPM:
                             # Engine clearly running but vehicle "stopped" —
@@ -5947,15 +6170,16 @@ class UniversalCanDesktopApp:
                             extra={"sa": sa},
                         )
                     else:
-                        # Untrusted SA (allowlist bound elsewhere): display
-                        # mirror only — never evidence, never interlock.
+                        # Untrusted SA (allowlist bound elsewhere) or a frame
+                        # not from the wire: display mirror only — never
+                        # evidence, never interlock.
                         self._current_speed_kmh = speed_kmh
                         self.gateway.record_synthetic_speed(speed_kmh)
                         logger.debug(
                             "CCVS frame from untrusted source address ignored",
                             extra={"sa": sa, "trusted_sa": self._ccvs_trusted_sa},
                         )
-                elif sa == self._ccvs_trusted_sa:
+                elif sa == self._ccvs_trusted_sa and from_wire:
                     # J1939-71: 0xFE00..0xFFFF = Error Indicator / Not Available.
                     # When trusted source reports error/unavailable, fail-closed to NaN immediately.
                     self._current_speed_kmh = float("nan")

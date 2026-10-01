@@ -170,6 +170,26 @@ uygulamanın hattı olarak bağlar:
   anılıyor. Kablo rengi yalnız standardın sabitlediği yerlerde (J1939 CAN çifti, NMEA 2000) var. Multimetre kontrol
   değerleri ISO 11898-2'ye göredir ve uygulamanın ölçmediği açıkça yazılıdır.
 
+## 4.7 Kayıt ve rapor (B7)
+
+* **Dosyalar:** `records_list` uygulamanın yazdığı dosyaları (exports, logs, data/traces, reports) en yeniden eskiye
+  listeler. Her dosya **opak bir kimlikle** (`exports/ad.asc`) anılır; ekrana mutlak yol gitmez. Kimlik Python'da yeniden
+  çözülür: üst dizine çıkış, gizli klasör (`.upload_stage`), sembolik bağ ve listede olmayan dosya reddedilir.
+* **Kayıttan oynatma** (`records_replay_start/stop/status`): .asc/.csv/.blf, 0,5×–10×. Çerçeveler mevcut replay güvenlik
+  süzgecinden geçer ve **yalnız çözücülere** gider (hatta asla); canlı trafikte "Kayıttan" etiketiyle görünür, ham
+  kayıt tamponuna (dışa aktarma) girmez. Oynatma sürerken:
+  * çözülen değerler teşhis kanıtına, DM1 olaylarına, analiz telemetrisine ve rapora **girmez**
+    (`_evidence_is_simulated` artık oynatmayı da kapsar; önceden eski bir kayıt gerçek oturuma "canlı" diye giriyordu);
+  * grafik ve hat çipi "Kayıttan" (amber) gösterir; hat yükü gösterilmez (kaydın hızı dinlenen hattı anlatmaz).
+  * Çerçevesi olmayan ya da okunamayan dosya "oynatılıyor" denmeden reddedilir.
+* **Güvenlik düzeltmesi — hız kilidi:** CCVS hızı TX hız kilidini yalnız **hattan gelen** (`source="physical"`)
+  çerçeveyle besler. Önceden güvenilir kaynak adresi onaylıyken kayıttan oynatılan (ya da simüle) bir CCVS çerçevesi
+  kaydedilmiş "0 km/s" değeriyle kilidi açabiliyordu.
+* **Klasörü aç** (`records_open_folder`): yalnız sabit `exports` klasörü; girdi almaz.
+* **Buluta yükle** (`records_upload`): oturum açık olmalı; Windows onay penceresi dosyanın **adını ve boyutunu**
+  gösterir, onaylanmazsa hiçbir şey gönderilmez; VIN eklenmez. Yükleme mevcut telemetri yükleyicisini kullanır
+  (bulut tarafında değişiklik yok). Raporlar klasörü yükleme kökü değildir.
+
 ## 5. Doğrulama durumu
 
 | Ne | Nasıl doğrulandı |
@@ -181,10 +201,12 @@ uygulamanın hattı olarak bağlar:
 | Bas-bırak deneyi: sıralama, aşama/girdi doğrulama, simüle pedal | `tests/unit/test_stimulus_experiment.py` (CI) + `test_workbench_ui.py` (yerel Playwright) |
 | ECU programlama: görüntü denetimi, özet bağlama (64 KB), kurcalanmış veri, simüle hatta prova (gönderim yok), native onay | `tests/unit/test_workbench_ecu.py` (CI) + `test_workbench_ui.py` (yerel Playwright) |
 | Ayarlar → Bağlantı: yalnız dinleme, sabit hız, trafikli/trafiksiz dinleme testi, E-Stop/TX kuralı, başarısız bağlantı | `tests/unit/test_workbench_settings.py` (CI) + `test_workbench_ui.py` (yerel Playwright, sanal kanal) |
+| Kayıtlar: kimlik çözümleme, oynatmanın kanıt/hız kilidi dışında kalması, yükleme onayı, klasör açma | `tests/unit/test_workbench_records.py` (CI) + `test_workbench_ui.py` (yerel Playwright) |
 | Sinyal keşfi: rapor, onayın kalıcılığı, DBC kaydı, girdi doğrulama | `tests/unit/test_workbench_discovery.py` (CI) + `test_workbench_ui.py` (yerel Playwright) |
 | Fiziksel adaptör (PCAN/Kvaser/RP1210) ile Canlı trafik, Grafik, Sinyal keşfi | **Doğrulanmadı.** `HARDWARE_TEST_CHECKLIST.md` W8 |
 | Gerçek ECU'ya yazılım yükleme (UDS 0x34/0x36/0x37) | **Doğrulanmadı.** `HARDWARE_TEST_CHECKLIST.md` W8-17…W8-20 |
 | Ayarlar'dan gerçek PCAN/Kvaser/RP1210 adaptörüne bağlanma | **Doğrulanmadı.** `HARDWARE_TEST_CHECKLIST.md` W8-21…W8-24 |
+| Windows'ta klasör açma, yükleme onay penceresi ve buluta gerçek yükleme | **Doğrulanmadı.** `HARDWARE_TEST_CHECKLIST.md` W8-25…W8-28 |
 | WebView2 (Windows) içinde görünüm ve 2000 kare/sn akışta akıcılık | **Doğrulanmadı.** `HARDWARE_TEST_CHECKLIST.md` W8 |
 
 Ekran görüntüleri (`screenshots/workbench/`) simülatörle, Linux Chromium'da alınmıştır.

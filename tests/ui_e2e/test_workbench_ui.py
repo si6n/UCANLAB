@@ -379,3 +379,53 @@ def test_pinout_states_only_standard_assignments(wb: Any) -> None:
     page.click("[data-testid=connector-deutsch9]")
     assert "Pin C" in page.text_content("[data-testid=pinout-detail]")
     assert "Sarı" in page.text_content("[data-testid=pinout-detail]")
+
+
+def _write_trace(app: Any, name: str = "bench_truck.asc", n: int = 400) -> None:
+    import src.ui.desktop_app as da
+
+    lines = ["date Mon Jan 1 00:00:00 2024", "base hex timestamps absolute"]
+    for i in range(n):
+        frame = ["18FEF100x       Rx d 8 F0 00 00 C0 00 00 00 FF", "18FEEE00x       Rx d 8 7D FF FF FF FF FF FF FF"][i % 2]
+        lines.append(f"   {0.01 * (i + 1):.6f} 1  {frame}")
+    folder = da._app_data_root() / "exports"
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / name).write_text("\n".join(lines) + "\n")
+
+
+def test_records_replay_is_labelled_and_stays_out_of_evidence(wb: Any) -> None:
+    page, app = wb
+    _write_trace(app)
+    app.approve_ccvs_source(0x00, reason="ui test")
+    page.click("[data-testid=nav-records]")
+    page.click("[data-testid='record-exports/bench_truck.asc']")
+    page.click("[data-testid=replay-speed-1]")
+    page.click("[data-testid=replay-start]")
+    page.wait_for_selector("[data-testid=replay-status]", timeout=10000)
+    page.click("[data-testid=nav-traffic]")
+    page.wait_for_function("document.querySelector('[data-testid=bus-chip]').textContent.includes('Kayıttan')", timeout=10000)
+    page.click("[data-testid=nav-records]")
+    page.click("[data-testid=replay-stop]")
+    page.wait_for_selector("[data-testid=replay-status]", state="detached", timeout=10000)
+    assert app._diag_session.samples == [] and app._diag_session.events == []
+    assert app.gateway.speed_interlock_state()[0] == "stale"
+    assert not app.supervisor.is_tx_permitted
+
+
+def test_records_upload_needs_sign_in_and_open_folder_is_fixed(wb: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    import src.ui.desktop_app as da
+
+    page, app = wb
+    _write_trace(app, "to_upload.asc", 4)
+    opened: list[list[str]] = []
+    monkeypatch.setattr(da.sys, "platform", "linux")
+    monkeypatch.setattr(da.subprocess, "Popen", lambda args, **kw: opened.append(args))
+    monkeypatch.setattr(app.cloud_client, "has_session_token", lambda: False)
+    page.click("[data-testid=nav-records]")
+    page.click("[data-testid='record-exports/to_upload.asc']")
+    page.click("[data-testid=record-upload]")
+    page.wait_for_selector("[data-testid=record-result]")
+    assert "oturum açın" in page.text_content("[data-testid=record-result]")
+    page.click("[data-testid=records-open-folder]")
+    page.wait_for_timeout(300)
+    assert opened == [["xdg-open", str(da._app_data_root() / "exports")]]

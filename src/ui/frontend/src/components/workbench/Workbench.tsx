@@ -260,15 +260,17 @@ export const Workbench: React.FC = () => {
   const def = ALL.find((m) => m.id === active) ?? ALL[0];
   const liveSources = snap.sources;
   const hasSim = liveSources.some((s) => s === 'simulator' || s === 'synthetic') || Boolean(busInfo?.simulated);
+  const hasReplay = liveSources.includes('replay');
 
   const loadPct =
-    busInfo?.bitrate && snap.bitsPerSecond !== null && snap.perSecond > 0
+    // A replayed recording's rate says nothing about the bus being listened to.
+    !hasReplay && busInfo?.bitrate && snap.bitsPerSecond !== null && snap.perSecond > 0
       ? Math.min(100, Math.round((snap.bitsPerSecond / busInfo.bitrate) * 100))
       : null;
 
   const busChip = useMemo(() => {
     const quiet = snap.total === 0 || snap.perSecond === 0;
-    const tone: Tone = quiet ? 'neutral' : hasSim ? 'warn' : 'ok';
+    const tone: Tone = quiet ? 'neutral' : hasSim || hasReplay ? 'warn' : 'ok';
     const sourceText = quiet
       ? snap.total === 0
         ? L('veri yok', 'no data')
@@ -281,7 +283,7 @@ export const Workbench: React.FC = () => {
         {busInfo?.simulated ? busLabel(busInfo) : sourceText}
       </Chip>
     );
-  }, [snap.total, snap.perSecond, liveSources, hasSim, native, busInfo]);
+  }, [snap.total, snap.perSecond, liveSources, hasSim, hasReplay, native, busInfo]);
 
 
   let body: React.ReactNode;
