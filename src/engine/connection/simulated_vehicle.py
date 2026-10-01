@@ -125,8 +125,13 @@ class SimulatedVehicleBus(AbstractBus):
         if self.scenario == "ignition_off":
             return None
         if self.scenario == "bus_short":
-            self.metrics.error_frames += 1
-            if self.metrics.error_frames > 32:  # a shorted line goes bus-off almost at once
+            # A shorted line makes every transmission attempt fail; the error
+            # counter (+8 per error, ISO 11898-1) passes 255 within a few
+            # frame times. Count a burst per poll so bus-off does not depend
+            # on how many polls the listen window allows (Windows sleeps in
+            # ~15.6 ms steps: a 0.2 s window is only ~13 polls).
+            self.metrics.error_frames += 16
+            if self.metrics.error_frames > 32:
                 self.metrics.state = BusState.BUS_OFF
             return None
         if self.bitrate != self.native_bitrate:
