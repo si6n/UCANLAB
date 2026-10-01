@@ -753,6 +753,16 @@ class CloudClient:
         self._secrets.store_secret(LICENSE_TICKET_SECRET_NAME, ticket_token.encode("utf-8"))
         logger.info("Cloud license ticket stored (DPAPI)")
 
+    def get_license_ticket(self) -> str | None:
+        if not self._secrets.has_secret(LICENSE_TICKET_SECRET_NAME):
+            return None
+        return self._secrets.get_secret(LICENSE_TICKET_SECRET_NAME).decode("utf-8")
+
+    def clear_license_ticket(self) -> None:
+        if self._secrets.has_secret(LICENSE_TICKET_SECRET_NAME):
+            self._secrets.delete_secret(LICENSE_TICKET_SECRET_NAME)
+            logger.info("Cloud license ticket removed")
+
     # ------------------------------------------------------------------
     # User session & Subscription management
     # ------------------------------------------------------------------

@@ -96,6 +96,16 @@
       "request": {"device_token": "string", "license_ref": "string", "nonce": "string"},
       "response_200": {"license_token": "string", "expires_at": "string", "offline_until": "string"},
       "errors": {"403": "device token, license or tier mismatch", "409": "license bound to another device", "503": "signing key not configured"}
+    },
+    {
+      "id": "license_refresh",
+      "method": "POST",
+      "path": "/licenses/refresh",
+      "auth": "device_token",
+      "caller": "desktop",
+      "request": {"device_token": "string", "hwid": "string", "license_ref": "string", "nonce": "string"},
+      "response_200": {"license_token": "string", "expires_at": "string", "offline_until": "string"},
+      "errors": {"403": "DEVICE_REJECTED | ORGANIZATION_INACTIVE | LICENSE_NOT_FOUND | LICENSE_REVOKED | LICENSE_EXPIRED | SEAT_NOT_HELD", "429": "rate limited (license_refresh)", "503": "signing key not configured"}
     }
   ],
   "constants": {

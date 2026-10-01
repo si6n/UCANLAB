@@ -45,6 +45,7 @@ Temel yol `/api/v1`. Tüm hata yanıtları `{"error": {"code", "message", "reque
 | 7 | `POST /devices/register` `{device_name, hwid(hex64), app_version}` → `201 {device_id, device_token, hwid_resets_remaining}` | Oturum + Teknisyen rolü | Masaüstü | Mevcut |
 | 8 | `GET /licenses` → `[{license_ref, tier, features, expires_at, is_active, device_id, …}]` | Oturum | Masaüstü | Mevcut (yeni kullanım) |
 | 9 | `POST /licenses/activate` `{device_token, license_ref, nonce}` → `{license_token, expires_at, offline_until}`; `403` uyuşmazlık, `409` başka cihaza bağlı | Oturum + Teknisyen rolü | Masaüstü | Mevcut |
+| 10 | `POST /licenses/refresh` `{device_token, hwid, license_ref, nonce}` → `{license_token, expires_at, offline_until}`; `403` + sebep kodu (`DEVICE_REJECTED`, `ORGANIZATION_INACTIVE`, `LICENSE_NOT_FOUND`, `LICENSE_REVOKED`, `LICENSE_EXPIRED`, `SEAT_NOT_HELD`), dakikada 20 istek | **Oturumsuz**: cihaz jetonu + kayıtlı HWID | Masaüstü | **Yeni (S10)** |
 
 Hız sınırları (istemci kimliği başına, dakikada): `device/start` 10, `device/token` 30, `device/approve` 10, `desktop/token` 20.
 
@@ -53,7 +54,7 @@ Loopback portları `47820, 47821, 47822` · geri çağırma yolu `/callback` · 
 
 ## 3. Otomatik lisans seçimi (istemci kuralı)
 
-Sunucuda lisans mantığı **değiştirilmedi**; istemci mevcut `GET /licenses` + `POST /licenses/activate` uçlarını kullanır (`src/security/cloud/desktop_auth.py::select_license`):
+Lisans **seçimi** için sunucuda lisans mantığı değiştirilmedi (yenileme için bkz. §4); istemci mevcut `GET /licenses` + `POST /licenses/activate` uçlarını kullanır (`src/security/cloud/desktop_auth.py::select_license`):
 1. Bu cihaza zaten bağlı, aktif ve süresi geçmemiş lisans varsa o (koltuk korunur).
 2. Yoksa en iyi **boş** koltuk: katman sırası `enterprise > fleet > pro = heavy_duty_pro = marine_pro > starter`, eşitlikte en geç biten.
 3. Başka cihaza bağlı lisans **asla** seçilmez; taşıma HWID sıfırlama akışının işidir.
@@ -64,7 +65,8 @@ Katman → mod yetkisi: tüm geçerli lisanslar Tamirci modunu açar; Mühendis 
 ## 4. Çevrimdışı çalışma
 
 - Bilet Ed25519 ile gömülü anahtarla doğrulanır; geçerlilik `min(exp, offline_until)`.
-- Uygulama her açılışta çevrim içiyse bileti sessizce yeniler (`refresh_online`), böylece 7 günlük pencere ileri kayar. İnternet yoksa kayıtlı bilet süresi bitene kadar çalışır.
+- Uygulama ve launcher her açılışta çevrim içiyse bileti sessizce yeniler (`refresh_online`, launcher'da `refresh_silently`), böylece 7 günlük pencere ileri kayar. İnternet yoksa kayıtlı bilet süresi bitene kadar çalışır.
+- **Cihaz yenilemesi (S10, kullanıcı onayı 2026-10-01):** yenileme önce `POST /licenses/refresh` ile, **kullanıcı oturumu olmadan**, cihaz jetonu + kayıtlı HWID ile yapılır. Böylece tarayıcı oturumu (24 saat) bitse de tamirci her hafta yeniden giriş yapmak zorunda kalmaz; tarayıcıda giriş yalnız ilk kurulumda, cihaz/lisans değişince ya da yenileme reddedilince gerekir. Uç **yalnız bu cihaza zaten bağlı** koltuğu yeniler, boş koltuk almaz. Lisans iptal edilmiş, süresi dolmuş, koltuk başka cihaza taşınmış ya da atölye hesabı kapatılmışsa reddeder; istemci bu kesin retlerde kayıtlı bileti **hemen siler** (7 günü beklemez) ve sade mesaj gösterir. Cihaz reddi (`DEVICE_REJECTED`, ör. donanım parmak izi değişti) bileti silmez; oturum varsa eski etkinleştirme yolu denenir, yoksa bilet süresince çalışır.
 - Süre dolunca: "Lisansınızın çevrimdışı süresi doldu. İnternete bağlanıp yeniden giriş yapın; kayıtlarınız silinmez."
 - Saat geri alınırsa kalıcı, HMAC'li yüksek su işareti (HWM) `CLOCK_ROLLBACK_DETECTED` üretir: "Bilgisayarın saati geri alınmış görünüyor…"
 
@@ -86,13 +88,15 @@ Launcher'daki L-1 kapısı aynen korunur: lisanssız makine ana uygulamaya ulaş
 | **Saat manipülasyonu** | Kalıcı HMAC'li HWM + monotonik saat çapraz kontrolü; `min(exp, offline_until)`. | `test_clock_rollback_is_reported_not_trusted`, `test_offline_use_until_offline_until_then_clear_message` |
 | **Sır sızıntısı (URL/log)** | Tarayıcı URL'inde yalnız port, state, challenge ve HWID'in 16 karakteri. Verifier/cihaz kodu/oturum `repr`'de gizli, log'a yazılmaz; oturum jetonu yalnız yanıt gövdesinde, DPAPI'de saklanır; CRLF içeren jeton reddedilir. | `test_browser_url_carries_only_public_values`, `test_pkce_session_repr_hides_secrets`, `test_complete_login_rejects_bad_token` |
 | **Koltuk yarışı** | Başka cihaza bağlı lisans seçilmez; yarış kaybedilirse (409) "Lisansınız başka bir bilgisayarda kullanılıyor" mesajı. | `test_complete_login_seat_race_is_explained` |
+| **Cihaz yenilemesinin kötüye kullanımı** (çalınan cihaz jetonu) | Jeton DPAPI'de; tek başına yetmez, kayıtlı HWID de eşleşmeli (sabit zamanlı karşılaştırma). Uç koltuk **almaz**, yalnız bu cihazdaki koltuğu yeniler; HWID sıfırlama/taşıma sonrası eski cihazın isteği reddedilir; her yenileme denetim kaydına yazılır (`license.refresh`); dakikada 20 istek. Bilet yine `device_id`'ye bağlıdır. | bulut `test_license_refresh.py` (8 test), masaüstü `test_device_refresh_*`, `test_definitive_refusal_drops_the_ticket` |
+| **İptal gecikmesi** | İptal edilen lisans, internete bağlı cihazda bir sonraki açılışta (kesin ret → bilet silinir) kapanır; çevrimdışı cihazda en geç 7 gün. | `test_definitive_refusal_drops_the_ticket` |
 | **Komut satırı enjeksiyonu (URL protokolü)** | Kayıt komutu `"%1"` tek tırnaklı argüman; alıcı URL'i katı doğrular. | `test_url_protocol_registration_quotes_argument` |
 
 ## 7. Açık sorular (Aşama 3'ten)
 
 | # | Soru | Şimdilik |
 |---|---|---|
-| S10 | Oturum jetonu 24 saatte bitiyor; çevrimdışı pencereyi yenilemek için oturum gerekiyor. Cihaz jetonuyla yenileme ucu eklensin mi? (**lisansı etkiler → onay gerekir**) | Yenileme oturum varken yapılır; en geç 7 günde bir tarayıcıda giriş gerekir. |
+| S10 | ~~Cihaz jetonuyla yenileme ucu eklensin mi?~~ **Karar (2026-10-01, kullanıcı): eklendi** — `POST /licenses/refresh`, bkz. §4. | — |
 | S11 | Cihaz kodu oltalama riski kabul edilebilir mi, yoksa onay sayfasında istek IP/ülke bilgisi mi gösterilsin? (kişisel veri) | Uyarı metni + reddet butonu. |
 | S12 | Launcher şu an konsol programı; pencereli (konsolsuz) paketlenirse cihaz kodu nerede gösterilecek? | Konsolda gösterilir; `HARDWARE_TEST_CHECKLIST.md`'de doğrulanacak. |
 

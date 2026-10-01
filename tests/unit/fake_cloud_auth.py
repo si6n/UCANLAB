@@ -54,6 +54,7 @@ class FakeCloudState:
     device_ids_by_hwid: dict[str, str] = field(default_factory=dict)
     licenses: list[FakeLicense] = field(default_factory=list)
     offline_days: int = 7
+    refresh_reject: str = ""  # force /licenses/refresh to refuse with this reason
     device_interval: int = 5
     requests: list[tuple[str, str]] = field(default_factory=list)
 
@@ -290,6 +291,35 @@ class FakeCloudHandler(BaseHTTPRequestHandler):
         self._send(200, {"license_token": ticket, "expires_at": str(int(lic.expires_at)),
                          "offline_until": str(offline_until)})
 
+
+    @route("POST", "/licenses/refresh")
+    def license_refresh(self, body: dict[str, Any]) -> None:
+        # No session: device credential only; never claims a free seat.
+        device_id = self.state.devices.get(body.get("device_token", ""))
+        hwid_device = self.state.device_ids_by_hwid.get(body.get("hwid", ""))
+        if device_id is None or hwid_device != device_id or self.state.refresh_reject:
+            self._error(403, self.state.refresh_reject or "DEVICE_REJECTED")
+            return
+        lic = next((x for x in self.state.licenses if x.license_ref == body.get("license_ref")), None)
+        if lic is None:
+            self._error(403, "LICENSE_NOT_FOUND")
+            return
+        if not lic.is_active:
+            self._error(403, "LICENSE_REVOKED")
+            return
+        if lic.device_id != device_id:
+            self._error(403, "SEAT_NOT_HELD")
+            return
+        now = int(time.time())
+        offline_until = now + self.state.offline_days * 86400
+        ticket = self.state.sign_ticket({
+            "iss": "universal-can-cloud", "aud": "diagnostic-desktop-app", "kid": "v1",
+            "license_id": lic.license_ref, "organization_id": self.state.organization_id, "device_id": device_id,
+            "tier": lic.tier, "features": lic.features, "iat": now, "exp": int(lic.expires_at),
+            "offline_until": offline_until, "schema_version": 1, "nonce": body["nonce"],
+        })
+        self._send(200, {"license_token": ticket, "expires_at": str(int(lic.expires_at)),
+                         "offline_until": str(offline_until)})
 
 class FakeCloud:
     """Context manager: start the fake on an ephemeral port."""

@@ -18,7 +18,7 @@ from tests.unit.fake_cloud_auth import ROUTES
 
 CONTRACT_PATH = Path(__file__).resolve().parents[2] / "docs" / "product" / "cloud_auth_contract.v1.json"
 # Must equal CONTRACT_SHA256 in UCANLAB-CLOUD backend/tests/test_desktop_auth_contract.py.
-CONTRACT_SHA256 = "e3992f813e06bbfabf8f49f4cfedc51c49bcee215dd16ff8e1dce03dfbbdcdf2"
+CONTRACT_SHA256 = "d19e9ebe59ba1dcbf5b4f73c4901d47235e0ddd8d3c60669213e57ec7800f13e"
 
 
 def _contract() -> dict:
