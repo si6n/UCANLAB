@@ -1,7 +1,6 @@
 # Uzman Masası (Engineer Workbench) — Yeniden Yapım Planı
 
-> Durum: **B1 — kabuk + Canlı trafik + Kayıt ve rapor + simülatör hattı.** Onay noktası:
-> B2–B8 modülleri bu belgedeki tasarım dili onaylandıktan sonra, her biri ayrı PR olarak yapılır.
+> Durum: **B1 birleşti (tasarım onaylandı). B2 — Grafik.** B3–B8 her biri ayrı PR olarak yapılır.
 
 Eski uzman ekranı (sniffer, osiloskop, tersine mühendislik, ECU, pin rehberi, raporlar, ayarlar,
 copilot) tamirci akışında kullanılan tasarım diliyle baştan kuruluyor: yuvarlak kartlar, her
@@ -27,7 +26,7 @@ kontrolün yanında tek cümlelik açıklama, yalnızca ölçülen değerleri g�
 | Eski modül | Dosya(lar) | Veri kaynağı (bulgu) | Yeni yer |
 |---|---|---|---|
 | Dashboard / Sniffer | `App.tsx`, `dashboard/DataTable.tsx`, `CanSnifferTable.tsx`, `SummaryStrip.tsx` | **Açılışta 30 sabit örnek satır** (`INITIAL_PACKET_ROWS`), sayaç 15.553'ten başlıyor, "Başlat" tarayıcıda **rastgele paket üretiyor** (`Math.random`). Gerçek çerçeveler `onNewCanFrames` ile ancak araca bağlıyken geliyordu. | **B1: Canlı trafik** |
-| Grafik ve sinyal analizi | `ScopePanel.tsx`, `SignalOscilloscope.tsx`, `anomalyDetector.ts` | Sabit dalga biçimleri; HV/SOC/akım değerleri Python DEMO döngüsünün sabitleri (398,4 V, %78,4). | B2: Grafik (Python'un çözdüğü sinyaller) |
+| Grafik ve sinyal analizi | `ScopePanel.tsx`, `SignalOscilloscope.tsx`, `anomalyDetector.ts` | Sabit dalga biçimleri; HV/SOC/akım değerleri Python DEMO döngüsünün sabitleri (398,4 V, %78,4). | **B2: Grafik** (Python'un çözdüğü sinyaller) |
 | Sinyal keşfi + tersine mühendislik | `discovery/SignalDiscoveryView.tsx`, `modals/ReverseEngineeringModal.tsx`, `reverseEngineeringEngine.ts` | Tarayıcıdaki TS motoru; Python'daki `discovery_*` uçları **hiç kullanılmıyordu**. | B3 (B1'de önceki görünüm, canlı akışla besleniyor) |
 | Copilot | `dashboard/AiCopilotPanel.tsx`, `diagnosticEngine.ts`, `copilotContextBuilder.ts` | Durum, **uydurma telemetriyle** (850 rpm, 88 °C…) TS'te hesaplanıyordu. | B4 (Python `get_diagnostic_analysis` / diyalog) — B1'de kapalı |
 | ECU programlama | `ecu/EcuFlashingView.tsx`, `flashRequest.ts` | Python `flash_*` + challenge; doğru bağlı. | B5 (B1'de önceki görünüm) |
@@ -79,13 +78,27 @@ uygulamanın hattı olarak bağlar:
 * `sim_vehicle_stop()` — önceki adaptöre döner. `bus_get_info()` — `read`; ne dinlendiğini söyler.
 * Simüle hat `send()` çağrısında `SafetyError` atar: hiçbir koşulda çerçeve göndermez.
 
+## 4.1 Grafik (B2)
+
+* Python çözücülerinin (`_record_signal_sample`: J1939, NMEA 2000, OBD, OEM) ürettiği her sayısal değer
+  ayrı bir **çizim halkasına** yazılır (`_plot_rings`; sinyal başına 6000 nokta, en çok 128 sinyal).
+  Bu halka teşhis kanıtından ayrıdır: simüle araç çizilebilir ama **asla kanıta girmez** (#32).
+* `plot_signal_list` ve `plot_signal_series(names, window_s)` — ikisi de `read`. Pencere 1–120 sn'ye,
+  istek 8 sinyale, yanıt sinyal başına 1500 noktaya sınırlı (en yeni nokta her zaman korunur).
+* Hat değiştiğinde (simülatör ↔ adaptör) çizim sıfırlanır; iki kaynağın eğrisi aynı grafikte birleşmez.
+* Ekran: her sinyal kendi grafiğinde (farklı birimler tek eksende karışmaz), tek renk, yalnız gelen
+  değerler birleştirilir (yumuşatma/tahmin yok), fareyle üzerine gelince değer ve "kaç sn önce".
+* Uzman masası simülatörü artık **hareketli**: rölanti ~650 ± 50 rpm salınır, soğutma suyu 70 → 88 °C
+  ısınır (deterministik, rastgelelik yok). Bağlantı sihirbazının simülatörü sabit kalır.
+
 ## 5. Doğrulama durumu
 
 | Ne | Nasıl doğrulandı |
 |---|---|
 | Simüle hat bağlama/çözme, ret koşulları, sürücü sayaçları | `tests/unit/test_workbench_simulator.py` (CI, Linux + Windows) |
 | Gerçek köprü + gerçek telemetri döngüsü + simüle kamyon → Canlı trafik, filtre, dışa aktarma, E-Stop | `tests/ui_e2e/test_workbench_ui.py` (Playwright; yerelde koşar, CI'da Playwright yok → atlanır) |
-| Fiziksel adaptör (PCAN/Kvaser/RP1210) ile Canlı trafik | **Doğrulanmadı.** `HARDWARE_TEST_CHECKLIST.md` W8 |
+| Grafik: çizim halkası, sınırlar, simülatör işareti, hat değişiminde sıfırlama | `tests/unit/test_workbench_plot.py` (CI) + `test_workbench_ui.py` (yerel Playwright) |
+| Fiziksel adaptör (PCAN/Kvaser/RP1210) ile Canlı trafik ve Grafik | **Doğrulanmadı.** `HARDWARE_TEST_CHECKLIST.md` W8 |
 | WebView2 (Windows) içinde görünüm ve 2000 kare/sn akışta akıcılık | **Doğrulanmadı.** `HARDWARE_TEST_CHECKLIST.md` W8 |
 
 Ekran görüntüleri (`screenshots/workbench/`) simülatörle, Linux Chromium'da alınmıştır.

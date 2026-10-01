@@ -14,6 +14,7 @@ vehicle.
 
 from __future__ import annotations
 
+import math
 import time
 from dataclasses import dataclass
 
@@ -71,6 +72,30 @@ _CAR = (
 
 NATIVE_BITRATE = {"car": 500_000, "truck": 250_000, "boat": 250_000, "construction": 250_000}
 
+_EEC1_ID = _j1939_id(61444, 0x00, 3)
+_ET1_ID = _j1939_id(65262, 0x00)
+_N2K_RAPID_ID = _j1939_id(127488, 0x10, 2)
+
+
+def _animated_payload(arbitration_id: int, data: bytes, t: float) -> bytes:
+    """Workbench mode: a slowly varying engine instead of frozen bytes.
+
+    Deterministic in the frame clock ``t`` (no randomness): idle speed swings
+    ~±50 rpm around 650 rpm, coolant warms from 70 °C toward 88 °C. Only the
+    signal bytes change; every other byte keeps the static payload.
+    """
+    out = bytearray(data)
+    rpm = 650.0 + 40.0 * math.sin(2 * math.pi * t / 6.0) + 12.0 * math.sin(2 * math.pi * t / 0.9)
+    if arbitration_id == _EEC1_ID:
+        raw = int(round(rpm / 0.125))
+        out[3], out[4] = raw & 0xFF, raw >> 8
+    elif arbitration_id == _ET1_ID:
+        out[0] = int(round(70.0 + 18.0 * (1.0 - math.exp(-t / 90.0)))) + 40
+    elif arbitration_id == _N2K_RAPID_ID:
+        raw = int(round((rpm * 2.3) / 0.25))
+        out[1], out[2] = raw & 0xFF, raw >> 8
+    return bytes(out)
+
 
 class SimulatedVehicleBus(AbstractBus):
     """Listen-only simulated vehicle. See module docstring."""
@@ -78,7 +103,7 @@ class SimulatedVehicleBus(AbstractBus):
     FRAME_INTERVAL_S = 0.002
 
     def __init__(self, vehicle_type: str, bitrate: int, scenario: str = "ok",
-                 *, sleep: bool = True) -> None:
+                 *, sleep: bool = True, animated: bool = False) -> None:
         if scenario not in SCENARIOS:
             raise ValueError(f"unknown scenario {scenario!r}")
         super().__init__(channel_id="sim_vehicle", bitrate=bitrate)
@@ -86,6 +111,7 @@ class SimulatedVehicleBus(AbstractBus):
         self.scenario = scenario
         self.listen_only = scenario != "no_listen_only"
         self._sleep = sleep
+        self.animated = animated
         self._i = 0
         if vehicle_type == "boat":
             self._schedule: tuple[_Tx, ...] = _BOAT
@@ -133,7 +159,8 @@ class SimulatedVehicleBus(AbstractBus):
             self.metrics.error_frames += 1
             return None
         tx = self._schedule[self._i % len(self._schedule)]
+        data = _animated_payload(tx.arbitration_id, tx.data, self._i * self.FRAME_INTERVAL_S) if self.animated else tx.data
         self._i += 1
         self.metrics.rx_frames += 1
-        return CanFrame(channel_id=self.channel_id, arbitration_id=tx.arbitration_id, dlc=len(tx.data),
-                        data=tx.data, is_extended=tx.extended, source="synthetic")
+        return CanFrame(channel_id=self.channel_id, arbitration_id=tx.arbitration_id, dlc=len(data),
+                        data=data, is_extended=tx.extended, source="synthetic")

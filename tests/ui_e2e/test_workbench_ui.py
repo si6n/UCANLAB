@@ -193,3 +193,28 @@ def test_estop_locks_transmit_but_recording_continues(wb: Any) -> None:
     before = app.ring_buffer.current_size
     page.wait_for_timeout(600)
     assert app.ring_buffer.current_size >= before
+
+
+def test_plot_draws_decoded_simulator_values(wb: Any) -> None:
+    page, app = wb
+    page.select_option("[data-testid=sim-type]", "truck")
+    page.click("[data-testid=start-simulator]")
+    page.wait_for_selector("[data-testid=id-table]", timeout=20000)
+    page.click("[data-testid=nav-plot]")
+    page.wait_for_selector("[data-testid=chart-last-EngineSpeed]", timeout=15000)
+    page.wait_for_function(
+        "() => document.querySelector('[data-testid=chart-EngineSpeed] polyline')?.getAttribute('points')?.split(' ').length > 5",
+        timeout=15000,
+    )
+    shown = float(page.text_content("[data-testid=chart-last-EngineSpeed]").replace(".", "").replace(",", "."))
+    assert 590 <= shown <= 710
+    assert "Simülatör" in page.text_content("[data-testid=signal-EngineSpeed]")
+    assert app._diag_session.samples == []  # plotted, never evidence
+
+
+def test_plot_empty_state_points_to_discovery(wb: Any) -> None:
+    page, _app = wb
+    page.click("[data-testid=nav-plot]")
+    page.wait_for_selector("[data-testid=plot-empty]")
+    page.click("[data-testid=plot-empty] button")
+    assert page.text_content("[data-testid=page-title]") == "Sinyal keşfi"

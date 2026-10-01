@@ -683,6 +683,8 @@ class DesktopApiBridge:
         "sim_vehicle_start": "config",
         "sim_vehicle_stop": "config",
         "bus_get_info": "read",
+        "plot_signal_list": "read",
+        "plot_signal_series": "read",
         "scan_start": "safety",
         "scan_status": "read",
         "scan_cancel": "config",
@@ -1640,6 +1642,12 @@ class DesktopApiBridge:
     def bus_get_info(self) -> dict[str, Any]:
         return {"success": True, **self.app.bus_info()}
 
+    def plot_signal_list(self) -> dict[str, Any]:
+        return self.app.plot_signal_list()
+
+    def plot_signal_series(self, names: Any, window_s: Any = 30.0) -> dict[str, Any]:
+        return self.app.plot_signal_series(names, window_s)
+
     def connection_test_status(self) -> dict[str, Any]:
         return {"success": True, **self.app.connection_wizard.status()}
 
@@ -2422,6 +2430,13 @@ class UniversalCanDesktopApp:
         self._session_lock = threading.Lock()
         # Per-signal bounded evidence ring (O(1) append, RX hot-path safe).
         self._signal_rings: dict[str, deque] = {}
+        # Workbench "Grafik" rings (B2): every decoded value the screens may
+        # plot, real or simulated, tagged with its origin. Separate from the
+        # evidence rings above so a simulated vehicle can be plotted without
+        # ever becoming evidence.
+        self._plot_rings: dict[str, deque] = {}
+        self._plot_meta: dict[str, dict[str, Any]] = {}
+        self._plot_lock = threading.Lock()
         self._open_diagnostic_session()
 
         # Initialize to PASSIVE (Listen-Only) by default
@@ -2521,6 +2536,8 @@ class UniversalCanDesktopApp:
     # (Bulgu 7 / plan §Mimari Kural).
     # ------------------------------------------------------------------
     _EVIDENCE_RING_MAX: ClassVar[int] = 500  # per-signal sample cap (plan §Riskler)
+    _PLOT_RING_MAX: ClassVar[int] = 6000  # per-signal plot points (~100 s at 60 Hz)
+    _PLOT_SIGNALS_MAX: ClassVar[int] = 128  # distinct plotted signal names (OEM decoders can be many)
 
     def _domain_for_current_bus(self) -> DiagnosticDomain:
         """Map the active profile/sources to a session domain (plan FAZ 1)."""
@@ -2553,6 +2570,89 @@ class UniversalCanDesktopApp:
         """
         return bool(self._is_simulating) or isinstance(self.bus, SimulatedVehicleBus)
 
+    def _record_plot_point(self, name: str, physical: Any, unit: str, confidence: float) -> None:
+        """Append one decoded value to its plot ring (O(1); non-numeric values are not plotted)."""
+        try:
+            value = float(physical)
+        except (TypeError, ValueError):
+            return
+        if not math.isfinite(value):
+            return
+        now = time.monotonic()
+        simulated = self._evidence_is_simulated()
+        with self._plot_lock:
+            ring = self._plot_rings.get(name)
+            if ring is None:
+                if len(self._plot_rings) >= self._PLOT_SIGNALS_MAX:
+                    return
+                ring = deque(maxlen=self._PLOT_RING_MAX)
+                self._plot_rings[name] = ring
+            ring.append((now, value))
+            self._plot_meta[name] = {"unit": unit or "", "simulated": simulated, "confidence": float(confidence)}
+
+    def _clear_plot_rings(self) -> None:
+        with self._plot_lock:
+            self._plot_rings = {}
+            self._plot_meta = {}
+
+    def plot_signal_list(self) -> dict[str, Any]:
+        """Decoded signals available for plotting (workbench Grafik)."""
+        now = time.monotonic()
+        with self._plot_lock:
+            items = [(name, list(ring)[-1], len(ring), dict(self._plot_meta.get(name, {})))
+                     for name, ring in self._plot_rings.items() if ring]
+        signals = [
+            {
+                "name": name,
+                "unit": meta.get("unit", ""),
+                "simulated": bool(meta.get("simulated", False)),
+                "confidence": float(meta.get("confidence", 1.0)),
+                "count": count,
+                "last": last[1],
+                "last_age_s": round(now - last[0], 3),
+            }
+            for name, last, count, meta in sorted(items)
+        ]
+        return {"success": True, "signals": signals}
+
+    _PLOT_SERIES_MAX_NAMES: ClassVar[int] = 8
+    _PLOT_SERIES_MAX_POINTS: ClassVar[int] = 1500
+
+    def plot_signal_series(self, names: Any, window_s: Any = 30.0) -> dict[str, Any]:
+        """Points of the named signals inside the last ``window_s`` seconds.
+
+        Times are seconds relative to now (<= 0). A long window is thinned by
+        stride so the payload stays bounded; the newest point is always kept.
+        """
+        if not isinstance(names, list) or not all(isinstance(n, str) for n in names):
+            return {"success": False, "error_code": "INVALID_NAMES"}
+        try:
+            window = float(window_s)
+        except (TypeError, ValueError):
+            return {"success": False, "error_code": "INVALID_WINDOW"}
+        if not math.isfinite(window):
+            return {"success": False, "error_code": "INVALID_WINDOW"}
+        window = min(max(window, 1.0), 120.0)
+        now = time.monotonic()
+        cutoff = now - window
+        series: dict[str, Any] = {}
+        with self._plot_lock:
+            snapshot = {n: (list(self._plot_rings[n]), dict(self._plot_meta.get(n, {})))
+                        for n in names[: self._PLOT_SERIES_MAX_NAMES] if n in self._plot_rings}
+        for name, (points, meta) in snapshot.items():
+            inside = [p for p in points if p[0] >= cutoff]
+            stride = max(1, math.ceil(len(inside) / self._PLOT_SERIES_MAX_POINTS))
+            kept = inside[::stride]
+            if inside and kept[-1] is not inside[-1]:
+                kept.append(inside[-1])
+            series[name] = {
+                "unit": meta.get("unit", ""),
+                "simulated": bool(meta.get("simulated", False)),
+                "t": [round(t - now, 3) for t, _ in kept],
+                "v": [v for _, v in kept],
+            }
+        return {"success": True, "window_s": window, "series": series}
+
     def _record_signal_sample(self, name: str, raw: int, physical: float, unit: str, confidence: float = 1.0) -> None:
         """Append one SignalSample under the session lock (FAZ 1, hook 2).
 
@@ -2564,6 +2664,7 @@ class UniversalCanDesktopApp:
         LOW-confidence OEM payloads arrive as confidence < 1.0 so they
         can never be mistaken for authoritative telemetry downstream.
         """
+        self._record_plot_point(name, physical, unit, confidence)
         session = self._diag_session
         if session is None or self._evidence_is_simulated():
             return
@@ -5150,7 +5251,7 @@ class UniversalCanDesktopApp:
             if isinstance(self.bus, SimulatedVehicleBus):
                 return {"success": True, **self.bus_info()}
             previous = (self.interface_val, self.channel_name, self.bitrate_val)
-            sim = SimulatedVehicleBus(vehicle_type, NATIVE_BITRATE[vehicle_type])
+            sim = SimulatedVehicleBus(vehicle_type, NATIVE_BITRATE[vehicle_type], animated=True)
             if not self._install_bus_locked(sim, "simulator", sim.channel_id, sim.bitrate):
                 return {"success": False, "error_code": "BIND_FAILED"}
             self._pre_simulator_bus = previous
@@ -5304,6 +5405,7 @@ class UniversalCanDesktopApp:
 
         # B-25: Reset channel-bound state on bus switch
         self.ring_buffer.clear()
+        self._clear_plot_rings()
         self.j1939_tp = J1939TransportProtocol(my_address=0xF9, channel_id=self.channel_name)
         self.n2k_fp = Nmea2000FastPacketDecoder()
         # B-05: bus reconnect / vehicle change drops CCVS trust — the new
