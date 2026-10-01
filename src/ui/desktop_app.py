@@ -685,6 +685,10 @@ class DesktopApiBridge:
         "bus_get_info": "read",
         "plot_signal_list": "read",
         "plot_signal_series": "read",
+        "discovery_list": "read",
+        "discovery_report": "read",
+        "discovery_set_approval": "config",
+        "discovery_save_dbc": "data",
         "scan_start": "safety",
         "scan_status": "read",
         "scan_cancel": "config",
@@ -1647,6 +1651,18 @@ class DesktopApiBridge:
 
     def plot_signal_series(self, names: Any, window_s: Any = 30.0) -> dict[str, Any]:
         return self.app.plot_signal_series(names, window_s)
+
+    def discovery_list(self) -> dict[str, Any]:
+        return self.app.discovery_list()
+
+    def discovery_report(self, key: Any) -> dict[str, Any]:
+        return self.app.discovery_report(key)
+
+    def discovery_set_approval(self, key: Any, start_bit: Any, length: Any, approved: Any) -> dict[str, Any]:
+        return self.app.discovery_set_approval(key, start_bit, length, approved)
+
+    def discovery_save_dbc(self, approved_only: Any = True) -> dict[str, Any]:
+        return self.app.discovery_save_dbc(approved_only)
 
     def connection_test_status(self) -> dict[str, Any]:
         return {"success": True, **self.app.connection_wizard.status()}
@@ -4177,6 +4193,122 @@ class UniversalCanDesktopApp:
         except Exception as exc:
             return {"success": False, "error": str(exc)}
 
+    # ── Workbench Sinyal keşfi (B3): stream-keyed discovery surface ──
+    _HTYPE_ORDER: ClassVar[dict[str, int]] = {"COUNTER": 0, "CHECKSUM": 1, "SIGNAL": 2, "CONSTANT": 3}
+
+    @staticmethod
+    def _discovery_key_text(key: tuple[str, bool, int]) -> str:
+        return f"{key[0]}|{1 if key[1] else 0}|{key[2]}"
+
+    @staticmethod
+    def _parse_discovery_key(text: Any) -> tuple[str, bool, int] | None:
+        if not isinstance(text, str) or len(text) > 128:
+            return None
+        parts = text.split("|")
+        if len(parts) != 3 or parts[1] not in {"0", "1"}:
+            return None
+        try:
+            arb = int(parts[2])
+        except ValueError:
+            return None
+        if not 0 <= arb <= 0x1FFFFFFF:
+            return None
+        return (parts[0], parts[1] == "1", arb)
+
+    def discovery_list(self) -> dict[str, Any]:
+        """Every stream the discovery engine holds, with provenance."""
+        engine = self.discovery_engine
+        streams = []
+        for key in engine.discovered_keys:
+            count = engine.get_frame_count(key)
+            sources = engine.key_sources(key)
+            streams.append({
+                "key": self._discovery_key_text(key),
+                "channel": key[0],
+                "extended": key[1],
+                "arbitration_id": key[2],
+                "frames": count,
+                "analyzable": count >= engine.min_frames,
+                "simulated": bool(sources & {"synthetic", "simulator", "virtual"}),
+                "replay": "replay" in sources,
+            })
+        return {"success": True, "min_frames": engine.min_frames, "streams": streams}
+
+    def discovery_report(self, key_text: Any) -> dict[str, Any]:
+        """Full evidence report of one stream (bit classes, entropy, hypotheses)."""
+        key = self._parse_discovery_key(key_text)
+        if key is None:
+            return {"success": False, "error_code": "INVALID_KEY"}
+        engine = self.discovery_engine
+        if engine.get_frame_count(key) == 0:
+            return {"success": False, "error_code": "UNKNOWN_STREAM"}
+        report = engine.analyze_key(key)
+        hyps = sorted(report.hypotheses, key=lambda h: (self._HTYPE_ORDER.get(h.htype, 9), h.start_bit, -h.length))
+        return {
+            "success": True,
+            "key": self._discovery_key_text(key),
+            "frames": report.frame_count,
+            "rate_hz": report.rate_hz,
+            "dlc": report.dlc,
+            "analyzable": report.frame_count >= engine.min_frames,
+            "simulated": bool(engine.key_sources(key) & {"synthetic", "simulator", "virtual"}),
+            "entropy": [round(report.entropy.get(i, 0.0), 3) for i in range(report.dlc)],
+            "bit_classes": list(report.bit_classes),
+            "hypotheses": [
+                {
+                    "type": h.htype,
+                    "start_bit": h.start_bit,
+                    "length": h.length,
+                    "little_endian": bool(h.is_little_endian),
+                    "confidence": round(float(h.confidence), 3),
+                    "status": h.status,
+                    "evidence": [e.detail for e in h.evidence][:4],
+                }
+                for h in hyps
+            ],
+        }
+
+    def discovery_set_approval(self, key_text: Any, start_bit: Any, length: Any, approved: Any) -> dict[str, Any]:
+        """Approve or withdraw one hypothesis for DBC export (operator decision)."""
+        key = self._parse_discovery_key(key_text)
+        if key is None or not isinstance(start_bit, int) or not isinstance(length, int) or not isinstance(approved, bool):
+            return {"success": False, "error_code": "INVALID_INPUT"}
+        if not self.discovery_engine.set_approval(key, start_bit, length, approved):
+            return {"success": False, "error_code": "NO_SUCH_HYPOTHESIS"}
+        return {"success": True, "approved": approved}
+
+    def discovery_save_dbc(self, approved_only: Any = True) -> dict[str, Any]:
+        """Write the discovered signals to a .dbc under exports/ and say where."""
+        if not isinstance(approved_only, bool):
+            return {"success": False, "error_code": "INVALID_INPUT"}
+        engine = self.discovery_engine
+        try:
+            db = engine.build_dbc(approved_only=approved_only)
+        except Exception as exc:  # noqa: BLE001 — builder errors surface as a refusal, not a crash
+            logger.warning("DBC build failed", extra={"error": str(exc)})
+            return {"success": False, "error_code": "BUILD_FAILED"}
+        signal_count = sum(len(m.signals) for m in db.messages)
+        if signal_count == 0:
+            return {"success": False, "error_code": "NOTHING_TO_EXPORT"}
+        simulated = any(engine.key_sources(k) & {"synthetic", "simulator", "virtual"} for k in engine.discovered_keys)
+        suffix = "_SIMULATOR" if simulated else ""
+        exports_root = _app_data_root() / "exports"
+        path = exports_root / "dbc" / f"discovered_{time.strftime('%Y%m%d_%H%M%S')}{suffix}.dbc"
+        try:
+            from src.engine.discovery.dbc_builder import DbcBuilder
+
+            DbcBuilder.export_dbc_file(db, path, exports_root=exports_root)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("DBC export failed", extra={"error": str(exc)})
+            return {"success": False, "error_code": "WRITE_FAILED"}
+        return {
+            "success": True,
+            "path": str(path),
+            "messages": len(db.messages),
+            "signals": signal_count,
+            "simulated": simulated,
+        }
+
     def discovery_clear(self) -> dict[str, Any]:
         """Clear discovery buffer."""
         self.discovery_engine.clear()
@@ -5406,6 +5538,7 @@ class UniversalCanDesktopApp:
         # B-25: Reset channel-bound state on bus switch
         self.ring_buffer.clear()
         self._clear_plot_rings()
+        self.discovery_engine.clear()
         self.j1939_tp = J1939TransportProtocol(my_address=0xF9, channel_id=self.channel_name)
         self.n2k_fp = Nmea2000FastPacketDecoder()
         # B-05: bus reconnect / vehicle change drops CCVS trust — the new

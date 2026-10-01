@@ -98,6 +98,8 @@
 | W8-8 | Kayıt ve rapor → MDF4 dışa aktar, asammdf/CANape ile aç. | Dosya açılır, çerçeve sayısı tutar. | ☐ |
 | W8-9 | Grafik: kamyonda motor devri ve soğutma suyu, gaz verip bırakarak. | Değerler gösterge paneliyle uyuşur; "Simülatör" etiketi yok; gecikme < 1 sn. | ☐ |
 | W8-10 | Grafik açıkken adaptör ↔ simülatör geçişi. | Grafik boşalır; iki kaynağın eğrisi birleşmez. | ☐ |
+| W8-11 | Sinyal keşfi: binek araçta bilinen bir kimlik (ör. motor devri) 2 dk, gaz verip bırakarak. | Değişen bitler ızgarada görünür; doğru alan aday listesinde; onay sonrası DBC CANape/SavvyCAN'de açılır. | ☐ |
+| W8-12 | Gerçek araçla kaydedilen DBC'nin adı. | `_SIMULATOR` eki yok. | ☐ |
 
 ## Doğrulama özeti (neyin nerede doğrulandığı)
 

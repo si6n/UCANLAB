@@ -1,6 +1,6 @@
 # Uzman Masası (Engineer Workbench) — Yeniden Yapım Planı
 
-> Durum: **B1 birleşti (tasarım onaylandı). B2 — Grafik.** B3–B8 her biri ayrı PR olarak yapılır.
+> Durum: **B1, B2 birleşti. B3 — Sinyal keşfi.** B3b–B8 her biri ayrı PR olarak yapılır.
 
 Eski uzman ekranı (sniffer, osiloskop, tersine mühendislik, ECU, pin rehberi, raporlar, ayarlar,
 copilot) tamirci akışında kullanılan tasarım diliyle baştan kuruluyor: yuvarlak kartlar, her
@@ -27,7 +27,7 @@ kontrolün yanında tek cümlelik açıklama, yalnızca ölçülen değerleri g�
 |---|---|---|---|
 | Dashboard / Sniffer | `App.tsx`, `dashboard/DataTable.tsx`, `CanSnifferTable.tsx`, `SummaryStrip.tsx` | **Açılışta 30 sabit örnek satır** (`INITIAL_PACKET_ROWS`), sayaç 15.553'ten başlıyor, "Başlat" tarayıcıda **rastgele paket üretiyor** (`Math.random`). Gerçek çerçeveler `onNewCanFrames` ile ancak araca bağlıyken geliyordu. | **B1: Canlı trafik** |
 | Grafik ve sinyal analizi | `ScopePanel.tsx`, `SignalOscilloscope.tsx`, `anomalyDetector.ts` | Sabit dalga biçimleri; HV/SOC/akım değerleri Python DEMO döngüsünün sabitleri (398,4 V, %78,4). | **B2: Grafik** (Python'un çözdüğü sinyaller) |
-| Sinyal keşfi + tersine mühendislik | `discovery/SignalDiscoveryView.tsx`, `modals/ReverseEngineeringModal.tsx`, `reverseEngineeringEngine.ts` | Tarayıcıdaki TS motoru; Python'daki `discovery_*` uçları **hiç kullanılmıyordu**. | B3 (B1'de önceki görünüm, canlı akışla besleniyor) |
+| Sinyal keşfi + tersine mühendislik | `discovery/SignalDiscoveryView.tsx`, `modals/ReverseEngineeringModal.tsx`, `reverseEngineeringEngine.ts` | Tarayıcıdaki TS motoru; Python'daki `discovery_*` uçları **hiç kullanılmıyordu**. | **B3** (Python motoru); uyaran deneyi B3b |
 | Copilot | `dashboard/AiCopilotPanel.tsx`, `diagnosticEngine.ts`, `copilotContextBuilder.ts` | Durum, **uydurma telemetriyle** (850 rpm, 88 °C…) TS'te hesaplanıyordu. | B4 (Python `get_diagnostic_analysis` / diyalog) — B1'de kapalı |
 | ECU programlama | `ecu/EcuFlashingView.tsx`, `flashRequest.ts` | Python `flash_*` + challenge; doğru bağlı. | B5 (B1'de önceki görünüm) |
 | Pin rehberi | `pinout/PinoutGuideView.tsx` | Statik içerik. | B6 (B1'de önceki görünüm) |
@@ -91,6 +91,20 @@ uygulamanın hattı olarak bağlar:
 * Uzman masası simülatörü artık **hareketli**: rölanti ~650 ± 50 rpm salınır, soğutma suyu 70 → 88 °C
   ısınır (deterministik, rastgelelik yok). Bağlantı sihirbazının simülatörü sabit kalır.
 
+## 4.2 Sinyal keşfi (B3)
+
+* Ekran yalnız Python `SignalDiscoveryEngine`'i kullanır (kanal + çerçeve biçimi + kimlik anahtarlı).
+  `discovery_list` / `discovery_report` (`read`), `discovery_set_approval` (`config`), `discovery_save_dbc` (`data`).
+* Bit ızgarası her bitin davranışını gösterir (sabit / seyrek / düzenli / sürekli değişen; tek renk, koyuluk = etkinlik).
+  Adayın üzerine gelince kapsadığı bitler çerçevelenir.
+* Adaylar (sayaç, sağlama toplamı, sinyal, sabit) **istatistiksel tahmindir**; güven yüzdesiyle gösterilir, anlamını
+  operatör verir. Varsayılan DBC dışa aktarımı **yalnız onaylıları** içerir.
+* Düzeltilen motor hatası: onay yalnız önbellekteki rapor nesnesindeydi; canlı trafikte her yeni çerçeve raporu
+  yeniden kurduğu için onay kayboluyor, "yalnız onaylılar" DBC'si boş çıkıyordu. Onaylar artık motorda kalıcı.
+* DBC `exports/dbc/` altına yol korumasıyla yazılır; simülatör verisi içeriyorsa dosya adı `_SIMULATOR` ile biter.
+* Hat değişiminde keşif verisi sıfırlanır (simülatör ve araç kimlikleri karışmaz).
+* Eski ekrandaki "pedala bas / bırak" uyaran deneyi tarayıcıdaki TS motorundaydı; Python'a taşınması **B3b**.
+
 ## 5. Doğrulama durumu
 
 | Ne | Nasıl doğrulandı |
@@ -98,7 +112,8 @@ uygulamanın hattı olarak bağlar:
 | Simüle hat bağlama/çözme, ret koşulları, sürücü sayaçları | `tests/unit/test_workbench_simulator.py` (CI, Linux + Windows) |
 | Gerçek köprü + gerçek telemetri döngüsü + simüle kamyon → Canlı trafik, filtre, dışa aktarma, E-Stop | `tests/ui_e2e/test_workbench_ui.py` (Playwright; yerelde koşar, CI'da Playwright yok → atlanır) |
 | Grafik: çizim halkası, sınırlar, simülatör işareti, hat değişiminde sıfırlama | `tests/unit/test_workbench_plot.py` (CI) + `test_workbench_ui.py` (yerel Playwright) |
-| Fiziksel adaptör (PCAN/Kvaser/RP1210) ile Canlı trafik ve Grafik | **Doğrulanmadı.** `HARDWARE_TEST_CHECKLIST.md` W8 |
+| Sinyal keşfi: rapor, onayın kalıcılığı, DBC kaydı, girdi doğrulama | `tests/unit/test_workbench_discovery.py` (CI) + `test_workbench_ui.py` (yerel Playwright) |
+| Fiziksel adaptör (PCAN/Kvaser/RP1210) ile Canlı trafik, Grafik, Sinyal keşfi | **Doğrulanmadı.** `HARDWARE_TEST_CHECKLIST.md` W8 |
 | WebView2 (Windows) içinde görünüm ve 2000 kare/sn akışta akıcılık | **Doğrulanmadı.** `HARDWARE_TEST_CHECKLIST.md` W8 |
 
 Ekran görüntüleri (`screenshots/workbench/`) simülatörle, Linux Chromium'da alınmıştır.
@@ -109,7 +124,8 @@ Ekran görüntüleri (`screenshots/workbench/`) simülatörle, Linux Chromium'da
 |---|---|---|
 | B1 | `flow/b1-workbench` | Kabuk, Canlı trafik, Kayıt ve rapor (temel), simüle hat, bu belge |
 | B2 | `flow/b2-plot` | Grafik: Python'un çözdüğü sinyaller için okuma ucu + çizim |
-| B3 | `flow/b3-discovery` | Sinyal keşfi Python `discovery_*` üzerine; TS motoru silinir |
+| B3 | `flow/b3-discovery` | Sinyal keşfi Python `discovery_*` üzerine (TS motoru B8'de silinir) |
+| B3b | `flow/b3b-stimulus` | Uyaran deneyi (bas/bırak) Python'da: iki pencere arasında değişen bitleri sıralar |
 | B4 | `flow/b4-assistant` | Teşhis asistanı Python analiz üzerine; `_bus_load` / `_error_count` düzeltmesi |
 | B5 | `flow/b5-ecu` | ECU programlama ekranı (aynı güvenlik akışı) |
 | B6 | `flow/b6-settings` | Ayarlar (adaptör bağlantısı, lisans, mod, kaynak lisansları) + Pin rehberi |

@@ -354,6 +354,42 @@ export interface PlotSeries {
   v: number[];
 }
 
+/** One stream in the Python discovery engine (channel + frame format + id). */
+export interface DiscoveryStream {
+  key: string;
+  channel: string;
+  extended: boolean;
+  arbitration_id: number;
+  frames: number;
+  analyzable: boolean;
+  simulated: boolean;
+  replay: boolean;
+}
+
+export interface DiscoveryHypothesis {
+  type: 'COUNTER' | 'CHECKSUM' | 'SIGNAL' | 'CONSTANT' | string;
+  start_bit: number;
+  length: number;
+  little_endian: boolean;
+  confidence: number;
+  status: 'candidate' | 'approved' | 'rejected' | string;
+  evidence: string[];
+}
+
+export interface DiscoveryReport {
+  success: boolean;
+  error_code?: string;
+  key?: string;
+  frames?: number;
+  rate_hz?: number;
+  dlc?: number;
+  analyzable?: boolean;
+  simulated?: boolean;
+  entropy?: number[];
+  bit_classes?: string[];
+  hypotheses?: DiscoveryHypothesis[];
+}
+
 // Interface for pywebview Python backend bridge
 declare global {
   interface Window {
@@ -371,6 +407,10 @@ declare global {
         sim_vehicle_start?: (vehicleType: string) => Promise<BusInfoResult>;
         sim_vehicle_stop?: () => Promise<BusInfoResult>;
         bus_get_info?: () => Promise<BusInfoResult>;
+        discovery_list?: () => Promise<{ success: boolean; min_frames: number; streams: DiscoveryStream[] }>;
+        discovery_report?: (key: string) => Promise<DiscoveryReport>;
+        discovery_set_approval?: (key: string, startBit: number, length: number, approved: boolean) => Promise<{ success: boolean; error_code?: string }>;
+        discovery_save_dbc?: (approvedOnly: boolean) => Promise<{ success: boolean; error_code?: string; path?: string; messages?: number; signals?: number; simulated?: boolean }>;
         plot_signal_list?: () => Promise<{ success: boolean; signals: PlotSignalInfo[] }>;
         plot_signal_series?: (names: string[], windowS: number) => Promise<{ success: boolean; window_s?: number; series: Record<string, PlotSeries>; error_code?: string }>;
         export_logs: (format: string) => Promise<boolean>;
@@ -792,6 +832,38 @@ export class DesktopBridge {
     this.requireCapability('bus_get_info', 'bus info');
     this.requireNativeOrDev();
     return null;
+  }
+
+  public static async discoveryList(): Promise<{ success: boolean; min_frames: number; streams: DiscoveryStream[] } | null> {
+    const m = this.apiMethod('discovery_list');
+    if (this.isNative() && m) return await m();
+    this.requireCapability('discovery_list', 'discovery list');
+    this.requireNativeOrDev();
+    return null;
+  }
+
+  public static async discoveryReport(key: string): Promise<DiscoveryReport | null> {
+    const m = this.apiMethod('discovery_report');
+    if (this.isNative() && m) return await m(key);
+    this.requireCapability('discovery_report', 'discovery report');
+    this.requireNativeOrDev();
+    return null;
+  }
+
+  public static async discoverySetApproval(key: string, startBit: number, length: number, approved: boolean): Promise<{ success: boolean; error_code?: string }> {
+    const m = this.apiMethod('discovery_set_approval');
+    if (this.isNative() && m) return await m(key, startBit, length, approved);
+    this.requireCapability('discovery_set_approval', 'discovery approval');
+    this.requireNativeOrDev();
+    return { success: false, error_code: 'NATIVE_BRIDGE_MISSING' };
+  }
+
+  public static async discoverySaveDbc(approvedOnly: boolean): Promise<{ success: boolean; error_code?: string; path?: string; messages?: number; signals?: number; simulated?: boolean }> {
+    const m = this.apiMethod('discovery_save_dbc');
+    if (this.isNative() && m) return await m(approvedOnly);
+    this.requireCapability('discovery_save_dbc', 'DBC export');
+    this.requireNativeOrDev();
+    return { success: false, error_code: 'NATIVE_BRIDGE_MISSING' };
   }
 
   public static async plotSignalList(): Promise<{ success: boolean; signals: PlotSignalInfo[] } | null> {
