@@ -126,7 +126,7 @@ class SimulatedVehicleBus(AbstractBus):
             return None
         if self.scenario == "bus_short":
             self.metrics.error_frames += 1
-            if self.metrics.error_frames > 255:
+            if self.metrics.error_frames > 32:  # a shorted line goes bus-off almost at once
                 self.metrics.state = BusState.BUS_OFF
             return None
         if self.bitrate != self.native_bitrate:

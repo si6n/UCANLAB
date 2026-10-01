@@ -1634,6 +1634,10 @@ class DesktopApiBridge:
     # Mechanic scan (Aşama 6): listen → consented read-only OBD → result
     # ------------------------------------------------------------------
 
+    # Passive listening window before analysis (MECHANIC_FLOW §3.11: ~20 s in total).
+    SCAN_LISTEN_S_VEHICLE: ClassVar[float] = 15.0
+    SCAN_LISTEN_S_SIMULATOR: ClassVar[float] = 3.0
+
     def scan_start(self, allow_read: bool = False) -> dict[str, Any]:
         """Start a scan on the connected vehicle (or the simulator).
 
@@ -1658,7 +1662,7 @@ class DesktopApiBridge:
         request = ScanRequest(
             vehicle_label=profile.label_tr, vehicle_type=profile.type, high_voltage=profile.high_voltage,
             simulator=connection.simulator, allow_read=wants_read,
-            listen_seconds=3.0 if connection.simulator else 15.0,
+            listen_seconds=self.SCAN_LISTEN_S_SIMULATOR if connection.simulator else self.SCAN_LISTEN_S_VEHICLE,
             battery_message_tr=str(result.get("battery_message_tr") or ""),
             scenario=connection.scenario or "ok",
         )
