@@ -76,3 +76,11 @@ a known gap:
 `cockpit`-owned UI change. Until it lands, CC BY 4.0 compliance is satisfied
 **at the distribution-content level** (attribution ships with the artifacts)
 but **not yet at a rendered-in-UI level**.
+
+**Status update (2026-10-01, B8):** the rendered panel exists —
+`src/ui/frontend/src/components/workbench/SettingsAttributionPanel.tsx`, reached
+from *Uzman masası → Ayarlar → Veri lisansları*. It reads every field through the
+read-only `get_data_attributions()` bridge method and paints this credit inline
+(asserted by `tests/unit/test_data_attributions.py` and the real-DOM render in
+`tests/unit/test_t2_7_attribution_render.py`). The old `SettingsModal.tsx`
+mentioned above was removed with the previous frontend.

@@ -39,11 +39,11 @@ export const SettingsAttributionPanel: React.FC<SettingsAttributionPanelProps> =
         setPayload(res);
       } else {
         setPayload(null);
-        setLoadError((res as any)?.error || 'Atif verisi okunamadi.');
+        setLoadError((res as { error?: string } | null)?.error || 'Atif verisi okunamadi.');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       setPayload(null);
-      setLoadError(err?.message || 'Atif verisi okunamadi.');
+      setLoadError((err instanceof Error && err.message) || 'Atif verisi okunamadi.');
     } finally {
       setLoading(false);
     }

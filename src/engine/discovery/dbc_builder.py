@@ -15,12 +15,26 @@ from cantools.database.conversion import BaseConversion
 from src.engine.discovery.hypotheses import IdReport
 
 
+#: DBC identifiers are C identifiers; tools commonly cap them (Vector: 32
+#: short names, long names via attributes). 64 keeps names readable and bounded.
+DBC_IDENTIFIER_MAX = 64
+
+
 def _sanitize_c_identifier(name: str) -> str:
-    """Sanitize arbitrary string into valid DBC C identifier."""
-    cleaned = re.sub(r"[^a-zA-Z0-9_]", "_", name.strip())
-    if cleaned and cleaned[0].isdigit():
+    """Turn untrusted text (names derived from bus data) into one DBC identifier.
+
+    M-05: runs of anything outside ``[A-Za-z0-9_]`` collapse to one ``_``
+    (so ``;``, quotes or newlines can never close the SG_ statement), edge
+    underscores are trimmed, a leading digit gets a ``sig_`` prefix, and the
+    result is capped at :data:`DBC_IDENTIFIER_MAX`. Empty input falls back to
+    ``signal``.
+    """
+    cleaned = re.sub(r"[^A-Za-z0-9_]+", "_", str(name or "")).strip("_")
+    if not cleaned:
+        return "signal"
+    if cleaned[0].isdigit():
         cleaned = f"sig_{cleaned}"
-    return cleaned or "signal"
+    return cleaned[:DBC_IDENTIFIER_MAX]
 
 
 class DbcBuilder:
@@ -82,7 +96,8 @@ class DbcBuilder:
                 base_name = sig_name
                 counter = 1
                 while sig_name in claimed_names:
-                    sig_name = f"{base_name}_{counter}"
+                    suffix = f"_{counter}"
+                    sig_name = f"{base_name[: DBC_IDENTIFIER_MAX - len(suffix)]}{suffix}"
                     counter += 1
                 claimed_names.add(sig_name)
                 # Claim bits only for accepted candidates (span + overlap

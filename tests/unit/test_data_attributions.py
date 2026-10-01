@@ -52,8 +52,9 @@ SITRAK_CREDIT_EXPECTED = "Источник: МегаДата / megadata.pro — 
 
 SITRAK_ATTRIBUTION_FILE = REPO_ROOT / "data" / "licenses" / "ATTRIBUTION.sitrak.md"
 FRONTEND_SRC = REPO_ROOT / "src" / "ui" / "frontend" / "src"
-PANEL_TSX = FRONTEND_SRC / "components" / "settings" / "SettingsAttributionPanel.tsx"
-VIEW_TSX = FRONTEND_SRC / "components" / "settings" / "SettingsView.tsx"
+PANEL_TSX = FRONTEND_SRC / "components" / "workbench" / "SettingsAttributionPanel.tsx"
+# B8: the workbench Settings screen (the old settings/SettingsView.tsx was removed).
+VIEW_TSX = FRONTEND_SRC / "components" / "workbench" / "SettingsPanel.tsx"
 BRIDGE_TS = FRONTEND_SRC / "services" / "bridge.ts"
 DESKTOP_APP_PY = REPO_ROOT / "src" / "ui" / "desktop_app.py"
 
@@ -371,18 +372,16 @@ class TestRendererSurface:
     def test_settings_navigation_exposes_the_attribution_section(self) -> None:
         """The panel must be reachable without editing source."""
         view = VIEW_TSX.read_text(encoding="utf-8")
-        assert "SettingsAttributionPanel" in view
-        assert "{ id: 'attribution'" in view
-        assert "activeSection === 'attribution'" in view
-        assert "<SettingsAttributionPanel />" in view
+        assert "import { SettingsAttributionPanel } from './SettingsAttributionPanel';" in view
+        assert "{ value: 'sources'" in view
+        assert "{section === 'sources' && <SettingsAttributionPanel />}" in view
 
     def test_settings_nav_type_union_allows_the_section(self) -> None:
-        """The compile-time section union must include 'attribution' (otherwise
-        `setActiveSection('attribution')` would be a type error)."""
+        """The compile-time section union must include 'sources'."""
         view = VIEW_TSX.read_text(encoding="utf-8")
-        match = re.search(r"useState<\s*([^>]*'attribution'[^>]*)>\s*\(\s*'hardware'\s*\)", view)
-        assert match is not None, "activeSection's union type does not include 'attribution'"
-        assert re.search(r"'(hardware|license|safety|storage)'", match.group(1))
+        match = re.search(r"type Section = ([^;]*);", view)
+        assert match is not None and "'sources'" in match.group(1)
+        assert "'connection'" in match.group(1)
 
     def test_panel_declares_the_offline_guarantee_to_the_operator(self) -> None:
         tsx = PANEL_TSX.read_text(encoding="utf-8")

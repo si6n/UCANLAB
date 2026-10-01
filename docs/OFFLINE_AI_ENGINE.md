@@ -182,10 +182,12 @@ Golden-Traces ve `VehicleSession` bunu zorunlu kılar (ham VIN fail-closed).
 
 ## 4. Veri Akışı (Çağrı Zinciri)
 
-**Canlı soru-cevap** (chat): `App.tsx` → `DesktopBridge.askCopilot` →
-`DesktopApiBridge.ask_copilot` → `AiDiagnosticCopilot.analyze_live_telemetry`
-→ `ensure_external_dtc_database_loaded()` (tembel) →
-`CausalBayesianInferenceEngine.evaluate_diagnostic_query`.
+**Canlı soru-cevap** (chat): `DesktopApiBridge.ask_copilot` →
+`AiDiagnosticCopilot.analyze_live_telemetry` → `ensure_external_dtc_database_loaded()`
+(tembel) → `CausalBayesianInferenceEngine.evaluate_diagnostic_query`. Bu uç Python'da
+duruyor; eski `App.tsx` sohbet paneli B8'de kaldırıldı ve yeni ön yüz onu çağırmıyor.
+Uzman masasındaki Teşhis asistanı `get_diagnostic_analysis` + `get_dialogue_state` /
+`record_operator_answer` kullanır (`docs/product/ENGINEER_WORKBENCH.md` §4.4).
 
 **Oturum analizi** (DTC paneli): `analyze_session` → `_analyze_local_expert`.
 

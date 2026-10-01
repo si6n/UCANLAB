@@ -5,11 +5,11 @@ import {
   AuthState,
   BusInfoResult,
   ConnectionTestStatus,
-  DataAttributionsPayload,
   DesktopBridge,
   FlashPreconditions,
 } from '../../services/bridge';
 import { L, pick } from '../mechanic/text';
+import { SettingsAttributionPanel } from './SettingsAttributionPanel';
 import { BTN_GHOST, BTN_PRIMARY, BTN_QUIET, Card, CardHeader, Chip, Segmented, Tone, cx } from './ui';
 
 /**
@@ -500,55 +500,6 @@ const SafetySection: React.FC<{ safety: string | null }> = ({ safety }) => {
 };
 
 // ---------------------------------------------------------------------------
-// Third-party data licences
-// ---------------------------------------------------------------------------
-
-const SourcesSection: React.FC = () => {
-  const [data, setData] = useState<DataAttributionsPayload | null>(null);
-  useEffect(() => {
-    void DesktopBridge.getDataAttributions().then(setData);
-  }, []);
-
-  if (!data) return <p className="p-5 text-[13px] text-text-mid">{L('Yükleniyor…', 'Loading…')}</p>;
-  return (
-    <div className="flex flex-col gap-3">
-      {data.errors.length > 0 && (
-        <div role="alert" className="rounded-2xl border border-danger-border bg-danger-soft px-5 py-3 text-[13px] text-del">
-          {L('Okunamayan lisans dosyaları: ', 'Licence files that could not be read: ')}
-          {data.errors.join(', ')}
-        </div>
-      )}
-      <p className="text-[12.5px] text-text-mid">
-        {L(
-          'Uygulamanın içerdiği üçüncü taraf verileri ve lisansları. Metinler paketteki lisans dosyalarından olduğu gibi okunur; bu ekran ağa çıkmaz.',
-          'Third-party data shipped with the app and its licences. Texts are read verbatim from the bundled licence files; this screen makes no network calls.',
-        )}
-      </p>
-      <div className="grid grid-cols-1 gap-3 xl:grid-cols-2" data-testid="settings-sources">
-        {data.sources.map((s) => (
-          <Card key={s.id} testId={`source-${s.id}`}>
-            <CardHeader title={s.name} hint={s.sourceUrl}>
-              <Chip tone={s.obligation === 'required' ? 'accent' : 'neutral'}>{s.license}</Chip>
-            </CardHeader>
-            <div className="flex flex-col gap-2 px-5 py-4 text-[12.5px]">
-              {s.attributionText && <p className="whitespace-pre-wrap text-text-hi">{s.attributionText}</p>}
-              {s.noteTr && <p className="text-text-mid">{s.noteTr}</p>}
-              <p className="font-mono text-[11.5px] text-text-low">{s.canonicalFile}</p>
-              {s.sourceText && (
-                <details className="text-text-mid">
-                  <summary className="cursor-pointer">{L('Lisans metni', 'Licence text')}</summary>
-                  <pre className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap font-mono text-[11.5px]">{s.sourceText}</pre>
-                </details>
-              )}
-            </div>
-          </Card>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-// ---------------------------------------------------------------------------
 
 export const SettingsPanel: React.FC<{
   busInfo: BusInfoResult | null;
@@ -576,7 +527,7 @@ export const SettingsPanel: React.FC<{
         {section === 'connection' && <ConnectionSection busInfo={busInfo} onBusChanged={onBusChanged} />}
         {section === 'licence' && <LicenceSection onSwitchToMechanic={onSwitchToMechanic} />}
         {section === 'safety' && <SafetySection safety={safety} />}
-        {section === 'sources' && <SourcesSection />}
+        {section === 'sources' && <SettingsAttributionPanel />}
       </div>
     </div>
   );

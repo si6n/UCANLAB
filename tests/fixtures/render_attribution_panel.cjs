@@ -29,7 +29,7 @@ const srcPath = path.join(
   frontend,
   'src',
   'components',
-  'settings',
+  'workbench',
   'SettingsAttributionPanel.tsx',
 );
 const code = fs.readFileSync(srcPath, 'utf8');

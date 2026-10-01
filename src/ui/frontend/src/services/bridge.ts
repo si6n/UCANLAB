@@ -1,4 +1,3 @@
-import { CANFrame, TelemetryPoint } from '../types/can';
 
 export interface CloudLicenseInfo {
   licenseId: string;
@@ -458,12 +457,8 @@ declare global {
       api: {
         trigger_estop: () => Promise<void>;
         heartbeat: () => Promise<boolean>;
-        toggle_simulator: () => Promise<boolean>;
-        select_scenario: (name: string) => Promise<void>;
-        ask_copilot: (query: string) => Promise<string>;
-        execute_diagnostic_action?: (action: Record<string, any>, confirmationToken?: string, userConfirmed?: boolean) => Promise<{ success: boolean; message?: string; error?: string; [key: string]: any }>;
-        request_diagnostic_challenge?: (action: Record<string, any>) => Promise<{ success: boolean; token?: string; error?: string; [key: string]: any }>;
-        get_bus_traffic_status?: () => Promise<Record<string, any>>;
+        execute_diagnostic_action?: (action: Record<string, unknown>, confirmationToken?: string, userConfirmed?: boolean) => Promise<{ success: boolean; message?: string; error?: string; [key: string]: unknown }>;
+        request_diagnostic_challenge?: (action: Record<string, unknown>) => Promise<{ success: boolean; token?: string; error?: string; [key: string]: unknown }>;
         get_safety_state?: () => Promise<string>;
         sim_vehicle_start?: (vehicleType: string) => Promise<BusInfoResult>;
         sim_vehicle_stop?: () => Promise<BusInfoResult>;
@@ -490,34 +485,16 @@ declare global {
         plot_signal_list?: () => Promise<{ success: boolean; signals: PlotSignalInfo[] }>;
         plot_signal_series?: (names: string[], windowS: number) => Promise<{ success: boolean; window_s?: number; series: Record<string, PlotSeries>; error_code?: string }>;
         export_logs: (format: string) => Promise<boolean>;
-        save_settings: (settings: Record<string, any>) => Promise<void>;
-        inject_fault?: (faultType: string) => Promise<void>;
-        set_simulation_speed?: (speed: number) => Promise<void>;
         // E-Stop Cryptographic Challenge / Multi-Operator APIs
         estop_request_challenge?: () => Promise<{ success: boolean; epoch?: number; nonce?: string; timestampMonotonicNs?: number; maxAgeMs?: number; action?: string; error?: string }>;
         estop_submit_reset_token?: (tokenStr: string) => Promise<{ success: boolean; error?: string }>;
         // ECU Flashing APIs
-        flash_start?: (config: Record<string, any>, confirmationToken?: string) => Promise<{ success: boolean; message?: string; error?: string; [key: string]: any }>;
-        flash_progress?: () => Promise<Record<string, any>>;
+        flash_start?: (config: Record<string, unknown>, confirmationToken?: string) => Promise<{ success: boolean; message?: string; error?: string; [key: string]: unknown }>;
+        flash_progress?: () => Promise<Record<string, unknown>>;
         flash_cancel?: () => Promise<{ success: boolean; message?: string; error?: string }>;
-        // Signal Discovery & Reverse Engineering APIs
-        discovery_get_summary?: () => Promise<Record<string, any>>;
-        discovery_analyze_id?: (arbId: number) => Promise<Record<string, any>>;
-        discovery_analyze_all?: () => Promise<Record<string, any>>;
-        discovery_export_dbc?: (approvedOnly?: boolean) => Promise<{ success: boolean; dbc?: string; error?: string }>;
-        discovery_clear?: () => Promise<{ success: boolean; error?: string }>;
-        // OEM Registry & Replay APIs
-        oem_list_decoders?: () => Promise<string[]>;
-        replay_load?: (filePath: string) => Promise<{ success: boolean; frame_count?: number; error?: string }>;
-        replay_start?: (speed?: number, loop?: boolean) => Promise<{ success: boolean; error?: string }>;
-        replay_stop?: () => Promise<{ success: boolean; error?: string }>;
         // Cloud APIs
-        cloud_test_connection?: (url?: string, sessionToken?: string) => Promise<{ success: boolean; status?: number; user?: any; error?: string }>;
-        cloud_save_config?: (url: string, sessionToken?: string) => Promise<{ success: boolean; error?: string }>;
-        cloud_get_status?: () => Promise<CloudStatus>;
-        cloud_register_device?: (deviceName?: string) => Promise<{ success: boolean; deviceId?: string; resetsRemaining?: number; error?: string }>;
         cloud_start_web_login?: () => Promise<{ success: boolean; login_url?: string; port?: number; error?: string }>;
-        cloud_check_web_login_status?: () => Promise<{ success: boolean; status: 'idle' | 'pending' | 'completed' | 'error' | 'cancelled'; user?: any; subscription?: any; error?: string; login?: AuthLoginOutcome | null }>;
+        cloud_check_web_login_status?: () => Promise<{ success: boolean; status: 'idle' | 'pending' | 'completed' | 'error' | 'cancelled'; user?: unknown; subscription?: unknown; error?: string; login?: AuthLoginOutcome | null }>;
         auth_get_state?: () => Promise<AuthState>;
         auth_refresh_license?: () => Promise<AuthState>;
         auth_start_device_login?: () => Promise<DeviceLoginStart>;
@@ -538,24 +515,17 @@ declare global {
         scan_save_report?: (workshop?: string) => Promise<{ success: boolean; path?: string; text?: string; error_code?: string }>;
         scan_open_report?: () => Promise<{ success: boolean; path?: string; error_code?: string }>;
         cloud_cancel_web_login?: () => Promise<{ success: boolean }>;
-        cloud_logout?: () => Promise<{ success: boolean; error?: string }>;
-        cloud_upload_session?: (filePath: string, vehicleVin?: string) => Promise<{ success: boolean; sessionId?: string; status?: string; error?: string }>;
-        cloud_upload_raw_content?: (filename: string, content: string, vehicleVin?: string) => Promise<{ success: boolean; sessionId?: string; status?: string; error?: string }>;
         // Diagnostic session (FAZ 1..6) — analysis stays in Python (Bulgu 3)
-        get_session_evidence_summary?: () => Promise<Record<string, any>>;
-        get_diagnostic_analysis?: () => Promise<Record<string, any>>;
-        reset_diagnostic_session?: () => Promise<Record<string, any>>;
-        record_operator_measurement?: (name: string, value: number) => Promise<{ success: boolean; recorded?: string; error?: string }>;
+        get_diagnostic_analysis?: () => Promise<Record<string, unknown>>;
         record_operator_answer?: (
           question_id: string,
-          value: any,
+          value: unknown,
           kind?: string,
           unit?: string | null,
           is_unknown?: boolean,
-        ) => Promise<Record<string, any>>;
-        get_dialogue_state?: () => Promise<Record<string, any>>;
-        get_diagnostic_kpi_metrics?: () => Promise<Record<string, any>>;
-        record_technician_feedback?: (dtc: string, resolved: boolean, notes?: string) => Promise<Record<string, any>>;
+        ) => Promise<Record<string, unknown>>;
+        get_dialogue_state?: () => Promise<Record<string, unknown>>;
+        record_technician_feedback?: (dtc: string, resolved: boolean, notes?: string) => Promise<Record<string, unknown>>;
         export_session_report?: () => Promise<{ success: boolean; path?: string; report_length?: number; error?: string }>;
         // T2-7: read-only vendored data licence / attribution surface.
         get_data_attributions?: () => Promise<DataAttributionsPayload>;
@@ -564,14 +534,16 @@ declare global {
         window_close?: () => void;
       };
     };
-    onNewCanFrame?: (frame: CANFrame) => void;
-    onNewCanFrames?: (batch: CANFrame[]) => void;
-    onTelemetryTick?: (point: TelemetryPoint) => void;
+    // Python push channels; frameBus.ts normalises every frame (never trusts the shape).
+    onNewCanFrame?: (frame: unknown) => void;
+    onNewCanFrames?: (batch: unknown[]) => void;
+    onTelemetryTick?: (point: unknown) => void;
     onStatsTick?: (stats: { totalPackets: number; busLoad: number; errorCount: number; frameRate: number }) => void;
     onCloudUploadProgress?: (progress: CloudUploadProgress) => void;
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class -- static facade over window.pywebview.api (callers use DesktopBridge.x())
 export class DesktopBridge {
   public static isNative(): boolean {
     return typeof window !== 'undefined' && !!window.pywebview;
@@ -584,7 +556,7 @@ export class DesktopBridge {
    * enterprise licenses, and cloud sessions.
    */
   private static requireNativeOrDev(): void {
-    const isProd = typeof import.meta !== 'undefined' && !!(import.meta as any).env?.PROD;
+    const isProd = typeof import.meta !== 'undefined' && !!(import.meta as { env?: { PROD?: boolean } }).env?.PROD;
     if (isProd && !this.isNative()) {
       throw new Error(
         'Native bridge missing in production build: pywebview API is required. ' +
@@ -602,10 +574,14 @@ export class DesktopBridge {
    * verifies the concrete method; a native shell WITHOUT the capability
    * is a hard failure in production, never a silent mock.
    */
+  // The pywebview IPC is untyped at this boundary: each public wrapper below
+  // states the result type the Python method returns.
+  /* eslint-disable @typescript-eslint/no-explicit-any */
   private static apiMethod(name: string): ((...args: any[]) => Promise<any>) | null {
-    const method = (window as any)?.pywebview?.api?.[name];
+    const method = (window.pywebview?.api as Record<string, unknown> | undefined)?.[name];
     return typeof method === 'function' ? (method as (...args: any[]) => Promise<any>) : null;
   }
+  /* eslint-enable @typescript-eslint/no-explicit-any */
 
   private static hasNativeMethod(name: string): boolean {
     return this.isNative() && this.apiMethod(name) !== null;
@@ -630,37 +606,9 @@ export class DesktopBridge {
     this.requireNativeOrDev();
   }
 
-  public static async toggleSimulator(): Promise<boolean | null> {
-    if (this.isNative() && window.pywebview?.api?.toggle_simulator) {
-      return await window.pywebview.api.toggle_simulator();
-    }
-    this.requireCapability('toggle_simulator', 'toggle Simulator');
-    this.requireNativeOrDev();
-    return null;
-  }
-
-  public static async selectScenario(scenario: string): Promise<void> {
-    if (this.isNative() && window.pywebview?.api?.select_scenario) {
-      await window.pywebview.api.select_scenario(scenario);
-      return;
-    }
-    this.requireCapability('select_scenario', 'select Scenario');
-    this.requireNativeOrDev();
-  }
-
-  public static async askCopilot(query: string): Promise<string | null> {
-    if (this.isNative() && window.pywebview?.api?.ask_copilot) {
-      return await window.pywebview.api.ask_copilot(query);
-    }
-    // Dev-only fallback: no fabricated copilot answer in production.
-    this.requireCapability('ask_copilot', 'ask Copilot');
-    this.requireNativeOrDev();
-    return null;
-  }
-
   public static async requestDiagnosticChallenge(
-    action: Record<string, any>
-  ): Promise<{ success: boolean; token?: string; error?: string; execution_mode?: 'mock' | 'simulated' | 'native'; [key: string]: any }> {
+    action: Record<string, unknown>
+  ): Promise<{ success: boolean; token?: string; error?: string; execution_mode?: 'mock' | 'simulated' | 'native'; [key: string]: unknown }> {
     const m = this.apiMethod('request_diagnostic_challenge');
     if (this.isNative() && m) {
       const res = await m(action);
@@ -672,10 +620,10 @@ export class DesktopBridge {
   }
 
   public static async executeDiagnosticAction(
-    action: Record<string, any>,
+    action: Record<string, unknown>,
     confirmationTokenOrUserConfirmed?: string | boolean,
     userConfirmed: boolean = false
-  ): Promise<{ success: boolean; message?: string; error?: string; execution_mode?: 'mock' | 'simulated' | 'native'; [key: string]: any }> {
+  ): Promise<{ success: boolean; message?: string; error?: string; execution_mode?: 'mock' | 'simulated' | 'native'; [key: string]: unknown }> {
     let token: string | undefined = undefined;
     let confirmed = userConfirmed;
 
@@ -724,9 +672,9 @@ export class DesktopBridge {
   // ECU Flashing Bridge Methods
   // ------------------------------------------------------------------
   public static async flashStart(
-    config: Record<string, any>,
+    config: Record<string, unknown>,
     confirmationToken?: string
-  ): Promise<{ success: boolean; message?: string; error?: string; execution_mode?: 'mock' | 'simulated' | 'native'; [key: string]: any }> {
+  ): Promise<{ success: boolean; message?: string; error?: string; execution_mode?: 'mock' | 'simulated' | 'native'; [key: string]: unknown }> {
     const m = this.apiMethod('flash_start');
     if (this.isNative() && m) {
       const res = await m(config, confirmationToken);
@@ -737,7 +685,7 @@ export class DesktopBridge {
     return { success: false, error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
   }
 
-  public static async flashProgress(): Promise<Record<string, any>> {
+  public static async flashProgress(): Promise<Record<string, unknown>> {
     const m = this.apiMethod('flash_progress');
     if (this.isNative() && m) {
       const res = await m();
@@ -759,100 +707,6 @@ export class DesktopBridge {
     return { success: false, error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
   }
 
-  // ------------------------------------------------------------------
-  // Signal Discovery Bridge Methods
-  // ------------------------------------------------------------------
-  public static async discoveryGetSummary(): Promise<Record<string, any> | null> {
-    const m = this.apiMethod('discovery_get_summary');
-    if (this.isNative() && m) {
-      return await m();
-    }
-    this.requireCapability('discovery_get_summary', 'discovery Get Summary');
-    this.requireNativeOrDev();
-    return null;
-  }
-
-  public static async discoveryAnalyzeId(arbId: number): Promise<Record<string, any> | null> {
-    const m = this.apiMethod('discovery_analyze_id');
-    if (this.isNative() && m) {
-      return await m(arbId);
-    }
-    this.requireCapability('discovery_analyze_id', 'discovery Analyze Id');
-    this.requireNativeOrDev();
-    return null;
-  }
-
-  public static async discoveryExportDbc(approvedOnly: boolean = false): Promise<{ success: boolean; dbc?: string; error?: string; execution_mode?: 'mock' | 'simulated' | 'native' }> {
-    const m = this.apiMethod('discovery_export_dbc');
-    if (this.isNative() && m) {
-      const res = await m(approvedOnly);
-      return { ...res, execution_mode: 'native' };
-    }
-    this.requireCapability('discovery_export_dbc', 'discovery Export Dbc');
-    this.requireNativeOrDev();
-    return { success: false, error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
-  }
-
-  public static async discoveryClear(): Promise<{ success: boolean; error?: string; execution_mode?: 'mock' | 'simulated' | 'native' }> {
-    const m = this.apiMethod('discovery_clear');
-    if (this.isNative() && m) {
-      const res = await m();
-      return { ...res, execution_mode: 'native' };
-    }
-    this.requireCapability('discovery_clear', 'discovery Clear');
-    this.requireNativeOrDev();
-    return { success: false, error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
-  }
-
-  // ------------------------------------------------------------------
-  // OEM Decoders Bridge Methods
-  // ------------------------------------------------------------------
-  public static async oemListDecoders(): Promise<string[]> {
-    const m = this.apiMethod('oem_list_decoders');
-    if (this.isNative() && m) {
-      return await m();
-    }
-    this.requireCapability('oem_list_decoders', 'oem List Decoders');
-    this.requireNativeOrDev();
-    return [];
-  }
-
-  // ------------------------------------------------------------------
-  // Replay Trace Bridge Methods
-  // ------------------------------------------------------------------
-  public static async replayLoad(filePath: string): Promise<{ success: boolean; frame_count?: number; error?: string; execution_mode?: 'mock' | 'simulated' | 'native' }> {
-    const m = this.apiMethod('replay_load');
-    if (this.isNative() && m) {
-      const res = await m(filePath);
-      return { ...res, execution_mode: 'native' };
-    }
-    this.requireCapability('replay_load', 'replay Load');
-    this.requireNativeOrDev();
-    return { success: false, error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
-  }
-
-  public static async replayStart(speed: number = 1.0, loop: boolean = false): Promise<{ success: boolean; error?: string; execution_mode?: 'mock' | 'simulated' | 'native' }> {
-    const m = this.apiMethod('replay_start');
-    if (this.isNative() && m) {
-      const res = await m(speed, loop);
-      return { ...res, execution_mode: 'native' };
-    }
-    this.requireCapability('replay_start', 'replay Start');
-    this.requireNativeOrDev();
-    return { success: false, error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
-  }
-
-  public static async replayStop(): Promise<{ success: boolean; error?: string; execution_mode?: 'mock' | 'simulated' | 'native' }> {
-    const m = this.apiMethod('replay_stop');
-    if (this.isNative() && m) {
-      const res = await m();
-      return { ...res, execution_mode: 'native' };
-    }
-    this.requireCapability('replay_stop', 'replay Stop');
-    this.requireNativeOrDev();
-    return { success: false, error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
-  }
-
   public static async exportLogs(format: string): Promise<{ success: boolean; error?: string; execution_mode?: 'mock' | 'simulated' | 'native' }> {
     const m = this.apiMethod('export_logs');
     if (this.isNative() && m) {
@@ -862,16 +716,6 @@ export class DesktopBridge {
     this.requireCapability('export_logs', 'logs export');
     this.requireNativeOrDev();
     return { success: false, error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
-  }
-
-  public static async getBusTrafficStatus(): Promise<Record<string, any> | null> {
-    if (this.isNative() && window.pywebview?.api?.get_bus_traffic_status) {
-      return await window.pywebview.api.get_bus_traffic_status();
-    }
-    // Browser / Dev fallback
-    this.requireCapability('get_bus_traffic_status', 'get Bus Traffic Status');
-    this.requireNativeOrDev();
-    return null;
   }
 
   /** Supervisor state (STARTUP/SAFE/PASSIVE/ARMED_TX/ACTIVE/FAULT); null outside the native shell. */
@@ -1028,23 +872,6 @@ export class DesktopBridge {
     return null;
   }
 
-  public static async injectFault(faultType: string): Promise<void> {
-    if (this.isNative() && window.pywebview?.api?.inject_fault) {
-      await window.pywebview.api.inject_fault(faultType);
-      return;
-    }
-    // REVIEW3 #4: fault injection is a simulator-native operation — no
-    // silent no-op in production.
-    this.requireCapability('inject_fault', 'inject Fault');
-    this.requireNativeOrDev();
-  }
-
-  public static async setSimulationSpeed(speed: number): Promise<void> {
-    if (this.isNative() && window.pywebview?.api?.set_simulation_speed) {
-      await window.pywebview.api.set_simulation_speed(speed);
-    }
-  }
-
   public static async estopRequestChallenge(): Promise<{ success: boolean; epoch?: number; nonce?: string; timestampMonotonicNs?: number; maxAgeMs?: number; action?: string; error?: string; execution_mode?: 'mock' | 'simulated' | 'native' }> {
     const m = this.apiMethod('estop_request_challenge');
     if (this.isNative() && m) {
@@ -1075,66 +902,6 @@ export class DesktopBridge {
   // exclusively the challenge/response flow: estopRequestChallenge() →
   // (out-of-band authorization) → estopSubmitResetToken().
 
-  public static async updateSettings(settings: Record<string, any>): Promise<void> {
-    if (this.isNative() && window.pywebview?.api?.save_settings) {
-      await window.pywebview.api.save_settings(settings);
-    }
-  }
-
-  // ------------------------------------------------------------------
-  // Cloud SaaS & License Operations
-  // ------------------------------------------------------------------
-  public static async cloudTestConnection(url?: string, sessionToken?: string): Promise<{ success: boolean; status?: number; user?: any; error?: string; execution_mode?: 'mock' | 'simulated' | 'native' }> {
-    const m = this.apiMethod('cloud_test_connection');
-    if (this.isNative() && m) {
-      const res = await m(url, sessionToken);
-      return { ...res, execution_mode: 'native' };
-    }
-    this.requireCapability('cloud_test_connection', 'cloud connectivity test');
-    this.requireNativeOrDev();
-    return { success: false, error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
-  }
-
-  public static async cloudSaveConfig(url: string, sessionToken?: string): Promise<{ success: boolean; error?: string; execution_mode?: 'mock' | 'simulated' | 'native' }> {
-    const m = this.apiMethod('cloud_save_config');
-    if (this.isNative() && m) {
-      const res = await m(url, sessionToken);
-      return { ...res, execution_mode: 'native' };
-    }
-    this.requireCapability('cloud_save_config', 'cloud config save');
-    this.requireNativeOrDev();
-    return { success: false, error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
-  }
-
-  public static async cloudGetStatus(): Promise<CloudStatus> {
-    const m = this.apiMethod('cloud_get_status');
-    if (this.isNative() && m) {
-      return await m();
-    }
-    this.requireCapability('cloud_get_status', 'cloud Get Status');
-    this.requireNativeOrDev();
-    return {
-      success: false,
-      baseUrl: 'http://127.0.0.1:8000',
-      hasSessionToken: false,
-      hasDeviceToken: false,
-      hwid: 'LOCAL-DEV-HWID-2026',
-      license: null,
-      error: 'NATIVE_BRIDGE_MISSING',
-    };
-  }
-
-  public static async cloudRegisterDevice(deviceName?: string): Promise<{ success: boolean; deviceId?: string; resetsRemaining?: number; error?: string; execution_mode?: 'mock' | 'simulated' | 'native' }> {
-    const m = this.apiMethod('cloud_register_device');
-    if (this.isNative() && m) {
-      const res = await m(deviceName);
-      return { ...res, execution_mode: 'native' };
-    }
-    this.requireCapability('cloud_register_device', 'cloud register device');
-    this.requireNativeOrDev();
-    return { success: false, error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
-  }
-
   public static async cloudStartWebLogin(): Promise<{ success: boolean; login_url?: string; port?: number; error?: string; execution_mode?: 'mock' | 'simulated' | 'native' }> {
     const m = this.apiMethod('cloud_start_web_login');
     if (this.isNative() && m) {
@@ -1146,7 +913,7 @@ export class DesktopBridge {
     return { success: false, error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
   }
 
-  public static async cloudCheckWebLoginStatus(): Promise<{ success: boolean; status: 'idle' | 'pending' | 'completed' | 'error' | 'cancelled'; user?: any; subscription?: any; error?: string; login?: AuthLoginOutcome | null; execution_mode?: 'mock' | 'simulated' | 'native' }> {
+  public static async cloudCheckWebLoginStatus(): Promise<{ success: boolean; status: 'idle' | 'pending' | 'completed' | 'error' | 'cancelled'; user?: unknown; subscription?: unknown; error?: string; login?: AuthLoginOutcome | null; execution_mode?: 'mock' | 'simulated' | 'native' }> {
     const m = this.apiMethod('cloud_check_web_login_status');
     if (this.isNative() && m) {
       const res = await m();
@@ -1350,54 +1117,7 @@ export class DesktopBridge {
     return { success: false, execution_mode: 'mock' };
   }
 
-  public static async cloudLogout(): Promise<{ success: boolean; error?: string; execution_mode?: 'mock' | 'simulated' | 'native' }> {
-    const m = this.apiMethod('cloud_logout');
-    if (this.isNative() && m) {
-      const res = await m();
-      return { ...res, execution_mode: 'native' };
-    }
-    this.requireCapability('cloud_logout', 'cloud logout');
-    this.requireNativeOrDev();
-    return { success: false, error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
-  }
-
-  public static async cloudUploadSession(filePath: string, vehicleVin?: string): Promise<{ success: boolean; sessionId?: string; status?: string; error?: string; execution_mode?: 'mock' | 'simulated' | 'native' }> {
-    const m = this.apiMethod('cloud_upload_session');
-    if (this.isNative() && m) {
-      const res = await m(filePath, vehicleVin);
-      return { ...res, execution_mode: 'native' };
-    }
-    this.requireCapability('cloud_upload_session', 'telemetry upload');
-    this.requireNativeOrDev();
-    return { success: false, error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
-  }
-
-  public static async cloudUploadRawContent(filename: string, content: string, vehicleVin?: string): Promise<{ success: boolean; sessionId?: string; status?: string; error?: string; execution_mode?: 'mock' | 'simulated' | 'native' }> {
-    const m = this.apiMethod('cloud_upload_raw_content');
-    if (this.isNative() && m) {
-      const res = await m(filename, content, vehicleVin);
-      return { ...res, execution_mode: 'native' };
-    }
-    this.requireCapability('cloud_upload_raw_content', 'raw content upload');
-    this.requireNativeOrDev();
-    return { success: false, error: 'NATIVE_BRIDGE_MISSING', execution_mode: 'mock' };
-  }
-
-  // ------------------------------------------------------------------
-  // Diagnostic session (FAZ 1..6). Analysis logic lives ONLY in Python
-  // (Bulgu 3 — diagnosticEngine.ts stays a display fallback); these
-  // wrappers consume bridge payloads.
-  // ------------------------------------------------------------------
-  public static async getSessionEvidenceSummary(): Promise<Record<string, any> | null> {
-    if (this.isNative() && window.pywebview?.api?.get_session_evidence_summary) {
-      return await window.pywebview.api.get_session_evidence_summary();
-    }
-    this.requireCapability('get_session_evidence_summary', 'get Session Evidence Summary');
-    this.requireNativeOrDev();
-    return null;
-  }
-
-  public static async getDiagnosticAnalysis(): Promise<Record<string, any> | null> {
+  public static async getDiagnosticAnalysis(): Promise<Record<string, unknown> | null> {
     if (this.isNative() && window.pywebview?.api?.get_diagnostic_analysis) {
       return await window.pywebview.api.get_diagnostic_analysis();
     }
@@ -1406,32 +1126,13 @@ export class DesktopBridge {
     return null;
   }
 
-  public static async resetDiagnosticSession(): Promise<Record<string, any> | null> {
-    if (this.isNative() && window.pywebview?.api?.reset_diagnostic_session) {
-      return await window.pywebview.api.reset_diagnostic_session();
-    }
-    this.requireCapability('reset_diagnostic_session', 'reset Diagnostic Session');
-    this.requireNativeOrDev();
-    return null;
-  }
-
-  public static async recordOperatorMeasurement(name: string, value: number): Promise<{ success: boolean; recorded?: string; error?: string; execution_mode?: 'mock' | 'simulated' | 'native' }> {
-    if (this.isNative() && window.pywebview?.api?.record_operator_measurement) {
-      const res = await window.pywebview.api.record_operator_measurement(name, value);
-      return { ...res, execution_mode: 'native' };
-    }
-    this.requireCapability('record_operator_measurement', 'record Operator Measurement');
-    this.requireNativeOrDev();
-    return { success: false, error: 'native bridge unavailable', execution_mode: 'mock' };
-  }
-
   public static async recordOperatorAnswer(
     questionId: string,
-    value: any,
+    value: unknown,
     kind: string = 'yes_no',
     unit?: string | null,
     isUnknown: boolean = false,
-  ): Promise<{ success: boolean; [key: string]: any; execution_mode?: 'mock' | 'simulated' | 'native' }> {
+  ): Promise<{ success: boolean; [key: string]: unknown; execution_mode?: 'mock' | 'simulated' | 'native' }> {
     if (this.isNative() && window.pywebview?.api?.record_operator_answer) {
       const res = await window.pywebview.api.record_operator_answer(questionId, value, kind, unit, isUnknown);
       return { success: res?.success !== false, ...res, execution_mode: 'native' };
@@ -1441,7 +1142,7 @@ export class DesktopBridge {
     return { success: false, error: 'native bridge unavailable', execution_mode: 'mock' };
   }
 
-  public static async getDialogueState(): Promise<{ success: boolean; [key: string]: any; execution_mode?: 'mock' | 'simulated' | 'native' }> {
+  public static async getDialogueState(): Promise<{ success: boolean; [key: string]: unknown; execution_mode?: 'mock' | 'simulated' | 'native' }> {
     if (this.isNative() && window.pywebview?.api?.get_dialogue_state) {
       const res = await window.pywebview.api.get_dialogue_state();
       return { success: res?.success !== false, ...res, execution_mode: 'native' };
@@ -1451,21 +1152,11 @@ export class DesktopBridge {
     return { success: false, error: 'native bridge unavailable', execution_mode: 'mock' };
   }
 
-  public static async getDiagnosticKpiMetrics(): Promise<{ success: boolean; metrics?: Record<string, any>; error?: string; execution_mode?: 'mock' | 'simulated' | 'native' }> {
-    if (this.isNative() && window.pywebview?.api?.get_diagnostic_kpi_metrics) {
-      const res = await window.pywebview.api.get_diagnostic_kpi_metrics();
-      return { success: res?.success !== false, ...res, execution_mode: 'native' };
-    }
-    this.requireCapability('get_diagnostic_kpi_metrics', 'get Diagnostic Kpi Metrics');
-    this.requireNativeOrDev();
-    return { success: false, error: 'native bridge unavailable', execution_mode: 'mock' };
-  }
-
   public static async recordTechnicianFeedback(
     dtc: string,
     resolved: boolean,
     notes: string = '',
-  ): Promise<{ success: boolean; [key: string]: any; execution_mode?: 'mock' | 'simulated' | 'native' }> {
+  ): Promise<{ success: boolean; [key: string]: unknown; execution_mode?: 'mock' | 'simulated' | 'native' }> {
     if (this.isNative() && window.pywebview?.api?.record_technician_feedback) {
       const res = await window.pywebview.api.record_technician_feedback(dtc, resolved, notes);
       return { success: res?.success !== false, ...res, execution_mode: 'native' };

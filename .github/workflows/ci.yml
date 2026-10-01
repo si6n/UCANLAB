@@ -322,22 +322,14 @@ jobs:
       # F6-3 (REVIEW Aşama 6): the job only ran `npm ci` + `npm run build`,
       # so a type error, a lint violation or a vulnerable dependency could
       # ship unnoticed. These gates run the strict typecheck and lint
-      # scripts declared in package.json.
-      #
-      # NON-BLOCKING ON PURPOSE, and this is the TODO the earlier comment
-      # promised but did not carry: `npm run lint` reports 151 pre-existing
-      # violations (measured 2026-09-26 — no-non-null-assertion,
-      # no-explicit-any and friends) that arrived with the audit-phase-6
-      # frontend rewrite. Making the step blocking today would turn the whole
-      # pipeline red on arrival and hide the real regressions. Remove the
-      # `continue-on-error` line once the lint baseline is clean.
+      # scripts declared in package.json. Lint is blocking (`--max-warnings 0`)
+      # since the old frontend and its 151-violation baseline were removed (B8).
       - name: Frontend typecheck
         working-directory: src/ui/frontend
         run: npm run typecheck
 
       - name: Frontend lint
         working-directory: src/ui/frontend
-        continue-on-error: true
         run: npm run lint
 
       - name: Frontend dependency audit

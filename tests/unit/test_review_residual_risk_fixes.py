@@ -649,31 +649,21 @@ def test_mat_exporter_uses_atomic_producer_path() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_d4_settings_view_awaits_backend_before_persisting() -> None:
-    """D4: localStorage must not be written before the backend confirms."""
-    src = (
-        REPO_ROOT / "src" / "ui" / "frontend" / "src" / "components" / "settings" / "SettingsView.tsx"
-    ).read_text(encoding="utf-8")
-    handle = src.index("const handleSave")
-    body = src[handle : handle + 1600]
-    assert "await DesktopBridge.cloudSaveConfig" in body, "save is not awaited"
-    assert body.index("await DesktopBridge.cloudSaveConfig") < body.index(
-        "localStorage.setItem"
-    ), "localStorage written before the backend confirmed"
+def test_d4_frontend_has_no_optimistic_cloud_config_save() -> None:
+    """D4: the old settings screens wrote localStorage before the backend confirmed.
 
-
-def test_d4_settings_modal_awaits_backend_before_persisting() -> None:
-    src = (
-        REPO_ROOT / "src" / "ui" / "frontend" / "src" / "components" / "modals" / "SettingsModal.tsx"
-    ).read_text(encoding="utf-8")
-    handle = src.index("const handleSave")
-    body = src[handle : handle + 2000]
-    assert "await DesktopBridge.cloudSaveConfig" in body, "save is not awaited"
-    assert body.index("await DesktopBridge.cloudSaveConfig") < body.index(
-        "localStorage.setItem"
-    ), "localStorage written before the backend confirmed"
-    # A rejection must surface an error rather than closing as saved.
-    assert "setActionFeedback" in body, "rejected save does not surface an error"
+    B8 removed both screens (settings/SettingsView.tsx, modals/SettingsModal.tsx);
+    the rebuilt workbench has no cloud server / session-token editor at all, so
+    no frontend source may call ``cloudSaveConfig`` (re-adding one must come
+    with its own awaited-save test).
+    """
+    src = REPO_ROOT / "src" / "ui" / "frontend" / "src"
+    callers = [
+        p.relative_to(REPO_ROOT).as_posix()
+        for p in src.rglob("*.tsx")
+        if "cloudSaveConfig(" in p.read_text(encoding="utf-8")
+    ]
+    assert callers == []
 
 
 def test_d4_backend_rejects_non_allowlisted_host() -> None:
