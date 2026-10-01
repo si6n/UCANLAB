@@ -7,7 +7,7 @@ name = "universal-can-bus-platform"
 version = "13.0.0"
 description = "Universal CAN-Bus Diagnostic & Telemetry Tool"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"  # CI tests 3.12 and 3.13 only
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -23,7 +23,7 @@ markers = [
 
 [tool.ruff]
 line-length = 120
-target-version = "py311"
+target-version = "py312"
 exclude = [
     ".git",
     ".agents",

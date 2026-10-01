@@ -54,6 +54,6 @@ Bu kart, AI ajanlarının projeye yeni bir bileşen eklerken veya var olan kodu 
    - `src/protocols/j1939/`: J1939-21 Transport (BAM / RTS-CTS), J1939-73 Diagnostic (DM1..DM11), J1939-81 Address Claim ve OEM dekoderleri (`cummins`, `cat`, `scania`, `volvo`, `detroit`, `actros`).
 
 ## 2. Kodlama & Tasarım Kuralları (AI Prompt Guidelines)
-- **Tip Güvenliği:** Python 3.11+ `typing` zorunludur (`Optional`, `Union`, `Callable`, `Protocol`, `dataclass(frozen=True)`).
+- **Tip Güvenliği:** Python 3.12+ `typing` zorunludur (mypy strict CI'da koşar) (`Optional`, `Union`, `Callable`, `Protocol`, `dataclass(frozen=True)`).
 - **Asla Doğrudan HAL Çağrısı Yapmayın:** Protokol veya UI katmanları doğrudan `hal.send()` yapamaz. Her zaman `TxPort` (yani `TxSafetyGateway`) üzerinden geçmelidir.
 - **Monotonic Clock:** Zaman hesaplamalarında daima `time.monotonic()` veya enjekte edilen `ClockProvider` kullanılmalıdır (`time.time()` kullanılmaz).

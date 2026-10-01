@@ -41,8 +41,9 @@ via CLI options or settings.
 
 ## Key Features
 
-- **Real-time telemetry** — 60 FPS live cockpit with CAN sniffer table and
-  signal oscilloscope; microsecond-timestamped frame capture.
+- **Real-time telemetry** — live traffic table and signal plot (the backend
+  ingest loop runs at 20 Hz, the live-traffic view refreshes every 250 ms);
+  nanosecond-timestamped frame capture.
 - **Protocol suite** — J1939 (BAM, RTS/CTS, DM1–DM11, address claiming),
   UDS client with full flashing sequence (0x10–0x37, seed-key), NMEA 2000
   fast packet, and Volvo Penta EDC/EVC decoding.
@@ -109,8 +110,9 @@ python scripts/build_nuitka.py    # Nuitka C-level compiled build
 ## Testing & Quality
 
 ```bash
-pytest -v                         # full suite (3,500+ test functions)
+pytest -v                         # full suite (4,600+ tests)
 ruff check .                      # lint / static analysis
+mypy src && mypy --platform win32 src   # strict type check (CI gate)
 ```
 
 All modules — safety state machines, transport protocols, crypto licensing,
