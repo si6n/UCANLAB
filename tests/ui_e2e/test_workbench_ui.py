@@ -218,3 +218,26 @@ def test_plot_empty_state_points_to_discovery(wb: Any) -> None:
     page.wait_for_selector("[data-testid=plot-empty]")
     page.click("[data-testid=plot-empty] button")
     assert page.text_content("[data-testid=page-title]") == "Sinyal keşfi"
+
+
+def test_discovery_from_live_traffic_to_dbc(wb: Any) -> None:
+    page, app = wb
+    page.select_option("[data-testid=sim-type]", "truck")
+    page.click("[data-testid=start-simulator]")
+    page.wait_for_selector("[data-testid='id-row-0x0CF00400']", timeout=20000)
+    page.wait_for_timeout(1500)
+    page.click("[data-testid='id-row-0x0CF00400']")
+    page.click("[data-testid=send-to-discovery]")
+    assert page.text_content("[data-testid=page-title]") == "Sinyal keşfi"
+    page.wait_for_selector("[data-testid=hypotheses]", timeout=20000)
+    assert page.get_attribute("[data-testid='stream-0x0CF00400']", "aria-pressed") == "true"
+    page.click("[data-testid=save-dbc]")  # nothing approved yet
+    page.wait_for_selector("[data-testid=save-dbc-result]")
+    assert "onaylayın" in page.text_content("[data-testid=save-dbc-result]")
+    page.locator("[data-testid^=approve-]").first.click()
+    page.wait_for_selector("text=Onaylandı")
+    page.click("[data-testid=save-dbc]")
+    page.wait_for_function(
+        "() => document.querySelector('[data-testid=save-dbc-result]')?.textContent.includes('_SIMULATOR.dbc')", timeout=10000
+    )
+    assert app.discovery_save_dbc(True)["signals"] >= 1

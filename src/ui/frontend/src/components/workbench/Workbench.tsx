@@ -17,15 +17,13 @@ import {
   X,
 } from 'lucide-react';
 import { BusInfoResult, DesktopBridge } from '../../services/bridge';
-import { CANFrame } from '../../types/can';
 import { L } from '../mechanic/text';
 import { useMechanicMode } from '../mechanic/MechanicFlow';
 import { useUiHeartbeat } from '../mechanic/useUiHeartbeat';
-import { SignalDiscoveryView } from '../discovery/SignalDiscoveryView';
 import { EcuFlashingView } from '../ecu/EcuFlashingView';
 import { PinoutGuideView } from '../pinout/PinoutGuideView';
 import { SettingsView } from '../settings/SettingsView';
-import { BusFrame } from './frameBus';
+import { DiscoveryView, discoveryKeyFromTrafficKey } from './DiscoveryView';
 import { LiveTraffic, SOURCE_LABEL } from './LiveTraffic';
 import { PlotView } from './PlotView';
 import { RecordsView } from './RecordsView';
@@ -66,7 +64,6 @@ const GROUPS: Array<{ label: () => string; items: ModuleDef[] }> = [
         icon: Waypoints,
         title: () => L('Sinyal keşfi', 'Signal discovery'),
         hint: () => L('Bilinmeyen sinyalleri çöz', 'Decode unknown signals'),
-        legacy: true,
       },
     ],
   },
@@ -152,24 +149,6 @@ function safetyView(state: string | null): SafetyView {
   }
 }
 
-function toLegacyFrame(f: BusFrame): CANFrame {
-  const dataHex = Array.from(f.data, (b) => b.toString(16).toUpperCase().padStart(2, '0'));
-  return {
-    id: `wb-${f.seq}`,
-    timeSec: f.t,
-    timeFormatted: `${f.t.toFixed(4)}s`,
-    channel: f.channel,
-    canIdHex: f.idText,
-    canIdDec: f.arb,
-    frameType: f.fd ? 'FD' : f.extended ? 'Ext' : 'Std',
-    dir: 'RX',
-    dlc: f.dlc,
-    dataHex,
-    ascii: Array.from(f.data, (b) => (b >= 32 && b <= 126 ? String.fromCharCode(b) : '.')).join(''),
-    isCanFd: f.fd,
-  };
-}
-
 const NavItem: React.FC<{ def: ModuleDef; active: boolean; onClick: () => void }> = ({ def, active, onClick }) => {
   const Icon = def.icon;
   return (
@@ -196,6 +175,7 @@ export const Workbench: React.FC = () => {
   const mechanic = useMechanicMode();
   const native = DesktopBridge.isNative();
   const [active, setActive] = useState<ModuleId>('traffic');
+  const [discoveryKey, setDiscoveryKey] = useState<string | null>(null);
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     try {
       return localStorage.getItem('ucanlab.theme') === 'light' ? 'light' : 'dark';
@@ -300,7 +280,6 @@ export const Workbench: React.FC = () => {
     );
   }, [snap.total, snap.perSecond, liveSources, hasSim, native, busInfo]);
 
-  const legacyFrames = useMemo(() => (active === 'discovery' ? snap.recent.map(toLegacyFrame) : []), [active, snap.recent]);
 
   let body: React.ReactNode;
   switch (active) {
@@ -317,7 +296,10 @@ export const Workbench: React.FC = () => {
           onStartSimulator={(t) => void startSimulator(t)}
           onStopSimulator={() => void stopSimulator()}
           onOpenSettings={() => setActive('settings')}
-          onDiscover={() => setActive('discovery')}
+          onDiscover={(trafficKey) => {
+            setDiscoveryKey(discoveryKeyFromTrafficKey(trafficKey));
+            setActive('discovery');
+          }}
         />
       );
       break;
@@ -325,7 +307,7 @@ export const Workbench: React.FC = () => {
       body = <PlotView onOpenDiscovery={() => setActive('discovery')} />;
       break;
     case 'discovery':
-      body = <SignalDiscoveryView latestFrame={legacyFrames[0] ?? null} frames={legacyFrames} />;
+      body = <DiscoveryView initialKey={discoveryKey} />;
       break;
     case 'ecu':
       body = <EcuFlashingView />;

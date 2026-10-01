@@ -56,7 +56,7 @@ const Bytes: React.FC<{ data: Uint8Array; changedAt?: number[]; now: number }> =
   </span>
 );
 
-const IdInspector: React.FC<{ row: IdStats; onClose: () => void; onDiscover: (arb: number) => void }> = ({ row, onClose, onDiscover }) => {
+const IdInspector: React.FC<{ row: IdStats; onClose: () => void; onDiscover: (trafficKey: string) => void }> = ({ row, onClose, onDiscover }) => {
   const maxFlips = Math.max(1, ...row.bitFlips);
   return (
     <Card className="flex w-[340px] flex-none flex-col overflow-hidden" testId="id-inspector">
@@ -121,7 +121,7 @@ const IdInspector: React.FC<{ row: IdStats; onClose: () => void; onDiscover: (ar
         </div>
       </div>
       <div className="border-t border-border-whisper p-3">
-        <button type="button" className={cx(BTN_GHOST, 'w-full')} onClick={() => onDiscover(row.arb)} data-testid="send-to-discovery">
+        <button type="button" className={cx(BTN_GHOST, 'w-full')} onClick={() => onDiscover(row.key)} data-testid="send-to-discovery">
           {L('Bu kimliği sinyal keşfinde incele', 'Analyse this id in Signal discovery')}
           <ArrowRight className="h-4 w-4" />
         </button>
@@ -141,7 +141,7 @@ export const LiveTraffic: React.FC<{
   onStartSimulator: (vehicleType: string) => void;
   onStopSimulator: () => void;
   onOpenSettings: () => void;
-  onDiscover: (arb: number) => void;
+  onDiscover: (trafficKey: string) => void;
 }> = ({ snap, onPause, onClear, busLabel, simulatorRunning, canStartSimulator, simError, onStartSimulator, onStopSimulator, onOpenSettings, onDiscover }) => {
   const [view, setView] = useState<View>('ids');
   const [simType, setSimType] = useState('car');

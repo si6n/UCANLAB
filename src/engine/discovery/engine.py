@@ -54,6 +54,11 @@ class SignalDiscoveryEngine:
         self._reports_cache: dict[tuple[str, bool, int], IdReport] = {}
         self._total_frames = 0
         self._lock = threading.RLock()
+        # Operator approvals outlive the report cache: every new frame drops
+        # the cached report and the next analysis builds fresh Hypothesis
+        # objects, so an approval stored only on the object was lost as soon
+        # as live traffic arrived (and approved-only DBC export came out empty).
+        self._approved: set[tuple[tuple[str, bool, int], int, int]] = set()
 
     def clear(self) -> None:
         """Clear all ingested frames and cached reports."""
@@ -61,6 +66,7 @@ class SignalDiscoveryEngine:
             self._frames_by_id.clear()
             self._reports_cache.clear()
             self._total_frames = 0
+            self._approved.clear()
 
     @staticmethod
     def _bucket_key(frame: CanFrame) -> tuple[str, bool, int]:
@@ -262,6 +268,10 @@ class SignalDiscoveryEngine:
 
         # Combine all hypotheses
         all_hypotheses = counter_hypotheses + checksum_hypotheses + signal_hypotheses
+        with self._lock:
+            for h in all_hypotheses:
+                if (key, h.start_bit, h.length) in self._approved:
+                    h.status = "approved"
 
         report = IdReport(
             arbitration_id=arb_id,
@@ -320,11 +330,33 @@ class SignalDiscoveryEngine:
     ) -> bool:
         """Approve a specific hypothesis for DBC export."""
         report = self.analyze_id(arb_id, channel_id=channel_id, is_extended=is_extended)
+        return self.set_approval((report.channel_id, report.is_extended, report.arbitration_id), start_bit, length, True)
+
+    def set_approval(self, key: tuple[str, bool, int], start_bit: int, length: int, approved: bool) -> bool:
+        """Approve (or withdraw) one hypothesis of a stream; survives re-analysis.
+
+        Returns False when the stream's current analysis has no hypothesis
+        with that bit range (nothing is approved blindly).
+        """
+        report = self.analyze_key(key)
+        found = False
         for hyp in report.hypotheses:
             if hyp.start_bit == start_bit and hyp.length == length:
-                hyp.status = "approved"
-                return True
-        return False
+                hyp.status = "approved" if approved else "candidate"
+                found = True
+        if not found:
+            return False
+        with self._lock:
+            if approved:
+                self._approved.add((key, start_bit, length))
+            else:
+                self._approved.discard((key, start_bit, length))
+        return True
+
+    def key_sources(self, key: tuple[str, bool, int]) -> set[str]:
+        """Frame provenance of one stream (``physical``, ``synthetic``, ``replay`` ...)."""
+        with self._lock:
+            return {getattr(f, "source", "physical") for f in self._frames_by_id.get(key, ())}
 
     def generate_evidence_markdown(
         self,
