@@ -40,12 +40,23 @@ def _vep1(volts: float) -> bytes:
     return bytes([0xFF, 0xFF, 0xFF, 0xFF, raw & 0xFF, raw >> 8, 0xFF, 0xFF])
 
 
+def _dm1_single(spn: int, fmi: int, *, amber: bool = True) -> bytes:
+    """DM1 with one DTC (lamp byte: amber warning lamp on), occurrence count 1."""
+    lamps = 0x04 if amber else 0x00
+    return bytes([lamps, 0xFF, spn & 0xFF, (spn >> 8) & 0xFF, ((spn >> 16) & 0x07) << 5 | (fmi & 0x1F), 0x01,
+                  0xFF, 0xFF])
+
+
+# Simulated truck/machine fault: DPF differential pressure high (SPN 3251 FMI 0).
+SIMULATED_DM1 = _dm1_single(3251, 0)
+
 _TRUCK = (
     _Tx(_j1939_id(61444, 0x00, 3), bytes([0xF0, 0x7D, 0x82, 0xC0, 0x12, 0x00, 0xF0, 0x82])),  # EEC1 ~600 rpm
     _Tx(_j1939_id(61442, 0x03, 3), bytes([0xC0, 0x00, 0x00, 0xFF, 0xF0, 0xFF, 0xFF, 0xFF])),  # ETC1
     _Tx(_j1939_id(65265, 0x00), bytes([0xF0, 0x00, 0x00, 0xC0, 0x00, 0x00, 0x00, 0xFF])),  # CCVS stationary
     _Tx(_j1939_id(65262, 0x00), bytes([0x7D, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF])),  # ET1 85 °C
     _Tx(_j1939_id(61441, 0x0B, 3), bytes([0xFF] * 8)),  # EBC1 brakes
+    _Tx(_j1939_id(65226, 0x00), SIMULATED_DM1),  # DM1 active codes
 )
 _BOAT = (
     _Tx(_j1939_id(127488, 0x10, 2), bytes([0x00, 0x70, 0x17, 0xFF, 0xFF, 0x7F, 0xFF, 0xFF])),  # engine rapid
@@ -58,7 +69,7 @@ _CAR = (
     _Tx(0x3E9, bytes([0x5A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]), False),
 )
 
-_NATIVE = {"car": 500_000, "truck": 250_000, "boat": 250_000, "construction": 250_000}
+NATIVE_BITRATE = {"car": 500_000, "truck": 250_000, "boat": 250_000, "construction": 250_000}
 
 
 class SimulatedVehicleBus(AbstractBus):
@@ -92,7 +103,7 @@ class SimulatedVehicleBus(AbstractBus):
 
     @property
     def native_bitrate(self) -> int:
-        return _NATIVE.get(self.vehicle_type, 250_000)
+        return NATIVE_BITRATE.get(self.vehicle_type, 250_000)
 
     def connect(self) -> None:
         self.is_connected = True

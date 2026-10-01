@@ -20,6 +20,7 @@ import {
   VehicleTypeInfo,
 } from '../../services/bridge';
 import { ConnectWizard } from './ConnectWizard';
+import { ScanFlow } from './ScanFlow';
 import { BTN_SECONDARY, L, messageOf, pick } from './text';
 
 /**
@@ -31,7 +32,7 @@ import { BTN_SECONDARY, L, messageOf, pick } from './text';
  * Engineer mode goes straight to the existing expert screens.
  */
 
-type Phase = 'checking' | 'mode' | 'type' | 'vehicle' | 'plug' | 'app';
+type Phase = 'checking' | 'mode' | 'type' | 'vehicle' | 'plug' | 'scan' | 'app';
 
 interface MechanicModeApi {
   mode: MechanicMode | null;
@@ -330,7 +331,20 @@ export const MechanicFlow: React.FC<{ children: React.ReactNode }> = ({ children
         profiles={profiles}
         onChangeVehicle={changeVehicle}
         onSwitchVehicle={(id) => void selectVehicle(id)}
-        onDone={() => setPhase('app')}
+        onDone={() => setPhase('scan')}
+      />
+    );
+  }
+
+  if (phase === 'scan' && vehicle && vtype) {
+    screen = (
+      <ScanFlow
+        key={vehicle.id}
+        vehicle={vehicle}
+        vtype={vtype}
+        entitlements={entitlements}
+        onChangeVehicle={changeVehicle}
+        onExpert={entitlements?.engineer ? () => setPhase('app') : null}
       />
     );
   }

@@ -236,5 +236,10 @@ def test_b04_boot_listen_only_and_arm_disarm_enforced() -> None:
 
     src = inspect.getsource(da.UniversalCanDesktopApp.__init__)
     assert "listen_only=True" in src or "listen-only" in src.lower()
-    assert "_set_driver_listen_only(False)" in inspect.getsource(da.UniversalCanDesktopApp.arm_tx)
+    # Aşama 6: arm_tx and the read-only OBD session share one arm core; both
+    # must reach the driver transition through it.
+    arm_src = inspect.getsource(da.UniversalCanDesktopApp.arm_tx)
+    assert "_arm_driver_and_supervisor(" in arm_src
+    assert "_arm_driver_and_supervisor(" in inspect.getsource(da.UniversalCanDesktopApp.open_read_only_session)
+    assert "_set_driver_listen_only(False)" in inspect.getsource(da.UniversalCanDesktopApp._arm_driver_and_supervisor)
     assert "_set_driver_listen_only(True)" in inspect.getsource(da.UniversalCanDesktopApp.disarm_tx)

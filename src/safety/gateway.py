@@ -52,6 +52,7 @@ from src.safety.exceptions import (
     WhitelistFailClosedError,
     WhitelistViolationError,
 )
+from src.safety.read_only_policy import ReadOnlyPolicy
 
 if TYPE_CHECKING:
     from src.hal.base import AbstractBus
@@ -386,6 +387,9 @@ class TxSafetyGateway:
         )
         self._tx_executor_shutdown = False
         self._current_abort_hook: "Callable[[], None] | None" = None
+        # Aşama 6 (MECHANIC_FLOW §7.2): while a consented read-only OBD
+        # session is open, every frame must pass this narrow policy.
+        self._read_only_policy: ReadOnlyPolicy | None = None
 
         # Wire E-stop callback to halt bus TX and trigger fault state
         self.estop.register_callback(self._on_estop_triggered)
@@ -903,9 +907,33 @@ class TxSafetyGateway:
             self._whitelist_last_miss_ns = 0
 
     def _on_safety_state_changed(self, old_state: object, new_state: object, reason: str) -> None:
-        if getattr(new_state, "value", str(new_state)) == "FAULT":
+        state = getattr(new_state, "value", str(new_state))
+        if state == "FAULT":
             with self._lock:
                 self._tx_timestamps.clear()
+        if state in ("PASSIVE", "SAFE", "FAULT", "STARTUP"):
+            # TX authority is gone: a read-only session never outlives it, so
+            # a later (full) arm can never inherit or be confused with it.
+            with self._lock:
+                self._read_only_policy = None
+
+    # ------------------------------------------------------------------
+    # Read-only session (Aşama 6)
+    # ------------------------------------------------------------------
+
+    @property
+    def read_only_policy(self) -> ReadOnlyPolicy | None:
+        return self._read_only_policy
+
+    def install_read_only_policy(self, policy: ReadOnlyPolicy) -> None:
+        """Restrict TX to read-only OBD requests. Install BEFORE arming."""
+        with self._lock:
+            self._read_only_policy = policy
+        logger.info("Read-only OBD session policy installed", extra={"reason": policy.reason})
+
+    def clear_read_only_policy(self) -> None:
+        with self._lock:
+            self._read_only_policy = None
 
     def notify_bus_off(self, reason: str = "CAN controller BUS_OFF latched by HAL") -> bool:
         """Report a HAL-latched BUS_OFF (Kontrol #23).
@@ -1408,6 +1436,26 @@ class TxSafetyGateway:
                     "Transmission blocked: Emergency Stop is currently ENGAGED",
                     code="ESTOP_ACTIVE",
                 )
+
+            # -----------------------------------------------------------------
+            # Stage 2b: Read-only session policy (Aşama 6, MECHANIC_FLOW §7.2)
+            # -----------------------------------------------------------------
+            # A consented read session narrows TX to read-only OBD requests.
+            # A critical frame is refused even when its bytes would match.
+            read_only = self._read_only_policy
+            if read_only is not None:
+                violation = read_only.violation(frame, now_ns)
+                if violation is not None or is_critical_command:
+                    logger.error(
+                        "Frame refused by read-only session policy",
+                        extra={"arbitration_id": hex(frame.arbitration_id),
+                               "violation": violation or "CRITICAL_COMMAND"},
+                    )
+                    raise SafetyError(
+                        "Transmission blocked: only read-only OBD requests are allowed in this session",
+                        code="READ_ONLY_VIOLATION",
+                        details={"violation": violation or "CRITICAL_COMMAND"},
+                    )
 
             # -----------------------------------------------------------------
             # Stage 3: Whitelist Authorization (Fail-Closed)

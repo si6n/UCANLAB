@@ -55,6 +55,21 @@
 | W5-11 | Başarılı testten sonra Uzman ekranında veri yolu durumu. | Seçilen adaptör + bulunan hız, durum **PASSIVE**, TX kilitli. | ☐ |
 | W5-12 | PCAN donanım dinleme onayı (`PCAN_LISTEN_ONLY` okuması) desteklenmeyen eski bir PCAN'da test. | Log'da "hardware listen-only could not be independently verified" uyarısı; test yine yalnız dinler. | ☐ |
 
+## Aşama 6 — Tarama, okuma izni, sonuç (Windows + gerçek araç)
+
+| # | Adım | Beklenen | Durum |
+|---|---|---|---|
+| W6-1 | OBD-II otomobilde (MIL yanık) "Okumaya izin ver" → işletim sistemi onayı → tarama. | Kayıtlı/bekleyen kodlar sonuçta görünür; kodlar başka bir teşhis cihazıyla karşılaştırılır. | ☐ |
+| W6-2 | Aynı araçta bus analizörü ile trafiği kaydet. | Adaptörden yalnız `0x7E0/0x7E1` Mode 03/07/0A tek çerçeveleri ve fiziksel adrese `0x30` akış kontrolü çıkar; **Mode 04 veya başka servis yok**. | ☐ |
+| W6-3 | Onay penceresinde "Hayır". | "Okuma onaylanmadı" mesajı; araca hiçbir çerçeve gitmez (analizörle doğrula). | ☐ |
+| W6-4 | Tarama bitince Uzman ekranında güvenlik durumu. | PASSIVE; sürücü dinleme modunda; TX kilitli. | ☐ |
+| W6-5 | Okuma sırasında uygulama penceresini simge durumuna küçült. | Watchdog süresi dolar, okuma "güvenlik nedeniyle gönderilemedi" ile biter; TX kapanır. | ☐ |
+| W6-6 | Araç hareket ederken (J1939 CCVS hız > 0) kamyonda okuma yok; otomobilde hız bilinmiyorsa okuma izni. | Hareket halinde oturum açılmaz (`VEHICLE_MOVING`). | ☐ |
+| W6-7 | Kamyonda aktif arıza (DM1) varken dinleme taraması. | Kod(lar) sonuçta, aciliyet ve adımlar görünür; aynı kod bir kez sayılır. | ☐ |
+| W6-8 | Birden fazla ECU'su olan otomobil (motor + şanzıman). | İki ünitenin kodları ayrı ayrı "Teknik detay"da görünür. Yanıt vermeyen ünite için eksik veri satırı. | ☐ |
+| W6-9 | Müşteri raporu kaydet → tarayıcıda aç → yazdır. | Tek sayfa, Türkçe karakterler doğru, son satır "son karar ustanındır". | ☐ |
+| W6-10 | `dtc_clear` yetkili lisansla kod sil (motor kapalı). | Mevcut onay jetonu akışı; sonuç mesajı; yeniden taramada kodlar yok (arıza giderildiyse). | ☐ |
+
 ## Sonraki aşamalar
 
-Aşama 6 ve Aşama 7 (uçtan uca) maddeleri ilgili aşamalarda bu dosyaya eklenecek.
+Aşama 7 (uçtan uca) maddeleri ilgili aşamalarda bu dosyaya eklenecek.

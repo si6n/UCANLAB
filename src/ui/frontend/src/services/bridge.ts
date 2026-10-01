@@ -181,6 +181,40 @@ export interface ConnectionTestStatus {
   error_code?: string;
 }
 
+export interface MechanicScanResult {
+  safety_tr: string[];
+  headline_tr: string;
+  summary_tr: string;
+  risk_level: 'RED' | 'YELLOW' | 'GREEN' | 'GRAY';
+  urgency_tr: string;
+  urgency_en: string;
+  advice_tr: string;
+  causes: { text_tr: string; why_tr: string; source_tr: string }[];
+  steps: { n: string; action_tr: string; component_tr: string; difficulty_tr: string }[];
+  missing_tr: string[];
+  technical: {
+    codes: { code: string; kind: string; ecu_tr: string; title_tr: string; severity: string; known: boolean }[];
+    severity?: string | null;
+    subsystems: string[];
+    confidence_tr: string;
+    source_notes: string[];
+  };
+  sources_tr: string[];
+  glossary: { term: string; meaning_tr: string }[];
+  simulator: boolean;
+  vehicle_label: string;
+}
+
+export interface ScanStatus {
+  success: boolean;
+  state?: 'idle' | 'running' | 'done';
+  step?: 'listening' | 'reading' | 'analyzing' | 'done' | 'cancelled' | 'failed';
+  progress?: number;
+  result?: MechanicScanResult | null;
+  report_text?: string | null;
+  error_code?: string;
+}
+
 export interface DeviceLoginStart {
   success: boolean;
   user_code?: string;
@@ -340,6 +374,10 @@ declare global {
         connection_test_start?: (adapterId: string, scenario?: string | null) => Promise<{ success: boolean; test_id?: string; error_code?: string }>;
         connection_test_status?: () => Promise<ConnectionTestStatus>;
         connection_test_cancel?: () => Promise<{ success: boolean }>;
+        scan_start?: (allowRead?: boolean) => Promise<{ success: boolean; scan_id?: string; reading?: boolean; error_code?: string }>;
+        scan_status?: () => Promise<ScanStatus>;
+        scan_cancel?: () => Promise<{ success: boolean }>;
+        scan_save_report?: (workshop?: string) => Promise<{ success: boolean; path?: string; text?: string; error_code?: string }>;
         cloud_cancel_web_login?: () => Promise<{ success: boolean }>;
         cloud_logout?: () => Promise<{ success: boolean; error?: string }>;
         cloud_upload_session?: (filePath: string, vehicleVin?: string) => Promise<{ success: boolean; sessionId?: string; status?: string; error?: string }>;
@@ -938,6 +976,44 @@ export class DesktopBridge {
     if (this.isNative() && m) {
       await m();
     }
+  }
+
+  /** Mechanic scan (Aşama 6). Reading a car needs the OS confirmation dialog too. */
+  public static async scanStart(allowRead: boolean): Promise<{ success: boolean; scan_id?: string; reading?: boolean; error_code?: string }> {
+    const m = this.apiMethod('scan_start');
+    if (this.isNative() && m) {
+      return await m(allowRead);
+    }
+    this.requireCapability('scan_start', 'scan');
+    this.requireNativeOrDev();
+    return { success: false, error_code: 'NATIVE_BRIDGE_MISSING' };
+  }
+
+  public static async scanStatus(): Promise<ScanStatus> {
+    const m = this.apiMethod('scan_status');
+    if (this.isNative() && m) {
+      return await m();
+    }
+    this.requireCapability('scan_status', 'scan status');
+    this.requireNativeOrDev();
+    return { success: false, error_code: 'NATIVE_BRIDGE_MISSING' };
+  }
+
+  public static async scanCancel(): Promise<void> {
+    const m = this.apiMethod('scan_cancel');
+    if (this.isNative() && m) {
+      await m();
+    }
+  }
+
+  public static async scanSaveReport(workshop: string): Promise<{ success: boolean; path?: string; text?: string; error_code?: string }> {
+    const m = this.apiMethod('scan_save_report');
+    if (this.isNative() && m) {
+      return await m(workshop);
+    }
+    this.requireCapability('scan_save_report', 'customer report');
+    this.requireNativeOrDev();
+    return { success: false, error_code: 'NATIVE_BRIDGE_MISSING' };
   }
 
   public static async cloudCancelWebLogin(): Promise<{ success: boolean; execution_mode?: 'mock' | 'simulated' | 'native' }> {
