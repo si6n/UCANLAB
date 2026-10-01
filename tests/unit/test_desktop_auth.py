@@ -497,6 +497,69 @@ def test_refresh_online_noop_without_session(client, authorizer) -> None:
     assert authorizer.refresh_online() is None
 
 
+def _signed_in(cloud, client, authorizer) -> str:
+    cloud.state.licenses.append(FakeLicense("lic_dev_1"))
+    assert authorizer.complete_login(cloud.state.new_browser_session()).status == "ready"
+    return _ticket(client)
+
+
+def test_device_refresh_works_without_a_session(cloud, client, authorizer) -> None:
+    """S10: an expired browser session no longer forces a sign-in every week."""
+    first = _signed_in(cloud, client, authorizer)
+    client.clear_session_token()
+    time.sleep(1.1)
+    refreshed = authorizer.refresh_online()
+    assert refreshed is not None and refreshed.status == "ready"
+    assert _ticket(client) != first
+    assert ("POST", "/api/v1/licenses/refresh") in cloud.state.requests
+    assert ("POST", "/api/v1/licenses/activate") not in cloud.state.requests[-1:]
+
+
+def test_stored_license_ref_is_read_without_time_checks(cloud, client, authorizer) -> None:
+    # The lookup key must stay readable after offline_until has passed, so the
+    # ref is decoded from the stored ticket without the grace-window check.
+    _signed_in(cloud, client, authorizer)
+    assert authorizer._stored_license_ref() == "lic_dev_1"
+    client.store_license_ticket("not-a-ticket")
+    assert authorizer._stored_license_ref() is None
+    client.clear_license_ticket()
+    assert authorizer._stored_license_ref() is None
+
+
+@pytest.mark.parametrize(
+    ("reason", "code"),
+    [("LICENSE_REVOKED", "LICENSE_REVOKED"), ("SEAT_NOT_HELD", "LICENSE_REVOKED"),
+     ("ORGANIZATION_INACTIVE", "ORGANIZATION_INACTIVE")],
+)
+def test_definitive_refusal_drops_the_ticket(cloud, client, authorizer, reason, code) -> None:
+    _signed_in(cloud, client, authorizer)
+    client.clear_session_token()
+    cloud.state.refresh_reject = reason
+    outcome = authorizer.refresh_online()
+    assert outcome is not None and outcome.status == "error" and outcome.error_code == code
+    assert client.get_license_ticket() is None
+    tr, _en = da.user_message(code)
+    assert "ucanlab.org" in tr
+
+
+def test_device_rejection_keeps_ticket_and_falls_back_to_session(cloud, client, authorizer) -> None:
+    first = _signed_in(cloud, client, authorizer)
+    cloud.state.refresh_reject = "DEVICE_REJECTED"  # e.g. hardware fingerprint changed
+    time.sleep(1.1)
+    outcome = authorizer.refresh_online()  # session still valid -> re-activation path
+    assert outcome is not None and outcome.status == "ready" and _ticket(client) != first
+    client.clear_session_token()
+    assert authorizer.refresh_online() is None  # no session: keep the ticket, no error
+    assert client.get_license_ticket() is not None
+
+
+def test_device_refresh_offline_keeps_ticket(cloud, client, authorizer) -> None:
+    _signed_in(cloud, client, authorizer)
+    client.set_base_url("http://127.0.0.1:9")
+    assert authorizer.refresh_online() is None
+    assert client.get_license_ticket() is not None
+
+
 def test_user_message_fallbacks() -> None:
     assert da.user_message("CLOCK_SOMETHING_NEW") == da.user_message("CLOCK_ROLLBACK_DETECTED")
     assert da.user_message("TOTALLY_UNKNOWN") == da.user_message("LICENSE_INVALID")
@@ -713,12 +776,36 @@ def test_launcher_main_signs_in_then_reruns_gate(monkeypatch, sign_in_ok: bool, 
     outcome = SimpleNamespace(status="ready" if sign_in_ok else "error",
                               as_dict=lambda: {"license": {"offline_days_left": 7}, "message_tr": "Giriş tamamlanamadı."})
     fake.auth_manager.sign_in = lambda **kw: outcome
+    fake.auth_manager.refresh_silently = lambda: None  # nothing to renew silently
     monkeypatch.setattr(app_mod, "UniversalCanLauncher", lambda *a, **kw: fake)
     monkeypatch.setattr(app_mod.sys, "argv", ["launcher"])
     monkeypatch.setattr(app_mod.sys, "stdin", SimpleNamespace(isatty=lambda: True))
 
     assert app_mod.main() == expected_rc
     assert bool(launched) is sign_in_ok  # the core is reached only through a passing gate
+
+
+def test_launcher_renews_silently_before_opening_the_browser(monkeypatch) -> None:
+    from src.launcher import app as app_mod
+
+    reports = [_report(False, False), _report(True, True)]
+    launched: list[object] = []
+    browser: list[object] = []
+    fake = SimpleNamespace(
+        version="13.0.0",
+        run_preflight=lambda: reports.pop(0),
+        launch_main_app=lambda extra_args=None: launched.append(extra_args) or 0,
+        auth_manager=SimpleNamespace(
+            refresh_silently=lambda: SimpleNamespace(status="ready"),
+            sign_in=lambda **kw: browser.append(kw),
+        ),
+    )
+    monkeypatch.setattr(app_mod, "UniversalCanLauncher", lambda *a, **kw: fake)
+    monkeypatch.setattr(app_mod.sys, "argv", ["launcher"])
+    monkeypatch.setattr(app_mod.sys, "stdin", SimpleNamespace(isatty=lambda: False))  # even non-interactive
+
+    assert app_mod.main() == 0
+    assert launched and browser == []
 
 
 # ---------------------------------------------------------------------------

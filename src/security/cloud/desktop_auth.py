@@ -35,6 +35,7 @@ import base64
 import datetime as _dt
 import enum
 import hashlib
+import json
 import re
 import secrets
 import time
@@ -517,6 +518,24 @@ _MESSAGES: dict[str, tuple[str, str]] = {
         "Lisans doğrulanamadı. Yeniden giriş yapın.",
         "The license could not be verified. Please sign in again.",
     ),
+    "LICENSE_REVOKED": (
+        "Lisansınız iptal edilmiş ya da başka bir bilgisayara taşınmış. ucanlab.org'dan kontrol edip yeniden giriş yapın.",
+        "Your license was revoked or moved to another computer. Check on ucanlab.org and sign in again.",
+    ),
+    "ORGANIZATION_INACTIVE": (
+        "Atölye hesabınız etkin değil. ucanlab.org'dan hesabınızı kontrol edin.",
+        "Your workshop account is not active. Check your account on ucanlab.org.",
+    ),
+}
+
+# Device refresh refusals that mean "this seat is gone": the stored ticket is
+# dropped at once instead of running out its offline window (S10).
+_DEFINITIVE_REFRESH_REFUSALS: dict[str, str] = {
+    "LICENSE_REVOKED": "LICENSE_REVOKED",
+    "SEAT_NOT_HELD": "LICENSE_REVOKED",
+    "LICENSE_NOT_FOUND": "LICENSE_REVOKED",
+    "LICENSE_EXPIRED": "LICENSE_EXPIRED",
+    "ORGANIZATION_INACTIVE": "ORGANIZATION_INACTIVE",
 }
 
 
@@ -629,18 +648,57 @@ class DesktopAuthorizer:
             return LoginOutcome(status="error", state=license_state_from_error(code), error_code=code)
 
     def refresh_online(self) -> LoginOutcome | None:
-        """Re-activate the stored license to roll the offline window forward.
+        """Roll the offline window forward while online.
 
-        Returns None when there is nothing to refresh or the cloud is not
-        reachable: the stored ticket then keeps working until offline_until.
+        First with the device credential (``/licenses/refresh``, no user
+        session needed — S10), then, if that is not possible and a session
+        exists, by re-activating. Returns None when there is nothing to
+        refresh or the cloud is not reachable: the stored ticket then keeps
+        working until offline_until. A definitive refusal (revoked, moved,
+        expired, organisation disabled) drops the stored ticket at once.
         """
-        if not self.client.has_session_token() or not self.client.get_device_token():
+        if not self.client.get_device_token():
+            return None
+        license_ref = self._stored_license_ref()
+        if license_ref is not None:
+            try:
+                claims = self.flow.refresh_license(license_ref, self._hwid_provider())
+                return LoginOutcome(status="ready", state=license_state_from_claims(claims, self._clock()))
+            except LicenseError as exc:
+                reason = str((exc.details or {}).get("reason", ""))
+                mapped = _DEFINITIVE_REFRESH_REFUSALS.get(reason) if exc.code == "REFRESH_REJECTED" else None
+                if mapped is not None:
+                    logger.warning("Cloud refused the license refresh; ticket dropped", extra={"reason": reason})
+                    self.client.clear_license_ticket()
+                    return LoginOutcome(status="error", state=license_state_from_error(mapped), error_code=mapped)
+                logger.info("Device license refresh not possible", extra={"error_code": exc.code, "reason": reason})
+            except PlatformError as exc:
+                logger.info("Online license refresh skipped", extra={"error_code": exc.code})
+                return None
+        if not self.client.has_session_token():
             return None
         try:
             return self._activate(allow_reregister=False)
         except PlatformError as exc:
             logger.info("Online license refresh skipped", extra={"error_code": exc.code})
             return None
+
+    def _stored_license_ref(self) -> str | None:
+        """license_id of the stored ticket, read even after its offline window ended.
+
+        Only used as the lookup key for /licenses/refresh; the cloud checks
+        everything and the new ticket is verified before it is stored.
+        """
+        ticket = self.client.get_license_ticket()
+        if not ticket:
+            return None
+        try:
+            body = ticket.strip().split(".")[0]
+            data = json.loads(base64.urlsafe_b64decode(body + "=" * (-len(body) % 4)))
+        except Exception:  # noqa: BLE001 — unreadable ticket: no device refresh
+            return None
+        ref = data.get("license_id") if isinstance(data, dict) else None
+        return ref if isinstance(ref, str) and 4 <= len(ref) <= 64 else None
 
     def _activate(self, *, allow_reregister: bool) -> LoginOutcome:
         if not self.client.get_device_token():

@@ -449,6 +449,43 @@ class LicenseFlow:
         return claims
 
     # ------------------------------------------------------------------
+    # POST /api/v1/licenses/refresh  (device credential, no user session)
+    # ------------------------------------------------------------------
+    def refresh_license(self, license_ref: str, hwid: str) -> CloudLicenseClaims:
+        """Roll the offline window of the seat this device already holds (S10).
+
+        Raises LicenseError(code="REFRESH_REJECTED", details={"reason": ...})
+        when the cloud refuses: the reason is the server's stable code.
+        """
+        device_token = self.client.get_device_token()
+        if not device_token:
+            raise LicenseError("No device token on record", code="NO_DEVICE_TOKEN")
+        sent_nonce = pysecrets.token_hex(16)
+        resp = self.client.request(
+            "POST",
+            "/licenses/refresh",
+            json_body={"device_token": device_token, "hwid": hwid, "license_ref": license_ref, "nonce": sent_nonce},
+        )
+        if resp.status == 403:
+            reason = ""
+            try:
+                body = resp.json_object()
+                reason = str((body.get("error") or {}).get("message") or body.get("detail") or "")
+            except Exception:  # noqa: BLE001 — a refusal without a readable body is still a refusal
+                reason = ""
+            raise LicenseError("License refresh refused by the cloud", code="REFRESH_REJECTED",
+                               details={"reason": reason[:40]})
+        if resp.status != 200:
+            raise LicenseError(f"License refresh failed (HTTP {resp.status})", code="REFRESH_FAILED")
+        data = resp.json_object()
+        claims = self.verify_cloud_ticket(data["license_token"])
+        if claims.nonce != sent_nonce:
+            raise LicenseError("Cloud license anti-replay nonce mismatch", code="NONCE_MISMATCH")
+        self.client.store_license_ticket(data["license_token"])
+        logger.info("Cloud license refreshed with the device credential", extra={"license_id": claims.license_id})
+        return claims
+
+    # ------------------------------------------------------------------
     # Local verification of the Ed25519 ticket (trust anchor: embedded key)
     # ------------------------------------------------------------------
     def verify_cloud_ticket(

@@ -25,6 +25,9 @@
 | W3-15 | Aynı hesapta tek lisans varken ikinci bilgisayarda giriş. | "Lisansınız başka bir bilgisayarda kullanılıyor…" veya "boş lisans yok" mesajı; ilk bilgisayarın lisansı etkilenmez. | ☐ |
 | W3-16 | Hesap rolü "Görüntüleyici" iken giriş. | "Hesap rolünüz cihaz eklemeye izin vermiyor…" mesajı. | ☐ |
 | W3-17 | 47820-47822 portlarından birini başka bir programla meşgul et, girişi dene. | Bir sonraki boş porta geçer; üçü de doluysa doğrudan cihaz koduna düşer. | ☐ |
+| W3-18 | Giriş yaptıktan 2 gün sonra (tarayıcı oturumu bitmiş) internete bağlıyken launcher'ı aç. | Tarayıcı açılmaz; konsolda "Lisans internet üzerinden yenilendi." ve çevrimdışı süre yeniden 7 gün. |
+| W3-19 | ucanlab.org'da lisansı iptal et (ya da koltuğu başka cihaza taşı), sonra bu bilgisayarda launcher'ı internetteyken aç. | "Lisansınız iptal edilmiş ya da başka bir bilgisayara taşınmış…" mesajı; uygulama açılmaz (bilet silinmiş). |
+| W3-20 | 10 gün internetsiz kaldıktan sonra (çevrimdışı süre dolmuş) internete bağlanıp aç. | Tarayıcı açılmadan lisans yenilenir ve uygulama açılır. |
 
 ## Aşama 4 — Mod ve araç seçimi (Windows + gerçek araç)
 

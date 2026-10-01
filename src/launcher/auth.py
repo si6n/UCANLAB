@@ -228,6 +228,19 @@ class LauncherAuthManager:
         claims = self.flow.activate_license(license_key.strip())
         return claims
 
+    def refresh_silently(self) -> LoginOutcome | None:
+        """Renew the stored license with the device credential, no browser (S10).
+
+        None when there is nothing to renew or the cloud is unreachable; an
+        outcome otherwise ("ready", or a definitive refusal with a message).
+        """
+        authorizer = DesktopAuthorizer(self.client, self.flow, hwid_provider=lambda: self.hwid)
+        try:
+            return authorizer.refresh_online()
+        except PlatformError as exc:
+            logger.info("Silent license refresh skipped", extra={"error_code": exc.code})
+            return None
+
     def sign_in(
         self,
         *,

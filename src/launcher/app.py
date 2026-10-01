@@ -832,6 +832,13 @@ def main() -> int:
 
     report = launcher.run_preflight()
     interactive = bool(getattr(sys.stdin, "isatty", lambda: False)())
+    if not report.auth_status.has_valid_license and not args.check_only:
+        # S10: renew the seat this device already holds with the device
+        # credential first — no browser, works without a user session.
+        quiet = launcher.auth_manager.refresh_silently()
+        if quiet is not None and quiet.status == "ready":
+            print("Lisans internet üzerinden yenilendi.")
+            report = launcher.run_preflight()
     if not report.auth_status.has_valid_license and not args.check_only and not args.no_sign_in and interactive:
         # Mechanic flow (Aşama 3): no license on this machine → sign in on the
         # web and activate automatically, THEN re-run the gate. The core binary
