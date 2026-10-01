@@ -2543,6 +2543,16 @@ class UniversalCanDesktopApp:
             logger.warning("Failed to open diagnostic session", extra={"error": str(exc)})
             self._diag_session = None
 
+    def _evidence_is_simulated(self) -> bool:
+        """True while what the decoders see is not a real vehicle (Bulgu 7).
+
+        Covers both the old DEMO generator and the workbench's simulated
+        vehicle bus: its frames run through the live decode path (so the
+        screens show them), but they must never become diagnostic evidence,
+        a DM1 event or a line in the technician report.
+        """
+        return bool(self._is_simulating) or isinstance(self.bus, SimulatedVehicleBus)
+
     def _record_signal_sample(self, name: str, raw: int, physical: float, unit: str, confidence: float = 1.0) -> None:
         """Append one SignalSample under the session lock (FAZ 1, hook 2).
 
@@ -2555,7 +2565,7 @@ class UniversalCanDesktopApp:
         can never be mistaken for authoritative telemetry downstream.
         """
         session = self._diag_session
-        if session is None or self._is_simulating:
+        if session is None or self._evidence_is_simulated():
             return
         try:
             sample = SignalSample(
@@ -2598,7 +2608,7 @@ class UniversalCanDesktopApp:
         unknown-urgency fault must stay visible, never vanish.
         """
         session = self._diag_session
-        if session is None or self._is_simulating or not dtcs:
+        if session is None or self._evidence_is_simulated() or not dtcs:
             return
         events = dm1_to_events(dtcs, time.monotonic_ns())
         with self._session_lock:
