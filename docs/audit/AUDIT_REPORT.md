@@ -29,11 +29,11 @@ worktree. CI ile aynı iki zamanlama testi coverage altında hariç tutuldu.
 
 | Ölçüm | Önce (`main`) | Sonra (bu dal) |
 |---|---|---|
-| pytest geçen | 4599 | AFTER_PASSED |
-| pytest kalan | 1 (`test_h1_escape_hatch_is_refused_in_a_frozen_build`, bkz. AUD-13) | AFTER_FAILED |
-| pytest atlanan (skip) | 27 (hepsi platform/bağımlılık/veri koşullu, bkz. §5) | AFTER_SKIPPED |
+| pytest geçen | 4599 | 4621 (+22 yeni regresyon testi) |
+| pytest kalan | 1 (`test_h1_escape_hatch_is_refused_in_a_frozen_build`, bkz. AUD-13) | 0 |
+| pytest atlanan (skip) | 27 (hepsi platform/bağımlılık/veri koşullu, bkz. §5) | 27 (aynı testler) |
 | xfail / xpass | 0 / 0 | 0 / 0 |
-| Satır kapsamı (`--cov=src`) | %84 | AFTER_COV |
+| Satır kapsamı (`--cov=src`) | %84 | %84 (4577/29086 satır kapsanmıyor; önce 4663/28992) |
 | ruff | temiz | temiz |
 | mypy strict (`src/`) | 190 hata / 40 dosya, CI'da yok | 0 hata (Linux ve `--platform win32`), CI'da engelleyici |
 | bandit `-ll` | 0 | 0 |
@@ -43,6 +43,8 @@ worktree. CI ile aynı iki zamanlama testi coverage altında hariç tutuldu.
 | gitleaks HEAD (repo yapılandırması ve varsayılan kurallar) | temiz | temiz |
 | gitleaks geçmiş (allowlist'siz) | 4 eski bulgu, izinli listede (B-10) | aynı |
 | Veri bütünlüğü (`scripts/data_integrity_audit.py`) | FAIL 0, WARN 1, INFO 1 | aynı |
+
+Coverage dışı zamanlama testleri (CI'nin ayrı adımı) bu dalda da geçti: 2/2.
 
 Flaky test gözlemi: `TestCopilotSession::test_analysis_latency_under_50ms` coverage altında
 313 ms ölçtü (limit 50 ms). CI bu testi bilerek coverage'sız ayrı adımda koşuyor, flaky sayılmadı.
