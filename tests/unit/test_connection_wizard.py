@@ -352,3 +352,18 @@ def test_bridge_scan_and_simulator_test(tmp_path: Path, monkeypatch: pytest.Monk
     status = bridge.connection_test_status()
     assert status["state"] == "done" and status["result"]["code"] == "EXPECTED_MISSING"
     assert bridge.connection_test_cancel() == {"success": True}
+
+
+def test_shorted_line_goes_bus_off_within_a_few_polls() -> None:
+    """A shorted CAN line drives the error counter past bus-off almost at once.
+
+    It must not depend on how many recv() polls fit in the listen window:
+    Windows sleeps in ~15.6 ms steps, so a 0.2 s window allows only ~13 polls
+    and a 33-poll threshold read the short as "wrong bitrate" (CI, PR #34).
+    """
+    bus = SimulatedVehicleBus("truck", 250000, "bus_short", sleep=False)
+    bus.connect()
+    for _ in range(3):
+        assert bus.recv(timeout_s=0.0) is None
+    metrics = bus.get_metrics()
+    assert metrics.state == BusState.BUS_OFF and metrics.error_frames > 32
