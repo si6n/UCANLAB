@@ -446,7 +446,7 @@ jobs:
           npm --prefix src/ui/frontend ls --all > dist/SBOM-frontend.txt
 
       - name: Attest build provenance
-        uses: actions/attest-build-provenance@ef244556ac8c15512d109b906c0da8e8460107b # v2.2.3
+        uses: actions/attest-build-provenance@c074443f1aee8d4aeeae555aebba3282517141b2 # v2.2.3 (40-char SHA from `git ls-remote`; the previous 39-char pin did not resolve)
         with:
           subject-path: 'dist/*'
 
