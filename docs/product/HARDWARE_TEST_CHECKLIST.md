@@ -102,6 +102,8 @@
 | W8-12 | Gerçek araçla kaydedilen DBC'nin adı. | `_SIMULATOR` eki yok. | ☐ |
 | W8-13 | Bas-bırak deneyi: kamyonda gaz pedalı 3 tur (her aşama ~3 sn). | İlk sıralarda EEC2 (0x0CF003xx) bayt 1; devir baytları dolaylı etki olarak. Adaptörden hiç çerçeve yok. | ☐ |
 | W8-14 | Binek araçta fren pedalı veya sinyal kolu. | Üreticiye özel kimlikteki bit/bayt üst sıralarda. | ☐ |
+| W8-15 | Teşhis asistanı: aktif DM1 kodlu kamyon, 2 dk dinleme. | Kart gerçek kodu gösterir; "Simülasyon sonucu" bandı yok; hat yükü ≈ analizör değerine yakın (bit doldurma hariç). | ☐ |
+| W8-16 | Asistan açıkken hiçbir düğmeye basmadan bus analizörü. | Adaptörden hiç çerçeve yok. | ☐ |
 
 ## Doğrulama özeti (neyin nerede doğrulandığı)
 

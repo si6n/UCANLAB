@@ -2468,6 +2468,10 @@ class UniversalCanDesktopApp:
         # receives this container — evidence production stays here in the UI
         # host (plan §Mimari Kural). Sim path never appends (Bulgu 7).
         self._diag_session: VehicleSession | None = None
+        # Workbench simulator evidence lives in its OWN session: the assistant
+        # can analyse the simulated vehicle (result marked as simulation), and
+        # nothing of it can reach the real session or the technician report.
+        self._sim_diag_session: VehicleSession | None = None
         self._dialogue_session: Any | None = None
         self._session_lock = threading.Lock()
         # Per-signal bounded evidence ring (O(1) append, RX hot-path safe).
@@ -2497,8 +2501,14 @@ class UniversalCanDesktopApp:
         self._total_packets = 0
         self._bus_load = 0
         self._error_count = 0
+        # Active DM1 DTC count. Kept apart from _error_count (error frames):
+        # the two used to share one counter, so a single fault code read as
+        # "1 error frame" on the bus status and in the copilot's anomaly list.
+        self._active_dtc_count = 0
+        self._last_load_ns: int | None = None
         self._current_rpm = 0.0
         self._current_boost = 0.0
+        self._boost_measured = False  # 0.0 above is a placeholder, never a measurement
         self._current_temp = 0.0
         self._current_speed_kmh = 0.0
         # B-05: default-closed CCVS interlock. Trusted SA ONLY via
@@ -2578,6 +2588,7 @@ class UniversalCanDesktopApp:
     # (Bulgu 7 / plan §Mimari Kural).
     # ------------------------------------------------------------------
     _EVIDENCE_RING_MAX: ClassVar[int] = 500  # per-signal sample cap (plan §Riskler)
+    _SIM_SESSION_SAMPLES_MAX: ClassVar[int] = 20_000  # simulated session never grows unbounded
     _PLOT_RING_MAX: ClassVar[int] = 6000  # per-signal plot points (~100 s at 60 Hz)
     _PLOT_SIGNALS_MAX: ClassVar[int] = 128  # distinct plotted signal names (OEM decoders can be many)
 
@@ -2601,6 +2612,12 @@ class UniversalCanDesktopApp:
         except Exception as exc:  # noqa: BLE001 — evidence plumbing must never kill the app
             logger.warning("Failed to open diagnostic session", extra={"error": str(exc)})
             self._diag_session = None
+
+    def _assistant_session(self) -> tuple[VehicleSession | None, bool]:
+        """The session the assistant reads: the simulated one while the simulator is the bus."""
+        if isinstance(self.bus, SimulatedVehicleBus):
+            return self._sim_diag_session, True
+        return self._diag_session, False
 
     def _evidence_is_simulated(self) -> bool:
         """True while what the decoders see is not a real vehicle (Bulgu 7).
@@ -2707,8 +2724,9 @@ class UniversalCanDesktopApp:
         can never be mistaken for authoritative telemetry downstream.
         """
         self._record_plot_point(name, physical, unit, confidence)
-        session = self._diag_session
-        if session is None or self._evidence_is_simulated():
+        simulated = self._evidence_is_simulated()
+        session = self._sim_diag_session if simulated else self._diag_session
+        if session is None:
             return
         try:
             sample = SignalSample(
@@ -2724,6 +2742,11 @@ class UniversalCanDesktopApp:
             logger.debug("SignalSample rejected", extra={"error": str(exc), "signal": name})
             return
         with self._session_lock:
+            if simulated:
+                session.samples.append(sample)
+                if len(session.samples) > self._SIM_SESSION_SAMPLES_MAX:
+                    del session.samples[: len(session.samples) - self._SIM_SESSION_SAMPLES_MAX]
+                return
             ring = self._signal_rings.get(name)
             if ring is None:
                 ring = deque(maxlen=self._EVIDENCE_RING_MAX)
@@ -2750,11 +2773,16 @@ class UniversalCanDesktopApp:
         WARNING and recorded as ``Severity.UNKNOWN`` rather than dropped — an
         unknown-urgency fault must stay visible, never vanish.
         """
-        session = self._diag_session
-        if session is None or self._evidence_is_simulated() or not dtcs:
+        simulated = self._evidence_is_simulated()
+        session = self._sim_diag_session if simulated else self._diag_session
+        if session is None or not dtcs:
             return
         events = dm1_to_events(dtcs, time.monotonic_ns())
         with self._session_lock:
+            if simulated:
+                # The simulator repeats the same DM1 forever; keep one event per code.
+                known = {e.code for e in session.events}
+                events = [e for e in events if e.code not in known]
             session.events.extend(events)
 
     def reset_diagnostic_session(self) -> None:
@@ -2812,7 +2840,7 @@ class UniversalCanDesktopApp:
         clean_qid = (question_id or "").strip()
         if not clean_qid:
             return {"success": False, "error": "Soru ID boş olamaz"}
-        session = self._diag_session
+        session, _simulated = self._assistant_session()
         if session is None:
             return {"success": False, "error": "Aktif teşhis oturumu yok"}
 
@@ -2850,7 +2878,7 @@ class UniversalCanDesktopApp:
 
     def get_dialogue_state(self) -> dict[str, Any]:
         """Get current interactive dialogue session state and active question."""
-        session = self._diag_session
+        session, _simulated = self._assistant_session()
         if session is None:
             return {"success": False, "error": "Aktif teşhis oturumu yok"}
 
@@ -2928,10 +2956,16 @@ class UniversalCanDesktopApp:
         return {"success": True, "result": res}
 
     def get_diagnostic_analysis(self) -> dict[str, Any]:
-        """Full FAZ 2..6 analysis over the live evidence session (bridge)."""
-        session = self._diag_session
+        """Full FAZ 2..6 analysis over the live evidence session (bridge).
+
+        While the workbench simulator is the bus, the simulated session is
+        analysed instead and the result says so (``simulated: True``).
+        """
+        session, simulated = self._assistant_session()
         if session is None:
             return {"success": False, "error": "Aktif teşhis oturumu yok"}
+        if simulated:
+            return {**self._analyze_session(session, {}, is_simulating=True), "simulated": True}
         # F-07 (P1): the panel path used to pass an EMPTY telemetry dict
         # (`analyze_session(dtc_payload, {}, [])`) while the *chat* path fed the
         # same copilot the live `_current_rpm/_current_boost/_current_temp`.
@@ -2944,10 +2978,18 @@ class UniversalCanDesktopApp:
         return self._analyze_session(session, self._live_telemetry_snapshot(), is_simulating=self._is_simulating)
 
     def _live_telemetry_snapshot(self) -> dict[str, Any]:
+        """Measured vehicle values for the analysis; empty when nothing real was measured.
+
+        Simulated buses never contribute (their values are not the vehicle's),
+        and boost is included only once a decoder actually reported it — the
+        0.0 initial value used to reach the copilot as "measured 0 bar".
+        """
         live_telemetry: dict[str, Any] = {}
+        if self._evidence_is_simulated():
+            return live_telemetry
         if math.isfinite(self._current_rpm) and self._current_rpm > 0.0:
             live_telemetry["EngineSpeed"] = self._current_rpm
-        if math.isfinite(self._current_boost):
+        if self._boost_measured and math.isfinite(self._current_boost):
             live_telemetry["BoostPressure"] = self._current_boost
         if math.isfinite(self._current_temp) and self._current_temp > 0.0:
             live_telemetry["CoolantTemp"] = self._current_temp
@@ -3037,7 +3079,7 @@ class UniversalCanDesktopApp:
         """Gate report + signal inventory for the Teşhis Oturumu panel (FAZ 1)."""
         from src.engine.ai.evidence_gate import evaluate_sufficiency
 
-        session = self._diag_session
+        session, simulated = self._assistant_session()
         if session is None:
             return {"success": False, "error": "Aktif teşhis oturumu yok"}
         with self._session_lock:
@@ -3050,7 +3092,7 @@ class UniversalCanDesktopApp:
             "session_id": session_id,
             "sample_count": sample_count,
             "event_count": event_count,
-            "is_simulating": self._is_simulating,
+            "is_simulating": self._is_simulating or simulated,
             **sufficiency.to_dict(),
         }
 
@@ -3925,7 +3967,7 @@ class UniversalCanDesktopApp:
             if action_type in ("uds_clear_dtc", "clear_dtc"):
                 group = int(params.get("group", 0xFFFFFF))
                 if self._is_simulating:
-                    self._set_ui_state(_error_count=0)
+                    self._set_ui_state(_error_count=0, _active_dtc_count=0)
                     self._active_scenario = "nominal"
                     return {
                         "success": True,
@@ -3946,7 +3988,7 @@ class UniversalCanDesktopApp:
                         confirmation_context=_ctx,
                     )
                     if resp.is_positive:
-                        self._set_ui_state(_error_count=0)
+                        self._set_ui_state(_error_count=0, _active_dtc_count=0)
                         return {
                             "success": True,
                             "message": f"✅ [UDS 0x14] ECU arıza hafızası başarıyla temizlendi (Pozitif Yanıt 0x{resp.service_id + 0x40:02X}).",
@@ -4101,7 +4143,7 @@ class UniversalCanDesktopApp:
             elif action_type in ("j1939_clear_dtc", "j1939_dm11"):
                 da = int(params.get("destination_address", params.get("target_address", 0x00)))
                 if self._is_simulating:
-                    self._set_ui_state(_error_count=0)
+                    self._set_ui_state(_error_count=0, _active_dtc_count=0)
                     self._active_scenario = "nominal"
                     return {
                         "success": True,
@@ -4131,7 +4173,7 @@ class UniversalCanDesktopApp:
                                 req_frame.arbitration_id, ttl_s=30.0
                             ),
                         )
-                        self._set_ui_state(_error_count=0)
+                        self._set_ui_state(_error_count=0, _active_dtc_count=0)
                         return {
                             "success": True,
                             "message": f"✅ [J1939 DM11] Ağır vasıta aktif arıza hafızası temizleme komutu iletildi (PGN 65235, Hedef: 0x{da:02X}).",
@@ -4420,7 +4462,7 @@ class UniversalCanDesktopApp:
                     "dtc_count": len(dm.dtcs),
                     "lamps": getattr(dm, "lamps", ""),
                 }
-                self._error_count = len(dm.dtcs)
+                self._active_dtc_count = len(dm.dtcs)  # DTCs, not error frames
                 self._record_dm1_events(dm.dtcs)
         elif msg.pgn == 65260:  # Vehicle Identification (VIN)
             vin = decode_vin_payload(msg.bytes)
@@ -5471,6 +5513,11 @@ class UniversalCanDesktopApp:
             if not self._install_bus_locked(sim, "simulator", sim.channel_id, sim.bitrate):
                 return {"success": False, "error_code": "BIND_FAILED"}
             self._pre_simulator_bus = previous
+            self._sim_diag_session = VehicleSession(
+                session_id=f"sim-{time.time_ns()}-{uuid.uuid4().hex[:8]}",
+                started_at_ns=time.monotonic_ns(),
+                domain=self._domain_for_current_bus(),
+            )
         return {"success": True, **self.bus_info()}
 
     def stop_simulated_vehicle(self) -> dict[str, Any]:
@@ -5624,6 +5671,8 @@ class UniversalCanDesktopApp:
         self._clear_plot_rings()
         self.discovery_engine.clear()
         self._stimulus = None
+        self._sim_diag_session = None
+        self._dialogue_session = None
         self.j1939_tp = J1939TransportProtocol(my_address=0xF9, channel_id=self.channel_name)
         self.n2k_fp = Nmea2000FastPacketDecoder()
         # B-05: bus reconnect / vehicle change drops CCVS trust — the new
@@ -5657,7 +5706,7 @@ class UniversalCanDesktopApp:
                     "dtc_count": len(dm.dtcs),
                     "lamps": bytes(data[:1]).hex(),
                 }
-                self._error_count = len(dm.dtcs)
+                self._active_dtc_count = len(dm.dtcs)  # DTCs, not error frames
         except (IndexError, ValueError, AttributeError) as exc:
             logger.debug("J1939 payload decode failed", extra={"error": str(exc)})
 
@@ -5786,7 +5835,7 @@ class UniversalCanDesktopApp:
                     "dtc_count": len(dm.dtcs),
                     "lamps": bytes(data[:1]).hex(),
                 }
-                self._error_count = len(dm.dtcs)
+                self._active_dtc_count = len(dm.dtcs)  # DTCs, not error frames
                 # FAZ 1 / Bulgu 1: DM1 SPN/FMI codes were parsed then dropped
                 # (only dtc_count survived). Record them as DiagnosticEvents
                 # now — severity from the SPN DB / KB, never invented.
@@ -5834,6 +5883,7 @@ class UniversalCanDesktopApp:
                         elif "boost" in sig_name_lower:
                             if isinstance(phys_val, (int, float)):
                                 self._current_boost = float(phys_val)
+                                self._boost_measured = True
         except (IndexError, ValueError, AttributeError) as exc:
             logger.debug("J1939 live decode failed", extra={"error": str(exc)})
 
@@ -6052,6 +6102,24 @@ class UniversalCanDesktopApp:
                 "enum",
             )
 
+    def _measured_bus_load(self, frames: list[Any], now_ns: int) -> int:
+        """Bus load in % from the nominal length of the frames seen since the last call.
+
+        Classic CAN frame: 47 + 8·n bits (11-bit id) or 67 + 8·n (29-bit id),
+        stuff bits excluded — a lower bound, the same formula the workbench
+        status bar uses. The first call only starts the clock.
+        """
+        last, self._last_load_ns = self._last_load_ns, now_ns
+        bitrate = int(self.bitrate_val or 0)
+        if last is None or bitrate <= 0 or now_ns <= last:
+            return int(self._bus_load)
+        bits = 0
+        for f in frames:
+            data = getattr(f, "data", b"") or b""
+            bits += (67 if getattr(f, "is_extended", False) else 47) + 8 * min(len(data), 8)
+        load = bits / (((now_ns - last) / 1e9) * bitrate) * 100.0
+        return max(0, min(100, int(round(load))))
+
     def _push_frames_to_ui_batch(self, frames: list[object]) -> None:
         """Stream a tick's frames to the frontend in ONE evaluate_js call (E13).
 
@@ -6204,8 +6272,10 @@ class UniversalCanDesktopApp:
                 self._bump_stat("_total_packets", drained)
                 # E13: one JS evaluation per tick for the whole batch
                 self._push_frames_to_ui_batch(tick_frames)
-                # Live bus load estimate from routed frame rate
-                self._bus_load = min(100, int(drained / 2))
+                # Bus load from the frames' nominal bit length over the time
+                # since the last measurement (was `drained / 2`: 200 frames per
+                # tick read as "100 %" on any bus).
+                self._bus_load = self._measured_bus_load(tick_frames, time.monotonic_ns())
                 self._push_telemetry_tick()
                 continue
 
