@@ -752,6 +752,8 @@ def test_desktop_composition_root_wiring_discovery_oem_replay_flashing(tmp_path)
         "ecu": "ECM",
         "fileName": "firmware.bin",
         "sizeBytes": 2048,
+        # The image is mandatory in every mode (no "flash zeros" fallback).
+        "data": "00" * 2048,
     }
     # Refusal without token
     start_unconf = bridge.flash_start(flash_cfg)

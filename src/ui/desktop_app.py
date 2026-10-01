@@ -696,6 +696,7 @@ class DesktopApiBridge:
         "stimulus_result": "read",
         "stimulus_stop": "config",
         "sim_vehicle_pedal": "config",
+        "flash_preconditions": "read",
         "scan_start": "safety",
         "scan_status": "read",
         "scan_cancel": "config",
@@ -1688,6 +1689,9 @@ class DesktopApiBridge:
 
     def sim_vehicle_pedal(self, pressed: Any) -> dict[str, Any]:
         return self.app.sim_vehicle_pedal(pressed)
+
+    def flash_preconditions(self) -> dict[str, Any]:
+        return self.app.flash_preconditions()
 
     def connection_test_status(self) -> dict[str, Any]:
         return {"success": True, **self.app.connection_wizard.status()}
@@ -3667,8 +3671,15 @@ class UniversalCanDesktopApp:
                 "destination_address", "destinationAddress", "group", "session_type",
                 "sessionType", "reset_type", "resetType", "memoryAddress", "blockSize",
                 "sizeBytes", "fileName", "expectedVin", "expectedSerial", "data", "id",
+                "dataSha256", "ecu",
             )
             payload = {k: action[k] for k in critical_keys if k in action}
+            # A firmware image is bound by its SHA-256, not its bytes: the
+            # challenge payload is capped at 16 KiB, so binding the raw hex
+            # made every real image (> ~8 KiB) impossible to authorize.
+            # flash_start re-hashes the uploaded bytes against this digest.
+            if "dataSha256" in payload:
+                payload.pop("data", None)
         try:
             canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
         except Exception:
@@ -4811,10 +4822,68 @@ class UniversalCanDesktopApp:
         except Exception:
             return None
 
+    @staticmethod
+    def _check_flash_image(config: dict[str, Any]) -> str | None:
+        """The image must be present, decodable, the stated size, and match its digest.
+
+        Before this check a missing ``data`` silently became ``sizeBytes`` zero
+        bytes in the physical branch (only the signature check stood between
+        that and a flash of zeros).
+        """
+        raw = config.get("data")
+        if isinstance(raw, str):
+            try:
+                image = bytes.fromhex(raw)
+            except ValueError:
+                return "Flashing ön-koşulu sağlanamadı: yazılım verisi hex değil."
+        elif isinstance(raw, (bytes, bytearray)):
+            image = bytes(raw)
+        else:
+            return "Flashing ön-koşulu sağlanamadı: yazılım verisi yok."
+        if not image:
+            return "Flashing ön-koşulu sağlanamadı: yazılım verisi boş."
+        size = config.get("sizeBytes")
+        if size is not None and size != len(image):
+            return "Flashing ön-koşulu sağlanamadı: dosya boyutu bildirilenle uyuşmuyor."
+        digest = config.get("dataSha256")
+        if digest is not None:
+            if not isinstance(digest, str) or hashlib.sha256(image).hexdigest() != digest.strip().lower():
+                return "Flashing ön-koşulu sağlanamadı: yazılım özeti (SHA-256) onaylananla uyuşmuyor."
+        return None
+
+    def flash_preconditions(self) -> dict[str, Any]:
+        """What the ECU screen shows before the operator confirms (no I/O, no TX)."""
+        sim_mode = self._is_simulating or isinstance(self.bus, SimulatedVehicleBus)
+        if sim_mode:
+            speed = self._current_speed_kmh
+            speed_state = "ok" if math.isfinite(speed) and speed == 0.0 else ("moving" if math.isfinite(speed) else "stale")
+        else:
+            speed_state, speed = self.gateway.speed_interlock_state()
+        with self._flash_lock:
+            status = self._flash_progress_state.get("status") if self._flash_progress_state else None
+        return {
+            "success": True,
+            "simulated": sim_mode,
+            "estop": bool(self._is_estop or self.estop.is_engaged),
+            "speed_state": speed_state,
+            "speed_kmh": speed if math.isfinite(speed) else None,
+            "native_confirmation_required": not sim_mode,
+            "flash_status": status,
+        }
+
     def flash_start(self, config: dict[str, Any], confirmation_token: str | None = None) -> dict[str, Any]:
         """Start ECU reprogramming via EcuFlashingEngine with challenge verification."""
         if not isinstance(config, dict):
             return {"success": False, "error": "Geçersiz flash konfigürasyonu (dict bekleniyor)."}
+
+        image_error = self._check_flash_image(config)
+        if image_error is not None:
+            return {"success": False, "error": image_error, "message": image_error}
+
+        # The workbench's simulated vehicle can never transmit (its send()
+        # raises), so a flash there is the same sandboxed dry run as the DEMO
+        # mode: no bus is armed and no frame is sent.
+        sim_mode = self._is_simulating or isinstance(self.bus, SimulatedVehicleBus)
 
         # 1. Safety Checks
         if self._is_estop or self.estop.is_engaged:
@@ -4824,7 +4893,7 @@ class UniversalCanDesktopApp:
         # 1b. Speed Interlock (REVIEW 3: gateway = single authoritative source in
         # physical mode; simulation sandbox uses its own scenario mirror and
         # by design cannot authorize TX onto a live bus, P0-2.)
-        if self._is_simulating:
+        if sim_mode:
             if not math.isfinite(self._current_speed_kmh) or self._current_speed_kmh != 0.0:
                 err = f"Güvenlik Kilidi: Araç hareketsiz (0.0 km/s) olmalıdır (Mevcut hız: {self._current_speed_kmh:.1f} km/s)."
                 return {"success": False, "error": err, "message": err}
@@ -4852,7 +4921,7 @@ class UniversalCanDesktopApp:
                 action_type=str(config.get("action_type") or "ecu_flash"),
                 action_id=str(config.get("id") or ""),
                 action_payload=config,
-                require_native_presence=not self._is_simulating,
+                require_native_presence=not sim_mode,
             )
         except TypeError:
             valid, reason = self._verify_and_consume_diagnostic_token(
@@ -4881,7 +4950,7 @@ class UniversalCanDesktopApp:
             }
 
         # Simulation mode branch
-        if self._is_simulating:
+        if sim_mode:
             def _sim_flash_worker() -> None:
                 total_bytes = self._flash_progress_state["total_bytes"]
                 start_t = time.monotonic()

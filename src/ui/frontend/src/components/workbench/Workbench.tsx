@@ -21,11 +21,11 @@ import { BusInfoResult, DesktopBridge } from '../../services/bridge';
 import { L } from '../mechanic/text';
 import { useMechanicMode } from '../mechanic/MechanicFlow';
 import { useUiHeartbeat } from '../mechanic/useUiHeartbeat';
-import { EcuFlashingView } from '../ecu/EcuFlashingView';
 import { PinoutGuideView } from '../pinout/PinoutGuideView';
 import { SettingsView } from '../settings/SettingsView';
 import { AssistantView } from './AssistantView';
 import { DiscoveryView, discoveryKeyFromTrafficKey } from './DiscoveryView';
+import { EcuView } from './EcuView';
 import { LiveTraffic, SOURCE_LABEL } from './LiveTraffic';
 import { PlotView } from './PlotView';
 import { RecordsView } from './RecordsView';
@@ -83,7 +83,6 @@ const GROUPS: Array<{ label: () => string; items: ModuleDef[] }> = [
         icon: Cpu,
         title: () => L('ECU programlama', 'ECU programming'),
         hint: () => L('Onay ve kilit ile yazılım yükleme', 'Gated firmware update'),
-        legacy: true,
       },
       { id: 'pinout', icon: Cable, title: () => L('Pin rehberi', 'Pinout guide'), hint: () => L('Konnektör ve kablolama', 'Connectors and wiring'), legacy: true },
     ],
@@ -321,7 +320,7 @@ export const Workbench: React.FC = () => {
       body = <AssistantView />;
       break;
     case 'ecu':
-      body = <EcuFlashingView />;
+      body = <EcuView />;
       break;
     case 'pinout':
       body = <PinoutGuideView />;

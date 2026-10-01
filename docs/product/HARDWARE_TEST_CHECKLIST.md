@@ -104,6 +104,10 @@
 | W8-14 | Binek araçta fren pedalı veya sinyal kolu. | Üreticiye özel kimlikteki bit/bayt üst sıralarda. | ☐ |
 | W8-15 | Teşhis asistanı: aktif DM1 kodlu kamyon, 2 dk dinleme. | Kart gerçek kodu gösterir; "Simülasyon sonucu" bandı yok; hat yükü ≈ analizör değerine yakın (bit doldurma hariç). | ☐ |
 | W8-16 | Asistan açıkken hiçbir düğmeye basmadan bus analizörü. | Adaptörden hiç çerçeve yok. | ☐ |
+| W8-17 | ECU ekranı gerçek adaptörde açılır, hiçbir düğmeye basılmaz (bus analizörü bağlı). | "Prova modu" bandı yok; adaptörden hiç çerçeve yok. | ☐ |
+| W8-18 | Gerçek hatta "Programlamayı başlat": Windows onay penceresi çıkar, "Hayır" denir. | İşlem başlamaz; adaptörden çerçeve yok. | ☐ |
+| W8-19 | Tezgâhta (araç dışı) yedek ECU, üreticinin imzalı yazılımı (> 64 KB). | Onay penceresi → ilerleme adımları → tamamlandı; ECU yeniden açılır, sürüm okunur. | ☐ |
+| W8-20 | W8-19 sırasında ACİL DURDUR. | Aktarım hemen durur, TX kolu düşer; ekranda "Başarısız/İptal". | ☐ |
 
 ## Doğrulama özeti (neyin nerede doğrulandığı)
 

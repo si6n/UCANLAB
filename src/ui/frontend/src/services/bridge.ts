@@ -414,6 +414,16 @@ export interface StimulusCandidate {
   simulated: boolean;
 }
 
+export interface FlashPreconditions {
+  success: boolean;
+  simulated: boolean;
+  estop: boolean;
+  speed_state: 'ok' | 'moving' | 'stale';
+  speed_kmh: number | null;
+  native_confirmation_required: boolean;
+  flash_status: string | null;
+}
+
 // Interface for pywebview Python backend bridge
 declare global {
   interface Window {
@@ -431,6 +441,7 @@ declare global {
         sim_vehicle_start?: (vehicleType: string) => Promise<BusInfoResult>;
         sim_vehicle_stop?: () => Promise<BusInfoResult>;
         bus_get_info?: () => Promise<BusInfoResult>;
+        flash_preconditions?: () => Promise<FlashPreconditions>;
         stimulus_start?: () => Promise<StimulusStatus>;
         stimulus_set_phase?: (phase: 'rest' | 'active') => Promise<StimulusStatus>;
         stimulus_status?: () => Promise<StimulusStatus>;
@@ -870,6 +881,10 @@ export class DesktopBridge {
     this.requireCapability(name, what);
     this.requireNativeOrDev();
     return fallback;
+  }
+
+  public static flashPreconditions(): Promise<FlashPreconditions | null> {
+    return this.call('flash_preconditions', 'flash preconditions', null);
   }
 
   public static stimulusStart(): Promise<StimulusStatus> {
