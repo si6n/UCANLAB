@@ -62,6 +62,11 @@ def test_review_1_3_rebind_bus_resets_category_budgets() -> None:
     """
     gateway, bus = _gateway()
     bucket = gateway._budgets["protocol_burst"]
+    # Stop the old bucket's refill: draining against the real monotonic clock
+    # let a slow runner (Windows CI, 9 s GC pause) earn a token back between
+    # the drain and the "exhausted" check. The property under test is that
+    # rebind installs FRESH buckets, not how fast the old one refills.
+    bucket.refill_per_sec = 0.0
     # Drain the burst bucket completely.
     for _ in range(bucket.capacity):
         assert bucket.try_consume() is True
