@@ -146,7 +146,7 @@ decoders, exporters, discovery), `src/protocols` (J1939, UDS, N2K, Volvo),
 | `docs/ai_context/` | Layered architecture, safety invariants, protocols, OEM matrix, testing guide |
 | `docs/protocols/`, `docs/specs/` | J1939 / UDS references and subsystem specifications |
 | `docs/runbook/` | Operational procedures (e.g. E-Stop reset) |
-| `docs/audit/` | Data-integrity audit reports |
+| `docs/audit/` | Audit reports (full audit: `AUDIT_REPORT.md`, open items: `BACKLOG.md`) and data-integrity reports |
 | `data/PROVENANCE.md` | Origin and licensing of every shipped data set |
 
 ## Data
