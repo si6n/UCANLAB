@@ -378,6 +378,7 @@ declare global {
         scan_status?: () => Promise<ScanStatus>;
         scan_cancel?: () => Promise<{ success: boolean }>;
         scan_save_report?: (workshop?: string) => Promise<{ success: boolean; path?: string; text?: string; error_code?: string }>;
+        scan_open_report?: () => Promise<{ success: boolean; path?: string; error_code?: string }>;
         cloud_cancel_web_login?: () => Promise<{ success: boolean }>;
         cloud_logout?: () => Promise<{ success: boolean; error?: string }>;
         cloud_upload_session?: (filePath: string, vehicleVin?: string) => Promise<{ success: boolean; sessionId?: string; status?: string; error?: string }>;
@@ -1012,6 +1013,16 @@ export class DesktopBridge {
       return await m(workshop);
     }
     this.requireCapability('scan_save_report', 'customer report');
+    this.requireNativeOrDev();
+    return { success: false, error_code: 'NATIVE_BRIDGE_MISSING' };
+  }
+
+  public static async scanOpenReport(): Promise<{ success: boolean; path?: string; error_code?: string }> {
+    const m = this.apiMethod('scan_open_report');
+    if (this.isNative() && m) {
+      return await m();
+    }
+    this.requireCapability('scan_open_report', 'open customer report');
     this.requireNativeOrDev();
     return { success: false, error_code: 'NATIVE_BRIDGE_MISSING' };
   }

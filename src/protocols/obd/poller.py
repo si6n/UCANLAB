@@ -144,7 +144,7 @@ class ActiveDiagnosticPoller:
         self.uds_registry: UdsDidRegistry = uds_registry or UDS_DID_REGISTRY
 
         self.isotp = isotp_transport or IsoTpTransport(
-            tx_id=tx_id,
+            tx_id=self._flow_control_id(tx_id, rx_id),
             rx_id=rx_id,
             channel_id=channel_id,
         )
@@ -393,6 +393,24 @@ class ActiveDiagnosticPoller:
         else:
             raise ValueError(f"Unknown job kind: {job.kind}")
 
+    @staticmethod
+    def _flow_control_id(tx_id: int, rx_id: int) -> int:
+        """CAN id the tester's flow control goes to for a (request, response) pair.
+
+        ISO 15765-4: a FUNCTIONAL request (11-bit 0x7DF, 29-bit 0x18DB33F1) is
+        answered by each ECU from its own physical response id, and the
+        flow control for a multi-frame answer must go to THAT ECU's physical
+        request id — never back to the functional address, where every ECU
+        would see it. 11-bit: response 0x7E8+n -> request 0x7E0+n. 29-bit:
+        response 0x18DA<tester><ecu> -> request 0x18DA<ecu><tester>.
+        """
+        if tx_id == 0x7DF and 0x7E8 <= rx_id <= 0x7EF:
+            return rx_id - 8
+        if (tx_id & 0x1FFF0000) == 0x18DB0000 and (rx_id & 0x1FFF0000) == 0x18DA0000:
+            tester, ecu = (rx_id >> 8) & 0xFF, rx_id & 0xFF
+            return 0x18DA0000 | (ecu << 8) | tester
+        return tx_id
+
     def _get_transport_for(self, tx_id: int, rx_id: int) -> IsoTpTransport:
         """Return (and lazily create) the transport for a (tx, rx) conversation.
 
@@ -405,7 +423,7 @@ class ActiveDiagnosticPoller:
         transport = self._isotp_transports.get(key)
         if transport is None:
             transport = IsoTpTransport(
-                tx_id=tx_id,
+                tx_id=self._flow_control_id(tx_id, rx_id),
                 rx_id=rx_id,
                 channel_id=self.channel_id,
             )

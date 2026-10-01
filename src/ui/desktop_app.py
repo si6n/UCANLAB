@@ -683,6 +683,7 @@ class DesktopApiBridge:
         "scan_status": "read",
         "scan_cancel": "config",
         "scan_save_report": "data",
+        "scan_open_report": "data",
         "cloud_start_web_login": "config",
         "cloud_check_web_login_status": "read",
         "cloud_cancel_web_login": "config",
@@ -1693,7 +1694,10 @@ class DesktopApiBridge:
         body = "".join(f"<p>{html.escape(line)}</p>" if line else "<br>" for line in text.splitlines())
         page = ("<!doctype html><html lang=\"tr\"><head><meta charset=\"utf-8\"><title>Araç kontrol raporu</title>"
                 "<style>body{font-family:sans-serif;max-width:720px;margin:32px auto;line-height:1.5}"
-                "p{margin:4px 0}</style></head><body>" + body + "</body></html>")
+                "p{margin:4px 0}.print{margin:16px 0;padding:8px 16px;font-size:15px}"
+                "@media print{.print{display:none}body{margin:0 auto}}</style></head><body>"
+                "<button class=\"print\" onclick=\"window.print()\">Yazdır / PDF olarak kaydet</button>"
+                + body + "</body></html>")
         try:
             reports_dir = _app_data_root() / "reports"
             reports_dir.mkdir(parents=True, exist_ok=True)
@@ -1701,7 +1705,22 @@ class DesktopApiBridge:
             out_path.write_text(page, encoding="utf-8")
         except OSError:
             return {"success": False, "error_code": "WRITE_FAILED"}
+        self._last_report_path = out_path
         return {"success": True, "path": str(out_path), "text": text}
+
+    def scan_open_report(self) -> dict[str, Any]:
+        """Open the last saved customer report in the default browser (print / save as PDF there).
+
+        Takes no path from the renderer: only the file this bridge wrote can be opened.
+        """
+        path: Path | None = getattr(self, "_last_report_path", None)
+        if path is None or not path.is_file():
+            return {"success": False, "error_code": "NO_REPORT"}
+        try:
+            opened = webbrowser.open(path.resolve().as_uri())
+        except Exception:  # noqa: BLE001 — no browser available
+            opened = False
+        return {"success": bool(opened), "path": str(path)} if opened else {"success": False, "error_code": "OPEN_FAILED"}
 
     def cloud_logout(self) -> dict[str, Any]:
         """Log out current user and clear local credentials."""

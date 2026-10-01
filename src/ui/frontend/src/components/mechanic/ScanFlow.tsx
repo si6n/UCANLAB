@@ -257,10 +257,19 @@ export const ScanFlow: React.FC<{
           className={BTN_PRIMARY}
           onClick={async () => {
             const saved = await DesktopBridge.scanSaveReport(workshop);
-            setNotice(saved.success ? L(`Kaydedildi: ${saved.path}`, `Saved: ${saved.path}`) : L('Rapor kaydedilemedi.', 'Could not save the report.'));
+            if (!saved.success) {
+              setNotice(L('Rapor kaydedilemedi.', 'Could not save the report.'));
+              return;
+            }
+            const opened = await DesktopBridge.scanOpenReport();
+            setNotice(
+              opened.success
+                ? L('Rapor tarayıcıda açıldı: "Yazdır / PDF olarak kaydet" ile yazdırın.', 'Report opened in the browser: use "Print / Save as PDF".')
+                : L(`Kaydedildi: ${saved.path}`, `Saved: ${saved.path}`),
+            );
           }}
         >
-          {L('Raporu kaydet (yazdırılabilir)', 'Save report (printable)')}
+          {L('Raporu kaydet ve aç (yazdır / PDF)', 'Save and open report (print / PDF)')}
         </button>
         <button type="button" className={BTN_SECONDARY} onClick={() => setPhase('result')}>
           {L('Sonuca dön', 'Back to result')}
