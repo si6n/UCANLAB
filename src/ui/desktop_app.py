@@ -60,6 +60,7 @@ from src.engine.pipeline.reassembly_pipeline import (
 )
 from src.engine.router import FrameRouter
 from src.engine.vehicle.identity import compare_identity as compare_vehicle_identity
+from src.engine.vehicle.identity import mask_vin
 from src.engine.vehicle.profiles import CatalogError as VehicleCatalogError
 from src.engine.vehicle.profiles import default_catalog as default_vehicle_catalog
 from src.engine.vehicle.profiles import profile_dict as vehicle_profile_dict
@@ -4556,10 +4557,10 @@ class UniversalCanDesktopApp:
                 self._active_dtc_count = len(dm.dtcs)  # DTCs, not error frames
                 self._record_dm1_events(dm.dtcs)
         elif msg.pgn == 65260:  # Vehicle Identification (VIN)
-            vin = decode_vin_payload(msg.bytes)
+            vin = decode_vin_payload(msg.data)
             if vin:
                 self._detected_vin = vin
-                logger.info("Reassembled vehicle VIN", extra={"vin": vin})
+                logger.info("Reassembled vehicle VIN", extra={"vin": mask_vin(vin)})
 
     def register_e2e_profile(self, arbitration_id: int, profile: E2EProfileConfig) -> None:
         """Register an E2E profile directly for RX verification and TX packaging."""
@@ -4609,28 +4610,42 @@ class UniversalCanDesktopApp:
             self._obd_router_sub_id = sub_id
             self._obd_poller_rx_sub = rx_sub
 
-            self.obd_poller = ActiveDiagnosticPoller(
-                tx_port=self.safe_bus,
-                rx_subscription=rx_sub,
-                tx_id=0x7DF,
-                rx_id=0x7E8,
-                max_rate_hz=rate_hz,
-                channel_id=self.channel_name or "can0",
-            )
             poll_pids = pids if pids else [0x0C, 0x0D, 0x05]
-            for p in poll_pids:
-                self.obd_poller.register_pid(
-                    pid=p,
-                    rate_hz=min(rate_hz, 10.0),
-                    callback=self._handle_obd_pid_result,
+            try:
+                # Every poll request goes through the TX safety gateway, the
+                # single audited choke-point. The previous code referenced a
+                # `self.safe_bus` attribute that never existed, so this call
+                # always raised AttributeError and leaked the router
+                # subscription registered above.
+                self.obd_poller = ActiveDiagnosticPoller(
+                    tx_port=self.gateway,
+                    rx_subscription=rx_sub,
+                    tx_id=0x7DF,
+                    rx_id=0x7E8,
+                    max_rate_hz=rate_hz,
+                    channel_id=self.channel_name or "can0",
                 )
-
-            self.obd_poller.start()
+                for p in poll_pids:
+                    self.obd_poller.register_pid(
+                        pid=p,
+                        rate_hz=min(rate_hz, 10.0),
+                        callback=self._handle_obd_pid_result,
+                    )
+                self.obd_poller.start()
+            except Exception as exc:
+                # Undo the half-built state so a retry starts clean.
+                self.obd_poller = None
+                rx_sub.unsubscribe()
+                self._obd_poller_rx_sub = None
+                self.router.unsubscribe(sub_id)
+                self._obd_router_sub_id = None
+                logger.warning("OBD poller could not start", extra={"error": str(exc)})
+                return {"success": False, "error": str(exc)}
             return {"success": True, "pids": poll_pids, "rate_hz": rate_hz}
 
     def _handle_obd_pid_result(self, result: ObdPidResult) -> None:
         """Handle decoded OBD-II PID telemetry results."""
-        if not result.success or result.value is None:
+        if not result.is_valid or result.value is None:
             return
         try:
             if result.pid == 0x0C:
