@@ -41,6 +41,7 @@ from src.security.license.claims import (
     parse_license_json,
     reject_non_finite_json_constant,
 )
+from src.version import __version__
 
 logger = get_logger("security.cloud.license_flow")
 
@@ -124,7 +125,7 @@ class LicenseFlow:
         self,
         client: CloudClient,
         public_key: ed25519.Ed25519PublicKey,
-        app_version: str = "13.0.0",
+        app_version: str = __version__,
         trusted_keys: dict[str, ed25519.Ed25519PublicKey] | None = None,
         boot_realtime: float | None = None,
         boot_monotonic: float | None = None,
