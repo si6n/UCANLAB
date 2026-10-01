@@ -52,8 +52,9 @@ Flaky test gözlemi: `TestCopilotSession::test_analysis_latency_under_50ms` cove
 ## 3. Bulgular
 
 Kanıtlar `dosya:satır` olarak `main` @ `e16d48a` üzerindedir. "Test" sütunu
-`tests/unit/test_audit_2026_10_01.py` içindeki regresyon testidir. Bu testler düzeltme öncesi
-kodda kırmızı, sonrasında yeşildir.
+`tests/unit/test_audit_2026_10_01.py` içindeki regresyon testidir. Hatayı sabitleyen testler düzeltme
+öncesi kodda kırmızı, sonrasında yeşildir. Birkaç koruma testi (ör. gerçek bozuk DM1 kuyruğu hâlâ
+bozuk sayılır) iki durumda da yeşildir.
 
 | ID | Önem | Alan | Bulgu | Durum |
 |---|---|---|---|---|
