@@ -131,6 +131,23 @@ uygulamanın hattı olarak bağlar:
 * `_active_dtc_count` artık `_error_count`'tan (hata çerçeveleri) ayrı; hat yükü çerçeve bit uzunluğundan hesaplanır.
 * "En olası" sonuç güven değeriyle gösterilir; kanıt kapısı yetersizse "Ön değerlendirme: kesin değil" uyarısı çıkar.
 
+## 4.5 ECU programlama (B5)
+
+* Akış dört adım: **hedef** (ECM/TCU/ABS/BCM + VIN) → **yazılım** (dosya, SHA-256, adres, blok, imza, ortak anahtar) →
+  **ön koşullar** (E-Stop, araç duruyor, başka işlem yok, girdiler geçerli; akü/besleme uygulamaca ölçülmez, metinle
+  hatırlatılır) → **onay** (risk kutusu işaretlenmeden düğme açılmaz). Son karar her zaman Python'dadır
+  (`flash_start`); ekrandaki koşullar yalnız `flash_preconditions` (okuma, G/Ç yok) ile gösterilir.
+* **Onay yazılımın özetine bağlanır.** Onay isteği (`request_diagnostic_challenge`) görüntünün baytlarını değil
+  `dataSha256` değerini taşır; `flash_start` gelen baytları yeniden özetler ve uyuşmazsa reddeder. Önceden ham hex
+  onaya bağlanıyordu ve onay yükü 16 KB ile sınırlı olduğu için ~8 KB'den büyük gerçek bir yazılım hiç
+  yetkilendirilemiyordu (eski ekran ayrıca onayı `data` olmadan isteyip `data` ile başlattığı için her seferinde
+  "parametreler değiştirilmiş" hatası alıyordu). Hedef ECU da artık bağlamın parçası.
+* **Görüntü zorunlu:** veri yoksa, hex değilse, boşsa, boyut bildirilenden farklıysa veya özet uyuşmazsa işlem onay
+  harcanmadan reddedilir. Önceden fiziksel dalda eksik veri sessizce `sizeBytes` kadar sıfıra dönüşüyordu.
+* **Simüle hatta prova:** simüle araç hiç gönderemez (`send()` hata verir); ECU ekranı orada "Prova modu" bandıyla
+  adımları gösterir, TX kolu kurulmaz, hiçbir çerçeve gönderilmez. E-Stop ve "araç duruyor" kilidi provada da geçerli.
+  Gerçek/sanal hatta yerel (native) operatör onayı ve ağ geçidinin hız kilidi aynen gerekir.
+
 ## 5. Doğrulama durumu
 
 | Ne | Nasıl doğrulandı |
@@ -140,8 +157,10 @@ uygulamanın hattı olarak bağlar:
 | Grafik: çizim halkası, sınırlar, simülatör işareti, hat değişiminde sıfırlama | `tests/unit/test_workbench_plot.py` (CI) + `test_workbench_ui.py` (yerel Playwright) |
 | Teşhis asistanı: simülasyon oturumu ayrımı, ölçülmemiş/simüle telemetri, DTC/hata sayacı, hat yükü | `tests/unit/test_workbench_assistant.py` (CI) + `test_workbench_ui.py` (yerel Playwright) |
 | Bas-bırak deneyi: sıralama, aşama/girdi doğrulama, simüle pedal | `tests/unit/test_stimulus_experiment.py` (CI) + `test_workbench_ui.py` (yerel Playwright) |
+| ECU programlama: görüntü denetimi, özet bağlama (64 KB), kurcalanmış veri, simüle hatta prova (gönderim yok), native onay | `tests/unit/test_workbench_ecu.py` (CI) + `test_workbench_ui.py` (yerel Playwright) |
 | Sinyal keşfi: rapor, onayın kalıcılığı, DBC kaydı, girdi doğrulama | `tests/unit/test_workbench_discovery.py` (CI) + `test_workbench_ui.py` (yerel Playwright) |
 | Fiziksel adaptör (PCAN/Kvaser/RP1210) ile Canlı trafik, Grafik, Sinyal keşfi | **Doğrulanmadı.** `HARDWARE_TEST_CHECKLIST.md` W8 |
+| Gerçek ECU'ya yazılım yükleme (UDS 0x34/0x36/0x37) | **Doğrulanmadı.** `HARDWARE_TEST_CHECKLIST.md` W8-17…W8-20 |
 | WebView2 (Windows) içinde görünüm ve 2000 kare/sn akışta akıcılık | **Doğrulanmadı.** `HARDWARE_TEST_CHECKLIST.md` W8 |
 
 Ekran görüntüleri (`screenshots/workbench/`) simülatörle, Linux Chromium'da alınmıştır.

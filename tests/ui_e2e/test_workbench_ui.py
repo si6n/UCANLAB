@@ -11,6 +11,7 @@ Skipped without Playwright, Chromium or the frontend bundle (e.g. in CI).
 
 from __future__ import annotations
 
+import hashlib
 import http.server
 import json
 import os
@@ -285,4 +286,32 @@ def test_assistant_labels_simulation_and_never_runs_vehicle_actions(wb: Any) -> 
         page.click("[data-testid=answer-unknown]")
         page.wait_for_timeout(800)
     assert app._diag_session.samples == [] and app._diag_session.events == []
+    assert not app.supervisor.is_tx_permitted
+
+
+def test_ecu_dry_run_on_the_simulator_sends_nothing(wb: Any) -> None:
+    page, app = wb
+    page.select_option("[data-testid=sim-type]", "truck")
+    page.click("[data-testid=start-simulator]")
+    page.wait_for_selector("[data-testid=id-table]", timeout=20000)
+    sent: list[Any] = []
+    app.bus.send = lambda frame, *a, **k: sent.append(frame)  # would record any TX
+    page.click("[data-testid=nav-ecu]")
+    page.wait_for_selector("[data-testid=ecu-simulated]", timeout=10000)
+    page.click("[data-testid=ecu-TCU]")
+    page.fill("[data-testid=ecu-vin]", "WDB9634031L123456")
+    # 40 KiB: the hex alone is far past the 16 KiB challenge cap (bound by SHA-256).
+    image = bytes((i * 13) & 0xFF for i in range(40 * 1024))
+    page.set_input_files("[data-testid=ecu-file]", files=[{"name": "tcu.bin", "mimeType": "application/octet-stream", "buffer": image}])
+    page.wait_for_selector("[data-testid=ecu-file-info]")
+    assert hashlib.sha256(image).hexdigest()[:16] in page.text_content("[data-testid=ecu-file-info]")
+    page.fill("[data-testid=ecu-signature]", "ab" * 32)
+    page.fill("[data-testid=ecu-pubkey]", "cd" * 32)
+    assert page.is_disabled("[data-testid=ecu-start]")  # the acknowledgement is mandatory
+    page.check("[data-testid=ecu-ack]")
+    page.click("[data-testid=ecu-start]")
+    page.wait_for_selector("[data-testid=ecu-done]", timeout=20000)
+    prog = app.flash_progress()
+    assert prog["status"] == "completed" and prog["total_bytes"] == len(image)
+    assert sent == []
     assert not app.supervisor.is_tx_permitted
