@@ -11,7 +11,8 @@
         "SPN 91"
       ],
       "contradicting_signals": [],
-      "source_ref": "J1939-DB SPN_91 title_tr"
+      "source_ref": "J1939-DB SPN_91 title_tr",
+      "system": "powertrain-engine"
     },
     {
       "id": "alternator-control",
@@ -21,7 +22,8 @@
         "P0620"
       ],
       "contradicting_signals": [],
-      "source_ref": "UCANLAB-EXPERT-KB:DTC DB title Alternator control circuit malfunction"
+      "source_ref": "UCANLAB-EXPERT-KB:DTC DB title Alternator control circuit malfunction",
+      "system": "ecu-internal-hardware"
     },
     {
       "id": "b001a-center-frontal-stage-3-deployment-control-devresinde",
@@ -2039,7 +2041,8 @@
         "P0A80"
       ],
       "contradicting_signals": [],
-      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['P0A80'].causes"
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['P0A80'].causes",
+      "system": "powertrain-engine"
     },
     {
       "id": "c003f-wheel-speed-sensors-rotation-direction-correlation-i",
@@ -9198,7 +9201,8 @@
         "P0620"
       ],
       "contradicting_signals": [],
-      "source_ref": "UCANLAB-EXPERT-KB:_RELATED_CODE_GROUPS U0100+P0620 (SAE J2012 documented pair)"
+      "source_ref": "UCANLAB-EXPERT-KB:_RELATED_CODE_GROUPS U0100+P0620 (SAE J2012 documented pair)",
+      "system": "network-ecu-communication"
     },
     {
       "id": "charge-air-leak",
@@ -9213,7 +9217,8 @@
         "P0299"
       ],
       "contradicting_signals": [],
-      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN102'].causes[1]"
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN102'].causes[1]",
+      "system": "fuel-air-metering"
     },
     {
       "id": "coolant-level-low",
@@ -9223,7 +9228,8 @@
         "SPN 111"
       ],
       "contradicting_signals": [],
-      "source_ref": "J1939-DB SPN_111 title_tr"
+      "source_ref": "J1939-DB SPN_111 title_tr",
+      "system": "engine-cooling-thermal"
     },
     {
       "id": "coolant-sensor-open",
@@ -9235,7 +9241,8 @@
       "contradicting_signals": [
         "EngineCoolantTemp"
       ],
-      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN110'].causes[1]"
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN110'].causes[1]",
+      "system": "engine-cooling-thermal"
     },
     {
       "id": "crank-sync-loss",
@@ -9248,7 +9255,8 @@
         "P0016"
       ],
       "contradicting_signals": [],
-      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN190'].causes[1]"
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN190'].causes[1]",
+      "system": "ignition-misfire"
     },
     {
       "id": "def-level-low",
@@ -9259,7 +9267,8 @@
         "SPN 3364"
       ],
       "contradicting_signals": [],
-      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN1761'].causes; EXPERT_KNOWLEDGE_BASE['SPN3364'].causes"
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN1761'].causes; EXPERT_KNOWLEDGE_BASE['SPN3364'].causes",
+      "system": "scr-def-dosing"
     },
     {
       "id": "dpf-diff-pressure",
@@ -9270,7 +9279,8 @@
         "P2453"
       ],
       "contradicting_signals": [],
-      "source_ref": "UCANLAB-EXPERT-KB:_RELATED_CODE_GROUPS P2002+P2453 (SAE J2012 documented pair)"
+      "source_ref": "UCANLAB-EXPERT-KB:_RELATED_CODE_GROUPS P2002+P2453 (SAE J2012 documented pair)",
+      "system": "scr-def-dosing"
     },
     {
       "id": "dpf-efficiency",
@@ -9280,7 +9290,8 @@
         "P2002"
       ],
       "contradicting_signals": [],
-      "source_ref": "UCANLAB-EXPERT-KB:DTC DB title Diesel Particulate Filter Efficiency Below Threshold"
+      "source_ref": "UCANLAB-EXPERT-KB:DTC DB title Diesel Particulate Filter Efficiency Below Threshold",
+      "system": "scr-def-dosing"
     },
     {
       "id": "dpf-soot-overload",
@@ -9291,7 +9302,8 @@
         "SPN 3719"
       ],
       "contradicting_signals": [],
-      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN3251'].causes[0]; scenario 4"
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN3251'].causes[0]; scenario 4",
+      "system": "exhaust-aftertreatment-dpf"
     },
     {
       "id": "ebs-air-circuit1",
@@ -9301,7 +9313,8 @@
         "SPN 1087"
       ],
       "contradicting_signals": [],
-      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN1087'].causes[0]"
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN1087'].causes[0]",
+      "system": "brakes-air-system"
     },
     {
       "id": "egr-low-flow",
@@ -9314,7 +9327,8 @@
         "P0401"
       ],
       "contradicting_signals": [],
-      "source_ref": "UCANLAB-EXPERT-KB:_RELATED_CODE_GROUPS P0299+P0401 (SAE J1939/J2012 documented pair)"
+      "source_ref": "UCANLAB-EXPERT-KB:_RELATED_CODE_GROUPS P0299+P0401 (SAE J1939/J2012 documented pair)",
+      "system": "fuel-injection-rail"
     },
     {
       "id": "egr-valve-stuck",
@@ -9324,7 +9338,8 @@
         "P0401"
       ],
       "contradicting_signals": [],
-      "source_ref": "UCANLAB-EXPERT-KB:DTC DB title Exhaust gas recirculation insufficient flow"
+      "source_ref": "UCANLAB-EXPERT-KB:DTC DB title Exhaust gas recirculation insufficient flow",
+      "system": "exhaust-aftertreatment-dpf"
     },
     {
       "id": "engine-overtemp",
@@ -9336,7 +9351,8 @@
         "P0217"
       ],
       "contradicting_signals": [],
-      "source_ref": "UCANLAB-EXPERT-KB:DTC DB title Engine Over Temperature"
+      "source_ref": "UCANLAB-EXPERT-KB:DTC DB title Engine Over Temperature",
+      "system": "fuel-injection-rail"
     },
     {
       "id": "engine-torque-actual",
@@ -9346,7 +9362,8 @@
         "SPN 513"
       ],
       "contradicting_signals": [],
-      "source_ref": "J1939-DB SPN_513 title_tr"
+      "source_ref": "J1939-DB SPN_513 title_tr",
+      "system": "powertrain-engine"
     },
     {
       "id": "fuel-level-sensor",
@@ -9356,7 +9373,8 @@
         "SPN 96"
       ],
       "contradicting_signals": [],
-      "source_ref": "J1939-DB SPN_96 title_tr"
+      "source_ref": "J1939-DB SPN_96 title_tr",
+      "system": "fuel-air-metering"
     },
     {
       "id": "fuel-rail-low",
@@ -9366,7 +9384,8 @@
         "P0087"
       ],
       "contradicting_signals": [],
-      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['P0087'].causes[0-1]"
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['P0087'].causes[0-1]",
+      "system": "fuel-air-metering"
     },
     {
       "id": "fuel-rail-regulator",
@@ -9377,7 +9396,8 @@
         "P0088"
       ],
       "contradicting_signals": [],
-      "source_ref": "UCANLAB-EXPERT-KB:_RELATED_CODE_GROUPS P0087+P0088 (SAE J2012 documented pair)"
+      "source_ref": "UCANLAB-EXPERT-KB:_RELATED_CODE_GROUPS P0087+P0088 (SAE J2012 documented pair)",
+      "system": "fuel-air-metering"
     },
     {
       "id": "hv-isolation-loss",
@@ -9387,7 +9407,8 @@
         "P0AA6"
       ],
       "contradicting_signals": [],
-      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['P0AA6'].causes"
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['P0AA6'].causes",
+      "system": "powertrain-engine"
     },
     {
       "id": "hvil-open",
@@ -9397,7 +9418,8 @@
         "P0A0B"
       ],
       "contradicting_signals": [],
-      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['P0A0B'].causes[0-2]"
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['P0A0B'].causes[0-2]",
+      "system": "powertrain-engine"
     },
     {
       "id": "injector-circuit",
@@ -9412,7 +9434,8 @@
         "SPN 656"
       ],
       "contradicting_signals": [],
-      "source_ref": "diagnostic_copilot.py scenario 3 (SPN 651-656 enjektör senaryosu)"
+      "source_ref": "diagnostic_copilot.py scenario 3 (SPN 651-656 enjektör senaryosu)",
+      "system": "fuel-injection-rail"
     },
     {
       "id": "inverter-coolant-pump",
@@ -9422,7 +9445,8 @@
         "P0A93"
       ],
       "contradicting_signals": [],
-      "source_ref": "UCANLAB-EXPERT-KB:ev scenario matcher P0A93 + DTC DB title"
+      "source_ref": "UCANLAB-EXPERT-KB:ev scenario matcher P0A93 + DTC DB title",
+      "system": "powertrain-engine"
     },
     {
       "id": "lean-bank-1",
@@ -9432,7 +9456,8 @@
         "P0171"
       ],
       "contradicting_signals": [],
-      "source_ref": "UCANLAB-EXPERT-KB:DTC DB title System Too Lean Bank 1"
+      "source_ref": "UCANLAB-EXPERT-KB:DTC DB title System Too Lean Bank 1",
+      "system": "fuel-air-metering"
     },
     {
       "id": "lean-both-banks",
@@ -9443,7 +9468,8 @@
         "P0174"
       ],
       "contradicting_signals": [],
-      "source_ref": "UCANLAB-EXPERT-KB:_RELATED_CODE_GROUPS P0171+P0174 (SAE J2012 documented pair)"
+      "source_ref": "UCANLAB-EXPERT-KB:_RELATED_CODE_GROUPS P0171+P0174 (SAE J2012 documented pair)",
+      "system": "fuel-air-metering"
     },
     {
       "id": "misfire-ignition",
@@ -9459,7 +9485,8 @@
         "P0304"
       ],
       "contradicting_signals": [],
-      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['P0300'].causes[0-2]; scenario 5"
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['P0300'].causes[0-2]; scenario 5",
+      "system": "ignition-misfire"
     },
     {
       "id": "nox-inlet-sensor",
@@ -9469,7 +9496,8 @@
         "SPN 3216"
       ],
       "contradicting_signals": [],
-      "source_ref": "J1939-DB SPN_3216 title_tr"
+      "source_ref": "J1939-DB SPN_3216 title_tr",
+      "system": "scr-def-dosing"
     },
     {
       "id": "nox-outlet-sensor",
@@ -9479,7 +9507,8 @@
         "SPN 3226"
       ],
       "contradicting_signals": [],
-      "source_ref": "J1939-DB SPN_3226 title_tr"
+      "source_ref": "J1939-DB SPN_3226 title_tr",
+      "system": "scr-def-dosing"
     },
     {
       "id": "oil-pressure-sensor",
@@ -9489,7 +9518,8 @@
         "P0521"
       ],
       "contradicting_signals": [],
-      "source_ref": "UCANLAB-EXPERT-KB:DTC DB title Engine oil pressure sensor range/performance"
+      "source_ref": "UCANLAB-EXPERT-KB:DTC DB title Engine oil pressure sensor range/performance",
+      "system": "powertrain-engine"
     },
     {
       "id": "oil-pump-wear",
@@ -9502,7 +9532,8 @@
         "SPN 100"
       ],
       "contradicting_signals": [],
-      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN100'].causes[0]"
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN100'].causes[0]",
+      "system": "engine-lubrication"
     },
     {
       "id": "oil-sensor-shorts",
@@ -9514,7 +9545,8 @@
       "contradicting_signals": [
         "EngineOilPressure"
       ],
-      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN100'].causes[1-2]"
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN100'].causes[1-2]",
+      "system": "engine-lubrication"
     },
     {
       "id": "oil-temp-high",
@@ -9524,7 +9556,8 @@
         "SPN 175"
       ],
       "contradicting_signals": [],
-      "source_ref": "J1939-DB SPN_175 title_tr"
+      "source_ref": "J1939-DB SPN_175 title_tr",
+      "system": "engine-cooling-thermal"
     },
     {
       "id": "p0001-failed-fuel-volume-regulator-fvr-solenoid",
@@ -75411,7 +75444,8 @@
         "SPN 157"
       ],
       "contradicting_signals": [],
-      "source_ref": "J1939-DB SPN_157 title_tr"
+      "source_ref": "J1939-DB SPN_157 title_tr",
+      "system": "fuel-injection-rail"
     },
     {
       "id": "scr-nox-dosing",
@@ -75422,7 +75456,8 @@
         "SPN 3364"
       ],
       "contradicting_signals": [],
-      "source_ref": "UCANLAB-EXPERT-KB:_RELATED_CODE_GROUPS SPN3226+SPN3364 (SAE J1939 documented pair)"
+      "source_ref": "UCANLAB-EXPERT-KB:_RELATED_CODE_GROUPS SPN3226+SPN3364 (SAE J1939 documented pair)",
+      "system": "scr-def-dosing"
     },
     {
       "id": "spn-0-defective-sensor-sensors-with-internal-shorts-can-re",
@@ -96406,7 +96441,8 @@
         "P0115"
       ],
       "contradicting_signals": [],
-      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN110'].causes[0]; scenario 7 overheat (>108C)"
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN110'].causes[0]; scenario 7 overheat (>108C)",
+      "system": "engine-cooling-thermal"
     },
     {
       "id": "u011e-lost-communication-with-throttle-actuator-b-control",
@@ -105415,7 +105451,8 @@
         "P0234"
       ],
       "contradicting_signals": [],
-      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN102'].causes[0]; scenario 6 overboost"
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN102'].causes[0]; scenario 6 overboost",
+      "system": "fuel-air-metering"
     },
     {
       "id": "vvt-oil-sludge",
@@ -105425,7 +105462,8 @@
         "P0016"
       ],
       "contradicting_signals": [],
-      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['P0016'].causes"
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['P0016'].causes",
+      "system": "fuel-air-metering"
     },
     {
       "id": "engine-overrev",
@@ -105437,7 +105475,8 @@
         "SPN 190 FMI 0"
       ],
       "contradicting_signals": [],
-      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN190'].causes[0]"
+      "source_ref": "diagnostic_copilot.py EXPERT_KNOWLEDGE_BASE['SPN190'].causes[0]",
+      "system": "ignition-misfire"
     }
   ]
 }
