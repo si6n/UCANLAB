@@ -674,6 +674,7 @@ class DesktopApiBridge:
         "record_technician_feedback": "data",
         "get_dialogue_state": "read",
         "ask_copilot": "read",
+        "ask_copilot_structured": "read",
         "auth_get_state": "read",
         "auth_refresh_license": "config",
         "auth_start_device_login": "config",
@@ -815,6 +816,20 @@ class DesktopApiBridge:
                 ensure_ascii=False,
             )
         return self.app.query_copilot(query)
+
+    def ask_copilot_structured(self, query: str, language: str | None = None) -> dict[str, Any]:
+        """Six-section structured copilot answer for a free-text complaint (read-only).
+
+        Same input bound as ``ask_copilot``. The answer combines the operator's
+        text with the live evidence session (active codes + measured
+        telemetry); it never writes to the session or the bus.
+        """
+        problem = _validate_bridge_text(query, field="query", max_chars=COPILOT_QUERY_MAX_CHARS)
+        if problem is not None:
+            logger.warning("ask_copilot_structured rejected input", extra={"reason": problem})
+            return {"success": False, "error": problem, "code": "INVALID_COPILOT_QUERY"}
+        lang = language if language in ("tr", "en") else None
+        return self.app.query_copilot_structured(query, lang)
 
     # ------------------------------------------------------------------
     # Diagnostic session bridge (FAZ 1/5/6) — TS side never re-implements
@@ -3131,6 +3146,7 @@ class UniversalCanDesktopApp:
             )
         report = self.copilot.analyze_session(dtc_payload, live_telemetry, [])
         card = compose_user_card(report, session, is_simulating=is_simulating)
+        structured = self._structured_answer_for(session, live_telemetry, "")
         return {
             "success": True,
             "user_card": card.card_to_dict(),
@@ -3157,7 +3173,47 @@ class UniversalCanDesktopApp:
                 "ai_model_used": report.ai_model_used,
             },
             **report_summary_dict(sufficiency, anomalies, hypotheses, similar),
+            # Copilot upgrade: six-section plain-language answer over the same
+            # evidence (additive key; absent when the composer failed).
+            **({"structured_answer": structured} if structured is not None else {}),
         }
+
+    def _structured_answer_for(
+        self, session: VehicleSession | None, live_telemetry: dict[str, Any], text: str, language: str | None = None
+    ) -> dict[str, Any] | None:
+        """Structured copilot answer for the session's ACTIVE codes + measured telemetry.
+
+        Never raises into the bridge: a composer failure is logged and the
+        caller simply omits the field.
+        """
+        from src.engine.ai.copilot_answer import answer_query
+
+        try:
+            codes: list[str] = []
+            make = model = None
+            if session is not None:
+                with self._session_lock:
+                    codes = [e.code for e in session.events if e.status == "ACTIVE" and e.code]
+                    make, model = session.make, session.model
+            answer = self.copilot.answer(text, dtcs=codes, telemetry=live_telemetry, vehicle_make=make,
+                                         vehicle_model=model, language=language) if hasattr(self.copilot, "answer") \
+                else answer_query(text, dtcs=codes, telemetry=live_telemetry, vehicle_make=make,
+                                  vehicle_model=model, language=language)
+            payload = answer.to_dict()
+            payload["markdown"] = answer.to_markdown()
+            return payload
+        except Exception as exc:  # noqa: BLE001 — the analysis bridge must survive a composer bug
+            logger.warning("structured copilot answer failed", extra={"error": str(exc)})
+            return None
+
+    def query_copilot_structured(self, query: str, language: str | None = None) -> dict[str, Any]:
+        """Free-text complaint + live evidence -> six-section answer (bridge)."""
+        session, simulated = self._assistant_session()
+        telemetry = {} if simulated else self._live_telemetry_snapshot()
+        answer = self._structured_answer_for(session, telemetry, query, language)
+        if answer is None:
+            return {"success": False, "error": "Copilot cevabı oluşturulamadı"}
+        return {"success": True, "simulated": simulated, "answer": answer}
 
     def get_session_evidence_summary(self) -> dict[str, Any]:
         """Gate report + signal inventory for the Teşhis Oturumu panel (FAZ 1)."""
