@@ -93,6 +93,11 @@ yeni kayda `obdex` alt-nesnesi (kategori, `affected_components`, `common_causes`
 | Kayıt başına etiket | `_source_license` + `_source_ref` (114/114 doğrulandı) |
 | `metadata` | `total_pids` 226'ya güncellendi; `sources`'a `obdex` eklendi; `obdex_layer` bloğu eklendi |
 
+> **Güncelleme (2026-10-02, copilot upgrade):** T2-4'ün hex çakışması nedeniyle
+> atladığı 18 standart Mode 01 PID (04, 05, 0C, 0D, 0F, 10, 11, …) aynı sabit
+> artefakttan (sha256 doğrulamalı) eklendi: 226 → **244** PID, OBDex katmanı 114 → 132.
+> Araç: `scripts/copilot_data/add_obdex_standard_pids.py`.
+
 > **Not (dürüstlük):** `_source_license`/`_source_ref` alanları yalnız **T2-4'te
 > eklenen** PID kayıtlarında bulunur (114 adet). Önceden var olan 112 kayıt
 > olduğu gibi bırakılmıştır — geriye dönük etiketleme yapılmadı, çünkü o

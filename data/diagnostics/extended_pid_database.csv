@@ -225,3 +225,21 @@ D10A,D10A,Charge Air Pressure,Turbocharger charge air pressure,(A*256+B)*0.01,mb
 11,0B,In-use performance tracking for compression ignition (diesel) vehicles,,,encoded,,,,09,,,standard,obdex,standard
 13,0D,Engine serial number (ESN),,,ascii,,,,09,,,standard,obdex,standard
 14,0E,Exhaust regulation / type approval number,,,ascii,,,,09,,,standard,obdex,standard
+4,04,Calculated engine load,,100/255 * A,%,,,,01,,,standard,obdex,standard
+5,05,Engine coolant temperature,,A - 40,°C,,,,01,,,standard,obdex,standard
+12,0C,Engine RPM,,(256*A + B) / 4,rpm,,,,01,,,standard,obdex,standard
+13,0D,Vehicle speed,,A,km/h,,,,01,,,standard,obdex,standard
+15,0F,Intake air temperature,,A - 40,°C,,,,01,,,standard,obdex,standard
+16,10,Mass air flow rate,,(256*A + B) / 100,g/s,,,,01,,,standard,obdex,standard
+17,11,Throttle position,,100/255 * A,%,,,,01,,,standard,obdex,standard
+1,01,Monitor status since DTCs cleared,,,bitmap,,,,01,,,standard,obdex,standard
+3,03,Fuel system status (system 1 and system 2),,,encoded,,,,01,,,standard,obdex,standard
+6,06,Short term fuel trim — Bank 1,,100/128 * A - 100,%,,,,01,,,standard,obdex,standard
+7,07,Long term fuel trim — Bank 1,,100/128 * A - 100,%,,,,01,,,standard,obdex,standard
+14,0E,Timing advance (cylinder 1),,A/2 - 64,° before TDC,,,,01,,,standard,obdex,standard
+19,13,Oxygen sensors present (in 2 banks),,,bitmap,,,,01,,,standard,obdex,standard
+20,14,Oxygen sensor 1 (Bank 1 Sensor 1) — voltage and short term fuel trim,,A/200 (voltage); 100/128 * B - 100 (trim),V; %,,,,01,,,standard,obdex,standard
+21,15,Oxygen sensor 2 (Bank 1 Sensor 2) — voltage and short term fuel trim,,A/200 (voltage); 100/128 * B - 100 (trim),V; %,,,,01,,,standard,obdex,standard
+28,1C,OBD standards this vehicle conforms to,,,encoded,,,,01,,,standard,obdex,standard
+33,21,Distance traveled with malfunction indicator lamp (MIL) on,,256 * A + B,km,,,,01,,,standard,obdex,standard
+166,A6,Odometer,,((A * 16777216) + (B * 65536) + (C * 256) + D) / 10,km,,,,01,,,standard,obdex,standard

@@ -6880,6 +6880,29 @@ class AiDiagnosticCopilot:
         """Legacy API no-op: no cloud keys exist anymore (fully offline)."""
         pass
 
+    def answer(
+        self,
+        text: str = "",
+        *,
+        dtcs: Any = (),
+        telemetry: dict[str, Any] | None = None,
+        dm1: Any = (),
+        vehicle_make: str | None = None,
+        vehicle_model: str | None = None,
+        language: str | None = None,
+        options: Any = None,
+    ) -> Any:
+        """Six-section structured answer (``copilot_answer.answer_query``).
+
+        Accepts free text, DTC/SPN codes, telemetry and DM1 payloads together;
+        returns a :class:`~src.engine.ai.copilot_answer.StructuredAnswer`.
+        Deterministic and offline, like every other path of this class.
+        """
+        from src.engine.ai.copilot_answer import answer_query
+
+        return answer_query(text, dtcs=dtcs, telemetry=telemetry, dm1=dm1, vehicle_make=vehicle_make,
+                            vehicle_model=vehicle_model, language=language, options=options)
+
     def analyze_session(
         self,
         active_dtcs: list[dict[str, object]],

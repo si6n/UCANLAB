@@ -103,6 +103,13 @@ jobs:
         run: |
           ruff check .
 
+      - name: Validate copilot knowledge data (schema, provenance, cross-refs, CSV twins)
+        # FAIL findings exit 1; WARN findings are printed only. CSV twins are
+        # compared with line endings normalised (Windows checkouts use CRLF).
+        run: |
+          python scripts/validate_copilot_data.py
+          python scripts/rebuild_csv_exports.py --verify
+
       - name: Verify regression fixtures
         shell: pwsh
         run: |
@@ -290,6 +297,11 @@ jobs:
         run: |
           mypy src
           mypy --platform win32 src
+
+      - name: Validate copilot knowledge data (schema, provenance, cross-refs, CSV twins)
+        run: |
+          python scripts/validate_copilot_data.py
+          python scripts/rebuild_csv_exports.py --verify
 
       - name: Run full PyTest suite with coverage gate
         # Timing budgets are deselected here and run coverage-free below —

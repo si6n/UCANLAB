@@ -1,0 +1,383 @@
+{
+ "schema_version": 1,
+ "task": "copilot-upgrade data audit",
+ "date": "2026-10-02",
+ "artefact": "data/diagnostics/root_cause_graph.json.t21_before (deleted)",
+ "artefact_sha256": "97c50df12d63c4495dd97ca9e3db69a47162679d4ab7686ce143fd845f62e28c",
+ "what_it_was": "Pre-T2-1 hand-built 53-node seed graph. Not read by any code: scripts/derive_root_cause_graph.py looks for root_cause_graph_seed.json, which does not exist. Recoverable from git history (commit e16d48a).",
+ "method": "Each seed node checked against the live graph (by id) and with scripts/derive_root_cause_graph.py::_build_seed_resolver() against the databases.",
+ "summary": {
+  "already_in_graph": 38,
+  "not_recovered": 15,
+  "recovered": 0
+ },
+ "nodes": [
+  {
+   "id": "oil-pump-wear",
+   "verdict": "already_in_graph",
+   "note": "identical id present in root_cause_graph.json"
+  },
+  {
+   "id": "oil-sensor-shorts",
+   "verdict": "already_in_graph",
+   "note": "identical id present in root_cause_graph.json"
+  },
+  {
+   "id": "vgt-stuck",
+   "verdict": "already_in_graph",
+   "note": "identical id present in root_cause_graph.json"
+  },
+  {
+   "id": "charge-air-leak",
+   "verdict": "already_in_graph",
+   "note": "identical id present in root_cause_graph.json"
+  },
+  {
+   "id": "thermostat-stuck",
+   "verdict": "already_in_graph",
+   "note": "identical id present in root_cause_graph.json"
+  },
+  {
+   "id": "coolant-sensor-open",
+   "verdict": "already_in_graph",
+   "note": "identical id present in root_cause_graph.json"
+  },
+  {
+   "id": "dpf-soot-overload",
+   "verdict": "already_in_graph",
+   "note": "identical id present in root_cause_graph.json"
+  },
+  {
+   "id": "crank-sync-loss",
+   "verdict": "already_in_graph",
+   "note": "identical id present in root_cause_graph.json"
+  },
+  {
+   "id": "misfire-ignition",
+   "verdict": "already_in_graph",
+   "note": "identical id present in root_cause_graph.json"
+  },
+  {
+   "id": "fuel-rail-low",
+   "verdict": "already_in_graph",
+   "note": "identical id present in root_cause_graph.json"
+  },
+  {
+   "id": "def-level-low",
+   "verdict": "already_in_graph",
+   "note": "identical id present in root_cause_graph.json"
+  },
+  {
+   "id": "ebs-air-circuit1",
+   "verdict": "already_in_graph",
+   "note": "identical id present in root_cause_graph.json"
+  },
+  {
+   "id": "hvil-open",
+   "verdict": "already_in_graph",
+   "note": "identical id present in root_cause_graph.json"
+  },
+  {
+   "id": "hv-isolation-loss",
+   "verdict": "already_in_graph",
+   "note": "identical id present in root_cause_graph.json"
+  },
+  {
+   "id": "battery-soh-degradation",
+   "verdict": "already_in_graph",
+   "note": "identical id present in root_cause_graph.json"
+  },
+  {
+   "id": "can-bus-physical",
+   "verdict": "not_recovered",
+   "expected_dtcs": [
+    "U0100",
+    "U0126",
+    "C1A00"
+   ],
+   "title": "CAN fiziksel katman arızası (parazit/sonlandırma/baudrate)",
+   "source_ref": "diagnostic_copilot.py evaluate_diagnostic_query Error Frame kolu (60 ohm sonlandırma notu); U-codes KB",
+   "resolver": null,
+   "reason": "source_ref does not resolve (cites a code path, not a record); U0100/U0126 causes already covered by graph node can-power-ground and DB records"
+  },
+  {
+   "id": "vvt-oil-sludge",
+   "verdict": "already_in_graph",
+   "note": "identical id present in root_cause_graph.json"
+  },
+  {
+   "id": "injector-circuit",
+   "verdict": "already_in_graph",
+   "note": "identical id present in root_cause_graph.json"
+  },
+  {
+   "id": "egr-low-flow",
+   "verdict": "already_in_graph",
+   "note": "identical id present in root_cause_graph.json"
+  },
+  {
+   "id": "scr-nox-dosing",
+   "verdict": "already_in_graph",
+   "note": "identical id present in root_cause_graph.json"
+  },
+  {
+   "id": "fuel-rail-regulator",
+   "verdict": "already_in_graph",
+   "note": "identical id present in root_cause_graph.json"
+  },
+  {
+   "id": "dpf-diff-pressure",
+   "verdict": "already_in_graph",
+   "note": "identical id present in root_cause_graph.json"
+  },
+  {
+   "id": "can-power-ground",
+   "verdict": "already_in_graph",
+   "note": "identical id present in root_cause_graph.json"
+  },
+  {
+   "id": "lean-both-banks",
+   "verdict": "already_in_graph",
+   "note": "identical id present in root_cause_graph.json"
+  },
+  {
+   "id": "inverter-coolant-pump",
+   "verdict": "already_in_graph",
+   "note": "identical id present in root_cause_graph.json"
+  },
+  {
+   "id": "egr-valve-stuck",
+   "verdict": "already_in_graph",
+   "note": "identical id present in root_cause_graph.json"
+  },
+  {
+   "id": "alternator-control",
+   "verdict": "already_in_graph",
+   "note": "identical id present in root_cause_graph.json"
+  },
+  {
+   "id": "lean-bank-1",
+   "verdict": "already_in_graph",
+   "note": "identical id present in root_cause_graph.json"
+  },
+  {
+   "id": "dpf-efficiency",
+   "verdict": "already_in_graph",
+   "note": "identical id present in root_cause_graph.json"
+  },
+  {
+   "id": "engine-overtemp",
+   "verdict": "already_in_graph",
+   "note": "identical id present in root_cause_graph.json"
+  },
+  {
+   "id": "oil-pressure-sensor",
+   "verdict": "already_in_graph",
+   "note": "identical id present in root_cause_graph.json"
+  },
+  {
+   "id": "nox-inlet-sensor",
+   "verdict": "already_in_graph",
+   "note": "identical id present in root_cause_graph.json"
+  },
+  {
+   "id": "nox-outlet-sensor",
+   "verdict": "already_in_graph",
+   "note": "identical id present in root_cause_graph.json"
+  },
+  {
+   "id": "rail-pressure-sensor",
+   "verdict": "already_in_graph",
+   "note": "identical id present in root_cause_graph.json"
+  },
+  {
+   "id": "accel-pedal-sensor",
+   "verdict": "already_in_graph",
+   "note": "identical id present in root_cause_graph.json"
+  },
+  {
+   "id": "fuel-level-sensor",
+   "verdict": "already_in_graph",
+   "note": "identical id present in root_cause_graph.json"
+  },
+  {
+   "id": "coolant-level-low",
+   "verdict": "already_in_graph",
+   "note": "identical id present in root_cause_graph.json"
+  },
+  {
+   "id": "oil-temp-high",
+   "verdict": "already_in_graph",
+   "note": "identical id present in root_cause_graph.json"
+  },
+  {
+   "id": "fuel-rate-sensor",
+   "verdict": "not_recovered",
+   "expected_dtcs": [
+    "SPN 183"
+   ],
+   "title": "Anlık Yakıt Tüketim Debisi",
+   "source_ref": "J1939-DB SPN_183 title_tr",
+   "resolver": "J1939-DB SPN_183 title_tr",
+   "reason": "title names a measured SIGNAL (SPN 183 title_tr), not a fault mechanism -> not a root cause"
+  },
+  {
+   "id": "engine-torque-actual",
+   "verdict": "already_in_graph",
+   "note": "identical id present in root_cause_graph.json"
+  },
+  {
+   "id": "engine-hours-meter",
+   "verdict": "not_recovered",
+   "expected_dtcs": [
+    "SPN 247"
+   ],
+   "title": "Toplam Motor Çalışma Saati",
+   "source_ref": "J1939-DB SPN_247 title_tr",
+   "resolver": "J1939-DB SPN_247 title_tr",
+   "reason": "title names a counter (SPN 247 title_tr), not a fault mechanism -> not a root cause"
+  },
+  {
+   "id": "barometric-pressure-sensor",
+   "verdict": "not_recovered",
+   "expected_dtcs": [
+    "SPN 108"
+   ],
+   "title": "Atmosferik Çevre Basıncı",
+   "source_ref": "J1939-DB SPN_108 title_tr",
+   "resolver": "J1939-DB SPN_108 title_tr",
+   "reason": "title names a SIGNAL (SPN 108 title_tr), not a fault mechanism"
+  },
+  {
+   "id": "coolant-pressure-sensor",
+   "verdict": "not_recovered",
+   "expected_dtcs": [
+    "SPN 109"
+   ],
+   "title": "Motor Soğutma Suyu Basıncı 1",
+   "source_ref": "J1939-DB SPN_109 title_tr",
+   "resolver": "J1939-DB SPN_109 title_tr",
+   "reason": "title names a SIGNAL (SPN 109 title_tr), not a fault mechanism"
+  },
+  {
+   "id": "maf-sensor-contamination",
+   "verdict": "not_recovered",
+   "expected_dtcs": [
+    "P0101",
+    "P0102"
+   ],
+   "title": "Kütle Hava Akış (MAF) sensörü kirlenmesi / sıcak tel partikül birikmesi",
+   "source_ref": "dtc_database.json P0101",
+   "resolver": null,
+   "reason": "duplicate: graph already has p0101-maf-sensoru-sicak-telinde-yag-toz-veya-partikul-kirl (same DB cause, resolvable ref)"
+  },
+  {
+   "id": "throttle-body-adaptation",
+   "verdict": "not_recovered",
+   "expected_dtcs": [
+    "P0121",
+    "P0122"
+   ],
+   "title": "Gaz kelebeği potansiyometre aşınması / adaptasyon aralığı sapması",
+   "source_ref": "dtc_database.json P0121",
+   "resolver": null,
+   "reason": "source_ref unresolvable; seed title (potentiometer wear/adaptation) does not match the P0121 DB causes (internal open/short, harness, connector) — would be a re-worded, not a sourced, node"
+  },
+  {
+   "id": "o2-sensor-heater",
+   "verdict": "not_recovered",
+   "expected_dtcs": [
+    "P0135",
+    "P0141"
+   ],
+   "title": "Isıtmalı Oksijen Sensörü (HO2S) ısıtıcı direnç kopukluğu",
+   "source_ref": "dtc_database.json P0135",
+   "resolver": null,
+   "reason": "duplicate: graph already has 5 P0135/P0141 heater nodes with resolvable refs"
+  },
+  {
+   "id": "catalytic-converter-degradation",
+   "verdict": "not_recovered",
+   "expected_dtcs": [
+    "P0420",
+    "P0430"
+   ],
+   "title": "Katalitik konvertör monolit petek erimesi / kimyasal zehirlenmesi (P0420)",
+   "source_ref": "dtc_database.json P0420",
+   "resolver": null,
+   "reason": "source_ref unresolvable (\"dtc_database.json P0420\"); the DB cause exists but the T2-1 gate rejected it (root_cause_graph_rejects.json) — re-admitting it would change the golden-calibrated ranking for case P0420, so it is left to a calibrated derivation run"
+  },
+  {
+   "id": "battery-terminal-undervoltage",
+   "verdict": "not_recovered",
+   "expected_dtcs": [
+    "P0562",
+    "SPN 168"
+   ],
+   "title": "Akü terminal korozyonu / sistem düşük şarj voltajı (P0562 / SPN 168)",
+   "source_ref": "dtc_database.json P0562; J1939 SPN 168",
+   "resolver": null,
+   "reason": "source_ref unresolvable; P0562 DB causes are generic filler only -> no sourced mechanism"
+  },
+  {
+   "id": "crankshaft-position-sensor",
+   "verdict": "not_recovered",
+   "expected_dtcs": [
+    "P0335",
+    "SPN 636"
+   ],
+   "title": "Krank mili konum sensörü (CKP) sinyal kaybı / relüktör çark diş aralığı (P0335 / SPN 636)",
+   "source_ref": "dtc_database.json P0335; J1939 SPN 636",
+   "resolver": null,
+   "reason": "source_ref unresolvable; P0335 DB causes exist but were rejected by the T2-1 gate; re-admission deferred to a calibrated derivation run (golden case P0335)"
+  },
+  {
+   "id": "camshaft-position-timing",
+   "verdict": "not_recovered",
+   "expected_dtcs": [
+    "P0340",
+    "P0341"
+   ],
+   "title": "Eksantrik mili konum sensörü (CMP) sinyal sapması / zincir uzaması (P0340)",
+   "source_ref": "dtc_database.json P0340",
+   "resolver": null,
+   "reason": "duplicate: graph already has p0340-the-camshaft-position-sensor-may-have-failed"
+  },
+  {
+   "id": "evap-purge-valve-leak",
+   "verdict": "not_recovered",
+   "expected_dtcs": [
+    "P0440",
+    "P0442"
+   ],
+   "title": "EVAP kanister tahliye valfi mekanik açık kalması / yakıt buharı kaçağı (P0440)",
+   "source_ref": "dtc_database.json P0440",
+   "resolver": null,
+   "reason": "source_ref unresolvable; P0440 DB causes are generic filler only"
+  },
+  {
+   "id": "fuel-pump-relay-circuit",
+   "verdict": "not_recovered",
+   "expected_dtcs": [
+    "P0627",
+    "SPN 94"
+   ],
+   "title": "Düşük basınç yakıt pompası rölesi / besleme kesintisi (P0627 / SPN 94)",
+   "source_ref": "dtc_database.json P0627; J1939 SPN 94",
+   "resolver": null,
+   "reason": "source_ref unresolvable; P0627 DB causes are generic filler + VAG code dump"
+  },
+  {
+   "id": "abs-wheel-speed-mismatch",
+   "verdict": "not_recovered",
+   "expected_dtcs": [
+    "U0121",
+    "U0415"
+   ],
+   "title": "ABS tekerlek hız sensörü sinyal sapması / manyetik halka kirlenmesi (U0121 / U0415)",
+   "source_ref": "dtc_database.json U0121",
+   "resolver": null,
+   "reason": "WRONG: seed claims wheel-speed sensor contamination for U0121/U0415, but U0121 = lost communication with the ABS module (DB causes: CAN circuit open/short) -> rejected"
+  }
+ ]
+}

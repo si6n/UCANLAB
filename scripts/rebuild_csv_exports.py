@@ -30,7 +30,11 @@ Yazım atomik: tmp dosya + os.replace (kısmi yazım bilgi tabanını bozamaz).
 
 Kullanım:
     python scripts/rebuild_csv_exports.py --check   # yalnız rapor, yazmaz
-    python scripts/rebuild_csv_exports.py           # yeniden üret
+    python scripts/rebuild_csv_exports.py --verify  # CI: sapma varsa çıkış 1
+    python scripts/rebuild_csv_exports.py           # yeniden üret (7 ikiz, LF)
+
+Copilot upgrade (2026-10-02): tek kaynak üretici — extended_pid_database ve
+nhtsa_can_recalls_database ikizleri de buradan üretilir; satır sonu LF.
 """
 
 from __future__ import annotations
@@ -58,6 +62,10 @@ MODE06_JSON = DIAG_DIR / "obd_mode06_database.json"
 MODE06_CSV = DIAG_DIR / "obd_mode06_database.csv"
 CANONICAL_SYMPTOMS_JSON = DIAG_DIR / "canonical_symptoms.json"
 CANONICAL_SYMPTOMS_CSV = DIAG_DIR / "canonical_symptoms.csv"
+EXTENDED_PID_JSON = DIAG_DIR / "extended_pid_database.json"
+EXTENDED_PID_CSV = DIAG_DIR / "extended_pid_database.csv"
+RECALLS_JSON = DIAG_DIR / "nhtsa_can_recalls_database.json"
+RECALLS_CSV = DIAG_DIR / "nhtsa_can_recalls_database.csv"
 
 # Kanıt: git f80eb36:data/diagnostics/j1939_spn_fmi_database.csv başlığı, aynı
 # düzeni scripts/expand_j1939_spn_database.py (apply(), satır 575-579) üretir.
@@ -87,8 +95,11 @@ def _atomic_write(path: Path, payload: bytes) -> None:
 
 
 def _render(header: list[str], rows: Iterable[list[object]], bom: bool) -> bytes:
+    # LF: the repository stores every CSV twin with LF line endings (git
+    # normalises them), so LF output is byte-identical to the committed file
+    # and a rebuild never produces a whole-file line-ending diff.
     buf = io.StringIO(newline="")
-    writer = csv.writer(buf, lineterminator="\r\n")
+    writer = csv.writer(buf, lineterminator="\n")
     writer.writerow(header)
     writer.writerows(rows)
     return buf.getvalue().encode("utf-8-sig" if bom else "utf-8")
@@ -262,14 +273,65 @@ def _report(name: str, path: Path, header: list[str], rows: list[list[object]]) 
     print(f"  md5    : {_md5(path)}")
 
 
-def run(check_only: bool) -> int:
-    jobs: list[tuple[str, Path, list[str], list[list[object]]]] = [
+def _build_extended_pid_rows(header: list[str]) -> list[list[object]]:
+    """One row per JSON ``pids`` record; columns = the CSV's own header (same rule
+    as tools/data_ingest/rebuild_extended_pid_csv.py)."""
+    pids = json.loads(EXTENDED_PID_JSON.read_text(encoding="utf-8"))["pids"]
+    return [[_text(rec.get(col)) for col in header] for rec in pids if isinstance(rec, dict)]
+
+
+def _build_recalls_rows() -> list[list[object]]:
+    """NHTSA recall twin: one row per campaign, derived columns documented here.
+
+    affected_systems joined with "; ", over_the_air_update EVET/HAYIR, first three
+    vehicles as "Make Model (Year)" + " (+N diğer)", CRLF inside texts -> LF.
+    Verified byte-identical with the committed CSV (copilot upgrade, 2026-10-02).
+    """
+    recalls = json.loads(RECALLS_JSON.read_text(encoding="utf-8"))
+
+    def t(value: object) -> str:
+        return _text(value).replace("\r\n", "\n")
+
+    rows: list[list[object]] = []
+    for cid, rec in recalls.items():
+        vehicles = rec.get("affected_vehicles") or []
+        sample = "; ".join(f"{v.get('make', '')} {v.get('model', '')} ({v.get('year', '')})" for v in vehicles[:3])
+        if len(vehicles) > 3:
+            sample += f" (+{len(vehicles) - 3} diğer)"
+        rows.append([
+            cid, t(rec.get("manufacturer")), t(rec.get("category")), t(rec.get("component")),
+            "; ".join(rec.get("affected_systems") or []), "EVET" if rec.get("over_the_air_update") else "HAYIR",
+            str(len(vehicles)), sample, t(rec.get("summary")), t(rec.get("consequence")), t(rec.get("remedy")),
+        ])
+    return rows
+
+
+def all_jobs() -> list[tuple[str, Path, list[str], list[list[object]]]]:
+    """Every CSV twin in data/diagnostics with its rows built from the JSON source."""
+    pid_header = _read_existing_header(EXTENDED_PID_CSV)
+    return [
         ("dtc_database.csv", DTC_CSV, _read_existing_header(DTC_CSV), _build_dtc_rows()),
         ("uds_did_database.csv", UDS_CSV, _read_existing_header(UDS_CSV), _build_uds_rows()),
         ("j1939_spn_fmi_database.csv", J1939_CSV, J1939_HEADER, _build_j1939_rows()),
         ("obd_mode06_database.csv", MODE06_CSV, _read_existing_header(MODE06_CSV), _build_mode06_rows()),
         ("canonical_symptoms.csv", CANONICAL_SYMPTOMS_CSV, _read_existing_header(CANONICAL_SYMPTOMS_CSV), _build_canonical_symptoms_rows()),
+        ("extended_pid_database.csv", EXTENDED_PID_CSV, pid_header, _build_extended_pid_rows(pid_header)),
+        ("nhtsa_can_recalls_database.csv", RECALLS_CSV, _read_existing_header(RECALLS_CSV), _build_recalls_rows()),
     ]
+
+
+def drift() -> list[str]:
+    """Names of CSV twins whose bytes differ from a fresh render (line endings normalised)."""
+    out: list[str] = []
+    for name, path, header, rows in all_jobs():
+        expected = _render(header, rows, _has_bom(path)).replace(b"\r\n", b"\n")
+        if path.read_bytes().replace(b"\r\n", b"\n") != expected:
+            out.append(name)
+    return out
+
+
+def run(check_only: bool) -> int:
+    jobs = all_jobs()
 
     for name, path, header, rows in jobs:
         _report(name, path, header, rows)
@@ -289,7 +351,12 @@ def run(check_only: bool) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Rebuild data/diagnostics CSV twins from their JSON sources")
     parser.add_argument("--check", action="store_true", help="Report only; write nothing")
+    parser.add_argument("--verify", action="store_true", help="Exit 1 when any CSV twin drifted from its JSON")
     args = parser.parse_args()
+    if args.verify:
+        stale = drift()
+        print("CSV ikizleri senkron" if not stale else f"SENKRON DEGIL: {', '.join(stale)}")
+        return 1 if stale else 0
     return run(args.check)
 
 

@@ -56,9 +56,18 @@ via CLI options or settings.
   DBC export.
 - **Virtual channels** — torque, power (kW/HP), fuel efficiency, and
   propeller slip derived from raw J1939/N2K signals.
-- **AI diagnostic copilot** — fully offline deterministic rule-based root-cause
-  analysis (no cloud LLM, no API keys, no data leaves the host); never
-  fabricates measurements.
+- **AI diagnostic copilot** — fully offline, deterministic root-cause analysis
+  (no cloud LLM, no API keys, no data leaves the host; it can never transmit
+  on the bus). It reads a free-text complaint in Turkish or English (typo
+  tolerant), DTCs, J1939 SPN/FMI, raw DM1 frames and live telemetry together
+  and answers in six plain sections: summary, urgency (red/yellow/green/gray),
+  ranked causes with supporting **and** contradicting evidence, what to do
+  (simplest checks first), which measurement is missing and how to take it,
+  and collapsible technical details (SPN/FMI/PGN, glossary, NHTSA records).
+  High-voltage, fire, brake and steering warnings come first. Every claim
+  cites its source record (`dtc_database#P0101`, `j1939_spn_fmi#SPN_110.FMI_0`);
+  it never fabricates measurements — no data means "no data". All 23 knowledge
+  sources go through one lazy, cached `KnowledgeBase`; see `docs/COPILOT.md`.
 - **Export formats** — ASAM MDF4, MATLAB, KML, Vector ASC, CSV/JSON, plus
   HMAC-sealed HTML service reports (keyless SHA-256 checksum when no
   `REPORT_SIGNING_KEY` is configured).
@@ -113,6 +122,8 @@ python scripts/build_nuitka.py    # Nuitka C-level compiled build
 pytest -v                         # full suite (4,600+ tests)
 ruff check .                      # lint / static analysis
 mypy src && mypy --platform win32 src   # strict type check (CI gate)
+python scripts/validate_copilot_data.py          # knowledge-data gate (schema, provenance, cross-refs)
+python scripts/rebuild_csv_exports.py --verify   # CSV twins in sync with their JSON
 ```
 
 All modules — safety state machines, transport protocols, crypto licensing,
@@ -142,7 +153,8 @@ decoders, exporters, discovery), `src/protocols` (J1939, UDS, N2K, Volvo),
 | `PROJECT.md` | Architecture summary and feature inventory |
 | `docs/architecture/MASTER_PLAN.md` | Architecture specification, kept in sync with the code (section numbers are referenced from source) |
 | `docs/adrs/` | Architecture decision records (hexagonal layers, TX safety choke-point) |
-| `docs/OFFLINE_AI_ENGINE.md` | Offline diagnostic copilot design |
+| `docs/COPILOT.md` | Copilot architecture, data sources, scoring, how to extend it |
+| `docs/OFFLINE_AI_ENGINE.md` | Offline diagnostic engine internals (rule scenarios, packet explainer) |
 | `docs/ai_context/` | Layered architecture, safety invariants, protocols, OEM matrix, testing guide |
 | `docs/protocols/`, `docs/specs/` | J1939 / UDS references and subsystem specifications |
 | `docs/runbook/` | Operational procedures (e.g. E-Stop reset) |
