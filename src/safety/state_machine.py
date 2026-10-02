@@ -113,7 +113,7 @@ class SafetySupervisor:
             raise TypeError(
                 f"estop requires an object with 'is_engaged', got {type(estop).__name__}"
             )
-        self._state = initial_state
+        self._state: SafetyState = initial_state
         self._estop = estop
         self._estop_bound = estop is not None
         # T41 / S-1 (Y-2): the ARMED_TX/ACTIVE gate is the single functional
@@ -400,7 +400,7 @@ class SafetySupervisor:
                 # state/history, so a callback re-entering trigger_fault cannot
                 # make the transition a no-op and lose the fault record.
                 self._record_fault_event(reason or "ILLEGAL_STATE_TRANSITION")
-                old_state = self._state
+                old_state: SafetyState = self._state
                 self._state = SafetyState.FAULT
                 fault_reason = "ILLEGAL_STATE_TRANSITION: " + err_msg
                 self._fault_reason = fault_reason
@@ -646,7 +646,7 @@ class SafetySupervisor:
                         "override in effect (TEST-ONLY, TX not operator-authenticated)",
                         operation,
                     )
-                    return
+                    return None
                 logger.critical(
                     "%s without auth_token while auth_secret is configured — FAIL CLOSED",
                     operation,

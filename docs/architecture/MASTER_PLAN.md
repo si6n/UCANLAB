@@ -363,7 +363,7 @@ Ek kalıcı kararlar (kod ve testlerde kilitli):
 * AI copilot tamamen çevrimdışıdır: bulut LLM yok, API anahtarı yok (`test_ai_tx_isolation.py` AST ile kilitler).
 * Araç Bilgi Paketleri: Ed25519 imzalı `.pack` (`src/security/knowledge_pack/`, §12).
 * Windows DPAPI ile cihaz token saklama (§3.2).
-* Python `>=3.11` (CI: 3.12 ve 3.13); arayüz React 18 + pywebview.
+* Python `>=3.12` (CI: 3.12 ve 3.13); arayüz React 18 + pywebview.
 
 ### 19.2. Uygulama Durumu (masaüstü)
 

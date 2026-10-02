@@ -1,0 +1,101 @@
+# Denetim Backlog'u — 2026-10-01
+
+Bu dosya, `docs/audit/AUDIT_REPORT.md` denetiminde bulunup bu dalda **düzeltilmeyen**
+maddeleri listeler. Her madde için kanıt ve önerilen düzeltme verilir. Öncelik sırası:
+YÜKSEK → ORTA → DÜŞÜK.
+
+## YÜKSEK
+
+Açık YÜKSEK madde yok. Bulunan YÜKSEK bulguların hepsi düzeltildi (rapordaki tabloya bakın).
+
+## ORTA
+
+### B-01 — Üretim DBC kataloğunda opendbc test dosyası
+- **Kanıt:** `data/dbc/passenger/test.dbc` (`CM_ "This DBC is used for the CAN parser and packer tests."`),
+  `data/dbc/catalog.json:1653`, `data/dbc/manifest.json:1653`. Dosya `0xE4 STEERING_CONTROL`
+  (Honda adresi) gibi gerçek araç kimlikleriyle çakışan test mesajları içeriyor.
+- **Etki:** Katalog bu dosyayı gerçek araç DBC'si gibi sunuyor. Yanlış eşleşmede canlı trafiğe
+  test sinyal adları basılabilir.
+- **Öneri:** Dosyayı katalogdan ve `manifest.json`'dan çıkarın, `lint_dbc.py`'ye "CM_ test fixture"
+  reddi ekleyin. Veri silme kararı olduğu için sahibine bırakıldı.
+
+### B-02 — Katman sınırı ihlalleri ve iki God-module
+- **Kanıt (üst katmana import):**
+  - `src/security/cloud/license_flow.py:86` → `src.ui.desktop_app._app_data_root`
+  - `src/launcher/auth.py:84,262` → `src.ui.desktop_app`
+  - `src/engine/ai/user_kb.py:126,131` → `src.launcher.paths`, `src.ui.desktop_app`
+  - `src/protocols/j1939/oem/*.py` → `src.engine.decoder.dbc_decoder.DecodedSignal`
+  - `src/hal/virtual.py:12-14` → `src.protocols.uds.*` (simüle ECU HAL içinde)
+  - `src/safety/multiplexer.py:16` → `src.engine.router`
+- **God-module:** `src/ui/desktop_app.py` (~7000 satır), `src/engine/ai/diagnostic_copilot.py` (~7300 satır).
+- **Öneri:** `_app_data_root` / `_resolve_cloud_base_url` / loopback auth sunucusunu `src/core`
+  veya `src/launcher/paths.py` altına taşıyın. `DecodedSignal`'ı `src/core/models`'e alın.
+  `UdsServerEcu`'yu `src/hal/virtual.py`'den `src/engine/connection/` altına taşıyın.
+  `desktop_app.py`'yi köprü (bridge), bağlantı, teşhis eylemleri ve flash olarak bölün.
+  Bu davranış değişikliği olmayan ama geniş bir refaktör; ayrı PR'larda yapılmalı.
+
+### B-03 — UI uçtan uca testleri CI'da hiç koşmuyor
+- **Kanıt:** `tests/ui_e2e/test_mechanic_ui.py:26`, `tests/ui_e2e/test_workbench_ui.py:24` Playwright
+  yoksa atlanıyor. CI (`.github/workflows/ci.yml`) Playwright kurmuyor. `test_t2_7_attribution_render.py`
+  (5 test) `node_modules` yoksa atlanıyor; Python işleri `npm ci` çalıştırmıyor.
+- **Öneri:** Linux işine `npm ci` + `pip install playwright` ekleyin. Ortamda önceden kurulu
+  Chromium varsa `executablePath` ile kullanın.
+
+### B-04 — Ön yüzün birim testi yok
+- **Kanıt:** `src/ui/frontend/package.json` içinde `test` script'i yok; `src/ui/frontend/src` altında `*.test.*` yok.
+- **Öneri:** Vitest + React Testing Library ile köprü (`services/bridge.ts`) ve onay akışlarını kapsayın.
+
+### B-05 — Veri koşullu testler mevcut veriyle boşta kalıyor
+- **Kanıt:** `test_t66_procedures_full_wiring.py:236`, `test_t67_exhaustive_answers.py:233,270`,
+  `test_t69_multi_source_procedures.py:252`, `test_t69g_multi_dtc_vehicle_context.py:193`,
+  `test_t80e_geekobd_revert.py:120,131,230` "kayıt bulunamadı" diye atlanıyor.
+- **Etki:** Bu yollar şu anki veriyle hiç doğrulanmıyor.
+- **Öneri:** Her test için küçük bir sentetik fixture kullanın; gerçek veriye bağımlı kalmasın.
+
+### B-06 — ISO-TP TX kapasitesi 4096 bayt
+- **Kanıt:** `src/protocols/uds/isotp.py` "classic cap 4096 (fail-closed)". ISO 15765-2:2016,
+  klasik CAN'de de 32-bit FF_DL ile 4095 baytın üstüne izin verir.
+- **Öneri:** Politika gereği ise belgeleyin; değilse FF escape yolunu TX için de açın.
+
+### B-07 — Gerçek donanımla doğrulanmamış yollar
+- PCAN / Kvaser / RP1210 / Vector sürücüleri, DPAPI ve WebView2 bu denetimde **çalıştırılamadı**
+  (Linux konteyneri, donanım yok). ECU flash yolu yalnızca simüle ECU (`UdsServerEcu`) ile uçtan
+  uca doğrulandı. Gerçek bir ECU üzerinde `docs/product/HARDWARE_TEST_CHECKLIST.md` uygulanmalı.
+
+## DÜŞÜK
+
+### B-08 — Uygulama veri kökü iki farklı yere çözülüyor
+- **Kanıt:** `src/engine/ai/user_kb.py:126` dondurulmuş (frozen) modda `src.launcher.paths.app_data_root()`
+  kullanıyor; bu `%LOCALAPPDATA%\UCANLab Launcher` (`src/launcher/paths.py:48`). Masaüstü uygulamasının
+  geri kalanı `%LOCALAPPDATA%\UniversalCAN` (`src/ui/desktop_app.py:_app_data_root`) kullanıyor.
+- **Öneri:** Operatör geri bildirimini `_app_data_root()` altına alın (B-02 ile birlikte).
+
+### B-09 — J1939 CMDT alıcı bekleme süresi
+- **Kanıt:** `src/protocols/j1939/transport.py:1028-1030` alıcı tarafta CTS sonrası T4 (1050 ms)
+  kullanıyor. SAE J1939-21'de CTS gönderen alıcı için T2 = 1250 ms, paketler arası T1 = 750 ms.
+- **Öneri:** Gerçek ECU kayıtlarıyla doğrulayıp T1/T2 ayrımına geçin.
+
+### B-10 — Git geçmişinde döndürülmüş API anahtarı
+- **Kanıt:** gitleaks (varsayılan kural seti, allowlist'siz) geçmişte 4 `generic-api-key` buluyor:
+  `.clinerules`, `.orca.md`, `scripts/obsidian_api.py` (commit `801b01c2`), `scripts/verify_auth_callback_fix.py`
+  (commit `4d25c781`). `.gitleaks.toml` bunları "döndürüldü" notuyla izinli listeye alıyor.
+  HEAD temiz. Döndürmenin gerçekten yapıldığı bu denetimde **doğrulanamadı**.
+- **Öneri:** Anahtar sahibinin döndürmeyi teyit etmesi yeterli. Geçmişi yeniden yazmak geri
+  alınamaz bir işlem olduğu için yapılmadı.
+
+### B-11 — Depo boyutu ve Git LFS
+- **Kanıt:** Çalışma ağacında `data/` 435 MB; en büyükleri `data/traces/marine/canboat_samples/*.raw|*.all`
+  (77 MB, 45 MB, 25 MB). Paketlenmiş `.git` 68 MB. `scripts/check_corpus_size_sentry.py` PASS veriyor.
+- **Öneri:** Yeni büyük izler için `.gitattributes` ile LFS kuralı ekleyin. Mevcut geçmişi LFS'e taşımak
+  geçmişi yeniden yazar; geri alınamaz olduğu için yapılmadı.
+
+### B-12 — Lint kapsamı dar
+- **Kanıt:** `pyproject.toml [tool.ruff.lint] select = ["E","W","F","I","B"]`. `S` (bandit), `UP`, `SIM`
+  kuralları kapalı; bandit ayrı koşuyor ama yalnızca `-ll` (orta ve üstü).
+- **Öneri:** `UP` ve `RUF` kurallarını kademeli açın.
+
+### B-13 — Seçmeli RoutineControl çağrıları
+- **Kanıt:** `UdsClient.stop_routine` 0x31'i kritik bayrağı olmadan gönderiyor
+  (`src/protocols/uds/client.py`). Geçit (gateway) 0x31'i içerikten kritik sayıyor; üretim
+  geçidinde operatör onayı olmadan reddedilir (güvenli yön). Şu an uygulamada çağıran yok.
+- **Öneri:** Kullanılacaksa `start_routine` ile aynı token parametrelerini ekleyin.

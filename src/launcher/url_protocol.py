@@ -15,6 +15,7 @@ Not verified on real Windows in CI: see docs/product/HARDWARE_TEST_CHECKLIST.md.
 
 from __future__ import annotations
 
+import importlib
 import sys
 from pathlib import Path
 from typing import Any
@@ -51,7 +52,7 @@ def register_url_protocol(winreg_module: Any | None = None, executable: Path | N
         if sys.platform != "win32":
             logger.info("ucanlab:// registration skipped: not Windows")
             return False
-        import winreg as winreg_module  # type: ignore[no-redef]
+        winreg_module = importlib.import_module("winreg")
 
     if executable is None:
         executable, script = _default_target()

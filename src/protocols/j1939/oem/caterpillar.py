@@ -488,7 +488,7 @@ class CaterpillarDecoder(BaseOemDecoder):
             ),
             "service_parameter": DecodedSignal(
                 name="service_parameter",
-                value=param,  # type: ignore[arg-type]
+                value=param,
                 unit="raw",
                 raw_value=param if param is not None else 0,
                 is_valid=param_valid,

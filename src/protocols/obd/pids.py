@@ -224,7 +224,7 @@ def _decode_def_sensor_data(data: bytes) -> dict[str, float]:
 
 def _decode_signed_16(data: bytes, scale: float = 1.0, offset: float = 0.0) -> float:
     """Helper to decode signed 16-bit big-endian integer."""
-    val = struct.unpack(">h", data[:2])[0]
+    val: int = struct.unpack(">h", data[:2])[0]
     return (val * scale) + offset
 
 

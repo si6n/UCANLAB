@@ -7,6 +7,7 @@ Handles Proprietary A (PGN 61184 / 0xEF00) and Proprietary B (PGN 65280-65535 / 
 from __future__ import annotations
 
 import abc
+from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Any
 
@@ -177,7 +178,7 @@ class OemDecodedPayload:
         sig = self.signals.get(name)
         return sig is not None and sig.is_valid
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[DecodedSignal]:
         """Iterate over DecodedSignal values."""
         return iter(self.signals.values())
 

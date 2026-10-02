@@ -234,7 +234,8 @@ def test_uds_client_sync_routines_and_session() -> None:
             data=b"\x05\x71\x03\x02\x01\x00\x00\x00",
         )
     )
-    resp5 = client.request_routine_results(0x0201)
+    # 0x31 is critical by gateway policy (also the 0x03 results query).
+    resp5 = client.request_routine_results(0x0201, user_confirmed=True)
     assert resp5.is_positive is True
 
     # 6. Tester Present without suppression

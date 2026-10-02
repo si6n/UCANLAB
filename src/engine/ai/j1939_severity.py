@@ -113,7 +113,7 @@ def _coerce_severity(raw: Any) -> Severity | None:
         return None
 
 
-def resolve_fmi_severity(spn_code: str, fmi: int | None) -> Severity | None:
+def resolve_fmi_severity(spn_code: str, fmi: object) -> Severity | None:
     """Return the per-FMI severity recorded for an SPN, or None.
 
     ``None`` means "the database records nothing for this SPN/FMI pair" — the

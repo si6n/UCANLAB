@@ -38,6 +38,7 @@ from src.launcher.manifest_sig import (
     verify_manifest_signature,
 )
 from src.security.cloud.client import CANONICAL_CLOUD_HOSTS, CloudClient
+from src.version import __version__
 
 logger = get_logger("launcher.updater")
 
@@ -120,7 +121,7 @@ class UpdateManager:
 
     def __init__(
         self,
-        current_version: str = "13.0.0",
+        current_version: str = __version__,
         cloud_client: CloudClient | None = None,
         public_key: ed25519.Ed25519PublicKey | None = None,
         require_signature: bool = True,

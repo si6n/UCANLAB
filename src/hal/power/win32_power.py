@@ -9,7 +9,8 @@ from __future__ import annotations
 import ctypes
 import sys
 import threading
-from typing import ClassVar, Self
+from collections.abc import Callable
+from typing import ClassVar, Self, cast
 
 from src.core.logging import get_logger
 
@@ -22,7 +23,7 @@ ES_AWAYMODE_REQUIRED: int = 0x00000040
 ES_CONTINUOUS: int = 0x80000000
 
 
-def _get_set_thread_execution_state() -> object | None:
+def _get_set_thread_execution_state() -> Callable[[int], int] | None:
     """Return the Win32 SetThreadExecutionState entry with strict ctypes signature."""
     if sys.platform != "win32":
         return None
@@ -38,7 +39,7 @@ def _get_set_thread_execution_state() -> object | None:
         func.restype = ctypes.c_uint
     except (AttributeError, TypeError):
         return None
-    return func
+    return cast(Callable[[int], int], func)
 
 
 class WindowsPowerManager:
@@ -79,7 +80,7 @@ class WindowsPowerManager:
             flags |= ES_DISPLAY_REQUIRED
 
         try:
-            prev_state = set_state(flags)  # type: ignore[operator]
+            prev_state = set_state(flags)
             if prev_state != 0:
                 with cls._lock:
                     cls._is_active = True
@@ -132,7 +133,7 @@ class WindowsPowerManager:
                 cls._is_active = False
 
         try:
-            prev_state = set_state(ES_CONTINUOUS)  # type: ignore[operator]
+            prev_state = set_state(ES_CONTINUOUS)
             if prev_state != 0:
                 logger.info("SetThreadExecutionState: Normal Power Management RESTORED")
                 return True

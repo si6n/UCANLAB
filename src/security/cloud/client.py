@@ -481,8 +481,8 @@ class CloudConfig:
     def _validate_scheme(self) -> None:
         """Fail closed on insecure transport (SEC-C-001).
 
-        Only https:// URLs â€” or loopback (localhost / 127.0.0.1 / [::1]) for
-        local development â€” are accepted. Any other http:// endpoint would
+        Only https:// URLs — or loopback (localhost / 127.0.0.1 / [::1]) for
+        local development — are accepted. Any other http:// endpoint would
         expose the session cookie to network interception.
         """
         if not self.require_https:
@@ -519,7 +519,7 @@ class CloudConfig:
                 return ipaddress.ip_address(hostname).is_loopback
             except ValueError:
                 return hostname == "localhost"
-        except Exception:  # noqa: BLE001 â€” malformed URL is not loopback
+        except Exception:  # noqa: BLE001 — malformed URL is not loopback
             return False
 
     def endpoint(self, path: str, *, health_endpoint: bool = False) -> str:
@@ -576,7 +576,7 @@ class CloudResponse:
 class CloudClient:
     """Minimal authenticated HTTP client for the cloud REST API.
 
-    Session strategy (MASTER_PLAN Â§3.2):
+    Session strategy (MASTER_PLAN §3.2):
       1. The operator logs into the web portal once and pastes the session
          token into the desktop settings; it is stored under DPAPI.
       2. Device-scoped calls (telemetry upload, activation) prefer the
@@ -675,7 +675,7 @@ class CloudClient:
         return b"".join(chunks)[: cls.MAX_ERROR_BODY_BYTES]
 
     def set_base_url(self, url: str) -> None:
-        """Change the API base URL â€” re-validated (3FABLE-H2).
+        """Change the API base URL — re-validated (3FABLE-H2).
 
         Assigning `client.config.base_url = url` bypassed CloudConfig's
         __post_init__ scheme check (dataclass attribute assignment never
@@ -913,7 +913,7 @@ class CloudClient:
             session = validate_session_token(session)
             headers["Cookie"] = f"ucan_session={session}"
             headers["Authorization"] = f"Bearer {session}"
-        # B4: sanitized AFTER the session cookie is applied â€” extra headers
+        # B4: sanitized AFTER the session cookie is applied — extra headers
         # can neither replace nor strip it.
         headers.update(_sanitize_extra_headers(extra_headers))
 
@@ -925,7 +925,7 @@ class CloudClient:
                 with opener.open(req, timeout=self.config.timeout_seconds) as resp:  # nosec: B310
                     return CloudResponse(
                         status=resp.status,
-                        # M-20 (P2-11): bounded read â€” a hostile or
+                        # M-20 (P2-11): bounded read — a hostile or
                         # misbehaving endpoint must not be able to stream an
                         # unbounded body into memory. Enforce Content-Length
                         # up front and cap the streamed bytes either way.
@@ -965,7 +965,7 @@ class CloudClient:
                 try:
                     delay = max(delay, float(retry_after))
                 except (TypeError, ValueError):
-                    pass  # non-numeric Retry-After (HTTP-date) â€” fall back to backoff
+                    pass  # non-numeric Retry-After (HTTP-date) — fall back to backoff
         # SEC-C-007: Cap maximum sleep delay to prevent DoS lockup from malicious/misconfigured server
         delay = min(delay, self.config.max_retry_backoff_seconds)
         _time.sleep(delay)

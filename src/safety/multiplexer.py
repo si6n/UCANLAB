@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import queue
 from collections.abc import Callable
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from src.hal.base import AbstractBus
 
@@ -174,7 +174,7 @@ class SafeMultiplexedBus(AbstractBus):
         It is appended only when provided, keeping compatibility with gateways
         that do not accept the parameter.
         """
-        kwargs: dict[str, object] = {
+        kwargs: dict[str, Any] = {
             "is_critical_command": is_critical_command,
             "user_confirmed": user_confirmed,
             "budget_category": budget_category,
@@ -199,7 +199,7 @@ class SafeMultiplexedBus(AbstractBus):
         confirmation_context: bytes | str | None = None,
     ) -> None:
         """Synchronously transmit frame conforming to TxPort protocol."""
-        kwargs: dict[str, object] = {
+        kwargs: dict[str, Any] = {
             "is_critical_command": is_critical_command,
             "user_confirmed": user_confirmed,
             "budget_category": budget_category,
@@ -224,7 +224,7 @@ class SafeMultiplexedBus(AbstractBus):
         confirmation_context: bytes | str | None = None,
     ) -> None:
         """Asynchronously transmit frame conforming to TxPort protocol."""
-        kwargs: dict[str, object] = {
+        kwargs: dict[str, Any] = {
             "is_critical_command": is_critical_command,
             "user_confirmed": user_confirmed,
             "budget_category": budget_category,

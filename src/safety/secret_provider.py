@@ -94,6 +94,8 @@ def read_windows_machine_guid() -> str | None:
     """
     if os.name != "nt":
         return None
+    if sys.platform != "win32":  # same as os.name above; lets mypy narrow winreg
+        return None
     try:
         import winreg
 
@@ -150,6 +152,10 @@ def derive_machine_dpapi_entropy(base_entropy: bytes = DEFAULT_DPAPI_ENTROPY) ->
 
 class SecretProvider(ABC):
     """Abstract interface for secure secret and key storage providers."""
+
+    def protection_level(self) -> ProtectionLevel:
+        """Strength of this backend's storage; concrete backends override it."""
+        raise NotImplementedError(f"{type(self).__name__} does not report a protection level")
 
     @abstractmethod
     def get_secret(self, name: str) -> bytes:
@@ -633,6 +639,8 @@ if sys.platform == "win32":
             ("cbData", wintypes.DWORD),
             ("pbData", ctypes.POINTER(ctypes.c_byte)),
         ]
+else:  # placeholder so the name exists off Windows; DPAPI code raises before use
+    _WindowsDATA_BLOB: Any = None
 
 
 class WindowsDPAPISecretBackend(SecretProvider):
@@ -688,7 +696,10 @@ class WindowsDPAPISecretBackend(SecretProvider):
         except (ImportError, OSError, AttributeError) as exc:
             logger.debug("win32crypt unavailable, falling back to ctypes", extra={"error": str(exc)})
 
-        # 2. Use ctypes crypt32
+        # 2. Use ctypes crypt32 (Windows only; the guard also lets mypy check
+        # this block against the Windows ctypes stubs on every platform).
+        if sys.platform != "win32":
+            raise OSError("DPAPI is only available on Windows")
         crypt32 = ctypes.windll.crypt32
         kernel32 = ctypes.windll.kernel32
 
@@ -739,7 +750,10 @@ class WindowsDPAPISecretBackend(SecretProvider):
         except (ImportError, OSError, AttributeError) as exc:
             logger.debug("win32crypt unavailable, falling back to ctypes", extra={"error": str(exc)})
 
-        # 2. Use ctypes crypt32
+        # 2. Use ctypes crypt32 (Windows only; the guard also lets mypy check
+        # this block against the Windows ctypes stubs on every platform).
+        if sys.platform != "win32":
+            raise OSError("DPAPI is only available on Windows")
         crypt32 = ctypes.windll.crypt32
         kernel32 = ctypes.windll.kernel32
 

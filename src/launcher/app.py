@@ -33,6 +33,7 @@ from src.launcher.auth import AuthStatus, LauncherAuthManager
 from src.launcher.prereqs import PrereqChecker, PrereqStatus
 from src.launcher.updater import UpdateInfo, UpdateManager
 from src.security.cloud.license_flow import DEFAULT_EMBEDDED_CLOUD_PUBLIC_KEY_B64
+from src.version import __version__
 
 logger = get_logger("launcher.app")
 
@@ -156,7 +157,7 @@ class UniversalCanLauncher:
 
     def __init__(
         self,
-        current_version: str = "13.0.0",
+        current_version: str = __version__,
         *,
         allow_unsigned_manifest: bool = False,
         auth_manager: LauncherAuthManager | None = None,
@@ -235,7 +236,7 @@ class UniversalCanLauncher:
     @classmethod
     def for_testing(
         cls,
-        current_version: str = "13.0.0",
+        current_version: str = __version__,
         *,
         auth_manager: LauncherAuthManager | None = None,
         update_manager: UpdateManager | None = None,

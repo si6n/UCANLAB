@@ -20,7 +20,7 @@ import secrets as pysecrets
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric import ed25519
@@ -41,6 +41,7 @@ from src.security.license.claims import (
     parse_license_json,
     reject_non_finite_json_constant,
 )
+from src.version import __version__
 
 logger = get_logger("security.cloud.license_flow")
 
@@ -124,7 +125,7 @@ class LicenseFlow:
         self,
         client: CloudClient,
         public_key: ed25519.Ed25519PublicKey,
-        app_version: str = "13.0.0",
+        app_version: str = __version__,
         trusted_keys: dict[str, ed25519.Ed25519PublicKey] | None = None,
         boot_realtime: float | None = None,
         boot_monotonic: float | None = None,
@@ -195,7 +196,7 @@ class LicenseFlow:
         if secrets is not None:
             try:
                 if secrets.has_secret(HWM_SECRET_NAME):
-                    return secrets.get_secret(HWM_SECRET_NAME)
+                    return cast(bytes, secrets.get_secret(HWM_SECRET_NAME))
             except KeyError:
                 pass
 
@@ -238,7 +239,7 @@ class LicenseFlow:
                 "License HWM integrity key is not stably persisted; refusing to treat HWM as trustworthy.",
                 code="HWM_KEY_UNAVAILABLE",
             )
-        return stored
+        return cast(bytes, stored)
 
     def _hwm_read_keys(self) -> list[bytes]:
         """Every vault key an HWM file may verify under (SEC-02).
@@ -615,7 +616,7 @@ class LicenseFlow:
         # plus this isfinite check).
         for field_name in ("iat", "exp", "offline_until"):
             value = data.get(field_name)
-            if type(value) not in (int, float) or isinstance(value, bool) or not math.isfinite(float(value)):
+            if not isinstance(value, (int, float)) or isinstance(value, bool) or not math.isfinite(float(value)):
                 raise LicenseError(
                     f"Cloud ticket '{field_name}' must be a finite number",
                     code="MALFORMED_SCHEMA",

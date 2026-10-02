@@ -27,6 +27,7 @@ from src.core.logging import get_logger
 from src.core.models.diagnostics import (
     DiagnosticDomain,
     DiagnosticEvent,
+    Severity,
     SignalSample,
     SignalSource,
     VehicleSession,
@@ -374,7 +375,7 @@ class DialogueSession:
                     code=f"OP:{answer.question_id}:{ans_suffix}",
                     domain=session.domain,
                     status="ACTIVE",
-                    severity="INFO",
+                    severity=Severity.INFO,
                 )
             )
 
@@ -453,7 +454,7 @@ class DialogueSession:
         self.proposed_actions.clear()
 
         # Propose read-only telemetry action (safe)
-        read_action = {
+        read_action: dict[str, Any] = {
             "type": "PROPOSE_READ",
             "title": f"Canlı Veri Doğrulaması: {top_hypothesis.fault[:40]}",
             "target": top_hypothesis.id,
@@ -465,7 +466,7 @@ class DialogueSession:
             self.proposed_actions.append(read_action)
 
         # Propose mutating action (requires operator confirmation + stationary speed)
-        clear_action = {
+        clear_action: dict[str, Any] = {
             "type": "PROPOSE_DTC_CLEAR",
             "title": "Onarım Sonrası Hata Kodlarını Sil (DTC Clear)",
             "target": top_hypothesis.id,

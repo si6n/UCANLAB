@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import collections
 import threading
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -25,7 +26,7 @@ logger = get_logger("engine.decoder")
 
 # E4: J1939-71 MSB sentinel evaluation per unsigned signal width. 24-bit is
 # included alongside 8/16/32 per SAE J1939-71 parameter group encoding.
-_SENTINEL_CHECKS: dict[int, Any] = {
+_SENTINEL_CHECKS: dict[int, Callable[[int], SignalQuality | None]] = {
     8: J1939SentinelFilter.check_uint8,
     16: J1939SentinelFilter.check_uint16,
     24: J1939SentinelFilter.check_uint24,
@@ -102,7 +103,7 @@ class DecodedSignal:
     """Decoded physical CAN signal value with full provenance and validity state."""
 
     name: str
-    value: float | int | str
+    value: float | int | str | None
     unit: str
     raw_value: int | float | None = None
     is_valid: bool = True
@@ -276,7 +277,7 @@ class DbcSignalDecoder:
             ) from exc
 
     @classmethod
-    def from_dbc_files(cls, dbc_paths: list[str | Path], max_cache_size: int = 2048) -> DbcSignalDecoder:
+    def from_dbc_files(cls, dbc_paths: Sequence[str | Path], max_cache_size: int = 2048) -> DbcSignalDecoder:
         """Instantiate decoder by merging multiple DBC files."""
         if not dbc_paths:
             return cls(cantools.database.can.Database(), max_cache_size=max_cache_size)

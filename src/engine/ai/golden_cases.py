@@ -101,6 +101,14 @@ def _reject_raw_vin(case_id: str, payload: dict[str, object]) -> None:
         )
 
 
+def _optional_text(payload: dict[str, object], key: str) -> str | None:
+    """A free-text field that is either a string or null (fail-closed otherwise)."""
+    value = payload.get(key)
+    if value is None or isinstance(value, str):
+        return value
+    raise GoldenCaseError(f"{key} must be a string or null")
+
+
 def validate_case_payload(payload: dict[str, object]) -> GoldenCase:
     """Validate one parsed case dict against schema v1 (stdlib checks, fail-closed)."""
     if not isinstance(payload, dict):
@@ -185,7 +193,8 @@ def validate_case_payload(payload: dict[str, object]) -> GoldenCase:
         raise GoldenCaseError("verified_date must be YYYY-MM-DD or null")
     if verified and not verified_date:
         raise GoldenCaseError("verified: true requires verified_date")
-    if verified and not (payload.get("actual_fault") or "").strip():
+    actual_fault = _optional_text(payload, "actual_fault")
+    if verified and not (actual_fault or "").strip():
         raise GoldenCaseError("verified case must have a non-empty actual_fault")
 
     _reject_raw_vin(str(case_id), payload)
@@ -196,14 +205,14 @@ def validate_case_payload(payload: dict[str, object]) -> GoldenCase:
         symptom=symptom,
         dtcs=tuple(dtcs),
         signals_of_interest=tuple(signals),
-        actual_fault=payload.get("actual_fault"),
-        repair=payload.get("repair"),
-        verification=payload.get("verification"),
-        trace_ref=payload.get("trace_ref"),
+        actual_fault=actual_fault,
+        repair=_optional_text(payload, "repair"),
+        verification=_optional_text(payload, "verification"),
+        trace_ref=_optional_text(payload, "trace_ref"),
         verified=verified,
         verified_date=verified_date,
-        make=payload.get("make"),
-        model=payload.get("model"),
+        make=_optional_text(payload, "make"),
+        model=_optional_text(payload, "model"),
         year=year,
         raw=payload,
     )
