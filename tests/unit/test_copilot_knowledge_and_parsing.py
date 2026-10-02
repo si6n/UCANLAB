@@ -171,3 +171,59 @@ def test_symptom_matching_tr_en_and_typos() -> None:
 def test_safety_terms_are_detected() -> None:
     pq = parse_query("fren tutmuyor, yanık kokusu var, turuncu kablo eridi, direksiyon kilitlendi")
     assert set(pq.safety_terms) == {"brakes", "fire", "high_voltage", "steering"}
+
+
+@pytest.mark.parametrize("text,signal,value,unit", [
+    ("motor hararet yapıyor, göstergede 112 derece", "CoolantTemp", 112.0, "°C"),
+    ("yağ lambası yandı, basınç 0,3 bar", "EngineOilPressure", 0.3, "bar"),
+    ("akü bitti, voltaj 11.9 V", "BatteryVoltage", 11.9, "V"),
+])
+def test_complaint_gauge_value_is_tied_to_its_signal(text: str, signal: str, value: float, unit: str) -> None:
+    pq = parse_query(text)
+    got = [(r.canonical, r.value, r.unit, r.origin) for r in pq.readings]
+    assert (signal, value, unit, "text_context") in got, got
+    assert any(n.startswith(f"context_reading:{signal}<-") for n in pq.notes)
+
+
+@pytest.mark.parametrize("text", [
+    "motor hararet yapıyor 112",                    # no unit: never assumed
+    "motor hararet yapıyor 90 km/h giderken",       # incompatible unit
+    "motor hararet yapıyor önce 95 derece sonra 120 derece",  # two candidates: ambiguous
+    "112 derece",                                   # no complaint about a gauge
+])
+def test_gauge_value_is_not_guessed(text: str) -> None:
+    assert not [r for r in parse_query(text).readings if r.origin == "text_context"]
+
+
+@pytest.mark.parametrize("text,expected,excluded", [
+    ("marş basmıyor", "starter-relay-circuit-open", "crank-no-start"),
+    ("mars basmyor", "starter-relay-circuit-open", "crank-no-start"),     # typo inside the negation
+    ("araba çalışmıyor marş dönüyor", "crank-no-start", "starter-relay-circuit-open"),
+])
+def test_typo_tolerance_never_flips_negation(text: str, expected: str, excluded: str) -> None:
+    got = [s.symptom_id for s in parse_query(text).symptoms]
+    assert expected in got and excluded not in got, got
+
+
+@pytest.mark.parametrize("cause", [
+    "1. 20-Way TCM Vehicle Harness Connector 2. Transmission Control Module (TCM)",
+    "Corroded or loose power supply to",
+    "Inspect the batteries and supplies to the TECU. Key off. Notice Allow TECU to power down",
+    "Note: For component location refer to OEM service literature",
+    "Vehicle charging/battery system failure FMI 1, 4, 17, 18: Vehicle Harness Wiring shorted to power",
+])
+def test_harvest_residue_is_not_a_cause(cause: str) -> None:
+    from src.engine.ai.copilot_reasoner import _clean_cause
+
+    assert _clean_cause(cause) is None
+
+
+@pytest.mark.parametrize("cause", [
+    "Short to power in the power supply circuit to the wastegate/boost pressure control solenoid A",
+    "Unplugged connector — ECT connector not plugged in",
+    "Low coolant due to leak in cooling system",
+])
+def test_genuine_causes_survive_the_residue_filter(cause: str) -> None:
+    from src.engine.ai.copilot_reasoner import _clean_cause
+
+    assert _clean_cause(cause) == cause

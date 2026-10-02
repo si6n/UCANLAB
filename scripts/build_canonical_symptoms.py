@@ -45,7 +45,7 @@ BASE_PROFILES: list[dict[str, Any]] = [
         "domain": "ALL",
         "observable": True,
         "operator_reported": True,
-        "keywords_tr": ["mars basmiyor", "calismiyor", "mars almiyor", "mars basiyor calismiyor", "atesleme yok", "crank"],
+        "keywords_tr": ["calismiyor", "mars almiyor", "mars basiyor calismiyor", "atesleme yok", "crank"],
         "keywords_en": ["crank no start", "engine does not start", "no start", "cranks but will not fire"],
         "subsystems": ["Ateşleme & Marş Sistemi", "Yakıt Besleme Sistemi", "Akü & Elektrik Besleme"],
         "candidate_dtcs": ["P0335", "P0627", "P0562", "SPN 100", "SPN 636"],

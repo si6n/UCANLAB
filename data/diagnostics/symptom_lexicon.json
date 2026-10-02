@@ -384,12 +384,15 @@
     "aku bitti",
     "akü bitti",
     "aku zayif",
-    "aku sarj olmuyor"
+    "aku sarj olmuyor",
+    "mars tik tik",
+    "marş tık tık"
    ],
    "phrases_en": [
     "battery dead",
     "battery flat",
-    "weak battery"
+    "weak battery",
+    "clicks but no crank"
    ],
    "provenance": [
     {
@@ -408,6 +411,45 @@
      "source": {
       "title": "canonical_symptoms.json symptom 'battery-drain-parasitic' (name_tr/name_en/keywords)",
       "path": "data/diagnostics/canonical_symptoms.json#battery-drain-parasitic",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "paraphrase-of-existing-symptom-definition"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  {
+   "symptom_id": "starter-relay-circuit-open",
+   "phrases_tr": [
+    "mars basmiyor",
+    "marş basmıyor",
+    "mars donmuyor",
+    "mars motoru donmuyor"
+   ],
+   "phrases_en": [
+    "no crank",
+    "starter not turning",
+    "starter does not turn"
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-lex-starter-relay-circuit-open",
+     "target": {
+      "record_id": "starter-relay-circuit-open",
+      "field": "phrases"
+     },
+     "activity": "curate_paraphrase",
+     "activity_version": "copilot-upgrade-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'starter-relay-circuit-open' (name_tr/name_en/keywords)",
+      "path": "data/diagnostics/canonical_symptoms.json#starter-relay-circuit-open",
       "type": "internal_kb"
      },
      "transform": {
