@@ -190,14 +190,19 @@
     "motor çekmiyor",
     "turbo calismiyor",
     "hizlanmiyor",
-    "guc yok"
+    "guc yok",
+    "arac cekmiyor",
+    "araba cekmiyor",
+    "turbo islik",
+    "turbodan islik sesi"
    ],
    "phrases_en": [
     "loss of power",
     "lack of power",
     "no power",
     "turbo not working",
-    "slow acceleration"
+    "slow acceleration",
+    "turbo whistle"
    ],
    "provenance": [
     {
@@ -306,11 +311,16 @@
    "phrases_tr": [
     "silindir tekletiyor",
     "ateşleme hatası",
-    "atesleme hatasi"
+    "atesleme hatasi",
+    "motor lambasi yanip sonuyor",
+    "motor ariza lambasi yanip sonuyor",
+    "check engine yanip sonuyor",
+    "motor isigi yanip sonuyor"
    ],
    "phrases_en": [
     "misfire",
-    "engine misfire"
+    "engine misfire",
+    "flashing check engine light"
    ],
    "provenance": [
     {
@@ -344,7 +354,9 @@
     "motor calismiyor",
     "motor çalışmıyor",
     "mars aliyor calismiyor",
-    "calismiyor mars donuyor"
+    "calismiyor mars donuyor",
+    "arac calismiyor",
+    "arac hic calismiyor"
    ],
    "phrases_en": [
     "engine wont start",
@@ -386,13 +398,19 @@
     "aku zayif",
     "aku sarj olmuyor",
     "mars tik tik",
-    "marş tık tık"
+    "marş tık tık",
+    "aku lambasi yaniyor",
+    "sarj lambasi yaniyor",
+    "kontak acinca hicbir sey olmuyor",
+    "kontak acilinca hicbir sey olmuyor"
    ],
    "phrases_en": [
     "battery dead",
     "battery flat",
     "weak battery",
-    "clicks but no crank"
+    "clicks but no crank",
+    "battery light on",
+    "charging light on"
    ],
    "provenance": [
     {
@@ -426,7 +444,9 @@
     "mars basmiyor",
     "marş basmıyor",
     "mars donmuyor",
-    "mars motoru donmuyor"
+    "mars motoru donmuyor",
+    "kontak acinca hicbir sey olmuyor",
+    "kontak acilinca hicbir sey olmuyor"
    ],
    "phrases_en": [
     "no crank",
@@ -617,7 +637,10 @@
     "vites atmiyor",
     "acil durum modu",
     "limp mod",
-    "vites kutusu"
+    "vites kutusu",
+    "limp moduna girdi",
+    "acil moda girdi",
+    "koruma moduna girdi"
    ],
    "phrases_en": [
     "limp home",
@@ -853,7 +876,8 @@
     "guc sinirlamasi",
     "güç sınırlaması",
     "tork dusurme",
-    "motor kisitlandi"
+    "motor kisitlandi",
+    "guc kisitlamasi"
    ],
    "phrases_en": [
     "derate",
@@ -927,11 +951,14 @@
    "phrases_tr": [
     "soguk calismiyor",
     "kizdirma bujisi",
-    "sabah zor calisiyor"
+    "sabah zor calisiyor",
+    "mars zor aliyor",
+    "zor calisiyor"
    ],
    "phrases_en": [
     "hard cold start",
-    "glow plug fault"
+    "glow plug fault",
+    "hard to start"
    ],
    "provenance": [
     {
@@ -1022,6 +1049,276 @@
      "source": {
       "title": "canonical_symptoms.json symptom 'steering-angle-sensor-uncalibrated' (name_tr/name_en/keywords)",
       "path": "data/diagnostics/canonical_symptoms.json#steering-angle-sensor-uncalibrated",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "paraphrase-of-existing-symptom-definition"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  {
+   "symptom_id": "ac-refrigerant-pressure-low",
+   "phrases_tr": [
+    "klima calismiyor",
+    "klima soguk uflemiyor",
+    "klima sogutmuyor",
+    "klima sicak hava veriyor"
+   ],
+   "phrases_en": [
+    "ac not cooling",
+    "air conditioning not working",
+    "ac blowing warm"
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-lex-ac-refrigerant-pressure-low",
+     "target": {
+      "record_id": "ac-refrigerant-pressure-low",
+      "field": "phrases"
+     },
+     "activity": "curate_paraphrase",
+     "activity_version": "copilot-upgrade-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'ac-refrigerant-pressure-low' (name_tr/name_en/keywords)",
+      "path": "data/diagnostics/canonical_symptoms.json#ac-refrigerant-pressure-low",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "paraphrase-of-existing-symptom-definition"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  {
+   "symptom_id": "coolant-fan-control-circuit",
+   "phrases_tr": [
+    "fan calismiyor",
+    "fan donmuyor",
+    "fan devreye girmiyor",
+    "fan surekli calisiyor"
+   ],
+   "phrases_en": [
+    "radiator fan not working",
+    "cooling fan not working",
+    "fan always on"
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-lex-coolant-fan-control-circuit",
+     "target": {
+      "record_id": "coolant-fan-control-circuit",
+      "field": "phrases"
+     },
+     "activity": "curate_paraphrase",
+     "activity_version": "copilot-upgrade-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'coolant-fan-control-circuit' (name_tr/name_en/keywords)",
+      "path": "data/diagnostics/canonical_symptoms.json#coolant-fan-control-circuit",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "paraphrase-of-existing-symptom-definition"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  {
+   "symptom_id": "coolant-thermostat-stuck-open",
+   "phrases_tr": [
+    "kalorifer isitmiyor",
+    "kalorifer ilik",
+    "motor isinmiyor",
+    "motor gec isiniyor"
+   ],
+   "phrases_en": [
+    "heater not hot",
+    "engine not warming up",
+    "engine runs cold"
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-lex-coolant-thermostat-stuck-open",
+     "target": {
+      "record_id": "coolant-thermostat-stuck-open",
+      "field": "phrases"
+     },
+     "activity": "curate_paraphrase",
+     "activity_version": "copilot-upgrade-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'coolant-thermostat-stuck-open' (name_tr/name_en/keywords)",
+      "path": "data/diagnostics/canonical_symptoms.json#coolant-thermostat-stuck-open",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "paraphrase-of-existing-symptom-definition"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  {
+   "symptom_id": "crank-sensor-signal-missing",
+   "phrases_tr": [
+    "motor stop ediyor",
+    "seyir halinde stop etti",
+    "seyirde stop ediyor",
+    "durduk yere stop ediyor",
+    "motor durduk yere duruyor"
+   ],
+   "phrases_en": [
+    "engine stalls",
+    "stalls while driving",
+    "engine cuts out"
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-lex-crank-sensor-signal-missing",
+     "target": {
+      "record_id": "crank-sensor-signal-missing",
+      "field": "phrases"
+     },
+     "activity": "curate_paraphrase",
+     "activity_version": "copilot-upgrade-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'crank-sensor-signal-missing' (name_tr/name_en/keywords)",
+      "path": "data/diagnostics/canonical_symptoms.json#crank-sensor-signal-missing",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "paraphrase-of-existing-symptom-definition"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  {
+   "symptom_id": "fuel-pump-driver-module-offline",
+   "phrases_tr": [
+    "seyir halinde stop etti",
+    "yakit pompasi calismiyor",
+    "yakit pompasi sesi yok"
+   ],
+   "phrases_en": [
+    "fuel pump not working",
+    "no fuel pump sound"
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-lex-fuel-pump-driver-module-offline",
+     "target": {
+      "record_id": "fuel-pump-driver-module-offline",
+      "field": "phrases"
+     },
+     "activity": "curate_paraphrase",
+     "activity_version": "copilot-upgrade-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'fuel-pump-driver-module-offline' (name_tr/name_en/keywords)",
+      "path": "data/diagnostics/canonical_symptoms.json#fuel-pump-driver-module-offline",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "paraphrase-of-existing-symptom-definition"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  {
+   "symptom_id": "immobilizer-key-transponder-missing",
+   "phrases_tr": [
+    "anahtari tanimiyor",
+    "immobilizer lambasi yanip sonuyor",
+    "immobilizer arizasi",
+    "anahtar okumuyor"
+   ],
+   "phrases_en": [
+    "key not recognised",
+    "immobilizer light flashing",
+    "immobiliser fault"
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-lex-immobilizer-key-transponder-missing",
+     "target": {
+      "record_id": "immobilizer-key-transponder-missing",
+      "field": "phrases"
+     },
+     "activity": "curate_paraphrase",
+     "activity_version": "copilot-upgrade-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'immobilizer-key-transponder-missing' (name_tr/name_en/keywords)",
+      "path": "data/diagnostics/canonical_symptoms.json#immobilizer-key-transponder-missing",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "paraphrase-of-existing-symptom-definition"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  {
+   "symptom_id": "marine-raw-water-cooling",
+   "phrases_tr": [
+    "tekne motorundan su gelmiyor",
+    "egzozdan su gelmiyor",
+    "deniz suyu gelmiyor"
+   ],
+   "phrases_en": [
+    "no raw water flow",
+    "no water from exhaust"
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-lex-marine-raw-water-cooling",
+     "target": {
+      "record_id": "marine-raw-water-cooling",
+      "field": "phrases"
+     },
+     "activity": "curate_paraphrase",
+     "activity_version": "copilot-upgrade-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'marine-raw-water-cooling' (name_tr/name_en/keywords)",
+      "path": "data/diagnostics/canonical_symptoms.json#marine-raw-water-cooling",
       "type": "internal_kb"
      },
      "transform": {

@@ -93,9 +93,7 @@ def test_measurement_in_text_needs_its_keyword_and_one_number() -> None:
 
 def test_answer_on_a_graph_backed_complaint_adds_the_area() -> None:
     d = answer_query("motor hararet yapıyor", language="tr", answers={"engine-overheating.q1": "hayır"}).to_dict()
-    titles = _titles(d)
-    assert "fan" in titles[0].lower(), titles  # the P0217 graph cause "Inoperative cooling fan(s)" moves up
-    assert "Termostat & Radyatör" in titles
+    assert _titles(d)[0] == "Termostat & Radyatör", _titles(d)
     assert d["urgency"]["level"] == "RED", "an answer never lowers the stop-now urgency of the complaint"
 
 

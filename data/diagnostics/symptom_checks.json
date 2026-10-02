@@ -203,8 +203,7 @@
       },
       "no": {
        "favor": [
-        1,
-        "P0217"
+        1
        ],
        "rule_out": [],
        "note_tr": "Fan devreye girmiyor: fan motoru, rölesi ve sıcaklık kumandası önce.",

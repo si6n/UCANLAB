@@ -225,7 +225,7 @@ class StructuredAnswer:
         if not self.causes:
             lines.append(_t("no_causes", lang))
         for c in self.causes:
-            share = "" if c["kind"] == "area" else f" — %{round(c['likelihood'] * 100)} ({_t('likelihood', lang)}),"
+            share = f" — %{round(c['likelihood'] * 100)} ({_t('likelihood', lang)})," if c["likelihood"] > 0 else ""
             lines.append(
                 f"{c['rank']}. **{c['title']}**{share} "
                 f"{_t('confidence', lang)}: {c['confidence_label']} · _{c['kind_label']}_"
@@ -236,7 +236,7 @@ class StructuredAnswer:
                 lines.append(f"   - {_t('against', lang)}: {e['text']} `{e['ref']}`")
             if c.get("measure_to_confirm"):
                 lines.append(f"   - {_t('needs', lang)}: {', '.join(c['measure_to_confirm'])}")
-        if self.causes:
+        if any(c["likelihood"] > 0 for c in self.causes):
             lines.append(f"_{_t('likelihood_note', lang)}_")
         lines += ["", f"## {_t('h.steps', lang)}"]
         for s in self.steps:
@@ -331,6 +331,13 @@ def _evidence_text(marker: str, lang: str, kb: KnowledgeBase) -> str:
         name = rec.get("name_tr") if lang == "tr" else rec.get("name_en")
         return (f"şikâyet: {name or payload} — motor çalıştırılmaya devam ederse kalıcı hasar görebilir"
                 if lang == "tr" else f"complaint: {name or payload} — running the engine on can cause permanent damage")
+    if kind == "complaint_signal":
+        sid, _, sig = payload.partition("|")
+        rec = kb.symptom(sid).record or {}
+        name = rec.get("name_tr") if lang == "tr" else rec.get("name_en")
+        return (f"şikâyet ({name or sid}) bu gerçek {sig} arızasıyla uyumlu; tehlikeli olan bu, önce bunu eleyin"
+                if lang == "tr" else
+                f"complaint ({name or sid}) fits this real {sig} fault; it is the dangerous one, rule it out first")
     if kind == "check":
         key, _, value = payload.partition("|")
         sid, _, cid = key.partition(".")
@@ -424,6 +431,11 @@ def _summary(r: Reasoning, lang: str, kb: KnowledgeBase) -> str:
             areas = ", ".join(h.title for h in r.hypotheses[:3] if h.kind == "area" and not h.against)
             bits.append(f"Kayıtlı kök neden yok; önce şu alt sistemleri kontrol edin: {areas}." if lang == "tr"
                         else f"No recorded root cause; inspect these subsystems first: {areas}.")
+        elif top.likelihood == 0 and len([h for h in r.hypotheses if h.kind != "area"]) > 1:
+            tied = "; ".join(_short(h.title, 60) for h in r.hypotheses[:3])
+            bits.append(f"Eşit ağırlıklı adaylar (veri sıralamaya yetmiyor): {tied}. Soruları cevaplayın veya kodları okuyun."
+                        if lang == "tr" else
+                        f"Equally weighted candidates (not enough data to rank): {tied}. Answer the questions or read the codes.")
         else:
             bits.append(f"En olası neden: {top.title} (güven: {conf})." if lang == "tr"
                         else f"Most likely cause: {top.title} (confidence: {conf}).")

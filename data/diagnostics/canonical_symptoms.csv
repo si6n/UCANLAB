@@ -1,7 +1,7 @@
 ﻿symptom_id,name_tr,name_en,category,domain,observable,operator_reported,candidate_dtcs_count,candidate_dtcs,authority
-crank-no-start,Marş basıyor fakat motor çalışmıyor,Engine cranks but fails to start,Ateşleme & Marş Sistemi,ALL,1,1,5,P0335;P0627;P0562;SPN 100;SPN 636,SAE J2012 / ISO 14229
+crank-no-start,Marş basıyor fakat motor çalışmıyor,Engine cranks but fails to start,Ateşleme & Marş Sistemi,ALL,1,1,4,P0335;P0627;P0562;SPN 636,SAE J2012 / ISO 14229
 black-smoke,Egzozdan yoğun siyah duman atma,Heavy black exhaust smoke,Hava Emiş & Turbo Sistemi,ALL,1,1,5,P0101;P0299;P0401;SPN 102;SPN 27,SAE J2012 / SAE J1939
-engine-overheating,Motor hararet yapması ve antifriz kaynatma,Engine coolant overheating / boiling,Soğutma Sistemi,ALL,1,1,4,P0217;P0117;P0128;SPN 110,SAE J2012 / SAE J1939
+engine-overheating,Motor hararet yapması ve antifriz kaynatma,Engine coolant overheating / boiling,Soğutma Sistemi,ALL,1,1,3,P0217;P0117;SPN 110,SAE J2012 / SAE J1939
 rough-idle-vibration,"Rölantide sarsıntı, dalgalanma ve silkeleme","Rough idle, engine shudder and vibration",Ateşleme Sistemi (Buji/Bobin),ALL,1,1,4,P0300;P0171;P0505;SPN 651,SAE J2012 / ISO 14229
 low-oil-pressure,Düşük motor yağ basıncı ikazı,Low oil pressure warning lamp illuminated,Motor Yağlama Sistemi,ALL,1,1,3,P0521;P0524;SPN 100,SOLAS II-1/52 / SAE J1939
 marine-lanyard-kill,Tekne acil durdurma emniyet mandalı (Lanyard) kesintisi,Marine safety lanyard kill switch activated,Deniz Emniyet & Ateşleme Kilidi,MARINE,1,1,2,U0100;P0606,IMO A.1021(26) / USCG 33 CFR 183.520

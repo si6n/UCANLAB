@@ -42,7 +42,7 @@ Giriş noktaları:
 | Dosya | Sorumluluk |
 |---|---|
 | `knowledge_base.py` | `KnowledgeBase`: 23 kaynağın tek erişim noktası. Kurulum hiçbir şey okumaz; her kaynak ilk kullanımda yüklenir, kilitle korunur, önbellekte kalır. Kırık kaynak copilot'u düşürmez (`source_unavailable`). Her sonuç `Lookup(found, source, key, record, reason)`; `ref = "kaynak#anahtar"`. `resolve_ref()` basılan atıfı yeniden doğrular. |
-| `query_understanding.py` | `parse_query`: dil tespiti; DTC (`PO101`→`P0101`), SPN/FMI yazımları, PGN/PID; DM1 baytlarını SAE J1939-73 düzenine göre çözer (lambalar, SPN/FMI/OC, CM=1 uyarısı); semptom eşleştirme (Türkçe katlama, ek/çekim toleransı, Damerau ≤1/≤2 yazım hatası); metinden ölçüm okuma (°F→°C, psi/kPa→bar, MΩ→kΩ). Birimsiz değer `unit_assumed=True`; uyumsuz birim/NaN/Inf **reddedilir**. Sinyal adı geçmeyen gösterge değeri ("hararet yapıyor, göstergede 112 derece"): semptom tek bir ölçülebilir sinyale bağlıysa (`_SYMPTOM_SIGNAL`) ve metinde **açık birimli**, o sinyale çevrilebilen **tek** sayı varsa o sinyalin okuması olur (`origin="text_context"`, not: `context_reading:<sinyal><-<semptom>`); birimsiz, uyumsuz veya birden fazla aday varsa bağlanmaz. Yazım hatası toleransı Türkçe olumsuzluk ekini (`-mıyor/-maz/-madı`) asla aşmaz: "dönüyor" ≠ "dönmüyor". |
+| `query_understanding.py` | `parse_query`: dil tespiti; DTC (`PO101`→`P0101`), SPN/FMI yazımları, PGN/PID; DM1 baytlarını SAE J1939-73 düzenine göre çözer (lambalar, SPN/FMI/OC, CM=1 uyarısı); semptom eşleştirme (Türkçe katlama, ek/çekim toleransı, Damerau ≤1/≤2 yazım hatası); metinden ölçüm okuma (°F→°C, psi/kPa→bar, MΩ→kΩ). Birimsiz değer `unit_assumed=True`; uyumsuz birim/NaN/Inf **reddedilir**. Sinyal adı geçmeyen gösterge değeri ("hararet yapıyor, göstergede 112 derece"): semptom tek bir ölçülebilir sinyale bağlıysa (`_SYMPTOM_SIGNAL`) ve metinde **açık birimli**, o sinyale çevrilebilen **tek** sayı varsa o sinyalin okuması olur (`origin="text_context"`, not: `context_reading:<sinyal><-<semptom>`); birimsiz, uyumsuz veya birden fazla aday varsa bağlanmaz. Yazım hatası toleransı Türkçe olumsuzluk ekini (`-mıyor/-maz/-madı`) asla aşmaz: "dönüyor" ≠ "dönmüyor". Bir semptomun eşleşen kelimeleri başka bir semptomun daha uzun ve daha yüksek puanlı eşleşmesinin alt kümesiyse o semptom düşer: "akü şarj olmuyor" 12 V aküdür, "şarj olmuyor" tek başına adlandıracağı EV şarj portu değil. |
 | `copilot_reasoner.py` | Kod gerçekleri (DTC + OEM katmanı + J1939 + FMI), telemetri bulguları (`telemetry_thresholds`, UN R100 izolasyon Ω/V), kök neden sıralaması, aciliyet, güvenlik kategorileri, eksik ölçümler, NHTSA. |
 | `copilot_answer.py` | `StructuredAnswer` + TR/EN metinler + Markdown; sabit şablonlar `template:*` olarak işaretlenir. |
 | `local_search.py` | **Opsiyonel** BM25 ipucu katmanı (yalnız hiçbir kod/semptom eşleşmediğinde, "teşhis değil" etiketiyle). Kapatma: `CopilotOptions(local_search=False)` veya `UCANLAB_COPILOT_LOCAL_SEARCH=0`. Çekirdek onsuz çalışır (test). |
@@ -57,6 +57,8 @@ Giriş noktaları:
 | Kanıt sinyali eşik dışı ölçüldü / normal ölçüldü | +1.5 / −1.0 |
 | Çelişen sinyal makul ölçüldü / sensör sınırında (ör. ECT −40 °C) | −1.5 / +1.0 |
 | Yalnız şikâyetten ulaşılan aday kod / şikâyet aktif kodu doğruluyor | +1.0 / +0.5 |
+| Şikâyetin tarif ettiği okuma (hararet → CoolantTemp, yağ lambası → EngineOilPressure) düğümün kanıt sinyali: gerçek (tehlikeli) arıza sensör arızasından önce | +0.5 |
+| Soru cevabı alt sistemi/kodu destekliyor / çürütüyor (§3.1.1) | +1.5 / −1.5 |
 | Grafta düğüm yok → kayıttaki temiz nedenler (dolgu metinler elenir) | +2.0 − 0.05·i |
 
 Neden metni olamayan hasat artıkları hem kayıt nedenlerinden hem graf düğüm
@@ -78,7 +80,13 @@ Sayılar semptom eşleşmesinde korunur: "3. silindir tekleme" →
 karakterden kısa olduğu için yalnız tam eşleşir (bulanık eşleşme yok). Kod
 biçimli belirteçler (P0301 vb.) semptom eşleşmesinden önce yine çıkarılır.
 
+Kod okunmamış bir şikâyette üçten az aday varsa semptomun kendi alt sistemleri de
+eklenir; tek bir alakasız düğüm tek başına "en olası neden" olarak kalmaz.
+
 Puanlar listelenen adaylar arasında softmax ile **göreli** yüzdeye çevrilir;
+bütün adaylar aynı puandaysa yüzde gösterilmez (`likelihood=0`) ve özet "Eşit
+ağırlıklı adaylar (veri sıralamaya yetmiyor)" der — eşit bölünmüş yüzde ölçülmüş
+bir olasılık gibi okunur.
 cevap bunun kesin olasılık olmadığını açıkça yazar. Güven: kod + telemetri +
 çelişki yok → yüksek; kod (graf) veya telemetri → orta; diğerleri → düşük.
 Eşitlikte en ağır kodun nedeni önce gelir.
@@ -135,7 +143,7 @@ Bilmiyorum düğmeleri ve ölçüm alanı gösterir.
 | `extended_pid` | `diagnostics/extended_pid_database.json` (244) | PID açıklaması, ölçüm rehberi |
 | `obd_mode06`, `uds_did` | Mode 06 / UDS DID | KB üzerinden erişilebilir (eski paket açıklama yolu) |
 | `canonical_symptoms` | 152 semptom | Şikâyet → aday kod, ilk kontroller |
-| `symptom_lexicon` (yeni) | 25 kayıt, 186 TR/EN ifade + güvenlik terimleri | Gündelik ifadeler |
+| `symptom_lexicon` (yeni) | 33 kayıt, 269 TR/EN ifade + güvenlik terimleri | Gündelik ifadeler |
 | `symptom_checks` (yeni) | 37 semptom, 83 soru | Soru cevaplarının küratörlü etkileri (§3.1.1) |
 | `root_cause_graph` | 8.884 düğüm | Kök neden adayları, kanıt/çelişen sinyaller |
 | `signal_aliases` + `signal_measurement_map` (yeni, 24 sinyal) | | Sinyal adı birleştirme; eksik ölçüm için SPN/PGN/PID rehberi |
@@ -180,7 +188,7 @@ python -m pytest tests/unit/test_copilot_*.py tests/safety/test_ai_tx_isolation.
 
 | Dosya | İçerik |
 |---|---|
-| `test_copilot_golden_scenarios.py` | 53 altın senaryo (soru cevapları, DTC, SPN/FMI, DM1, semptom, gösterge değeri, olumsuzluk, telemetri+kod, çelişkili kanıt, veri yok, EV/HV, fren/direksiyon, çoklu kod, yazım hatası, TR/EN, NHTSA, PGN) + 6 bölüm/ilk satır güvenlik kontrolü |
+| `test_copilot_golden_scenarios.py` | 56 altın senaryo (soru cevapları, gündelik ifadeler, DTC, SPN/FMI, DM1, semptom, gösterge değeri, olumsuzluk, telemetri+kod, çelişkili kanıt, veri yok, EV/HV, fren/direksiyon, çoklu kod, yazım hatası, TR/EN, NHTSA, PGN) + 6 bölüm/ilk satır güvenlik kontrolü |
 | `test_copilot_no_fabrication.py` | Atıf çözümü, sayı izlenebilirliği, yalnız verilen sinyallerde bulgu, bilinmeyen koda anlam verilmemesi, NaN/birim reddi, determinizm, yazma/TX yokluğu |
 | `test_copilot_knowledge_and_parsing.py` | KB tembelliği, indeksler, kaçırma nedenleri, ayrıştırıcı birim testleri |
 | `test_copilot_performance.py` | Kurulum < 10 ms, sıcak sorgu ort. < 150 ms (ölçülen 2–13 ms), bellek < 8 MB, arama katmanı aç/kapa |

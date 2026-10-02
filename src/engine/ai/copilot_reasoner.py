@@ -678,9 +678,19 @@ def _build_hypotheses(kb: KnowledgeBase, r: Reasoning) -> None:
             if code not in h.codes:
                 h.codes.append(code)
             h.support.append((f"complaint_code:{sid}|{code}", f"canonical_symptoms#{sid}"))
+            # The complaint describes a physical reading ("hararet", "yağ lambası").
+            # A node that declares that signal as its evidence is the real fault,
+            # the dangerous one; it is checked before the sensor-fault nodes.
+            implied = _SYMPTOM_SIGNAL.get(sid)
+            if implied and not any(m.startswith("complaint_signal:") for m, _ in h.support) and \
+                    kb.canonical_signal(implied) in {kb.canonical_signal(x) for x in node.evidence_signals}:
+                h.score += 0.5
+                h.support.append((f"complaint_signal:{sid}|{implied}", f"root_cause_graph#{node.id}"))
 
     # (4) no cause the graph knows: name the subsystems to inspect, never a cause.
-    if not hyps and r.symptom_records:
+    # A complaint with no code read and fewer than three candidates also lists
+    # the symptom's own subsystems, so a lone off-target node never stands alone.
+    if r.symptom_records and (not hyps or (not active and not r.findings and len(hyps) < 3)):
         _complaint_areas(r, hyps)
     # (5) the operator's answers to the symptom checks
     _apply_answers(kb, r, hyps)
@@ -707,8 +717,12 @@ def _build_hypotheses(kb: KnowledgeBase, r: Reasoning) -> None:
         m = max(h.score for h in top)
         exps = [math.exp(h.score - m) for h in top]
         total = sum(exps)
+        # Identical scores carry no ranking information: show no percentage
+        # rather than an even split that reads like a measured probability.
+        ranked_scores = {round(h.score, 6) for h in top if h.kind != "area"}
+        informative = len(ranked_scores) > 1 or sum(h.kind != "area" for h in top) == 1
         for h, e in zip(top, exps, strict=True):
-            h.likelihood = 0.0 if h.kind == "area" else round(e / total, 3)
+            h.likelihood = round(e / total, 3) if h.kind != "area" and informative else 0.0
             has_code = any(s.startswith("code:") for s, _ in h.support)
             has_signal = any(s.startswith("signal:") for s, _ in h.support)
             has_check = any(s.startswith("check:") for s, _ in h.support)

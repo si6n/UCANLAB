@@ -271,3 +271,20 @@ def test_area_never_outranks_a_real_cause() -> None:
 
     d = answer_query("motor hararet yapıyor", dtcs=["SPN 110 FMI 0"], language="tr").to_dict()
     assert d["causes"] and "area" not in {c["kind"] for c in d["causes"]}
+
+
+@pytest.mark.parametrize("text,excluded", [
+    ("egzozdan mavi duman çıkıyor", "black-smoke"),       # blue smoke is not black smoke
+    ("motordan vuruntu sesi geliyor", "transmission-slip-limp"),
+    ("fan çalışmıyor", "crank-no-start"),
+])
+def test_generic_word_does_not_pull_an_unrelated_symptom(text: str, excluded: str) -> None:
+    assert excluded not in [s.symptom_id for s in parse_query(text).symptoms]
+
+
+def test_specific_phrase_explains_its_sub_phrase() -> None:
+    from src.engine.ai.copilot_answer import answer_query
+
+    d = answer_query("akü şarj olmuyor", language="tr").to_dict()
+    assert [s["id"] for s in d["understood"]["symptoms"]] == ["battery-drain-parasitic"]
+    assert "high_voltage" not in [b["category"] for b in d["safety_banners"]], "a 12 V battery is not an HV hazard"

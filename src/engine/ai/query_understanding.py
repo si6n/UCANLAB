@@ -341,6 +341,7 @@ def _match_symptoms(folded: str, kb: KnowledgeBase) -> tuple[list[SymptomMatch],
         return [], []
     best: dict[str, SymptomMatch] = {}
     fixes: dict[str, list[tuple[str, str]]] = {}
+    used: dict[str, frozenset[str]] = {}  # query tokens each symptom's best phrase consumed
     for phrase, sid, origin in kb.symptom_phrases():
         p_tokens = phrase.split()
         if len(p_tokens) > len(tokens) + 1:
@@ -358,6 +359,12 @@ def _match_symptoms(folded: str, kb: KnowledgeBase) -> tuple[list[SymptomMatch],
             if prev is None or score > prev.score:
                 best[sid] = SymptomMatch(sid, phrase, score, fuzzy_any, origin)
                 fixes[sid] = [(qt, pt) for (qt, f), pt in zip(matched, p_tokens, strict=False) if f]
+                used[sid] = frozenset(qt for qt, _ in matched)
+    # A phrase whose words all sit inside a longer matched phrase of another
+    # symptom is explained by that phrase: "akü şarj olmuyor" is the 12 V
+    # battery, not the EV charge port that "şarj olmuyor" alone would name.
+    best = {sid: m for sid, m in best.items()
+            if not any(used[sid] < used[o] and best[o].score > m.score for o in best if o != sid)}
     ranked = sorted(best.values(), key=lambda s: (-s.score, s.symptom_id))
     if ranked:
         top = ranked[0].score

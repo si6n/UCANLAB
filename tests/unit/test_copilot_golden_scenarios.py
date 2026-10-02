@@ -44,6 +44,13 @@ SCENARIOS: list[tuple[str, dict[str, Any], dict[str, Any]]] = [
      {"symptoms": ["crank-no-start"], "not_symptoms": ["starter-relay-circuit-open"]}),
     ("sym_numbered_cylinder", {"text": "3. silindir tekleme yapıyor"},
      {"symptoms": ["misfire-cylinder-3"], "not_symptoms": ["misfire-random-multiple", "rough-idle-vibration"]}),
+    # ---- everyday phrasings: the specific phrase wins, generic words do not pull ----
+    ("sym_battery_not_ev", {"text": "akü şarj olmuyor"},
+     {"symptoms": ["battery-drain-parasitic"], "not_symptoms": ["ev-charging-interlock-fault", "ev-hv-isolation-warning"]}),
+    ("sym_ac_not_no_start", {"text": "klima çalışmıyor"},
+     {"symptoms": ["ac-refrigerant-pressure-low"], "not_symptoms": ["crank-no-start"]}),
+    ("sym_stall_driving", {"text": "araç seyir halinde stop etti"},
+     {"symptoms": ["crank-sensor-signal-missing", "fuel-pump-driver-module-offline"]}),
     # ---- answers to the symptom checks narrow the complaint ------------
     ("check_sleep_current_text", {"text": "akü bitiyor, uyku akımı 320 mA ölçtüm"},
      {"top": "bcm", "conf": {"medium"}, "summary": "Cevaplarınıza göre"}),

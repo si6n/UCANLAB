@@ -86,7 +86,7 @@ C = {
      no=([], [0], "Seviye yerinde: dış kaçak daha az olası.", "Level is fine: an external leak is less likely.")),
   yn(1, "Does the radiator fan switch on when the engine is hot?",
      yes=([], [1], "Fan devreye giriyor: fan kumandası daha az olası.", "Fan switches on: fan control is less likely."),
-     no=([1, "P0217"], [], "Fan devreye girmiyor: fan motoru, rölesi ve sıcaklık kumandası önce.",
+     no=([1], [], "Fan devreye girmiyor: fan motoru, rölesi ve sıcaklık kumandası önce.",
          "Fan does not switch on: fan motor, relay and temperature control first.")),
   yn(2, "Does the heater blow hot air?",
      tr="Kalorifer sıcak hava üflüyor mu?",

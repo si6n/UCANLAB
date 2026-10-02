@@ -158,7 +158,7 @@ export const CopilotAnswerView: React.FC<{ answer: CopilotStructuredAnswer; onAn
                     {c.rank}. {c.title}
                   </span>
                   <span className="flex gap-1.5">
-                    {c.kind !== 'area' && <Chip>%{Math.round(c.likelihood * 100)}</Chip>}
+                    {c.likelihood > 0 && <Chip>%{Math.round(c.likelihood * 100)}</Chip>}
                     <Chip tone={c.confidence === 'high' ? 'ok' : c.confidence === 'medium' ? 'accent' : 'neutral'}>
                       {L('güven', 'confidence')}: {c.confidence_label}
                     </Chip>
@@ -179,7 +179,7 @@ export const CopilotAnswerView: React.FC<{ answer: CopilotStructuredAnswer; onAn
             ))}
           </ol>
         )}
-        {answer.causes.length > 0 && (
+        {answer.causes.some((c) => c.likelihood > 0) && (
           <p className="mt-1 text-[11.5px] text-text-low">
             {L(
               'Yüzdeler yalnız listelenen adaylar arasındaki göreli sıralamadır, kesin olasılık değildir.',
