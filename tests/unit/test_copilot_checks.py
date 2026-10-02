@@ -121,3 +121,9 @@ def test_active_code_offers_the_questions_of_the_symptom_it_points_at() -> None:
     area = next(c for c in answered["causes"] if c["title"] == "1. Silindir Buji & Bobin")
     assert any(e["ref"] == "symptom_checks#misfire-cylinder-1.q0" for e in area["support"])
     assert answered["causes"][0]["kind"] == "graph", "an answer never outranks the active code's own graph cause"
+
+
+def test_generic_obd_code_does_not_ask_marine_questions() -> None:
+    d = answer_query("U0100", language="tr").to_dict()
+    sids = {c["symptom_id"] for c in d["checks"]}
+    assert sids == {"can-bus-communication-loss"}, sids

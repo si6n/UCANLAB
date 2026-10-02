@@ -403,6 +403,15 @@ def _summary(r: Reasoning, lang: str, kb: KnowledgeBase) -> str:
     unknown = [c for c in r.codes if not c.found]
     if not found and not r.symptom_records and not r.findings:
         parts = [_t("unknown_code", lang, code=c.key) for c in unknown]
+        if r.safety and not parts:
+            cat_names = {"fire": ("yangın", "fire"), "high_voltage": ("yüksek voltaj", "high voltage"),
+                         "brakes": ("fren", "brakes"), "steering": ("direksiyon", "steering")}
+            cats = ", ".join(cat_names.get(c, (c, c))[0 if lang == "tr" else 1] for c in r.safety)
+            return (f"Güvenlik açısından kritik bir şikâyet tanındı ({cats}); veritabanında eşleşen semptom kaydı yok, "
+                    "neden tahmini yapılmadı. Aracı kullanmadan önce bir servise kontrol ettirin."
+                    if lang == "tr" else
+                    f"A safety-critical complaint was recognised ({cats}); no matching symptom record, no cause was "
+                    "guessed. Have the vehicle checked before driving it.")
         return " ".join(parts + [_t("nothing", lang)]) if not parts else " ".join(parts)
     bits: list[str] = []
     if found:

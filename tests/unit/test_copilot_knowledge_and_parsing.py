@@ -288,3 +288,16 @@ def test_specific_phrase_explains_its_sub_phrase() -> None:
     d = answer_query("akü şarj olmuyor", language="tr").to_dict()
     assert [s["id"] for s in d["understood"]["symptoms"]] == ["battery-drain-parasitic"]
     assert "high_voltage" not in [b["category"] for b in d["safety_banners"]], "a 12 V battery is not an HV hazard"
+
+
+def test_exhaust_smoke_is_not_a_fire_but_engine_smoke_is() -> None:
+    assert "fire" not in parse_query("egzozdan mavi duman çıkıyor").safety_terms
+    assert "fire" in parse_query("motordan duman çıkıyor").safety_terms
+
+
+def test_safety_only_complaint_summary_says_what_was_recognised() -> None:
+    from src.engine.ai.copilot_answer import answer_query
+
+    d = answer_query("fren pedalı boşa gidiyor", language="tr").to_dict()
+    assert d["summary"].startswith("Güvenlik açısından kritik bir şikâyet tanındı (fren)")
+    assert d["urgency"]["level"] == "RED" and d["causes"] == []

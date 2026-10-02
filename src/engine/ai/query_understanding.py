@@ -380,6 +380,10 @@ def _match_symptoms(folded: str, kb: KnowledgeBase) -> tuple[list[SymptomMatch],
     return ranked, corrections
 
 
+_EXHAUST_WORDS = ("egzoz", "exhaust", "tailpipe")
+_SMOKE_WORDS = ("duman", "smoke")
+
+
 def _safety_terms(folded: str, kb: KnowledgeBase) -> dict[str, list[str]]:
     lex = kb._json_source("symptom_lexicon")  # noqa: SLF001 — same package
     terms = (lex or {}).get("safety_terms") if isinstance(lex, dict) else None
@@ -387,11 +391,14 @@ def _safety_terms(folded: str, kb: KnowledgeBase) -> dict[str, list[str]]:
     if not isinstance(terms, dict):
         return out
     padded = f" {folded} "
+    exhaust = any(f" {w}" in padded for w in _EXHAUST_WORDS)
     for category, spec in terms.items():
         if category.startswith("_") or not isinstance(spec, dict):
             continue
         for word in list(spec.get("tr") or []) + list(spec.get("en") or []):
             w = fold_text(str(word))
+            if category == "fire" and exhaust and any(t in w for t in _SMOKE_WORDS):
+                continue  # smoke from the exhaust is an engine symptom, not a fire
             hit = f" {w} " in padded or (len(w) >= 6 and f" {w}" in padded)
             if w and hit and w not in out.get(category, []):
                 out.setdefault(category, []).append(w)
@@ -605,12 +612,26 @@ def _answer_value(kind: str, raw: Any) -> str | float:
     return "yes" if folded in _YES else "no" if folded in _NO else "unknown"
 
 
+_SPECIALISED_DOMAINS = frozenset({"MARINE", "EV_HV", "HEAVY_DUTY"})
+
+
 def code_check_symptoms(codes: Iterable[str], kb: KnowledgeBase, limit: int = 2) -> list[str]:
-    """Symptoms with questions that an active code points at (P0301 -> misfire-cylinder-1)."""
+    """Symptoms with questions that an active code points at (P0301 -> misfire-cylinder-1).
+
+    A generic code is listed by many symptoms (U0100 by a dozen marine ones). For
+    an OBD code (P/B/C/U) the general-domain symptoms are taken first and a
+    marine / EV / heavy-duty symptom only when no general one exists, so a car's
+    U0100 never asks about a boat's kill-switch lanyard.
+    """
     out: list[str] = []
     for code in codes:
-        for sid in kb.symptoms_for_code(code):
-            if sid not in out and kb.symptom_checks(sid):
+        sids = [sid for sid in kb.symptoms_for_code(code) if kb.symptom_checks(sid)]
+        if not code.upper().startswith("SPN"):
+            general = [sid for sid in sids
+                       if str((kb.symptom(sid).record or {}).get("domain") or "") not in _SPECIALISED_DOMAINS]
+            sids = general or sids
+        for sid in sids:
+            if sid not in out:
                 out.append(sid)
     return out[:limit]
 

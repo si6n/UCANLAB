@@ -115,7 +115,9 @@ Bilmiyorum düğmeleri ve ölçüm alanı gösterir. Canlı oturum cevabında (k
   semptomların sorularını da getirir (P0301 → `misfire-cylinder-1`: bobin/buji
   değiştirme testi). Bu semptom operatörün şikâyeti olarak raporlanmaz
   (`understood.symptoms` boş kalır); cevabı yalnız soru etkisi olarak işlenir ve
-  aktif kodun graf nedeninin önüne geçmez.
+  aktif kodun graf nedeninin önüne geçmez. OBD kodlarında (P/B/C/U) önce genel
+  alan semptomları alınır; denizcilik / EV / ağır vasıta semptomu yalnız genel
+  semptom yoksa gelir (bir otomobilin U0100'ü tekne emniyet kordonunu sormaz).
 * Özet, cevaplanmamış sorular arasından listelenen adayları en çok etkileyeni
   "Önce şu soruyu cevaplayın: …" diye gösterir. Önde birden fazla aday aynı
   puandaysa özet "En olası neden" demez, "Önde, eşit ağırlıkta: …" der.
@@ -139,7 +141,9 @@ Bilmiyorum düğmeleri ve ölçüm alanı gösterir. Canlı oturum cevabında (k
     `brake-light-switch-rationality`) SARI kalır.
 * Güvenlik bandı (cevabın **ilk satırı**): yangın, yüksek voltaj, fren,
   direksiyon. Tetikleyiciler: kod sistemi (`system_taxonomy`), semptom alanı
-  (EV_HV), `symptom_lexicon.safety_terms`, HV ölçümleri.
+  (EV_HV), `symptom_lexicon.safety_terms`, HV ölçümleri. Metinde egzoz geçiyorsa
+  duman kelimeleri yangın bandını tetiklemez ("egzozdan mavi duman" bir motor
+  belirtisidir). Yalnız güvenlik terimi tanındıysa özet bunu açıkça söyler.
 
 ## 4. Veri kaynakları (KnowledgeBase kaydı)
 
