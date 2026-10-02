@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { AlertTriangle, CheckCircle2, Ear, Loader2, Plug, RefreshCw, Square, Usb } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Ear, KeyRound, Layers, Loader2, LockOpen, Palette, Plug, RefreshCw, ShieldCheck, Square, Usb } from 'lucide-react';
 import {
   AdapterEntry,
   AuthState,
@@ -8,7 +8,10 @@ import {
   DesktopBridge,
   FlashPreconditions,
 } from '../../services/bridge';
-import { L, pick } from '../mechanic/text';
+import { L, lang, pick, setLang } from '../mechanic/text';
+import { Choice, LANG_OPTIONS, THEME_OPTIONS } from '../shell/DisplayMenu';
+import { EstopResetDialog } from '../shell/Estop';
+import { setThemePref, useThemePref } from '../shell/theme';
 import { SettingsAttributionPanel } from './SettingsAttributionPanel';
 import { BTN_GHOST, BTN_PRIMARY, BTN_QUIET, Card, CardHeader, Chip, Segmented, Tone, cx } from './ui';
 
@@ -21,7 +24,7 @@ import { BTN_GHOST, BTN_PRIMARY, BTN_QUIET, Card, CardHeader, Chip, Segmented, T
  * reports; nothing here is a claim the app does not enforce.
  */
 
-type Section = 'connection' | 'licence' | 'safety' | 'sources';
+type Section = 'appearance' | 'connection' | 'licence' | 'safety' | 'sources';
 type VehicleType = 'car' | 'truck' | 'boat' | 'construction';
 
 const BITRATES = [125_000, 250_000, 500_000, 1_000_000] as const;
@@ -150,186 +153,180 @@ const ConnectionSection: React.FC<{ busInfo: BusInfoResult | null; onBusChanged:
   const result = test?.state === 'done' ? test.result : null;
 
   return (
-    <div className="grid grid-cols-1 content-start gap-3 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
-      <div className="flex min-w-0 flex-col gap-3">
-        <Card testId="settings-adapters">
-          <CardHeader title={L('Adaptör', 'Adapter')} hint={L('Bilgisayara takılı CAN adaptörleri. Liste hiçbir kanal açmaz.', 'CAN adapters plugged into this computer. Listing opens no channel.')}>
-            <button type="button" className={BTN_QUIET} onClick={() => void scan()} disabled={scanning || running} data-testid="adapter-rescan">
-              <RefreshCw className={cx('h-4 w-4', scanning && 'animate-spin')} />
-              {L('Yenile', 'Rescan')}
-            </button>
-          </CardHeader>
-          <div className="flex flex-col gap-2 p-5" role="radiogroup">
-            {adapters === null && <p className="text-[13px] text-text-mid">{L('Aranıyor…', 'Scanning…')}</p>}
-            {adapters?.length === 0 && (
-              <p className="text-[13px] text-text-mid" data-testid="adapter-none">
-                {L('Adaptör bulunamadı. Takıp sürücüsünü kurduktan sonra Yenile’ye basın.', 'No adapter found. Plug it in, install its driver and press Rescan.')}
-              </p>
+    <div className="flex flex-col gap-3">
+      <Card testId="settings-current-bus">
+        <CardHeader title={L('Şu an dinlenen hat', 'Bus being listened to')} />
+        <div className="grid grid-cols-1 gap-x-8 px-5 py-1 md:grid-cols-2">
+          <Row label={L('Kaynak', 'Source')} testId="current-bus">
+            {current}
+          </Row>
+          <Row label={L('Durum', 'State')}>
+            <Chip tone={busInfo?.connected ? 'ok' : 'neutral'}>{busInfo?.connected ? L('Açık', 'Open') : L('Kapalı', 'Closed')}</Chip>
+          </Row>
+          <Row label={L('Mod', 'Mode')}>
+            <Chip tone={busInfo?.listen_only === false ? 'warn' : 'ok'}>
+              {busInfo?.listen_only === false ? L('Normal', 'Normal') : L('Yalnız dinleme', 'Listen only')}
+            </Chip>
+          </Row>
+          <Row label={L('Hata çerçevesi (sürücü)', 'Error frames (driver)')}>{busInfo?.error_frames ?? 0}</Row>
+        </div>
+        <div className="flex gap-3 border-t border-border-whisper px-5 py-3 text-[12.5px] text-text-mid">
+          <Ear className="mt-0.5 h-4 w-4 flex-none text-accent" />
+          <p>
+            {L(
+              'Bağlantı her zaman yalnız dinleme modunda açılır; test ve bağlantı sırasında araca hiçbir çerçeve gönderilmez. Hat değiştiğinde araca yazma kapatılır, simülatör verisi ve analiz oturumu temizlenir.',
+              'The connection always opens listen-only; nothing is sent to the vehicle during the test or the connection. Switching the bus disarms transmit and clears simulator data and the analysis session.',
             )}
-            {adapters?.map((a) => (
+          </p>
+        </div>
+      </Card>
+
+      <Card testId="settings-adapters">
+        <CardHeader title={L('Adaptör', 'Adapter')} hint={L('Bilgisayara takılı CAN adaptörleri. Liste hiçbir kanal açmaz.', 'CAN adapters plugged into this computer. Listing opens no channel.')}>
+          <button type="button" className={BTN_QUIET} onClick={() => void scan()} disabled={scanning || running} data-testid="adapter-rescan">
+            <RefreshCw className={cx('h-4 w-4', scanning && 'animate-spin')} />
+            {L('Yenile', 'Rescan')}
+          </button>
+        </CardHeader>
+        <div className="flex flex-col gap-2 p-5" role="radiogroup">
+          {adapters === null && <p className="text-[13px] text-text-mid">{L('Aranıyor…', 'Scanning…')}</p>}
+          {adapters?.length === 0 && (
+            <p className="text-[13px] text-text-mid" data-testid="adapter-none">
+              {L('Adaptör bulunamadı. Takıp sürücüsünü kurduktan sonra Yenile’ye basın.', 'No adapter found. Plug it in, install its driver and press Rescan.')}
+            </p>
+          )}
+          {adapters?.map((a) => (
+            <button
+              key={a.id}
+              type="button"
+              role="radio"
+              aria-checked={selected === a.id}
+              disabled={!a.usable || running}
+              onClick={() => setSelected(a.id)}
+              data-testid={`adapter-${a.id}`}
+              className={cx(
+                'flex items-start gap-3 rounded-xl border p-3 text-left transition-colors disabled:cursor-not-allowed',
+                selected === a.id ? 'border-accent bg-accent-soft' : 'border-border-strong hover:border-accent',
+                !a.usable && 'opacity-60 hover:border-border-strong',
+              )}
+            >
+              <Usb className="mt-0.5 h-4 w-4 flex-none text-text-mid" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-[13.5px] font-semibold text-text-hi">{a.label}</span>
+                <span className="block font-mono text-[11.5px] text-text-mid">
+                  {a.interface}
+                  {a.channel ? ` · ${a.channel}` : ''}
+                </span>
+                {pick(a, 'message') && <span className="mt-1 block text-[12px] text-text-mid">{pick(a, 'message')}</span>}
+              </span>
+              <Chip tone={a.usable ? 'ok' : 'warn'}>{a.usable ? L('Hazır', 'Ready') : L('Kullanılamaz', 'Unavailable')}</Chip>
+            </button>
+          ))}
+        </div>
+      </Card>
+
+      <Card testId="settings-listen-test">
+        <CardHeader
+          title={L('Dinleyerek bağlan', 'Connect by listening')}
+          hint={L('Hızı araç tipinin olası değerleri arasından bulur, gelen trafiği ve kontrol ünitelerini sayar.', 'Finds the bitrate among the vehicle type’s candidates and counts the traffic and control units.')}
+        />
+        <div className="flex flex-col gap-4 p-5">
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-4" role="radiogroup">
+            {VEHICLE_OPTIONS.map((v) => (
               <button
-                key={a.id}
+                key={v.value}
                 type="button"
                 role="radio"
-                aria-checked={selected === a.id}
-                disabled={!a.usable || running}
-                onClick={() => setSelected(a.id)}
-                data-testid={`adapter-${a.id}`}
-                className={cx(
-                  'flex items-start gap-3 rounded-xl border p-3 text-left transition-colors disabled:cursor-not-allowed',
-                  selected === a.id ? 'border-accent bg-accent-soft' : 'border-border-strong hover:border-accent',
-                  !a.usable && 'opacity-60 hover:border-border-strong',
-                )}
+                aria-checked={vtype === v.value}
+                disabled={running}
+                onClick={() => setVtype(v.value)}
+                data-testid={`vtype-${v.value}`}
+                className={cx('rounded-xl border p-3 text-left transition-colors', vtype === v.value ? 'border-accent bg-accent-soft' : 'border-border-strong hover:border-accent')}
               >
-                <Usb className="mt-0.5 h-4 w-4 flex-none text-text-mid" />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[13.5px] font-semibold text-text-hi">{a.label}</span>
-                  <span className="block font-mono text-[11.5px] text-text-mid">
-                    {a.interface}
-                    {a.channel ? ` · ${a.channel}` : ''}
-                  </span>
-                  {pick(a, 'message') && <span className="mt-1 block text-[12px] text-text-mid">{pick(a, 'message')}</span>}
-                </span>
-                <Chip tone={a.usable ? 'ok' : 'warn'}>{a.usable ? L('Hazır', 'Ready') : L('Kullanılamaz', 'Unavailable')}</Chip>
+                <span className="block text-[13px] font-semibold text-text-hi">{v.label()}</span>
+                <span className="block font-mono text-[11.5px] text-text-mid">{v.rates}</span>
               </button>
             ))}
           </div>
-        </Card>
-
-        <Card testId="settings-listen-test">
-          <CardHeader
-            title={L('Dinleyerek bağlan', 'Connect by listening')}
-            hint={L('Hızı araç tipinin olası değerleri arasından bulur, gelen trafiği ve kontrol ünitelerini sayar.', 'Finds the bitrate among the vehicle type’s candidates and counts the traffic and control units.')}
-          />
-          <div className="flex flex-col gap-4 p-5">
-            <div className="grid grid-cols-2 gap-2 md:grid-cols-4" role="radiogroup">
-              {VEHICLE_OPTIONS.map((v) => (
-                <button
-                  key={v.value}
-                  type="button"
-                  role="radio"
-                  aria-checked={vtype === v.value}
-                  disabled={running}
-                  onClick={() => setVtype(v.value)}
-                  data-testid={`vtype-${v.value}`}
-                  className={cx('rounded-xl border p-3 text-left transition-colors', vtype === v.value ? 'border-accent bg-accent-soft' : 'border-border-strong hover:border-accent')}
-                >
-                  <span className="block text-[13px] font-semibold text-text-hi">{v.label()}</span>
-                  <span className="block font-mono text-[11.5px] text-text-mid">{v.rates}</span>
-                </button>
-              ))}
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <button type="button" className={BTN_PRIMARY} disabled={!selected || running} onClick={() => void startTest()} data-testid="listen-test-start">
-                {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ear className="h-4 w-4" />}
-                {L('Dinleme testini başlat', 'Start the listening test')}
-              </button>
-              {running && (
-                <button type="button" className={BTN_GHOST} onClick={() => void cancelTest()} data-testid="listen-test-cancel">
-                  <Square className="h-4 w-4" />
-                  {L('Durdur', 'Stop')}
-                </button>
-              )}
-              {running && (
-                <span className="text-[12.5px] text-text-mid" data-testid="listen-test-step">
-                  {STEP_LABEL[test?.step ?? 'opening']?.()}
-                  {test?.bitrate ? ` · ${Math.round(test.bitrate / 1000)} kbps` : ''}
-                </span>
-              )}
-            </div>
-            {result && (
-              <div className="rounded-xl border border-border-whisper p-3 text-[12.5px]" data-testid="listen-test-result">
-                <div className="flex flex-wrap gap-x-4 gap-y-1 text-text-mid">
-                  <span>
-                    {L('Hız', 'Bitrate')}: <b className="text-text-hi">{result.bitrate ? `${Math.round(result.bitrate / 1000)} kbps` : '—'}</b>
-                  </span>
-                  <span>
-                    {L('Çerçeve', 'Frames')}: <b className="text-text-hi">{result.frames}</b>
-                  </span>
-                  <span>
-                    {L('Kontrol ünitesi', 'Control units')}: <b className="text-text-hi">{result.ecu_count}</b>
-                  </span>
-                </div>
-                {result.expected.length > 0 && (
-                  <ul className="mt-2 flex flex-wrap gap-1.5">
-                    {result.expected.map((e) => (
-                      <li key={e.pgn}>
-                        <Chip tone={e.seen ? 'ok' : 'neutral'}>
-                          {e.seen ? '✓' : '–'} {pick(e, 'name')}
-                        </Chip>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            )}
-          </div>
-        </Card>
-
-        <Card testId="settings-manual">
-          <CardHeader
-            title={L('Sabit hızla bağlan', 'Connect at a fixed bitrate')}
-            hint={L('Hızı bildiğiniz ya da araç tipi listesinde olmayan hatlar için.', 'For buses whose bitrate you know or that no vehicle type covers.')}
-          />
-          <div className="flex flex-wrap items-center gap-3 p-5">
-            <Segmented
-              testId="manual-bitrate"
-              value={String(bitrate)}
-              options={BITRATES.map((b) => ({ value: String(b), label: `${b / 1000} kbps` }))}
-              onChange={(v) => setBitrate(Number(v))}
-            />
-            <button type="button" className={BTN_GHOST} disabled={!selected || running || busy} onClick={() => void manualConnect()} data-testid="manual-connect">
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plug className="h-4 w-4" />}
-              {L('Bağlan', 'Connect')}
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" className={BTN_PRIMARY} disabled={!selected || running} onClick={() => void startTest()} data-testid="listen-test-start">
+              {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ear className="h-4 w-4" />}
+              {L('Dinleme testini başlat', 'Start the listening test')}
             </button>
-          </div>
-        </Card>
-
-        {message && (
-          <div
-            role={message.ok ? 'status' : 'alert'}
-            data-testid="settings-message"
-            className={cx(
-              'flex items-start gap-2 rounded-2xl border px-5 py-3 text-[13px]',
-              message.ok ? 'border-ok-border bg-ok-soft text-ok' : 'border-warn-border bg-warn-soft text-warn',
+            {running && (
+              <button type="button" className={BTN_GHOST} onClick={() => void cancelTest()} data-testid="listen-test-cancel">
+                <Square className="h-4 w-4" />
+                {L('Durdur', 'Stop')}
+              </button>
             )}
-          >
-            {message.ok ? <CheckCircle2 className="mt-0.5 h-4 w-4 flex-none" /> : <AlertTriangle className="mt-0.5 h-4 w-4 flex-none" />}
-            {message.text}
+            {running && (
+              <span className="text-[12.5px] text-text-mid" data-testid="listen-test-step">
+                {STEP_LABEL[test?.step ?? 'opening']?.()}
+                {test?.bitrate ? ` · ${Math.round(test.bitrate / 1000)} kbps` : ''}
+              </span>
+            )}
           </div>
-        )}
-      </div>
-
-      <div className="flex min-w-0 flex-col gap-3">
-        <Card testId="settings-current-bus">
-          <CardHeader title={L('Şu an dinlenen hat', 'Bus being listened to')} />
-          <div className="divide-y divide-border-whisper px-5 py-1">
-            <Row label={L('Kaynak', 'Source')} testId="current-bus">
-              {current}
-            </Row>
-            <Row label={L('Durum', 'State')}>
-              <Chip tone={busInfo?.connected ? 'ok' : 'neutral'}>{busInfo?.connected ? L('Açık', 'Open') : L('Kapalı', 'Closed')}</Chip>
-            </Row>
-            <Row label={L('Mod', 'Mode')}>
-              <Chip tone={busInfo?.listen_only === false ? 'warn' : 'ok'}>
-                {busInfo?.listen_only === false ? L('Normal', 'Normal') : L('Yalnız dinleme', 'Listen only')}
-              </Chip>
-            </Row>
-            <Row label={L('Hata çerçevesi (sürücü)', 'Error frames (driver)')}>{busInfo?.error_frames ?? 0}</Row>
-          </div>
-        </Card>
-        <Card>
-          <div className="flex gap-3 p-5 text-[12.5px] text-text-mid">
-            <Ear className="mt-0.5 h-4 w-4 flex-none text-accent" />
-            <p>
-              {L(
-                'Bağlantı her zaman yalnız dinleme modunda açılır; test ve bağlantı sırasında araca hiçbir çerçeve gönderilmez. Hat değiştiğinde araca yazma kapatılır, simülatör verisi ve analiz oturumu temizlenir.',
-                'The connection always opens listen-only; nothing is sent to the vehicle during the test or the connection. Switching the bus disarms transmit and clears simulator data and the analysis session.',
+          {result && (
+            <div className="rounded-xl border border-border-whisper p-3 text-[12.5px]" data-testid="listen-test-result">
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-text-mid">
+                <span>
+                  {L('Hız', 'Bitrate')}: <b className="text-text-hi">{result.bitrate ? `${Math.round(result.bitrate / 1000)} kbps` : '—'}</b>
+                </span>
+                <span>
+                  {L('Çerçeve', 'Frames')}: <b className="text-text-hi">{result.frames}</b>
+                </span>
+                <span>
+                  {L('Kontrol ünitesi', 'Control units')}: <b className="text-text-hi">{result.ecu_count}</b>
+                </span>
+              </div>
+              {result.expected.length > 0 && (
+                <ul className="mt-2 flex flex-wrap gap-1.5">
+                  {result.expected.map((e) => (
+                    <li key={e.pgn}>
+                      <Chip tone={e.seen ? 'ok' : 'neutral'}>
+                        {e.seen ? '✓' : '–'} {pick(e, 'name')}
+                      </Chip>
+                    </li>
+                  ))}
+                </ul>
               )}
-            </p>
-          </div>
-        </Card>
-      </div>
+            </div>
+          )}
+        </div>
+      </Card>
+
+      <Card testId="settings-manual">
+        <CardHeader
+          title={L('Sabit hızla bağlan', 'Connect at a fixed bitrate')}
+          hint={L('Hızı bildiğiniz ya da araç tipi listesinde olmayan hatlar için.', 'For buses whose bitrate you know or that no vehicle type covers.')}
+        />
+        <div className="flex flex-wrap items-center gap-3 p-5">
+          <Segmented
+            testId="manual-bitrate"
+            value={String(bitrate)}
+            options={BITRATES.map((b) => ({ value: String(b), label: `${b / 1000} kbps` }))}
+            onChange={(v) => setBitrate(Number(v))}
+          />
+          <button type="button" className={BTN_GHOST} disabled={!selected || running || busy} onClick={() => void manualConnect()} data-testid="manual-connect">
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plug className="h-4 w-4" />}
+            {L('Bağlan', 'Connect')}
+          </button>
+        </div>
+      </Card>
+
+      {message && (
+        <div
+          role={message.ok ? 'status' : 'alert'}
+          data-testid="settings-message"
+          className={cx(
+            'flex items-start gap-2 rounded-2xl border px-5 py-3 text-[13px]',
+            message.ok ? 'border-ok-border bg-ok-soft text-ok' : 'border-warn-border bg-warn-soft text-warn',
+          )}
+        >
+          {message.ok ? <CheckCircle2 className="mt-0.5 h-4 w-4 flex-none" /> : <AlertTriangle className="mt-0.5 h-4 w-4 flex-none" />}
+          {message.text}
+        </div>
+      )}
     </div>
   );
 };
@@ -382,7 +379,7 @@ const LicenceSection: React.FC<{ onSwitchToMechanic: (() => void) | null }> = ({
   const st = LICENCE_STATUS[lic?.status ?? ''] ?? { tone: 'neutral' as Tone, text: () => L('Bilinmiyor', 'Unknown') };
 
   return (
-    <div className="grid grid-cols-1 content-start gap-3 xl:grid-cols-2">
+    <div className="flex flex-col gap-3">
       <Card testId="settings-licence">
         <CardHeader title={L('Lisans', 'Licence')} hint={L('Bu bilgisayarda kayıtlı, imzası doğrulanmış lisans.', 'The signed licence stored on this computer.')}>
           <button type="button" className={BTN_QUIET} onClick={() => void refresh()} disabled={refreshing} data-testid="licence-refresh">
@@ -404,32 +401,30 @@ const LicenceSection: React.FC<{ onSwitchToMechanic: (() => void) | null }> = ({
           </p>
         )}
       </Card>
-      <div className="flex flex-col gap-3">
-        <Card testId="settings-entitlements">
-          <CardHeader title={L('Bu lisansla açık olanlar', 'What this licence allows')} />
-          <ul className="divide-y divide-border-whisper px-5 py-1">
-            {ENTITLEMENTS.map((e) => (
-              <li key={e.key} className="flex items-center justify-between py-2.5 text-[13px]">
-                <span className="text-text-body">{e.label()}</span>
-                <Chip tone={lic?.entitlements[e.key] ? 'ok' : 'neutral'}>{lic?.entitlements[e.key] ? L('Açık', 'Included') : L('Kapalı', 'Not included')}</Chip>
-              </li>
-            ))}
-          </ul>
-        </Card>
-        {onSwitchToMechanic && (
-          <Card>
-            <div className="flex flex-wrap items-center justify-between gap-3 p-5">
-              <div>
-                <div className="text-[13.5px] font-semibold text-text-hi">{L('Kullanım modu: Uzman', 'Usage mode: Engineer')}</div>
-                <div className="text-[12.5px] text-text-mid">{L('Seçim bu bilgisayarda hatırlanır.', 'The choice is remembered on this computer.')}</div>
-              </div>
-              <button type="button" className={BTN_GHOST} onClick={onSwitchToMechanic} data-testid="settings-to-mechanic">
-                {L('Tamirci moduna geç', 'Switch to mechanic mode')}
-              </button>
+      <Card testId="settings-entitlements">
+        <CardHeader title={L('Bu lisansla açık olanlar', 'What this licence allows')} />
+        <ul className="divide-y divide-border-whisper px-5 py-1">
+          {ENTITLEMENTS.map((e) => (
+            <li key={e.key} className="flex items-center justify-between py-2.5 text-[13px]">
+              <span className="text-text-body">{e.label()}</span>
+              <Chip tone={lic?.entitlements[e.key] ? 'ok' : 'neutral'}>{lic?.entitlements[e.key] ? L('Açık', 'Included') : L('Kapalı', 'Not included')}</Chip>
+            </li>
+          ))}
+        </ul>
+      </Card>
+      {onSwitchToMechanic && (
+        <Card>
+          <div className="flex flex-wrap items-center justify-between gap-3 p-5">
+            <div>
+              <div className="text-[13.5px] font-semibold text-text-hi">{L('Kullanım modu: Uzman', 'Usage mode: Engineer')}</div>
+              <div className="text-[12.5px] text-text-mid">{L('Seçim bu bilgisayarda hatırlanır.', 'The choice is remembered on this computer.')}</div>
             </div>
-          </Card>
-        )}
-      </div>
+            <button type="button" className={BTN_GHOST} onClick={onSwitchToMechanic} data-testid="settings-to-mechanic">
+              {L('Tamirci moduna geç', 'Switch to mechanic mode')}
+            </button>
+          </div>
+        </Card>
+      )}
     </div>
   );
 };
@@ -461,11 +456,13 @@ const SafetySection: React.FC<{ safety: string | null }> = ({ safety }) => {
     const t = window.setInterval(load, 1000);
     return () => window.clearInterval(t);
   }, []);
+  const [resetOpen, setResetOpen] = useState(false);
   const sup = SUPERVISOR[safety ?? ''] ?? { tone: 'neutral' as Tone, text: () => L('Bilinmiyor', 'Unknown') };
   const speed = SPEED[pre?.speed_state ?? ''] ?? SPEED.stale;
+  const latched = Boolean(pre?.estop) || safety === 'FAULT';
 
   return (
-    <div className="grid grid-cols-1 content-start gap-3 xl:grid-cols-2">
+    <div className="flex flex-col gap-3">
       <Card testId="settings-safety">
         <CardHeader title={L('Şu anki durum', 'Current state')} hint={L('Python güvenlik katmanından canlı okunur.', 'Read live from the Python safety layer.')} />
         <div className="divide-y divide-border-whisper px-5 py-1">
@@ -479,6 +476,26 @@ const SafetySection: React.FC<{ safety: string | null }> = ({ safety }) => {
             <Chip tone={speed.tone}>{speed.text()}</Chip>
           </Row>
         </div>
+      </Card>
+      <Card testId="settings-estop">
+        <CardHeader
+          title={L('Acil durdurma kilidi', 'E-Stop latch')}
+          hint={L(
+            'Kilidi yalnız yetkili kişinin ürettiği tek kullanımlık jeton açar (docs/runbook/estop-reset.md).',
+            'Only a single-use token made by an authorised person releases it (docs/runbook/estop-reset.md).',
+          )}
+        >
+          <button type="button" className={BTN_GHOST} disabled={!latched} onClick={() => setResetOpen(true)} data-testid="settings-estop-reset">
+            <LockOpen className="h-4 w-4" />
+            {L('Kilidi aç…', 'Release…')}
+          </button>
+        </CardHeader>
+        <p className="px-5 py-3 text-[12.5px] text-text-mid">
+          {latched
+            ? L('Kilit şu an devrede: araca giden gönderim kapalı, hat dinlenmeye devam ediyor.', 'The latch is on: transmission to the vehicle is off, the bus is still being recorded.')
+            : L('Kilit devrede değil. Acil durdur düğmesi her ekranın üst çubuğunda.', 'The latch is off. The E-Stop button is in the top bar of every screen.')}
+        </p>
+        {resetOpen && <EstopResetDialog onClose={() => setResetOpen(false)} onReset={() => void DesktopBridge.flashPreconditions().then(setPre)} />}
       </Card>
       <Card>
         <CardHeader title={L('Uygulanan kurallar', 'Rules in force')} hint={L('Ayar değildir; değiştirilemez.', 'Not settings; they cannot be changed.')} />
@@ -500,6 +517,53 @@ const SafetySection: React.FC<{ safety: string | null }> = ({ safety }) => {
 };
 
 // ---------------------------------------------------------------------------
+// Appearance and language
+// ---------------------------------------------------------------------------
+
+const AppearanceSection: React.FC = () => {
+  const theme = useThemePref();
+  return (
+    <Card testId="settings-appearance">
+      <CardHeader title={L('Görünüm ve dil', 'Appearance and language')} hint={L('Bu bilgisayarda hatırlanır.', 'Remembered on this computer.')} />
+      <div className="divide-y divide-border-whisper px-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 py-4">
+          <div className="min-w-0">
+            <div className="text-[13.5px] font-semibold text-text-hi">{L('Tema', 'Theme')}</div>
+            <div className="text-[12.5px] text-text-mid">
+              {L('“Sistem”, Windows ayarını izler. Aydınlık atölyede açık tema daha okunaklıdır.', '“System” follows Windows. In a bright workshop the light theme reads better.')}
+            </div>
+          </div>
+          <Choice
+            label={L('Tema', 'Theme')}
+            value={theme}
+            options={THEME_OPTIONS.map((o) => ({ value: o.value, label: o.label() }))}
+            onChange={setThemePref}
+            testId="settings-theme"
+          />
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 py-4">
+          <div className="min-w-0">
+            <div className="text-[13.5px] font-semibold text-text-hi">{L('Dil', 'Language')}</div>
+            <div className="text-[12.5px] text-text-mid">
+              {L('Arayüz iki dilde. Teşhis ve rapor metinleri şimdilik yalnız Türkçe.', 'The interface is bilingual. Diagnostic and report text is Turkish-only for now.')}
+            </div>
+          </div>
+          <Choice label={L('Dil', 'Language')} value={lang()} options={LANG_OPTIONS} onChange={setLang} testId="settings-lang" />
+        </div>
+      </div>
+    </Card>
+  );
+};
+
+// ---------------------------------------------------------------------------
+
+const SECTIONS: Array<{ value: Section; icon: React.ComponentType<{ className?: string }>; label: () => string }> = [
+  { value: 'appearance', icon: Palette, label: () => L('Görünüm ve dil', 'Appearance and language') },
+  { value: 'connection', icon: Usb, label: () => L('Bağlantı', 'Connection') },
+  { value: 'licence', icon: KeyRound, label: () => L('Lisans ve oturum', 'Licence and session') },
+  { value: 'safety', icon: ShieldCheck, label: () => L('Güvenlik', 'Safety') },
+  { value: 'sources', icon: Layers, label: () => L('Veri lisansları', 'Data licences') },
+];
 
 export const SettingsPanel: React.FC<{
   busInfo: BusInfoResult | null;
@@ -509,25 +573,37 @@ export const SettingsPanel: React.FC<{
 }> = ({ busInfo, safety, onBusChanged, onSwitchToMechanic }) => {
   const [section, setSection] = useState<Section>('connection');
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3" data-testid="settings-view">
-      <div>
-        <Segmented
-          testId="settings-tab"
-          value={section}
-          onChange={setSection}
-          options={[
-            { value: 'connection', label: L('Bağlantı', 'Connection') },
-            { value: 'licence', label: L('Lisans', 'Licence') },
-            { value: 'safety', label: L('Güvenlik', 'Safety') },
-            { value: 'sources', label: L('Veri lisansları', 'Data licences') },
-          ]}
-        />
-      </div>
-      <div className="min-h-0 flex-1 overflow-auto">
-        {section === 'connection' && <ConnectionSection busInfo={busInfo} onBusChanged={onBusChanged} />}
-        {section === 'licence' && <LicenceSection onSwitchToMechanic={onSwitchToMechanic} />}
-        {section === 'safety' && <SafetySection safety={safety} />}
-        {section === 'sources' && <SettingsAttributionPanel />}
+    <div className="flex h-full min-h-0 gap-4" data-testid="settings-view">
+      <nav className="flex w-56 flex-none flex-col gap-0.5" aria-label={L('Ayar bölümleri', 'Settings sections')}>
+        {SECTIONS.map((sec) => {
+          const Icon = sec.icon;
+          const active = section === sec.value;
+          return (
+            <button
+              key={sec.value}
+              type="button"
+              data-testid={`settings-tab-${sec.value}`}
+              aria-current={active ? 'page' : undefined}
+              onClick={() => setSection(sec.value)}
+              className={cx(
+                'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13.5px] font-semibold transition-colors',
+                active ? 'bg-bg-row-selected text-text-hi' : 'text-text-body hover:bg-bg-row-hover',
+              )}
+            >
+              <Icon className={cx('h-[18px] w-[18px] flex-none', active ? 'text-accent' : 'text-text-mid')} />
+              {sec.label()}
+            </button>
+          );
+        })}
+      </nav>
+      <div className="min-h-0 min-w-0 flex-1 overflow-auto">
+        <div className="max-w-3xl">
+          {section === 'appearance' && <AppearanceSection />}
+          {section === 'connection' && <ConnectionSection busInfo={busInfo} onBusChanged={onBusChanged} />}
+          {section === 'licence' && <LicenceSection onSwitchToMechanic={onSwitchToMechanic} />}
+          {section === 'safety' && <SafetySection safety={safety} />}
+          {section === 'sources' && <SettingsAttributionPanel />}
+        </div>
       </div>
     </div>
   );
