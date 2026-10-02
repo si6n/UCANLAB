@@ -301,3 +301,16 @@ def test_safety_only_complaint_summary_says_what_was_recognised() -> None:
     d = answer_query("fren pedalı boşa gidiyor", language="tr").to_dict()
     assert d["summary"].startswith("Güvenlik açısından kritik bir şikâyet tanındı (fren)")
     assert d["urgency"]["level"] == "RED" and d["causes"] == []
+
+
+@pytest.mark.parametrize("text,expected", [
+    ("coolant keeps dropping", "engine-overheating"),
+    ("car dies while driving", "crank-sensor-signal-missing"),
+    ("nothing happens when I turn the key", "starter-relay-circuit-open"),
+    ("gearbox won't shift", "transmission-slip-limp"),
+    ("ac not blowing cold", "ac-refrigerant-pressure-low"),
+    ("airbag light on", "airbag-squib-resistance-high-driver"),
+    ("parking brake stuck", "electronic-parking-brake-stuck"),
+])
+def test_everyday_english_phrasings(text: str, expected: str) -> None:
+    assert expected in [s.symptom_id for s in parse_query(text).symptoms]

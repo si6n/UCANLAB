@@ -23,7 +23,10 @@
     "engine running hot",
     "temperature gauge high",
     "engine overheat",
-    "coolant temperature high"
+    "coolant temperature high",
+    "coolant keeps dropping",
+    "losing coolant",
+    "coolant loss"
    ],
    "provenance": [
     {
@@ -410,7 +413,11 @@
     "weak battery",
     "clicks but no crank",
     "battery light on",
-    "charging light on"
+    "charging light on",
+    "battery keeps dying",
+    "battery drains overnight",
+    "starter clicks",
+    "nothing happens when i turn the key"
    ],
    "provenance": [
     {
@@ -451,7 +458,9 @@
    "phrases_en": [
     "no crank",
     "starter not turning",
-    "starter does not turn"
+    "starter does not turn",
+    "nothing happens when i turn the key",
+    "no click when starting"
    ],
    "provenance": [
     {
@@ -566,7 +575,9 @@
    "phrases_en": [
     "air pressure low",
     "brake air leak",
-    "low air pressure warning"
+    "low air pressure warning",
+    "air pressure dropping",
+    "losing air pressure"
    ],
    "provenance": [
     {
@@ -602,7 +613,9 @@
    ],
    "phrases_en": [
     "parking brake fault",
-    "parking brake will not release"
+    "parking brake will not release",
+    "parking brake stuck",
+    "parking brake won't release"
    ],
    "provenance": [
     {
@@ -646,7 +659,10 @@
     "limp home",
     "transmission fault",
     "gearbox fault",
-    "wont shift"
+    "wont shift",
+    "won't shift",
+    "gearbox won't shift",
+    "transmission won't shift"
    ],
    "provenance": [
     {
@@ -842,7 +858,9 @@
    "phrases_en": [
     "will not charge",
     "charging fault",
-    "not charging"
+    "not charging",
+    "won't charge",
+    "car won't charge"
    ],
    "provenance": [
     {
@@ -1069,7 +1087,9 @@
    "phrases_en": [
     "ac not cooling",
     "air conditioning not working",
-    "ac blowing warm"
+    "ac blowing warm",
+    "ac not blowing cold",
+    "air con not cold"
    ],
    "provenance": [
     {
@@ -1147,7 +1167,9 @@
    "phrases_en": [
     "heater not hot",
     "engine not warming up",
-    "engine runs cold"
+    "engine runs cold",
+    "heater blowing cold",
+    "no heat from heater"
    ],
    "provenance": [
     {
@@ -1187,7 +1209,9 @@
    "phrases_en": [
     "engine stalls",
     "stalls while driving",
-    "engine cuts out"
+    "engine cuts out",
+    "car dies while driving",
+    "engine dies while driving"
    ],
    "provenance": [
     {
@@ -1224,7 +1248,8 @@
    ],
    "phrases_en": [
     "fuel pump not working",
-    "no fuel pump sound"
+    "no fuel pump sound",
+    "car dies while driving"
    ],
    "provenance": [
     {
@@ -1263,7 +1288,9 @@
    "phrases_en": [
     "key not recognised",
     "immobilizer light flashing",
-    "immobiliser fault"
+    "immobiliser fault",
+    "key not detected",
+    "key not recognized"
    ],
    "provenance": [
     {
@@ -1319,6 +1346,43 @@
      "source": {
       "title": "canonical_symptoms.json symptom 'marine-raw-water-cooling' (name_tr/name_en/keywords)",
       "path": "data/diagnostics/canonical_symptoms.json#marine-raw-water-cooling",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "paraphrase-of-existing-symptom-definition"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  {
+   "symptom_id": "airbag-squib-resistance-high-driver",
+   "phrases_tr": [
+    "srs lambasi yaniyor",
+    "hava yastigi lambasi"
+   ],
+   "phrases_en": [
+    "airbag light on",
+    "srs light on",
+    "airbag warning light"
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-lex-airbag-squib-resistance-high-driver",
+     "target": {
+      "record_id": "airbag-squib-resistance-high-driver",
+      "field": "phrases"
+     },
+     "activity": "curate_paraphrase",
+     "activity_version": "copilot-upgrade-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'airbag-squib-resistance-high-driver' (name_tr/name_en/keywords)",
+      "path": "data/diagnostics/canonical_symptoms.json#airbag-squib-resistance-high-driver",
       "type": "internal_kb"
      },
      "transform": {

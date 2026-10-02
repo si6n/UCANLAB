@@ -155,7 +155,7 @@ Bilmiyorum düğmeleri ve ölçüm alanı gösterir. Canlı oturum cevabında (k
 | `extended_pid` | `diagnostics/extended_pid_database.json` (244) | PID açıklaması, ölçüm rehberi |
 | `obd_mode06`, `uds_did` | Mode 06 / UDS DID | KB üzerinden erişilebilir (eski paket açıklama yolu) |
 | `canonical_symptoms` | 152 semptom | Şikâyet → aday kod, ilk kontroller |
-| `symptom_lexicon` (yeni) | 33 kayıt, 269 TR/EN ifade + güvenlik terimleri | Gündelik ifadeler |
+| `symptom_lexicon` (yeni) | 34 kayıt, 301 TR/EN ifade + güvenlik terimleri | Gündelik ifadeler |
 | `subsystem_labels_en` (yeni) | 315 alt sistem etiketi | İngilizce cevapta `area` satırlarının adı (yalnız etiket çevirisi) |
 | `symptom_checks` (yeni) | 147 semptom, 270 soru | Soru cevaplarının küratörlü etkileri (§3.1.1) |
 | `root_cause_graph` | 8.884 düğüm | Kök neden adayları, kanıt/çelişen sinyaller |
