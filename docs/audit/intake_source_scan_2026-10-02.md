@@ -15,7 +15,7 @@ Dal: `ccr-intake`. Bu rapor **keşif kanıtıdır**; `data/diagnostics` ve
 | Intake'e sahaya alınan `pgn_layout` kaydı | **84** |
 | Intake'e sahaya alınan `oem_divergence` kaydı | **37** (5.922 ayrışma satırı) |
 | Intake'e sahaya alınan `spn_reference` kaydı | **168** (66 terfi adayı + 102 uzlaştırma) |
-| Intake'e sahaya alınan `kb_defect` kaydı | **6** (kendi verimizden ölçülmüş kusur) |
+| Intake'e sahaya alınan `kb_defect` kaydı | **7** (kendi verimizden ölçülmüş kusur) |
 | Kopyalanan PGN alanı | **378** |
 | Kopyalanan SPN referansı | **171** (168 ayrı SPN) |
 | KB'de **olmayan** SPN referansı | **66** |
@@ -217,6 +217,45 @@ Bu ölçüm `scripts/intake_kb_defects.py` içinde bir dedektör
 (`spn_parameter_name_not_in_alias_map`) olarak yaşar: yani kavram ileride
 sözlük genişletildikçe **kendiliğinden kapanır** ve kapıdan geçen bir sayıya
 dönüşür.
+
+## 4e. En ciddi bulgu: 1.220 SPN kaydının kaynağı lisansa bağlanamıyor
+
+Bu turda upstream yerine **kendi teslim ettiğimiz verinin** kanıt zinciri
+denetlendi ve politika ihlali ölçüldü. `data/PROVENANCE.md` §1 her kaynak için
+çözülebilir bir lisans ister ("belirsizse reddet") ve §5 ticari/forum kazımasını
+reddeder. `data/diagnostics/j1939_spn_fmi_database.json` bu standardın dışında:
+
+| Ölçüm | Değer |
+|---|---|
+| `metadata.sources` içindeki kaynak | 19 |
+| **Kendi lisansını yazan kaynak** | **2** (canboat Apache-2.0, SITRAK CC BY 4.0) |
+| Kamu/standart kaynağı (NHTSA ×2, ISO 11783 ölçek tabloları) | 3 |
+| **Lisansı belirtilmemiş ticari-manual sitesinden toplama** | **11** |
+| `attribution` bloğunda adı geçen kaynak | **1 / 19** |
+
+Kayda göre en çok geçen kaynak alanları: `sitrak_ccby4` (2.845 — lisanslı ve
+atıflı), `tur23_j1939hub` (224), `tier_b` (117), `tier_c_ss_verified` (98),
+`detroitdieselengines.info` (72), `dtcdocs.com` (39), `t66_procarmanuals` (29),
+`wholefleet.ca` (9).
+
+Kayıt düzeyinde ölçüm (**1220 / 4.291 kayıt**):
+
+| Sınıf | Adet | Örnek |
+|---|---|---|
+| `no_source` — hiç `source` alanı yok, metnin nereden geldiği belirsiz | 855 | `SPN_190` (Engine Speed), `SPN_1033` (Total ECU Run Time), `SPN_10294` |
+| `unlicensed_src` — kaynak adı var, lisans alanı yok, beyan edilmiş lisanslı kaynak da değil | 365 | `tier_b`, `tier_c_ss_verified`, `t66_procarmanuals` |
+
+Bu **hukuki hüküm değildir**; kanıtlanmış bir *atıf/lisans çözülebilirliği*
+eksikliğidir ve karar veri sahibinindir (atıf eklemek, kaynakları temizlemek veya
+ilgili SPN'leri çıkarmak). Ama bugün itiraz gelirse cevap üretilebilecek bir kanıt
+zinciri **yok**.
+
+Ölçüm `j1939_source_without_licence` dedektörü olarak yaşıyor ve
+`data/intake/defects/` altında `severity: high` ile kayıtlı: kaynak temizlenirse
+sayaç düşer, kayıt kapanır; yeni lisanssız kaynak eklirse sayaç artar.
+Aynı dosyanın diğer kusurları (`spn_name_is_fmi_sentence`,
+`spn_unit_placeholder`) da aynı dosyada ölçülüyor — yani tek bir veri dosyası
+üç ayrı, birbirinden bağımsız kanıt zinciri sorunu taşıyor.
 
 ### Hangi üreticinin metni hayatta kaldı? (ölçüm)
 

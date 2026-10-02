@@ -267,8 +267,82 @@ def detect_spn_parameter_name_not_in_alias_map(root: Path = ROOT) -> dict[str, A
     }
 
 
+# Sources whose licence the file itself declares. Everything else in the merged
+# J1939 database is licence-unresolved — the repository policy
+# (data/PROVENANCE.md §1/§5) requires a resolvable licence per source.
+LICENSED_SOURCE_MARKERS = ("ccby4", "cc by 4.0", "apache", "mit", "public domain")
+
+
+def _declared_licence(record: dict[str, Any]) -> str:
+    for field in ("_source_license", "_source_license_sitrak", "license"):
+        value = record.get(field)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
+
+
+def detect_j1939_source_without_licence(root: Path = ROOT) -> dict[str, Any]:
+    """SPN records whose origin cannot be resolved to a licensed source.
+
+    Two measured classes:
+      * ``no_source``      — the record carries no ``source`` at all, so nobody
+                             can say where the text came from (e.g. SPN 190).
+      * ``unlicensed_src`` — a ``source`` is named but no licence accompanies
+                             it and the value is not the one declared-licensed
+                             source (SITRAK, CC BY 4.0).
+
+    This is an attribution/licence-resolvability measurement, **not** a legal
+    conclusion: the data owner decides attribution or removal.
+    """
+    path = root / SPN_DB
+    blob = _load(path)
+    spns = blob["spns"]
+    sources = list((blob.get("metadata") or {}).get("sources") or [])
+    licensed_sources = [s for s in sources
+                        if any(marker in str(s).lower() for marker in LICENSED_SOURCE_MARKERS)]
+    by_class: dict[str, int] = {"no_source": 0, "unlicensed_src": 0}
+    examples: list[dict[str, Any]] = []
+    for key, record in sorted(spns.items()):
+        source = str((record or {}).get("source") or "").strip()
+        licence = _declared_licence(record)
+        if not source:
+            by_class["no_source"] += 1
+            if len([e for e in examples if e["class"] == "no_source"]) < 3:
+                examples.append({"key": key, "class": "no_source", "name": (record or {}).get("name")})
+            continue
+        lowered = source.lower()
+        if licence or any(marker in lowered for marker in LICENSED_SOURCE_MARKERS):
+            continue
+        by_class["unlicensed_src"] += 1
+        if len([e for e in examples if e["class"] == "unlicensed_src"]) < 3:
+            examples.append({"key": key, "class": "unlicensed_src", "source": source,
+                             "name": (record or {}).get("name")})
+    total = sum(by_class.values())
+    return {
+        "code": "j1939_source_without_licence",
+        "severity": "high",
+        "summary": (f"{total}/{len(spns)} SPN kaydının kaynağı lisansa bağlanamıyor "
+                    f"(kaynak alanı yok: {by_class['no_source']}, lisanssız kaynak: "
+                    f"{by_class['unlicensed_src']}); metadata'daki {len(sources)} kaynaktan "
+                    f"yalnız {len(licensed_sources)} tanesi lisansını kendisi belirtiyor"),
+        "why_it_matters": ("data/PROVENANCE.md §1 her kaynak için çözülebilir lisans ister "
+                           "(belirsizse reddedilir) ve §5 ticari/forum kazımasını reddeder. "
+                           "metadata.sources içindeki kaynakların çoğu repair.diesellaptops / "
+                           "4roadservice / justanswer / j1939hub / dtcdocs gibi lisansı belirtilmemiş "
+                           "ticari-manual sitelerden toplama; attribution bloğu 19 kaynağın 1'ini "
+                           "adlandırıyor. Bu hukuki risk değil, kanıtlanmış bir atıf/lisans "
+                           "çözülebilirliği eksiği — karar veri sahibinin."),
+        "expression": ("no record.source, or (source without _source_license* and not a declared "
+                       "licensed source value)"),
+        **_target(SPN_DB),
+        "affected_count": total,
+        "examples": examples[:EXAMPLE_LIMIT],
+    }
+
+
 Detector = Callable[[Path], dict[str, Any]]
 DETECTORS: dict[str, Detector] = {
+    "j1939_source_without_licence": detect_j1939_source_without_licence,
     "spn_parameter_name_not_in_alias_map": detect_spn_parameter_name_not_in_alias_map,
     "spn_name_is_fmi_sentence": detect_spn_name_is_fmi_sentence,
     "spn_name_embeds_spn_fmi_token": detect_spn_name_embeds_spn_fmi_token,
