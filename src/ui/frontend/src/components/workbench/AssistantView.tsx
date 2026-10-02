@@ -198,20 +198,27 @@ export const AssistantView: React.FC = () => {
   const gate = analysis.gate;
   const question = dialogue?.current_question ?? null;
 
+  const hypotheses = analysis.hypotheses ?? [];
+  const alternatives = card.technical.alternatives_tr ?? [];
+  const actions = dialogue?.proposed_actions ?? [];
+  const showFeedback = !analysis.simulated && card.technical.dtcs.length > 0;
+
+  // At most three panels: the assessment (with its causes and the data it
+  // rests on), the questions (with suggested actions and repair feedback)
+  // and the copilot's six-section answer.
   return (
     <div className="grid h-full min-h-0 grid-cols-1 content-start gap-3 overflow-auto xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]" data-testid="assistant-view">
       <div className="flex min-w-0 flex-col gap-3">
-        {analysis.simulated && (
-          <div role="status" data-testid="assistant-simulated" className="rounded-2xl border border-warn-border bg-warn-soft px-5 py-3 text-[13px] text-warn">
-            <b>{L('Simülasyon sonucu.', 'Simulation result.')}</b>{' '}
-            {L(
-              'Bu değerlendirme simüle araçtan gelir; gerçek bir aracın teşhisi değildir ve teknisyen raporuna girmez.',
-              'This assessment comes from the simulated vehicle; it is not a diagnosis of a real vehicle and never enters the technician report.',
-            )}
-          </div>
-        )}
-
-        <Card testId="assistant-card">
+        <Card testId="assistant-card" className="overflow-hidden">
+          {analysis.simulated && (
+            <div role="status" data-testid="assistant-simulated" className="border-b border-warn-border bg-warn-soft px-5 py-2.5 text-[13px] text-warn">
+              <b>{L('Simülasyon sonucu.', 'Simulation result.')}</b>{' '}
+              {L(
+                'Bu değerlendirme simüle araçtan gelir; gerçek bir aracın teşhisi değildir ve teknisyen raporuna girmez.',
+                'This assessment comes from the simulated vehicle; it is not a diagnosis of a real vehicle and never enters the technician report.',
+              )}
+            </div>
+          )}
           <div className="flex flex-wrap items-start justify-between gap-3 px-5 pt-5">
             <Chip tone={risk.tone} testId="assistant-risk">
               {risk.label()}
@@ -251,47 +258,72 @@ export const AssistantView: React.FC = () => {
               {card.technical.confidence_label && <Chip tone="accent">{card.technical.confidence_label}</Chip>}
             </div>
           </div>
+          {(hypotheses.length > 0 || alternatives.length > 0) && (
+            <div className="flex flex-col gap-2 border-t border-border-whisper px-5 py-4" data-testid="assistant-causes">
+              {hypotheses.length > 0 && (
+                <>
+                  <div>
+                    <div className="text-[11.5px] font-semibold uppercase tracking-wide text-text-low">{L('Olası nedenler', 'Possible causes')}</div>
+                    <p className="mt-0.5 text-[12.5px] text-text-mid">
+                      {L('Kanıta göre sıralı; puanlar kalibre edilmiş tahmindir, olasılık değildir.', 'Ranked by evidence; scores are calibrated estimates, not probabilities.')}
+                    </p>
+                  </div>
+                  <ul className="flex flex-col gap-2">
+                    {hypotheses.map((h) => (
+                      <li key={h.id} className="rounded-xl border border-border-whisper px-4 py-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-[13.5px] font-semibold text-text-hi">{h.fault}</span>
+                          <span className="text-[12px] tabular-nums text-text-mid">%{Math.round(h.score * 100)}</span>
+                        </div>
+                        {h.supporting_evidence.length > 0 && <p className="mt-1 text-[12.5px] text-text-mid">+ {h.supporting_evidence.join(' · ')}</p>}
+                        {h.contradicting_evidence.length > 0 && <p className="text-[12.5px] text-text-mid">− {h.contradicting_evidence.join(' · ')}</p>}
+                        {h.discriminating_tests.length > 0 && (
+                          <p className="mt-1 text-[12.5px] text-text-body">
+                            <b>{L('Ayırt etmek için: ', 'To tell apart: ')}</b>
+                            {h.discriminating_tests.join(' · ')}
+                          </p>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              {alternatives.length > 0 && (
+                <div className={hypotheses.length > 0 ? 'pt-1' : undefined}>
+                  <div className="text-[11.5px] font-semibold uppercase tracking-wide text-text-low">{L('Diğer adaylar ve teknik not', 'Other candidates and technical note')}</div>
+                  <ul className="mt-1 flex flex-col gap-1 text-[12.5px] text-text-mid">
+                    {alternatives.map((a) => (
+                      <li key={a}>• {a}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+          {gate && (
+            <div className="flex flex-col gap-2 border-t border-border-whisper px-5 py-4 text-[13px]" data-testid="assistant-data">
+              <div className="text-[11.5px] font-semibold uppercase tracking-wide text-text-low">{L('Veri durumu', 'Data status')}</div>
+              <div className="flex flex-wrap gap-1.5">
+                <Chip tone={gate.dtc_sufficient ? 'ok' : 'neutral'}>{gate.dtc_sufficient ? L('Kod analizi için yeterli', 'Enough for code analysis') : L('Kod analizi için yetersiz', 'Not enough for code analysis')}</Chip>
+                <Chip tone={gate.anomaly_sufficient ? 'ok' : 'neutral'}>{gate.anomaly_sufficient ? L('Sinyal analizi için yeterli', 'Enough for signal analysis') : L('Sinyal analizi için yetersiz', 'Not enough for signal analysis')}</Chip>
+              </div>
+              {gate.gaps.length > 0 && (
+                <ul className="text-text-mid" data-testid="assistant-gaps">
+                  {gate.gaps.map((g) => (
+                    <li key={g}>• {L('Eksik', 'Missing')}: {g}</li>
+                  ))}
+                </ul>
+              )}
+              <div className="text-text-mid">
+                {L('Aktif kod', 'Active codes')}: <b className="text-text-hi">{gate.active_dtc_count}</b> ·{' '}
+                {Object.entries(gate.signal_inventory)
+                  .map(([k, v]) => `${k} ${v}`)
+                  .join(' · ') || L('ölçülen sinyal yok', 'no measured signal')}
+              </div>
+            </div>
+          )}
         </Card>
 
-        <CopilotAskCard sessionAnswer={analysis.structured_answer} />
-
-        {(analysis.hypotheses?.length ?? 0) > 0 && (
-          <Card>
-            <CardHeader
-              title={L('Olası nedenler', 'Possible causes')}
-              hint={L('Kanıta göre sıralı; puanlar kalibre edilmiş tahmindir, olasılık değildir.', 'Ranked by evidence; scores are calibrated estimates, not probabilities.')}
-            />
-            <ul className="flex flex-col gap-2 p-4">
-              {analysis.hypotheses?.map((h) => (
-                <li key={h.id} className="rounded-xl border border-border-whisper px-4 py-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-[13.5px] font-semibold text-text-hi">{h.fault}</span>
-                    <span className="text-[12px] tabular-nums text-text-mid">%{Math.round(h.score * 100)}</span>
-                  </div>
-                  {h.supporting_evidence.length > 0 && <p className="mt-1 text-[12.5px] text-text-mid">+ {h.supporting_evidence.join(' · ')}</p>}
-                  {h.contradicting_evidence.length > 0 && <p className="text-[12.5px] text-text-mid">− {h.contradicting_evidence.join(' · ')}</p>}
-                  {h.discriminating_tests.length > 0 && (
-                    <p className="mt-1 text-[12.5px] text-text-body">
-                      <b>{L('Ayırt etmek için: ', 'To tell apart: ')}</b>
-                      {h.discriminating_tests.join(' · ')}
-                    </p>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </Card>
-        )}
-
-        {card.technical.alternatives_tr && card.technical.alternatives_tr.length > 0 && (
-          <Card>
-            <CardHeader title={L('Diğer adaylar ve teknik not', 'Other candidates and technical note')} />
-            <ul className="flex flex-col gap-1 p-5 text-[12.5px] text-text-mid">
-              {card.technical.alternatives_tr.map((a) => (
-                <li key={a}>• {a}</li>
-              ))}
-            </ul>
-          </Card>
-        )}
       </div>
 
       <div className="flex min-w-0 flex-col gap-3">
@@ -325,87 +357,64 @@ export const AssistantView: React.FC = () => {
             )}
             {dialogue?.next_guidance && <p className="mt-3 text-[12.5px] text-text-mid">{dialogue.next_guidance}</p>}
           </div>
+
+          {actions.length > 0 && (
+            <div className="border-t border-border-whisper px-5 py-4">
+              <div className="text-[11.5px] font-semibold uppercase tracking-wide text-text-low">{L('Önerilen işlemler', 'Suggested actions')}</div>
+              <p className="mt-1 text-[12.5px] text-text-mid">
+                {L(
+                  'Araca yazan işlemler (kod silme, aktif test) buradan yapılmaz; ayrı, açık onaylı ekrandan ve güvenlik geçidinden geçer.',
+                  'Actions that write to the vehicle (clear codes, active tests) are not run from here; they go through a separate, explicitly confirmed screen and the safety gateway.',
+                )}
+              </p>
+              <ul className="mt-2 flex flex-col gap-1 text-[13px] text-text-body" data-testid="assistant-actions">
+                {actions.map((a, i) => {
+                  const act: ProposedAction = typeof a === 'string' ? { title: a } : a;
+                  return (
+                    <li key={`${act.type ?? ''}-${act.title ?? ''}-${i}`} className="flex flex-wrap items-center gap-2">
+                      <span>• {act.title ?? act.type}</span>
+                      {act.target && <span className="text-text-mid">({act.target})</span>}
+                      {act.is_mutating && <Chip tone="warn">{L('Araca yazar', 'Writes to vehicle')}</Chip>}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+
+          {showFeedback && (
+            <div className="border-t border-border-whisper px-5 py-4">
+              <div className="text-[11.5px] font-semibold uppercase tracking-wide text-text-low">{L('Onarım sonrası geri bildirim', 'After the repair')}</div>
+              <p className="mt-1 text-[12.5px] text-text-mid">
+                {L('Kod gerçekten çözüldü mü? Cevabınız bu bilgisayardaki öğrenme kaydına yazılır.', 'Was the code really fixed? Your answer is written to this computer’s learning log.')}
+              </p>
+              <ul className="mt-2 flex flex-col gap-2">
+                {card.technical.dtcs.map((d) => (
+                  <li key={d} className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-mono text-[13px] text-text-hi">{d}</span>
+                    {d in feedback ? (
+                      <Chip tone="ok">
+                        <ClipboardCheck className="h-3.5 w-3.5" />
+                        {feedback[d] ? L('Çözüldü kaydedildi', 'Saved as fixed') : L('Çözülmedi kaydedildi', 'Saved as not fixed')}
+                      </Chip>
+                    ) : (
+                      <span className="flex gap-2">
+                        <button type="button" className={cx(BTN_GHOST, 'py-1.5')} onClick={() => void sendFeedback(d, true)}>
+                          {L('Çözüldü', 'Fixed')}
+                        </button>
+                        <button type="button" className={cx(BTN_GHOST, 'py-1.5')} onClick={() => void sendFeedback(d, false)}>
+                          {L('Çözülmedi', 'Not fixed')}
+                        </button>
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </Card>
 
-        {(dialogue?.proposed_actions?.length ?? 0) > 0 && (
-          <Card>
-            <CardHeader
-              title={L('Önerilen işlemler', 'Suggested actions')}
-              hint={L(
-                'Araca yazan işlemler (kod silme, aktif test) buradan yapılmaz; ayrı, açık onaylı ekrandan ve güvenlik geçidinden geçer.',
-                'Actions that write to the vehicle (clear codes, active tests) are not run from here; they go through a separate, explicitly confirmed screen and the safety gateway.',
-              )}
-            />
-            <ul className="flex flex-col gap-1 p-5 text-[13px] text-text-body" data-testid="assistant-actions">
-              {dialogue?.proposed_actions?.map((a, i) => {
-                const act: ProposedAction = typeof a === 'string' ? { title: a } : a;
-                return (
-                  <li key={`${act.type ?? ''}-${act.title ?? ''}-${i}`} className="flex flex-wrap items-center gap-2">
-                    <span>• {act.title ?? act.type}</span>
-                    {act.target && <span className="text-text-mid">({act.target})</span>}
-                    {act.is_mutating && <Chip tone="warn">{L('Araca yazar', 'Writes to vehicle')}</Chip>}
-                  </li>
-                );
-              })}
-            </ul>
-          </Card>
-        )}
-
-        {gate && (
-          <Card>
-            <CardHeader title={L('Veri durumu', 'Data status')} />
-            <div className="flex flex-col gap-2 p-5 text-[13px]">
-              <div className="flex flex-wrap gap-1.5">
-                <Chip tone={gate.dtc_sufficient ? 'ok' : 'neutral'}>{gate.dtc_sufficient ? L('Kod analizi için yeterli', 'Enough for code analysis') : L('Kod analizi için yetersiz', 'Not enough for code analysis')}</Chip>
-                <Chip tone={gate.anomaly_sufficient ? 'ok' : 'neutral'}>{gate.anomaly_sufficient ? L('Sinyal analizi için yeterli', 'Enough for signal analysis') : L('Sinyal analizi için yetersiz', 'Not enough for signal analysis')}</Chip>
-              </div>
-              {gate.gaps.length > 0 && (
-                <ul className="text-text-mid" data-testid="assistant-gaps">
-                  {gate.gaps.map((g) => (
-                    <li key={g}>• {L('Eksik', 'Missing')}: {g}</li>
-                  ))}
-                </ul>
-              )}
-              <div className="text-text-mid">
-                {L('Aktif kod', 'Active codes')}: <b className="text-text-hi">{gate.active_dtc_count}</b> ·{' '}
-                {Object.entries(gate.signal_inventory)
-                  .map(([k, v]) => `${k} ${v}`)
-                  .join(' · ') || L('ölçülen sinyal yok', 'no measured signal')}
-              </div>
-            </div>
-          </Card>
-        )}
-
-        {!analysis.simulated && card.technical.dtcs.length > 0 && (
-          <Card>
-            <CardHeader
-              title={L('Onarım sonrası geri bildirim', 'After the repair')}
-              hint={L('Kod gerçekten çözüldü mü? Cevabınız bu bilgisayardaki öğrenme kaydına yazılır.', 'Was the code really fixed? Your answer is written to this computer’s learning log.')}
-            />
-            <ul className="flex flex-col gap-2 p-5">
-              {card.technical.dtcs.map((d) => (
-                <li key={d} className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-mono text-[13px] text-text-hi">{d}</span>
-                  {d in feedback ? (
-                    <Chip tone="ok">
-                      <ClipboardCheck className="h-3.5 w-3.5" />
-                      {feedback[d] ? L('Çözüldü kaydedildi', 'Saved as fixed') : L('Çözülmedi kaydedildi', 'Saved as not fixed')}
-                    </Chip>
-                  ) : (
-                    <span className="flex gap-2">
-                      <button type="button" className={cx(BTN_GHOST, 'py-1.5')} onClick={() => void sendFeedback(d, true)}>
-                        {L('Çözüldü', 'Fixed')}
-                      </button>
-                      <button type="button" className={cx(BTN_GHOST, 'py-1.5')} onClick={() => void sendFeedback(d, false)}>
-                        {L('Çözülmedi', 'Not fixed')}
-                      </button>
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </Card>
-        )}
+        <CopilotAskCard sessionAnswer={analysis.structured_answer} />
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { AlertTriangle, Check, CheckCircle2, Ear, Loader2, Plug, RefreshCw, Usb } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Cable, Check, CheckCircle2, Ear, FlaskConical, Loader2, Plug, RefreshCw, Usb } from 'lucide-react';
 import {
   AdapterEntry,
   ConnectionTestResult,
@@ -10,7 +10,8 @@ import {
   VehicleTypeInfo,
 } from '../../services/bridge';
 import { IdentityNotice } from './IdentityNotice';
-import { BTN_PRIMARY, BTN_SECONDARY, L, pick } from './text';
+import { CARD, Heading, Notice, Screen } from './Screen';
+import { BAR_PRIMARY, BAR_QUIET, BAR_SECONDARY, L, pick } from './text';
 
 /**
  * Connection wizard, Aşama 5 (MECHANIC_FLOW.md §3.7-3.10, §4).
@@ -22,19 +23,6 @@ import { BTN_PRIMARY, BTN_SECONDARY, L, pick } from './text';
 type Step = 'adapter' | 'plug' | 'test' | 'result';
 
 const SIMULATOR_ID = 'simulator:sim0';
-
-const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className="flex min-h-screen items-center justify-center bg-bg-app px-4 py-10 text-text-body">
-    <div className="flex w-full max-w-md flex-col gap-5 rounded-2xl border border-border-whisper bg-bg-card p-6 shadow-sm">{children}</div>
-  </div>
-);
-
-const Notice: React.FC<{ tone: 'warn' | 'del'; children: React.ReactNode }> = ({ tone, children }) => (
-  <div className={`flex items-start gap-2 rounded-lg border ${tone === 'del' ? 'border-del' : 'border-warn'} bg-bg-card p-3 text-sm`} role="alert">
-    <AlertTriangle className={`mt-0.5 h-4 w-4 flex-none ${tone === 'del' ? 'text-del' : 'text-warn'}`} />
-    <span>{children}</span>
-  </div>
-);
 
 const TEST_STEPS: { id: 'bitrate' | 'traffic' | 'ecus'; tr: string; en: string }[] = [
   { id: 'bitrate', tr: 'Hız bulunuyor', en: 'Finding the speed' },
@@ -128,72 +116,115 @@ export const ConnectWizard: React.FC<{
 
   const simulator = adapters?.find((a) => a.id === SIMULATOR_ID) ?? null;
 
+  const changeVehicleButton = (
+    <button type="button" className={BAR_QUIET} onClick={onChangeVehicle} data-testid="change-vehicle">
+      <ArrowLeft className="h-4 w-4" />
+      {L('Aracı değiştir', 'Change vehicle')}
+    </button>
+  );
+  const eyebrow = L('Adım 2 / 4 · Bağlantı', 'Step 2 of 4 · Connection');
+
   if (step === 'adapter') {
     const real = (adapters ?? []).filter((a) => a.kind !== 'simulator');
     const usable = real.filter((a) => a.usable);
     const blocked = real.filter((a) => !a.usable);
     return (
-      <Shell>
-        <div className="flex items-center justify-between gap-2 text-sm">
-          <span>
-            <span className="text-text-low">{L('Araç: ', 'Vehicle: ')}</span>
-            <span className="font-semibold text-text-hi">{pick(vehicle, 'label')}</span>
-          </span>
-          <button type="button" className="text-accent-text" onClick={onChangeVehicle}>
-            {L('Değiştir', 'Change')}
-          </button>
-        </div>
-        <h1 className="flex items-center gap-2 text-xl font-semibold text-text-hi">
-          <Usb className="h-5 w-5 text-accent" />
-          {L('Adaptörü bilgisayara takın.', 'Plug the adapter into the computer.')}
-        </h1>
-        {usable.length === 0 && (
-          <div className="flex items-center gap-3 text-sm text-text-mid">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            {L('Takınca kendiliğinden bulacağız.', "We'll detect it automatically.")}
-          </div>
-        )}
-        {usable.map((a) => (
-          <button
-            key={a.id}
-            type="button"
-            data-testid={`adapter-${a.kind}`}
-            className="flex items-center justify-between gap-3 rounded-xl border border-ok p-4 text-left"
-            onClick={() => choose(a)}
-          >
-            <span>
-              <span className="block font-semibold text-text-hi">
-                {L(`${a.label} bulundu`, `${a.label} found`)} <Check className="inline h-4 w-4 text-ok" />
+      <Screen step={2} back={changeVehicleButton}>
+        <Heading
+          eyebrow={eyebrow}
+          icon={<Usb className="h-5 w-5 text-accent" />}
+          title={L('Adaptörü bilgisayara takın.', 'Plug the adapter into the computer.')}
+          lead={
+            usable.length === 0 ? (
+              <span className="flex items-center gap-2 text-text-mid">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {L('Takınca kendiliğinden bulacağız.', "We'll detect it automatically.")}
               </span>
-              {pick(a, 'message') && <span className="block text-xs text-text-mid">{pick(a, 'message')}</span>}
-            </span>
-            <span className="text-sm font-semibold text-accent-text">{L('Kullan', 'Use')}</span>
-          </button>
-        ))}
-        {blocked.map((a) => (
-          <Notice key={a.id} tone="warn">
-            {pick(a, 'message') || L(`${a.label} kullanılamıyor.`, `${a.label} can't be used.`)}
-          </Notice>
-        ))}
+            ) : undefined
+          }
+        />
+        <ul className={`${CARD} flex flex-col divide-y divide-border-whisper overflow-hidden`}>
+          {usable.map((a) => (
+            <li key={a.id}>
+              <button
+                type="button"
+                data-testid={`adapter-${a.kind}`}
+                className="flex w-full items-center justify-between gap-3 px-4 py-4 text-left transition-colors hover:bg-bg-row-hover"
+                onClick={() => choose(a)}
+              >
+                <span className="flex min-w-0 items-start gap-3">
+                  <Cable className="mt-0.5 h-5 w-5 flex-none text-ok" />
+                  <span className="min-w-0">
+                    <span className="block font-semibold text-text-hi">
+                      {L(`${a.label} bulundu`, `${a.label} found`)} <Check className="inline h-4 w-4 text-ok" />
+                    </span>
+                    {pick(a, 'message') && <span className="block text-xs text-text-mid">{pick(a, 'message')}</span>}
+                  </span>
+                </span>
+                <span className="flex-none rounded-lg bg-accent px-3 py-1.5 text-sm font-semibold text-bg-app">{L('Kullan', 'Use')}</span>
+              </button>
+            </li>
+          ))}
+          {blocked.map((a) => (
+            <li key={a.id} className="flex items-start gap-3 px-4 py-4 text-sm">
+              <AlertTriangle className="mt-0.5 h-5 w-5 flex-none text-warn" />
+              <span className="min-w-0">
+                <span className="block font-semibold text-text-hi">{a.label}</span>
+                <span className="block text-text-body">{pick(a, 'message') || L(`${a.label} kullanılamıyor.`, `${a.label} can't be used.`)}</span>
+              </span>
+            </li>
+          ))}
+          {simulator && (
+            <li className="flex flex-wrap items-center justify-between gap-3 px-4 py-4">
+              <span className="flex min-w-0 items-start gap-3">
+                <FlaskConical className="mt-0.5 h-5 w-5 flex-none text-text-mid" />
+                <span className="min-w-0">
+                  <span className="block font-semibold text-text-hi">{L('Simülatör', 'Simulator')}</span>
+                  <span className="block text-xs text-text-mid">
+                    {L('Araç olmadan deneyin. Simülatör verisi gerçek araç verisi değildir.', 'Try without a vehicle. Simulator data is not real vehicle data.')}
+                  </span>
+                </span>
+              </span>
+              <button type="button" data-testid="adapter-simulator" className={BAR_SECONDARY} onClick={() => choose(simulator)}>
+                {L('Simülatörle dene', 'Try with simulator')}
+              </button>
+            </li>
+          )}
+          {usable.length === 0 && blocked.length === 0 && !simulator && (
+            <li className="px-4 py-4 text-sm text-text-mid">{L('Adaptör aranıyor…', 'Looking for adapters…')}</li>
+          )}
+        </ul>
         {error && <Notice tone="del">{error}</Notice>}
         {blocked.length > 0 && (
-          <button type="button" className={BTN_SECONDARY} onClick={() => void scan()}>
-            <RefreshCw className="h-4 w-4" />
-            {L('Kurdum, tekrar dene', 'Installed it, try again')}
-          </button>
+          <div>
+            <button type="button" className={BAR_SECONDARY} onClick={() => void scan()}>
+              <RefreshCw className="h-4 w-4" />
+              {L('Kurdum, tekrar dene', 'Installed it, try again')}
+            </button>
+          </div>
         )}
-        {simulator && (
-          <button type="button" data-testid="adapter-simulator" className={BTN_SECONDARY} onClick={() => choose(simulator)}>
-            {L('Simülatörle dene', 'Try with simulator')}
-          </button>
-        )}
-      </Shell>
+      </Screen>
     );
   }
 
   if (step === 'plug' && adapter) {
     return (
-      <Shell>
+      <Screen
+        step={2}
+        back={
+          <button type="button" className={BAR_QUIET} onClick={() => setStep('adapter')}>
+            <ArrowLeft className="h-4 w-4" />
+            {L('Başka adaptör', 'Another adapter')}
+          </button>
+        }
+        actions={
+          <button type="button" data-testid="plug-done" className={BAR_PRIMARY} onClick={() => void runTest(adapter)}>
+            <Check className="h-4 w-4" />
+            {L('Taktım, kontak açık', 'Plugged in, ignition on')}
+          </button>
+        }
+      >
+        <Heading eyebrow={eyebrow} icon={<Plug className="h-5 w-5 text-accent" />} title={L('Adaptörü araca takın', 'Plug the adapter into the vehicle')} />
         {vehicle.high_voltage && (
           <Notice tone="del">
             {L(
@@ -202,35 +233,38 @@ export const ConnectWizard: React.FC<{
             )}
           </Notice>
         )}
-        <h1 className="flex items-center gap-2 text-xl font-semibold text-text-hi">
-          <Plug className="h-5 w-5 text-accent" />
-          {L('Adaptörü araca takın', 'Plug the adapter into the vehicle')}
-        </h1>
-        <p className="text-sm">{pick(vtype, 'plug')}</p>
-        <p className="text-xs text-text-low">{pick(vtype, 'passive_note')}</p>
-        <button type="button" data-testid="plug-done" className={BTN_PRIMARY} onClick={() => void runTest(adapter)}>
-          <Check className="h-4 w-4" />
-          {L('Taktım, kontak açık', 'Plugged in, ignition on')}
-        </button>
-        <button type="button" className="bg-transparent text-sm text-accent-text hover:underline" onClick={() => setStep('adapter')}>
-          {L('Başka adaptör', 'Another adapter')}
-        </button>
-      </Shell>
+        <div className={`${CARD} flex flex-col gap-2 p-5`}>
+          <p className="text-[15px] text-text-hi">{pick(vtype, 'plug')}</p>
+          <p className="text-xs text-text-mid">{pick(vtype, 'passive_note')}</p>
+        </div>
+      </Screen>
     );
   }
 
   if (step === 'test') {
     const current = status?.step === 'ecus' ? 2 : status?.step === 'bitrate' ? 0 : -1;
     return (
-      <Shell>
-        <h1 className="flex items-center gap-2 text-xl font-semibold text-text-hi">
-          <Ear className="h-5 w-5 text-accent" />
-          {L('Araçla bağlantı kontrol ediliyor', 'Checking the connection')}
-        </h1>
-        <p className="text-sm">
-          {L('Araca hiçbir şey gönderilmiyor, sadece dinliyoruz.', 'Nothing is sent to the vehicle — we only listen.')}
-        </p>
-        <ol className="flex flex-col gap-2 text-sm">
+      <Screen
+        step={2}
+        actions={
+          <button
+            type="button"
+            className={BAR_SECONDARY}
+            onClick={() => {
+              void DesktopBridge.connectionTestCancel();
+            }}
+          >
+            {L('Durdur', 'Stop')}
+          </button>
+        }
+      >
+        <Heading
+          eyebrow={eyebrow}
+          icon={<Ear className="h-5 w-5 text-accent" />}
+          title={L('Araçla bağlantı kontrol ediliyor', 'Checking the connection')}
+          lead={L('Araca hiçbir şey gönderilmiyor, sadece dinliyoruz.', 'Nothing is sent to the vehicle — we only listen.')}
+        />
+        <ol className={`${CARD} flex flex-col gap-3 p-5 text-sm`} aria-live="polite">
           {TEST_STEPS.map((s, i) => (
             <li key={s.id} className="flex items-center gap-2">
               {i < current || (i === 1 && current === 2) ? (
@@ -241,25 +275,12 @@ export const ConnectWizard: React.FC<{
                 <span className="h-4 w-4 rounded-full border border-border-strong" />
               )}
               <span>{L(s.tr, s.en)}</span>
-              {s.id === 'bitrate' && status?.bitrate ? (
-                <span className="text-xs text-text-low">({Math.round(status.bitrate / 1000)} kbit/s)</span>
-              ) : null}
+              {s.id === 'bitrate' && status?.bitrate ? <span className="text-xs text-text-mid">({Math.round(status.bitrate / 1000)} kbit/s)</span> : null}
             </li>
           ))}
         </ol>
-        <p className="text-xs text-text-low">
-          {L('ECU: aracın bir bölümünü yöneten bilgisayar.', 'ECU: a computer that runs one part of the vehicle.')}
-        </p>
-        <button
-          type="button"
-          className="bg-transparent text-sm text-accent-text hover:underline"
-          onClick={() => {
-            void DesktopBridge.connectionTestCancel();
-          }}
-        >
-          {L('Durdur', 'Stop')}
-        </button>
-      </Shell>
+        <p className="text-xs text-text-mid">{L('ECU: aracın bir bölümünü yöneten bilgisayar.', 'ECU: a computer that runs one part of the vehicle.')}</p>
+      </Screen>
     );
   }
 
@@ -267,31 +288,31 @@ export const ConnectWizard: React.FC<{
     const message = pick(result, 'message');
     if (result.usable) {
       return (
-        <Shell>
+        <Screen
+          step={2}
+          back={changeVehicleButton}
+          actions={
+            <button type="button" data-testid="start-scan" className={BAR_PRIMARY} onClick={onDone}>
+              {result.battery_warning ? L('Yine de devam', 'Continue anyway') : L('Taramayı başlat', 'Start scan')}
+            </button>
+          }
+        >
           {vehicle.high_voltage && (
-            <Notice tone="del">
-              {L('Yüksek voltajlı araç: turuncu kablolara dokunmayın.', 'High-voltage vehicle: do not touch orange cables.')}
-            </Notice>
+            <Notice tone="del">{L('Yüksek voltajlı araç: turuncu kablolara dokunmayın.', 'High-voltage vehicle: do not touch orange cables.')}</Notice>
           )}
           {result.battery_warning && <Notice tone="warn">{pick(result, 'battery_message')}</Notice>}
-          <h1 className="flex items-center gap-2 text-xl font-semibold text-text-hi" data-testid="connect-ready">
-            {result.code === 'READY' ? (
+          <Heading
+            eyebrow={eyebrow}
+            testId="connect-ready"
+            icon={result.code === 'READY' ? <CheckCircle2 className="h-6 w-6 text-ok" /> : <AlertTriangle className="h-6 w-6 text-warn" />}
+            title={result.code === 'READY' ? L('Hazır', 'Ready') : L('Bağlandı, ama dikkat', 'Connected — please check')}
+            lead={
               <>
-                <CheckCircle2 className="h-6 w-6 text-ok" />
-                {L('Hazır', 'Ready')}
+                {message}{' '}
+                {result.ecu_count > 0 && L(`${result.ecu_count} kontrol ünitesi görüldü.`, `${result.ecu_count} control units found.`)}
               </>
-            ) : (
-              <>
-                <AlertTriangle className="h-6 w-6 text-warn" />
-                {L('Bağlandı, ama dikkat', 'Connected — please check')}
-              </>
-            )}
-          </h1>
-          <p className="text-sm">
-            {message}{' '}
-            {result.ecu_count > 0 &&
-              L(`${result.ecu_count} kontrol ünitesi görüldü.`, `${result.ecu_count} control units found.`)}
-          </p>
+            }
+          />
           {result.code === 'EXPECTED_MISSING' && (
             <ul className="text-xs text-text-mid">
               {result.expected
@@ -303,36 +324,42 @@ export const ConnectWizard: React.FC<{
           )}
           <IdentityNotice result={identity} profiles={profiles} onSwitch={onSwitchVehicle} />
           {adapter?.kind === 'simulator' && (
-            <p className="text-xs text-text-low">{L('Simülatör: gerçek araç verisi değildir.', 'Simulator: not real vehicle data.')}</p>
+            <p className="text-xs text-text-mid">{L('Simülatör: gerçek araç verisi değildir.', 'Simulator: not real vehicle data.')}</p>
           )}
-          <button type="button" data-testid="start-scan" className={BTN_PRIMARY} onClick={onDone}>
-            {result.battery_warning ? L('Yine de devam', 'Continue anyway') : L('Taramayı başlat', 'Start scan')}
-          </button>
-        </Shell>
+        </Screen>
       );
     }
     return (
-      <Shell>
-        <h1 className="flex items-center gap-2 text-xl font-semibold text-text-hi" data-testid="connect-problem">
-          <AlertTriangle className="h-5 w-5 text-warn" />
-          {L('Bağlantı kurulamadı', "Couldn't connect")}
-        </h1>
-        <p className="text-sm">{message}</p>
-        {result.code !== 'LISTEN_ONLY_UNAVAILABLE' && adapter && (
-          <button type="button" className={BTN_PRIMARY} onClick={() => void runTest(adapter)}>
-            <RefreshCw className="h-4 w-4" />
-            {L('Tekrar dene', 'Try again')}
-          </button>
-        )}
-        <button type="button" className={BTN_SECONDARY} onClick={() => setStep('adapter')}>
-          {L('Başka adaptör', 'Another adapter')}
-        </button>
-        {simulator && adapter?.kind !== 'simulator' && (
-          <button type="button" className={BTN_SECONDARY} onClick={() => choose(simulator)}>
-            {L('Simülatörle dene', 'Try with simulator')}
-          </button>
-        )}
-      </Shell>
+      <Screen
+        step={2}
+        back={changeVehicleButton}
+        actions={
+          <>
+            {simulator && adapter?.kind !== 'simulator' && (
+              <button type="button" className={BAR_SECONDARY} onClick={() => choose(simulator)}>
+                {L('Simülatörle dene', 'Try with simulator')}
+              </button>
+            )}
+            <button type="button" className={BAR_SECONDARY} onClick={() => setStep('adapter')}>
+              {L('Başka adaptör', 'Another adapter')}
+            </button>
+            {result.code !== 'LISTEN_ONLY_UNAVAILABLE' && adapter && (
+              <button type="button" className={BAR_PRIMARY} onClick={() => void runTest(adapter)}>
+                <RefreshCw className="h-4 w-4" />
+                {L('Tekrar dene', 'Try again')}
+              </button>
+            )}
+          </>
+        }
+      >
+        <Heading
+          eyebrow={eyebrow}
+          testId="connect-problem"
+          icon={<AlertTriangle className="h-5 w-5 text-warn" />}
+          title={L('Bağlantı kurulamadı', "Couldn't connect")}
+          lead={message}
+        />
+      </Screen>
     );
   }
 

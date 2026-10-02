@@ -1,16 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import {
-  Anchor,
-  ArrowLeft,
-  Car,
-  ChevronRight,
-  Loader2,
-  Lock,
-  Tractor,
-  Truck,
-  Wrench,
-  Cpu,
-} from 'lucide-react';
+import { Anchor, Car, ChevronRight, CircleHelp, Cpu, Lock, Tractor, Truck, Wrench } from 'lucide-react';
 import {
   AuthEntitlements,
   DesktopBridge,
@@ -19,9 +8,13 @@ import {
   VehicleProfileInfo,
   VehicleTypeInfo,
 } from '../../services/bridge';
+import { AppFrame, FrameLoading } from '../shell/AppFrame';
+import { ICON_BTN } from '../shell/WindowControls';
+import { cx } from '../workbench/ui';
 import { ConnectWizard } from './ConnectWizard';
 import { ScanFlow } from './ScanFlow';
-import { BTN_SECONDARY, L, messageOf, pick } from './text';
+import { CARD, Heading, Screen } from './Screen';
+import { L, messageOf, pick } from './text';
 
 /**
  * Mechanic flow, Aşama 4 (docs/product/MECHANIC_FLOW.md §3.4-3.8).
@@ -54,22 +47,9 @@ const TYPE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = 
   construction: Tractor,
 };
 
-const Card: React.FC<{ children: React.ReactNode; wide?: boolean }> = ({ children, wide }) => (
-  <div className="flex min-h-screen items-center justify-center bg-bg-app px-4 py-10 text-text-body">
-    <div
-      className={`flex w-full ${wide ? 'max-w-2xl' : 'max-w-md'} flex-col gap-5 rounded-2xl border border-border-whisper bg-bg-card p-6 shadow-sm`}
-    >
-      {children}
-    </div>
-  </div>
-);
-
-const BackButton: React.FC<{ onClick: () => void }> = ({ onClick }) => (
-  <button type="button" className="inline-flex items-center gap-1 self-start text-sm text-accent-text" onClick={onClick}>
-    <ArrowLeft className="h-4 w-4" />
-    {L('Geri', 'Back')}
-  </button>
-);
+/** A big choice button on the plain background (mode, vehicle type). */
+const OPTION =
+  'flex rounded-2xl border bg-bg-card p-4 text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
 
 function coverageBadge(p: VehicleProfileInfo): { text: string; tone: string } {
   if (p.coverage === 'enriched') return { text: L('Markaya özel veri', 'Maker data'), tone: 'text-ok border-ok' };
@@ -167,99 +147,99 @@ export const MechanicFlow: React.FC<{ children: React.ReactNode }> = ({ children
   let screen: React.ReactNode = null;
 
   if (phase === 'checking') {
-    screen = (
-      <Card>
-        <div className="flex items-center gap-3 text-text-mid">
-          <Loader2 className="h-5 w-5 animate-spin" />
-          {L('UCanLab hazırlanıyor…', 'Getting UCanLab ready…')}
-        </div>
-      </Card>
-    );
+    screen = <FrameLoading />;
   }
 
   if (phase === 'mode') {
     const engineerLocked = !entitlements?.engineer;
     screen = (
-      <Card>
-        <h1 className="text-xl font-semibold text-text-hi">{L('Uygulamayı nasıl kullanacaksınız?', 'How will you use the app?')}</h1>
-        <button
-          type="button"
-          data-testid="mode-mechanic"
-          className="flex items-start gap-3 rounded-xl border border-border-strong p-4 text-left transition-colors hover:border-accent"
-          onClick={() => void setMode('mechanic')}
-        >
-          <Wrench className="mt-0.5 h-6 w-6 flex-none text-accent" />
-          <span>
-            <span className="block font-semibold text-text-hi">{L('Tamirci', 'Mechanic')}</span>
-            <span className="block text-sm">
-              {L('Arızayı bul, ne yapacağımı söyle. Teknik bilgi gerekmez.', 'Find the fault and tell me what to do. No technical knowledge needed.')}
+      <Screen width="narrow">
+        <Heading title={L('Uygulamayı nasıl kullanacaksınız?', 'How will you use the app?')} />
+        <div className="flex flex-col gap-3">
+          <button type="button" data-testid="mode-mechanic" className={cx(OPTION, 'items-start gap-3 border-border-strong hover:border-accent')} onClick={() => void setMode('mechanic')}>
+            <Wrench className="mt-0.5 h-6 w-6 flex-none text-accent" />
+            <span>
+              <span className="block font-semibold text-text-hi">{L('Tamirci', 'Mechanic')}</span>
+              <span className="block text-sm">
+                {L('Arızayı bul, ne yapacağımı söyle. Teknik bilgi gerekmez.', 'Find the fault and tell me what to do. No technical knowledge needed.')}
+              </span>
             </span>
-          </span>
-        </button>
-        <button
-          type="button"
-          data-testid="mode-engineer"
-          disabled={engineerLocked}
-          className="flex items-start gap-3 rounded-xl border border-border-strong p-4 text-left transition-colors enabled:hover:border-accent disabled:opacity-60"
-          onClick={() => void setMode('engineer')}
-        >
-          {engineerLocked ? <Lock className="mt-0.5 h-6 w-6 flex-none text-text-low" /> : <Cpu className="mt-0.5 h-6 w-6 flex-none text-accent" />}
-          <span>
-            <span className="block font-semibold text-text-hi">{L('Mühendis', 'Engineer')}</span>
-            <span className="block text-sm">
-              {L('Ham CAN verisi, sinyal analizi ve uzman araçları.', 'Raw CAN data, signal analysis and expert tools.')}
+          </button>
+          <button
+            type="button"
+            data-testid="mode-engineer"
+            disabled={engineerLocked}
+            className={cx(OPTION, 'items-start gap-3 border-border-strong enabled:hover:border-accent disabled:opacity-60')}
+            onClick={() => void setMode('engineer')}
+          >
+            {engineerLocked ? <Lock className="mt-0.5 h-6 w-6 flex-none text-text-low" /> : <Cpu className="mt-0.5 h-6 w-6 flex-none text-accent" />}
+            <span>
+              <span className="block font-semibold text-text-hi">{L('Mühendis', 'Engineer')}</span>
+              <span className="block text-sm">
+                {L('Ham CAN verisi, sinyal analizi ve uzman araçları.', 'Raw CAN data, signal analysis and expert tools.')}
+              </span>
+              {engineerLocked && <span className="mt-1 block text-xs text-text-low">{L('Bu mod paketinizde yok.', 'Not included in your plan.')}</span>}
             </span>
-            {engineerLocked && (
-              <span className="mt-1 block text-xs text-text-low">{L('Bu mod paketinizde yok.', 'Not included in your plan.')}</span>
-            )}
-          </span>
-        </button>
+          </button>
+        </div>
         {notice && (
           <p className="text-sm text-del" role="alert">
             {notice}
           </p>
         )}
-        <p className="text-xs text-text-low">
-          {L("Bunu daha sonra Ayarlar'dan değiştirebilirsiniz.", 'You can change this later in Settings.')}
-        </p>
-      </Card>
+        <p className="text-xs text-text-low">{L("Bunu daha sonra Ayarlar'dan değiştirebilirsiniz.", 'You can change this later in Settings.')}</p>
+      </Screen>
     );
   }
 
-  if (phase === 'type') {
+  if (phase === 'type' || (phase === 'vehicle' && typeId)) {
+    const list = typeId ? profiles.filter((p) => p.type === typeId) : [];
+    const general = typeId ? generalProfileFor(typeId, profiles) : undefined;
+    // The "I don't know" row already stands for the general profile.
+    const others = list.filter((p) => p.id !== general?.id);
+    const chosenType = types.find((t) => t.id === typeId) ?? null;
     screen = (
-      <Card>
-        <h1 className="text-xl font-semibold text-text-hi">{L('Hangi aracı kontrol ediyorsunuz?', 'What are you checking?')}</h1>
+      <Screen step={1}>
+        <Heading
+          eyebrow={L('Adım 1 / 4', 'Step 1 of 4')}
+          title={L('Hangi aracı kontrol ediyorsunuz?', 'What are you checking?')}
+          lead={L(
+            'Seçim, adaptörü hangi sokete takacağınızı ve aracın hangi “dili” konuştuğunu belirler.',
+            'The choice decides which socket the adapter goes into and which “language” the vehicle speaks.',
+          )}
+        />
         {vehicle && (
           <button
             type="button"
             data-testid="vehicle-last"
-            className="flex items-center justify-between gap-3 rounded-xl border border-accent p-4 text-left"
+            className={cx(OPTION, 'items-center justify-between gap-3 border-accent-line hover:border-accent')}
             onClick={() => void selectVehicle(vehicle.id)}
           >
             <span>
-              <span className="block text-xs text-text-low">{L('Son seçilen araç', 'Last vehicle')}</span>
+              <span className="block text-xs text-text-mid">{L('Son seçilen araç', 'Last vehicle')}</span>
               <span className="block font-semibold text-text-hi">{pick(vehicle, 'label')}</span>
             </span>
-            <ChevronRight className="h-5 w-5 text-accent" />
+            <ChevronRight className="h-5 w-5 flex-none text-accent" />
           </button>
         )}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {types.map((t) => {
             const Icon = TYPE_ICONS[t.id] ?? Car;
+            const active = t.id === typeId;
             return (
               <button
                 key={t.id}
                 type="button"
                 data-testid={`vehicle-type-${t.id}`}
-                className="flex items-start gap-3 rounded-xl border border-border-strong p-4 text-left transition-colors hover:border-accent"
+                aria-pressed={active}
+                className={cx(OPTION, 'flex-col items-start gap-2', active ? 'border-accent bg-accent-soft' : 'border-border-strong hover:border-accent')}
                 onClick={() => {
                   setTypeId(t.id);
                   setNotice('');
                   setPhase('vehicle');
                 }}
               >
-                <Icon className="mt-0.5 h-6 w-6 flex-none text-accent" />
+                <Icon className="h-6 w-6 flex-none text-accent" />
                 <span>
                   <span className="block font-semibold text-text-hi">{pick(t, 'label')}</span>
                   <span className="block text-xs text-text-mid">{pick(t, 'sub')}</span>
@@ -268,57 +248,69 @@ export const MechanicFlow: React.FC<{ children: React.ReactNode }> = ({ children
             );
           })}
         </div>
-      </Card>
-    );
-  }
-
-  if (phase === 'vehicle' && typeId) {
-    const list = profiles.filter((p) => p.type === typeId);
-    const general = generalProfileFor(typeId, profiles);
-    screen = (
-      <Card wide>
-        <BackButton onClick={() => setPhase('type')} />
-        <h1 className="text-xl font-semibold text-text-hi">{L('Marka veya motoru seçin', 'Choose the make or engine')}</h1>
-        <ul className="flex flex-col divide-y divide-border-whisper rounded-xl border border-border-whisper">
-          {list.map((p) => {
-            const badge = coverageBadge(p);
-            return (
-              <li key={p.id}>
-                <button
-                  type="button"
-                  data-testid={`vehicle-${p.id}`}
-                  disabled={!p.selectable}
-                  className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors enabled:hover:bg-bg-row-hover disabled:cursor-not-allowed disabled:opacity-60"
-                  onClick={() => void selectVehicle(p.id)}
-                >
-                  <span className="min-w-0">
-                    <span className="block font-medium text-text-hi">{pick(p, 'label')}</span>
-                    {pick(p, 'note') && <span className="block text-xs text-text-mid">{pick(p, 'note')}</span>}
-                  </span>
-                  <span className="flex flex-none items-center gap-2">
-                    {p.high_voltage && (
-                      <span className="rounded-full border border-warn px-2 py-0.5 text-[11px] font-semibold text-warn">
-                        {L('Yüksek voltaj', 'High voltage')}
+        {typeId && (
+          <section className="flex flex-col gap-2" aria-labelledby="vehicle-pick-title">
+            <h2 id="vehicle-pick-title" className="text-xs font-semibold uppercase tracking-wide text-text-low">
+              {L('Marka veya motoru seçin', 'Choose the make or engine')}
+              {chosenType ? ` · ${pick(chosenType, 'label')}` : ''}
+            </h2>
+            <ul className={cx(CARD, 'flex flex-col divide-y divide-border-whisper overflow-hidden')}>
+              {general && (
+                <li>
+                  <button
+                    type="button"
+                    data-testid="vehicle-general"
+                    className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-bg-row-hover"
+                    onClick={() => void selectVehicle(general.id)}
+                  >
+                    <span className="flex min-w-0 items-start gap-3">
+                      <CircleHelp className="mt-0.5 h-5 w-5 flex-none text-text-mid" />
+                      <span className="min-w-0">
+                        <span className="block font-medium text-text-hi">{L('Bilmiyorum, genel tarama yap', "I don't know — run a general scan")}</span>
+                        <span className="block text-xs text-text-mid">
+                          {pick(general, 'label')}
+                          {pick(general, 'note') ? ` · ${pick(general, 'note')}` : ''}
+                        </span>
                       </span>
-                    )}
-                    <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${badge.tone}`}>{badge.text}</span>
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+                    </span>
+                    <ChevronRight className="h-4 w-4 flex-none text-text-mid" />
+                  </button>
+                </li>
+              )}
+              {others.map((p) => {
+                const badge = coverageBadge(p);
+                return (
+                  <li key={p.id}>
+                    <button
+                      type="button"
+                      data-testid={`vehicle-${p.id}`}
+                      disabled={!p.selectable}
+                      className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors enabled:hover:bg-bg-row-hover disabled:cursor-not-allowed disabled:opacity-60"
+                      onClick={() => void selectVehicle(p.id)}
+                    >
+                      <span className="min-w-0">
+                        <span className="block font-medium text-text-hi">{pick(p, 'label')}</span>
+                        {pick(p, 'note') && <span className="block text-xs text-text-mid">{pick(p, 'note')}</span>}
+                      </span>
+                      <span className="flex flex-none items-center gap-2">
+                        {p.high_voltage && (
+                          <span className="rounded-full border border-warn px-2 py-0.5 text-[11px] font-semibold text-warn">{L('Yüksek voltaj', 'High voltage')}</span>
+                        )}
+                        <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${badge.tone}`}>{badge.text}</span>
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
         {notice && (
           <p className="text-sm text-del" role="alert">
             {notice}
           </p>
         )}
-        {general && (
-          <button type="button" data-testid="vehicle-general" className={BTN_SECONDARY} onClick={() => void selectVehicle(general.id)}>
-            {L('Bilmiyorum, genel tarama yap', "I don't know — run a general scan")}
-          </button>
-        )}
-      </Card>
+      </Screen>
     );
   }
 
@@ -349,7 +341,44 @@ export const MechanicFlow: React.FC<{ children: React.ReactNode }> = ({ children
     );
   }
 
+  if (phase === 'app' || screen === null) {
+    return <MechanicModeContext.Provider value={api}>{children}</MechanicModeContext.Provider>;
+  }
+
+  const VehicleIcon = TYPE_ICONS[vehicle?.type ?? ''] ?? Car;
+  const showVehicle = vehicle !== null && (phase === 'plug' || phase === 'scan');
+  // Switching modes is offered only while nothing is running (choosing the vehicle).
+  const offerExpert = Boolean(entitlements?.engineer) && (phase === 'type' || phase === 'vehicle');
+
   return (
-    <MechanicModeContext.Provider value={api}>{phase === 'app' || screen === null ? children : screen}</MechanicModeContext.Provider>
+    <MechanicModeContext.Provider value={api}>
+      <AppFrame
+        subtitle={phase === 'mode' || phase === 'checking' ? undefined : L('Tamirci modu', 'Mechanic mode')}
+        context={
+          showVehicle && vehicle ? (
+            <span className="inline-flex items-center gap-1.5">
+              <VehicleIcon className="h-4 w-4 flex-none text-text-mid" />
+              {pick(vehicle, 'label')}
+            </span>
+          ) : null
+        }
+        extra={
+          offerExpert ? (
+            <button
+              type="button"
+              className={cx(ICON_BTN, 'w-auto gap-1.5 px-2.5 text-[12.5px] font-medium')}
+              onClick={() => void setMode('engineer')}
+              title={L('Uzman moduna geç; seçim bu bilgisayarda hatırlanır.', 'Switch to engineer mode; remembered on this computer.')}
+              data-testid="to-engineer"
+            >
+              <Cpu className="h-4 w-4" />
+              {L('Uzman masası', 'Engineer workbench')}
+            </button>
+          ) : null
+        }
+      >
+        {screen}
+      </AppFrame>
+    </MechanicModeContext.Provider>
   );
 };

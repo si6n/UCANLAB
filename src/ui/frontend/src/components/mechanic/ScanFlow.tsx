@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { AlertTriangle, ChevronDown, ClipboardList, Eraser, Ear, FileText, Loader2, RefreshCw, Search, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ChevronDown, ClipboardList, Cpu, Eraser, Ear, FileText, Loader2, RefreshCw, Search, ShieldCheck } from 'lucide-react';
 import { AuthEntitlements, DesktopBridge, MechanicScanResult, ScanStatus, VehicleProfileInfo, VehicleTypeInfo } from '../../services/bridge';
-import { BTN_PRIMARY, BTN_SECONDARY, L, pick } from './text';
+import { cx } from '../workbench/ui';
+import { CARD, Heading, Notice, Screen } from './Screen';
+import { BAR_DANGER, BAR_PRIMARY, BAR_QUIET, BAR_SECONDARY, L, pick } from './text';
 import { useUiHeartbeat } from './useUiHeartbeat';
 
 /**
@@ -14,24 +16,19 @@ import { useUiHeartbeat } from './useUiHeartbeat';
 
 type Phase = 'consent' | 'scanning' | 'result' | 'report' | 'clear' | 'failed';
 
-const Shell: React.FC<{ children: React.ReactNode; wide?: boolean }> = ({ children, wide }) => (
-  <div className="flex min-h-screen items-start justify-center bg-bg-app px-4 py-10 text-text-body">
-    <div className={`flex w-full ${wide ? 'max-w-2xl' : 'max-w-md'} flex-col gap-5 rounded-2xl border border-border-whisper bg-bg-card p-6 shadow-sm`}>
-      {children}
-    </div>
-  </div>
-);
-
-const URGENCY_TONE: Record<string, string> = {
-  RED: 'border-del text-del',
-  YELLOW: 'border-warn text-warn',
-  GREEN: 'border-ok text-ok',
-  GRAY: 'border-border-strong text-text-mid',
+const URGENCY_BAND: Record<string, string> = {
+  RED: 'border-danger-border bg-danger-soft text-del',
+  YELLOW: 'border-warn-border bg-warn-soft text-warn',
+  GREEN: 'border-ok-border bg-ok-soft text-ok',
+  GRAY: 'border-border-whisper bg-bg-row-hover text-text-mid',
 };
 
-const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-  <section className="flex flex-col gap-2">
-    <h2 className="text-xs font-semibold uppercase tracking-wide text-text-low">{title}</h2>
+const SectionCard: React.FC<{ title: string; hint?: string; children: React.ReactNode }> = ({ title, hint, children }) => (
+  <section className={cx(CARD, 'flex min-w-0 flex-col overflow-hidden')}>
+    <div className="border-b border-border-whisper px-5 py-3">
+      <h2 className="text-[15px] font-semibold text-text-hi">{title}</h2>
+      {hint && <p className="mt-0.5 text-xs text-text-mid">{hint}</p>}
+    </div>
     {children}
   </section>
 );
@@ -149,39 +146,65 @@ export const ScanFlow: React.FC<{
     setNotice(res.message || (res.success ? L('Arıza kodları silindi.', 'Fault codes cleared.') : L('Arıza kodları silinemedi.', 'Fault codes could not be cleared.')));
   };
 
+  const eyebrow = L('Adım 3 / 4 · Tarama', 'Step 3 of 4 · Scan');
+  const changeVehicleButton = (
+    <button type="button" className={BAR_QUIET} onClick={onChangeVehicle}>
+      <ArrowLeft className="h-4 w-4" />
+      {L('Aracı değiştir', 'Change vehicle')}
+    </button>
+  );
+
   if (phase === 'consent') {
     return (
-      <Shell>
-        <h1 className="flex items-center gap-2 text-xl font-semibold text-text-hi">
-          <Search className="h-5 w-5 text-accent" />
-          {L('Arızaları okuyalım', "Let's read the faults")}
-        </h1>
-        <p className="text-sm">
-          {L(
+      <Screen
+        step={3}
+        back={changeVehicleButton}
+        actions={
+          <>
+            <button type="button" data-testid="listen-only" className={BAR_SECONDARY} onClick={() => void start(false)}>
+              <Ear className="h-4 w-4" />
+              {L('Sadece dinle', 'Listen only')}
+            </button>
+            <button type="button" data-testid="allow-read" className={BAR_PRIMARY} onClick={() => void start(true)}>
+              <ShieldCheck className="h-4 w-4" />
+              {L('Okumaya izin ver', 'Allow reading')}
+            </button>
+          </>
+        }
+      >
+        <Heading
+          eyebrow={eyebrow}
+          icon={<Search className="h-5 w-5 text-accent" />}
+          title={L('Arızaları okuyalım', "Let's read the faults")}
+          lead={L(
             'Arıza kodlarını okumak için araca okuma isteği gönderilecek. Bu, araçta hiçbir ayarı değiştirmez; silme veya yazma yapılmaz.',
             "To read fault codes, a read request will be sent. It doesn't change anything in the vehicle; nothing is cleared or written.",
           )}
-        </p>
-        {vehicle.high_voltage && (
-          <p className="text-xs text-text-low">{L('Yüksek voltajlı araç: yalnız okuma yapılır.', 'High-voltage vehicle: reading only.')}</p>
-        )}
-        {notice && (
-          <p className="text-sm text-warn" role="alert">
-            {notice}
-          </p>
-        )}
-        <button type="button" data-testid="allow-read" className={BTN_PRIMARY} onClick={() => void start(true)}>
-          <ShieldCheck className="h-4 w-4" />
-          {L('Okumaya izin ver', 'Allow reading')}
-        </button>
-        <button type="button" data-testid="listen-only" className={BTN_SECONDARY} onClick={() => void start(false)}>
-          <Ear className="h-4 w-4" />
-          {L('Sadece dinle', 'Listen only')}
-        </button>
-        <p className="text-xs text-text-low">
-          {L('İzin verdiğinizde bilgisayar ayrıca bir onay penceresi açar.', 'When you allow it, the computer also shows a confirmation window.')}
-        </p>
-      </Shell>
+        />
+        <div className={cx(CARD, 'grid grid-cols-1 gap-4 p-5 text-sm md:grid-cols-2')}>
+          <div className="flex items-start gap-3">
+            <ShieldCheck className="mt-0.5 h-5 w-5 flex-none text-accent" />
+            <p>
+              <b className="text-text-hi">{L('Okumaya izin ver', 'Allow reading')}</b>
+              <br />
+              {L('Yalnız okuma istekleri gönderilir. İzin verdiğinizde bilgisayar ayrıca bir onay penceresi açar.', 'Only read requests are sent. When you allow it, the computer also shows a confirmation window.')}
+            </p>
+          </div>
+          <div className="flex items-start gap-3">
+            <Ear className="mt-0.5 h-5 w-5 flex-none text-text-mid" />
+            <p>
+              <b className="text-text-hi">{L('Sadece dinle', 'Listen only')}</b>
+              <br />
+              {L(
+                'Araca hiçbir şey gönderilmez. Otomobil arıza kodlarını çoğu zaman yalnız sorulunca bildirdiği için kod görünmeyebilir.',
+                'Nothing is sent to the vehicle. A car usually reports fault codes only when asked, so none may show up.',
+              )}
+            </p>
+          </div>
+        </div>
+        {vehicle.high_voltage && <p className="text-xs text-text-mid">{L('Yüksek voltajlı araç: yalnız okuma yapılır.', 'High-voltage vehicle: reading only.')}</p>}
+        {notice && <Notice tone="warn">{notice}</Notice>}
+      </Screen>
     );
   }
 
@@ -189,196 +212,288 @@ export const ScanFlow: React.FC<{
     const step = status?.step;
     const pct = Math.round((status?.progress ?? 0) * 100);
     return (
-      <Shell>
-        <h1 className="flex items-center gap-2 text-xl font-semibold text-text-hi">
-          <Loader2 className="h-5 w-5 animate-spin text-accent" />
-          {step === 'reading'
-            ? L('Arıza kodları okunuyor…', 'Reading fault codes…')
-            : step === 'analyzing'
-              ? L('Sonuç hazırlanıyor…', 'Preparing the result…')
-              : L('Arızalar okunuyor… (yaklaşık 20 sn)', 'Reading faults… (about 20 s)')}
-        </h1>
-        <div className="h-2 w-full overflow-hidden rounded-full bg-surface-inset-raw" aria-label={`${pct}%`}>
-          <div className="h-full bg-accent transition-all" style={{ width: `${step === 'listening' ? pct : 100}%` }} />
+      <Screen
+        step={3}
+        actions={
+          <button type="button" className={BAR_SECONDARY} onClick={() => void DesktopBridge.scanCancel()}>
+            {L('Durdur', 'Stop')}
+          </button>
+        }
+      >
+        <Heading
+          eyebrow={eyebrow}
+          icon={<Loader2 className="h-5 w-5 animate-spin text-accent" />}
+          title={
+            step === 'reading'
+              ? L('Arıza kodları okunuyor…', 'Reading fault codes…')
+              : step === 'analyzing'
+                ? L('Sonuç hazırlanıyor…', 'Preparing the result…')
+                : L('Arızalar okunuyor… (yaklaşık 20 sn)', 'Reading faults… (about 20 s)')
+          }
+        />
+        <div className={cx(CARD, 'flex flex-col gap-3 p-5')}>
+          <div
+            className="h-2 w-full overflow-hidden rounded-full bg-surface-inset-raw"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={step === 'listening' ? pct : 100}
+            aria-label={L('Tarama ilerlemesi', 'Scan progress')}
+          >
+            <div className="h-full bg-accent transition-all" style={{ width: `${step === 'listening' ? pct : 100}%` }} />
+          </div>
+          <p className="text-sm text-text-mid">
+            {reading
+              ? L('Yalnız okuma istekleri gönderiliyor; silme veya yazma yok.', 'Only read requests are sent; nothing is cleared or written.')
+              : L('Araca hiçbir şey gönderilmiyor, sadece dinliyoruz.', 'Nothing is sent to the vehicle — we only listen.')}
+          </p>
         </div>
-        <p className="text-sm text-text-mid">
-          {reading
-            ? L('Yalnız okuma istekleri gönderiliyor; silme veya yazma yok.', 'Only read requests are sent; nothing is cleared or written.')
-            : L('Araca hiçbir şey gönderilmiyor, sadece dinliyoruz.', 'Nothing is sent to the vehicle — we only listen.')}
-        </p>
-        <button type="button" className="bg-transparent text-sm text-accent-text hover:underline" onClick={() => void DesktopBridge.scanCancel()}>
-          {L('Durdur', 'Stop')}
-        </button>
-      </Shell>
+      </Screen>
     );
   }
 
   if (phase === 'failed') {
     return (
-      <Shell>
-        <h1 className="flex items-center gap-2 text-xl font-semibold text-text-hi">
-          <AlertTriangle className="h-5 w-5 text-warn" />
-          {L('Tarama yapılamadı', "Couldn't scan")}
-        </h1>
-        {notice && <p className="text-sm">{notice}</p>}
-        <button type="button" className={BTN_PRIMARY} onClick={() => (isCar ? setPhase('consent') : void start(false))}>
-          <RefreshCw className="h-4 w-4" />
-          {L('Tekrar dene', 'Try again')}
-        </button>
-        <button type="button" className={BTN_SECONDARY} onClick={onChangeVehicle}>
-          {L('Aracı değiştir', 'Change vehicle')}
-        </button>
-      </Shell>
+      <Screen
+        step={3}
+        back={changeVehicleButton}
+        actions={
+          <button type="button" className={BAR_PRIMARY} onClick={() => (isCar ? setPhase('consent') : void start(false))}>
+            <RefreshCw className="h-4 w-4" />
+            {L('Tekrar dene', 'Try again')}
+          </button>
+        }
+      >
+        <Heading eyebrow={eyebrow} icon={<AlertTriangle className="h-5 w-5 text-warn" />} title={L('Tarama yapılamadı', "Couldn't scan")} lead={notice || undefined} />
+      </Screen>
     );
   }
 
   if (phase === 'report' && result) {
     return (
-      <Shell wide>
-        <h1 className="flex items-center gap-2 text-xl font-semibold text-text-hi">
-          <FileText className="h-5 w-5 text-accent" />
-          {L('Müşteri raporu', 'Customer report')}
-        </h1>
+      <Screen
+        step={4}
+        back={
+          <button type="button" className={BAR_QUIET} onClick={() => setPhase('result')}>
+            <ArrowLeft className="h-4 w-4" />
+            {L('Sonuca dön', 'Back to result')}
+          </button>
+        }
+        actions={
+          <button
+            type="button"
+            className={BAR_PRIMARY}
+            data-testid="report-save"
+            onClick={async () => {
+              const saved = await DesktopBridge.scanSaveReport(workshop);
+              if (!saved.success) {
+                setNotice(L('Rapor kaydedilemedi.', 'Could not save the report.'));
+                return;
+              }
+              const opened = await DesktopBridge.scanOpenReport();
+              setNotice(
+                opened.success
+                  ? L('Rapor tarayıcıda açıldı: "Yazdır / PDF olarak kaydet" ile yazdırın.', 'Report opened in the browser: use "Print / Save as PDF".')
+                  : L(`Kaydedildi: ${saved.path}`, `Saved: ${saved.path}`),
+              );
+            }}
+          >
+            <FileText className="h-4 w-4" />
+            {L('Raporu kaydet ve aç (yazdır / PDF)', 'Save and open report (print / PDF)')}
+          </button>
+        }
+      >
+        <Heading
+          eyebrow={L('Müşteri raporu', 'Customer report')}
+          title={L('Raporu kontrol edin', 'Check the report')}
+          lead={L(
+            'Sade dilde, tek sayfa. Kaydedince tarayıcıda açılır; oradan yazdırın veya PDF alın.',
+            'Plain language, one page. Saving opens it in the browser; print it or save a PDF from there.',
+          )}
+        />
         <label className="flex flex-col gap-1 text-sm">
           {L('Atölye adı (isteğe bağlı)', 'Workshop name (optional)')}
           <input
-            className="rounded-lg border border-border-strong bg-bg-app px-3 py-2 text-text-hi"
+            className="rounded-lg border border-border-strong bg-bg-card px-3 py-2 text-text-hi outline-none focus:border-accent"
             maxLength={80}
             value={workshop}
             onChange={(e) => setWorkshop(e.target.value)}
           />
         </label>
-        <pre className="whitespace-pre-wrap rounded-xl bg-surface-inset-raw p-4 text-sm text-text-hi" data-testid="report-text">
-          {(workshop ? reportText.replace('ARAÇ KONTROL RAPORU\n', `ARAÇ KONTROL RAPORU\n${workshop}\n`) : reportText)}
+        <pre className={cx(CARD, 'whitespace-pre-wrap p-6 text-sm text-text-hi')} data-testid="report-text">
+          {workshop ? reportText.replace('ARAÇ KONTROL RAPORU\n', `ARAÇ KONTROL RAPORU\n${workshop}\n`) : reportText}
         </pre>
-        {notice && <p className="text-sm text-text-mid">{notice}</p>}
-        <button
-          type="button"
-          className={BTN_PRIMARY}
-          onClick={async () => {
-            const saved = await DesktopBridge.scanSaveReport(workshop);
-            if (!saved.success) {
-              setNotice(L('Rapor kaydedilemedi.', 'Could not save the report.'));
-              return;
-            }
-            const opened = await DesktopBridge.scanOpenReport();
-            setNotice(
-              opened.success
-                ? L('Rapor tarayıcıda açıldı: "Yazdır / PDF olarak kaydet" ile yazdırın.', 'Report opened in the browser: use "Print / Save as PDF".')
-                : L(`Kaydedildi: ${saved.path}`, `Saved: ${saved.path}`),
-            );
-          }}
-        >
-          {L('Raporu kaydet ve aç (yazdır / PDF)', 'Save and open report (print / PDF)')}
-        </button>
-        <button type="button" className={BTN_SECONDARY} onClick={() => setPhase('result')}>
-          {L('Sonuca dön', 'Back to result')}
-        </button>
-      </Shell>
+        {notice && (
+          <p className="text-sm text-text-mid" role="status">
+            {notice}
+          </p>
+        )}
+      </Screen>
     );
   }
 
   if (phase === 'clear' && result) {
     return (
-      <Shell>
-        <h1 className="flex items-center gap-2 text-xl font-semibold text-text-hi">
-          <Eraser className="h-5 w-5 text-warn" />
-          {L('Arıza kodlarını sil', 'Clear fault codes')}
-        </h1>
-        <p className="text-sm">
-          {L(
+      <Screen
+        step={4}
+        back={
+          <button type="button" className={BAR_QUIET} onClick={() => setPhase('result')}>
+            <ArrowLeft className="h-4 w-4" />
+            {L('Vazgeç', 'Cancel')}
+          </button>
+        }
+        actions={
+          <button type="button" className={BAR_DANGER} disabled={!clearAck} onClick={() => void runClear()} data-testid="clear-confirm">
+            <Eraser className="h-4 w-4" />
+            {L('Sil', 'Clear')}
+          </button>
+        }
+      >
+        <Heading
+          icon={<Eraser className="h-5 w-5 text-warn" />}
+          title={L('Arıza kodlarını sil', 'Clear fault codes')}
+          lead={L(
             'Arıza kodları silinecek. Arıza giderilmediyse kodlar geri gelir ve uyarı lambası yeniden yanar. Motor çalışmıyor olmalı.',
             "Fault codes will be cleared. If the fault isn't fixed they'll come back. Engine must be off.",
           )}
-        </p>
-        <label className="flex items-start gap-2 text-sm">
-          <input type="checkbox" checked={clearAck} onChange={(e) => setClearAck(e.target.checked)} className="mt-1" />
+        />
+        <label className={cx(CARD, 'flex items-start gap-3 p-4 text-sm')}>
+          <input type="checkbox" checked={clearAck} onChange={(e) => setClearAck(e.target.checked)} className="mt-0.5 h-4 w-4" />
           {L('Arızayı giderdim ve motor çalışmıyor.', 'I fixed the fault and the engine is off.')}
         </label>
-        {notice && <p className="text-sm text-text-mid" role="status">{notice}</p>}
-        <button type="button" className={BTN_PRIMARY} disabled={!clearAck} onClick={() => void runClear()}>
-          {L('Sil', 'Clear')}
-        </button>
-        <button type="button" className={BTN_SECONDARY} onClick={() => setPhase('result')}>
-          {L('Vazgeç', 'Cancel')}
-        </button>
-      </Shell>
+        {notice && (
+          <p className="text-sm text-text-mid" role="status">
+            {notice}
+          </p>
+        )}
+      </Screen>
     );
   }
 
   if (phase === 'result' && result) {
     return (
-      <Shell wide>
+      <Screen
+        step={4}
+        width="wide"
+        back={
+          <>
+            <button type="button" className={BAR_SECONDARY} onClick={() => (isCar ? setPhase('consent') : void start(false))}>
+              <RefreshCw className="h-4 w-4" />
+              {L('Yeni tarama', 'New scan')}
+            </button>
+            <button type="button" className={BAR_QUIET} onClick={onChangeVehicle}>
+              {L('Başka araç', 'Another vehicle')}
+            </button>
+          </>
+        }
+        actions={
+          <>
+            {onExpert && (
+              <button type="button" className={BAR_QUIET} onClick={onExpert}>
+                <Cpu className="h-4 w-4" />
+                {L('Uzman ekranı', 'Expert screen')}
+              </button>
+            )}
+            {canClear && (
+              <button
+                type="button"
+                className={BAR_DANGER}
+                onClick={() => {
+                  setClearAck(false);
+                  setNotice('');
+                  setPhase('clear');
+                }}
+              >
+                <Eraser className="h-4 w-4" />
+                {L('Arıza kodlarını sil…', 'Clear fault codes…')}
+              </button>
+            )}
+            <button type="button" data-testid="customer-report" className={BAR_PRIMARY} onClick={() => setPhase('report')}>
+              <ClipboardList className="h-4 w-4" />
+              {L('Müşteri raporu', 'Customer report')}
+            </button>
+          </>
+        }
+      >
         {/* 1. Safety first */}
         {result.safety_tr.map((line) => (
-          <div key={line} className="flex items-start gap-2 rounded-lg border border-del bg-bg-card p-3 text-sm font-semibold text-del" role="alert">
+          <div key={line} className="flex items-start gap-2 rounded-xl border border-del bg-danger-soft p-3 text-sm font-semibold text-del" role="alert">
             <AlertTriangle className="mt-0.5 h-4 w-4 flex-none" />
             <span>{line}</span>
           </div>
         ))}
-        <div className="flex items-center justify-between gap-2 text-sm">
-          <span>
-            <span className="text-text-low">{L('Araç: ', 'Vehicle: ')}</span>
-            <span className="font-semibold text-text-hi">{pick(vehicle, 'label')}</span>
-          </span>
-          <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${URGENCY_TONE[result.risk_level]}`} data-testid="urgency">
-            {L('Aciliyet: ', 'Urgency: ')}
-            {L(result.urgency_tr, result.urgency_en)}
-          </span>
-        </div>
-        {/* 2. Summary */}
-        <div>
-          <h1 className="text-xl font-semibold text-text-hi" data-testid="result-headline">{result.headline_tr}</h1>
-          <p className="mt-1 text-sm">{result.summary_tr}</p>
-          {result.advice_tr && <p className="mt-2 whitespace-pre-line text-sm text-text-mid">{result.advice_tr}</p>}
-        </div>
-        {/* 4. Causes */}
-        {result.causes.length > 0 && (
-          <Section title={L('Olası nedenler', 'Likely causes')}>
-            <ol className="flex flex-col gap-2">
-              {result.causes.map((c, i) => (
-                <li key={c.text_tr} className="rounded-lg border border-border-whisper p-3 text-sm">
-                  <span className="font-semibold text-text-hi">
-                    {i + 1}. {c.text_tr}
-                  </span>
-                  <span className="mt-1 block text-xs text-text-mid">
-                    {L('Neden böyle düşünüyoruz: ', 'Why we think so: ')}
-                    {c.why_tr}
-                  </span>
-                  <span className="block text-xs text-text-low">{c.source_tr}</span>
-                </li>
-              ))}
-            </ol>
-          </Section>
-        )}
-        {/* 5. What to do */}
-        {result.steps.length > 0 && (
-          <Section title={L('Ne yapmalı (basitten zora)', 'What to do (simple first)')}>
-            <ol className="flex flex-col gap-2 text-sm">
-              {result.steps.map((s) => (
-                <li key={s.n} className="flex gap-2">
-                  <span className="font-semibold text-accent-text">{s.n}.</span>
-                  <span>
-                    {s.action_tr}
-                    {s.difficulty_tr && <span className="ml-1 text-xs text-text-low">· {s.difficulty_tr}</span>}
-                  </span>
-                </li>
-              ))}
-            </ol>
-          </Section>
+        {/* 2-3. Summary and urgency */}
+        <section className={cx(CARD, 'overflow-hidden')}>
+          <div className={cx('flex flex-wrap items-center justify-between gap-3 border-b px-5 py-3', URGENCY_BAND[result.risk_level] ?? URGENCY_BAND.GRAY)}>
+            <div className="text-sm" data-testid="urgency">
+              {L('Aciliyet: ', 'Urgency: ')}
+              <b className="font-semibold">{L(result.urgency_tr, result.urgency_en)}</b>
+            </div>
+            <div className="text-xs text-text-body">
+              {L('Araç: ', 'Vehicle: ')}
+              <b className="font-semibold text-text-hi">{pick(vehicle, 'label')}</b>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2 p-5">
+            <h1 className="text-xl font-semibold text-text-hi" data-testid="result-headline">
+              {result.headline_tr}
+            </h1>
+            <p className="text-sm text-text-body">{result.summary_tr}</p>
+            {result.advice_tr && <p className="whitespace-pre-line text-sm text-text-mid">{result.advice_tr}</p>}
+          </div>
+        </section>
+        {/* 4-5. Causes, then what to do */}
+        {(result.causes.length > 0 || result.steps.length > 0) && (
+          <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
+            {result.causes.length > 0 && (
+              <SectionCard title={L('Olası nedenler', 'Likely causes')} hint={L('Kanıta göre sıralı; her birinin dayanağı altında yazar.', 'Ranked by evidence; each says what it rests on.')}>
+                <ol className="flex flex-col divide-y divide-border-whisper">
+                  {result.causes.map((c, i) => (
+                    <li key={c.text_tr} className="px-5 py-3 text-sm">
+                      <span className="font-semibold text-text-hi">
+                        {i + 1}. {c.text_tr}
+                      </span>
+                      <span className="mt-1 block text-xs text-text-mid">
+                        {L('Neden böyle düşünüyoruz: ', 'Why we think so: ')}
+                        {c.why_tr}
+                      </span>
+                      <span className="block text-xs text-text-low">{c.source_tr}</span>
+                    </li>
+                  ))}
+                </ol>
+              </SectionCard>
+            )}
+            {result.steps.length > 0 && (
+              <SectionCard title={L('Ne yapmalı', 'What to do')} hint={L('Basitten zora.', 'Simple first.')}>
+                <ol className="flex flex-col divide-y divide-border-whisper text-sm">
+                  {result.steps.map((s) => (
+                    <li key={s.n} className="flex gap-3 px-5 py-3">
+                      <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full border border-border-strong text-xs font-semibold text-text-hi">
+                        {s.n}
+                      </span>
+                      <span className="min-w-0">
+                        {s.action_tr}
+                        {s.difficulty_tr && <span className="mt-0.5 block text-xs text-text-mid">{s.difficulty_tr}</span>}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              </SectionCard>
+            )}
+          </div>
         )}
         {/* 6. Missing data */}
         {result.missing_tr.length > 0 && (
-          <Section title={L('Eksik veri ve nasıl alınır', 'Missing data and how to get it')}>
-            <ul className="flex flex-col gap-1 text-sm text-text-mid">
+          <SectionCard title={L('Eksik veri ve nasıl alınır', 'Missing data and how to get it')}>
+            <ul className="flex flex-col gap-1 px-5 py-3 text-sm text-text-body">
               {result.missing_tr.map((m) => (
                 <li key={m}>• {m}</li>
               ))}
             </ul>
-          </Section>
+          </SectionCard>
         )}
         {/* 7. Technical details (collapsed) */}
-        <details className="rounded-lg border border-border-whisper p-3 text-sm">
+        <details className={cx(CARD, 'px-5 py-3 text-sm')}>
           <summary className="flex cursor-pointer items-center gap-1 font-semibold text-text-hi">
             <ChevronDown className="h-4 w-4" />
             {L('Teknik detay', 'Technical details')}
@@ -401,7 +516,7 @@ export const ScanFlow: React.FC<{
           </ul>
         </details>
         {result.glossary.length > 0 && (
-          <details className="rounded-lg border border-border-whisper p-3 text-sm">
+          <details className={cx(CARD, 'px-5 py-3 text-sm')}>
             <summary className="flex cursor-pointer items-center gap-1 font-semibold text-text-hi">
               <ChevronDown className="h-4 w-4" />
               {L('Terimler', 'Terms')}
@@ -421,31 +536,7 @@ export const ScanFlow: React.FC<{
           {L('Kaynak: ', 'Source: ')}
           {result.sources_tr.join(' · ')}
         </p>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <button type="button" data-testid="customer-report" className={BTN_PRIMARY} onClick={() => setPhase('report')}>
-            <ClipboardList className="h-4 w-4" />
-            {L('Müşteri raporu', 'Customer report')}
-          </button>
-          <button type="button" className={BTN_SECONDARY} onClick={() => (isCar ? setPhase('consent') : void start(false))}>
-            <RefreshCw className="h-4 w-4" />
-            {L('Yeni tarama', 'New scan')}
-          </button>
-          {canClear && (
-            <button type="button" className={BTN_SECONDARY} onClick={() => { setClearAck(false); setNotice(''); setPhase('clear'); }}>
-              <Eraser className="h-4 w-4" />
-              {L('Arıza kodlarını sil…', 'Clear fault codes…')}
-            </button>
-          )}
-          {onExpert && (
-            <button type="button" className={BTN_SECONDARY} onClick={onExpert}>
-              {L('Uzman ekranı', 'Expert screen')}
-            </button>
-          )}
-        </div>
-        <button type="button" className="bg-transparent text-sm text-accent-text hover:underline" onClick={onChangeVehicle}>
-          {L('Başka araç', 'Another vehicle')}
-        </button>
-      </Shell>
+      </Screen>
     );
   }
 

@@ -3,7 +3,7 @@ import { Pause, Play, Radio, Search, Trash2, X, FlaskConical, ArrowRight } from 
 import { L } from '../mechanic/text';
 import { BusFrame, FrameSource } from './frameBus';
 import { BusSnapshot, IdStats } from './useBusStream';
-import { BTN_GHOST, BTN_PRIMARY, BTN_QUIET, Card, CardHeader, Chip, EmptyState, Segmented, cx, hex2 } from './ui';
+import { BTN_GHOST, BTN_PRIMARY, BTN_QUIET, Card, Chip, EmptyState, Segmented, cx, hex2 } from './ui';
 
 /**
  * Canlı trafik (old "Sniffer"): every frame the bus really carried, nothing
@@ -164,13 +164,7 @@ export const LiveTraffic: React.FC<{
   return (
     <div className="flex h-full min-h-0 gap-3">
       <Card className="flex min-w-0 flex-1 flex-col overflow-hidden" testId="live-traffic">
-        <CardHeader
-          title={L('Canlı trafik', 'Live traffic')}
-          hint={L(
-            'Hattan gelen her çerçeve. Mavi parlayan baytlar az önce değişti.',
-            'Every frame on the bus. Bytes flashing blue just changed.',
-          )}
-        >
+        <div className="flex flex-wrap items-center gap-2 border-b border-border-whisper px-4 py-3" role="toolbar" aria-label={L('Canlı trafik', 'Live traffic')}>
           <Segmented<View>
             testId="traffic-view"
             value={view}
@@ -180,35 +174,54 @@ export const LiveTraffic: React.FC<{
               { value: 'stream', label: L('Akış', 'Stream') },
             ]}
           />
-          <label className="flex items-center gap-2 rounded-lg border border-border-whisper px-2.5 py-1.5 focus-within:border-accent">
-            <Search className="h-4 w-4 text-text-low" />
+          <label className="flex min-w-[220px] max-w-md flex-1 items-center gap-2 rounded-lg border border-border-whisper px-2.5 py-1.5 focus-within:border-accent">
+            <Search className="h-4 w-4 flex-none text-text-low" />
             <input
               data-testid="traffic-filter"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              aria-label={L('Kimlik veya veri ara', 'Search id or data')}
               placeholder={L('Kimlik veya veri ara (7E8, 18FEF1…)', 'Search id or data (7E8, 18FEF1…)')}
-              className="w-56 bg-transparent text-[13px] text-text-hi outline-none placeholder:text-text-low"
+              className="w-full min-w-0 bg-transparent text-[13px] text-text-hi outline-none placeholder:text-text-low"
             />
+            {query && (
+              <button type="button" onClick={() => setQuery('')} aria-label={L('Aramayı temizle', 'Clear the search')} className="flex-none rounded text-text-low hover:text-text-hi">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
           </label>
-          <button
-            type="button"
-            data-testid="traffic-pause"
-            className={BTN_GHOST}
-            onClick={() => onPause(!snap.paused)}
-            disabled={empty && !snap.paused}
-          >
-            {snap.paused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
-            {snap.paused ? L('Devam et', 'Resume') : L('Dondur', 'Freeze')}
-          </button>
-          <button type="button" className={BTN_QUIET} onClick={onClear} disabled={empty} title={L('Ekranı temizle', 'Clear view')}>
-            <Trash2 className="h-4 w-4" />
-          </button>
-          {simulatorRunning && (
-            <button type="button" data-testid="stop-simulator" className={BTN_GHOST} onClick={onStopSimulator}>
-              {L('Simülatörü kapat', 'Stop simulator')}
+          <div className="ml-auto flex flex-none items-center gap-2">
+            <button
+              type="button"
+              data-testid="traffic-pause"
+              className={BTN_GHOST}
+              onClick={() => onPause(!snap.paused)}
+              disabled={empty && !snap.paused}
+            >
+              {snap.paused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+              {snap.paused ? L('Devam et', 'Resume') : L('Dondur', 'Freeze')}
             </button>
-          )}
-        </CardHeader>
+            <button
+              type="button"
+              className={cx(BTN_QUIET, 'px-2.5')}
+              onClick={onClear}
+              disabled={empty}
+              title={L('Ekranı temizle', 'Clear view')}
+              aria-label={L('Ekranı temizle', 'Clear view')}
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+            {simulatorRunning && (
+              <>
+                <span className="mx-1 h-5 w-px bg-border-whisper" aria-hidden="true" />
+                <button type="button" data-testid="stop-simulator" className={BTN_GHOST} onClick={onStopSimulator}>
+                  <FlaskConical className="h-4 w-4" />
+                  {L('Simülatörü kapat', 'Stop simulator')}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
 
         {snap.paused && (
           <div className="border-b border-warn-border bg-warn-soft px-5 py-2 text-[12.5px] text-warn" role="status">
@@ -219,7 +232,10 @@ export const LiveTraffic: React.FC<{
           </div>
         )}
 
-        <div className="min-h-0 flex-1 overflow-auto">
+        <div
+          className="min-h-0 flex-1 overflow-auto"
+          {...(view === 'stream' && !empty ? { tabIndex: 0, role: 'region', 'aria-label': L('Çerçeve akışı', 'Frame stream') } : {})}
+        >
           {empty ? (
             <EmptyState
               testId="traffic-empty"
@@ -285,9 +301,23 @@ export const LiveTraffic: React.FC<{
                   <tr
                     key={r.key}
                     data-testid={`id-row-${r.idText}`}
+                    tabIndex={0}
+                    aria-selected={r.key === selected}
                     onClick={() => setSelected(r.key === selected ? null : r.key)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setSelected(r.key === selected ? null : r.key);
+                      } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        const next = e.key === 'ArrowDown' ? e.currentTarget.nextElementSibling : e.currentTarget.previousElementSibling;
+                        if (next instanceof HTMLElement) next.focus();
+                      } else if (e.key === 'Escape' && selected) {
+                        setSelected(null);
+                      }
+                    }}
                     className={cx(
-                      'cursor-pointer border-t border-border-whisper transition-colors',
+                      'cursor-pointer border-t border-border-whisper transition-colors focus-visible:bg-bg-row-hover',
                       r.key === selected ? 'bg-bg-row-selected' : 'hover:bg-bg-row-hover',
                       now - r.lastSeenAt > 3000 && 'opacity-50',
                     )}
@@ -348,7 +378,24 @@ export const LiveTraffic: React.FC<{
                 {L('Filtre', 'Filter')}: {view === 'ids' ? rows.length : stream.length} {L('sonuç', 'matches')}
               </span>
             )}
-            {view === 'stream' && <span className="text-text-low">{L('Akışta son 300 çerçeve gösterilir.', 'The stream shows the last 300 frames.')}</span>}
+            <span className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px]">
+              {view === 'stream' ? (
+                <span>{L('Akışta son 300 çerçeve gösterilir.', 'The stream shows the last 300 frames.')}</span>
+              ) : (
+                <>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="rounded bg-accent-soft px-1 font-mono text-[11px] text-accent-text" aria-hidden="true">
+                      FC
+                    </span>
+                    {L('az önce değişen bayt', 'byte that just changed')}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="h-2.5 w-4 rounded-sm bg-text-mid opacity-40" aria-hidden="true" />
+                    {L('soluk satır: 3 sn’dir gelmiyor', 'dimmed row: silent for 3 s')}
+                  </span>
+                </>
+              )}
+            </span>
           </div>
         )}
       </Card>
