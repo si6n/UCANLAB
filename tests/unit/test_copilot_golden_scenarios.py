@@ -42,6 +42,8 @@ SCENARIOS: list[tuple[str, dict[str, Any], dict[str, Any]]] = [
      {"symptoms": ["starter-relay-circuit-open", "battery-drain-parasitic"], "not_symptoms": ["crank-no-start"]}),
     ("sym_negation_kept", {"text": "araba çalışmıyor marş dönüyor"},
      {"symptoms": ["crank-no-start"], "not_symptoms": ["starter-relay-circuit-open"]}),
+    ("sym_numbered_cylinder", {"text": "3. silindir tekleme yapıyor"},
+     {"symptoms": ["misfire-cylinder-3"], "not_symptoms": ["misfire-random-multiple", "rough-idle-vibration"]}),
     # ---- complaint with a gauge value (no signal name in the text) -------
     ("sym_overheat_gauge_value", {"text": "motor hararet yapıyor, göstergede 112 derece"},
      {"risk": "RED", "finding": ("CoolantTemp", "critical_high")}),

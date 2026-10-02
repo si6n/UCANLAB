@@ -56,6 +56,8 @@ _S: dict[str, dict[str, str]] = {
     "conf.low": {"tr": "düşük", "en": "low"},
     "kind.graph": {"tr": "kök neden grafiği", "en": "root-cause graph"},
     "kind.record": {"tr": "kod kaydındaki olası neden", "en": "possible cause listed in the code record"},
+    "kind.area": {"tr": "şikâyetin işaret ettiği alt sistem (neden verisi yok; önce burayı kontrol edin)",
+                  "en": "subsystem the complaint points at (no cause data; inspect this first)"},
     "kind.suspected": {"tr": "yalnız şikâyetten çıkarım (kod okunmadı)", "en": "inferred from the complaint only (no code read)"},
     "h.summary": {"tr": "1. Kısa özet", "en": "1. Summary"},
     "h.urgency": {"tr": "2. Acil mi?", "en": "2. Is it urgent?"},
@@ -215,8 +217,9 @@ class StructuredAnswer:
         if not self.causes:
             lines.append(_t("no_causes", lang))
         for c in self.causes:
+            share = "" if c["kind"] == "area" else f" — %{round(c['likelihood'] * 100)} ({_t('likelihood', lang)}),"
             lines.append(
-                f"{c['rank']}. **{c['title']}** — %{round(c['likelihood'] * 100)} ({_t('likelihood', lang)}), "
+                f"{c['rank']}. **{c['title']}**{share} "
                 f"{_t('confidence', lang)}: {c['confidence_label']} · _{c['kind_label']}_"
             )
             for e in c["support"]:
@@ -386,8 +389,13 @@ def _summary(r: Reasoning, lang: str, kb: KnowledgeBase) -> str:
     if r.hypotheses:
         top = r.hypotheses[0]
         conf = _t(f"conf.{top.confidence}", lang)
-        bits.append(f"En olası neden: {top.title} (güven: {conf})." if lang == "tr"
-                    else f"Most likely cause: {top.title} (confidence: {conf}).")
+        if top.kind == "area":
+            areas = ", ".join(h.title for h in r.hypotheses[:3])
+            bits.append(f"Kayıtlı kök neden yok; önce şu alt sistemleri kontrol edin: {areas}." if lang == "tr"
+                        else f"No recorded root cause; inspect these subsystems first: {areas}.")
+        else:
+            bits.append(f"En olası neden: {top.title} (güven: {conf})." if lang == "tr"
+                        else f"Most likely cause: {top.title} (confidence: {conf}).")
     else:
         bits.append(_t("no_causes", lang))
     if pq.corrections:

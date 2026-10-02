@@ -619,8 +619,10 @@ def parse_query(
 
     folded = fold_text(text)
     # Codes are not complaint words: strip them before symptom matching so
-    # "P0101" can never fuzzy-match a symptom keyword.
-    folded_wo_codes = " ".join(t for t in folded.split() if not re.fullmatch(r"[pbcu][0-9a-f]{4}|\d+", t))
+    # "P0101" can never fuzzy-match a symptom keyword. Plain numbers stay:
+    # "3. silindir tekleme" must reach the cylinder-3 symptom (numbers are
+    # under 4 characters or exact-match only, so they never match fuzzily).
+    folded_wo_codes = " ".join(t for t in folded.split() if not re.fullmatch(r"[pbcu][0-9a-f]{4}", t))
     pq.symptoms, pq.corrections = _match_symptoms(folded_wo_codes, kb)
     pq.safety_terms = _safety_terms(folded, kb)
 

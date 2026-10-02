@@ -227,3 +227,47 @@ def test_genuine_causes_survive_the_residue_filter(cause: str) -> None:
     from src.engine.ai.copilot_reasoner import _clean_cause
 
     assert _clean_cause(cause) == cause
+
+
+# ------------------------------------------------- numbered symptoms / areas
+@pytest.mark.parametrize("text,expected", [
+    ("3. silindir tekleme yapıyor", "misfire-cylinder-3"),
+    ("silindir 1 ateşlemiyor", "misfire-cylinder-1"),
+    ("cylinder 3 misfire", "misfire-cylinder-3"),
+    ("bank 2 fakir", "lean-condition-bank2"),
+])
+def test_numbers_select_the_numbered_symptom(text: str, expected: str) -> None:
+    assert [s.symptom_id for s in parse_query(text).symptoms] == [expected]
+
+
+def test_every_shipped_keyword_matches_its_own_symptom() -> None:
+    import re
+
+    kb = get_knowledge_base()
+    code_like = re.compile(r"\b[pbcu][0-9a-f]{4}\b|spn|iso \d|pgn", re.IGNORECASE)
+    bad = []
+    for sid, rec in kb.symptoms().items():
+        for kw in list(rec.get("keywords_tr") or []) + list(rec.get("keywords_en") or []):
+            if code_like.search(kw):
+                continue  # code mentions go through the code parser, not the symptom matcher
+            if sid not in [s.symptom_id for s in parse_query(kw, kb=kb).symptoms]:
+                bad.append((sid, kw))
+    assert not bad, bad[:10]
+
+
+def test_complaint_without_known_cause_names_subsystems_not_causes() -> None:
+    from src.engine.ai.copilot_answer import answer_query
+
+    d = answer_query("akü bitiyor", language="tr").to_dict()
+    assert d["causes"], "a matched complaint must still give the mechanic somewhere to look"
+    assert {c["kind"] for c in d["causes"]} == {"area"}
+    assert all(c["likelihood"] == 0.0 and c["confidence"] == "low" for c in d["causes"])
+    assert all(c["refs"] == ["canonical_symptoms#battery-drain-parasitic"] for c in d["causes"])
+    assert "Kayıtlı kök neden yok" in d["summary"] and "%" not in answer_query("akü bitiyor", language="tr").to_markdown()
+
+
+def test_area_never_outranks_a_real_cause() -> None:
+    from src.engine.ai.copilot_answer import answer_query
+
+    d = answer_query("motor hararet yapıyor", dtcs=["SPN 110 FMI 0"], language="tr").to_dict()
+    assert d["causes"] and "area" not in {c["kind"] for c in d["causes"]}

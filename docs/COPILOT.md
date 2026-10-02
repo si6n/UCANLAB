@@ -65,6 +65,19 @@ başlıklarından elenir (`_is_harvest_residue`): numaralı parça listesi
 metni ("Key off", "Note:", "refer to") ve cümle ortasında kesilmiş parça
 ("… power supply to"). Veri değişmez; yalnız cevapta neden olarak gösterilmez.
 
+Şikâyet eşleşti ama ne graf ne kod kaydı neden veriyorsa (şikâyet-only
+sorguların %43'ü) neden uydurulmaz: semptom kaydının `subsystems` alanındaki ilk
+3 alt sistem `kind=area` olarak, "önce burayı kontrol edin" etiketiyle listelenir.
+Bu satırlarda yüzde gösterilmez (`likelihood=0`), güven her zaman düşüktür ve
+kaynak `canonical_symptoms#<id>` kaydıdır. Gerçek bir neden bulunduğunda `area`
+satırı hiç eklenmez. Alt sistem adları yalnız Türkçe kayıtlıdır; İngilizce
+cevapta da aynen gösterilir.
+
+Sayılar semptom eşleşmesinde korunur: "3. silindir tekleme" →
+`misfire-cylinder-3`, "bank 2 fakir" → `lean-condition-bank2`. Sayılar 4
+karakterden kısa olduğu için yalnız tam eşleşir (bulanık eşleşme yok). Kod
+biçimli belirteçler (P0301 vb.) semptom eşleşmesinden önce yine çıkarılır.
+
 Puanlar listelenen adaylar arasında softmax ile **göreli** yüzdeye çevrilir;
 cevap bunun kesin olasılık olmadığını açıkça yazar. Güven: kod + telemetri +
 çelişki yok → yüksek; kod (graf) veya telemetri → orta; diğerleri → düşük.
@@ -142,7 +155,7 @@ python -m pytest tests/unit/test_copilot_*.py tests/safety/test_ai_tx_isolation.
 
 | Dosya | İçerik |
 |---|---|
-| `test_copilot_golden_scenarios.py` | 49 altın senaryo (DTC, SPN/FMI, DM1, semptom, gösterge değeri, olumsuzluk, telemetri+kod, çelişkili kanıt, veri yok, EV/HV, fren/direksiyon, çoklu kod, yazım hatası, TR/EN, NHTSA, PGN) + 6 bölüm/ilk satır güvenlik kontrolü |
+| `test_copilot_golden_scenarios.py` | 50 altın senaryo (DTC, SPN/FMI, DM1, semptom, gösterge değeri, olumsuzluk, telemetri+kod, çelişkili kanıt, veri yok, EV/HV, fren/direksiyon, çoklu kod, yazım hatası, TR/EN, NHTSA, PGN) + 6 bölüm/ilk satır güvenlik kontrolü |
 | `test_copilot_no_fabrication.py` | Atıf çözümü, sayı izlenebilirliği, yalnız verilen sinyallerde bulgu, bilinmeyen koda anlam verilmemesi, NaN/birim reddi, determinizm, yazma/TX yokluğu |
 | `test_copilot_knowledge_and_parsing.py` | KB tembelliği, indeksler, kaçırma nedenleri, ayrıştırıcı birim testleri |
 | `test_copilot_performance.py` | Kurulum < 10 ms, sıcak sorgu ort. < 150 ms (ölçülen 2–13 ms), bellek < 8 MB, arama katmanı aç/kapa |

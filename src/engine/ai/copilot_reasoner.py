@@ -164,7 +164,7 @@ class Hypothesis:
     id: str
     title: str
     score: float
-    kind: str                       # graph | record | suspected
+    kind: str                       # graph | record | suspected | area
     codes: list[str] = field(default_factory=list)
     support: list[tuple[str, str]] = field(default_factory=list)       # (text, ref)
     against: list[tuple[str, str]] = field(default_factory=list)
@@ -543,6 +543,17 @@ def _fmi_semantics(h: Hypothesis, node: Any, fact: CodeFact) -> None:
             h.against.append((f"fmi:{fact.fmi}|valid_data", ref))
 
 
+def _complaint_areas(r: Reasoning, hyps: dict[str, Hypothesis]) -> None:
+    """Complaint named no cause the graph knows: list the subsystems the symptom record points at."""
+    for sid, rec in r.symptom_records:
+        labels = [str(x).strip() for x in rec.get("subsystems") or [] if str(x).strip()]
+        for i, label in enumerate(labels[:3]):
+            hid = f"canonical_symptoms#{sid}.subsystems[{i}]"
+            hyps[hid] = Hypothesis(hid, label, 0.5 - 0.1 * i, "area",
+                                   support=[(f"complaint:{sid}", f"canonical_symptoms#{sid}")],
+                                   refs=[f"canonical_symptoms#{sid}"])
+
+
 def _build_hypotheses(kb: KnowledgeBase, r: Reasoning) -> None:
     by_signal = {f.signal: f for f in r.findings}
     hyps: dict[str, Hypothesis] = {}
@@ -603,6 +614,10 @@ def _build_hypotheses(kb: KnowledgeBase, r: Reasoning) -> None:
                 h.codes.append(code)
             h.support.append((f"complaint_code:{sid}|{code}", f"canonical_symptoms#{sid}"))
 
+    # (4) no cause the graph knows: name the subsystems to inspect, never a cause.
+    if not hyps and r.symptom_records:
+        _complaint_areas(r, hyps)
+
     for h in hyps.values():
         if h.kind == "record":
             rec_fact = active.get(h.codes[0].split(" FMI")[0]) if h.codes else None
@@ -626,7 +641,7 @@ def _build_hypotheses(kb: KnowledgeBase, r: Reasoning) -> None:
         exps = [math.exp(h.score - m) for h in top]
         total = sum(exps)
         for h, e in zip(top, exps, strict=True):
-            h.likelihood = round(e / total, 3)
+            h.likelihood = 0.0 if h.kind == "area" else round(e / total, 3)
             has_code = any(s.startswith("code:") for s, _ in h.support)
             has_signal = any(s.startswith("signal:") for s, _ in h.support)
             if has_code and has_signal and not h.against:
