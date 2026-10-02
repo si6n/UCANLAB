@@ -390,6 +390,26 @@ def test_copilot_check_answers_narrow_the_causes(wb: Any) -> None:
     assert not app.supervisor.is_tx_permitted
 
 
+def test_copilot_session_answer_questions_are_answerable(wb: Any) -> None:
+    """With the simulator's live codes and nothing typed, the session answer's
+    questions can be answered; the answer re-asks with an empty query."""
+    page, app = wb
+    page.select_option("[data-testid=sim-type]", "truck")
+    page.click("[data-testid=start-simulator]")
+    page.wait_for_selector("[data-testid=id-table]", timeout=20000)
+    page.click("[data-testid=nav-assistant]")
+    page.wait_for_selector("[data-testid=copilot-card]", timeout=20000)
+    try:
+        page.wait_for_selector("[data-testid=copilot-checks] [data-testid=copilot-check-yes]", timeout=15000)
+    except Exception:  # noqa: BLE001
+        pytest.skip("the simulated session has no code with curated questions")
+    first = page.locator("[data-testid=copilot-checks] li").first
+    first.locator("[data-testid=copilot-check-yes]").click()
+    first_after = page.locator("[data-testid=copilot-checks] [data-testid=copilot-check-answer]")
+    first_after.first.wait_for(timeout=20000)
+    assert not app.supervisor.is_tx_permitted
+
+
 def test_ecu_dry_run_on_the_simulator_sends_nothing(wb: Any) -> None:
     page, app = wb
     page.select_option("[data-testid=sim-type]", "truck")

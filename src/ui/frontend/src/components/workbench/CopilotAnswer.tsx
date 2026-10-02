@@ -292,8 +292,9 @@ export const CopilotAskCard: React.FC<{ sessionAnswer?: CopilotStructuredAnswer 
   const [busy, setBusy] = useState(false);
   const [answer, setAnswer] = useState<CopilotStructuredAnswer | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // The question the shown answer replies to, and the operator's answers to its checks.
-  const [asked, setAsked] = useState('');
+  // The question the shown answer replies to ('' = the live-session answer, null = nothing asked yet),
+  // and the operator's answers to its checks.
+  const [asked, setAsked] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Record<string, CopilotAnswerValue>>({});
   const [refining, setRefining] = useState(false);
 
@@ -319,11 +320,13 @@ export const CopilotAskCard: React.FC<{ sessionAnswer?: CopilotStructuredAnswer 
     await run(query.trim(), {});
   };
 
-  // An answer to a check re-asks the SAME question with the answer added.
+  // An answer to a check re-asks the SAME question with the answer added. On the
+  // live-session answer (codes read, nothing typed) the question is empty.
   const answerCheck: AnswerFn = (key, value) => {
-    if (!asked) return;
+    const text = asked ?? (sessionAnswer ? '' : null);
+    if (text === null) return;
     setRefining(true);
-    void run(asked, { ...answers, [key]: value });
+    void run(text, { ...answers, [key]: value });
   };
 
   // While a new question is in flight the previous answer is hidden, so a stale
@@ -361,7 +364,7 @@ export const CopilotAskCard: React.FC<{ sessionAnswer?: CopilotStructuredAnswer 
           </button>
         </form>
         {error && <p className="text-[13px] text-del">{error}</p>}
-        {shown && <CopilotAnswerView answer={shown} onAnswer={answer && shown === answer ? answerCheck : undefined} busy={busy} />}
+        {shown && <CopilotAnswerView answer={shown} onAnswer={answerCheck} busy={busy} />}
       </div>
     </Card>
   );

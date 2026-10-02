@@ -97,7 +97,7 @@ Cevap, eşleşen şikâyetin `initial_questions` sorularını **cevaplanabilir**
 listeler (`checks` alanı; markdown'da 4. bölümün altında "Sorular"). Cevaplar
 aynı sorguyla geri gönderilir (`answer_query(..., answers={"<symptom_id>.q<n>": …})`,
 köprü: `ask_copilot_structured(query, language, answers)`); arayüz Evet / Hayır /
-Bilmiyorum düğmeleri ve ölçüm alanı gösterir.
+Bilmiyorum düğmeleri ve ölçüm alanı gösterir. Canlı oturum cevabında (kodlar okundu, cümle yazılmadı) da sorular cevaplanabilir; köprü boş sorguyu yalnız `answers` doluysa kabul eder.
 
 * Etkiler küratörlüdür: `scripts/copilot_data/build_symptom_checks.py` →
   `data/diagnostics/symptom_checks.json` (147 semptom, 270 soru; numaralı aileler — silindir tekleme, enjektör/bobin devresi, vites oranı — tek şablondan üretilir). Bir cevap yalnız
@@ -202,7 +202,7 @@ python -m pytest tests/unit/test_copilot_*.py tests/safety/test_ai_tx_isolation.
 | `test_copilot_performance.py` | Kurulum < 10 ms, sıcak sorgu ort. < 150 ms (ölçülen 2–13 ms), bellek < 8 MB, arama katmanı aç/kapa |
 | `test_copilot_checks.py` | Soru hedeflerinin semptoma aitliği, bant sürekliliği, cevapla öne alma/geri itme, metinden ölçüm, etkisiz cevaplar, TR/EN |
 | `test_copilot_bridge_and_data.py` | Köprü uç noktası, `answers` doğrulaması, ek analiz anahtarı, veri kapısı, üreticilerin bayt-eşdeğerliği |
-| `tests/ui_e2e/test_workbench_ui.py::test_assistant_copilot_card_answers_free_text_read_only` | Gerçek tarayıcıda kart, güvenlik bandı, salt okuma; `test_copilot_check_answers_narrow_the_causes`: soru cevaplama akışı |
+| `tests/ui_e2e/test_workbench_ui.py::test_assistant_copilot_card_answers_free_text_read_only` | Gerçek tarayıcıda kart, güvenlik bandı, salt okuma; `test_copilot_check_answers_narrow_the_causes`, `test_copilot_session_answer_questions_are_answerable`: soru cevaplama akışı |
 
 ## 7. Terim sözlüğü
 

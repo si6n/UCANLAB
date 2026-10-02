@@ -857,13 +857,16 @@ class DesktopApiBridge:
         carries the operator's replies to the questions of a previous answer
         (``{"<symptom_id>.q<n>": "yes" | "no" | "unknown" | number}``).
         """
-        problem = _validate_bridge_text(query, field="query", max_chars=COPILOT_QUERY_MAX_CHARS) \
+        # An empty query is allowed only with answers: the operator is answering the
+        # questions of the live-session answer (codes read, no sentence typed).
+        problem = _validate_bridge_text(query, field="query", max_chars=COPILOT_QUERY_MAX_CHARS,
+                                        allow_empty=bool(answers)) \
             or _validate_copilot_answers(answers)
         if problem is not None:
             logger.warning("ask_copilot_structured rejected input", extra={"reason": problem})
             return {"success": False, "error": problem, "code": "INVALID_COPILOT_QUERY"}
         lang = language if language in ("tr", "en") else None
-        return self.app.query_copilot_structured(query, lang, answers)
+        return self.app.query_copilot_structured(query or "", lang, answers)
 
     # ------------------------------------------------------------------
     # Diagnostic session bridge (FAZ 1/5/6) — TS side never re-implements

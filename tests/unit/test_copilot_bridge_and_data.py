@@ -61,6 +61,14 @@ def test_bridge_passes_answers_to_the_copilot() -> None:
     assert res["answer"]["causes"][0]["title"] == "Gövde Kontrol Modülü (BCM)"
 
 
+def test_bridge_accepts_an_empty_query_only_with_answers() -> None:
+    bridge = DesktopApiBridge(_app())
+    # answering the live-session answer's questions: no sentence typed
+    assert bridge.ask_copilot_structured("", "tr", {"misfire-cylinder-1.q0": "evet"})["success"] is True
+    assert bridge.ask_copilot_structured("", "tr")["code"] == "INVALID_COPILOT_QUERY"
+    assert bridge.ask_copilot_structured("", "tr", {})["code"] == "INVALID_COPILOT_QUERY"
+
+
 @pytest.mark.parametrize("bad", [
     ["yes"], {"../../etc": "yes"}, {"battery-drain-parasitic.q0": float("nan")},
     {"battery-drain-parasitic.q0": {"nested": 1}}, {"battery-drain-parasitic.q0": "x" * 40},
