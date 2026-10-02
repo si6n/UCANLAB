@@ -196,6 +196,61 @@ def test_estop_locks_transmit_but_recording_continues(wb: Any) -> None:
     assert app.ring_buffer.current_size >= before
 
 
+def test_estop_reset_dialog_needs_the_out_of_band_token(wb: Any) -> None:
+    from src.safety.estop import EStopResetAuthority
+
+    page, app = wb
+    page.click("[data-testid=estop]")
+    page.wait_for_selector("[data-testid=estop-banner]", timeout=5000)
+    page.click("[data-testid=estop-reset-open]")
+    page.click("[data-testid=estop-reset-request]")
+    page.wait_for_selector("[data-testid=estop-reset-command]")
+    assert "scripts/estop_reset_tool.py" in page.text_content("[data-testid=estop-reset-command]")
+    # A made-up token is refused; the latch stays.
+    page.fill("[data-testid=estop-reset-token]", "TOKEN:not-a-real-token")
+    page.click("[data-testid=estop-reset-submit]")
+    page.wait_for_selector("[data-testid=estop-reset-dialog] [role=alert]")
+    assert app.estop.is_engaged
+    # The authorised holder mints the token out of band (what the tool does).
+    token = EStopResetAuthority(app.estop, secret_provider=app.estop.reset_authority_provider()).mint_reset_token()
+    assert token is not None
+    page.fill("[data-testid=estop-reset-token]", "TOKEN:" + token.to_token_string())
+    page.click("[data-testid=estop-reset-submit]")
+    page.wait_for_selector("[data-testid=estop-reset-done]", timeout=5000)
+    assert not app.estop.is_engaged
+    page.wait_for_selector("[data-testid=estop-banner]", state="detached", timeout=5000)
+    assert not app.supervisor.is_tx_permitted  # released, but transmit stays off
+
+
+def test_language_and_theme_are_remembered_and_applied(wb: Any) -> None:
+    page, _app = wb
+    page.click("[data-testid=nav-settings]")
+    page.click("[data-testid=settings-tab-appearance]")
+    page.click("[data-testid=settings-lang-en]")
+    page.wait_for_function("document.documentElement.lang === 'en'")
+    assert page.text_content("[data-testid=page-title]") == "Settings"
+    assert page.text_content("[data-testid=safety-chip]").strip() == "Listen only"
+    page.click("[data-testid=settings-theme-light]")
+    assert page.evaluate("document.documentElement.classList.contains('dark')") is False
+    assert page.evaluate("localStorage.getItem('ucanlab.theme')") == "light"
+    page.click("[data-testid=settings-lang-tr]")
+    page.wait_for_function("document.documentElement.lang === 'tr'")
+    assert page.text_content("[data-testid=page-title]") == "Ayarlar"
+
+
+def test_live_traffic_rows_work_from_the_keyboard(wb: Any) -> None:
+    page, _app = wb
+    page.select_option("[data-testid=sim-type]", "truck")
+    page.click("[data-testid=start-simulator]")
+    page.wait_for_selector("[data-testid='id-row-0x18FEF700']", timeout=20000)
+    page.focus("[data-testid='id-row-0x18FEF700']")
+    page.keyboard.press("Enter")
+    page.wait_for_selector("[data-testid=id-inspector]")
+    assert page.get_attribute("[data-testid='id-row-0x18FEF700']", "aria-selected") == "true"
+    page.keyboard.press("Escape")
+    page.wait_for_selector("[data-testid=id-inspector]", state="detached")
+
+
 def test_plot_draws_decoded_simulator_values(wb: Any) -> None:
     page, app = wb
     page.select_option("[data-testid=sim-type]", "truck")
@@ -282,6 +337,8 @@ def test_assistant_labels_simulation_and_never_runs_vehicle_actions(wb: Any) -> 
     page.wait_for_selector("[data-testid=assistant-headline]", timeout=20000)
     assert page.is_visible("[data-testid=assistant-simulated]")
     assert "DPF" in page.text_content("[data-testid=assistant-headline]")
+    # The screen is split into at most three panels (cards in its two columns).
+    assert page.locator("[data-testid=assistant-view] > div > section").count() <= 3
     if page.locator("[data-testid=answer-unknown]").count():
         page.click("[data-testid=answer-unknown]")
         page.wait_for_timeout(800)

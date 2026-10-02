@@ -158,3 +158,24 @@ def test_truck_flow_listen_only_and_error_path(ui: Any) -> None:
     shot("09-truck-result")
     assert page.inner_text("[data-testid=urgency]").startswith("Aciliyet")
     assert "SPN 3251 FMI 0" in (page.text_content("details") or "")
+
+
+def test_result_stays_reachable_and_the_estop_is_on_every_screen(ui: Any) -> None:
+    page, _shot, app = ui
+    page.click("[data-testid=mode-mechanic]")
+    assert page.is_visible("[data-testid=estop]")
+    page.click("[data-testid=vehicle-type-truck]")
+    page.click("[data-testid=vehicle-truck_scania]")
+    page.click("[data-testid=adapter-simulator]")
+    page.wait_for_selector("[data-testid=connect-ready]", timeout=20000)
+    page.click("[data-testid=start-scan]")
+    page.wait_for_selector("[data-testid=result-headline]", timeout=60000)
+    # The action bar keeps the next step in view; the result itself scrolls.
+    box = page.locator("[data-testid=customer-report]").bounding_box()
+    assert box is not None and box["y"] + box["height"] <= 900
+    page.mouse.move(450, 450)
+    page.mouse.wheel(0, 2000)
+    page.wait_for_function("document.querySelector('[data-testid=mech-scroll]').scrollTop > 0")
+    page.click("[data-testid=estop]")
+    page.wait_for_selector("[data-testid=estop-banner]", timeout=5000)
+    assert app.estop.is_engaged
