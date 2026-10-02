@@ -27,8 +27,6 @@ Usage::
 from __future__ import annotations
 
 import argparse
-import csv
-import io
 import json
 import re
 import sys
@@ -227,11 +225,6 @@ def check_consistency(rep: Report, dtc: dict[str, Any], j1939: dict[str, Any]) -
     for key, n in std.items():
         if n > 1:
             rep.add("FAIL", "pid_dup", f"standard PID {key} appears {n}x")
-    rj = _load(D / "nhtsa_can_recalls_database.json")
-    with (D / "nhtsa_can_recalls_database.csv").open(encoding="utf-8-sig", newline="") as fh:
-        rc = [r["campaign_number"] for r in csv.DictReader(fh)]
-    if set(rc) != set(rj) or len(rc) != len(rj):
-        rep.add("FAIL", "csv_twin", f"nhtsa recalls csv ({len(rc)}) != json ({len(rj)})")
     title_tr = sum(1 for v in dtc.values() if str(v.get("title_tr") or "").strip())
     rep.metrics["dtc_title_tr_filled"] = title_tr
     rep.metrics["dtc_by_letter"] = dict(Counter(k[0] for k in dtc))
@@ -241,26 +234,9 @@ def check_csv_twins(rep: Report) -> None:
     sys.path.insert(0, str(ROOT / "scripts"))
     import rebuild_csv_exports as r
 
-    jobs = [
-        ("dtc_database.csv", r.DTC_CSV, r._read_existing_header(r.DTC_CSV), r._build_dtc_rows),
-        ("uds_did_database.csv", r.UDS_CSV, r._read_existing_header(r.UDS_CSV), r._build_uds_rows),
-        ("j1939_spn_fmi_database.csv", r.J1939_CSV, r.J1939_HEADER, r._build_j1939_rows),
-        ("obd_mode06_database.csv", r.MODE06_CSV, r._read_existing_header(r.MODE06_CSV), r._build_mode06_rows),
-        ("canonical_symptoms.csv", r.CANONICAL_SYMPTOMS_CSV, r._read_existing_header(r.CANONICAL_SYMPTOMS_CSV),
-         r._build_canonical_symptoms_rows),
-    ]
-    for name, path, header, build in jobs:
-        expected = r._render(header, build(), r._has_bom(path)).replace(b"\r\n", b"\n")
-        actual = path.read_bytes().replace(b"\r\n", b"\n")
-        if expected != actual:
-            rep.add("FAIL", "csv_twin", f"{name} is out of sync with its JSON (run scripts/rebuild_csv_exports.py)")
-    # extended PID twin: same row rule as tools/data_ingest/rebuild_extended_pid_csv.py
-    pid_db = _load(D / "extended_pid_database.json")
-    with (D / "extended_pid_database.csv").open(encoding="utf-8", newline="") as fh:
-        rows = list(csv.reader(io.StringIO(fh.read())))
-    if len(rows) - 1 != len(pid_db["pids"]):
-        rep.add("FAIL", "csv_twin", f"extended_pid_database.csv rows {len(rows) - 1} != json {len(pid_db['pids'])}")
-    rep.metrics["csv_twins_checked"] = len(jobs) + 2
+    for name in r.drift():
+        rep.add("FAIL", "csv_twin", f"{name} is out of sync with its JSON (run scripts/rebuild_csv_exports.py)")
+    rep.metrics["csv_twins_checked"] = len(r.all_jobs())
 
 
 def check_artefacts(rep: Report) -> None:
@@ -309,6 +285,9 @@ def run(report_path: str | None = None, quiet: bool = False) -> Report:
 
 
 def main() -> int:
+    # Windows CI consoles default to cp1252; never crash on a Turkish character.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="replace")
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--report", help="write a markdown report to this path")
     args = ap.parse_args()
