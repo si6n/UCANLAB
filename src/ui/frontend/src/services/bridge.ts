@@ -317,6 +317,62 @@ export interface UserDiagnosticCard {
   source_badges: string[];
 }
 
+/**
+ * Copilot upgrade: six-section structured answer (Python `copilot_answer.py`).
+ * Every claim carries `refs` ("source#key"); TS renders, never re-derives.
+ */
+export interface CopilotEvidence {
+  text: string;
+  ref: string;
+}
+
+export interface CopilotStructuredAnswer {
+  language: 'tr' | 'en';
+  safety_banners: Array<{ category: string; text: string }>;
+  summary: string;
+  urgency: {
+    level: 'RED' | 'YELLOW' | 'GREEN' | 'GRAY';
+    color: string;
+    label: string;
+    advice: string[];
+    reasons: CopilotEvidence[];
+  };
+  causes: Array<{
+    rank: number;
+    id: string;
+    title: string;
+    likelihood: number;
+    confidence: 'high' | 'medium' | 'low';
+    confidence_label: string;
+    kind_label: string;
+    support: CopilotEvidence[];
+    against: CopilotEvidence[];
+    measure_to_confirm: string[];
+    refs: string[];
+  }>;
+  steps: Array<{ n: number; text: string; difficulty: string; refs: string[] }>;
+  missing_data: Array<{ key: string; what: string; how: string; refs: string[] }>;
+  technical: {
+    codes: Array<{
+      key: string;
+      found: boolean;
+      title: string;
+      fmi_text: string;
+      pgn_text: string;
+      severity: string;
+      reference_values: string;
+      oem_text: string;
+      refs: string[];
+    }>;
+    telemetry: Array<{ signal: string; value: number; unit: string; status_text: string; reference: string; ref: string }>;
+    glossary: Array<{ term: string; text: string; ref: string }>;
+    similar_records: Array<{ title: string; ref: string }>;
+    sources: string[];
+  };
+  recalls: { note?: string; items?: Array<{ campaign: string; component: string; ref: string }>; complaints?: CopilotEvidence | null };
+  markdown?: string;
+}
+
 /** What the app is listening to (workbench status bar). */
 export interface BusInfoResult {
   success: boolean;
@@ -525,6 +581,10 @@ declare global {
           is_unknown?: boolean,
         ) => Promise<Record<string, unknown>>;
         get_dialogue_state?: () => Promise<Record<string, unknown>>;
+        ask_copilot_structured?: (
+          query: string,
+          language?: string | null,
+        ) => Promise<{ success: boolean; error?: string; simulated?: boolean; answer?: CopilotStructuredAnswer }>;
         record_technician_feedback?: (dtc: string, resolved: boolean, notes?: string) => Promise<Record<string, unknown>>;
         export_session_report?: () => Promise<{ success: boolean; path?: string; report_length?: number; error?: string }>;
         // T2-7: read-only vendored data licence / attribution surface.
@@ -1124,6 +1184,20 @@ export class DesktopBridge {
     this.requireCapability('get_diagnostic_analysis', 'get Diagnostic Analysis');
     this.requireNativeOrDev();
     return null;
+  }
+
+  /** Free-text complaint + live evidence -> structured answer (read-only, offline). */
+  public static async askCopilotStructured(
+    query: string,
+    language: 'tr' | 'en',
+  ): Promise<{ success: boolean; error?: string; simulated?: boolean; answer?: CopilotStructuredAnswer }> {
+    const m = this.apiMethod('ask_copilot_structured');
+    if (this.isNative() && m) {
+      return await m(query, language);
+    }
+    this.requireCapability('ask_copilot_structured', 'ask Copilot');
+    this.requireNativeOrDev();
+    return { success: false, error: 'native bridge unavailable' };
   }
 
   public static async recordOperatorAnswer(

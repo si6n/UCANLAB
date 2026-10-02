@@ -289,6 +289,26 @@ def test_assistant_labels_simulation_and_never_runs_vehicle_actions(wb: Any) -> 
     assert not app.supervisor.is_tx_permitted
 
 
+def test_assistant_copilot_card_answers_free_text_read_only(wb: Any) -> None:
+    """Copilot upgrade: the six-section answer renders in the existing view,
+    the safety banner comes first, and asking never touches the bus or session."""
+    page, app = wb
+    page.select_option("[data-testid=sim-type]", "truck")
+    page.click("[data-testid=start-simulator]")
+    page.wait_for_selector("[data-testid=id-table]", timeout=20000)
+    page.click("[data-testid=nav-assistant]")
+    page.wait_for_selector("[data-testid=copilot-card]", timeout=20000)
+    page.fill("[data-testid=copilot-query]", "abs ışığı yandı, motor ısınıyor")
+    page.click("[data-testid=copilot-ask]")
+    page.wait_for_selector("[data-testid=copilot-banner-brakes]", timeout=20000)
+    assert "ABS" in page.text_content("[data-testid=copilot-summary]")
+    assert page.is_visible("[data-testid=copilot-urgency]")
+    assert page.is_visible("[data-testid=copilot-steps]")
+    assert page.locator("[data-testid=copilot-technical]").count() == 1
+    assert app._diag_session.samples == [] and app._diag_session.events == []
+    assert not app.supervisor.is_tx_permitted
+
+
 def test_ecu_dry_run_on_the_simulator_sends_nothing(wb: Any) -> None:
     page, app = wb
     page.select_option("[data-testid=sim-type]", "truck")

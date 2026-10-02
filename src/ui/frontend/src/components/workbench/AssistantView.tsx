@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ClipboardCheck, Loader2, RefreshCw, Stethoscope } from 'lucide-react';
-import { DesktopBridge, UserDiagnosticCard } from '../../services/bridge';
+import { CopilotStructuredAnswer, DesktopBridge, UserDiagnosticCard } from '../../services/bridge';
+import { CopilotAskCard } from './CopilotAnswer';
 import { L } from '../mechanic/text';
 import { BTN_GHOST, BTN_PRIMARY, Card, CardHeader, Chip, EmptyState, Tone, cx } from './ui';
 
@@ -38,6 +39,7 @@ interface Analysis {
   gate?: Gate;
   hypotheses?: Hypothesis[];
   anomalies?: Array<{ signal: string; finding: string; ratio: number }>;
+  structured_answer?: CopilotStructuredAnswer;
 }
 
 interface Question {
@@ -250,6 +252,8 @@ export const AssistantView: React.FC = () => {
             </div>
           </div>
         </Card>
+
+        <CopilotAskCard sessionAnswer={analysis.structured_answer} />
 
         {(analysis.hypotheses?.length ?? 0) > 0 && (
           <Card>
