@@ -51,3 +51,8 @@ def test_summary_points_to_the_most_useful_unanswered_question() -> None:
 def test_the_named_next_question_is_listed_first() -> None:
     d = answer_query("motor hararet yapıyor", language="tr").to_dict()
     assert d["summary"].endswith(d["checks"][0]["question"])
+
+
+def test_ties_follow_the_best_matched_complaint() -> None:
+    d = answer_query("dpf doldu güç kısıtlaması var", language="tr").to_dict()
+    assert d["causes"][0]["title"].startswith("DPF"), [c["title"] for c in d["causes"]]

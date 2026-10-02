@@ -704,7 +704,15 @@ def _build_hypotheses(kb: KnowledgeBase, r: Reasoning) -> None:
                 h.severity_rank = _SEVERITY_ORDER.index(rec_fact.severity)
     # Ties are broken by the severity of the code behind the cause, so the
     # cause of the most dangerous active code is read first.
-    ranked = sorted(hyps.values(), key=lambda h: (-h.score, -h.severity_rank, h.title))
+    # ... then by the complaint that named them: the best-matched symptom first.
+    sym_rank = {sid: i for i, (sid, _) in enumerate(r.symptom_records)}
+
+    def complaint_rank(h: Hypothesis) -> int:
+        ranks = [sym_rank.get(m.split(":", 1)[1].split("|")[0], 99) for m, _ in h.support
+                 if m.startswith(("complaint:", "complaint_code:"))]
+        return min(ranks, default=99)
+
+    ranked = sorted(hyps.values(), key=lambda h: (-h.score, -h.severity_rank, complaint_rank(h), h.title))
     # de-duplicate identical titles (same cause text reached through two codes)
     seen: set[str] = set()
     unique: list[Hypothesis] = []
