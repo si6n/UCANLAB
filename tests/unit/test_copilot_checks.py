@@ -135,3 +135,15 @@ def test_answer_conclusion_becomes_the_first_step_after_safety() -> None:
     red = answer_query("motor hararet yapıyor", language="tr", answers={"engine-overheating.q1": "hayır"}).to_dict()
     assert red["steps"][0]["refs"] == ["template:risk.RED"], "the stop-now line stays first"
     assert red["steps"][1]["refs"] == ["symptom_checks#engine-overheating.q1"]
+
+
+def test_every_subsystem_has_an_english_name_and_english_answers_use_it() -> None:
+    kb = get_knowledge_base()
+    missing = [lab for rec in kb.symptoms().values() for lab in rec["subsystems"] if not kb.subsystem_label_en(lab)]
+    assert not missing, missing[:5]
+    d = answer_query("car cranks but will not start", language="en").to_dict()
+    assert [c["title"] for c in d["causes"]] == ["Ignition & starting system", "Fuel supply system",
+                                                "Battery & electrical supply"]
+    assert "Ateşleme" not in d["summary"]
+    tr = answer_query("marş basıyor ama çalışmıyor", language="tr").to_dict()
+    assert tr["causes"][0]["title"] == "Ateşleme & Marş Sistemi"

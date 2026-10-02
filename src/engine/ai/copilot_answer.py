@@ -370,11 +370,18 @@ def _code_title(c: CodeFact, lang: str) -> str:
     return c.title_tr or c.title_en
 
 
+def _title(h: Hypothesis, lang: str, kb: KnowledgeBase) -> str:
+    """Display title: an area row (a symptom subsystem, Turkish in the data) gets its English name in English."""
+    if h.kind == "area" and lang == "en":
+        return kb.subsystem_label_en(h.title) or h.title
+    return h.title
+
+
 def _cause_dict(h: Hypothesis, rank: int, lang: str, kb: KnowledgeBase) -> dict[str, Any]:
     return {
         "rank": rank,
         "id": h.id,
-        "title": h.title,
+        "title": _title(h, lang, kb),
         "likelihood": h.likelihood,
         "confidence": h.confidence,
         "confidence_label": _t(f"conf.{h.confidence}", lang),
@@ -437,9 +444,9 @@ def _summary(r: Reasoning, lang: str, kb: KnowledgeBase) -> str:
         answered = any(s.startswith("check:") for s, _ in top.support)
         if top.kind == "area" and answered:
             bits.append(f"Cevaplarınıza göre önce kontrol edin: {top.title}." if lang == "tr"
-                        else f"From your answers, inspect first: {top.title}.")
+                        else f"From your answers, inspect first: {_title(top, lang, kb)}.")
         elif top.kind == "area":
-            areas = ", ".join(h.title for h in r.hypotheses[:3] if h.kind == "area" and not h.against)
+            areas = ", ".join(_title(h, lang, kb) for h in r.hypotheses[:3] if h.kind == "area" and not h.against)
             bits.append(f"Kayıtlı kök neden yok; önce şu alt sistemleri kontrol edin: {areas}." if lang == "tr"
                         else f"No recorded root cause; inspect these subsystems first: {areas}.")
         elif len(tied := [h for h in r.hypotheses if h.kind != "area" and abs(h.score - top.score) < 1e-9]) > 1:

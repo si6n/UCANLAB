@@ -72,8 +72,8 @@ sorguların %43'ü) neden uydurulmaz: semptom kaydının `subsystems` alanındak
 3 alt sistem `kind=area` olarak, "önce burayı kontrol edin" etiketiyle listelenir.
 Bu satırlarda yüzde gösterilmez (`likelihood=0`), güven her zaman düşüktür ve
 kaynak `canonical_symptoms#<id>` kaydıdır. Gerçek bir neden bulunduğunda `area`
-satırı hiç eklenmez. Alt sistem adları yalnız Türkçe kayıtlıdır; İngilizce
-cevapta da aynen gösterilir.
+satırı hiç eklenmez. Alt sistem adları kayıtta Türkçedir; İngilizce cevap
+`subsystem_labels_en.json` çevirisini gösterir (`build_subsystem_labels.py`).
 
 Sayılar semptom eşleşmesinde korunur: "3. silindir tekleme" →
 `misfire-cylinder-3`, "bank 2 fakir" → `lean-condition-bank2`. Sayılar 4
@@ -156,6 +156,7 @@ Bilmiyorum düğmeleri ve ölçüm alanı gösterir. Canlı oturum cevabında (k
 | `obd_mode06`, `uds_did` | Mode 06 / UDS DID | KB üzerinden erişilebilir (eski paket açıklama yolu) |
 | `canonical_symptoms` | 152 semptom | Şikâyet → aday kod, ilk kontroller |
 | `symptom_lexicon` (yeni) | 33 kayıt, 269 TR/EN ifade + güvenlik terimleri | Gündelik ifadeler |
+| `subsystem_labels_en` (yeni) | 315 alt sistem etiketi | İngilizce cevapta `area` satırlarının adı (yalnız etiket çevirisi) |
 | `symptom_checks` (yeni) | 147 semptom, 270 soru | Soru cevaplarının küratörlü etkileri (§3.1.1) |
 | `root_cause_graph` | 8.884 düğüm | Kök neden adayları, kanıt/çelişen sinyaller |
 | `signal_aliases` + `signal_measurement_map` (yeni, 24 sinyal) | | Sinyal adı birleştirme; eksik ölçüm için SPN/PGN/PID rehberi |

@@ -70,6 +70,7 @@ SOURCE_FILES: dict[str, str] = {
     "canonical_symptoms": "diagnostics/canonical_symptoms.json",
     "symptom_lexicon": "diagnostics/symptom_lexicon.json",
     "symptom_checks": "diagnostics/symptom_checks.json",
+    "subsystem_labels_en": "diagnostics/subsystem_labels_en.json",
     "root_cause_graph": "diagnostics/root_cause_graph.json",
     "signal_aliases": "diagnostics/signal_aliases.json",
     "signal_measurement_map": "diagnostics/signal_measurement_map.json",
@@ -481,6 +482,13 @@ class KnowledgeBase:
             return Lookup.miss("canonical_symptoms", symptom_id)
         return Lookup(True, "canonical_symptoms", symptom_id, rec)
 
+    def subsystem_label_en(self, label: str) -> str | None:
+        """English name of a canonical symptom subsystem label (``None`` when not translated)."""
+        data = self._json_source("subsystem_labels_en")
+        labels = data.get("labels") if isinstance(data, dict) else None
+        found = labels.get(label) if isinstance(labels, dict) else None
+        return str(found) if found else None
+
     def symptoms_for_code(self, code_key: str) -> list[str]:
         """Symptom ids whose ``candidate_dtcs`` name this code ("P0301", "SPN 100"), file order."""
         def build() -> dict[str, list[str]]:
@@ -783,6 +791,8 @@ class KnowledgeBase:
         if source == "symptom_lexicon":
             lex = self._json_source("symptom_lexicon")
             return (key == "safety_terms" and isinstance(lex, dict) and "safety_terms" in lex) or self.symptom(key).found
+        if source == "subsystem_labels_en":
+            return self.subsystem_label_en(key) is not None
         if source == "symptom_checks":
             sid, _, cid = key.partition(".")
             return any(c.get("id") == cid for c in self.symptom_checks(sid))
