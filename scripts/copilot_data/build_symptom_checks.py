@@ -877,6 +877,172 @@ C.update({
  ],
 })
 
+# ---- remaining chassis / body / EV / HD complaints ----
+C.update({
+ "torque-converter-clutch-stuck-off": [
+  yn(1, "Can the transmission control unit lock the TCC slip to 0 rpm?",
+     yes=([0], [1], "Kilit 0 d/d tutabiliyor: aralıklı solenoid kumandası.", "Lock-up can hold 0 rpm: intermittent solenoid control."),
+     no=([1, 0], [], "Kilit kaymayı sıfırlayamıyor: konvertör balatası aşınmış veya TCC solenoidi.",
+         "Lock-up cannot reach zero slip: worn converter lining or the TCC solenoid.")),
+ ],
+ "transfer-case-4wd-shift-fault": [
+  yn(0, "When 4H or 4L is pressed, is there a clicking sound from the actuator motor?",
+     yes=([1], [], "Motor çalışıyor: konum kodlayıcı sensör veya mekanik sıkışma.", "Motor runs: the position encoder or a mechanical bind."),
+     no=([0], [], "Motordan ses yok: vites motoru veya beslemesi.", "No sound from the motor: the shift motor or its supply.")),
+  yn(1, "Does the transfer case position sensor report 2H, 4H and 4L correctly?",
+     yes=([0], [1], "Konum sensörü doğru: vites motoru.", "Position sensor correct: the shift motor."),
+     no=([1], [], "Konum yanlış bildiriliyor: konum kodlayıcı sensör.", "Position reported wrong: the position encoder.")),
+ ],
+ "abs-hydraulic-pump-motor-circuit": [
+  yn(0, "When the ABS pump motor is triggered from the active test menu, can it be heard running?",
+     yes=([], [0], "Pompa çalışıyor: motor sağlam.", "Pump runs: the motor is fine."),
+     no=([0, 1], [], "Pompa çalışmıyor: pompa motoru veya rölesi/sigortası.", "Pump does not run: the pump motor or its relay/fuse.")),
+  yn(1, "Do the ABS module's main supply cables carry 12V battery voltage and a good ground?",
+     yes=([0], [1], "Besleme ve şase var: pompa motoru.", "Supply and ground present: the pump motor."),
+     no=([1], [], "Besleme veya şase yok: ABS motor rölesi ve güç sigortası.", "No supply or ground: the ABS motor relay and main fuse.")),
+ ],
+ "steering-angle-sensor-uncalibrated": [
+  yn(0, "With the wheel straight, is the angle between 0.0 ± 1.5 degrees?",
+     yes=([], [0], "Açı doğru: kalibrasyon kaybı daha az olası.", "Angle correct: lost calibration is less likely."),
+     no=([0], [], "Açı 0 değil: direksiyon açı sensörü temel ayarını yapın.", "Angle not 0: run the steering angle sensor basic setting.")),
+  yn(1, "After a wheel alignment, was the SAS basic setting reset?",
+     no=([0], [], "Rot ayarından sonra temel ayar yapılmamış: SAS kalibrasyonunu yapın.", "Basic setting not done after alignment: calibrate the SAS.")),
+ ],
+ "yaw-rate-sensor-rationality": [
+  yn(1, "Is the sensor module mounted loose or at the wrong angle?",
+     yes=([1], [], "Montaj gevşek veya açılı: sensörü doğru yönde sıkıca bağlayın.", "Mounting loose or angled: fit the sensor firmly and the right way round.")),
+ ],
+ "airbag-squib-resistance-high-driver": [
+  yn(0, "When the wheel is turned lock to lock, does the airbag lamp briefly go out and come back?",
+     yes=([0], [], "Lamba direksiyonla değişiyor: zemberek (clockspring) arızalı.", "Lamp changes with steering: the clockspring has failed.")),
+  yn(1, "Have the horn and steering wheel buttons stopped working at the same time?",
+     yes=([0], [1], "Korna ve tuşlar da çalışmıyor: zemberek arızalı; airbag modülü daha az olası.",
+          "Horn and buttons dead too: the clockspring has failed; the airbag module is less likely.")),
+ ],
+ "hvac-blend-door-actuator-stuck": [
+  yn(0, "With the ignition on, is there a periodic plastic gear clicking behind the dash for 10-15 seconds?",
+     yes=([0], [], "Dişli tıkırtısı: klape motorunun dişlisi kırık.", "Gear clicking: the blend door actuator gear is broken."),
+     no=([1, 0], [], "Tıkırtı yok: klape motoru beslemesi veya klima kontrol paneli.", "No clicking: the actuator supply or the climate control panel.")),
+ ],
+ "wheel-speed-sensor-missing-fr": [
+  yn(0, "Is the front right hub bearing magnetic ring corroded or impact damaged?",
+     yes=([1], [], "Manyetik halka hasarlı: poyra/halka değişimi.", "Magnetic ring damaged: replace the hub or ring."),
+     no=([0], [1], "Halka sağlam: sağ ön sensör veya kablosu.", "Ring intact: the front right sensor or its wiring.")),
+ ],
+ "wheel-speed-sensor-missing-rl": [
+  yn(0, "Has the rear left sensor harness been stretched and broken by suspension movement?",
+     yes=([0], [], "Sensör kablosu kopuk: kabloyu onarın veya sensörü değiştirin.", "Sensor wire broken: repair it or replace the sensor."),
+     no=([0, 1], [], "Kablo sağlam: sensör ucu ve manyetik halka.", "Wiring intact: the sensor tip and the magnetic ring.")),
+ ],
+ "wheel-speed-sensor-missing-rr": [
+  yn(0, "Is there moisture or corrosion in the rear right hub bearing connector?",
+     yes=([0], [], "Sokette nem/korozyon: soketi temizleyin veya değiştirin.", "Moisture/corrosion in the connector: clean or replace it.")),
+ ],
+ "tpms-sensor-battery-fl": [
+  yn(0, "Does the front left valve transmitter respond to the activation tool?",
+     yes=([], [0], "Verici cevap veriyor: alıcıda ID kaydını kontrol edin.", "Transmitter responds: check its ID in the receiver."),
+     no=([0], [], "Verici cevap vermiyor: pil bitmiş veya sensör arızalı; sensörü değiştirip tanıtın.",
+         "No response: dead battery or failed sensor; replace and register it.")),
+ ],
+ "tpms-sensor-battery-fr": [
+  yn(0, "Is the front right tyre pressure sensor's RF transmission received?",
+     yes=([], [0], "RF yayını alınıyor: alıcıda ID kaydını kontrol edin.", "RF received: check its ID in the receiver."),
+     no=([0], [], "RF yayını yok: pil bitmiş veya sensör arızalı.", "No RF: dead battery or failed sensor.")),
+ ],
+ "tpms-sensor-battery-rl": [
+  yn(0, "Is the rear left tyre pressure sensor battery critical?",
+     yes=([0], [], "Pil kritik: sensörü değiştirip tanıtın.", "Battery critical: replace and register the sensor.")),
+ ],
+ "tpms-sensor-battery-rr": [
+  yn(0, "Is the rear right sensor ID registered in the receiver module?",
+     yes=([0], [], "ID kayıtlı: sensör pili veya sensör.", "ID registered: the sensor battery or the sensor."),
+     no=([], [], "ID kayıtlı değil: sensörü alıcıya tanıtın (öğretme).", "ID not registered: teach the sensor to the receiver.")),
+ ],
+ "transmission-shift-solenoid-b-electrical": [
+  yn(0, "Is solenoid B's resistance at the connector within its nominal range?",
+     yes=([1], [0], "Solenoid direnci doğru: TCU sürücü katı veya tesisat.", "Solenoid resistance correct: the TCU driver or wiring."),
+     no=([0], [], "Direnç aralık dışında: solenoid B veya dahili kablosu.", "Resistance out of range: solenoid B or its internal wiring.")),
+ ],
+ "transmission-pressure-control-solenoid-a": [
+  yn(0, "Does the vehicle jolt hard when shifting from P or N into D or R?",
+     yes=([0, 1], [], "Vites takarken sert vuruntu: hat basıncı yüksek; basınç kontrol solenoidi (EPC) veya regülatör.",
+          "Harsh engagement: line pressure too high; the pressure control solenoid (EPC) or regulator.")),
+ ],
+ "ev-cell-overvoltage": [
+  yn(1, "Is the passive balancing circuit of that cell module open circuit?",
+     yes=([1], [], "Dengeleme devresi açık: hücre dengeleme dirençleri.", "Balancing circuit open: the cell balancing resistors."),
+     no=([0], [1], "Dengeleme sağlam: hücre gerilim ölçüm devresi (CSC) okumasını doğrulayın.",
+         "Balancing fine: verify the cell voltage sensing circuit (CSC) reading.")),
+ ],
+ "ev-battery-cooling-pump-failure": [
+  yn(0, "When DC fast charging starts, does the battery coolant pump start circulating?",
+     yes=([1], [0], "Pompa çalışıyor: soğutma devresi (seviye, hava, tıkanma).", "Pump runs: the cooling circuit (level, air, blockage)."),
+     no=([0], [], "Pompa devreye girmiyor: batarya soğutma pompası veya beslemesi.", "Pump does not start: the battery coolant pump or its supply.")),
+  yn(1, "Is the battery coolant expansion tank level normal?",
+     no=([1], [], "Soğutma sıvısı eksik: kaçağı bulup tamamlayın ve havasını alın.", "Coolant low: find the leak, top up and bleed.")),
+ ],
+ "ev-fast-charge-ccs-comm-timeout": [
+  yn(1, "Does the vehicle charge normally on AC Type 2?",
+     yes=([0, 1], [], "AC şarj çalışıyor: DC iletişim tarafı (EVCC, PLC modemi).", "AC charging works: the DC communication side (EVCC, PLC modem)."),
+     no=([], [], "AC şarj da yok: CP/PP pinleri ve dahili şarj cihazı; 'şarj olmuyor' semptomuna bakın.",
+         "AC charging fails too: CP/PP pins and the on-board charger; see the 'will not charge' symptom.")),
+  yn(2, "Is the CP pin in the charging port corroded or pushed back?",
+     yes=([1], [], "CP pini hasarlı: şarj portunu onarın veya değiştirin.", "CP pin damaged: repair or replace the charge port.")),
+ ],
+ "hd-service-brake-treadle-valve-leak": [
+  yn(0, "With the brake pedal held, does air leak continuously from the exhaust port under the cab?",
+     yes=([0], [], "Basılıyken tahliyeden sürekli hava: ayak fren ventili iç kaçağı.", "Continuous air from the exhaust while held: internal leak in the treadle valve.")),
+  yn(1, "With the pedal held, do circuit 1 and 2 gauges show a steady drop?",
+     yes=([1], [], "Devre basıncı düşüyor: o devrede (körük, hortum, ventil) kaçak.", "Circuit pressure drops: a leak in that circuit (chamber, hose, valve).")),
+ ],
+ "hd-j1939-backbone-termination-resistor-missing": [
+  meas(0, "With the ignition off, what resistance is measured between CAN_H and CAN_L (Ohm)?", "Ohm", [
+     (None, 50, [0], [], "50 Ohm altında: hatlar arası kısa devre veya fazladan direnç.", "Under 50 Ohm: a short between the lines or an extra resistor."),
+     (50, 70, [], [1], "Yaklaşık 60 Ohm: iki sonlandırma direnci yerinde.", "About 60 Ohm: both terminating resistors present."),
+     (70, 140, [1], [], "Yaklaşık 120 Ohm: sonlandırma dirençlerinden biri eksik.", "About 120 Ohm: one terminating resistor is missing."),
+     (140, None, [0], [], "Çok yüksek: omurga kablosu kopuk.", "Very high: the backbone cable is open."),
+  ], text_keys=["can h", "can_h", "sonlandirma direnci", "termination resistance"],
+     tr="Kontak kapalıyken CAN_H ve CAN_L arasında kaç Ohm ölçülüyor? (60 Ohm olmalı)"),
+  yn(1, "Is the terminating resistor plug at the rear of the chassis broken off or water-logged?",
+     yes=([1], [], "Sonlandırma direnci soketi hasarlı: direnci yenileyin.", "Terminator plug damaged: renew the resistor.")),
+ ],
+ "hd-low-coolant-level-probe-fault": [
+  yn(0, "Is the low coolant warning on even though the expansion tank is full?",
+     yes=([0], [1], "Tank dolu ama ikaz var: seviye probu arızalı.", "Tank full but warning on: the level probe has failed."),
+     no=([1], [], "Seviye gerçekten düşük: kaçağı bulun.", "Level really is low: find the leak.")),
+  yn(1, "When removed, are the probe electrodes coated with scale and rust?",
+     yes=([0], [], "Prob kireçli: temizleyin veya değiştirin.", "Probe scaled: clean or replace it.")),
+ ],
+ "cam-position-sensor-bank1-intake": [
+  yn(0, "Does cranking take longer, with the engine starting only after 3-4 seconds?",
+     yes=([0, 1], [], "Uzun marş: eksantrik sinyali gelmiyor; sensör ve kablosu.", "Long crank: no cam signal; the sensor and its wiring.")),
+ ],
+ "o2-sensor-slow-response-bank1-sensor1": [
+  yn(1, "Is the sensor tip poisoned by silicone or phosphorus from oil burning?",
+     yes=([0], [], "Sensör zehirlenmiş: sensörü değiştirin ve yağ yakmanın nedenini bulun.",
+          "Sensor poisoned: replace it and find why oil is burning.")),
+ ],
+ "evap-small-leak-detected": [
+  yn(0, "Does the fuel cap seal have fine cracks?",
+     yes=([0], [], "Kapak contası çatlak: kapağı değiştirin.", "Cap seal cracked: replace the cap."),
+     no=([0, 1], [], "Kapak sağlam: duman testiyle hortum ve kanisteri tarayın.", "Cap sound: smoke test the hoses and canister.")),
+ ],
+ "brake-light-switch-rationality": [
+  yn(0, "Do the brake lights stay on without the pedal pressed?",
+     yes=([0], [], "Fren lambaları sürekli yanıyor: pedal anahtarı ayarı bozuk veya arızalı.", "Brake lights stay on: the pedal switch is misadjusted or faulty.")),
+  yn(1, "In live data, does brake contact 2 show the opposite of contact 1?",
+     yes=([0], [], "Kontaklar uyumsuz: fren pedal anahtarı.", "Contacts disagree: the brake pedal switch."),
+     no=([1], [], "Kontaklar uyumlu: fren lambası devresi.", "Contacts agree: the brake lamp circuit.")),
+ ],
+ "ambient-air-temperature-sensor": [
+  yn(0, "Could the sensor connector under the front bumper or right mirror have been left unplugged after bumper repair?",
+     yes=([0], [], "Soket takılmamış olabilir: sensör soketini takın.", "Connector may be unplugged: plug the sensor in.")),
+  yn(1, "Is the A/C compressor refusing to engage because outside air reads -40°C?",
+     yes=([0], [], "Dış sıcaklık -40°C okunuyor: sensör açık devre; klima bu yüzden kapalı.",
+          "Outside air reads -40°C: the sensor is open circuit; that is why the A/C is off.")),
+ ],
+})
+
 out = {
  "schema_version": 1,
  "title": "Copilot symptom checks (answer effects for canonical symptom questions)",

@@ -335,9 +335,11 @@ def _evidence_text(marker: str, lang: str, kb: KnowledgeBase) -> str:
         sid, _, sig = payload.partition("|")
         rec = kb.symptom(sid).record or {}
         name = rec.get("name_tr") if lang == "tr" else rec.get("name_en")
-        return (f"şikâyet ({name or sid}) bu gerçek {sig} arızasıyla uyumlu; tehlikeli olan bu, önce bunu eleyin"
+        sm = kb.signal_measurement(sig).record or {}
+        label = str(sm.get("label_tr" if lang == "tr" else "label_en") or sig) if isinstance(sm, dict) else sig
+        return (f"şikâyet ({name or sid}) gerçek bir {label.lower()} sorunuyla uyumlu; tehlikeli olan bu, önce bunu eleyin"
                 if lang == "tr" else
-                f"complaint ({name or sid}) fits this real {sig} fault; it is the dangerous one, rule it out first")
+                f"complaint ({name or sid}) fits a real {label.lower()} problem; it is the dangerous one, rule it out first")
     if kind == "check":
         key, _, value = payload.partition("|")
         sid, _, cid = key.partition(".")

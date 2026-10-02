@@ -8626,6 +8626,1611 @@
      "confidence": "single_source"
     }
    ]
+  },
+  "torque-converter-clutch-stuck-off": {
+   "checks": [
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Can the transmission control unit lock the TCC slip to 0 rpm?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [
+        1
+       ],
+       "note_tr": "Kilit 0 d/d tutabiliyor: aralıklı solenoid kumandası.",
+       "note_en": "Lock-up can hold 0 rpm: intermittent solenoid control."
+      },
+      "no": {
+       "favor": [
+        1,
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Kilit kaymayı sıfırlayamıyor: konvertör balatası aşınmış veya TCC solenoidi.",
+       "note_en": "Lock-up cannot reach zero slip: worn converter lining or the TCC solenoid."
+      }
+     },
+     "id": "q1"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-torque-converter-clutch-stuck-off",
+     "target": {
+      "record_id": "torque-converter-clutch-stuck-off",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'torque-converter-clutch-stuck-off' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#torque-converter-clutch-stuck-off",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "transfer-case-4wd-shift-fault": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "When 4H or 4L is pressed, is there a clicking sound from the actuator motor?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Motor çalışıyor: konum kodlayıcı sensör veya mekanik sıkışma.",
+       "note_en": "Motor runs: the position encoder or a mechanical bind."
+      },
+      "no": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Motordan ses yok: vites motoru veya beslemesi.",
+       "note_en": "No sound from the motor: the shift motor or its supply."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Does the transfer case position sensor report 2H, 4H and 4L correctly?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [
+        1
+       ],
+       "note_tr": "Konum sensörü doğru: vites motoru.",
+       "note_en": "Position sensor correct: the shift motor."
+      },
+      "no": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Konum yanlış bildiriliyor: konum kodlayıcı sensör.",
+       "note_en": "Position reported wrong: the position encoder."
+      }
+     },
+     "id": "q1"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-transfer-case-4wd-shift-fault",
+     "target": {
+      "record_id": "transfer-case-4wd-shift-fault",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'transfer-case-4wd-shift-fault' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#transfer-case-4wd-shift-fault",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "abs-hydraulic-pump-motor-circuit": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "When the ABS pump motor is triggered from the active test menu, can it be heard running?",
+     "outcomes": {
+      "yes": {
+       "favor": [],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Pompa çalışıyor: motor sağlam.",
+       "note_en": "Pump runs: the motor is fine."
+      },
+      "no": {
+       "favor": [
+        0,
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Pompa çalışmıyor: pompa motoru veya rölesi/sigortası.",
+       "note_en": "Pump does not run: the pump motor or its relay/fuse."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Do the ABS module's main supply cables carry 12V battery voltage and a good ground?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [
+        1
+       ],
+       "note_tr": "Besleme ve şase var: pompa motoru.",
+       "note_en": "Supply and ground present: the pump motor."
+      },
+      "no": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Besleme veya şase yok: ABS motor rölesi ve güç sigortası.",
+       "note_en": "No supply or ground: the ABS motor relay and main fuse."
+      }
+     },
+     "id": "q1"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-abs-hydraulic-pump-motor-circuit",
+     "target": {
+      "record_id": "abs-hydraulic-pump-motor-circuit",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'abs-hydraulic-pump-motor-circuit' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#abs-hydraulic-pump-motor-circuit",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "steering-angle-sensor-uncalibrated": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "With the wheel straight, is the angle between 0.0 ± 1.5 degrees?",
+     "outcomes": {
+      "yes": {
+       "favor": [],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Açı doğru: kalibrasyon kaybı daha az olası.",
+       "note_en": "Angle correct: lost calibration is less likely."
+      },
+      "no": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Açı 0 değil: direksiyon açı sensörü temel ayarını yapın.",
+       "note_en": "Angle not 0: run the steering angle sensor basic setting."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "After a wheel alignment, was the SAS basic setting reset?",
+     "outcomes": {
+      "no": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Rot ayarından sonra temel ayar yapılmamış: SAS kalibrasyonunu yapın.",
+       "note_en": "Basic setting not done after alignment: calibrate the SAS."
+      }
+     },
+     "id": "q1"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-steering-angle-sensor-uncalibrated",
+     "target": {
+      "record_id": "steering-angle-sensor-uncalibrated",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'steering-angle-sensor-uncalibrated' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#steering-angle-sensor-uncalibrated",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "yaw-rate-sensor-rationality": {
+   "checks": [
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Is the sensor module mounted loose or at the wrong angle?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Montaj gevşek veya açılı: sensörü doğru yönde sıkıca bağlayın.",
+       "note_en": "Mounting loose or angled: fit the sensor firmly and the right way round."
+      }
+     },
+     "id": "q1"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-yaw-rate-sensor-rationality",
+     "target": {
+      "record_id": "yaw-rate-sensor-rationality",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'yaw-rate-sensor-rationality' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#yaw-rate-sensor-rationality",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "airbag-squib-resistance-high-driver": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "When the wheel is turned lock to lock, does the airbag lamp briefly go out and come back?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Lamba direksiyonla değişiyor: zemberek (clockspring) arızalı.",
+       "note_en": "Lamp changes with steering: the clockspring has failed."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Have the horn and steering wheel buttons stopped working at the same time?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [
+        1
+       ],
+       "note_tr": "Korna ve tuşlar da çalışmıyor: zemberek arızalı; airbag modülü daha az olası.",
+       "note_en": "Horn and buttons dead too: the clockspring has failed; the airbag module is less likely."
+      }
+     },
+     "id": "q1"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-airbag-squib-resistance-high-driver",
+     "target": {
+      "record_id": "airbag-squib-resistance-high-driver",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'airbag-squib-resistance-high-driver' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#airbag-squib-resistance-high-driver",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "hvac-blend-door-actuator-stuck": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "With the ignition on, is there a periodic plastic gear clicking behind the dash for 10-15 seconds?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Dişli tıkırtısı: klape motorunun dişlisi kırık.",
+       "note_en": "Gear clicking: the blend door actuator gear is broken."
+      },
+      "no": {
+       "favor": [
+        1,
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Tıkırtı yok: klape motoru beslemesi veya klima kontrol paneli.",
+       "note_en": "No clicking: the actuator supply or the climate control panel."
+      }
+     },
+     "id": "q0"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-hvac-blend-door-actuator-stuck",
+     "target": {
+      "record_id": "hvac-blend-door-actuator-stuck",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'hvac-blend-door-actuator-stuck' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#hvac-blend-door-actuator-stuck",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "wheel-speed-sensor-missing-fr": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Is the front right hub bearing magnetic ring corroded or impact damaged?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Manyetik halka hasarlı: poyra/halka değişimi.",
+       "note_en": "Magnetic ring damaged: replace the hub or ring."
+      },
+      "no": {
+       "favor": [
+        0
+       ],
+       "rule_out": [
+        1
+       ],
+       "note_tr": "Halka sağlam: sağ ön sensör veya kablosu.",
+       "note_en": "Ring intact: the front right sensor or its wiring."
+      }
+     },
+     "id": "q0"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-wheel-speed-sensor-missing-fr",
+     "target": {
+      "record_id": "wheel-speed-sensor-missing-fr",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'wheel-speed-sensor-missing-fr' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#wheel-speed-sensor-missing-fr",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "wheel-speed-sensor-missing-rl": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Has the rear left sensor harness been stretched and broken by suspension movement?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Sensör kablosu kopuk: kabloyu onarın veya sensörü değiştirin.",
+       "note_en": "Sensor wire broken: repair it or replace the sensor."
+      },
+      "no": {
+       "favor": [
+        0,
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Kablo sağlam: sensör ucu ve manyetik halka.",
+       "note_en": "Wiring intact: the sensor tip and the magnetic ring."
+      }
+     },
+     "id": "q0"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-wheel-speed-sensor-missing-rl",
+     "target": {
+      "record_id": "wheel-speed-sensor-missing-rl",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'wheel-speed-sensor-missing-rl' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#wheel-speed-sensor-missing-rl",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "wheel-speed-sensor-missing-rr": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Is there moisture or corrosion in the rear right hub bearing connector?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Sokette nem/korozyon: soketi temizleyin veya değiştirin.",
+       "note_en": "Moisture/corrosion in the connector: clean or replace it."
+      }
+     },
+     "id": "q0"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-wheel-speed-sensor-missing-rr",
+     "target": {
+      "record_id": "wheel-speed-sensor-missing-rr",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'wheel-speed-sensor-missing-rr' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#wheel-speed-sensor-missing-rr",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "tpms-sensor-battery-fl": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Does the front left valve transmitter respond to the activation tool?",
+     "outcomes": {
+      "yes": {
+       "favor": [],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Verici cevap veriyor: alıcıda ID kaydını kontrol edin.",
+       "note_en": "Transmitter responds: check its ID in the receiver."
+      },
+      "no": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Verici cevap vermiyor: pil bitmiş veya sensör arızalı; sensörü değiştirip tanıtın.",
+       "note_en": "No response: dead battery or failed sensor; replace and register it."
+      }
+     },
+     "id": "q0"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-tpms-sensor-battery-fl",
+     "target": {
+      "record_id": "tpms-sensor-battery-fl",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'tpms-sensor-battery-fl' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#tpms-sensor-battery-fl",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "tpms-sensor-battery-fr": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Is the front right tyre pressure sensor's RF transmission received?",
+     "outcomes": {
+      "yes": {
+       "favor": [],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "RF yayını alınıyor: alıcıda ID kaydını kontrol edin.",
+       "note_en": "RF received: check its ID in the receiver."
+      },
+      "no": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "RF yayını yok: pil bitmiş veya sensör arızalı.",
+       "note_en": "No RF: dead battery or failed sensor."
+      }
+     },
+     "id": "q0"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-tpms-sensor-battery-fr",
+     "target": {
+      "record_id": "tpms-sensor-battery-fr",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'tpms-sensor-battery-fr' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#tpms-sensor-battery-fr",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "tpms-sensor-battery-rl": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Is the rear left tyre pressure sensor battery critical?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Pil kritik: sensörü değiştirip tanıtın.",
+       "note_en": "Battery critical: replace and register the sensor."
+      }
+     },
+     "id": "q0"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-tpms-sensor-battery-rl",
+     "target": {
+      "record_id": "tpms-sensor-battery-rl",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'tpms-sensor-battery-rl' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#tpms-sensor-battery-rl",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "tpms-sensor-battery-rr": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Is the rear right sensor ID registered in the receiver module?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "ID kayıtlı: sensör pili veya sensör.",
+       "note_en": "ID registered: the sensor battery or the sensor."
+      },
+      "no": {
+       "favor": [],
+       "rule_out": [],
+       "note_tr": "ID kayıtlı değil: sensörü alıcıya tanıtın (öğretme).",
+       "note_en": "ID not registered: teach the sensor to the receiver."
+      }
+     },
+     "id": "q0"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-tpms-sensor-battery-rr",
+     "target": {
+      "record_id": "tpms-sensor-battery-rr",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'tpms-sensor-battery-rr' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#tpms-sensor-battery-rr",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "transmission-shift-solenoid-b-electrical": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Is solenoid B's resistance at the connector within its nominal range?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        1
+       ],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Solenoid direnci doğru: TCU sürücü katı veya tesisat.",
+       "note_en": "Solenoid resistance correct: the TCU driver or wiring."
+      },
+      "no": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Direnç aralık dışında: solenoid B veya dahili kablosu.",
+       "note_en": "Resistance out of range: solenoid B or its internal wiring."
+      }
+     },
+     "id": "q0"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-transmission-shift-solenoid-b-electrical",
+     "target": {
+      "record_id": "transmission-shift-solenoid-b-electrical",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'transmission-shift-solenoid-b-electrical' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#transmission-shift-solenoid-b-electrical",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "transmission-pressure-control-solenoid-a": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Does the vehicle jolt hard when shifting from P or N into D or R?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0,
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Vites takarken sert vuruntu: hat basıncı yüksek; basınç kontrol solenoidi (EPC) veya regülatör.",
+       "note_en": "Harsh engagement: line pressure too high; the pressure control solenoid (EPC) or regulator."
+      }
+     },
+     "id": "q0"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-transmission-pressure-control-solenoid-a",
+     "target": {
+      "record_id": "transmission-pressure-control-solenoid-a",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'transmission-pressure-control-solenoid-a' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#transmission-pressure-control-solenoid-a",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "ev-cell-overvoltage": {
+   "checks": [
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Is the passive balancing circuit of that cell module open circuit?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Dengeleme devresi açık: hücre dengeleme dirençleri.",
+       "note_en": "Balancing circuit open: the cell balancing resistors."
+      },
+      "no": {
+       "favor": [
+        0
+       ],
+       "rule_out": [
+        1
+       ],
+       "note_tr": "Dengeleme sağlam: hücre gerilim ölçüm devresi (CSC) okumasını doğrulayın.",
+       "note_en": "Balancing fine: verify the cell voltage sensing circuit (CSC) reading."
+      }
+     },
+     "id": "q1"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-ev-cell-overvoltage",
+     "target": {
+      "record_id": "ev-cell-overvoltage",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'ev-cell-overvoltage' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#ev-cell-overvoltage",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "ev-battery-cooling-pump-failure": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "When DC fast charging starts, does the battery coolant pump start circulating?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        1
+       ],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Pompa çalışıyor: soğutma devresi (seviye, hava, tıkanma).",
+       "note_en": "Pump runs: the cooling circuit (level, air, blockage)."
+      },
+      "no": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Pompa devreye girmiyor: batarya soğutma pompası veya beslemesi.",
+       "note_en": "Pump does not start: the battery coolant pump or its supply."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Is the battery coolant expansion tank level normal?",
+     "outcomes": {
+      "no": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Soğutma sıvısı eksik: kaçağı bulup tamamlayın ve havasını alın.",
+       "note_en": "Coolant low: find the leak, top up and bleed."
+      }
+     },
+     "id": "q1"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-ev-battery-cooling-pump-failure",
+     "target": {
+      "record_id": "ev-battery-cooling-pump-failure",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'ev-battery-cooling-pump-failure' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#ev-battery-cooling-pump-failure",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "ev-fast-charge-ccs-comm-timeout": {
+   "checks": [
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Does the vehicle charge normally on AC Type 2?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0,
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "AC şarj çalışıyor: DC iletişim tarafı (EVCC, PLC modemi).",
+       "note_en": "AC charging works: the DC communication side (EVCC, PLC modem)."
+      },
+      "no": {
+       "favor": [],
+       "rule_out": [],
+       "note_tr": "AC şarj da yok: CP/PP pinleri ve dahili şarj cihazı; 'şarj olmuyor' semptomuna bakın.",
+       "note_en": "AC charging fails too: CP/PP pins and the on-board charger; see the 'will not charge' symptom."
+      }
+     },
+     "id": "q1"
+    },
+    {
+     "q": 2,
+     "kind": "yes_no",
+     "question_en": "Is the CP pin in the charging port corroded or pushed back?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "CP pini hasarlı: şarj portunu onarın veya değiştirin.",
+       "note_en": "CP pin damaged: repair or replace the charge port."
+      }
+     },
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-ev-fast-charge-ccs-comm-timeout",
+     "target": {
+      "record_id": "ev-fast-charge-ccs-comm-timeout",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'ev-fast-charge-ccs-comm-timeout' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#ev-fast-charge-ccs-comm-timeout",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "hd-service-brake-treadle-valve-leak": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "With the brake pedal held, does air leak continuously from the exhaust port under the cab?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Basılıyken tahliyeden sürekli hava: ayak fren ventili iç kaçağı.",
+       "note_en": "Continuous air from the exhaust while held: internal leak in the treadle valve."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "With the pedal held, do circuit 1 and 2 gauges show a steady drop?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Devre basıncı düşüyor: o devrede (körük, hortum, ventil) kaçak.",
+       "note_en": "Circuit pressure drops: a leak in that circuit (chamber, hose, valve)."
+      }
+     },
+     "id": "q1"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-hd-service-brake-treadle-valve-leak",
+     "target": {
+      "record_id": "hd-service-brake-treadle-valve-leak",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'hd-service-brake-treadle-valve-leak' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#hd-service-brake-treadle-valve-leak",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "hd-j1939-backbone-termination-resistor-missing": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "measurement",
+     "unit": "Ohm",
+     "question_en": "With the ignition off, what resistance is measured between CAN_H and CAN_L (Ohm)?",
+     "text_keys": [
+      "can h",
+      "can_h",
+      "sonlandirma direnci",
+      "termination resistance"
+     ],
+     "bands": [
+      {
+       "min": null,
+       "max": 50,
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "50 Ohm altında: hatlar arası kısa devre veya fazladan direnç.",
+       "note_en": "Under 50 Ohm: a short between the lines or an extra resistor."
+      },
+      {
+       "min": 50,
+       "max": 70,
+       "favor": [],
+       "rule_out": [
+        1
+       ],
+       "note_tr": "Yaklaşık 60 Ohm: iki sonlandırma direnci yerinde.",
+       "note_en": "About 60 Ohm: both terminating resistors present."
+      },
+      {
+       "min": 70,
+       "max": 140,
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Yaklaşık 120 Ohm: sonlandırma dirençlerinden biri eksik.",
+       "note_en": "About 120 Ohm: one terminating resistor is missing."
+      },
+      {
+       "min": 140,
+       "max": null,
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Çok yüksek: omurga kablosu kopuk.",
+       "note_en": "Very high: the backbone cable is open."
+      }
+     ],
+     "question_tr": "Kontak kapalıyken CAN_H ve CAN_L arasında kaç Ohm ölçülüyor? (60 Ohm olmalı)",
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Is the terminating resistor plug at the rear of the chassis broken off or water-logged?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Sonlandırma direnci soketi hasarlı: direnci yenileyin.",
+       "note_en": "Terminator plug damaged: renew the resistor."
+      }
+     },
+     "id": "q1"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-hd-j1939-backbone-termination-resistor-missing",
+     "target": {
+      "record_id": "hd-j1939-backbone-termination-resistor-missing",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'hd-j1939-backbone-termination-resistor-missing' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#hd-j1939-backbone-termination-resistor-missing",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "hd-low-coolant-level-probe-fault": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Is the low coolant warning on even though the expansion tank is full?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [
+        1
+       ],
+       "note_tr": "Tank dolu ama ikaz var: seviye probu arızalı.",
+       "note_en": "Tank full but warning on: the level probe has failed."
+      },
+      "no": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Seviye gerçekten düşük: kaçağı bulun.",
+       "note_en": "Level really is low: find the leak."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "When removed, are the probe electrodes coated with scale and rust?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Prob kireçli: temizleyin veya değiştirin.",
+       "note_en": "Probe scaled: clean or replace it."
+      }
+     },
+     "id": "q1"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-hd-low-coolant-level-probe-fault",
+     "target": {
+      "record_id": "hd-low-coolant-level-probe-fault",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'hd-low-coolant-level-probe-fault' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#hd-low-coolant-level-probe-fault",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "cam-position-sensor-bank1-intake": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Does cranking take longer, with the engine starting only after 3-4 seconds?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0,
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Uzun marş: eksantrik sinyali gelmiyor; sensör ve kablosu.",
+       "note_en": "Long crank: no cam signal; the sensor and its wiring."
+      }
+     },
+     "id": "q0"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-cam-position-sensor-bank1-intake",
+     "target": {
+      "record_id": "cam-position-sensor-bank1-intake",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'cam-position-sensor-bank1-intake' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#cam-position-sensor-bank1-intake",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "o2-sensor-slow-response-bank1-sensor1": {
+   "checks": [
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Is the sensor tip poisoned by silicone or phosphorus from oil burning?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Sensör zehirlenmiş: sensörü değiştirin ve yağ yakmanın nedenini bulun.",
+       "note_en": "Sensor poisoned: replace it and find why oil is burning."
+      }
+     },
+     "id": "q1"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-o2-sensor-slow-response-bank1-sensor1",
+     "target": {
+      "record_id": "o2-sensor-slow-response-bank1-sensor1",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'o2-sensor-slow-response-bank1-sensor1' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#o2-sensor-slow-response-bank1-sensor1",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "evap-small-leak-detected": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Does the fuel cap seal have fine cracks?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Kapak contası çatlak: kapağı değiştirin.",
+       "note_en": "Cap seal cracked: replace the cap."
+      },
+      "no": {
+       "favor": [
+        0,
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Kapak sağlam: duman testiyle hortum ve kanisteri tarayın.",
+       "note_en": "Cap sound: smoke test the hoses and canister."
+      }
+     },
+     "id": "q0"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-evap-small-leak-detected",
+     "target": {
+      "record_id": "evap-small-leak-detected",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'evap-small-leak-detected' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#evap-small-leak-detected",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "brake-light-switch-rationality": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Do the brake lights stay on without the pedal pressed?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Fren lambaları sürekli yanıyor: pedal anahtarı ayarı bozuk veya arızalı.",
+       "note_en": "Brake lights stay on: the pedal switch is misadjusted or faulty."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "In live data, does brake contact 2 show the opposite of contact 1?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Kontaklar uyumsuz: fren pedal anahtarı.",
+       "note_en": "Contacts disagree: the brake pedal switch."
+      },
+      "no": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Kontaklar uyumlu: fren lambası devresi.",
+       "note_en": "Contacts agree: the brake lamp circuit."
+      }
+     },
+     "id": "q1"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-brake-light-switch-rationality",
+     "target": {
+      "record_id": "brake-light-switch-rationality",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'brake-light-switch-rationality' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#brake-light-switch-rationality",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "ambient-air-temperature-sensor": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Could the sensor connector under the front bumper or right mirror have been left unplugged after bumper repair?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Soket takılmamış olabilir: sensör soketini takın.",
+       "note_en": "Connector may be unplugged: plug the sensor in."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Is the A/C compressor refusing to engage because outside air reads -40°C?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Dış sıcaklık -40°C okunuyor: sensör açık devre; klima bu yüzden kapalı.",
+       "note_en": "Outside air reads -40°C: the sensor is open circuit; that is why the A/C is off."
+      }
+     },
+     "id": "q1"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-ambient-air-temperature-sensor",
+     "target": {
+      "record_id": "ambient-air-temperature-sensor",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'ambient-air-temperature-sensor' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#ambient-air-temperature-sensor",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
   }
  }
 }

@@ -240,3 +240,38 @@ def test_new_modules_have_no_write_or_tx_path() -> None:
                 if attr == "open":
                     mode = node.args[1] if len(node.args) > 1 else None
                     assert not (isinstance(mode, ast.Constant) and any(c in str(mode.value) for c in "wax+")), name
+
+
+def _every_check_answer() -> list[tuple[str, dict[str, Any]]]:
+    """One answer_query per outcome of every curated check (yes/no or a value inside each band)."""
+    kb = get_knowledge_base()
+    out: list[tuple[str, dict[str, Any]]] = []
+    for sid, rec in kb._json_source("symptom_checks")["symptoms"].items():  # noqa: SLF001
+        phrase = (kb.symptom(sid).record.get("keywords_tr") or [kb.symptom(sid).record["name_tr"]])[0]
+        for chk in rec["checks"]:
+            key = f"{sid}.{chk['id']}"
+            if chk["kind"] == "yes_no":
+                values: list[Any] = list(chk["outcomes"])
+            else:
+                values = [(b["min"] if b["min"] is not None else b["max"] - 1) for b in chk["bands"]]
+            out += [(f"{key}={v}", {"text": phrase, "answers": {key: v}}) for v in values]
+    return out
+
+
+def test_every_check_outcome_is_cited_and_traceable() -> None:
+    """All curated answer effects: every citation resolves and every shown number has a source."""
+    kb = get_knowledge_base()
+    problems: list[tuple[str, Any]] = []
+    cases = _every_check_answer()
+    assert len(cases) > 400
+    for label, kwargs in cases:
+        answer = answer_query(language="tr", **kwargs)
+        d = answer.to_dict()
+        key = next(iter(kwargs["answers"]))
+        if not any(c["key"] == key and c["answer"] is not None for c in d["checks"]):
+            problems.append((label, "answer not applied"))
+        unresolved = [r for r in answer.all_refs() if not kb.resolve_ref(r)]
+        extra = sorted(_numbers(_shown_text(d)) - _allowed_numbers(kwargs, answer))
+        if unresolved or extra:
+            problems.append((label, unresolved or extra))
+    assert not problems, problems[:10]

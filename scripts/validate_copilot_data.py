@@ -164,7 +164,10 @@ def check_cross_refs(rep: Report, dtc: dict[str, Any], j1939: dict[str, Any]) ->
     for e in _load(D / "symptom_lexicon.json")["entries"]:
         if e["symptom_id"] not in symptoms:
             rep.add("FAIL", "lexicon_ref", f"unknown symptom_id {e['symptom_id']}")
-    for sid, rec in _load(D / "symptom_checks.json")["symptoms"].items():
+    checks_db = _load(D / "symptom_checks.json")["symptoms"]
+    rep.metrics["symptoms_with_checks"] = f"{len(checks_db)}/{len(symptoms)}"
+    rep.metrics["symptom_checks_total"] = sum(len(rec["checks"]) for rec in checks_db.values())
+    for sid, rec in checks_db.items():
         sym = symptoms.get(sid)
         if sym is None:
             rep.add("FAIL", "checks_ref", f"unknown symptom_id {sid}")

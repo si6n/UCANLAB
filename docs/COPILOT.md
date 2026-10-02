@@ -100,7 +100,7 @@ köprü: `ask_copilot_structured(query, language, answers)`); arayüz Evet / Hay
 Bilmiyorum düğmeleri ve ölçüm alanı gösterir.
 
 * Etkiler küratörlüdür: `scripts/copilot_data/build_symptom_checks.py` →
-  `data/diagnostics/symptom_checks.json` (120 semptom, 232 soru; numaralı aileler — silindir tekleme, enjektör/bobin devresi, vites oranı — tek şablondan üretilir). Bir cevap yalnız
+  `data/diagnostics/symptom_checks.json` (147 semptom, 270 soru; numaralı aileler — silindir tekleme, enjektör/bobin devresi, vites oranı — tek şablondan üretilir). Bir cevap yalnız
   **o semptomun kendi** alt sistemlerini (`subsystems` indeksi) veya kendi aday
   kodlarını (`candidate_dtcs`) öne alır (+1.5) ya da geriye iter (−1.5, "çelişen"
   olarak gösterilir) ve tek cümlelik sabit bir açıklama taşır. Doğrulayıcı ve
@@ -152,7 +152,7 @@ Bilmiyorum düğmeleri ve ölçüm alanı gösterir.
 | `obd_mode06`, `uds_did` | Mode 06 / UDS DID | KB üzerinden erişilebilir (eski paket açıklama yolu) |
 | `canonical_symptoms` | 152 semptom | Şikâyet → aday kod, ilk kontroller |
 | `symptom_lexicon` (yeni) | 33 kayıt, 269 TR/EN ifade + güvenlik terimleri | Gündelik ifadeler |
-| `symptom_checks` (yeni) | 120 semptom, 232 soru | Soru cevaplarının küratörlü etkileri (§3.1.1) |
+| `symptom_checks` (yeni) | 147 semptom, 270 soru | Soru cevaplarının küratörlü etkileri (§3.1.1) |
 | `root_cause_graph` | 8.884 düğüm | Kök neden adayları, kanıt/çelişen sinyaller |
 | `signal_aliases` + `signal_measurement_map` (yeni, 24 sinyal) | | Sinyal adı birleştirme; eksik ölçüm için SPN/PGN/PID rehberi |
 | `system_taxonomy` | 26 sistem | Fren/direksiyon güvenlik tespiti |
@@ -197,7 +197,7 @@ python -m pytest tests/unit/test_copilot_*.py tests/safety/test_ai_tx_isolation.
 | Dosya | İçerik |
 |---|---|
 | `test_copilot_golden_scenarios.py` | 56 altın senaryo (soru cevapları, gündelik ifadeler, DTC, SPN/FMI, DM1, semptom, gösterge değeri, olumsuzluk, telemetri+kod, çelişkili kanıt, veri yok, EV/HV, fren/direksiyon, çoklu kod, yazım hatası, TR/EN, NHTSA, PGN) + 6 bölüm/ilk satır güvenlik kontrolü |
-| `test_copilot_no_fabrication.py` | Atıf çözümü, sayı izlenebilirliği, yalnız verilen sinyallerde bulgu, bilinmeyen koda anlam verilmemesi, NaN/birim reddi, determinizm, yazma/TX yokluğu |
+| `test_copilot_no_fabrication.py` | Her küratörlü sorunun her cevabı (424 durum) için atıf çözümü ve sayı izlenebilirliği; atıf çözümü, sayı izlenebilirliği, yalnız verilen sinyallerde bulgu, bilinmeyen koda anlam verilmemesi, NaN/birim reddi, determinizm, yazma/TX yokluğu |
 | `test_copilot_knowledge_and_parsing.py` | KB tembelliği, indeksler, kaçırma nedenleri, ayrıştırıcı birim testleri |
 | `test_copilot_performance.py` | Kurulum < 10 ms, sıcak sorgu ort. < 150 ms (ölçülen 2–13 ms), bellek < 8 MB, arama katmanı aç/kapa |
 | `test_copilot_checks.py` | Soru hedeflerinin semptoma aitliği, bant sürekliliği, cevapla öne alma/geri itme, metinden ölçüm, etkisiz cevaplar, TR/EN |
