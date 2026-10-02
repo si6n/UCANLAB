@@ -301,6 +301,17 @@ def _evidence_text(marker: str, lang: str, kb: KnowledgeBase) -> str:
                  "brakes": ("fren", "brakes"), "steering": ("direksiyon", "steering")}
         cats = ", ".join(names.get(c, (c, c))[0 if lang == "tr" else 1] for c in payload.split(","))
         return f"{'güvenlik açısından kritik sistem' if lang == 'tr' else 'safety-critical system'}: {cats}"
+    if kind == "stop_safety":
+        if payload == "steering":
+            return ("direksiyon şikâyeti: direksiyon hâkimiyeti kaybolabilir" if lang == "tr"
+                    else "steering complaint: steering control may be lost")
+        return ("fren şikâyeti: aracı durdurma gücü azalmış olabilir" if lang == "tr"
+                else "brake complaint: stopping power may be reduced")
+    if kind == "stop_complaint":
+        rec = kb.symptom(payload).record or {}
+        name = rec.get("name_tr") if lang == "tr" else rec.get("name_en")
+        return (f"şikâyet: {name or payload} — motor çalıştırılmaya devam ederse kalıcı hasar görebilir"
+                if lang == "tr" else f"complaint: {name or payload} — running the engine on can cause permanent damage")
     if kind == "fmi":
         num, _, fam = payload.partition("|")
         if fam == "electrical":

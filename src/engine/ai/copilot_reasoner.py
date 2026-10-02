@@ -42,7 +42,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from src.engine.ai.knowledge_base import KnowledgeBase, fold_text
-from src.engine.ai.query_understanding import ParsedQuery, Reading
+from src.engine.ai.query_understanding import _SYMPTOM_SIGNAL, ParsedQuery, Reading
 
 __all__ = [
     "CodeFact",
@@ -65,6 +65,20 @@ _FILLER_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Harvest residue that is not a cause sentence at all (measured over the J1939 +
+# DTC cause lists, 2026-10): a numbered parts/figure legend ("1. 20-Way TCM
+# Vehicle Harness Connector 2. Transmission Control Module ..."), procedure text
+# ("Key off.", "Note:", "refer to ...") and fragments cut mid-sentence ("Corroded
+# or loose power supply to"). Shown as a root cause they read as nonsense.
+_PARTS_LEGEND_RE = re.compile(r"^\s*\d+[.)]\s+\S.*\s\d+[.)]\s+\S")
+_FMI_TABLE_RE = re.compile(r"\S\s+FMI\s+\d+(?:\s*,\s*\d+)*\s*:")  # "... failure FMI 1, 4, 17, 18: ..." table dump
+_PROCEDURE_RE = re.compile(r"^(?:note|notice)\s*:|\bkey (?:on|off)\b|\brefer to\b|\breference image\b", re.IGNORECASE)
+# Lower-case "a"/"an" only: a trailing capital "A" is a circuit/bank label
+# ("... boost pressure control solenoid A"), not a cut-off article.
+_TRUNCATED_RE = re.compile(
+    r"\b(?:(?i:to|of|the|and|or|with|for|from|by|at|into|between|that|which|ve|veya|ile)|an?)\s*[,:;-]?$"
+)
+
 _SEVERITY_ORDER = ("UNKNOWN", "INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL", "CRITICAL_STOP")
 _RISK_ORDER = ("GRAY", "GREEN", "YELLOW", "RED")
 
@@ -77,6 +91,19 @@ BRAKE_SYMPTOMS = frozenset({
 })
 STEERING_SYMPTOMS = frozenset({"steering-angle-sensor-uncalibrated", "marine-hydraulic-steering-air-ingress"})
 FIRE_SYMPTOMS = frozenset({"ev-thermal-runaway-early-warning"})
+# Complaints that mean "stop the engine now" even without a code or a reading
+# (canonical_symptoms#low-oil-pressure asks "Motoru DERHAL durdurdunuz mu?";
+# running an overheated engine destroys the head gasket). Overridden only by a
+# reading of the same signal that is measured normal.
+STOP_SYMPTOMS = frozenset({"engine-overheating", "low-oil-pressure"})
+# Brake/steering complaints that are only a warning lamp or a sensor: the
+# system itself still works, so they stay YELLOW. Any other brake/steering
+# complaint ("fren pedalı boşa gidiyor", "direksiyon ağırlaştı") is RED.
+_SAFETY_LAMP_SYMPTOMS: dict[str, frozenset[str]] = {
+    "brakes": frozenset({"abs-esp-traction-fault", "brake-light-switch-rationality"}),
+    "steering": frozenset({"steering-angle-sensor-uncalibrated"}),
+}
+_SAFETY_LAMP_TERMS = frozenset({"abs"})
 HV_SIGNALS = frozenset({"IsolationResistance", "HVPackVoltage"})
 
 
@@ -176,9 +203,16 @@ class Reasoning:
 
 
 # ---------------------------------------------------------------- helpers
+def _is_harvest_residue(text: str) -> bool:
+    return bool(_PARTS_LEGEND_RE.search(text) or _FMI_TABLE_RE.search(text) or _PROCEDURE_RE.search(text)
+                or _TRUNCATED_RE.search(text))
+
+
 def _clean_cause(text: Any) -> str | None:
     s = " ".join(str(text or "").split())
     if len(s) < 6 or len(s) > 260 or _FILLER_RE.search(s):
+        return None
+    if _is_harvest_residue(s):
         return None
     try:
         from src.engine.ai.junk_content_signatures import classify_cause
@@ -524,7 +558,7 @@ def _build_hypotheses(kb: KnowledgeBase, r: Reasoning) -> None:
     for gkey, fact in active.items():
         for node in kb.graph_nodes_for_code(gkey):
             ok, exact = _node_fmi_ok(node, gkey, fact.fmi)
-            if not ok:
+            if not ok or _is_harvest_residue(node.title):
                 continue
             h = hyps.get(node.id)
             if h is None:
@@ -557,7 +591,7 @@ def _build_hypotheses(kb: KnowledgeBase, r: Reasoning) -> None:
     for code, sid in complaint_codes.items():
         if code in active:
             continue
-        for node in kb.graph_nodes_for_code(code)[:3]:
+        for node in [n for n in kb.graph_nodes_for_code(code) if not _is_harvest_residue(n.title)][:3]:
             h = hyps.get(node.id)
             if h is None:
                 h = Hypothesis(node.id, node.title, 0.0, "suspected", refs=[f"root_cause_graph#{node.id}"],
@@ -769,6 +803,18 @@ def reason(parsed: ParsedQuery, kb: KnowledgeBase, *, include_recalls: bool = Tr
     elif r.safety and risk in ("GRAY", "GREEN"):
         risk = "YELLOW"
         r.risk_reasons.append((f"safety:{','.join(r.safety)}", "symptom_lexicon#safety_terms"))
+    sids = {sid for sid, _ in r.symptom_records}
+    for cat in ("brakes", "steering"):
+        stop_terms = set(parsed.safety_terms.get(cat, ())) - _SAFETY_LAMP_TERMS
+        if stop_terms and not sids & _SAFETY_LAMP_SYMPTOMS[cat]:
+            risk = "RED"
+            r.risk_reasons.append((f"stop_safety:{cat}", "symptom_lexicon#safety_terms"))
+    measured = {f.signal: f.status for f in r.findings}
+    for sid in sorted(sids & STOP_SYMPTOMS):
+        if measured.get(_SYMPTOM_SIGNAL.get(sid, "")) in ("normal", "above_nominal"):
+            continue
+        risk = "RED"
+        r.risk_reasons.append((f"stop_complaint:{sid}", f"canonical_symptoms#{sid}"))
     r.risk = risk
 
     _missing(kb, r)

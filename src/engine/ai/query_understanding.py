@@ -80,7 +80,7 @@ class Reading:
     value: float
     unit: str
     raw_name: str
-    origin: str  # input | text
+    origin: str  # input | text | text_context (number tied to a symptom's gauge)
     unit_assumed: bool = False
     raw_value: float | None = None
     raw_unit: str = ""
@@ -280,6 +280,17 @@ def _damerau(a: str, b: str, limit: int) -> int:
     return prev[-1]
 
 
+# Turkish verb negation (folded): "donmuyor", "calismiyordu", "basmaz", "almadi".
+# One edit turns "donuyor" (turns) into "donmuyor" (does not turn), so a typo
+# match must never cross the negation boundary.
+# Tolerates a typo inside the suffix itself ("basmyor", "calismiyo").
+_TR_NEGATION_RE = re.compile(r"(?:m[iu]?yor?|m[ae]z|m[ae]d[iu])(?:du|lar|um|sun)?$")
+
+
+def _same_polarity(a: str, b: str) -> bool:
+    return bool(_TR_NEGATION_RE.search(a)) == bool(_TR_NEGATION_RE.search(b))
+
+
 def _token_match(phrase_tok: str, query_tokens: list[str]) -> tuple[str | None, bool]:
     """Best query token for one phrase token -> (token, was_fuzzy)."""
     n = len(phrase_tok)
@@ -291,12 +302,14 @@ def _token_match(phrase_tok: str, query_tokens: list[str]) -> tuple[str | None, 
         # Turkish/English inflection: "hararet"->"hararetli", "calismiyor"->"calismiyordu"
         if len(qt) >= n and qt.startswith(phrase_tok):
             return qt, False
-        if n >= 6 and len(qt) >= 5 and phrase_tok.startswith(qt) and n - len(qt) <= 3:
+        if n >= 6 and len(qt) >= 5 and phrase_tok.startswith(qt) and n - len(qt) <= 3 and _same_polarity(phrase_tok, qt):
             return qt, False
     limit = 2 if n >= 9 else 1 if n >= 5 else 0
     if limit == 0:
         return None, False
     for qt in query_tokens:
+        if not _same_polarity(phrase_tok, qt):
+            continue
         if len(qt) >= 4 and _damerau(phrase_tok, qt, limit) <= limit:
             return qt, True
         # typo + inflection: compare the stem of the query token
@@ -440,6 +453,50 @@ def _text_readings(text: str, kb: KnowledgeBase) -> list[Reading]:
     return out
 
 
+# A complaint names the gauge, not the signal: "motor hararet yapıyor,
+# göstergede 112 derece". When a matched symptom is about exactly one measurable
+# signal and the text holds exactly one number whose EXPLICIT unit converts to
+# that signal's unit, the number is that signal's reading. Unit-less numbers,
+# incompatible units and ambiguity (two candidate numbers) are never attached.
+_SYMPTOM_SIGNAL: dict[str, str] = {
+    "engine-overheating": "CoolantTemp",
+    "coolant-thermostat-stuck-open": "CoolantTemp",
+    "low-oil-pressure": "EngineOilPressure",
+    "engine-oil-temperature-high": "EngineOilTemp",
+    "battery-drain-parasitic": "BatteryVoltage",
+    "alternator-overcharging": "BatteryVoltage",
+}
+_ANY_NUM_UNIT_RE = re.compile(
+    r"(?<![a-z0-9.,])(-?\d+(?:[.,]\d+)?)\s*(°c|°f|derece|degc|c|f|mbar|bar|kpa|psi|vdc|volt|v|mv)(?![a-z0-9])"
+)
+
+
+def _context_readings(text: str, symptoms: list[SymptomMatch], have: set[str],
+                      kb: KnowledgeBase) -> tuple[list[Reading], list[str]]:
+    signals: list[tuple[str, str]] = []
+    for s in symptoms:
+        canonical = _SYMPTOM_SIGNAL.get(s.symptom_id)
+        if canonical and canonical not in have and all(c != canonical for c, _ in signals):
+            signals.append((canonical, s.symptom_id))
+    if not signals:
+        return [], []
+    numbers = [(float(m.group(1).replace(",", ".")), _UNIT_ALIASES[m.group(2)])
+               for m in _ANY_NUM_UNIT_RE.finditer(_light_fold(text))]
+    out: list[Reading] = []
+    notes: list[str] = []
+    for canonical, sid in signals:
+        target = _canonical_unit(kb, canonical)
+        fits = [(v, u) for v, u in numbers if target and _to_unit(v, u, target) is not None]
+        if len(fits) != 1:
+            continue
+        value, unit = fits[0]
+        reading = _make_reading(kb, canonical, sid, value, unit, "text_context")
+        if reading is not None:
+            out.append(reading)
+            notes.append(f"context_reading:{canonical}<-{sid}")
+    return out, notes
+
+
 def _input_readings(telemetry: Mapping[str, Any], kb: KnowledgeBase) -> tuple[list[Reading], list[str]]:
     out: list[Reading] = []
     unknown: list[str] = []
@@ -570,6 +627,9 @@ def parse_query(
     readings, unknown = _input_readings(telemetry or {}, kb)
     have = {r.canonical for r in readings}
     readings.extend(r for r in _text_readings(text, kb) if r.canonical not in have)
+    context, notes = _context_readings(text, pq.symptoms, {r.canonical for r in readings}, kb)
+    readings.extend(context)
+    pq.notes.extend(notes)
     pq.readings = readings
     pq.unknown_telemetry = unknown
 
