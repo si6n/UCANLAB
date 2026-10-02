@@ -1,26 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  Activity,
-  Cable,
-  Cpu,
-  FileDown,
-  LineChart,
-  Minus,
-  Moon,
-  OctagonX,
-  Radio,
-  Settings,
-  Square,
-  Stethoscope,
-  Sun,
-  Waypoints,
-  Wrench,
-  X,
-} from 'lucide-react';
+import { Activity, Cable, Cpu, FileDown, LineChart, Radio, Settings, Stethoscope, Waypoints, Wrench } from 'lucide-react';
 import { BusInfoResult, DesktopBridge } from '../../services/bridge';
 import { L } from '../mechanic/text';
 import { useMechanicMode } from '../mechanic/MechanicFlow';
 import { useUiHeartbeat } from '../mechanic/useUiHeartbeat';
+import { DisplayMenu } from '../shell/DisplayMenu';
+import { EstopBanner, EstopButton, EstopResetDialog } from '../shell/Estop';
+import { safetyView } from '../shell/safety';
+import { WindowControls } from '../shell/WindowControls';
 import { AssistantView } from './AssistantView';
 import { DiscoveryView, discoveryKeyFromTrafficKey } from './DiscoveryView';
 import { EcuView } from './EcuView';
@@ -30,7 +17,7 @@ import { PlotView } from './PlotView';
 import { RecordsView } from './RecordsView';
 import { SettingsPanel } from './SettingsPanel';
 import { useBusStream } from './useBusStream';
-import { BTN_QUIET, Chip, Dot, Tone, cx } from './ui';
+import { StatusText, Tone, cx } from './ui';
 
 /**
  * Uzman masası — the engineer workbench, rebuilt in the mechanic-flow design
@@ -116,43 +103,6 @@ function busLabel(info: BusInfoResult | null): string {
   return `${info.interface ?? '?'} ${info.channel ?? ''}${kbps}`.trim();
 }
 
-type SafetyView = { tone: Tone; text: string; detail: string };
-
-function safetyView(state: string | null): SafetyView {
-  switch (state) {
-    case 'ARMED_TX':
-    case 'ACTIVE':
-      return {
-        tone: 'warn',
-        text: L('Araca yazma açık', 'Transmit armed'),
-        detail: L('Onaylı bir işlem araca çerçeve gönderebilir.', 'An approved operation may send frames to the vehicle.'),
-      };
-    case 'FAULT':
-      return {
-        tone: 'danger',
-        text: L('Güvenlik kilidi', 'Safety lock'),
-        detail: L(
-          'E-Stop veya bir güvenlik hatası nedeniyle gönderim kapalı. Kilidi yalnızca yetkili sıfırlama açar.',
-          'Transmission is off because of the E-Stop or a safety fault. Only an authorised reset clears it.',
-        ),
-      };
-    case 'PASSIVE':
-    case 'SAFE':
-    case 'STARTUP':
-      return {
-        tone: 'ok',
-        text: L('Yalnızca dinleme', 'Listen only'),
-        detail: L('Uygulama araca hiçbir çerçeve göndermiyor.', 'The app sends no frames to the vehicle.'),
-      };
-    default:
-      return {
-        tone: 'neutral',
-        text: L('Güvenlik durumu bilinmiyor', 'Safety state unknown'),
-        detail: L('Masaüstü uygulamasına bağlı değil.', 'Not connected to the desktop app.'),
-      };
-  }
-}
-
 const NavItem: React.FC<{ def: ModuleDef; active: boolean; onClick: () => void }> = ({ def, active, onClick }) => {
   const Icon = def.icon;
   return (
@@ -180,31 +130,15 @@ export const Workbench: React.FC = () => {
   const native = DesktopBridge.isNative();
   const [active, setActive] = useState<ModuleId>('traffic');
   const [discoveryKey, setDiscoveryKey] = useState<string | null>(null);
-  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
-    try {
-      return localStorage.getItem('ucanlab.theme') === 'light' ? 'light' : 'dark';
-    } catch {
-      return 'dark';
-    }
-  });
   const [safety, setSafety] = useState<string | null>(null);
   const [busInfo, setBusInfo] = useState<BusInfoResult | null>(null);
   const [simError, setSimError] = useState('');
-  const [estopBusy, setEstopBusy] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
   const { snap, setPaused, clear } = useBusStream(true);
 
   // The TX watchdog lease follows this window being alive (same contract as
   // the previous shell): hidden/frozen UI → lease expires → TX refused.
   useUiHeartbeat(native);
-
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark');
-    try {
-      localStorage.setItem('ucanlab.theme', theme);
-    } catch {
-      /* storage unavailable: theme still applies for this session */
-    }
-  }, [theme]);
 
   const poll = useCallback(async () => {
     if (!native) return;
@@ -223,16 +157,6 @@ export const Workbench: React.FC = () => {
     const t = window.setInterval(() => void poll(), 1000);
     return () => window.clearInterval(t);
   }, [poll]);
-
-  const estop = async () => {
-    setEstopBusy(true);
-    try {
-      await DesktopBridge.triggerEstop();
-    } finally {
-      setEstopBusy(false);
-      void poll();
-    }
-  };
 
   const SIM_ERRORS: Record<string, () => string> = {
     ESTOP_ENGAGED: () => L('Acil durdurma kilitliyken simülatöre geçilmez; gerçek hat kaydı sürer.', 'Not while the E-Stop is latched; the real bus keeps recording.'),
@@ -277,11 +201,10 @@ export const Workbench: React.FC = () => {
         : L('hat sessiz', 'bus quiet')
       : liveSources.map((s) => SOURCE_LABEL[s]()).join(' + ');
     return (
-      <Chip testId="bus-chip" tone={tone} title={L('Dinlenen hat ve verinin kaynağı', 'Bus being listened to and where the data comes from')}>
-        <Dot tone={tone} pulse={!quiet} />
+      <StatusText testId="bus-chip" tone={tone} pulse={!quiet} title={L('Dinlenen hat ve verinin kaynağı', 'Bus being listened to and where the data comes from')}>
         {native && busInfo && !busInfo.simulated ? `${busLabel(busInfo)} · ` : ''}
         {busInfo?.simulated ? busLabel(busInfo) : sourceText}
-      </Chip>
+      </StatusText>
     );
   }, [snap.total, snap.perSecond, liveSources, hasSim, hasReplay, native, busInfo]);
 
@@ -396,21 +319,20 @@ export const Workbench: React.FC = () => {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="pywebview-drag-region flex flex-none items-center justify-between gap-3 border-b border-border-whisper px-5 py-3">
-          <div className="min-w-0" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-            <div className="flex items-center gap-2">
-              <h1 className="text-[17px] font-semibold text-text-hi" data-testid="page-title">
-                {def.title()}
-              </h1>
-            </div>
-            <p className="text-[12.5px] text-text-mid">{def.hint()}</p>
+        <header className="flex h-[60px] flex-none items-center gap-4 border-b border-border-whisper pl-5 pr-2">
+          <div className="pywebview-drag-region flex min-w-0 flex-1 flex-col justify-center self-stretch">
+            <h1 className="truncate text-[17px] font-semibold leading-tight text-text-hi" data-testid="page-title">
+              {def.title()}
+            </h1>
+            <p className="truncate text-[12.5px] text-text-mid">{def.hint()}</p>
           </div>
 
-          <div className="flex flex-wrap items-center justify-end gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+          <div className="flex flex-none items-center gap-4">
             {busChip}
             {loadPct !== null && (
-              <Chip
+              <StatusText
                 testId="load-chip"
+                dot={false}
                 tone={loadPct > 70 ? 'danger' : loadPct > 40 ? 'warn' : 'neutral'}
                 title={L(
                   'Gelen çerçevelerin boyutundan hesaplanır (bit doldurma hariç); gerçek yük biraz daha yüksektir.',
@@ -418,59 +340,28 @@ export const Workbench: React.FC = () => {
                 )}
               >
                 {L('Yük', 'Load')} ≈ %{loadPct}
-              </Chip>
+              </StatusText>
             )}
             {(busInfo?.error_frames ?? 0) > 0 && (
-              <Chip tone="danger" testId="error-chip" title={L('Sürücünün bildirdiği hata çerçeveleri', 'Error frames reported by the driver')}>
+              <StatusText tone="danger" testId="error-chip" title={L('Sürücünün bildirdiği hata çerçeveleri', 'Error frames reported by the driver')}>
                 {busInfo?.error_frames} {L('hata çerçevesi', 'error frames')}
-              </Chip>
+              </StatusText>
             )}
-            {busInfo?.bus_state === 'bus_off' && <Chip tone="danger">BUS-OFF</Chip>}
-            <Chip tone={sv.tone} title={sv.detail} testId="safety-chip">
-              <Dot tone={sv.tone} />
+            {busInfo?.bus_state === 'bus_off' && <StatusText tone="danger">BUS-OFF</StatusText>}
+            <StatusText tone={sv.tone} title={sv.detail} testId="safety-chip">
               {sv.text}
-            </Chip>
-            <button
-              type="button"
-              data-testid="estop"
-              onClick={() => void estop()}
-              disabled={!native || estopBusy}
-              title={L('Araca giden tüm gönderimi anında keser.', 'Immediately cuts every transmission to the vehicle.')}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-del px-3 py-1.5 text-[13px] font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
-            >
-              <OctagonX className="h-4 w-4" />
-              {L('ACİL DURDUR', 'E-STOP')}
-            </button>
-            <div className="mx-1 h-5 w-px bg-border-whisper" />
-            <button
-              type="button"
-              className={cx(BTN_QUIET, 'px-2')}
-              onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
-              aria-label={L('Tema', 'Theme')}
-            >
-              {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </button>
-            {native && (
-              <>
-                <button type="button" className={cx(BTN_QUIET, 'px-2')} onClick={() => DesktopBridge.minimizeWindow()} aria-label={L('Küçült', 'Minimise')}>
-                  <Minus className="h-4 w-4" />
-                </button>
-                <button type="button" className={cx(BTN_QUIET, 'px-2')} onClick={() => DesktopBridge.maximizeWindow()} aria-label={L('Büyüt', 'Maximise')}>
-                  <Square className="h-3.5 w-3.5" />
-                </button>
-                <button type="button" className={cx(BTN_QUIET, 'px-2 hover:bg-del hover:text-white')} onClick={() => DesktopBridge.closeWindow()} aria-label={L('Kapat', 'Close')}>
-                  <X className="h-4 w-4" />
-                </button>
-              </>
-            )}
+            </StatusText>
+          </div>
+          <EstopButton native={native} onTriggered={() => void poll()} />
+          <span className="h-5 w-px flex-none bg-border-whisper" aria-hidden="true" />
+          <div className="-ml-2 flex flex-none items-center gap-0.5">
+            <DisplayMenu />
+            <WindowControls native={native} />
           </div>
         </header>
 
-        {safety === 'FAULT' && (
-          <div role="alert" data-testid="estop-banner" className="border-b border-danger-border bg-danger-soft px-5 py-2.5 text-[13px] text-del">
-            <b>{L('Gönderim kilitli.', 'Transmission locked.')}</b> {sv.detail}
-          </div>
-        )}
+        {safety === 'FAULT' && <EstopBanner detail={sv.detail} onOpenReset={() => setResetOpen(true)} />}
+        {resetOpen && <EstopResetDialog onClose={() => setResetOpen(false)} onReset={() => void poll()} />}
 
         <main className="min-h-0 flex-1 overflow-hidden p-4">{body}</main>
       </div>

@@ -62,6 +62,32 @@ export const Dot: React.FC<{ tone: Tone; pulse?: boolean }> = ({ tone, pulse }) 
   />
 );
 
+/**
+ * Header status: a dot and plain text, no outline or fill. The dot carries
+ * the tone; a danger state (or a warning shown without a dot) colours the
+ * text too.
+ */
+export const StatusText: React.FC<{ tone?: Tone; dot?: boolean; pulse?: boolean; children: React.ReactNode; title?: string; testId?: string }> = ({
+  tone = 'neutral',
+  dot = true,
+  pulse,
+  children,
+  title,
+  testId,
+}) => (
+  <span
+    title={title}
+    data-testid={testId}
+    className={cx(
+      'inline-flex flex-none items-center gap-1.5 whitespace-nowrap text-[12.5px]',
+      tone === 'danger' ? 'font-semibold text-del' : tone === 'warn' && !dot ? 'text-warn' : 'text-text-mid',
+    )}
+  >
+    {dot && <Dot tone={tone} pulse={pulse} />}
+    {children}
+  </span>
+);
+
 export const BTN =
   'inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-[13px] font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50';
 export const BTN_PRIMARY = cx(BTN, 'bg-accent text-bg-app hover:opacity-90');
@@ -112,7 +138,7 @@ export const EmptyState: React.FC<{
     <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-border-whisper text-text-mid">
       <Icon className="h-6 w-6" />
     </span>
-    <h3 className="text-[15px] font-semibold text-text-hi">{title}</h3>
+    <h2 className="text-[15px] font-semibold text-text-hi">{title}</h2>
     <p className="max-w-md text-[13px] text-text-mid">{body}</p>
     {children && <div className="mt-2 flex flex-wrap justify-center gap-2">{children}</div>}
   </div>
