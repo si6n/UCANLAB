@@ -391,10 +391,7 @@ _CONVERT: dict[tuple[str, str], Any] = {
 
 def _light_fold(text: str) -> str:
     """Turkish-fold + lower-case but keep digits, decimal marks and units."""
-    t = str(text).translate(str.maketrans({
-        "ı": "i", "İ": "i", "ş": "s", "Ş": "s", "ğ": "g", "Ğ": "g",
-        "ü": "u", "Ü": "u", "ö": "o", "Ö": "o", "ç": "c", "Ç": "c",
-    })).lower()
+    t = str(text).translate(str.maketrans("ıİşŞğĞüÜöÖçÇ", "iissgguuoocc")).lower()
     return re.sub(r"[^0-9a-z.,%°/ωΩ\s:=\-]", " ", t)
 
 

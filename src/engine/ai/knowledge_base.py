@@ -457,8 +457,10 @@ class KnowledgeBase:
         key = f"0x{int(did):04X}"
         if not isinstance(db, dict):
             return Lookup.miss("uds_did", key, "source_unavailable")
-        dids = db.get("dids") or {}
-        rec = dids.get(key) or dids.get(key.lower()) or dids.get(f"{int(did):04X}")
+        # The shipped file mixes "0x1153" and "0XF180" key spellings: match on
+        # the numeric value, never on the raw string.
+        dids = {str(k).upper(): v for k, v in (db.get("dids") or {}).items()}
+        rec = dids.get(key.upper())
         return Lookup(True, "uds_did", key, rec) if isinstance(rec, dict) else Lookup.miss("uds_did", key)
 
     # ------------------------------------------------------------ symptom layer
@@ -566,14 +568,15 @@ class KnowledgeBase:
             return out
 
         index = self._load("_idx_system_labels", build)
-        return index.get(fold_text(label)) if isinstance(index, dict) else None
+        found = index.get(fold_text(label)) if isinstance(index, dict) else None
+        return str(found) if found else None
 
     def canonical_signal(self, name: str) -> str:
         """Alias-resolved signal name (``coolant_temp`` -> ``CoolantTemp``)."""
         index = self._load("_idx_signal_alias", self._build_alias_index)
         if not isinstance(index, dict):
             return name
-        return index.get(fold_text(name).replace(" ", ""), name)
+        return str(index.get(fold_text(name).replace(" ", ""), name))
 
     def _build_alias_index(self) -> dict[str, str]:
         data = self._json_source("signal_aliases")
@@ -742,6 +745,8 @@ class KnowledgeBase:
         if source == "dtc_database":
             return self.dtc(key.split(".")[0]).found
         if source == "j1939_spn_fmi":
+            if key.startswith("PGN_"):
+                return self.pgn(int(key[4:])).found
             if key.startswith("fmi_definitions."):
                 return self.fmi_definition(int(key.split(".")[1])).found
             m = re.match(r"^SPN_(\d+)(?:\.FMI_(\d+))?", key)
@@ -751,7 +756,8 @@ class KnowledgeBase:
         if source == "canonical_symptoms":
             return self.symptom(key).found
         if source == "symptom_lexicon":
-            return self.symptom(key).found
+            lex = self._json_source("symptom_lexicon")
+            return (key == "safety_terms" and isinstance(lex, dict) and "safety_terms" in lex) or self.symptom(key).found
         if source == "root_cause_graph":
             return any(n.id == key for nodes in self._graph_index().values() for n in nodes)
         if source == "telemetry_thresholds":

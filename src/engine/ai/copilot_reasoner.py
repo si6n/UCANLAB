@@ -275,7 +275,7 @@ def _dtc_fact(kb: KnowledgeBase, code: str, origin: str) -> CodeFact:
 def _spn_fact(kb: KnowledgeBase, spn: int, fmi: int | None, origin: str, oc: int | None) -> CodeFact:
     key = f"SPN {spn}" + (f" FMI {fmi}" if fmi is not None else "")
     look = kb.spn(spn, fmi)
-    fact = CodeFact(key, "spn", origin, look.record is not None if fmi is not None else look.found, fmi=fmi,
+    fact = CodeFact(key, "spn", origin, look.found, fmi=fmi,
                     occurrence_count=oc)
     rec: dict[str, Any] | None
     if fmi is None:
@@ -571,9 +571,9 @@ def _build_hypotheses(kb: KnowledgeBase, r: Reasoning) -> None:
 
     for h in hyps.values():
         if h.kind == "record":
-            fact = active.get(h.codes[0].split(" FMI")[0]) if h.codes else None
-            if fact is not None and fact.severity in _SEVERITY_ORDER:
-                h.severity_rank = _SEVERITY_ORDER.index(fact.severity)
+            rec_fact = active.get(h.codes[0].split(" FMI")[0]) if h.codes else None
+            if rec_fact is not None and rec_fact.severity in _SEVERITY_ORDER:
+                h.severity_rank = _SEVERITY_ORDER.index(rec_fact.severity)
     # Ties are broken by the severity of the code behind the cause, so the
     # cause of the most dangerous active code is read first.
     ranked = sorted(hyps.values(), key=lambda h: (-h.score, -h.severity_rank, h.title))
@@ -683,14 +683,14 @@ def _how_to(rec: dict[str, Any]) -> tuple[str, str]:
 # -------------------------------------------------------------- top level
 def reason(parsed: ParsedQuery, kb: KnowledgeBase, *, include_recalls: bool = True) -> Reasoning:
     r = Reasoning(parsed=parsed)
-    for c in parsed.dtcs:
-        r.codes.append(_dtc_fact(kb, c.code, c.origin))
-    for s in parsed.spns:
-        r.codes.append(_spn_fact(kb, s.spn, s.fmi, s.origin, s.occurrence_count))
-    for s in parsed.symptoms:
-        look = kb.symptom(s.symptom_id)
+    for dm in parsed.dtcs:
+        r.codes.append(_dtc_fact(kb, dm.code, dm.origin))
+    for sm in parsed.spns:
+        r.codes.append(_spn_fact(kb, sm.spn, sm.fmi, sm.origin, sm.occurrence_count))
+    for sym in parsed.symptoms:
+        look = kb.symptom(sym.symptom_id)
         if look.found:
-            r.symptom_records.append((s.symptom_id, look.record))
+            r.symptom_records.append((sym.symptom_id, look.record))
 
     # telemetry
     rpm_reading = next((x for x in parsed.readings if x.canonical == "EngineSpeed"), None)
@@ -709,16 +709,16 @@ def reason(parsed: ParsedQuery, kb: KnowledgeBase, *, include_recalls: bool = Tr
 
     # urgency
     risk = "GRAY"
-    for c in r.codes:
-        if not c.found:
+    for cf in r.codes:
+        if not cf.found:
             continue
-        cr = _severity_to_risk(c.severity)
+        cr = _severity_to_risk(cf.severity)
         if cr != "GRAY":
-            r.risk_reasons.append((f"severity:{c.key}|{c.severity}", c.severity_ref or (c.refs[0] if c.refs else "")))
+            r.risk_reasons.append((f"severity:{cf.key}|{cf.severity}", cf.severity_ref or (cf.refs[0] if cf.refs else "")))
         risk = _raise_risk(risk, cr)
-        if c.kind == "dtc" and c.key.startswith("P0A"):
+        if cf.kind == "dtc" and cf.key.startswith("P0A"):
             risk = "RED"
-            r.risk_reasons.append((f"ev:{c.key}", c.refs[0] if c.refs else ""))
+            r.risk_reasons.append((f"ev:{cf.key}", cf.refs[0] if cf.refs else ""))
     for f in r.findings:
         if f.status in ("critical_high", "critical_low"):
             risk = "RED"
@@ -743,12 +743,12 @@ def reason(parsed: ParsedQuery, kb: KnowledgeBase, *, include_recalls: bool = Tr
 
     for cat in parsed.safety_terms:
         add(cat)
-    for c in r.codes:
-        if c.kind == "dtc" and c.key.startswith("P0A"):
+    for cf in r.codes:
+        if cf.kind == "dtc" and cf.key.startswith("P0A"):
             add("high_voltage")
-        if c.system_id in BRAKE_SYSTEMS:
+        if cf.system_id in BRAKE_SYSTEMS:
             add("brakes")
-        if c.system_id in STEERING_SYSTEMS:
+        if cf.system_id in STEERING_SYSTEMS:
             add("steering")
     for sid, rec in r.symptom_records:
         if rec.get("domain") == "EV_HV":
@@ -775,8 +775,8 @@ def reason(parsed: ParsedQuery, kb: KnowledgeBase, *, include_recalls: bool = Tr
 
     if include_recalls and parsed.vehicle_make and (r.codes or r.symptom_records or r.safety):
         terms: list[str] = [w for cat in r.safety for w in _SAFETY_RECALL_TERMS.get(cat, ())]
-        for c in r.codes:
-            for tok in fold_text(c.title_en).split():
+        for cf in r.codes:
+            for tok in fold_text(cf.title_en).split():
                 if len(tok) >= 5 and tok not in _RECALL_STOPWORDS and tok not in terms:
                     terms.append(tok)
         for _sid, rec in r.symptom_records:

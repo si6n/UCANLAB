@@ -128,8 +128,8 @@ _STATUS: dict[str, dict[str, str]] = {
     "plausible": {"tr": "makul bir okuma (bu nedeni zayıflatır)", "en": "a plausible reading (weakens this cause)"},
     "at_limit": {"tr": "sensör ölçüm aralığının en alt sınırında (tipik kopuk/kısa devre varsayılan değeri)",
                  "en": "pinned at the bottom of the sensor range (typical open/short default value)"},
-    "below_nominal": {"tr": "normal çalışma aralığının altında (motor soğuk olabilir)",
-                      "en": "below the normal operating range (engine may be cold)"},
+    "below_nominal": {"tr": "kayıttaki normal çalışma aralığının altında (yük/sıcaklık koşuluna bağlı olabilir)",
+                      "en": "below the recorded normal operating range (may depend on load/temperature)"},
 }
 
 
@@ -188,6 +188,9 @@ class StructuredAnswer:
             add(m.get("refs", []))
         for code in self.technical.get("codes", []):
             add(code.get("refs", []))
+        add(t.get("ref", "") for t in self.technical.get("telemetry", []))
+        add(p.get("ref", "") for p in self.technical.get("pgns", []) + self.technical.get("pids", []))
+        add(h.get("ref", "") for h in self.technical.get("similar_records", []))
         for rec in self.recalls.get("items", []):
             add([rec.get("ref", "")])
         return refs
@@ -362,6 +365,10 @@ def _summary(r: Reasoning, lang: str, kb: KnowledgeBase) -> str:
             str(rec.get("name_tr") if lang == "tr" else rec.get("name_en")) for _sid, rec in r.symptom_records[:3])
         bits.append(f"Anlaşılan şikâyet: {names}." if lang == "tr" else f"Complaint understood as: {names}.")
     abnormal = [f for f in r.findings if f.abnormal]
+    others = [f for f in r.findings if not f.abnormal]
+    if others and not found:
+        txt = ", ".join(f"{f.signal} {f.value:g} {f.unit} ({_STATUS.get(f.status, {}).get(lang, f.status)})" for f in others[:3])
+        bits.append(f"Ölçülen: {txt}." if lang == "tr" else f"Measured: {txt}.")
     if abnormal:
         txt = ", ".join(f"{f.signal} {f.value:g} {f.unit} ({_STATUS[f.status][lang]})" for f in abnormal[:3])
         bits.append(f"Ölçüm dışı değer: {txt}." if lang == "tr" else f"Out-of-range reading: {txt}.")
@@ -417,6 +424,12 @@ def _steps(r: Reasoning, lang: str, max_steps: int) -> list[dict[str, Any]]:
     if not r.codes:
         add("Tarama ekranından arıza kodlarını okuyun (OBD-II Mode 03 / J1939 DM1)." if lang == "tr"
             else "Read the fault codes from the scan screen (OBD-II Mode 03 / J1939 DM1).", "", ["template:scan"])
+    for c in r.codes:
+        if not c.found:
+            add((f"{c.key}: kodu tarama cihazından tekrar okuyup doğrulayın; bu kod için doğrulanmış kayıt yok, "
+                 "üreticinin servis bilgisine başvurun.") if lang == "tr" else
+                (f"{c.key}: re-read and confirm the code with the scan tool; there is no verified record for it, "
+                 "consult the manufacturer's service information."), "", ["template:unknown_code"])
     for sid, rec in r.symptom_records[:2]:
         for q in list(rec.get("initial_questions") or [])[:2]:
             add(f"{'Kontrol edin' if lang == 'tr' else 'Check'}: {q}", "Kolay" if lang == "tr" else "Easy",
