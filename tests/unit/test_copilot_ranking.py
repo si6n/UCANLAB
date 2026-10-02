@@ -46,3 +46,8 @@ def test_summary_points_to_the_most_useful_unanswered_question() -> None:
     done = answer_query("akü bitiyor", language="tr", answers={
         "battery-drain-parasitic.q0": 320, "battery-drain-parasitic.q1": "hayır", "battery-drain-parasitic.q2": 14}).summary
     assert "Önce şu soruyu" not in done
+
+
+def test_the_named_next_question_is_listed_first() -> None:
+    d = answer_query("motor hararet yapıyor", language="tr").to_dict()
+    assert d["summary"].endswith(d["checks"][0]["question"])

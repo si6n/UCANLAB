@@ -680,6 +680,7 @@ def answer_query(
     ans.checks = _checks(r, lang, kb)
     nxt = _next_question(r, kb, ans.checks)
     if nxt is not None:
+        ans.checks = [nxt] + [c for c in ans.checks if c is not nxt]  # the named question is listed first
         ans.summary += (f" Önce şu soruyu cevaplayın: {nxt['question']}" if lang == "tr"
                         else f" Answer this first: {nxt['question']}")
     ans.missing_data = [{
