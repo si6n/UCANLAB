@@ -8,8 +8,8 @@ Dal: `ccr-intake`. Bu rapor **keşif kanıtıdır**; `data/diagnostics` ve
 
 | Ölçüm | Değer |
 |---|---|
-| Taranan upstream artefakt | **133** (OBDex `data/` + canboat `database/j1939/pgns/` + `docs/canboat.json` + Wal33D `data/source-data/`) |
-| Vendor edilmiş ve **hash birebir doğrulanmış** | **12** |
+| Taranan upstream artefakt | **134** (OBDex `data/` + canboat `database/j1939/pgns/` + `docs/canboat.json` + Wal33D `data/source-data/`) |
+| Vendor edilmiş ve **hash birebir doğrulanmış** | **13** |
 | Hash uyuşmazlığı | **0** |
 | Vendor edilmemiş (yeni bulunan) | **84** (64.461 bayt) |
 | Intake'e sahaya alınan `pgn_layout` kaydı | **84** |
@@ -25,6 +25,7 @@ Dal: `ccr-intake`. Bu rapor **keşif kanıtıdır**; `data/diagnostics` ve
 | `foerbsnavi/OBDex` | `bc58b0eb7273226a1aabae98e956b70b8362bda1` | CC0-1.0 | 9/9 dosya zaten vendor; **9/9 sha256 birebir** |
 | `canboat/canboat` | `f7f088b49d58f5b4a0feb9b29c288b0ae18a7880` | Apache-2.0 (NOTICE zorunlu) | `docs/canboat.json` (2,4 MB) ve DM1 YAML'ı birebir doğrulandı; **84 PGN düzeni yeni** |
 | `Wal33D/dtc-database` | `04c43d72e7db7197658b6f72fe582c5076d9eee8` | MIT (atıf zorunlu) | `data/dtc_codes.db` birebir doğrulandı; **37 per-manufacturer kaynak listesi yeni** |
+| `STAS63-bit/sitrak-error-codes` | `fdb0c0d9daf0643975b0ff62e0ff69ef9c07f742` | CC-BY-4.0 (atıf zorunlu) | `error-codes.json` birebir doğrulandı; **artık artefakt yok** (taranan 4 kaynak tamamen) |
 
 İndirilen tarball, `data/PROVENANCE.md` §2'deki kanıt satırlarıyla **birebir**
 örtüşüyor: 11/11 artefaktta hash eşleşti, sapma yok. Yani "upstream değişti"
@@ -128,6 +129,35 @@ kayıtları olarak girdi (37 kayıt, ~557 KiB satır kanıtı). Doğrulayıcı h
 `oem_divergence_open=5922` → **hiçbiri kapanmamış**, yani kusur kendiliğinden
 çözülmüyor ve terfi kararı gerekiyor (README Adım 3b).
 
+### Hangi üreticinin metni hayatta kaldı? (ölçüm)
+
+Katmandaki metnin **her kod için** tam olarak bir kaynak satırına eşit olduğu
+doğrulandı (12.128/12.128; hiçbir metin uydurulmamış, hiçbiri kaybolmamış).
+Ama upstream'da **877 kodun birden çok farklı ifadesi** var ve hayatta kalan
+metin şu dağılımla tek bir tanesine bağlıyor:
+
+| Hayatta kalan liste | Kod sayısı |
+|---|---|
+| `p_codes.txt` (genel) | 7.355 |
+| `other_codes.txt` (genel) | 1.990 |
+| `u_codes.txt` (genel) | 1.228 |
+| `volkswagen_codes.txt` | 528 |
+| `c_codes.txt` (genel) | 497 |
+| `b_codes.txt` (genel) | 300 |
+| diğer (FORD 42, DODGE 31, SUBARU 28 …) | kalanı |
+
+Somut örnek — `P1101` upstream'ta **üç** farklı tanım taşıyor:
+
+| Liste | `P1101` metni |
+|---|---|
+| `other_codes.txt` | MAF Sensor Out Of Self Test Range./KOER Not Able To Complete KOER Aborted |
+| `ford_codes.txt` | Mass Air Flow Sensor Out of Self-Test Range |
+| `volkswagen_codes.txt` | Oxygen Sensor Circuit Bank 1 Sensor 1 Voltage Too Low/Air Leak |
+| **katmanda saklanan** | **Oxygen Sensor Circuit Bank 1 Sensor 1 Voltage Too Low/Air Leak** (VW) |
+
+Yani bir Ford/Acura aracında copilot **Volkswagen tanımını** servis edebilir.
+Bu bir stil tercihi değil, ölçülmüş bir veri kaybıdır.
+
 > Düzeltme intake'ten yapılmaz: `data/diagnostics/` dosyalarına bu turda
 > **hiçbir yazma yapılmadı** (test bunu byte seviyesinde doğrular).
 
@@ -155,6 +185,7 @@ python scripts/intake_scan_sources.py --report docs/audit/intake_source_scan_202
 python scripts/intake_scan_sources.py --stage            # doğrula (yazmaz)
 python scripts/intake_scan_sources.py --stage --apply    # intake'e yaz
 python scripts/intake_scan_sources.py --stage-oem --apply
+python scripts/validate_intake.py --sync-manifest --apply
 python scripts/validate_intake.py --sync-manifest --apply
 python scripts/validate_intake.py                       # FAIL=0 beklenir
 python -m pytest tests/unit/test_validate_intake.py tests/unit/test_intake_scan_sources.py -q

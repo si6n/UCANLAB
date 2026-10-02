@@ -64,10 +64,12 @@ PGN_SUBDIR = "pgn"
 
 CANBOAT_REPO = "https://github.com/canboat/canboat"
 WAL33D_REPO = "https://github.com/Wal33D/dtc-database"
+SITRAK_REPO = "https://github.com/STAS63-bit/sitrak-error-codes"
 OBDEX_REPO = "https://github.com/foerbsnavi/OBDex"
 CANBOAT_COMMIT = "f7f088b49d58f5b4a0feb9b29c288b0ae18a7880"
 OBDEX_COMMIT = "bc58b0eb7273226a1aabae98e956b70b8362bda1"
 WAL33D_COMMIT = "04c43d72e7db7197658b6f72fe582c5076d9eee8"
+SITRAK_COMMIT = "fdb0c0d9daf0643975b0ff62e0ff69ef9c07f742"
 
 # sha256 values recorded in data/PROVENANCE.md §2 (the ingest evidence).
 VENDORED_SHA256: dict[str, str] = {
@@ -84,13 +86,16 @@ VENDORED_SHA256: dict[str, str] = {
     "canboat/j1939_065226-activeTroubleCodes.yaml":
         "2c821042983bd5c751794dba388f1a8121c57ecacd5d0ab5a9ec95b03ec197c9",
     "wal33d/data/dtc_codes.db": "099a4ffd60398112a0540b0bbc93a5929e05e7f4e6d4988ca2a50858af01b743",
+    "sitrak/error-codes.json": "69d726d69d5612eb890de0aa2579beef2220a2f2b371b8cbcd560e75f12840d3",
 }
 
 OBDEX_TARBALL = f"https://codeload.github.com/foerbsnavi/OBDex/tar.gz/{OBDEX_COMMIT}"
 WAL33D_TARBALL = f"https://codeload.github.com/Wal33D/dtc-database/tar.gz/{WAL33D_COMMIT}"
+SITRAK_TARBALL = f"https://codeload.github.com/STAS63-bit/sitrak-error-codes/tar.gz/{SITRAK_COMMIT}"
 CANBOAT_TARBALL = f"https://codeload.github.com/canboat/canboat/tar.gz/{CANBOAT_COMMIT}"
 OBDEX_PREFIX = "data/"
 WAL33D_PREFIX = "data/source-data/"
+SITRAK_JSON = "error-codes.json"
 WAL33D_DB = "data/dtc_codes.db"
 CANBOAT_PREFIX = "database/j1939/pgns/"
 CANBOAT_JSON = "docs/canboat.json"
@@ -320,6 +325,8 @@ def _vendored_key(repo_key: str, rel_path: str) -> str | None:
     if repo_key == "obdex":
         candidate = f"obdex/{rel_path}"
         return candidate if candidate in VENDORED_SHA256 else None
+    if repo_key == "sitrak":
+        return "sitrak/error-codes.json" if rel_path == SITRAK_JSON else None
     if repo_key == "wal33d":
         if rel_path == WAL33D_DB:
             return "wal33d/data/dtc_codes.db"
@@ -367,17 +374,20 @@ def run_scan(workdir: Path, tarballs_dir: Path | None = None,
     obdex_tb = (tarballs_dir / "obdex.tar.gz") if tarballs_dir else workdir / "obdex.tar.gz"
     canboat_tb = (tarballs_dir / "canboat.tar.gz") if tarballs_dir else workdir / "canboat.tar.gz"
     wal33d_tb = (tarballs_dir / "wal33d.tar.gz") if tarballs_dir else workdir / "wal33d.tar.gz"
+    sitrak_tb = (tarballs_dir / "sitrak.tar.gz") if tarballs_dir else workdir / "sitrak.tar.gz"
     if not offline:
         fetch_tarball(OBDEX_TARBALL, obdex_tb)
         fetch_tarball(CANBOAT_TARBALL, canboat_tb)
         fetch_tarball(WAL33D_TARBALL, wal33d_tb)
-    for tarball in (obdex_tb, canboat_tb, wal33d_tb):
+        fetch_tarball(SITRAK_TARBALL, sitrak_tb)
+    for tarball in (obdex_tb, canboat_tb, wal33d_tb, sitrak_tb):
         if not tarball.is_file():
             raise FileNotFoundError(
                 f"{tarball} missing — run online or pass --tarballs-dir with both tarballs")
     obdex_tree = extract(obdex_tb, workdir / "obdex")
     canboat_tree = extract(canboat_tb, workdir / "canboat")
     wal33d_tree = extract(wal33d_tb, workdir / "wal33d")
+    sitrak_tree = extract(sitrak_tb, workdir / "sitrak")
 
     result = ScanResult()
     result.sources = [
@@ -389,6 +399,9 @@ def run_scan(workdir: Path, tarballs_dir: Path | None = None,
         {"repo": "Wal33D/dtc-database", "commit": WAL33D_COMMIT, "url": WAL33D_TARBALL,
          "licence": "MIT", "attribution_required": True,
          "notice": "Copyright (c) Wal33D — data/licenses/ATTRIBUTION.obdex-and-dtcdb.md"},
+        {"repo": "STAS63-bit/sitrak-error-codes", "commit": SITRAK_COMMIT, "url": SITRAK_TARBALL,
+         "licence": "CC-BY-4.0", "attribution_required": True,
+         "notice": "МегаДата / megadata.pro — data/licenses/ATTRIBUTION.sitrak.md"},
     ]
     artifacts = scan_repo_tree("obdex", OBDEX_COMMIT, obdex_tree, (OBDEX_PREFIX,))
     # docs/canboat.json is a single 2.6 MB file: hashed, not parsed.
@@ -396,9 +409,12 @@ def run_scan(workdir: Path, tarballs_dir: Path | None = None,
     # The compiled DB is hashed (3.2 MB); the 37 per-manufacturer source lists
     # under data/source-data/ are the *primary* per-make evidence the DB collapsed.
     artifacts += scan_repo_tree("wal33d", WAL33D_COMMIT, wal33d_tree, (WAL33D_DB, WAL33D_PREFIX))
+    # SITRAK ships one JSON catalogue; scanned to prove there is no leftover.
+    artifacts += scan_repo_tree("sitrak", SITRAK_COMMIT, sitrak_tree, (SITRAK_JSON,))
     result.artifacts = [asdict(a) for a in artifacts]
     result.seconds = time.perf_counter() - t0
-    return result, {"obdex": obdex_tree, "canboat": canboat_tree, "wal33d": wal33d_tree}
+    return result, {"obdex": obdex_tree, "canboat": canboat_tree,
+                    "wal33d": wal33d_tree, "sitrak": sitrak_tree}
 
 
 # --------------------------------------------------------------------------- #
