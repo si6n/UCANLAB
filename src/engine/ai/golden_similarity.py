@@ -135,7 +135,7 @@ def find_similar_cases(
     break on case_id (lexicographic) so dict/ordering never leaks in.
     """
     corpus = calibration_eligible_cases(cases_dir)
-    scored: list[tuple[float, str, list[str]]] = []
+    scored: list[tuple[float, str, tuple[str, ...]]] = []
     for case in corpus:
         score, reasons = _score_case(session, case)
         if score >= MIN_REPORTABLE_SCORE:

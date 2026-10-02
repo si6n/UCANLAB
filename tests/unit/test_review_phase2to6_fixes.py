@@ -264,6 +264,9 @@ def _frozen(monkeypatch: pytest.MonkeyPatch, meipass: Path, tmp: Path) -> None:
     monkeypatch.setattr(sys, "frozen", True, raising=False)
     monkeypatch.setattr(sys, "_MEIPASS", str(meipass), raising=False)
     monkeypatch.setenv("LOCALAPPDATA", str(tmp))
+    # The POSIX frozen branch reads XDG_STATE_HOME; without this the test wrote
+    # into the real ~/.local/state on Linux.
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp))
 
 
 def test_d3_frozen_app_data_root_avoids_meipass(

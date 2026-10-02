@@ -21,11 +21,12 @@ import urllib.parse
 import uuid
 import webbrowser
 from collections import deque
+from collections.abc import Callable, Sequence
 from concurrent.futures import TimeoutError as FuturesTimeoutError
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Literal
 
 import webview
 from cryptography.hazmat.primitives.asymmetric import ed25519
@@ -60,10 +61,11 @@ from src.engine.pipeline.reassembly_pipeline import (
 )
 from src.engine.router import FrameRouter
 from src.engine.vehicle.identity import compare_identity as compare_vehicle_identity
+from src.engine.vehicle.identity import mask_vin
 from src.engine.vehicle.profiles import CatalogError as VehicleCatalogError
 from src.engine.vehicle.profiles import default_catalog as default_vehicle_catalog
 from src.engine.vehicle.profiles import profile_dict as vehicle_profile_dict
-from src.hal.base import BusState
+from src.hal.base import AbstractBus, BusState
 from src.hal.drivers.pcan_kvaser import PythonCanBus
 from src.hal.replay.player import ReplayBus
 from src.hal.replay.safety_filter import ReplaySafetyFilter
@@ -77,7 +79,8 @@ from src.protocols.j1939.pgn import build_j1939_id, parse_j1939_id
 from src.protocols.j1939.transport import J1939TransportProtocol
 from src.protocols.nmea2000.fast_packet import Nmea2000FastPacketDecoder
 from src.protocols.nmea2000.pgn_library import PGN_ENGINE_DYNAMIC, Nmea2000PgnDecoder
-from src.protocols.obd.poller import ActiveDiagnosticPoller, ObdPidResult
+from src.protocols.obd.models import ObdPidResult
+from src.protocols.obd.poller import ActiveDiagnosticPoller
 from src.protocols.uds.client import UdsClient
 from src.protocols.uds.flasher import (
     EcuFlashingEngine,
@@ -417,7 +420,7 @@ class _ExclusiveHTTPServer(HTTPServer):
     """
 
     # Must be 0: Windows rejects SO_EXCLUSIVEADDRUSE together with SO_REUSEADDR.
-    allow_reuse_address = 0
+    allow_reuse_address = False
 
     def server_bind(self) -> None:
         if _SO_EXCLUSIVEADDRUSE is not None:
@@ -1900,6 +1903,7 @@ class DesktopApiBridge:
     # were confirmed exfiltratable. A positive root allowlist closes
     # traversal and symlink escapes by construction.
     # L-12 (P3-8): roots are anchored to the app data root, not the CWD.
+    @staticmethod
     def _upload_roots() -> tuple[Path, ...]:
         root = _app_data_root()
         return (
@@ -2250,6 +2254,7 @@ class UniversalCanDesktopApp:
         # Safe-by-default: the app opens its bus listen-only;
         # the operator must explicitly arm TX before any transmission path is
         # unblocked by the SafetySupervisor (PASSIVE → ARMED_TX).
+        self.bus: AbstractBus
         if bus is not None:
             self.bus = bus
         elif interface == "rp1210":
@@ -2392,7 +2397,9 @@ class UniversalCanDesktopApp:
 
         try:
             pub_bytes = base64.b64decode(DEFAULT_EMBEDDED_CLOUD_PUBLIC_KEY_B64)
-            self._cloud_pubkey = ed25519.Ed25519PublicKey.from_public_bytes(pub_bytes)
+            self._cloud_pubkey: ed25519.Ed25519PublicKey | None = ed25519.Ed25519PublicKey.from_public_bytes(
+                pub_bytes
+            )
         except Exception:
             self._cloud_pubkey = None
         # M-19 (P2-13): persistent HWM — anti-rollback survives restarts.
@@ -2509,6 +2516,7 @@ class UniversalCanDesktopApp:
         )
         self._address_claim_lock = threading.Lock()
         self._detected_vin: str | None = None
+        self._last_adapters: dict[str, AdapterInfo] = {}
         self.replay_bus: ReplayBus | None = None
         self.replay_safety_filter: ReplaySafetyFilter | None = None
         self._replay_thread: threading.Thread | None = None
@@ -2542,12 +2550,12 @@ class UniversalCanDesktopApp:
         self._dialogue_session: Any | None = None
         self._session_lock = threading.Lock()
         # Per-signal bounded evidence ring (O(1) append, RX hot-path safe).
-        self._signal_rings: dict[str, deque] = {}
+        self._signal_rings: dict[str, deque[SignalSample]] = {}
         # Workbench "Grafik" rings (B2): every decoded value the screens may
         # plot, real or simulated, tagged with its origin. Separate from the
         # evidence rings above so a simulated vehicle can be plotted without
         # ever becoming evidence.
-        self._plot_rings: dict[str, deque] = {}
+        self._plot_rings: dict[str, deque[Any]] = {}
         self._plot_meta: dict[str, dict[str, Any]] = {}
         self._plot_lock = threading.Lock()
         self._open_diagnostic_session()
@@ -2643,7 +2651,7 @@ class UniversalCanDesktopApp:
         with self._ui_state_lock:
             setattr(self, attr, getattr(self, attr) + delta)
 
-    def _set_ui_state(self, **kwargs) -> None:  # noqa: ANN001 — narrow helper
+    def _set_ui_state(self, **kwargs: Any) -> None:
         """Thread-safe UI state flag writes (E14)."""
         with self._ui_state_lock:
             for key, value in kwargs.items():
@@ -2796,7 +2804,9 @@ class UniversalCanDesktopApp:
             }
         return {"success": True, "window_s": window, "series": series}
 
-    def _record_signal_sample(self, name: str, raw: int, physical: float, unit: str, confidence: float = 1.0) -> None:
+    def _record_signal_sample(
+        self, name: str, raw: int | None, physical: object, unit: str, confidence: float = 1.0
+    ) -> None:
         """Append one SignalSample under the session lock (FAZ 1, hook 2).
 
         Called from the live RX decode path only — the sim branch of
@@ -2808,6 +2818,17 @@ class UniversalCanDesktopApp:
         can never be mistaken for authoritative telemetry downstream.
         """
         self._record_plot_point(name, physical, unit, confidence)
+        # Decoders hand over enum text ("neutral") or None for "not available".
+        # SignalSample needs a finite float: an enum keeps its raw code, a
+        # missing value records nothing. Before, math.isfinite() raised
+        # TypeError here, which escaped the RX path and made the telemetry
+        # loop drop the whole tick (up to 200 frames, incl. the black-box
+        # batch) for every NMEA 2000 PGN 127493 or "no data" fluid frame.
+        if isinstance(physical, bool) or not isinstance(physical, (int, float)):
+            if isinstance(physical, str) and isinstance(raw, int):
+                physical = float(raw)
+            else:
+                return
         simulated = self._evidence_is_simulated()
         session = self._sim_diag_session if simulated else self._diag_session
         if session is None:
@@ -2816,13 +2837,13 @@ class UniversalCanDesktopApp:
             sample = SignalSample(
                 timestamp_ns=time.monotonic_ns(),
                 name=name,
-                raw_value=raw,
-                physical_value=physical,
+                raw_value=raw,  # type: ignore[arg-type]  # decoders may report no raw value
+                physical_value=float(physical),
                 unit=unit,
                 source=SignalSource.J1939,
                 confidence=confidence,
             )
-        except ValueError as exc:
+        except (TypeError, ValueError) as exc:
             logger.debug("SignalSample rejected", extra={"error": str(exc), "signal": name})
             return
         with self._session_lock:
@@ -2838,7 +2859,7 @@ class UniversalCanDesktopApp:
             ring.append(sample)
             session.samples.append(sample)
 
-    def _record_dm1_events(self, dtcs: list) -> None:
+    def _record_dm1_events(self, dtcs: list[Any]) -> None:
         """Turn parsed DM1 SPN/FMI records into DiagnosticEvents (FAZ 1, Bulgu 1).
 
         Severity maps from the KB / SPN DB record; an unknown SPN gets
@@ -3091,9 +3112,9 @@ class UniversalCanDesktopApp:
         from src.engine.ai.user_report_composer import compose_user_card
 
         sufficiency = evaluate_sufficiency(session)
-        anomalies: list = []
-        hypotheses: list = []
-        similar: list = []
+        anomalies: list[Any] = []
+        hypotheses: list[Any] = []
+        similar: list[Any] = []
         if sufficiency.anomaly_sufficient:
             try:
                 thresholds = load_thresholds()
@@ -3117,7 +3138,7 @@ class UniversalCanDesktopApp:
         # present in DiagnosticEvent.code ("SPN <n> FMI <m>") — re-derive it
         # instead of dropping the information. Codes without the SPN form
         # keep (None, None): never fabricate an SPN from arbitrary text.
-        dtc_payload = []
+        dtc_payload: list[dict[str, object]] = []
         for e in session.events:
             if e.status != "ACTIVE":
                 continue
@@ -3193,8 +3214,8 @@ class UniversalCanDesktopApp:
         if session is None:
             return {"success": False, "error": "Aktif teşhis oturumu yok"}
         sufficiency = evaluate_sufficiency(session)
-        anomalies: list = []
-        similar: list = []
+        anomalies: list[Any] = []
+        similar: list[Any] = []
         if sufficiency.anomaly_sufficient:
             try:
                 thresholds = load_thresholds()
@@ -3703,41 +3724,37 @@ class UniversalCanDesktopApp:
     # ------------------------------------------------------------------
     # Diagnostic Challenge & Action Execution Subsystem (Dual Confirmation)
     # ------------------------------------------------------------------
-    def _mint_confirmation_token(self, context: str | None = None) -> str:
-        """Mint a single-use HMAC confirmation token via the gateway (P3 / G-3).
-
-        The token is produced from the `GATEWAY_CONFIRM_SECRET` by the SAME
-        component that verifies it in Stage 5, so it is cryptographic proof
-        bound to the canonical diagnostic arbitration ID — not an in-process
-        random string the renderer could mint for itself.
-
-        R2-EN2: process-internal ONLY — never returned to JS. The renderer
-        path (`request_diagnostic_challenge`) issues nonce challenges;
-        gateway tokens are minted here and consumed by the TX path.
-        R2-EN3: `context` (e.g. "action_type:action_id") binds the token to
-        the authorized action.
-        """
-        token = self.gateway.issue_confirmation_token(
-            _DIAGNOSTIC_CONFIRM_ARB_ID, ttl_s=30.0, context=context
-        )
-        return token.hex()
-
     def _confirm_token_for(
         self, arbitration_id: int, context: str | None = None
-    ) -> bytes | None:
+    ) -> bytes | Callable[[bytes], bytes] | None:
         """Fresh single-use gateway ConfirmationToken bound to `arbitration_id`.
 
         P3 (G-3): only the trusted composition root mints these; returns None
         when the gateway has no confirmation secret (legacy wiring), so the
         UDS client simply omits the parameter.
         R2-EN3: `context` binds the token to the calling action; the gateway
-        rejects the token when presented with a different context.
+        rejects the token when presented with a different context. A
+        context-bound token is also bound to the exact request frame, which
+        only the UDS client knows after segmentation, so with a context this
+        returns a minter the client calls with the SingleFrame/FirstFrame bytes
+        (it used to mint without the payload hash and crash with TypeError,
+        which made every confirmed UDS action fail on a production gateway).
         """
         if self.gateway._confirmation_secret is None:  # noqa: SLF001 - wiring introspection
             return None
-        return self.gateway.issue_confirmation_token(
-            arbitration_id, ttl_s=30.0, context=context
-        )
+        if context is None:
+            return self.gateway.issue_confirmation_token(arbitration_id, ttl_s=30.0)
+        gateway = self.gateway
+
+        def _mint(frame_data: bytes) -> bytes:
+            return gateway.issue_confirmation_token(
+                arbitration_id,
+                ttl_s=30.0,
+                payload_hash=TxSafetyGateway.confirmation_payload_hash(frame_data),
+                context=context,
+            )
+
+        return _mint
 
     @staticmethod
     def _compute_action_params_hash(action: dict[str, Any]) -> str:
@@ -3952,7 +3969,8 @@ class UniversalCanDesktopApp:
                     "requires_confirmation=false — ignored (type-mandatory gate)",
                     action_type,
                 )
-        params = action.get("params") if isinstance(action.get("params"), dict) else {}
+        raw_params = action.get("params")
+        params: dict[str, Any] = raw_params if isinstance(raw_params, dict) else {}
 
         # 1. Safety Check: Emergency Stop
         if self._is_estop or self.estop.is_engaged:
@@ -4087,7 +4105,7 @@ class UniversalCanDesktopApp:
                             "data": {"service": "0x14", "group": hex(group)},
                         }
                     else:
-                        err = f"âŒ [UDS 0x14] ECU reddetti: NRC 0x{resp.nrc:02X} ({resp.nrc_description_tr})"
+                        err = f"❌ [UDS 0x14] ECU reddetti: NRC 0x{resp.nrc:02X} ({resp.nrc_description_tr})"
                         return {
                             "success": False,
                             "error": err,
@@ -4121,7 +4139,7 @@ class UniversalCanDesktopApp:
                             "data": {"did": f"0x{did:04X}", "value": val_str, "name": name},
                         }
                     else:
-                        err = f"âŒ [UDS 0x22] DID 0x{did:04X} okunamadı: NRC 0x{resp.nrc:02X} ({resp.nrc_description_tr})"
+                        err = f"❌ [UDS 0x22] DID 0x{did:04X} okunamadı: NRC 0x{resp.nrc:02X} ({resp.nrc_description_tr})"
                         return {
                             "success": False,
                             "error": err,
@@ -4157,7 +4175,7 @@ class UniversalCanDesktopApp:
                             "data": {"session_type": st},
                         }
                     else:
-                        err = f"âŒ [UDS 0x10] Oturum değiştirilemedi: NRC 0x{resp.nrc:02X} ({resp.nrc_description_tr})"
+                        err = f"❌ [UDS 0x10] Oturum değiştirilemedi: NRC 0x{resp.nrc:02X} ({resp.nrc_description_tr})"
                         return {
                             "success": False,
                             "error": err,
@@ -4170,7 +4188,7 @@ class UniversalCanDesktopApp:
                 if self._is_simulating:
                     return {
                         "success": True,
-                        "message": f"â–¶ï¸ [UDS 0x31] Teşhis rutini 0x{rid:04X} başarıyla başlatıldı (Pozitif Yanıt 0x71).",
+                        "message": f"▶️ [UDS 0x31] Teşhis rutini 0x{rid:04X} başarıyla başlatıldı (Pozitif Yanıt 0x71).",
                         "routine_id": hex(rid),
                         "data": {"routine_id": hex(rid)},
                     }
@@ -4179,15 +4197,23 @@ class UniversalCanDesktopApp:
                     if arm_err_resp is not None:
                         return arm_err_resp
                     client = self.create_uds_client()
-                    resp = client.start_routine(rid, user_confirmed=True)
+                    _ctx = f"{action_type}:{action_id}"
+                    # The gateway classifies RoutineControl (0x31) as critical;
+                    # without a token a production gateway refused this action.
+                    resp = client.start_routine(
+                        rid,
+                        user_confirmed=True,
+                        confirmation_token=self._confirm_token_for(client.tx_id, _ctx),
+                        confirmation_context=_ctx,
+                    )
                     if resp.is_positive:
                         return {
                             "success": True,
-                            "message": f"â–¶ï¸ [UDS 0x31] Rutin 0x{rid:04X} başlatıldı (Pozitif Yanıt 0x71).",
+                            "message": f"▶️ [UDS 0x31] Rutin 0x{rid:04X} başlatıldı (Pozitif Yanıt 0x71).",
                             "data": {"routine_id": hex(rid)},
                         }
                     else:
-                        err = f"âŒ [UDS 0x31] Rutin başlatılamadı: NRC 0x{resp.nrc:02X} ({resp.nrc_description_tr})"
+                        err = f"❌ [UDS 0x31] Rutin başlatılamadı: NRC 0x{resp.nrc:02X} ({resp.nrc_description_tr})"
                         return {
                             "success": False,
                             "error": err,
@@ -4223,7 +4249,7 @@ class UniversalCanDesktopApp:
                             "data": {"reset_type": rt},
                         }
                     else:
-                        err = f"âŒ [UDS 0x11] ECU Reset reddedildi: NRC 0x{resp.nrc:02X} ({resp.nrc_description_tr})"
+                        err = f"❌ [UDS 0x11] ECU Reset reddedildi: NRC 0x{resp.nrc:02X} ({resp.nrc_description_tr})"
                         return {
                             "success": False,
                             "error": err,
@@ -4273,7 +4299,7 @@ class UniversalCanDesktopApp:
                         }
                     except Exception as exc:
                         logger.error("J1939 DM11 transmission failed", exc_info=True)
-                        err = f"âŒ [J1939 DM11] Komut iletilemedi: {exc}"
+                        err = f"❌ [J1939 DM11] Komut iletilemedi: {exc}"
                         return {"success": False, "error": err, "message": err}
 
             # J1939 DM1 Query
@@ -4556,10 +4582,10 @@ class UniversalCanDesktopApp:
                 self._active_dtc_count = len(dm.dtcs)  # DTCs, not error frames
                 self._record_dm1_events(dm.dtcs)
         elif msg.pgn == 65260:  # Vehicle Identification (VIN)
-            vin = decode_vin_payload(msg.bytes)
+            vin = decode_vin_payload(msg.data)
             if vin:
                 self._detected_vin = vin
-                logger.info("Reassembled vehicle VIN", extra={"vin": vin})
+                logger.info("Reassembled vehicle VIN", extra={"vin": mask_vin(vin)})
 
     def register_e2e_profile(self, arbitration_id: int, profile: E2EProfileConfig) -> None:
         """Register an E2E profile directly for RX verification and TX packaging."""
@@ -4609,28 +4635,42 @@ class UniversalCanDesktopApp:
             self._obd_router_sub_id = sub_id
             self._obd_poller_rx_sub = rx_sub
 
-            self.obd_poller = ActiveDiagnosticPoller(
-                tx_port=self.safe_bus,
-                rx_subscription=rx_sub,
-                tx_id=0x7DF,
-                rx_id=0x7E8,
-                max_rate_hz=rate_hz,
-                channel_id=self.channel_name or "can0",
-            )
             poll_pids = pids if pids else [0x0C, 0x0D, 0x05]
-            for p in poll_pids:
-                self.obd_poller.register_pid(
-                    pid=p,
-                    rate_hz=min(rate_hz, 10.0),
-                    callback=self._handle_obd_pid_result,
+            try:
+                # Every poll request goes through the TX safety gateway, the
+                # single audited choke-point. The previous code referenced a
+                # `self.safe_bus` attribute that never existed, so this call
+                # always raised AttributeError and leaked the router
+                # subscription registered above.
+                self.obd_poller = ActiveDiagnosticPoller(
+                    tx_port=self.gateway,
+                    rx_subscription=rx_sub,
+                    tx_id=0x7DF,
+                    rx_id=0x7E8,
+                    max_rate_hz=rate_hz,
+                    channel_id=self.channel_name or "can0",
                 )
-
-            self.obd_poller.start()
+                for p in poll_pids:
+                    self.obd_poller.register_pid(
+                        pid=p,
+                        rate_hz=min(rate_hz, 10.0),
+                        callback=self._handle_obd_pid_result,
+                    )
+                self.obd_poller.start()
+            except Exception as exc:
+                # Undo the half-built state so a retry starts clean.
+                self.obd_poller = None
+                rx_sub.unsubscribe()
+                self._obd_poller_rx_sub = None
+                self.router.unsubscribe(sub_id)
+                self._obd_router_sub_id = None
+                logger.warning("OBD poller could not start", extra={"error": str(exc)})
+                return {"success": False, "error": str(exc)}
             return {"success": True, "pids": poll_pids, "rate_hz": rate_hz}
 
     def _handle_obd_pid_result(self, result: ObdPidResult) -> None:
         """Handle decoded OBD-II PID telemetry results."""
-        if not result.success or result.value is None:
+        if not result.is_valid or result.value is None:
             return
         try:
             if result.pid == 0x0C:
@@ -4901,8 +4941,8 @@ class UniversalCanDesktopApp:
         folder = _app_data_root() / "exports"
         try:
             folder.mkdir(parents=True, exist_ok=True)
-            if sys.platform.startswith("win"):
-                os.startfile(str(folder))  # type: ignore[attr-defined]  # noqa: S606 — fixed app-owned folder
+            if sys.platform == "win32":
+                os.startfile(str(folder))  # noqa: S606 — fixed app-owned folder
             else:
                 opener = "open" if sys.platform == "darwin" else "xdg-open"
                 subprocess.Popen([opener, str(folder)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)  # noqa: S603
@@ -5504,7 +5544,7 @@ class UniversalCanDesktopApp:
                 else:
                     lines.append("Hipotez üretilemedi (yetersiz kanıt / aktif DTC yok).")
                 return "\n".join(lines)
-            return f"âš ï¸ {res.get('error', 'Ölçüm kaydedilemedi.')}"
+            return f"⚠️ {res.get('error', 'Ölçüm kaydedilemedi.')}"
 
         # FAZ 5: "hipotezler" query — deterministic keyword gate on the
         # OPERATOR query (never foreign text), session analysis stays host-side.
@@ -5512,14 +5552,14 @@ class UniversalCanDesktopApp:
         if norm_q in {"hipotezler", "hipotez", "hipotheses", "hipotez sıralaması", "hipotez siralamasi"}:
             analysis = self.get_diagnostic_analysis()
             if not analysis.get("success"):
-                return "âš ï¸ Aktif teşhis oturumu yok."
+                return "⚠️ Aktif teşhis oturumu yok."
             gate = analysis.get("gate", {})
             hyps = analysis.get("hypotheses", [])
             anomalies = analysis.get("anomalies", [])
             cases = analysis.get("similar_cases", [])
             lines = ["**Teşhis Oturumu Analizi** (ağırlıklı kanıt skorları):"]
             lines.append("")
-            lines.append(f"- Kanıt kapısı: anomali {'✅ yeterli' if gate.get('anomaly_sufficient') else 'âŒ yetersiz'} | DTC/hipotez {'✅ yeterli' if gate.get('dtc_sufficient') else 'âŒ yetersiz'} ({gate.get('active_dtc_count', 0)} aktif DTC)")
+            lines.append(f"- Kanıt kapısı: anomali {'✅ yeterli' if gate.get('anomaly_sufficient') else '❌ yetersiz'} | DTC/hipotez {'✅ yeterli' if gate.get('dtc_sufficient') else '❌ yetersiz'} ({gate.get('active_dtc_count', 0)} aktif DTC)")
             for gap in gate.get("gaps", []):
                 lines.append(f"  - {gap}")
             if anomalies:
@@ -5606,7 +5646,7 @@ class UniversalCanDesktopApp:
                     future.cancel()
         except FuturesTimeoutError:
             logger.warning("Copilot query timed out", extra={"query": query[:50]})
-            return "âš ï¸ AI yanıtı zaman aşımına uğradı (15 s). Lütfen tekrar deneyin."
+            return "⚠️ AI yanıtı zaman aşımına uğradı (15 s). Lütfen tekrar deneyin."
 
     def export_logs(self, fmt: str) -> bool:
         """Export session telemetry and frames to disk (LOW-4).
@@ -5812,7 +5852,7 @@ class UniversalCanDesktopApp:
             sim = SimulatedVehicleBus(vehicle_type, NATIVE_BITRATE[vehicle_type], animated=True)
             if not self._install_bus_locked(sim, "simulator", sim.channel_id, sim.bitrate):
                 return {"success": False, "error_code": "BIND_FAILED"}
-            self._pre_simulator_bus = previous
+            self._pre_simulator_bus: tuple[str, str, int] | None = previous
             self._sim_diag_session = VehicleSession(
                 session_id=f"sim-{time.time_ns()}-{uuid.uuid4().hex[:8]}",
                 started_at_ns=time.monotonic_ns(),
@@ -5911,7 +5951,7 @@ class UniversalCanDesktopApp:
             "bitrate": int(self.bitrate_val or 0),
             "connected": bool(getattr(bus, "is_connected", False)),
             "simulated": simulated,
-            "vehicle_type": bus.vehicle_type if simulated else None,
+            "vehicle_type": bus.vehicle_type if isinstance(bus, SimulatedVehicleBus) else None,
             "listen_only": bool(getattr(bus, "listen_only", True)),
             # Driver-reported counters only. ``_error_count`` is not used here:
             # it also carries the DM1 DTC count and would read as "errors".
@@ -5942,7 +5982,7 @@ class UniversalCanDesktopApp:
 
                     new_bus = build_bus(
                         interface=target_interface,
-                        channel=target_channel,
+                        channel=str(target_channel),
                         bitrate=target_bitrate,
                         listen_only=True,
                     )
@@ -6282,7 +6322,7 @@ class UniversalCanDesktopApp:
         except Exception:  # noqa: BLE001 — tracing must never kill ingestion
             pass
 
-    def _ingest_live_frame(self, frame: object) -> None:
+    def _ingest_live_frame(self, frame: CanFrame) -> None:
         """Feed one live frame through the router into decoders and UI (F-28).
 
         Perf (C-9): the ring buffer write is deferred to the caller's tick
@@ -6332,7 +6372,7 @@ class UniversalCanDesktopApp:
             # cannot express the suppression contract. Fall back to the plain
             # call and enforce suppression on the CALLER side below — the
             # replay frame must still never reach the gateway.
-            completed, resp = self.j1939_tp.handle_rx_frame(frame)  # type: ignore[arg-type]
+            completed, resp = self.j1939_tp.handle_rx_frame(frame)
             if _is_replay_frame:
                 resp = None
         if _is_replay_frame:
@@ -6421,7 +6461,7 @@ class UniversalCanDesktopApp:
         # packet filter, where 127488 (Engine Rapid: data[1] = RPM LSB,
         # e.g. idle 600 rpm -> 0x60 = 96 in 9..223) opened phantom 96-byte
         # sessions that swallowed the real RPM forever.
-        n2k_msg = self.n2k_fp.handle_rx_frame(frame)  # type: ignore[arg-type]
+        n2k_msg = self.n2k_fp.handle_rx_frame(frame)
         if n2k_msg is not None:
             self._decode_n2k_fast_payload(n2k_msg.pgn, n2k_msg.source_address, n2k_msg.data)
 
@@ -6497,7 +6537,7 @@ class UniversalCanDesktopApp:
         load = bits / (((now_ns - last) / 1e9) * bitrate) * 100.0
         return max(0, min(100, int(round(load))))
 
-    def _push_frames_to_ui_batch(self, frames: list[object]) -> None:
+    def _push_frames_to_ui_batch(self, frames: Sequence[object]) -> None:
         """Stream a tick's frames to the frontend in ONE evaluate_js call (E13).
 
         Per-frame JS evaluation (up to 200 frames / 50 ms tick) flooded the
@@ -6593,8 +6633,8 @@ class UniversalCanDesktopApp:
             # the stop); only the DEMO generator is skipped while latched.
             if not self._is_simulating:
                 drained = 0
-                tick_frames: list[object] = []
-                bus_snapshot: object | None = None
+                tick_frames: list[CanFrame] = []
+                bus_snapshot: AbstractBus | None = None
                 try:
                     with self._bus_lock:
                         bus_snapshot = self.bus
@@ -6606,7 +6646,18 @@ class UniversalCanDesktopApp:
                         frame = bus_snapshot.recv(timeout_s=0.01 if drained == 0 else 0.0)
                         if frame is None:
                             break
-                        self._ingest_live_frame(frame)
+                        try:
+                            self._ingest_live_frame(frame)
+                        except HardwareError:
+                            raise
+                        except Exception as exc:  # noqa: BLE001 — one bad frame must not drop the tick
+                            # A decode fault is per frame: the frame is still
+                            # recorded (black box) and the rest of the tick is
+                            # processed. It used to discard every frame of the tick.
+                            logger.warning(
+                                "Frame decode error (frame kept in recording, decode skipped)",
+                                extra={"error": f"{type(exc).__name__}: {exc}"[:200]},
+                            )
                         tick_frames.append(frame)
                         drained += 1
                 except HardwareError as exc:
@@ -6644,7 +6695,7 @@ class UniversalCanDesktopApp:
                     continue
                 # Perf (C-9): ring buffer batch write — one lock acquisition
                 # per tick instead of one per frame.
-                self.ring_buffer.append_batch(tick_frames)  # type: ignore[arg-type]
+                self.ring_buffer.append_batch(tick_frames)
                 # Perf (C-9): packet counter bumped once per tick, not per frame
                 self._bump_stat("_total_packets", drained)
                 # E13: one JS evaluation per tick for the whole batch
@@ -6946,7 +6997,7 @@ class UniversalCanDesktopApp:
                     logger.warning("Stripping insecure %s in non-development environment", debug_var)
                     os.environ.pop(debug_var, None)
 
-            target_gui = "edgechromium" if sys.platform == "win32" else None
+            target_gui: Literal["edgechromium"] | None = "edgechromium" if sys.platform == "win32" else None
             webview.start(_apply_windows_acrylic, gui=target_gui, debug=False)
         finally:
             self._set_ui_state(_running=False)

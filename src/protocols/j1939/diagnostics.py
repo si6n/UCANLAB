@@ -229,11 +229,16 @@ class J1939DiagnosticService:
         dtc_payload = data[2:]
         num_dtcs = len(dtc_payload) // 4
         # Ragged tail (1-3 leftover bytes) = truncated record → MALFORMED.
-        malformed = (len(dtc_payload) % 4) != 0
+        # Exception: 0xFF fill. A single-frame DM1/DM2 is always 8 bytes
+        # (lamp + flash lamp + one 4-byte DTC + two 0xFF fill bytes, SAE
+        # J1939-73 §5.7.1), so a tail made only of 0xFF is padding, not a
+        # truncated record. Counting it flagged every normal DM1 MALFORMED.
+        tail = dtc_payload[num_dtcs * 4 :]
+        malformed = bool(tail) and any(b != 0xFF for b in tail)
         if malformed:
             logger.warning(
                 "DM1/DM2 ragged tail — message flagged MALFORMED",
-                extra={"pgn": pgn, "sa": source_address, "tail_bytes": len(dtc_payload) % 4},
+                extra={"pgn": pgn, "sa": source_address, "tail_bytes": len(tail)},
             )
 
         for i in range(num_dtcs):

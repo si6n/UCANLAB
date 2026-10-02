@@ -438,7 +438,7 @@ def _filter_allowed_actions(raw: Any) -> list[dict[str, Any]]:
         if not is_known_action_id(aid):
             logger.warning("İzinsiz action id reddedildi", extra={"action_id": str(aid)})
             continue
-        expected = _expected_action_type(aid)
+        expected = _expected_action_type(str(aid))
         if item.get("action_type") != expected:
             logger.warning(
                 "action id/type uyuşmazlığı reddedildi",
@@ -1251,12 +1251,12 @@ def explain_can_packet(
             if sid == 0x06:
                 if len(payload_bytes) > sid_idx + 1:
                     mid = payload_bytes[sid_idx + 1]
-                    tid = payload_bytes[sid_idx + 2] if len(payload_bytes) > sid_idx + 2 else None
+                    tid_opt = payload_bytes[sid_idx + 2] if len(payload_bytes) > sid_idx + 2 else None
                     db = get_mode06_database()
                     monitors = db.get("monitors") if isinstance(db, dict) else None
-                    known = bool(monitors) and f"0x{mid:02X}" in monitors
+                    known = isinstance(monitors, dict) and bool(monitors) and f"0x{mid:02X}" in monitors
                     if known:
-                        text = format_mode06_monitor(mid, tid)
+                        text = format_mode06_monitor(mid, tid_opt)
                         return (f"📡 **OBD-II Mode $06 (ID: 0x{can_id:03X}):**\n{text}", [])
                     return (
                         f"📡 **OBD-II Mode $06 (ID: 0x{can_id:03X}):** İzleme testi MID 0x{mid:02X} katalogda yok (uydurma yok).",
@@ -4299,7 +4299,7 @@ class CausalBayesianInferenceEngine:
 
         db = get_mode06_database()
         monitors = db.get("monitors") if isinstance(db, dict) else None
-        matched = bool(monitors) and (
+        matched = isinstance(monitors, dict) and bool(monitors) and (
             f"0x{mid:02X}" in monitors
             or any(isinstance(v, dict) and v.get("mid_int") == mid for v in (monitors or {}).values())
         )
@@ -4598,7 +4598,7 @@ class CausalBayesianInferenceEngine:
         if not (_names_fault or _asks_action):
             frame_report = cls.analyze_can_frame(user_query, norm_query, telemetry)
             if frame_report is not None:
-                actions = []
+                actions: list[dict[str, Any]] = []
                 if "j1939" in frame_report.lower() or "59904" in frame_report:
                     actions = [make_j1939_dm1_action()]
                 return attach_action_triggers(frame_report, actions)
@@ -4624,7 +4624,7 @@ class CausalBayesianInferenceEngine:
             # trigger is now minted only when the report actually reflects a
             # measured anomaly (i.e. not the "no data" branch) AND the operator
             # explicitly asked to clear/act.
-            actions: list[dict[str, Any]] = []
+            actions = []
             if "Veri Yok" not in traffic_rep and any(
                 w in norm_query for w in ["temizle", "sil", "clear", "reset"]
             ):
@@ -6259,7 +6259,7 @@ class CausalBayesianInferenceEngine:
             _causes_rendered = 0
             _symptoms_rendered = 0
 
-            def _richness(block: dict) -> int:
+            def _richness(block: dict[str, Any]) -> int:
                 score = len(str(block.get("overview") or ""))
                 for key in ("steps", "first_moves", "causes", "symptoms"):
                     val = block.get(key)
@@ -6292,7 +6292,7 @@ class CausalBayesianInferenceEngine:
             # Group by source site (falling back to the harvest method), keeping
             # the richest block of each group first. Sites are ordered by their
             # best block's richness so the most detailed source leads.
-            _groups: dict[str, list[dict]] = {}
+            _groups: dict[str, list[dict[str, Any]]] = {}
             for _b in _clean:
                 _key = str(_b.get("source_site") or _b.get("source") or _b.get("method") or "(kaynak belirtilmemiş)")
                 _groups.setdefault(_key, []).append(_b)
@@ -7132,7 +7132,7 @@ class AiDiagnosticCopilot:
         # evidence, and can never corroborate itself.
         hypothesis_candidates: list[str] = []
         try:
-            from src.core.models.diagnostics import DiagnosticDomain, DiagnosticEvent, VehicleSession
+            from src.core.models.diagnostics import DiagnosticDomain, DiagnosticEvent, Severity, VehicleSession
             from src.engine.ai.hypothesis_engine import rank_hypotheses
 
             _evts: list[DiagnosticEvent] = []
@@ -7153,7 +7153,7 @@ class AiDiagnosticCopilot:
                             if d.get("spn") is not None
                             else DiagnosticDomain.PASSENGER
                         ),
-                        severity="MEDIUM",
+                        severity=Severity.MEDIUM,
                         status="ACTIVE",
                     )
                 )

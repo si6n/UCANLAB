@@ -454,7 +454,7 @@ class CumminsDecoder(BaseOemDecoder):
             ),
             "target_cylinder": DecodedSignal(
                 name="target_cylinder",
-                value=target_cyl,  # type: ignore[arg-type]
+                value=target_cyl,
                 unit="index",
                 raw_value=target_cyl if target_cyl is not None else 0,
                 is_valid=target_valid,
@@ -462,7 +462,7 @@ class CumminsDecoder(BaseOemDecoder):
             ),
             "security_token": DecodedSignal(
                 name="security_token",
-                value=token,  # type: ignore[arg-type]
+                value=token,
                 unit="raw",
                 raw_value=token if token is not None else 0,
                 is_valid=token_valid,

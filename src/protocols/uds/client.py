@@ -28,6 +28,13 @@ if TYPE_CHECKING:
 
 logger = get_logger("protocols.uds.client")
 
+#: A confirmation token, or a minter that receives the exact first frame data
+#: (SingleFrame / FirstFrame bytes, PCI included) and returns a token bound to
+#: it. The gateway verifies a payload-bound token against the frame it carries,
+#: and only the client knows that frame after segmentation, so callers that
+#: need payload binding (flash steps, UDS actions with a context) pass a minter.
+ConfirmationTokenSource = bytes | str | Callable[[bytes], bytes | str] | None
+
 # ISO 14229 P2* server: extended response window granted per NRC 0x78 (F-14)
 P2_STAR_TIMEOUT_S = 5.0
 
@@ -166,7 +173,7 @@ class UdsClient:
         self,
         session_type: DiagnosticSessionType,
         user_confirmed: bool = False,
-        confirmation_token: bytes | str | None = None,
+        confirmation_token: ConfirmationTokenSource = None,
         confirmation_context: bytes | str | None = None,
     ) -> UdsResponse:
         """Switch diagnostic session (0x10).
@@ -199,7 +206,7 @@ class UdsClient:
         self,
         level: int = 1,
         user_confirmed: bool = False,
-        confirmation_token: bytes | str | None = None,
+        confirmation_token: ConfirmationTokenSource = None,
         confirmation_context: bytes | str | None = None,
     ) -> UdsResponse:
         """Request Security Access Seed (0x27).
@@ -223,7 +230,7 @@ class UdsClient:
         level: int,
         key: bytes,
         user_confirmed: bool = False,
-        confirmation_token: bytes | str | None = None,
+        confirmation_token: ConfirmationTokenSource = None,
         confirmation_context: bytes | str | None = None,
     ) -> UdsResponse:
         """Send Security Access Key (0x27) — privilege elevation, critical.
@@ -246,7 +253,7 @@ class UdsClient:
         sub_function: int | AuthenticationTask,
         data: bytes = b"",
         user_confirmed: bool = False,
-        confirmation_token: bytes | str | None = None,
+        confirmation_token: ConfirmationTokenSource = None,
         confirmation_context: bytes | str | None = None,
     ) -> UdsResponse:
         """Authenticate (0x29) - Critical command.
@@ -268,7 +275,7 @@ class UdsClient:
         self,
         secured_data: bytes,
         user_confirmed: bool = False,
-        confirmation_token: bytes | str | None = None,
+        confirmation_token: ConfirmationTokenSource = None,
         confirmation_context: bytes | str | None = None,
     ) -> UdsResponse:
         """Secured Data Transmission (0x84) - Critical command.
@@ -295,7 +302,7 @@ class UdsClient:
         self,
         dtc_group: int = 0xFFFFFF,
         user_confirmed: bool = False,
-        confirmation_token: bytes | str | None = None,
+        confirmation_token: ConfirmationTokenSource = None,
         confirmation_context: bytes | str | None = None,
     ) -> UdsResponse:
         """Clear Diagnostic Information (0x14) - Critical command.
@@ -318,7 +325,7 @@ class UdsClient:
         did: int,
         data: bytes,
         user_confirmed: bool = False,
-        confirmation_token: bytes | str | None = None,
+        confirmation_token: ConfirmationTokenSource = None,
         confirmation_context: bytes | str | None = None,
     ) -> UdsResponse:
         """Write Data Identifier (0x2E) - Critical command.
@@ -394,7 +401,7 @@ class UdsClient:
         data_format_identifier: int = 0x00,
         address_and_length_format_identifier: int = 0x44,
         user_confirmed: bool = False,
-        confirmation_token: bytes | str | None = None,
+        confirmation_token: ConfirmationTokenSource = None,
         confirmation_context: bytes | str | None = None,
     ) -> UdsResponse:
         """Request Download (0x34) - Critical command.
@@ -423,7 +430,7 @@ class UdsClient:
         data: bytes,
         is_critical_command: bool = True,
         user_confirmed: bool = False,
-        confirmation_token: bytes | str | None = None,
+        confirmation_token: ConfirmationTokenSource = None,
         confirmation_context: bytes | str | None = None,
     ) -> UdsResponse:
         """Transfer Data Block (0x36) - Memory write is safety-critical.
@@ -456,7 +463,7 @@ class UdsClient:
         self,
         is_critical_command: bool = True,
         user_confirmed: bool = False,
-        confirmation_token: bytes | str | None = None,
+        confirmation_token: ConfirmationTokenSource = None,
         confirmation_context: bytes | str | None = None,
     ) -> UdsResponse:
         """Request Transfer Exit (0x37) - closes a flash transfer.
@@ -486,7 +493,7 @@ class UdsClient:
         self,
         reset_type: int = 0x01,
         user_confirmed: bool = False,
-        confirmation_token: bytes | str | None = None,
+        confirmation_token: ConfirmationTokenSource = None,
         confirmation_context: bytes | str | None = None,
     ) -> UdsResponse:
         """ECU Reset (0x11) - Critical command.
@@ -509,7 +516,7 @@ class UdsClient:
         routine_id: int,
         options: bytes = b"",
         user_confirmed: bool = False,
-        confirmation_token: bytes | str | None = None,
+        confirmation_token: ConfirmationTokenSource = None,
         confirmation_context: bytes | str | None = None,
     ) -> UdsResponse:
         """Start ECU Routine (0x31) - Critical command.
@@ -532,10 +539,28 @@ class UdsClient:
         req_payload = UdsServiceBuilder.build_routine_control(RoutineControlType.STOP_ROUTINE, routine_id)
         return self._send_and_receive(req_payload)
 
-    def request_routine_results(self, routine_id: int) -> UdsResponse:
-        """Query ECU Routine Results (0x31)."""
+    def request_routine_results(
+        self,
+        routine_id: int,
+        user_confirmed: bool = False,
+        confirmation_token: ConfirmationTokenSource = None,
+        confirmation_context: bytes | str | None = None,
+    ) -> UdsResponse:
+        """Query ECU Routine Results (0x31 0x03).
+
+        The gateway classifies every RoutineControl (SID 0x31) frame as
+        critical on its own evidence, so this request needs the same operator
+        proof as the routine start; without it a production gateway refused
+        the flasher's checksum-result poll.
+        """
         req_payload = UdsServiceBuilder.build_routine_control(RoutineControlType.REQUEST_ROUTINE_RESULTS, routine_id)
-        return self._send_and_receive(req_payload)
+        return self._send_and_receive(
+            req_payload,
+            is_critical_command=True,
+            user_confirmed=user_confirmed,
+            confirmation_token=confirmation_token,
+            confirmation_context=confirmation_context,
+        )
 
     def tester_present(self, suppress_response: bool = False) -> UdsResponse | None:
         """Send Tester Present keep-alive (0x3E)."""
@@ -551,7 +576,7 @@ class UdsClient:
         payload: bytes,
         is_critical_command: bool = False,
         user_confirmed: bool = False,
-        confirmation_token: bytes | str | None = None,
+        confirmation_token: ConfirmationTokenSource = None,
         confirmation_context: bytes | str | None = None,
     ) -> None:
         """Transmit a UDS payload through the TxPort.
@@ -567,6 +592,9 @@ class UdsClient:
         SF up to 62 bytes, FD FF/CF) instead of always-Classic framing.
         """
         frames = self.transport.segment_message(payload, is_fd=self.is_fd, brs=self.brs)
+        if callable(confirmation_token):
+            # Mint against the exact SF/FF bytes the gateway will verify.
+            confirmation_token = confirmation_token(bytes(frames[0].data)) if frames else None
 
         if len(frames) <= 1:
             for frame in frames:
@@ -648,7 +676,10 @@ class UdsClient:
                     self.tx_port.send_sync(frame)
             else:
                 try:
-                    self.tx_port.send_sync(
+                    # The TxPort protocol does not declare the proof kwargs;
+                    # a port that cannot take them raises TypeError (below).
+                    port: Any = self.tx_port
+                    port.send_sync(
                         frame,
                         budget_category=budget_category,
                         is_critical_command=is_critical_command,
@@ -751,7 +782,7 @@ class UdsClient:
         payload: bytes,
         is_critical_command: bool,
         user_confirmed: bool,
-        confirmation_token: bytes | str | None = None,
+        confirmation_token: ConfirmationTokenSource = None,
         confirmation_context: bytes | str | None = None,
     ) -> None:
         """Send CFs after FC(CTS), honouring BS windowing and STmin pacing."""
@@ -806,16 +837,15 @@ class UdsClient:
                 delay_ms = min(decode_st_min(st_min), self.FC_STMIN_CAP_MS)
                 if delay_ms > 0:
                     time.sleep(delay_ms / 1000.0)
-                if confirmation_token is None:
-                    self._tx_frame(cf_frames[idx], is_critical_command, user_confirmed)
-                else:
-                    self._tx_frame(
-                        cf_frames[idx],
-                        is_critical_command,
-                        user_confirmed,
-                        confirmation_token=confirmation_token,
-                        confirmation_context=confirmation_context,
-                    )
+                # Consecutive Frames carry no service ID; they continue the
+                # transfer the First Frame opened, and the FF already passed
+                # the critical-command gate with the operator's token. The
+                # token is single-use, so re-presenting it on every CF made
+                # the gateway reject the first CF ("already consumed") and no
+                # multi-frame critical request (e.g. 0x36 TransferData) could
+                # complete. CFs are sent as plain protocol traffic; E-Stop,
+                # watchdog, whitelist and rate stages still apply to each one.
+                self._tx_frame(cf_frames[idx], False, False)
                 idx += 1
                 block_sent += 1
 
@@ -866,7 +896,7 @@ class UdsClient:
         timeout_s: float = 2.0,
         is_critical_command: bool = False,
         user_confirmed: bool = False,
-        confirmation_token: bytes | str | None = None,
+        confirmation_token: ConfirmationTokenSource = None,
         confirmation_context: bytes | str | None = None,
     ) -> UdsResponse:
         """Send segmented UDS request and wait for complete ISO-TP reassembled response.

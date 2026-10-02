@@ -86,7 +86,7 @@ def _decode_signed_16(data: bytes, scale: float = 1.0, offset: float = 0.0) -> f
     """Decode signed 16-bit big-endian integer."""
     if len(data) < 2:
         raise ValueError(f"Signed 16-bit decoding requires at least 2 bytes, got {len(data)}")
-    val = struct.unpack(">h", data[:2])[0]
+    val: int = struct.unpack(">h", data[:2])[0]
     return round((val * scale) + offset, 3)
 
 

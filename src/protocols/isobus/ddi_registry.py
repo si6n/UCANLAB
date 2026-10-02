@@ -53,17 +53,18 @@ class IsobusDdiRegistry:
 
     @property
     def citation(self) -> str:
-        return self._data.get("citation", "isobus.net / ISO 11783-11")
+        return str(self._data.get("citation", "isobus.net / ISO 11783-11"))
 
     @property
     def licensing_notice(self) -> str:
-        return self._data.get("licensing_notice", "")
+        return str(self._data.get("licensing_notice", ""))
 
     def get_release_info(self, release_id: str) -> dict[str, Any]:
         releases = self._data.get("pinned_releases", {})
         if release_id not in releases:
             raise KeyError(f"Unknown ISOBUS release {release_id}. Pinned: {self.PINNED_RELEASES}")
-        return releases[release_id]
+        info: dict[str, Any] = releases[release_id]
+        return info
 
     def lookup_ddi(self, ddi: int) -> DdiEntity | None:
         hex_key = f"{ddi:04X}"

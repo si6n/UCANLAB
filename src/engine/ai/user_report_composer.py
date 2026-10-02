@@ -237,8 +237,7 @@ def compose_user_card(
         if isinstance(_cause, str) and _cause.strip():
             alternatives.append(_cause.strip())
     # Deterministic de-duplication, order preserved.
-    _seen_alt: set[str] = set()
-    alternatives = [a for a in alternatives if not (a in _seen_alt or _seen_alt.add(a))]
+    alternatives = list(dict.fromkeys(alternatives))
 
     technical: dict[str, Any] = {
         "dtcs": dtc_codes[:10],

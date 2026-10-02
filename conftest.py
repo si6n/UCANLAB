@@ -35,6 +35,19 @@ for _idx, _arg in enumerate(sys.argv):
 # whitelist bypass stays unreachable outside tests.
 os.environ.setdefault("UCANLAB_TEST_MODE", "1")
 
+# Test isolation (2026-10-01 audit, AUD-13): frozen-mode tests resolve the
+# per-user data root from XDG_STATE_HOME / XDG_DATA_HOME (POSIX) and wrote the
+# license HWM file into the developer's real ~/.local/state. A second run then
+# read that leftover and failed (test_h1_escape_hatch_is_refused_in_a_frozen_build).
+# Point both at a throw-away directory for the whole session; tests that need a
+# specific root still monkeypatch it.
+if sys.platform != "win32":
+    import tempfile as _tempfile
+
+    _session_home = _tempfile.mkdtemp(prefix="ucanlab-test-home-")
+    os.environ["XDG_STATE_HOME"] = os.path.join(_session_home, "state")
+    os.environ["XDG_DATA_HOME"] = os.path.join(_session_home, "data")
+
 # R2-H4: HAL unit tests must not import the GUI stack. `test_rp1210` reaches
 # `src.main -> src.ui.desktop_app -> webview`; stub `webview` when it is not
 # installed so headless/CI collection never breaks on the import chain.

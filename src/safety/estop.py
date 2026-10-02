@@ -371,7 +371,7 @@ class EmergencyStopSystem:
             )
         return secret
 
-    def refresh_secret(self) -> bytes:
+    def refresh_secret(self) -> bytes | None:
         """Re-read the HMAC secret from the provider (explicit key rotation).
 
         Performs the provider I/O OUTSIDE the E-Stop lock and atomically swaps
@@ -420,7 +420,7 @@ class EmergencyStopSystem:
             downgraded = True
         else:
             try:
-                level = provider.protection_level()  # type: ignore[attr-defined]
+                level = provider.protection_level()
             except AttributeError:
                 # No typed level — a bare in-memory backend is EPHEMERAL.
                 from src.safety.secret_provider import EphemeralSecretBackend as _Eph

@@ -218,8 +218,8 @@ class IsoTpSequenceError(IsoTpError):
                 super().__init__(
                     message, code="ISOTP_SEQUENCE_ERROR", details=_merge_details(d, details), cause=cause
                 )
-                self.expected_sn: int = exp_sn
-                self.actual_sn: int = act_sn
+                self.expected_sn = exp_sn
+                self.actual_sn = act_sn
                 return
             message = expected_sn_or_msg
             exp_sn = expected_sn
@@ -233,8 +233,8 @@ class IsoTpSequenceError(IsoTpError):
         super().__init__(
             message, code="ISOTP_SEQUENCE_ERROR", details=_merge_details(d, details), cause=cause
         )
-        self.expected_sn: int = exp_sn
-        self.actual_sn: int = act_sn
+        self.expected_sn = exp_sn
+        self.actual_sn = act_sn
 
 
 class IsoTpInvalidPduError(IsoTpError):

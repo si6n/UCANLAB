@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping, Sequence
 from pathlib import Path
+from typing import Any
 
 import cantools
 from cantools.database.can.database import Database
@@ -42,7 +43,7 @@ class DbcBuilder:
     @classmethod
     def build_database(
         cls,
-        reports: Mapping[int, IdReport] | Sequence[IdReport],
+        reports: Mapping[Any, IdReport] | Sequence[IdReport],
         approved_only: bool = False,
     ) -> Database:
         """Create a cantools Database from ID reports."""
