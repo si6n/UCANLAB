@@ -497,6 +497,11 @@ def _steps(r: Reasoning, lang: str, max_steps: int, kb: KnowledgeBase) -> list[d
     if r.risk == "RED" and not r.safety:
         add("Motoru çalıştırmaya devam etmeyin; önce aşağıdaki kontrolleri yapın." if lang == "tr"
             else "Do not keep the engine running; do the checks below first.", "", ["template:risk.RED"])
+    # What the operator's answers concluded is the next thing to do.
+    for res in r.check_results:
+        note = res.note_tr if lang == "tr" else res.note_en
+        if note and (res.favor or res.rule_out):
+            add(note, "", [res.ref])
     if not r.codes:
         add("Tarama ekranından arıza kodlarını okuyun (OBD-II Mode 03 / J1939 DM1)." if lang == "tr"
             else "Read the fault codes from the scan screen (OBD-II Mode 03 / J1939 DM1).", "", ["template:scan"])

@@ -127,3 +127,11 @@ def test_generic_obd_code_does_not_ask_marine_questions() -> None:
     d = answer_query("U0100", language="tr").to_dict()
     sids = {c["symptom_id"] for c in d["checks"]}
     assert sids == {"can-bus-communication-loss"}, sids
+
+
+def test_answer_conclusion_becomes_the_first_step_after_safety() -> None:
+    d = answer_query("akü bitiyor", language="tr", answers={"battery-drain-parasitic.q0": 320}).to_dict()
+    assert d["steps"][0]["refs"] == ["symptom_checks#battery-drain-parasitic.q0"]
+    red = answer_query("motor hararet yapıyor", language="tr", answers={"engine-overheating.q1": "hayır"}).to_dict()
+    assert red["steps"][0]["refs"] == ["template:risk.RED"], "the stop-now line stays first"
+    assert red["steps"][1]["refs"] == ["symptom_checks#engine-overheating.q1"]
