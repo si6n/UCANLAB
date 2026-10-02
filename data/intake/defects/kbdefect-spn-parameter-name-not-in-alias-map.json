@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "intake_id": "kbdefect-spn-parameter-name-not-in-alias-map",
+  "record_type": "kb_defect",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "automated",
+    "id": "scripts/intake_kb_defects.py",
+    "role": "author"
+  },
+  "source": {
+    "title": "Kendi verimizden ölçüm: canboat kanıtındaki 169 J1939 parametre adından 155 tanesi copilot sözlüğünde karşılık bulamıyor",
+    "path": "data/diagnostics/signal_aliases.json (repo içi ölçüm; sha256 kayıt altındadır)",
+    "type": "internal_kb",
+    "publisher": "UCanLab intake",
+    "revision": null,
+    "licence": "project-internal",
+    "access_date": "2026-10-02",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": "af72aa3ea39dddef18ba8ad46bfee85ec465f5135344b9f9f667ce6dd6c411b8",
+      "bytes": 6038,
+      "pages_cited": []
+    }
+  },
+  "confidence": "corroborated",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "defect_code": "spn_parameter_name_not_in_alias_map",
+    "severity": "medium",
+    "summary": "canboat kanıtındaki 169 J1939 parametre adından 155 tanesi copilot sözlüğünde karşılık bulamıyor",
+    "why_it_matters": "Kullanıcı 'Engine Intercooler Temp' gibi gerçek bir J1939 sinyalini sorduğunda sinyal çözümlemesi başarısız olur; sorgu kanala düşer ve yanlış/alakasız cevap riski doğar. Çözüm: signal_aliases.json (source_forms) + signal_measurement_map.json (aliases) genişletmesi.",
+    "target_file": "data/diagnostics/signal_aliases.json",
+    "target_sha256": "af72aa3ea39dddef18ba8ad46bfee85ec465f5135344b9f9f667ce6dd6c411b8",
+    "detector_expression": "normalize(name) not in vocabulary (signal_aliases + signal_measurement_map)",
+    "affected_count": 155,
+    "examples": [
+      {
+        "spn": 29,
+        "name": "Accelerator Pedal Position 2",
+        "evidence_pgns": [
+          61443
+        ],
+        "source": "database/j1939/pgns/061443-ecu2.yaml"
+      },
+      {
+        "spn": 52,
+        "name": "Engine Intercooler Temp",
+        "evidence_pgns": [
+          65262
+        ],
+        "source": "database/j1939/pgns/065262-engineTemp1.yaml"
+      },
+      {
+        "spn": 81,
+        "name": "Particulate Trap Inlet Pressure",
+        "evidence_pgns": [
+          65270
+        ],
+        "source": "database/j1939/pgns/065270-inletExhaustConditions.yaml"
+      },
+      {
+        "spn": 91,
+        "name": "Accelerator Pedal Position 1",
+        "evidence_pgns": [
+          61443
+        ],
+        "source": "database/j1939/pgns/061443-ecu2.yaml"
+      },
+      {
+        "spn": 92,
+        "name": "Engine Percent Load At Current Speed",
+        "evidence_pgns": [
+          61443
+        ],
+        "source": "database/j1939/pgns/061443-ecu2.yaml"
+      }
+    ]
+  },
+  "notes": "Düzeltme intake'ten yapılmaz: bu kayıt yalnız ölçümü ve tespit ifadesini saklar. validate_intake.py her çalıştırmada dedektörü yeniden çalıştırır; sayı değişirse WARN (drift), sıfırlanırsa kapanmış sayılır."
+}

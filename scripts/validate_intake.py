@@ -1341,7 +1341,12 @@ def report_conflicts(records: list[Record], repo_root: Path, rep: Report) -> Non
         except (OSError, ValueError, KeyError) as exc:
             rep.add("WARN", "defect", f"{where}: detector '{code}' failed on the current data ({exc})")
             return
-        current_hash = sha256_of(repo_root / target)
+        target_path = repo_root / target
+        if not target_path.is_file():
+            rep.add("WARN", "defect_target_missing",
+                    f"{where}: ölçülen dosya yok ({target}) — dedektör çalıştırılamıyor")
+            return
+        current_hash = sha256_of(target_path)
         if current_hash != staged_hash:
             rep.add("WARN", "defect_stale", f"{where}: {target} sha256 değişti — ölçüm bayat, "
                                              f"kaydı yeniden üret (scripts/intake_kb_defects.py --stage --apply)")

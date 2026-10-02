@@ -15,7 +15,7 @@ Dal: `ccr-intake`. Bu rapor **keşif kanıtıdır**; `data/diagnostics` ve
 | Intake'e sahaya alınan `pgn_layout` kaydı | **84** |
 | Intake'e sahaya alınan `oem_divergence` kaydı | **37** (5.922 ayrışma satırı) |
 | Intake'e sahaya alınan `spn_reference` kaydı | **168** (66 terfi adayı + 102 uzlaştırma) |
-| Intake'e sahaya alınan `kb_defect` kaydı | **5** (kendi verimizden ölçülmüş kusur) |
+| Intake'e sahaya alınan `kb_defect` kaydı | **6** (kendi verimizden ölçülmüş kusur) |
 | Kopyalanan PGN alanı | **378** |
 | Kopyalanan SPN referansı | **171** (168 ayrı SPN) |
 | KB'de **olmayan** SPN referansı | **66** |
@@ -191,6 +191,32 @@ Sayı **türetilmez**: yalnız upstream metninde yazan `SPN n` ifadesi sayılır
 Doğrulayıcı her çalıştırmada `kb_state`'i yeniden ölçer; KB'de bir SPN eklendiyse
 `WARN kb_drift` verir ve kayıt gözden geçirilir — yani bu liste **kendini
 günceller**.
+
+## 4d. Fonksiyonel boşluk: J1939 sinyal adlarının 155'u çözümlenemiyor
+
+Yukarıdaki bulguların pratik karşılığı şu: kullanıcı gerçek bir J1939 sinyalinin
+adını sorduğunda copilot bunu kanonik sinyale **çözülemiyor**. Ölçüm:
+
+| Ölçüm | Değer |
+|---|---|
+| canboat kanıtındaki J1939 parametre adı | 168 |
+| `signal_aliases.json` + `signal_measurement_map.json` sözlüğü | 136 form |
+| **Çözümlenemeyen ad** | **155** |
+
+Örnekler: `Engine Intercooler Temp` (SPN 52), `Intake Manifold Temp` (SPN 105),
+`Transmission Oil Level 1` (SPN 124), `Engine Intake Air Mass Flow Rate`
+(SPN 132), `Accelerator Pedal Position 1` (SPN 91) — hepsi gerçek ECU
+mesajlarında geçiyor, hiçbiri sözlükte yok.
+
+Bu bir **kusur değil, kapsam boşluğudur**, ama işlevsel sonucu gerçek: sorgu
+kanala düşüyor. Çözüm intake'ten değil, `signal_aliases.json`
+(`source_forms`) + `signal_measurement_map.json` (`aliases`) genişletmesinden
+gelir; terfi kanıtı `data/intake/spn_ref/` altında hazır.
+
+Bu ölçüm `scripts/intake_kb_defects.py` içinde bir dedektör
+(`spn_parameter_name_not_in_alias_map`) olarak yaşar: yani kavram ileride
+sözlük genişletildikçe **kendiliğinden kapanır** ve kapıdan geçen bir sayıya
+dönüşür.
 
 ### Hangi üreticinin metni hayatta kaldı? (ölçüm)
 

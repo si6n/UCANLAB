@@ -101,6 +101,10 @@ def test_gate_reports_drift_when_the_measured_data_changes(tmp_path: Path) -> No
         assert drift, "a changed measurement must be reported as drift"
         assert stale, "a changed target file hash must be reported as stale"
         assert any("spn_unit_placeholder" in d for d in drift), drift
+        # A detector whose target file is absent must degrade, never crash.
+        missing_target = [d for _lv, check, d in rep.rows if check == "defect_target_missing"]
+        assert missing_target, "the gate must report a missing measurement target"
+        assert rep.count("FAIL") == 0, [d for lv, _c, d in rep.rows if lv == "FAIL"]
     finally:
         shutil.rmtree(root, ignore_errors=True)
 

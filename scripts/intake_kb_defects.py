@@ -56,6 +56,11 @@ DEFECT_SUBDIR = "defects"
 MEASURED_AT = "2026-10-02"
 SPN_DB = Path("data") / "diagnostics" / "j1939_spn_fmi_database.json"
 DTC_DB = Path("data") / "diagnostics" / "dtc_database.json"
+ALIAS_DB = Path("data") / "diagnostics" / "signal_aliases.json"
+MEASUREMENT_MAP = Path("data") / "diagnostics" / "signal_measurement_map.json"
+# Evidence for the alias-gap detector: the staged SPN references, each carrying
+# the upstream parameter name and the hash of the file it was read from.
+SPN_REF_DIR = Path("data") / "intake" / "spn_ref"
 
 # Expressions are part of the finding: a defect without its detector is not
 # reproducible, and "the regex changed" must show up as drift.
@@ -197,8 +202,74 @@ def detect_dtc_missing_title_tr(root: Path = ROOT) -> dict[str, Any]:
     }
 
 
+_NON_ALNUM = re.compile(r"[^a-z0-9]+")
+
+
+def _norm(text: str) -> str:
+    return _NON_ALNUM.sub("", text.lower())
+
+
+def _alias_vocabulary(root: Path) -> set[str]:
+    """Every form the copilot can resolve: canonicals, aliases, source forms, phrases."""
+    pool: set[str] = set()
+    measurement = root / MEASUREMENT_MAP
+    if measurement.is_file():
+        for row in (_load(measurement).get("signals") or []):
+            pool.add(_norm(str(row.get("canonical") or "")))
+            for key in ("aliases", "phrases_tr", "phrases_en"):
+                pool.update(_norm(str(v)) for v in row.get(key) or [])
+    aliases = root / ALIAS_DB
+    if aliases.is_file():
+        for row in (_load(aliases).get("aliases") or []):
+            pool.add(_norm(str(row.get("canonical") or "")))
+            for key in ("source_forms", "node_side"):
+                pool.update(_norm(str(v)) for v in row.get(key) or [])
+    pool.discard("")
+    return pool
+
+
+def detect_spn_parameter_name_not_in_alias_map(root: Path = ROOT) -> dict[str, Any]:
+    """J1939 parameter names the copilot cannot resolve to a canonical signal.
+
+    Measured against the evidence staged in ``data/intake/spn_ref`` (upstream
+    field names + their source hashes), against the two vocabulary files.
+    """
+    pool = _alias_vocabulary(root)
+    hits: list[dict[str, Any]] = []
+    seen = 0
+    for path in sorted((root / SPN_REF_DIR).glob("*.json")):
+        record = _load(path)
+        payload = record.get("payload") or {}
+        for name in payload.get("names_en") or []:
+            seen += 1
+            key = _norm(str(name))
+            resolvable = key in pool or any(len(p) > 7 and (p in key or key in p) for p in pool)
+            if not resolvable:
+                hits.append({
+                    "spn": payload.get("spn"),
+                    "name": name,
+                    "evidence_pgns": payload.get("evidence_pgns"),
+                    "source": (payload.get("sources") or [{}])[0].get("source_file"),
+                })
+    return {
+        "code": "spn_parameter_name_not_in_alias_map",
+        "severity": "medium",
+        "summary": (f"canboat kanıtındaki {seen} J1939 parametre adından {len(hits)} tanesi "
+                    f"copilot sözlüğünde karşılık bulamıyor"),
+        "why_it_matters": ("Kullanıcı 'Engine Intercooler Temp' gibi gerçek bir J1939 sinyalini "
+                           "sorduğunda sinyal çözümlemesi başarısız olur; sorgu kanala düşer ve "
+                           "yanlış/alakasız cevap riski doğar. Çözüm: signal_aliases.json "
+                           "(source_forms) + signal_measurement_map.json (aliases) genişletmesi."),
+        "expression": "normalize(name) not in vocabulary (signal_aliases + signal_measurement_map)",
+        **_target(ALIAS_DB),
+        "affected_count": len(hits),
+        "examples": hits[:EXAMPLE_LIMIT],
+    }
+
+
 Detector = Callable[[Path], dict[str, Any]]
 DETECTORS: dict[str, Detector] = {
+    "spn_parameter_name_not_in_alias_map": detect_spn_parameter_name_not_in_alias_map,
     "spn_name_is_fmi_sentence": detect_spn_name_is_fmi_sentence,
     "spn_name_embeds_spn_fmi_token": detect_spn_name_embeds_spn_fmi_token,
     "spn_unit_placeholder": detect_spn_unit_placeholder,
