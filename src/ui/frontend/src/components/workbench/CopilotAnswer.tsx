@@ -1,8 +1,14 @@
 import React, { useState } from 'react';
 import { AlertTriangle, Loader2, Send } from 'lucide-react';
-import { CopilotEvidence, CopilotStructuredAnswer, DesktopBridge } from '../../services/bridge';
+import {
+  CopilotAnswerValue,
+  CopilotCheck,
+  CopilotEvidence,
+  CopilotStructuredAnswer,
+  DesktopBridge,
+} from '../../services/bridge';
 import { L, lang } from '../mechanic/text';
-import { BTN_PRIMARY, Card, CardHeader, Chip, Tone } from './ui';
+import { BTN_PRIMARY, BTN_GHOST, Card, CardHeader, Chip, Tone } from './ui';
 
 /**
  * Renders the Python copilot's six-section answer (summary, urgency, causes,
@@ -28,8 +34,78 @@ const EvidenceList: React.FC<{ items: CopilotEvidence[]; sign: '+' | '−' }> = 
   </>
 );
 
-export const CopilotAnswerView: React.FC<{ answer: CopilotStructuredAnswer }> = ({ answer }) => {
+type AnswerFn = (key: string, value: CopilotAnswerValue) => void;
+
+/** One answerable question: yes/no/unknown buttons or a number field. Answers go back to Python. */
+const CheckRow: React.FC<{ check: CopilotCheck; onAnswer?: AnswerFn; busy: boolean }> = ({ check, onAnswer, busy }) => {
+  const [value, setValue] = useState('');
+  const answered = check.answer !== null;
+  const send = (v: CopilotAnswerValue) => onAnswer?.(check.key, v);
+  return (
+    <li className="rounded-xl border border-border-whisper px-3 py-2" data-testid={`copilot-check-${check.key}`}>
+      <p className="text-[13px] text-text-body">
+        {check.question}
+        {answered && (
+          <b className="ml-1 text-text-hi" data-testid="copilot-check-answer">
+            → {check.answer_text}
+          </b>
+        )}
+        {check.refs.map((r) => (
+          <Ref key={r} value={r} />
+        ))}
+      </p>
+      {check.result && <p className="mt-1 text-[12.5px] text-text-mid">{check.result}</p>}
+      {onAnswer && (
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+          {check.kind === 'yes_no' ? (
+            (['yes', 'no', 'unknown'] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                disabled={busy}
+                className={check.answer === v ? BTN_PRIMARY : BTN_GHOST}
+                data-testid={`copilot-check-${v}`}
+                onClick={() => send(v)}
+              >
+                {v === 'yes' ? L('Evet', 'Yes') : v === 'no' ? L('Hayır', 'No') : L('Bilmiyorum', "Don't know")}
+              </button>
+            ))
+          ) : (
+            <form
+              className="flex items-center gap-1.5"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const n = Number(value.replace(',', '.'));
+                if (value.trim() && Number.isFinite(n)) send(n);
+              }}
+            >
+              <input
+                inputMode="decimal"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                className="w-28 rounded-lg border border-border-strong bg-transparent px-2 py-1 text-[13px] text-text-hi outline-none focus:border-accent"
+                placeholder={check.unit}
+                data-testid="copilot-check-value"
+              />
+              <span className="text-[12px] text-text-low">{check.unit}</span>
+              <button type="submit" className={BTN_GHOST} disabled={busy || !value.trim()} data-testid="copilot-check-send">
+                {L('Gönder', 'Send')}
+              </button>
+            </form>
+          )}
+        </div>
+      )}
+    </li>
+  );
+};
+
+export const CopilotAnswerView: React.FC<{ answer: CopilotStructuredAnswer; onAnswer?: AnswerFn; busy?: boolean }> = ({
+  answer,
+  onAnswer,
+  busy = false,
+}) => {
   const tone = URGENCY_TONE[answer.urgency.level] ?? 'neutral';
+  const checks = answer.checks ?? [];
   return (
     <div className="flex flex-col gap-4" data-testid="copilot-answer">
       {answer.safety_banners.map((b) => (
@@ -82,7 +158,7 @@ export const CopilotAnswerView: React.FC<{ answer: CopilotStructuredAnswer }> = 
                     {c.rank}. {c.title}
                   </span>
                   <span className="flex gap-1.5">
-                    <Chip>%{Math.round(c.likelihood * 100)}</Chip>
+                    {c.kind !== 'area' && <Chip>%{Math.round(c.likelihood * 100)}</Chip>}
                     <Chip tone={c.confidence === 'high' ? 'ok' : c.confidence === 'medium' ? 'accent' : 'neutral'}>
                       {L('güven', 'confidence')}: {c.confidence_label}
                     </Chip>
@@ -126,6 +202,18 @@ export const CopilotAnswerView: React.FC<{ answer: CopilotStructuredAnswer }> = 
             </li>
           ))}
         </ol>
+        {checks.length > 0 && (
+          <div className="mt-3" data-testid="copilot-checks">
+            <h4 className="text-[12px] font-semibold text-text-low">
+              {L('Sorular — cevaplarınız teşhisi daraltır', 'Questions — your answers narrow the diagnosis')}
+            </h4>
+            <ul className="mt-1 flex flex-col gap-1.5">
+              {checks.map((c) => (
+                <CheckRow key={c.key} check={c} onAnswer={onAnswer} busy={busy} />
+              ))}
+            </ul>
+          </div>
+        )}
       </section>
 
       <section>
@@ -204,23 +292,44 @@ export const CopilotAskCard: React.FC<{ sessionAnswer?: CopilotStructuredAnswer 
   const [busy, setBusy] = useState(false);
   const [answer, setAnswer] = useState<CopilotStructuredAnswer | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The question the shown answer replies to, and the operator's answers to its checks.
+  const [asked, setAsked] = useState('');
+  const [answers, setAnswers] = useState<Record<string, CopilotAnswerValue>>({});
+  const [refining, setRefining] = useState(false);
 
-  const ask = async () => {
-    if (!query.trim()) return;
+  const run = async (text: string, given: Record<string, CopilotAnswerValue>) => {
     setBusy(true);
     setError(null);
     try {
-      const res = await DesktopBridge.askCopilotStructured(query.trim(), lang());
-      if (res.success && res.answer) setAnswer(res.answer);
-      else setError(res.error ?? L('Cevap oluşturulamadı.', 'No answer could be produced.'));
+      const res = await DesktopBridge.askCopilotStructured(text, lang(), given);
+      if (res.success && res.answer) {
+        setAnswer(res.answer);
+        setAsked(text);
+        setAnswers(given);
+      } else setError(res.error ?? L('Cevap oluşturulamadı.', 'No answer could be produced.'));
     } finally {
       setBusy(false);
+      setRefining(false);
     }
   };
 
-  // While a question is in flight the previous answer is hidden, so a stale
-  // answer can never be read as the reply to the new question.
-  const shown = busy ? null : (answer ?? sessionAnswer ?? null);
+  // A new question starts a fresh set of answers.
+  const ask = async () => {
+    if (!query.trim()) return;
+    await run(query.trim(), {});
+  };
+
+  // An answer to a check re-asks the SAME question with the answer added.
+  const answerCheck: AnswerFn = (key, value) => {
+    if (!asked) return;
+    setRefining(true);
+    void run(asked, { ...answers, [key]: value });
+  };
+
+  // While a new question is in flight the previous answer is hidden, so a stale
+  // answer can never be read as the reply to the new question. A check answer
+  // only refines the same question, so its answer stays visible meanwhile.
+  const shown = busy && !refining ? null : (answer ?? sessionAnswer ?? null);
   return (
     <Card testId="copilot-card">
       <CardHeader
@@ -252,7 +361,7 @@ export const CopilotAskCard: React.FC<{ sessionAnswer?: CopilotStructuredAnswer 
           </button>
         </form>
         {error && <p className="text-[13px] text-del">{error}</p>}
-        {shown && <CopilotAnswerView answer={shown} />}
+        {shown && <CopilotAnswerView answer={shown} onAnswer={answer && shown === answer ? answerCheck : undefined} busy={busy} />}
       </div>
     </Card>
   );

@@ -56,8 +56,12 @@ _S: dict[str, dict[str, str]] = {
     "conf.low": {"tr": "düşük", "en": "low"},
     "kind.graph": {"tr": "kök neden grafiği", "en": "root-cause graph"},
     "kind.record": {"tr": "kod kaydındaki olası neden", "en": "possible cause listed in the code record"},
-    "kind.area": {"tr": "şikâyetin işaret ettiği alt sistem (neden verisi yok; önce burayı kontrol edin)",
-                  "en": "subsystem the complaint points at (no cause data; inspect this first)"},
+    "kind.area": {"tr": "şikâyetin işaret ettiği alt sistem (kesin neden değil; kontrol edilecek bölge)",
+                  "en": "subsystem the complaint points at (not a specific cause; area to inspect)"},
+    "h.checks": {"tr": "Sorular — cevaplarınız teşhisi daraltır", "en": "Questions — your answers narrow the diagnosis"},
+    "yes": {"tr": "Evet", "en": "Yes"},
+    "no": {"tr": "Hayır", "en": "No"},
+    "unknown": {"tr": "Bilmiyorum", "en": "Don't know"},
     "kind.suspected": {"tr": "yalnız şikâyetten çıkarım (kod okunmadı)", "en": "inferred from the complaint only (no code read)"},
     "h.summary": {"tr": "1. Kısa özet", "en": "1. Summary"},
     "h.urgency": {"tr": "2. Acil mi?", "en": "2. Is it urgent?"},
@@ -154,6 +158,7 @@ class StructuredAnswer:
     technical: dict[str, Any] = field(default_factory=dict)
     recalls: dict[str, Any] = field(default_factory=dict)
     understood: dict[str, Any] = field(default_factory=dict)
+    checks: list[dict[str, Any]] = field(default_factory=list)
     engine: str = ENGINE_ID
 
     def to_dict(self) -> dict[str, Any]:
@@ -168,6 +173,7 @@ class StructuredAnswer:
             "technical": dict(self.technical),
             "recalls": dict(self.recalls),
             "understood": dict(self.understood),
+            "checks": list(self.checks),
             "engine": self.engine,
         }
 
@@ -186,6 +192,8 @@ class StructuredAnswer:
             add(e.get("ref", "") for e in c.get("support", []) + c.get("against", []))
         for s in self.steps:
             add(s.get("refs", []))
+        for chk in self.checks:
+            add(chk.get("refs", []))
         for m in self.missing_data:
             add(m.get("refs", []))
         for code in self.technical.get("codes", []):
@@ -235,6 +243,14 @@ class StructuredAnswer:
             ref = f" `{', '.join(s['refs'])}`" if s.get("refs") else ""
             diff = f" _({s['difficulty']})_" if s.get("difficulty") else ""
             lines.append(f"{s['n']}. {s['text']}{diff}{ref}")
+        if self.checks:
+            lines += ["", f"### {_t('h.checks', lang)}"]
+        for chk in self.checks:
+            unit = f" ({chk['unit']})" if chk.get("unit") else ""
+            got = f" → **{chk['answer_text']}**" if chk.get("answer_text") else ""
+            lines.append(f"- {chk['question']}{unit}{got} `{chk['key']}`")
+            if chk.get("result"):
+                lines.append(f"  - {chk['result']}")
         lines += ["", f"## {_t('h.missing', lang)}"]
         if not self.missing_data:
             lines.append(_t("no_missing", lang))
@@ -315,6 +331,17 @@ def _evidence_text(marker: str, lang: str, kb: KnowledgeBase) -> str:
         name = rec.get("name_tr") if lang == "tr" else rec.get("name_en")
         return (f"şikâyet: {name or payload} — motor çalıştırılmaya devam ederse kalıcı hasar görebilir"
                 if lang == "tr" else f"complaint: {name or payload} — running the engine on can cause permanent damage")
+    if kind == "check":
+        key, _, value = payload.partition("|")
+        sid, _, cid = key.partition(".")
+        check = next((c for c in kb.symptom_checks(sid) if c.get("id") == cid), None) or {}
+        shown = _t(value, lang) if value in ("yes", "no", "unknown") else f"{value} {check.get('unit') or ''}".strip()
+        from src.engine.ai.copilot_reasoner import _check_effect
+
+        effect = _check_effect(check, float(value) if check.get("kind") == "measurement" else value) or {}
+        note = str(effect.get("note_tr" if lang == "tr" else "note_en") or "")
+        return (f"cevap '{shown}': {note}" if lang == "tr" else f"answer '{shown}': {note}") if note else \
+            (f"cevap: {shown}" if lang == "tr" else f"answer: {shown}")
     if kind == "fmi":
         num, _, fam = payload.partition("|")
         if fam == "electrical":
@@ -389,8 +416,12 @@ def _summary(r: Reasoning, lang: str, kb: KnowledgeBase) -> str:
     if r.hypotheses:
         top = r.hypotheses[0]
         conf = _t(f"conf.{top.confidence}", lang)
-        if top.kind == "area":
-            areas = ", ".join(h.title for h in r.hypotheses[:3])
+        answered = any(s.startswith("check:") for s, _ in top.support)
+        if top.kind == "area" and answered:
+            bits.append(f"Cevaplarınıza göre önce kontrol edin: {top.title}." if lang == "tr"
+                        else f"From your answers, inspect first: {top.title}.")
+        elif top.kind == "area":
+            areas = ", ".join(h.title for h in r.hypotheses[:3] if h.kind == "area" and not h.against)
             bits.append(f"Kayıtlı kök neden yok; önce şu alt sistemleri kontrol edin: {areas}." if lang == "tr"
                         else f"No recorded root cause; inspect these subsystems first: {areas}.")
         else:
@@ -419,7 +450,7 @@ def _urgency(r: Reasoning, lang: str, kb: KnowledgeBase) -> dict[str, Any]:
     }
 
 
-def _steps(r: Reasoning, lang: str, max_steps: int) -> list[dict[str, Any]]:
+def _steps(r: Reasoning, lang: str, max_steps: int, kb: KnowledgeBase) -> list[dict[str, Any]]:
     steps: list[tuple[str, str, list[str]]] = []
     seen: set[str] = set()
 
@@ -450,7 +481,10 @@ def _steps(r: Reasoning, lang: str, max_steps: int) -> list[dict[str, Any]]:
                 (f"{c.key}: re-read and confirm the code with the scan tool; there is no verified record for it, "
                  "consult the manufacturer's service information."), "", ["template:unknown_code"])
     for sid, rec in r.symptom_records[:2]:
-        for q in list(rec.get("initial_questions") or [])[:2]:
+        asked = {c.get("q") for c in kb.symptom_checks(sid)}  # shown as answerable questions instead
+        for qi, q in enumerate(list(rec.get("initial_questions") or [])[:2]):
+            if qi in asked:
+                continue
             add(f"{'Kontrol edin' if lang == 'tr' else 'Check'}: {q}", "Kolay" if lang == "tr" else "Easy",
                 [f"canonical_symptoms#{sid}"])
     code_steps: list[tuple[int, int, str, str, str]] = []
@@ -464,6 +498,36 @@ def _steps(r: Reasoning, lang: str, max_steps: int) -> list[dict[str, Any]]:
     out = []
     for i, (text, difficulty, refs) in enumerate(steps[:max_steps], 1):
         out.append({"n": i, "text": text, "difficulty": difficulty, "refs": refs})
+    return out
+
+
+def _checks(r: Reasoning, lang: str, kb: KnowledgeBase) -> list[dict[str, Any]]:
+    """Answerable questions for the top complaints; answered ones carry their curated effect."""
+    results = {c.key: c for c in r.check_results}
+    out: list[dict[str, Any]] = []
+    for sid, rec in r.symptom_records[:2]:
+        questions = list(rec.get("initial_questions") or [])
+        for check in kb.symptom_checks(sid):
+            qi = check.get("q")
+            if not isinstance(qi, int) or qi >= len(questions):
+                continue
+            key = f"{sid}.{check.get('id')}"
+            res = results.get(key)
+            question = (str(check.get("question_tr") or questions[qi]) if lang == "tr"
+                        else str(check.get("question_en") or questions[qi]))
+            answer_text = ""
+            if res is not None:
+                answer_text = (f"{res.value:g} {check.get('unit') or ''}".strip() if isinstance(res.value, float)
+                               else _t(str(res.value), lang))
+            out.append({
+                "key": key, "symptom_id": sid, "question": question, "kind": str(check.get("kind")),
+                "unit": str(check.get("unit") or ""),
+                "answer": res.value if res is not None else None, "answer_text": answer_text,
+                "result": (res.note_tr if lang == "tr" else res.note_en) if res is not None else "",
+                "refs": [f"symptom_checks#{key}"],
+            })
+    # unanswered questions first: they are what the mechanic can act on next
+    out.sort(key=lambda c: c["answer"] is not None)
     return out
 
 
@@ -547,6 +611,7 @@ def answer_query(
     vehicle_make: str | None = None,
     vehicle_model: str | None = None,
     language: str | None = None,
+    answers: Mapping[str, Any] | None = None,
     options: CopilotOptions | None = None,
     kb: KnowledgeBase | None = None,
 ) -> StructuredAnswer:
@@ -554,7 +619,7 @@ def answer_query(
     opts = options or CopilotOptions()
     kb = kb or get_knowledge_base()
     parsed = parse_query(text, dtcs=dtcs, telemetry=telemetry, dm1=dm1, vehicle_make=vehicle_make,
-                         vehicle_model=vehicle_model, language=language, kb=kb)
+                         vehicle_model=vehicle_model, language=language, answers=answers, kb=kb)
     r = reason(parsed, kb, include_recalls=opts.include_recalls)
     lang = parsed.language
 
@@ -574,7 +639,8 @@ def answer_query(
     ans.summary = _summary(r, lang, kb)
     ans.urgency = _urgency(r, lang, kb)
     ans.causes = [_cause_dict(h, i, lang, kb) for i, h in enumerate(r.hypotheses[: opts.max_causes], 1)]
-    ans.steps = _steps(r, lang, opts.max_steps)
+    ans.steps = _steps(r, lang, opts.max_steps, kb)
+    ans.checks = _checks(r, lang, kb)
     ans.missing_data = [{
         "key": m.key, "what": m.what_tr if lang == "tr" else m.what_en,
         "how": m.how_tr if lang == "tr" else m.how_en, "refs": list(m.refs),

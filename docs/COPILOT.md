@@ -83,6 +83,30 @@ cevap bunun kesin olasılık olmadığını açıkça yazar. Güven: kod + telem
 çelişki yok → yüksek; kod (graf) veya telemetri → orta; diğerleri → düşük.
 Eşitlikte en ağır kodun nedeni önce gelir.
 
+### 3.1.1 Sorular ve cevaplar (`symptom_checks`)
+
+Cevap, eşleşen şikâyetin `initial_questions` sorularını **cevaplanabilir** olarak
+listeler (`checks` alanı; markdown'da 4. bölümün altında "Sorular"). Cevaplar
+aynı sorguyla geri gönderilir (`answer_query(..., answers={"<symptom_id>.q<n>": …})`,
+köprü: `ask_copilot_structured(query, language, answers)`); arayüz Evet / Hayır /
+Bilmiyorum düğmeleri ve ölçüm alanı gösterir.
+
+* Etkiler küratörlüdür: `scripts/copilot_data/build_symptom_checks.py` →
+  `data/diagnostics/symptom_checks.json` (37 semptom, 83 soru). Bir cevap yalnız
+  **o semptomun kendi** alt sistemlerini (`subsystems` indeksi) veya kendi aday
+  kodlarını (`candidate_dtcs`) öne alır (+1.5) ya da geriye iter (−1.5, "çelişen"
+  olarak gösterilir) ve tek cümlelik sabit bir açıklama taşır. Doğrulayıcı ve
+  `test_copilot_checks.py` hedeflerin semptoma ait olduğunu denetler.
+* Öne alınan alt sistem yoksa `area` satırı olarak eklenir; kodlu bir hedef
+  (ör. `P0217`) graf nedenini doğrudan yükseltir. Cevapla desteklenen ve
+  çelişkisi olmayan aday "orta" güven alır.
+* Ölçüm soruları bantlarla değerlendirilir (`min ≤ v < max`; bantlar boşluksuz).
+  Metinde sorunun kendi anahtar kelimesi ve tek bir birimli sayı varsa
+  ("uyku akımı 320 mA") cevap metinden alınır; iki aday sayı varsa alınmaz.
+* "Bilmiyorum", tanınmayan değer veya bu sorguda eşleşmeyen semptomun cevabı
+  hiçbir şeyi değiştirmez (`answer_ignored:<key>` notu). Cevaplar aciliyeti
+  düşürmez.
+
 ### 3.2 Aciliyet ve güvenlik
 
 * Aciliyet: kod ciddiyeti `drive_safety_policy.decide_risk` ile (tek otorite),
@@ -112,6 +136,7 @@ Eşitlikte en ağır kodun nedeni önce gelir.
 | `obd_mode06`, `uds_did` | Mode 06 / UDS DID | KB üzerinden erişilebilir (eski paket açıklama yolu) |
 | `canonical_symptoms` | 152 semptom | Şikâyet → aday kod, ilk kontroller |
 | `symptom_lexicon` (yeni) | 25 kayıt, 186 TR/EN ifade + güvenlik terimleri | Gündelik ifadeler |
+| `symptom_checks` (yeni) | 37 semptom, 83 soru | Soru cevaplarının küratörlü etkileri (§3.1.1) |
 | `root_cause_graph` | 8.884 düğüm | Kök neden adayları, kanıt/çelişen sinyaller |
 | `signal_aliases` + `signal_measurement_map` (yeni, 24 sinyal) | | Sinyal adı birleştirme; eksik ölçüm için SPN/PGN/PID rehberi |
 | `system_taxonomy` | 26 sistem | Fren/direksiyon güvenlik tespiti |
@@ -155,12 +180,13 @@ python -m pytest tests/unit/test_copilot_*.py tests/safety/test_ai_tx_isolation.
 
 | Dosya | İçerik |
 |---|---|
-| `test_copilot_golden_scenarios.py` | 50 altın senaryo (DTC, SPN/FMI, DM1, semptom, gösterge değeri, olumsuzluk, telemetri+kod, çelişkili kanıt, veri yok, EV/HV, fren/direksiyon, çoklu kod, yazım hatası, TR/EN, NHTSA, PGN) + 6 bölüm/ilk satır güvenlik kontrolü |
+| `test_copilot_golden_scenarios.py` | 53 altın senaryo (soru cevapları, DTC, SPN/FMI, DM1, semptom, gösterge değeri, olumsuzluk, telemetri+kod, çelişkili kanıt, veri yok, EV/HV, fren/direksiyon, çoklu kod, yazım hatası, TR/EN, NHTSA, PGN) + 6 bölüm/ilk satır güvenlik kontrolü |
 | `test_copilot_no_fabrication.py` | Atıf çözümü, sayı izlenebilirliği, yalnız verilen sinyallerde bulgu, bilinmeyen koda anlam verilmemesi, NaN/birim reddi, determinizm, yazma/TX yokluğu |
 | `test_copilot_knowledge_and_parsing.py` | KB tembelliği, indeksler, kaçırma nedenleri, ayrıştırıcı birim testleri |
 | `test_copilot_performance.py` | Kurulum < 10 ms, sıcak sorgu ort. < 150 ms (ölçülen 2–13 ms), bellek < 8 MB, arama katmanı aç/kapa |
-| `test_copilot_bridge_and_data.py` | Köprü uç noktası, ek analiz anahtarı, veri kapısı, üreticilerin bayt-eşdeğerliği |
-| `tests/ui_e2e/test_workbench_ui.py::test_assistant_copilot_card_answers_free_text_read_only` | Gerçek tarayıcıda kart, güvenlik bandı, salt okuma |
+| `test_copilot_checks.py` | Soru hedeflerinin semptoma aitliği, bant sürekliliği, cevapla öne alma/geri itme, metinden ölçüm, etkisiz cevaplar, TR/EN |
+| `test_copilot_bridge_and_data.py` | Köprü uç noktası, `answers` doğrulaması, ek analiz anahtarı, veri kapısı, üreticilerin bayt-eşdeğerliği |
+| `tests/ui_e2e/test_workbench_ui.py::test_assistant_copilot_card_answers_free_text_read_only` | Gerçek tarayıcıda kart, güvenlik bandı, salt okuma; `test_copilot_check_answers_narrow_the_causes`: soru cevaplama akışı |
 
 ## 7. Terim sözlüğü
 

@@ -33,6 +33,7 @@ from typing import Any
 from src.engine.ai.knowledge_base import KnowledgeBase, fold_text, get_knowledge_base, normalize_dtc_code
 
 __all__ = [
+    "CheckAnswer",
     "CodeMention",
     "Dm1Lamps",
     "ParsedQuery",
@@ -87,6 +88,20 @@ class Reading:
 
 
 @dataclass(frozen=True, slots=True)
+class CheckAnswer:
+    """Answer to one curated symptom check (``symptom_checks.json``)."""
+
+    symptom_id: str
+    check_id: str
+    value: str | float  # "yes" | "no" | "unknown" | measured number
+    origin: str  # input | text
+
+    @property
+    def key(self) -> str:
+        return f"{self.symptom_id}.{self.check_id}"
+
+
+@dataclass(frozen=True, slots=True)
 class Dm1Lamps:
     mil: bool
     red_stop: bool
@@ -111,6 +126,7 @@ class ParsedQuery:
     vehicle_model: str | None = None
     corrections: list[tuple[str, str]] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
+    answers: list[CheckAnswer] = field(default_factory=list)
 
     @property
     def is_empty(self) -> bool:
@@ -134,6 +150,7 @@ class ParsedQuery:
             "vehicle_make": self.vehicle_make,
             "corrections": [list(c) for c in self.corrections],
             "notes": list(self.notes),
+            "answers": [{"key": a.key, "value": a.value, "origin": a.origin} for a in self.answers],
         }
 
 
@@ -555,6 +572,62 @@ def _explicit_codes(dtcs: Iterable[Any]) -> tuple[list[CodeMention], list[SpnMen
     return codes, spns
 
 
+# ------------------------------------------------------------ check answers
+_YES = frozenset({"yes", "y", "evet", "e", "var", "true", "1"})
+_NO = frozenset({"no", "n", "hayir", "h", "yok", "false", "0"})
+_CHECK_UNIT_RE: dict[str, str] = {
+    "mA": r"ma|miliamper", "V": r"v|volt|vdc", "Ohm": r"ohm|ω|Ω", "bar": r"bar", "°C": r"°c|derece|c",
+}
+
+
+def _answer_value(kind: str, raw: Any) -> str | float:
+    if kind == "measurement":
+        if isinstance(raw, bool):
+            return "unknown"
+        if isinstance(raw, (int, float)):
+            return float(raw)
+        try:
+            return float(str(raw).strip().replace(",", "."))
+        except ValueError:
+            return "unknown"
+    if raw is True:
+        return "yes"
+    if raw is False:
+        return "no"
+    folded = fold_text(str(raw))
+    return "yes" if folded in _YES else "no" if folded in _NO else "unknown"
+
+
+def _check_answers(answers: Mapping[str, Any], text: str, symptoms: list[SymptomMatch],
+                   kb: KnowledgeBase) -> tuple[list[CheckAnswer], list[str]]:
+    """Answers for the matched symptoms' checks: explicit input first, then
+    measurements written in the text next to the check's own keyword."""
+    out: dict[str, CheckAnswer] = {}
+    notes: list[str] = []
+    matched = {s.symptom_id for s in symptoms}
+    for raw_key, raw in list(answers.items())[:40]:
+        sid, _, cid = str(raw_key).partition(".")
+        check = next((c for c in kb.symptom_checks(sid) if c.get("id") == cid), None)
+        if check is None or sid not in matched:
+            notes.append(f"answer_ignored:{str(raw_key)[:80]}")
+            continue
+        out[f"{sid}.{cid}"] = CheckAnswer(sid, cid, _answer_value(str(check.get("kind")), raw), "input")
+    light = _light_fold(text)
+    folded = fold_text(text)
+    for s in symptoms:
+        for check in kb.symptom_checks(s.symptom_id):
+            key = f"{s.symptom_id}.{check.get('id')}"
+            unit_re = _CHECK_UNIT_RE.get(str(check.get("unit")))
+            if key in out or check.get("kind") != "measurement" or not unit_re:
+                continue
+            if not any(fold_text(k) in folded for k in check.get("text_keys") or []):
+                continue
+            nums = re.findall(rf"(?<![a-z0-9.,])(-?\d+(?:[.,]\d+)?)\s*(?:{unit_re})(?![a-z0-9])", light)
+            if len(nums) == 1:  # one candidate number only; ambiguity is never resolved by guessing
+                out[key] = CheckAnswer(s.symptom_id, str(check.get("id")), float(nums[0].replace(",", ".")), "text")
+    return list(out.values()), notes
+
+
 def parse_query(
     text: str = "",
     *,
@@ -564,6 +637,7 @@ def parse_query(
     vehicle_make: str | None = None,
     vehicle_model: str | None = None,
     language: str | None = None,
+    answers: Mapping[str, Any] | None = None,
     kb: KnowledgeBase | None = None,
 ) -> ParsedQuery:
     """Parse everything the copilot was given into one deterministic structure."""
@@ -634,6 +708,8 @@ def parse_query(
     pq.notes.extend(notes)
     pq.readings = readings
     pq.unknown_telemetry = unknown
+    pq.answers, notes = _check_answers(answers or {}, text, pq.symptoms, kb)
+    pq.notes.extend(notes)
 
     pq.vehicle_make = vehicle_make or None
     pq.vehicle_model = vehicle_model or None

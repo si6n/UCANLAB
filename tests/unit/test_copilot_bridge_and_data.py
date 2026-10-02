@@ -52,6 +52,25 @@ def test_bridge_structured_query_rejects_bad_input(bad: object) -> None:
     assert res["success"] is False and res["code"] == "INVALID_COPILOT_QUERY"
 
 
+def test_bridge_passes_answers_to_the_copilot() -> None:
+    res = DesktopApiBridge(_app()).ask_copilot_structured(
+        "akü bitiyor", "tr", {"battery-drain-parasitic.q0": 320, "battery-drain-parasitic.q1": "hayır"})
+    assert res["success"] is True
+    checks = {c["key"]: c for c in res["answer"]["checks"]}
+    assert checks["battery-drain-parasitic.q0"]["answer_text"] == "320 mA"
+    assert res["answer"]["causes"][0]["title"] == "Gövde Kontrol Modülü (BCM)"
+
+
+@pytest.mark.parametrize("bad", [
+    ["yes"], {"../../etc": "yes"}, {"battery-drain-parasitic.q0": float("nan")},
+    {"battery-drain-parasitic.q0": {"nested": 1}}, {"battery-drain-parasitic.q0": "x" * 40},
+    {f"s{i}.q0": "yes" for i in range(41)},
+])
+def test_bridge_rejects_malformed_answers(bad: object) -> None:
+    res = DesktopApiBridge(_app()).ask_copilot_structured("akü bitiyor", "tr", bad)  # type: ignore[arg-type]
+    assert res["success"] is False and res["code"] == "INVALID_COPILOT_QUERY"
+
+
 def test_analysis_payload_carries_structured_answer_for_live_dm1() -> None:
     app = _app()
     app._decode_j1939_signal(_dm1_frame(spn=100, fmi=1))
@@ -99,13 +118,13 @@ def test_copilot_data_files_regenerate_identically(tmp_path: Path) -> None:
     """The generator scripts are the single source: running them must not change the files."""
     import subprocess
 
-    targets = ["symptom_lexicon.json", "signal_measurement_map.json", "copilot_glossary.json"]
+    targets = ["symptom_lexicon.json", "signal_measurement_map.json", "copilot_glossary.json", "symptom_checks.json"]
     # Windows checkouts may carry CRLF (core.autocrlf); compare content, not line endings.
     def read(t: str) -> bytes:
         return (ROOT / "data" / "diagnostics" / t).read_bytes().replace(b"\r\n", b"\n")
 
     before = {t: read(t) for t in targets}
-    for script in ("build_lexicon.py", "build_signal_map.py", "build_glossary.py"):
+    for script in ("build_lexicon.py", "build_signal_map.py", "build_glossary.py", "build_symptom_checks.py"):
         subprocess.run([sys.executable, str(ROOT / "scripts" / "copilot_data" / script)], check=True,
                        capture_output=True, cwd=ROOT)
     after = {t: read(t) for t in targets}

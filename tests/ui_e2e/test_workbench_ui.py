@@ -366,6 +366,30 @@ def test_assistant_copilot_card_answers_free_text_read_only(wb: Any) -> None:
     assert not app.supervisor.is_tx_permitted
 
 
+def test_copilot_check_answers_narrow_the_causes(wb: Any) -> None:
+    """Answering the copilot's questions re-asks the same complaint with the answers
+    and the leading cause follows them; still read-only."""
+    page, app = wb
+    page.click("[data-testid=nav-assistant]")
+    page.wait_for_selector("[data-testid=copilot-card]", timeout=20000)
+    page.fill("[data-testid=copilot-query]", "akü bitiyor")
+    page.click("[data-testid=copilot-ask]")
+    page.wait_for_selector("[data-testid=copilot-checks]", timeout=20000)
+    row = "[data-testid='copilot-check-battery-drain-parasitic.q0']"
+    page.fill(f"{row} [data-testid=copilot-check-value]", "320")
+    page.click(f"{row} [data-testid=copilot-check-send]")
+    page.wait_for_selector(f"{row} [data-testid=copilot-check-answer]", timeout=20000)
+    assert "320 mA" in page.text_content(f"{row} [data-testid=copilot-check-answer]")
+    assert "Gövde Kontrol Modülü (BCM)" in page.text_content("[data-testid=copilot-causes] li")
+    yes_no = "[data-testid='copilot-check-battery-drain-parasitic.q1']"
+    page.click(f"{yes_no} [data-testid=copilot-check-yes]")
+    page.wait_for_selector(f"{yes_no} [data-testid=copilot-check-answer]", timeout=20000)
+    # the first answer is kept when the second one is given
+    assert page.locator(f"{row} [data-testid=copilot-check-answer]").count() == 1
+    assert app._diag_session.samples == [] and app._diag_session.events == []
+    assert not app.supervisor.is_tx_permitted
+
+
 def test_ecu_dry_run_on_the_simulator_sends_nothing(wb: Any) -> None:
     page, app = wb
     page.select_option("[data-testid=sim-type]", "truck")

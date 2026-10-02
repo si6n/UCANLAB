@@ -82,6 +82,10 @@ def _record_text(ref: str) -> str:
         return json.dumps(kb.dtc_oem(key).record, ensure_ascii=False)
     if source == "copilot_glossary":
         return json.dumps(kb.glossary().get(key), ensure_ascii=False)
+    if source == "symptom_checks":
+        sid, _, cid = key.partition(".")
+        check = next((c for c in kb.symptom_checks(sid) if c.get("id") == cid), None)
+        return json.dumps(check, ensure_ascii=False) + json.dumps(kb.symptom(sid).record, ensure_ascii=False)
     return ""
 
 
@@ -90,6 +94,7 @@ def _allowed_numbers(kwargs: dict[str, Any], answer: StructuredAnswer) -> set[fl
     allowed |= _numbers(str(kwargs.get("text", "")))
     allowed |= _numbers(json.dumps(kwargs.get("dtcs", []), default=str))
     allowed |= _numbers(json.dumps(kwargs.get("telemetry", {}), default=str))
+    allowed |= _numbers(json.dumps(kwargs.get("answers", {}), default=str))
     # values the parser derived from the input (unit conversion, HV Ω/V ratio)
     for r in answer.understood.get("readings", []):
         allowed.add(round(float(r["value"]), 3))
@@ -119,6 +124,8 @@ def _shown_text(d: dict[str, Any]) -> str:
         parts += [code["title"], code["fmi_text"], code["pgn_text"], code["reference_values"], code["description"]]
     for t in d["technical"]["telemetry"]:
         parts.append(f"{t['value']} {t['reference']}")
+    for chk in d.get("checks", []):
+        parts += [chk["question"], chk["answer_text"], chk["result"]]
     return "\n".join(p for p in parts if p)
 
 

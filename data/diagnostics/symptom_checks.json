@@ -1,0 +1,3052 @@
+{
+ "schema_version": 1,
+ "title": "Copilot symptom checks (answer effects for canonical symptom questions)",
+ "_rule": "Every check points at an EXISTING canonical_symptoms.json question (initial_questions[q]). An answer only moves that symptom's own subsystems (int = index into subsystems) or its own candidate_dtcs (string) up ('favor') or down ('rule_out'). Notes are fixed curated text. Validated by scripts/validate_copilot_data.py and tests/unit/test_copilot_checks.py.",
+ "symptoms": {
+  "crank-no-start": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Does the starter crank the engine briskly?",
+     "outcomes": {
+      "yes": {
+       "favor": [],
+       "rule_out": [
+        2
+       ],
+       "note_tr": "Marş canlı dönüyor: akü ve marş beslemesi büyük olasılıkla yeterli.",
+       "note_en": "Starter cranks briskly: battery and starter supply are probably adequate."
+      },
+      "no": {
+       "favor": [
+        2
+       ],
+       "rule_out": [],
+       "note_tr": "Marş ağır dönüyor: önce akü gerilimi ve marş kablo bağlantıları.",
+       "note_en": "Starter cranks slowly: check battery voltage and starter cable connections first."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 2,
+     "kind": "yes_no",
+     "question_en": "Is there enough fuel and can the fuel pump be heard priming?",
+     "outcomes": {
+      "yes": {
+       "favor": [],
+       "rule_out": [
+        1
+       ],
+       "note_tr": "Yakıt var ve pompa çalışıyor: besleme tarafı daha az olası.",
+       "note_en": "Fuel present and pump running: the supply side is less likely."
+      },
+      "no": {
+       "favor": [
+        1,
+        "P0627"
+       ],
+       "rule_out": [],
+       "note_tr": "Pompa sesi yok: yakıt pompası, sigortası ve kumanda devresi (P0627) önce.",
+       "note_en": "No pump sound: fuel pump, its fuse and control circuit (P0627) first."
+      }
+     },
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-crank-no-start",
+     "target": {
+      "record_id": "crank-no-start",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'crank-no-start' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#crank-no-start",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "black-smoke": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Is there a clear loss of pull or a whistle under acceleration?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Çekiş düşüşü veya ıslık: hava tarafı (turbo, şarj hortumu) önce.",
+       "note_en": "Loss of pull or whistle: air side (turbo, boost hose) first."
+      },
+      "no": {
+       "favor": [],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Çekiş normal: hava tarafı daha az olası.",
+       "note_en": "Pull is normal: the air side is less likely."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 2,
+     "kind": "yes_no",
+     "question_en": "Are live MAF and boost pressure at nominal values?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        1
+       ],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Hava akışı ve şarj basıncı normal: fazla yakıt (enjektör) tarafı öne çıkar.",
+       "note_en": "Air flow and boost are normal: excess fuel (injectors) comes forward."
+      },
+      "no": {
+       "favor": [
+        0,
+        "P0101",
+        "P0299"
+       ],
+       "rule_out": [],
+       "note_tr": "Hava akışı veya şarj basıncı düşük: MAF (P0101) ve turbo (P0299) önce.",
+       "note_en": "Air flow or boost low: MAF (P0101) and turbo (P0299) first."
+      }
+     },
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-black-smoke",
+     "target": {
+      "record_id": "black-smoke",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'black-smoke' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#black-smoke",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "engine-overheating": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Is the coolant level in the expansion tank below Min?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Soğutma suyu eksik: hortum, radyatör ve su pompasında kaçak arayın; tamamlamadan çalıştırmayın.",
+       "note_en": "Coolant is low: look for leaks at hoses, radiator and water pump; do not run it before topping up."
+      },
+      "no": {
+       "favor": [],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Seviye yerinde: dış kaçak daha az olası.",
+       "note_en": "Level is fine: an external leak is less likely."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Does the radiator fan switch on when the engine is hot?",
+     "outcomes": {
+      "yes": {
+       "favor": [],
+       "rule_out": [
+        1
+       ],
+       "note_tr": "Fan devreye giriyor: fan kumandası daha az olası.",
+       "note_en": "Fan switches on: fan control is less likely."
+      },
+      "no": {
+       "favor": [
+        1,
+        "P0217"
+       ],
+       "rule_out": [],
+       "note_tr": "Fan devreye girmiyor: fan motoru, rölesi ve sıcaklık kumandası önce.",
+       "note_en": "Fan does not switch on: fan motor, relay and temperature control first."
+      }
+     },
+     "id": "q1"
+    },
+    {
+     "q": 2,
+     "kind": "yes_no",
+     "question_en": "Does the heater blow hot air?",
+     "outcomes": {
+      "no": {
+       "favor": [
+        1,
+        2
+       ],
+       "rule_out": [],
+       "note_tr": "Hararetle birlikte kalorifer soğuk: termostat kapalı kalmış, su eksik veya sistemde hava/gaz (conta) olabilir.",
+       "note_en": "Heater cold while overheating: stuck-closed thermostat, low coolant or air/gas in the system (head gasket)."
+      }
+     },
+     "question_tr": "Kalorifer sıcak hava üflüyor mu?",
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-engine-overheating",
+     "target": {
+      "record_id": "engine-overheating",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'engine-overheating' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#engine-overheating",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "rough-idle-vibration": {
+   "checks": [
+    {
+     "q": 2,
+     "kind": "yes_no",
+     "question_en": "Is the check engine lamp flashing?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Lamba yanıp sönüyor: aktif tekleme var, katalizör zarar görebilir; ateşleme (buji/bobin) önce.",
+       "note_en": "Lamp flashing: active misfire, the catalyst can be damaged; ignition (plugs/coils) first."
+      },
+      "no": {
+       "favor": [],
+       "rule_out": [],
+       "note_tr": "Lamba sabit veya sönük: kodları okuyup tekleme sayaçlarına bakın.",
+       "note_en": "Lamp steady or off: read the codes and check the misfire counters."
+      }
+     },
+     "question_tr": "Arıza lambası (Check Engine) yanıp sönüyor mu?",
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-rough-idle-vibration",
+     "target": {
+      "record_id": "rough-idle-vibration",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'rough-idle-vibration' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#rough-idle-vibration",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "low-oil-pressure": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Is the dipstick level below the Min mark?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Yağ eksik: tamamlamadan motoru çalıştırmayın; kaçak veya yağ yakma arayın.",
+       "note_en": "Oil is low: do not run the engine before topping up; look for leaks or oil burning."
+      },
+      "no": {
+       "favor": [
+        1,
+        2
+       ],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Seviye yerinde ama basınç düşük: yağ pompası, filtre veya yatak boşluğu; basıncı mekanik saatle doğrulayın.",
+       "note_en": "Level fine but pressure low: oil pump, filter or bearing clearance; confirm with a mechanical gauge."
+      }
+     },
+     "question_tr": "Yağ çubuğunda seviye Min çizgisinin altında mı?",
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Is there a mechanical knock or bearing noise from the engine?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        2
+       ],
+       "rule_out": [],
+       "note_tr": "Vuruntu sesi: yatak hasarı olabilir; motoru çalıştırmayın.",
+       "note_en": "Knocking: bearing damage is possible; do not run the engine."
+      }
+     },
+     "id": "q1"
+    },
+    {
+     "q": 2,
+     "kind": "yes_no",
+     "question_en": "Is there a visible leak at the oil filter or sump?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Görünür kaçak: yağ kaybının kaynağı; gidermeden çalıştırmayın.",
+       "note_en": "Visible leak: source of the oil loss; fix before running."
+      }
+     },
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-low-oil-pressure",
+     "target": {
+      "record_id": "low-oil-pressure",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'low-oil-pressure' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#low-oil-pressure",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "dpf-regeneration-failed": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Is the engine warning lamp on together with the DPF lamp?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        1,
+        2
+       ],
+       "rule_out": [],
+       "note_tr": "DPF lambasıyla birlikte arıza lambası: rejenerasyonu engelleyen sensör/devre arızası olabilir; kodları okuyun.",
+       "note_en": "Engine lamp with the DPF lamp: a sensor or circuit fault may be blocking regeneration; read the codes."
+      },
+      "no": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Yalnız DPF lambası: filtre dolmuş; uzun otoyol sürüşü veya servis rejenerasyonu.",
+       "note_en": "DPF lamp only: the filter is loaded; a long motorway drive or a service regeneration."
+      }
+     },
+     "id": "q0"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-dpf-regeneration-failed",
+     "target": {
+      "record_id": "dpf-regeneration-failed",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'dpf-regeneration-failed' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#dpf-regeneration-failed",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "def-scr-adblue-warning": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Is the AdBlue tank full with fluid of reliable quality?",
+     "outcomes": {
+      "yes": {
+       "favor": [],
+       "rule_out": [],
+       "note_tr": "Sıvı yerinde: dozaj ve sensör tarafına bakın.",
+       "note_en": "Fluid is fine: look at dosing and sensors."
+      },
+      "no": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "AdBlue eksik veya kalitesi şüpheli: tankı ISO 22241 onaylı sıvıyla doldurun.",
+       "note_en": "AdBlue low or doubtful: refill with ISO 22241 approved fluid."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 2,
+     "kind": "yes_no",
+     "question_en": "Is there crystallisation or a leak at the AdBlue injector or hoses?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Enjektör veya hortumda kristal: dozaj valfi tıkanması; temizlik veya değişim.",
+       "note_en": "Crystals at the injector or hoses: dosing valve blockage; clean or replace."
+      }
+     },
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-def-scr-adblue-warning",
+     "target": {
+      "record_id": "def-scr-adblue-warning",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'def-scr-adblue-warning' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#def-scr-adblue-warning",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "transmission-slip-limp": {
+   "checks": [
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Is the transmission fluid low, dark or burnt-smelling?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        1,
+        2
+       ],
+       "rule_out": [],
+       "note_tr": "Yağ eksik veya yanık: önce seviye; iç aşınma (konvertör, kavramalar) olabilir.",
+       "note_en": "Fluid low or burnt: level first; internal wear (converter, clutches) is possible."
+      },
+      "no": {
+       "favor": [
+        0,
+        2
+       ],
+       "rule_out": [],
+       "note_tr": "Yağ temiz ve yerinde: elektrik ve kumanda (TCU, solenoidler) öne çıkar.",
+       "note_en": "Fluid clean and full: electrical control (TCU, solenoids) comes forward."
+      }
+     },
+     "question_tr": "Şanzıman yağı eksik, koyu renkli veya yanık kokulu mu?",
+     "id": "q1"
+    },
+    {
+     "q": 2,
+     "kind": "yes_no",
+     "question_en": "Does the rpm flare during a shift and then engage harshly?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        2,
+        "P0750"
+       ],
+       "rule_out": [],
+       "note_tr": "Devir fırlayıp sert geçiş: hat basıncı veya vites solenoidi (valf gövdesi).",
+       "note_en": "Rpm flare then harsh engagement: line pressure or shift solenoid (valve body)."
+      }
+     },
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-transmission-slip-limp",
+     "target": {
+      "record_id": "transmission-slip-limp",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'transmission-slip-limp' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#transmission-slip-limp",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "abs-esp-traction-fault": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Does the ABS pulse in the pedal even on dry asphalt?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Kuru zeminde ABS devreye giriyor: hatalı tekerlek hızı sinyali (sensör, halka, boşluk).",
+       "note_en": "ABS cuts in on dry road: a wrong wheel speed signal (sensor, tone ring, air gap)."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Are tyre pressures and sizes equal on all four wheels?",
+     "outcomes": {
+      "no": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Lastik ebat veya basınç farkı: tekerlek hızları farklı okunur; önce lastikleri eşitleyin.",
+       "note_en": "Tyre size or pressure mismatch: wheel speeds read differently; equalise the tyres first."
+      }
+     },
+     "id": "q1"
+    },
+    {
+     "q": 2,
+     "kind": "yes_no",
+     "question_en": "With the wheel straight, does the steering angle sensor read 0 degrees?",
+     "outcomes": {
+      "yes": {
+       "favor": [],
+       "rule_out": [
+        2
+       ],
+       "note_tr": "Açı sensörü düzgün okuyor: kalibrasyon kaybı daha az olası.",
+       "note_en": "Angle sensor reads correctly: lost calibration is less likely."
+      },
+      "no": {
+       "favor": [
+        2
+       ],
+       "rule_out": [],
+       "note_tr": "Düz konumda açı 0 değil: direksiyon açı sensörü kalibrasyonu gerekli.",
+       "note_en": "Angle not 0 when straight: the steering angle sensor needs calibration."
+      }
+     },
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-abs-esp-traction-fault",
+     "target": {
+      "record_id": "abs-esp-traction-fault",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'abs-esp-traction-fault' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#abs-esp-traction-fault",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "turbo-underboost-power-loss": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Is there an air hiss or whistle when accelerating?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Fıslama: basınç hattında kaçak (hortum, kelepçe, intercooler).",
+       "note_en": "Hiss: a leak on the pressure side (hose, clamp, intercooler)."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Is there a split intercooler hose or a loose clamp?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Yırtık hortum veya gevşek kelepçe: kaçak bulundu; giderip tekrar deneyin.",
+       "note_en": "Split hose or loose clamp: the leak is found; fix it and retest."
+      },
+      "no": {
+       "favor": [],
+       "rule_out": [
+        1
+       ],
+       "note_tr": "Hortumlar sağlam: basınç kaçağı daha az olası.",
+       "note_en": "Hoses intact: a boost leak is less likely."
+      }
+     },
+     "id": "q1"
+    },
+    {
+     "q": 2,
+     "kind": "yes_no",
+     "question_en": "Does the VNT lever move freely by hand?",
+     "outcomes": {
+      "yes": {
+       "favor": [],
+       "rule_out": [
+        2
+       ],
+       "note_tr": "VNT kolu serbest: aktüatör sıkışması daha az olası.",
+       "note_en": "VNT lever free: a stuck actuator is less likely."
+      },
+      "no": {
+       "favor": [
+        2
+       ],
+       "rule_out": [],
+       "note_tr": "VNT kolu sıkı: kanatlarda kurum veya aktüatör arızası.",
+       "note_en": "VNT lever stiff: soot on the vanes or a failed actuator."
+      }
+     },
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-turbo-underboost-power-loss",
+     "target": {
+      "record_id": "turbo-underboost-power-loss",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'turbo-underboost-power-loss' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#turbo-underboost-power-loss",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "turbo-overboost": {
+   "checks": [
+    {
+     "q": 2,
+     "kind": "yes_no",
+     "question_en": "Does the N75 / boost control valve work in the live test?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        2
+       ],
+       "rule_out": [
+        1
+       ],
+       "note_tr": "Kontrol valfi çalışıyor: MAP sensörü okumasını gerçek basınçla karşılaştırın.",
+       "note_en": "Control valve works: compare the MAP reading with the real pressure."
+      },
+      "no": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Kontrol valfi çalışmıyor: wastegate solenoidi ve hortumları önce.",
+       "note_en": "Control valve does not work: wastegate solenoid and its hoses first."
+      }
+     },
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-turbo-overboost",
+     "target": {
+      "record_id": "turbo-overboost",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'turbo-overboost' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#turbo-overboost",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "battery-drain-parasitic": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "measurement",
+     "unit": "mA",
+     "question_en": "What is the sleep current with the ignition off and the car locked (mA)?",
+     "text_keys": [
+      "uyku akimi",
+      "kacak akim",
+      "sleep current",
+      "parasitic draw"
+     ],
+     "bands": [
+      {
+       "min": null,
+       "max": 50,
+       "favor": [
+        0
+       ],
+       "rule_out": [
+        1
+       ],
+       "note_tr": "Uyku akımı 50 mA altında: kaçak yok; akünün kendisi veya şarj yetersizliği öne çıkar.",
+       "note_en": "Sleep current under 50 mA: no drain; the battery itself or undercharging comes forward."
+      },
+      {
+       "min": 50,
+       "max": null,
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Uyku akımı 50 mA üstü: sigortaları tek tek çekerek kaçak devreyi bulun; uyanık kalan modül olabilir.",
+       "note_en": "Sleep current over 50 mA: pull fuses one by one to find the circuit; a module may be staying awake."
+      }
+     ],
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Is there an aftermarket alarm, audio system or tracker fitted?",
+     "outcomes": {
+      "yes": {
+       "favor": [],
+       "rule_out": [],
+       "note_tr": "Sonradan takılan cihaz: önce o cihazın sigortasını çekip uyku akımını yeniden ölçün.",
+       "note_en": "Aftermarket device: pull its fuse first and measure the sleep current again."
+      }
+     },
+     "id": "q1"
+    },
+    {
+     "q": 2,
+     "kind": "measurement",
+     "unit": "V",
+     "question_en": "What is the charging voltage at idle (V)?",
+     "text_keys": [
+      "sarj gerilimi",
+      "sarj voltaji",
+      "charging voltage"
+     ],
+     "bands": [
+      {
+       "min": null,
+       "max": 13.8,
+       "favor": [
+        2
+       ],
+       "rule_out": [],
+       "note_tr": "Şarj gerilimi 13.8 V altında: alternatör veya regülatör yetersiz şarj ediyor.",
+       "note_en": "Charging voltage under 13.8 V: the alternator or regulator is undercharging."
+      },
+      {
+       "min": 13.8,
+       "max": 14.4,
+       "favor": [],
+       "rule_out": [
+        2
+       ],
+       "note_tr": "Şarj gerilimi 13.8 - 14.4 V aralığında: alternatör büyük olasılıkla sağlam.",
+       "note_en": "Charging voltage within 13.8 - 14.4 V: the alternator is probably fine."
+      },
+      {
+       "min": 14.4,
+       "max": null,
+       "favor": [
+        2
+       ],
+       "rule_out": [],
+       "note_tr": "Şarj gerilimi 14.4 V üstü: regülatör yüksek şarj ediyor olabilir.",
+       "note_en": "Charging voltage over 14.4 V: the regulator may be overcharging."
+      }
+     ],
+     "question_tr": "Alternatör şarj gerilimi rölantide kaç V? (13.8V - 14.4V aralığında olmalı)",
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-battery-drain-parasitic",
+     "target": {
+      "record_id": "battery-drain-parasitic",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'battery-drain-parasitic' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#battery-drain-parasitic",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "can-bus-communication-loss": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "measurement",
+     "unit": "Ohm",
+     "question_en": "What is the resistance between OBD pins 6 and 14 with the battery disconnected (Ohm)?",
+     "text_keys": [
+      "sonlandirma direnci",
+      "6 ve 14",
+      "pin 6",
+      "termination resistance"
+     ],
+     "bands": [
+      {
+       "min": null,
+       "max": 50,
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "50 Ohm altında: hatlar arası kısa devre veya fazladan sonlandırma direnci.",
+       "note_en": "Under 50 Ohm: a short between the lines or an extra terminating resistor."
+      },
+      {
+       "min": 50,
+       "max": 70,
+       "favor": [],
+       "rule_out": [
+        2
+       ],
+       "note_tr": "Yaklaşık 60 Ohm: iki sonlandırma direnci yerinde.",
+       "note_en": "About 60 Ohm: both terminating resistors are present."
+      },
+      {
+       "min": 70,
+       "max": 140,
+       "favor": [
+        2
+       ],
+       "rule_out": [],
+       "note_tr": "Yaklaşık 120 Ohm: sonlandırma dirençlerinden biri devre dışı veya hat bir uçta kopuk.",
+       "note_en": "About 120 Ohm: one terminating resistor is missing or the line is open at one end."
+      },
+      {
+       "min": 140,
+       "max": null,
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Çok yüksek direnç: CAN hattı kopuk.",
+       "note_en": "Very high resistance: the CAN line is open."
+      }
+     ],
+     "question_tr": "Akü bağlantısı ayrıkken OBD portu 6. ve 14. pinler arasındaki direnç kaç Ohm? (60 Ohm olmalı)",
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Is CAN_H or CAN_L shorted to ground or +12 V?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Hat kısa devrede: kablo demetini bölüm bölüm ayırarak kısa devreyi bulun.",
+       "note_en": "Line shorted: split the harness section by section to find the short."
+      },
+      "no": {
+       "favor": [],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Kısa devre yok: hat fiziksel olarak sağlam görünüyor.",
+       "note_en": "No short: the line looks physically sound."
+      }
+     },
+     "id": "q1"
+    },
+    {
+     "q": 2,
+     "kind": "yes_no",
+     "question_en": "Do several modules drop off the bus at the same time?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0,
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Birden çok modül birlikte: ortak hat veya ağ geçidi (gateway).",
+       "note_en": "Several modules together: the shared line or the gateway."
+      },
+      "no": {
+       "favor": [],
+       "rule_out": [
+        1
+       ],
+       "note_tr": "Tek modül: o modülün beslemesi, şasesi ve konnektörü önce.",
+       "note_en": "One module only: that module's supply, ground and connector first."
+      }
+     },
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-can-bus-communication-loss",
+     "target": {
+      "record_id": "can-bus-communication-loss",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'can-bus-communication-loss' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#can-bus-communication-loss",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "fuel-rail-pressure-drop": {
+   "checks": [
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Is the injector leak-off (return) quantity excessive?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Aşırı geri dönüş: iç kaçağı olan enjektör rail basıncını düşürüyor.",
+       "note_en": "Excess leak-off: an injector with internal leakage is dropping rail pressure."
+      },
+      "no": {
+       "favor": [
+        1,
+        2
+       ],
+       "rule_out": [],
+       "note_tr": "Geri dönüş normal: yüksek basınç pompası veya basınç regülatörü öne çıkar.",
+       "note_en": "Leak-off normal: high-pressure pump or pressure regulator comes forward."
+      }
+     },
+     "question_tr": "Enjektör geri dönüş (leak-off) miktarı aşırı mı?",
+     "id": "q1"
+    },
+    {
+     "q": 2,
+     "kind": "yes_no",
+     "question_en": "Is the fuel filter blocked by wax or water, or long overdue?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Filtre şüpheli: önce filtreyi değiştirip suyu boşaltın.",
+       "note_en": "Filter suspect: replace it and drain water first."
+      }
+     },
+     "question_tr": "Yakıt filtresi parafin/su nedeniyle tıkalı veya değişimi gecikmiş mi?",
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-fuel-rail-pressure-drop",
+     "target": {
+      "record_id": "fuel-rail-pressure-drop",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'fuel-rail-pressure-drop' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#fuel-rail-pressure-drop",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "glow-plug-cold-start": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Does it start without trouble on the first crank when warm?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0,
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Sıcakken sorunsuz: ön ısıtma sistemi önce.",
+       "note_en": "Fine when warm: the pre-heating system first."
+      },
+      "no": {
+       "favor": [],
+       "rule_out": [
+        0,
+        1
+       ],
+       "note_tr": "Sıcakken de zor: sorun ön ısıtmada değil; yakıt ve kompresyon tarafına bakın.",
+       "note_en": "Hard when warm too: not pre-heating; look at fuel and compression."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Does the glow plug relay send 12 V to the plugs when the ignition is switched on?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [
+        1
+       ],
+       "note_tr": "Röle besleme gönderiyor: bujileri tek tek ölçün.",
+       "note_en": "Relay supplies the plugs: measure the plugs one by one."
+      },
+      "no": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Bujilere besleme yok: röle, sigorta veya kumandası.",
+       "note_en": "No supply to the plugs: relay, fuse or its control."
+      }
+     },
+     "id": "q1"
+    },
+    {
+     "q": 2,
+     "kind": "measurement",
+     "unit": "Ohm",
+     "question_en": "What is the internal resistance of each glow plug (Ohm)?",
+     "text_keys": [
+      "buji direnci",
+      "glow plug resistance"
+     ],
+     "bands": [
+      {
+       "min": null,
+       "max": 0.5,
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "0.5 Ohm altında: bujide kısa devre.",
+       "note_en": "Under 0.5 Ohm: the plug is shorted."
+      },
+      {
+       "min": 0.5,
+       "max": 1.5,
+       "favor": [],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "0.5 - 1.5 Ohm: buji sağlam.",
+       "note_en": "0.5 - 1.5 Ohm: the plug is fine."
+      },
+      {
+       "min": 1.5,
+       "max": null,
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "1.5 Ohm üstü veya sonsuz: buji arızalı (açık devre).",
+       "note_en": "Over 1.5 Ohm or open: the plug has failed."
+      }
+     ],
+     "question_tr": "Kızdırma bujilerinin iç omik direnci kaç Ohm? (0.5 - 1.5 Ohm olmalı)",
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-glow-plug-cold-start",
+     "target": {
+      "record_id": "glow-plug-cold-start",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'glow-plug-cold-start' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#glow-plug-cold-start",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "ebs-air-brake-leak": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "With the engine off, is there an audible hiss when the brake is applied?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Frenle birlikte fıslama: fren devresinde (körük, ventil, hortum) kaçak.",
+       "note_en": "Hiss with the brake applied: a leak in the brake circuit (chamber, valve, hose)."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Does the air dryer purge valve blow off at short intervals?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Sık tahliye: kompresör sürekli dolduruyor; sistem kaçağı veya kompresör/regülatör arızası.",
+       "note_en": "Frequent purge: the compressor keeps charging; a system leak or a compressor/governor fault."
+      }
+     },
+     "id": "q1"
+    },
+    {
+     "q": 2,
+     "kind": "yes_no",
+     "question_en": "Does water or oil come out of the tank drain valves?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Tankta su/yağ: kurutucu kartuşu doymuş veya kompresör yağ atıyor.",
+       "note_en": "Water or oil in the tanks: the dryer cartridge is saturated or the compressor passes oil."
+      }
+     },
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-ebs-air-brake-leak",
+     "target": {
+      "record_id": "ebs-air-brake-leak",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'ebs-air-brake-leak' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#ebs-air-brake-leak",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "marine-raw-water-cooling": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Is raw water discharging steadily and strongly from the exhaust?",
+     "outcomes": {
+      "yes": {
+       "favor": [],
+       "rule_out": [
+        1
+       ],
+       "note_tr": "Su akışı düzenli: ham su pompası büyük olasılıkla çalışıyor.",
+       "note_en": "Steady flow: the raw water pump is probably working."
+      },
+      "no": {
+       "favor": [
+        1,
+        2
+       ],
+       "rule_out": [],
+       "note_tr": "Egzozdan su az veya yok: motoru durdurun; kinseft, deniz suyu filtresi ve impeller.",
+       "note_en": "Little or no water from the exhaust: stop the engine; check seacock, strainer and impeller."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Is the seacock fully open?",
+     "outcomes": {
+      "no": {
+       "favor": [],
+       "rule_out": [],
+       "note_tr": "Kinseft kapalı veya yarı açık: vanayı tam açıp akışı yeniden kontrol edin.",
+       "note_en": "Seacock closed or half open: open it fully and recheck the flow."
+      }
+     },
+     "id": "q1"
+    },
+    {
+     "q": 2,
+     "kind": "yes_no",
+     "question_en": "Are the raw water pump impeller vanes intact?",
+     "outcomes": {
+      "yes": {
+       "favor": [],
+       "rule_out": [
+        1
+       ],
+       "note_tr": "Impeller sağlam.",
+       "note_en": "Impeller intact."
+      },
+      "no": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Impeller kanatları kırık: değiştirin ve kopan parçaları soğutma hattında arayın.",
+       "note_en": "Impeller vanes broken: replace it and find the missing pieces in the cooling circuit."
+      }
+     },
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-marine-raw-water-cooling",
+     "target": {
+      "record_id": "marine-raw-water-cooling",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'marine-raw-water-cooling' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#marine-raw-water-cooling",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "misfire-random-multiple": {
+   "checks": [
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Did a smoke test find a leak on the intake side?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Emme kaçağı bulundu: giderip yakıt düzeltmelerini yeniden kontrol edin.",
+       "note_en": "Intake leak found: fix it and recheck the fuel trims."
+      },
+      "no": {
+       "favor": [],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Emme kaçağı yok.",
+       "note_en": "No intake leak."
+      }
+     },
+     "question_tr": "Duman testinde emme tarafında kaçak bulundu mu?",
+     "id": "q1"
+    },
+    {
+     "q": 2,
+     "kind": "yes_no",
+     "question_en": "Are the short and long term fuel trims above +15 %?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0,
+        1
+       ],
+       "rule_out": [
+        2
+       ],
+       "note_tr": "Karışım fakir: hava kaçağı veya düşük yakıt basıncı.",
+       "note_en": "Running lean: an air leak or low fuel pressure."
+      },
+      "no": {
+       "favor": [
+        2
+       ],
+       "rule_out": [
+        0,
+        1
+       ],
+       "note_tr": "Yakıt düzeltmeleri normal: krank sinyali ve ateşleme öne çıkar.",
+       "note_en": "Fuel trims normal: crank signal and ignition come forward."
+      }
+     },
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-misfire-random-multiple",
+     "target": {
+      "record_id": "misfire-random-multiple",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'misfire-random-multiple' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#misfire-random-multiple",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "lean-condition-bank1": {
+   "checks": [
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Do the fuel trims move towards zero when the engine is revved?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Devirde düzeltme sıfıra yaklaşıyor: vakum kaçağı (rölantide etkisi en büyük).",
+       "note_en": "Trims move to zero with rpm: a vacuum leak (largest effect at idle)."
+      },
+      "no": {
+       "favor": [
+        0,
+        2
+       ],
+       "rule_out": [
+        1
+       ],
+       "note_tr": "Her devirde fakir: MAF düşük okuyor veya yakıt basıncı yetersiz.",
+       "note_en": "Lean at all rpm: MAF reading low or fuel pressure too low."
+      }
+     },
+     "id": "q1"
+    },
+    {
+     "q": 2,
+     "kind": "yes_no",
+     "question_en": "Is there a leak in the brake booster vacuum hose?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Servo hortumunda kaçak: değiştirip düzeltmeleri yeniden okuyun.",
+       "note_en": "Booster hose leaking: replace it and reread the trims."
+      }
+     },
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-lean-condition-bank1",
+     "target": {
+      "record_id": "lean-condition-bank1",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'lean-condition-bank1' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#lean-condition-bank1",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "coolant-thermostat-stuck-open": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "At steady motorway speed, does the gauge drop from 90 °C towards 70 °C?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Yolda sıcaklık düşüyor: termostat açık kalmış.",
+       "note_en": "Temperature drops on the road: the thermostat is stuck open."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "On a cold start, does the upper radiator hose warm up straight away?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Üst hortum hemen ısınıyor: termostat açık kalmış.",
+       "note_en": "Upper hose warms at once: the thermostat is stuck open."
+      },
+      "no": {
+       "favor": [
+        1
+       ],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Hortum normal sürede ısınıyor: termostat çalışıyor olabilir; sıcaklık sensörü (ECT) okumasını kontrol edin.",
+       "note_en": "Hose warms normally: the thermostat may be working; check the temperature sensor (ECT) reading."
+      }
+     },
+     "id": "q1"
+    },
+    {
+     "q": 2,
+     "kind": "yes_no",
+     "question_en": "Does the heater still blow only lukewarm after 10-15 minutes of driving?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Kalorifer ılık: motor çalışma sıcaklığına çıkmıyor; termostat.",
+       "note_en": "Heater lukewarm: the engine does not reach operating temperature; thermostat."
+      },
+      "no": {
+       "favor": [
+        1
+       ],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Kalorifer sıcak ama gösterge düşük: sıcaklık sensörü (ECT) veya gösterge.",
+       "note_en": "Heater hot but gauge low: the temperature sensor (ECT) or the gauge."
+      }
+     },
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-coolant-thermostat-stuck-open",
+     "target": {
+      "record_id": "coolant-thermostat-stuck-open",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'coolant-thermostat-stuck-open' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#coolant-thermostat-stuck-open",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "coolant-fan-control-circuit": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Does the radiator fan start at low speed when the A/C is switched on?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        1
+       ],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Fan klima ile çalışıyor: fan motoru sağlam; sıcaklık kumandası veya kademe rölesi.",
+       "note_en": "Fan runs with the A/C: the motor is fine; temperature control or the speed relay."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Does the fan run when 12 V is applied directly to its connector?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        1
+       ],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Doğrudan beslemede dönüyor: röle, PWM modülü veya kumanda.",
+       "note_en": "Runs on direct 12 V: relay, PWM module or control."
+      },
+      "no": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Doğrudan 12 V verildiğinde dönmüyor: fan motoru arızalı.",
+       "note_en": "Does not run on direct 12 V: the fan motor has failed."
+      }
+     },
+     "id": "q1"
+    },
+    {
+     "q": 2,
+     "kind": "yes_no",
+     "question_en": "Has the fan fuse or main supply relay blown?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Sigorta veya röle atmış: değiştirin; tekrar atarsa fan motoru sıkışık veya kısa devrede olabilir.",
+       "note_en": "Fuse or relay blown: replace it; if it blows again the motor may be seized or shorted."
+      }
+     },
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-coolant-fan-control-circuit",
+     "target": {
+      "record_id": "coolant-fan-control-circuit",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'coolant-fan-control-circuit' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#coolant-fan-control-circuit",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "alternator-overcharging": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "measurement",
+     "unit": "V",
+     "question_en": "What is the voltage across the battery terminals with the engine running (V)?",
+     "text_keys": [
+      "aku voltaji",
+      "aku gerilimi",
+      "sarj voltaji",
+      "battery voltage",
+      "charging voltage"
+     ],
+     "bands": [
+      {
+       "min": null,
+       "max": 14.4,
+       "favor": [],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Şarj gerilimi 14.4 V altında: aşırı şarj yok.",
+       "note_en": "Charging voltage under 14.4 V: no overcharging."
+      },
+      {
+       "min": 14.4,
+       "max": 15.5,
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Şarj gerilimi 14.4 - 15.5 V: sınırda yüksek; regülatörü izleyin.",
+       "note_en": "Charging voltage 14.4 - 15.5 V: borderline high; watch the regulator."
+      },
+      {
+       "min": 15.5,
+       "max": null,
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Şarj gerilimi 15.5 V üstü: regülatör arızalı; akü ve elektronik zarar görebilir.",
+       "note_en": "Charging voltage over 15.5 V: the regulator has failed; battery and electronics can be damaged."
+      }
+     ],
+     "question_tr": "Motor çalışırken akü kutup başlarında kaç V ölçülüyor?",
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Is there an acid smell or acid overflow from the battery?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Akü kaynamış: aküyü kontrol edin veya değiştirin; nedeni aşırı şarj.",
+       "note_en": "Battery boiled: check or replace it; the cause is overcharging."
+      }
+     },
+     "id": "q1"
+    },
+    {
+     "q": 2,
+     "kind": "yes_no",
+     "question_en": "Do the headlights get brighter with rpm and do bulbs blow?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Işıklar devirle parlıyor: regülatör gerilimi sınırlamıyor.",
+       "note_en": "Lights brighten with rpm: the regulator is not limiting voltage."
+      }
+     },
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-alternator-overcharging",
+     "target": {
+      "record_id": "alternator-overcharging",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'alternator-overcharging' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#alternator-overcharging",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "starter-relay-circuit-open": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Is there a mechanical click from the starter relay when the key is turned?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        2
+       ],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Röle tıklıyor: kumanda tarafı çalışıyor; marş selenoidi veya kalın besleme kablosu.",
+       "note_en": "Relay clicks: the control side works; starter solenoid or the main supply cable."
+      },
+      "no": {
+       "favor": [
+        0,
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Röleden ses yok: röle, kontak termiği veya park/nötr şalteri.",
+       "note_en": "No click: relay, ignition switch or park/neutral switch."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Does the starter turn when pins 30 and 87 of the relay socket are bridged?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0,
+        1
+       ],
+       "rule_out": [
+        2
+       ],
+       "note_tr": "Köprüyle dönüyor: marş motoru sağlam; röle veya kumandası.",
+       "note_en": "Turns when bridged: the starter is fine; the relay or its control."
+      },
+      "no": {
+       "favor": [
+        2
+       ],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Köprüyle de dönmüyor: marş selenoidi, marş motoru veya kalın besleme kablosu.",
+       "note_en": "Does not turn when bridged: starter solenoid, starter motor or main supply cable."
+      }
+     },
+     "id": "q1"
+    },
+    {
+     "q": 2,
+     "kind": "yes_no",
+     "question_en": "Is the automatic selector fully in P (Park)?",
+     "outcomes": {
+      "no": {
+       "favor": [],
+       "rule_out": [],
+       "note_tr": "Vitesi tam P konumuna alın (manuelde debriyaja tam basın): güvenlik şalteri marşı keser.",
+       "note_en": "Put the selector fully in P (manual: press the clutch fully): the safety switch blocks cranking."
+      }
+     },
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-starter-relay-circuit-open",
+     "target": {
+      "record_id": "starter-relay-circuit-open",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'starter-relay-circuit-open' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#starter-relay-circuit-open",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "ac-refrigerant-pressure-low": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Does the compressor clutch engage when the A/C button is pressed?",
+     "outcomes": {
+      "yes": {
+       "favor": [],
+       "rule_out": [
+        1
+       ],
+       "note_tr": "Kavrama kilitleniyor: kavrama devresi sağlam.",
+       "note_en": "Clutch engages: the clutch circuit is fine."
+      },
+      "no": {
+       "favor": [
+        1,
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Kavrama kilitlenmiyor: gaz düşükse sistem kavramayı keser; önce statik basıncı ölçün.",
+       "note_en": "Clutch does not engage: the system blocks it when gas is low; measure the static pressure first."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "measurement",
+     "unit": "bar",
+     "question_en": "What is the static refrigerant pressure on the manifold gauge (bar)?",
+     "text_keys": [
+      "statik basinc",
+      "gaz basinci",
+      "static pressure"
+     ],
+     "bands": [
+      {
+       "min": null,
+       "max": 2,
+       "favor": [
+        2
+       ],
+       "rule_out": [],
+       "note_tr": "Statik basınç 2 bar altında: gaz çok az; kaçak var.",
+       "note_en": "Static pressure under 2 bar: very little gas; there is a leak."
+      },
+      {
+       "min": 2,
+       "max": 4,
+       "favor": [],
+       "rule_out": [],
+       "note_tr": "Statik basınç sınırda: ortam sıcaklığına göre değerlendirin.",
+       "note_en": "Static pressure borderline: judge it against the ambient temperature."
+      },
+      {
+       "min": 4,
+       "max": null,
+       "favor": [
+        0,
+        1
+       ],
+       "rule_out": [
+        2
+       ],
+       "note_tr": "Statik basınç yeterli: kavrama veya basınç sensörü öne çıkar.",
+       "note_en": "Static pressure adequate: the clutch or the pressure sensor comes forward."
+      }
+     ],
+     "id": "q1"
+    },
+    {
+     "q": 2,
+     "kind": "yes_no",
+     "question_en": "Are there UV dye leak traces on the A/C pipes or condenser?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        2
+       ],
+       "rule_out": [],
+       "note_tr": "UV iz bulundu: kaçak yeri belli; onarıp vakumlayarak dolum yapın.",
+       "note_en": "UV trace found: the leak is located; repair, evacuate and recharge."
+      }
+     },
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-ac-refrigerant-pressure-low",
+     "target": {
+      "record_id": "ac-refrigerant-pressure-low",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'ac-refrigerant-pressure-low' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#ac-refrigerant-pressure-low",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "immobilizer-key-transponder-missing": {
+   "checks": [
+    {
+     "q": 2,
+     "kind": "yes_no",
+     "question_en": "Does the engine start with the spare key?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        1
+       ],
+       "rule_out": [
+        0,
+        2
+       ],
+       "note_tr": "Yedek anahtarla çalışıyor: asıl anahtarın çipi arızalı.",
+       "note_en": "Starts with the spare key: the main key's chip has failed."
+      },
+      "no": {
+       "favor": [
+        0,
+        2
+       ],
+       "rule_out": [
+        1
+       ],
+       "note_tr": "Yedek anahtarla da çalışmıyor: okuyucu anten bobini veya gösterge/BCM.",
+       "note_en": "Does not start with the spare either: the reader coil or the cluster/BCM."
+      }
+     },
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-immobilizer-key-transponder-missing",
+     "target": {
+      "record_id": "immobilizer-key-transponder-missing",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'immobilizer-key-transponder-missing' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#immobilizer-key-transponder-missing",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "egr-valve-stuck-open": {
+   "checks": [
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "On a cold engine at idle, does the EGR pipe get hot straight away?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Rölantide boru hemen ısınıyor: valf açık kalmış, egzoz gazı geçiyor.",
+       "note_en": "Pipe heats at once at idle: the valve is stuck open and passing exhaust gas."
+      },
+      "no": {
+       "favor": [
+        1
+       ],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Boru soğuk kalıyor: valf kapalı; pozisyon sensörü okumasını kontrol edin.",
+       "note_en": "Pipe stays cool: the valve is closed; check the position sensor reading."
+      }
+     },
+     "id": "q1"
+    },
+    {
+     "q": 2,
+     "kind": "yes_no",
+     "question_en": "With the EGR removed, is the flap held open by soot?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Klape kurumla açık kalmış: temizlik veya değişim.",
+       "note_en": "Flap held open by soot: clean or replace it."
+      }
+     },
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-egr-valve-stuck-open",
+     "target": {
+      "record_id": "egr-valve-stuck-open",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'egr-valve-stuck-open' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#egr-valve-stuck-open",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "evap-purge-valve-stuck-open": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Right after a full refuel, does the engine need a long crank to start?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Yakıt alınca uzun marş: purge valfi açık kalmış olabilir.",
+       "note_en": "Long crank after refuelling: the purge valve may be stuck open."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Does the valve pass vacuum even when not energised?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Enerjisizken hava geçiriyor: purge valfi açık kalmış; değiştirin.",
+       "note_en": "Passes air unpowered: the purge valve is stuck open; replace it."
+      },
+      "no": {
+       "favor": [],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Valf kapalı tutuyor: purge valfi büyük olasılıkla sağlam.",
+       "note_en": "Valve seals: the purge valve is probably fine."
+      }
+     },
+     "id": "q1"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-evap-purge-valve-stuck-open",
+     "target": {
+      "record_id": "evap-purge-valve-stuck-open",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'evap-purge-valve-stuck-open' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#evap-purge-valve-stuck-open",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "electronic-parking-brake-stuck": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Can the caliper motors be heard running when the switch is pressed?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Motor çalışıyor ama açmıyor: kaliper mekanizması sıkışmış olabilir.",
+       "note_en": "Motor runs but does not release: the caliper mechanism may be seized."
+      },
+      "no": {
+       "favor": [
+        1,
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Ses yok: sigorta, konnektör, EPB modülü veya kaliper motoru.",
+       "note_en": "No sound: fuse, connector, EPB module or caliper motor."
+      }
+     },
+     "question_tr": "Düğmeye basıldığında arka kaliperlerden motor sesi geliyor mu?",
+     "id": "q0"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-electronic-parking-brake-stuck",
+     "target": {
+      "record_id": "electronic-parking-brake-stuck",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'electronic-parking-brake-stuck' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#electronic-parking-brake-stuck",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "transmission-fluid-temperature-high": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "measurement",
+     "unit": "°C",
+     "question_en": "What transmission fluid temperature (TFT) is read when shifting is restricted (°C)?",
+     "text_keys": [
+      "sanziman yagi sicakligi",
+      "tft",
+      "transmission temperature"
+     ],
+     "bands": [
+      {
+       "min": null,
+       "max": 130,
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "TFT 130 °C altında ama koruma var: sıcaklık sensörü (TFT) okumasını doğrulayın.",
+       "note_en": "TFT under 130 °C but protection active: verify the temperature sensor (TFT) reading."
+      },
+      {
+       "min": 130,
+       "max": null,
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "TFT 130 °C üstü: gerçek aşırı ısınma; yağ seviyesi ve soğutucu hattı.",
+       "note_en": "TFT over 130 °C: real overheating; fluid level and cooler circuit."
+      }
+     ],
+     "question_tr": "Vites büyütme kısıtlandığında şanzıman yağı sıcaklığı (TFT) kaç °C?",
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Are the transmission cooler lines blocked or kinked?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Soğutucu hattı tıkalı veya bükülmüş: akışı düzeltin.",
+       "note_en": "Cooler line blocked or kinked: restore the flow."
+      }
+     },
+     "id": "q1"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-transmission-fluid-temperature-high",
+     "target": {
+      "record_id": "transmission-fluid-temperature-high",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'transmission-fluid-temperature-high' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#transmission-fluid-temperature-high",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "engine-oil-temperature-high": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "measurement",
+     "unit": "°C",
+     "question_en": "What is the oil temperature while the coolant is at 90 °C (°C)?",
+     "text_keys": [
+      "yag sicakligi",
+      "oil temperature"
+     ],
+     "bands": [
+      {
+       "min": null,
+       "max": 135,
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Yağ 135 °C altında: gösterge veya yağ sıcaklık sensörü okumasını doğrulayın.",
+       "note_en": "Oil under 135 °C: verify the gauge or the oil temperature sensor."
+      },
+      {
+       "min": 135,
+       "max": null,
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Yağ 135 °C üstü: yağ soğutucusu yetersiz.",
+       "note_en": "Oil over 135 °C: the oil cooler is not coping."
+      }
+     ],
+     "question_tr": "Su sıcaklığı 90°C iken yağ sıcaklığı kaç °C?",
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Is there sludge in the oil cooler's water or oil passages?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Soğutucuda çamur: soğutucuyu temizleyin veya değiştirin.",
+       "note_en": "Sludge in the cooler: clean or replace it."
+      }
+     },
+     "id": "q1"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-engine-oil-temperature-high",
+     "target": {
+      "record_id": "engine-oil-temperature-high",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'engine-oil-temperature-high' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#engine-oil-temperature-high",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "clutch-pedal-position-switch": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Has the plastic stop that the clutch switch rests on broken off?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Takoz kırık: müşür pedalı algılamıyor; takozu değiştirin.",
+       "note_en": "Stop broken: the switch cannot sense the pedal; replace the stop."
+      },
+      "no": {
+       "favor": [
+        0,
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Takoz yerinde: müşürü ve marş güvenlik devresini ölçün.",
+       "note_en": "Stop in place: measure the switch and the start interlock."
+      }
+     },
+     "id": "q0"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-clutch-pedal-position-switch",
+     "target": {
+      "record_id": "clutch-pedal-position-switch",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'clutch-pedal-position-switch' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#clutch-pedal-position-switch",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "hd-fuel-in-oil-dilution": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Is the dipstick level above Max with a clear smell of diesel?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0,
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Yağa mazot karışmış: motoru çalıştırmayın; kaynağı bulmadan yağı değiştirmek yetmez.",
+       "note_en": "Diesel in the oil: do not run the engine; changing the oil without finding the source is not enough."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Have DPF post-injection regenerations been aborted often?",
+     "outcomes": {
+      "yes": {
+       "favor": [],
+       "rule_out": [],
+       "note_tr": "İptal edilen rejenerasyonlarda son-enjeksiyon yakıtı yağa geçer; yağı ve DPF'yi birlikte ele alın.",
+       "note_en": "Aborted regenerations wash post-injection fuel into the oil; handle oil and DPF together."
+      }
+     },
+     "id": "q1"
+    },
+    {
+     "q": 2,
+     "kind": "yes_no",
+     "question_en": "Is there internal leakage at the injector return lines under the head?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Enjektör geri dönüşünde iç sızıntı: o-ringleri değiştirin.",
+       "note_en": "Internal leak at the injector returns: replace the o-rings."
+      }
+     },
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-hd-fuel-in-oil-dilution",
+     "target": {
+      "record_id": "hd-fuel-in-oil-dilution",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'hd-fuel-in-oil-dilution' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#hd-fuel-in-oil-dilution",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "ev-charging-interlock-fault": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Does the mechanical lock pin engage when the charging gun is plugged in?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [
+        1
+       ],
+       "note_tr": "Kilit pimi kilitleniyor: kilit sağlam; dahili şarj cihazı (OBC) tarafı.",
+       "note_en": "Lock pin engages: the lock is fine; the on-board charger side."
+      },
+      "no": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Kilit pimi kilitlenmiyor: şarj portu kilit aktüatörü.",
+       "note_en": "Lock pin does not engage: the charge port lock actuator."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Are the Control Pilot (CP) PWM amplitude and duty cycle nominal?",
+     "outcomes": {
+      "no": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "CP sinyali bozuk: başka bir istasyonda deneyin; sorun sürerse araç tarafı (OBC).",
+       "note_en": "CP signal faulty: try another station; if it persists, the vehicle side (OBC)."
+      }
+     },
+     "id": "q1"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-ev-charging-interlock-fault",
+     "target": {
+      "record_id": "ev-charging-interlock-fault",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'ev-charging-interlock-fault' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#ev-charging-interlock-fault",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "fuel-pump-driver-module-offline": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Is the fuel pump driver module under the rear wing or spare wheel corroded through?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Modül korozyonla delinmiş: FPDM'yi değiştirin.",
+       "note_en": "Module corroded through: replace the FPDM."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Is the PWM supply to the in-tank pump zero on the oscilloscope?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [
+        1
+       ],
+       "note_tr": "Pompaya besleme yok: FPDM veya beslemesi.",
+       "note_en": "No supply to the pump: the FPDM or its supply."
+      },
+      "no": {
+       "favor": [
+        1
+       ],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Besleme var ama basınç yok: depo içi pompa.",
+       "note_en": "Supply present but no pressure: the in-tank pump."
+      }
+     },
+     "id": "q1"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-fuel-pump-driver-module-offline",
+     "target": {
+      "record_id": "fuel-pump-driver-module-offline",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'fuel-pump-driver-module-offline' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#fuel-pump-driver-module-offline",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "crank-sensor-signal-missing": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Does the rpm needle move while cranking?",
+     "outcomes": {
+      "yes": {
+       "favor": [],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Marşta devir okunuyor: krank sinyali var.",
+       "note_en": "Rpm reads while cranking: the crank signal is present."
+      },
+      "no": {
+       "favor": [
+        0,
+        1,
+        "P0335"
+       ],
+       "rule_out": [],
+       "note_tr": "Marşta devir sıfır: krank sinyali yok; sensör, konnektör veya volan dişlisi (P0335).",
+       "note_en": "Rpm zero while cranking: no crank signal; sensor, connector or flywheel teeth (P0335)."
+      }
+     },
+     "question_tr": "Marşa basılırken devir göstergesi (RPM) kımıldıyor mu?",
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Does it stall when hot and restart once cooled down?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Isınınca kesiliyor: krank sensörünün ısıl arızası.",
+       "note_en": "Cuts out when hot: thermal failure of the crank sensor."
+      }
+     },
+     "id": "q1"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-crank-sensor-signal-missing",
+     "target": {
+      "record_id": "crank-sensor-signal-missing",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'crank-sensor-signal-missing' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#crank-sensor-signal-missing",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "ev-dc-dc-converter-failure": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "measurement",
+     "unit": "V",
+     "question_en": "What is the 12 V battery voltage in READY (V)?",
+     "text_keys": [
+      "12v aku",
+      "12 v aku",
+      "ready",
+      "12v battery"
+     ],
+     "bands": [
+      {
+       "min": null,
+       "max": 13.8,
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "READY konumunda 13.8 V altında: DC-DC 12 V aküyü şarj etmiyor.",
+       "note_en": "Under 13.8 V in READY: the DC-DC is not charging the 12 V battery."
+      },
+      {
+       "min": 13.8,
+       "max": 14.5,
+       "favor": [
+        1
+       ],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "13.8 - 14.5 V: DC-DC çalışıyor; 12 V akünün kendisi öne çıkar.",
+       "note_en": "13.8 - 14.5 V: the DC-DC works; the 12 V battery itself comes forward."
+      },
+      {
+       "min": 14.5,
+       "max": null,
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "14.5 V üstü: DC-DC çıkışı yüksek.",
+       "note_en": "Over 14.5 V: DC-DC output is high."
+      }
+     ],
+     "question_tr": "Araç 'READY' konumundayken 12V akü kutup başlarında kaç V var?",
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Are coolant flow and temperature normal in the DC-DC cooling circuit?",
+     "outcomes": {
+      "no": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "DC-DC soğutması yetersiz: pompa ve soğutma sıvısı seviyesi.",
+       "note_en": "DC-DC cooling inadequate: pump and coolant level."
+      }
+     },
+     "id": "q1"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-ev-dc-dc-converter-failure",
+     "target": {
+      "record_id": "ev-dc-dc-converter-failure",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'ev-dc-dc-converter-failure' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#ev-dc-dc-converter-failure",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "marine-fuel-polishing-water-detected": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Is a separated water layer visible at the bottom of the clear bowl?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [
+        1
+       ],
+       "note_tr": "Haznede su var: boşaltın ve tank dibini kontrol edin.",
+       "note_en": "Water in the bowl: drain it and check the tank bottom."
+      },
+      "no": {
+       "favor": [
+        1
+       ],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Haznede su yok ama alarm var: su tespit probu (WIF) veya kablosu.",
+       "note_en": "No water in the bowl but alarm on: the water-in-fuel probe or its wiring."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Does the alarm clear after draining water from the drain cock?",
+     "outcomes": {
+      "yes": {
+       "favor": [],
+       "rule_out": [
+        1
+       ],
+       "note_tr": "Alarm söndü: prob doğru çalışıyor.",
+       "note_en": "Alarm cleared: the probe works correctly."
+      },
+      "no": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Boşaltıldı ama alarm sürüyor: su tespit probu (WIF).",
+       "note_en": "Drained but alarm persists: the water-in-fuel probe."
+      }
+     },
+     "id": "q1"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-marine-fuel-polishing-water-detected",
+     "target": {
+      "record_id": "marine-fuel-polishing-water-detected",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'marine-fuel-polishing-water-detected' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#marine-fuel-polishing-water-detected",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  }
+ }
+}

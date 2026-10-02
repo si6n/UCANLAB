@@ -69,6 +69,7 @@ SOURCE_FILES: dict[str, str] = {
     "uds_did": "diagnostics/uds_did_database.json",
     "canonical_symptoms": "diagnostics/canonical_symptoms.json",
     "symptom_lexicon": "diagnostics/symptom_lexicon.json",
+    "symptom_checks": "diagnostics/symptom_checks.json",
     "root_cause_graph": "diagnostics/root_cause_graph.json",
     "signal_aliases": "diagnostics/signal_aliases.json",
     "signal_measurement_map": "diagnostics/signal_measurement_map.json",
@@ -480,6 +481,13 @@ class KnowledgeBase:
             return Lookup.miss("canonical_symptoms", symptom_id)
         return Lookup(True, "canonical_symptoms", symptom_id, rec)
 
+    def symptom_checks(self, symptom_id: str) -> list[dict[str, Any]]:
+        """Curated answer effects for one symptom's questions (``[]`` when none)."""
+        data = self._json_source("symptom_checks")
+        rec = ((data or {}).get("symptoms") or {}).get(symptom_id) if isinstance(data, dict) else None
+        checks = rec.get("checks") if isinstance(rec, dict) else None
+        return [c for c in checks if isinstance(c, dict)] if isinstance(checks, list) else []
+
     def symptom_phrases(self) -> list[tuple[str, str, str]]:
         """``(folded phrase, symptom_id, origin)`` for every keyword we ship.
 
@@ -761,6 +769,9 @@ class KnowledgeBase:
         if source == "symptom_lexicon":
             lex = self._json_source("symptom_lexicon")
             return (key == "safety_terms" and isinstance(lex, dict) and "safety_terms" in lex) or self.symptom(key).found
+        if source == "symptom_checks":
+            sid, _, cid = key.partition(".")
+            return any(c.get("id") == cid for c in self.symptom_checks(sid))
         if source == "root_cause_graph":
             return any(n.id == key for nodes in self._graph_index().values() for n in nodes)
         if source == "telemetry_thresholds":

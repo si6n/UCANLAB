@@ -344,6 +344,8 @@ export interface CopilotStructuredAnswer {
     likelihood: number;
     confidence: 'high' | 'medium' | 'low';
     confidence_label: string;
+    /** graph | record | suspected | area — `area` rows carry no percentage. */
+    kind: string;
     kind_label: string;
     support: CopilotEvidence[];
     against: CopilotEvidence[];
@@ -370,7 +372,23 @@ export interface CopilotStructuredAnswer {
     sources: string[];
   };
   recalls: { note?: string; items?: Array<{ campaign: string; component: string; ref: string }>; complaints?: CopilotEvidence | null };
+  /** Answerable questions; an answer is sent back with the same query and narrows the causes. */
+  checks?: CopilotCheck[];
   markdown?: string;
+}
+
+export type CopilotAnswerValue = 'yes' | 'no' | 'unknown' | number;
+
+export interface CopilotCheck {
+  key: string;
+  symptom_id: string;
+  question: string;
+  kind: 'yes_no' | 'measurement';
+  unit: string;
+  answer: CopilotAnswerValue | null;
+  answer_text: string;
+  result: string;
+  refs: string[];
 }
 
 /** What the app is listening to (workbench status bar). */
@@ -584,6 +602,7 @@ declare global {
         ask_copilot_structured?: (
           query: string,
           language?: string | null,
+          answers?: Record<string, CopilotAnswerValue> | null,
         ) => Promise<{ success: boolean; error?: string; simulated?: boolean; answer?: CopilotStructuredAnswer }>;
         record_technician_feedback?: (dtc: string, resolved: boolean, notes?: string) => Promise<Record<string, unknown>>;
         export_session_report?: () => Promise<{ success: boolean; path?: string; report_length?: number; error?: string }>;
@@ -1190,10 +1209,11 @@ export class DesktopBridge {
   public static async askCopilotStructured(
     query: string,
     language: 'tr' | 'en',
+    answers: Record<string, CopilotAnswerValue> = {},
   ): Promise<{ success: boolean; error?: string; simulated?: boolean; answer?: CopilotStructuredAnswer }> {
     const m = this.apiMethod('ask_copilot_structured');
     if (this.isNative() && m) {
-      return await m(query, language);
+      return await m(query, language, answers);
     }
     this.requireCapability('ask_copilot_structured', 'ask Copilot');
     this.requireNativeOrDev();

@@ -187,6 +187,20 @@ class MissingData:
 
 
 @dataclass(slots=True)
+class CheckResult:
+    """One answered symptom check and the curated effect it had."""
+
+    key: str                        # "<symptom_id>.<check_id>"
+    value: str | float
+    origin: str
+    favor: list[str] = field(default_factory=list)      # hypothesis titles moved up
+    rule_out: list[str] = field(default_factory=list)   # hypothesis titles moved down
+    note_tr: str = ""
+    note_en: str = ""
+    ref: str = ""
+
+
+@dataclass(slots=True)
 class Reasoning:
     parsed: ParsedQuery
     codes: list[CodeFact] = field(default_factory=list)
@@ -200,6 +214,7 @@ class Reasoning:
     recalls: list[dict[str, Any]] = field(default_factory=list)
     complaints: dict[str, Any] | None = None
     similar_records: list[tuple[str, str, float]] = field(default_factory=list)
+    check_results: list[CheckResult] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------- helpers
@@ -543,15 +558,65 @@ def _fmi_semantics(h: Hypothesis, node: Any, fact: CodeFact) -> None:
             h.against.append((f"fmi:{fact.fmi}|valid_data", ref))
 
 
+def _area(r: Reasoning, hyps: dict[str, Hypothesis], sid: str, i: int, create: bool) -> Hypothesis | None:
+    """Area hypothesis for subsystem ``i`` of symptom ``sid`` (made on demand when ``create``)."""
+    hid = f"canonical_symptoms#{sid}.subsystems[{i}]"
+    if hid in hyps or not create:
+        return hyps.get(hid)
+    rec = next((rec for s, rec in r.symptom_records if s == sid), None)
+    labels = [str(x).strip() for x in (rec or {}).get("subsystems") or []]
+    if i >= len(labels) or not labels[i]:
+        return None
+    hyps[hid] = Hypothesis(hid, labels[i], 0.5 - 0.1 * i, "area",
+                           support=[(f"complaint:{sid}", f"canonical_symptoms#{sid}")],
+                           refs=[f"canonical_symptoms#{sid}"])
+    return hyps[hid]
+
+
 def _complaint_areas(r: Reasoning, hyps: dict[str, Hypothesis]) -> None:
     """Complaint named no cause the graph knows: list the subsystems the symptom record points at."""
     for sid, rec in r.symptom_records:
-        labels = [str(x).strip() for x in rec.get("subsystems") or [] if str(x).strip()]
-        for i, label in enumerate(labels[:3]):
-            hid = f"canonical_symptoms#{sid}.subsystems[{i}]"
-            hyps[hid] = Hypothesis(hid, label, 0.5 - 0.1 * i, "area",
-                                   support=[(f"complaint:{sid}", f"canonical_symptoms#{sid}")],
-                                   refs=[f"canonical_symptoms#{sid}"])
+        for i in range(min(3, len(rec.get("subsystems") or []))):
+            _area(r, hyps, sid, i, create=True)
+
+
+def _check_effect(check: dict[str, Any], value: str | float) -> dict[str, Any] | None:
+    if check.get("kind") == "measurement":
+        if not isinstance(value, float):
+            return None
+        for band in check.get("bands") or []:
+            lo, hi = band.get("min"), band.get("max")
+            if (lo is None or value >= lo) and (hi is None or value < hi):
+                return dict(band)
+        return None
+    outcome = (check.get("outcomes") or {}).get(value) if isinstance(value, str) else None
+    return dict(outcome) if isinstance(outcome, dict) else None
+
+
+def _apply_answers(kb: KnowledgeBase, r: Reasoning, hyps: dict[str, Hypothesis]) -> None:
+    """Operator answers move the symptom's own subsystems/codes up or down (curated effects only)."""
+    for a in r.parsed.answers:
+        check = next((c for c in kb.symptom_checks(a.symptom_id) if c.get("id") == a.check_id), None)
+        if check is None:
+            continue
+        ref = f"symptom_checks#{a.key}"
+        result = CheckResult(a.key, a.value, a.origin, ref=ref)
+        r.check_results.append(result)
+        effect = _check_effect(check, a.value)
+        if effect is None:
+            continue
+        result.note_tr, result.note_en = str(effect.get("note_tr") or ""), str(effect.get("note_en") or "")
+        marker = f"check:{a.key}|{a.value:g}" if isinstance(a.value, float) else f"check:{a.key}|{a.value}"
+        for bucket, sign in (("favor", 1.0), ("rule_out", -1.0)):
+            for target in effect.get(bucket) or []:
+                if isinstance(target, int):
+                    found = [h for h in [_area(r, hyps, a.symptom_id, target, create=sign > 0)] if h is not None]
+                else:
+                    found = [h for h in hyps.values() if str(target) in h.codes]
+                for h in found:
+                    h.score += 1.5 * sign
+                    (h.support if sign > 0 else h.against).append((marker, ref))
+                    (result.favor if sign > 0 else result.rule_out).append(h.title)
 
 
 def _build_hypotheses(kb: KnowledgeBase, r: Reasoning) -> None:
@@ -617,6 +682,8 @@ def _build_hypotheses(kb: KnowledgeBase, r: Reasoning) -> None:
     # (4) no cause the graph knows: name the subsystems to inspect, never a cause.
     if not hyps and r.symptom_records:
         _complaint_areas(r, hyps)
+    # (5) the operator's answers to the symptom checks
+    _apply_answers(kb, r, hyps)
 
     for h in hyps.values():
         if h.kind == "record":
@@ -644,9 +711,10 @@ def _build_hypotheses(kb: KnowledgeBase, r: Reasoning) -> None:
             h.likelihood = 0.0 if h.kind == "area" else round(e / total, 3)
             has_code = any(s.startswith("code:") for s, _ in h.support)
             has_signal = any(s.startswith("signal:") for s, _ in h.support)
+            has_check = any(s.startswith("check:") for s, _ in h.support)
             if has_code and has_signal and not h.against:
                 h.confidence = "high"
-            elif (has_code and h.kind == "graph" and not h.against) or (has_signal and not h.against):
+            elif (has_code and h.kind == "graph" and not h.against) or ((has_signal or has_check) and not h.against):
                 h.confidence = "medium"
             else:
                 h.confidence = "low"

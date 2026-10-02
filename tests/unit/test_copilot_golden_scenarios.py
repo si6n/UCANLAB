@@ -44,6 +44,14 @@ SCENARIOS: list[tuple[str, dict[str, Any], dict[str, Any]]] = [
      {"symptoms": ["crank-no-start"], "not_symptoms": ["starter-relay-circuit-open"]}),
     ("sym_numbered_cylinder", {"text": "3. silindir tekleme yapıyor"},
      {"symptoms": ["misfire-cylinder-3"], "not_symptoms": ["misfire-random-multiple", "rough-idle-vibration"]}),
+    # ---- answers to the symptom checks narrow the complaint ------------
+    ("check_sleep_current_text", {"text": "akü bitiyor, uyku akımı 320 mA ölçtüm"},
+     {"top": "bcm", "conf": {"medium"}, "summary": "Cevaplarınıza göre"}),
+    ("check_spare_key_input", {"text": "anahtar ışığı yanıp sönüyor, çalışıp stop ediyor",
+                               "answers": {"immobilizer-key-transponder-missing.q2": "evet"}},
+     {"top": "anahtar rfid", "conf": {"medium"}}),
+    ("check_no_crank_bridge", {"text": "marş tık demiyor", "answers": {"starter-relay-circuit-open.q1": "hayır"}},
+     {"top": "mars selenoidi"}),
     # ---- complaint with a gauge value (no signal name in the text) -------
     ("sym_overheat_gauge_value", {"text": "motor hararet yapıyor, göstergede 112 derece"},
      {"risk": "RED", "finding": ("CoolantTemp", "critical_high")}),

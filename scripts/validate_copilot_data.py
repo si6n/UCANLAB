@@ -40,7 +40,7 @@ sys.path.insert(0, str(ROOT))
 DATA = ROOT / "data"
 D = DATA / "diagnostics"
 
-COPILOT_FILES = ("symptom_lexicon.json", "signal_measurement_map.json", "copilot_glossary.json")
+COPILOT_FILES = ("symptom_lexicon.json", "signal_measurement_map.json", "copilot_glossary.json", "symptom_checks.json")
 SPECIAL_CODE_RE = re.compile(r"^(N2K_|CAN_)")
 
 
@@ -102,6 +102,8 @@ def check_provenance(rep: Report) -> None:
     for e in lex.get("entries", []):
         validate(e.get("provenance"), f"symptom_lexicon[{e.get('symptom_id')}]")
     validate(lex.get("safety_terms", {}).get("provenance"), "symptom_lexicon.safety_terms")
+    for sid, rec in _load(D / "symptom_checks.json").get("symptoms", {}).items():
+        validate(rec.get("provenance"), f"symptom_checks[{sid}]")
     for s in _load(D / "signal_measurement_map.json").get("signals", []):
         validate(s.get("provenance"), f"signal_measurement_map[{s.get('canonical')}]")
     for term, rec in _load(D / "copilot_glossary.json").get("terms", {}).items():
@@ -162,6 +164,19 @@ def check_cross_refs(rep: Report, dtc: dict[str, Any], j1939: dict[str, Any]) ->
     for e in _load(D / "symptom_lexicon.json")["entries"]:
         if e["symptom_id"] not in symptoms:
             rep.add("FAIL", "lexicon_ref", f"unknown symptom_id {e['symptom_id']}")
+    for sid, rec in _load(D / "symptom_checks.json")["symptoms"].items():
+        sym = symptoms.get(sid)
+        if sym is None:
+            rep.add("FAIL", "checks_ref", f"unknown symptom_id {sid}")
+            continue
+        for chk in rec["checks"]:
+            if not 0 <= chk["q"] < len(sym.get("initial_questions", [])):
+                rep.add("FAIL", "checks_ref", f"{sid}.{chk['id']}: no initial_questions[{chk['q']}]")
+            for eff in list(chk.get("outcomes", {}).values()) + chk.get("bands", []):
+                for t in eff.get("favor", []) + eff.get("rule_out", []):
+                    ok = (0 <= t < len(sym.get("subsystems", []))) if isinstance(t, int) else t in sym.get("candidate_dtcs", [])
+                    if not ok:
+                        rep.add("FAIL", "checks_ref", f"{sid}.{chk['id']}: target {t!r} is not this symptom's own")
     for s in _load(D / "signal_measurement_map.json")["signals"]:
         j = s.get("j1939")
         if j:
