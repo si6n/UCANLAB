@@ -31,13 +31,22 @@ SCENARIOS: list[tuple[str, dict[str, Any], dict[str, Any]]] = [
     ("dm1_payload_spn110", {"dm1": ["44 FF 6E 00 00 05 FF FF"]}, {"risk": "RED", "spns": [110], "top": "termostat"}),
     ("dm1_no_dtc", {"dm1": ["00 FF 00 00 00 00 FF FF"]}, {"risk": "GRAY", "no_causes": True, "missing": ["codes"]}),
     # ---- symptom only ----------------------------------------------------
-    ("sym_overheat_tr", {"text": "motor ısınıyor"}, {"risk": "GRAY", "symptoms": ["engine-overheating"], "missing": ["codes"], "conf": {"low"}}),
+    ("sym_overheat_tr", {"text": "motor ısınıyor"}, {"risk": "RED", "symptoms": ["engine-overheating"], "missing": ["codes"], "conf": {"low"}}),
     ("sym_dpf_lamp", {"text": "DPF lambası yandı"}, {"symptoms": ["dpf-regeneration-failed"], "top": "dpf", "conf": {"low"}}),
     ("sym_no_start_en", {"text": "engine cranks but will not start"}, {"lang": "en", "symptoms": ["crank-no-start"]}),
     ("sym_black_smoke", {"text": "siyah duman atıyor"}, {"symptoms": ["black-smoke"], "missing": ["codes"]}),
-    ("sym_oil_lamp", {"text": "yağ lambası yandı"}, {"symptoms": ["low-oil-pressure"]}),
+    ("sym_oil_lamp", {"text": "yağ lambası yandı"}, {"risk": "RED", "symptoms": ["low-oil-pressure"]}),
     ("sym_two_complaints", {"text": "motor ısınıyor, DPF lambası yandı"},
-     {"symptoms": ["engine-overheating", "dpf-regeneration-failed"], "risk": "GRAY"}),
+     {"symptoms": ["engine-overheating", "dpf-regeneration-failed"], "risk": "RED"}),
+    ("sym_no_crank_tr", {"text": "marş basmıyor tık tık ses geliyor"},
+     {"symptoms": ["starter-relay-circuit-open", "battery-drain-parasitic"], "not_symptoms": ["crank-no-start"]}),
+    ("sym_negation_kept", {"text": "araba çalışmıyor marş dönüyor"},
+     {"symptoms": ["crank-no-start"], "not_symptoms": ["starter-relay-circuit-open"]}),
+    # ---- complaint with a gauge value (no signal name in the text) -------
+    ("sym_overheat_gauge_value", {"text": "motor hararet yapıyor, göstergede 112 derece"},
+     {"risk": "RED", "finding": ("CoolantTemp", "critical_high")}),
+    ("sym_overheat_gauge_normal", {"text": "motor hararet yapıyor ama gösterge 88 derece"},
+     {"risk": "GRAY", "finding": ("CoolantTemp", "normal")}),
     # ---- telemetry + code ------------------------------------------------
     ("tel_coolant_critical", {"dtcs": ["SPN 110 FMI 0"], "telemetry": {"CoolantTemp": 112}},
      {"risk": "RED", "top": "termostat", "conf": {"high"}, "finding": ("CoolantTemp", "critical_high")}),
@@ -74,7 +83,10 @@ SCENARIOS: list[tuple[str, dict[str, Any], dict[str, Any]]] = [
     ("ev_isolation_without_voltage", {"text": "isolation resistance 60 kohm"}, {"missing": ["signal:HVPackVoltage"]}),
     # ---- brakes / steering ----------------------------------------------
     ("brake_abs_lamp", {"text": "abs ışığı yandı"}, {"safety": ["brakes"], "risk": "YELLOW", "symptoms": ["abs-esp-traction-fault"]}),
-    ("steering_heavy", {"text": "direksiyon ağırlaştı"}, {"safety": ["steering"], "risk": "YELLOW"}),
+    ("steering_heavy", {"text": "direksiyon ağırlaştı"}, {"safety": ["steering"], "risk": "RED"}),
+    ("steering_lamp_only", {"text": "direksiyon lambası yandı"},
+     {"safety": ["steering"], "risk": "YELLOW", "symptoms": ["steering-angle-sensor-uncalibrated"]}),
+    ("brake_pedal_sinks", {"text": "fren pedalı boşa gidiyor"}, {"safety": ["brakes"], "risk": "RED"}),
     # ---- multi-code -----------------------------------------------------
     ("multi_lean_banks", {"text": "P0171 P0174"}, {"codes": ["P0171", "P0174"], "top": "iki bank"}),
     ("multi_three_codes", {"text": "P0217 P0300 P0171"}, {"risk": "RED", "codes": ["P0217", "P0300", "P0171"], "min_causes": 3}),
@@ -116,6 +128,9 @@ def test_golden_scenario(sid: str, kwargs: dict[str, Any], exp: dict[str, Any], 
         got = [s["id"] for s in understood["symptoms"]]
         for sym in exp["symptoms"]:
             assert sym in got, got
+    if "not_symptoms" in exp:
+        got = [s["id"] for s in understood["symptoms"]]
+        assert not set(exp["not_symptoms"]) & set(got), got
     if "safety" in exp:
         cats = [b["category"] for b in d["safety_banners"]]
         assert set(exp["safety"]) <= set(cats), cats
