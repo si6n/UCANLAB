@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "intake_id": "canboat-pgn-59392-isoacknowledgement",
+  "record_type": "pgn_layout",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "automated",
+    "id": "scripts/intake_scan_sources.py",
+    "role": "author"
+  },
+  "source": {
+    "title": "CANboat J1939 PGN 59392 (isoAcknowledgement) field layout",
+    "path": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/059392-isoAcknowledgement.yaml",
+    "type": "standard",
+    "publisher": "CANboat (Kees Verruijt); layout per SAE J1939-71",
+    "revision": "f7f088b49d58",
+    "licence": "Apache-2.0",
+    "access_date": "2026-10-02",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": "85496841aa7e1983b2cc3e5f6e3dc120a94dce2ff7a8ef7800854991a7727368",
+      "bytes": 1438,
+      "pages_cited": []
+    }
+  },
+  "confidence": "single_source",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "pgn": 59392,
+    "pgn_id": "isoAcknowledgement",
+    "description": "ISO Acknowledgement",
+    "pgn_type": "Single",
+    "priority": null,
+    "interval_ms": null,
+    "fields": [
+      {
+        "field_id": "control",
+        "name": "Control",
+        "spn": null,
+        "bits": 8,
+        "unit": null,
+        "resolution": null,
+        "description": null
+      },
+      {
+        "field_id": "groupFunction",
+        "name": "Group Function",
+        "spn": null,
+        "bits": null,
+        "unit": null,
+        "resolution": null,
+        "description": null
+      },
+      {
+        "field_id": "reserved",
+        "name": "Reserved",
+        "spn": null,
+        "bits": 24,
+        "unit": null,
+        "resolution": null,
+        "description": null
+      },
+      {
+        "field_id": "pgn",
+        "name": "PGN",
+        "spn": null,
+        "bits": 24,
+        "unit": null,
+        "resolution": null,
+        "description": "Parameter Group Number of requested information"
+      }
+    ],
+    "upstream_keys": [
+      "explanation",
+      "notes",
+      "variantOrder"
+    ],
+    "source_file": "database/j1939/pgns/059392-isoAcknowledgement.yaml"
+  },
+  "notes": "Verbatim field layout from the pinned CANboat commit; staged for review, NOT merged into data/diagnostics/canboat_pgn_reference.json. SPN numbers are copied from the upstream 'description' text only — nothing is inferred."
+}

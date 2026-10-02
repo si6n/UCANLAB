@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "intake_id": "canboat-pgn-65201-ecuhistory",
+  "record_type": "pgn_layout",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "automated",
+    "id": "scripts/intake_scan_sources.py",
+    "role": "author"
+  },
+  "source": {
+    "title": "CANboat J1939 PGN 65201 (ecuHistory) field layout",
+    "path": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/065201-ecuHistory.yaml",
+    "type": "standard",
+    "publisher": "CANboat (Kees Verruijt); layout per SAE J1939-71",
+    "revision": "f7f088b49d58",
+    "licence": "Apache-2.0",
+    "access_date": "2026-10-02",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": "eb406e8d0f85841537d152c1d214c11232e34abe0cbdd2f9ce6e0d8b2c015a1a",
+      "bytes": 463,
+      "pages_cited": []
+    }
+  },
+  "confidence": "single_source",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "pgn": 65201,
+    "pgn_id": "ecuHistory",
+    "description": "ECU History",
+    "pgn_type": "Single",
+    "priority": 6,
+    "interval_ms": 1000,
+    "fields": [
+      {
+        "field_id": "totalEcuDistance",
+        "name": "Total ECU Distance",
+        "spn": 1032,
+        "bits": 32,
+        "unit": "km",
+        "resolution": 0.125,
+        "description": "SPN 1032, 0.125 kilometre per bit"
+      },
+      {
+        "field_id": "totalEcuRunTime",
+        "name": "Total ECU Run Time",
+        "spn": 1033,
+        "bits": 32,
+        "unit": "h",
+        "resolution": 0.05,
+        "description": "SPN 1033, 0.05 hour per bit"
+      }
+    ],
+    "upstream_keys": [
+      "notes"
+    ],
+    "source_file": "database/j1939/pgns/065201-ecuHistory.yaml"
+  },
+  "notes": "Verbatim field layout from the pinned CANboat commit; staged for review, NOT merged into data/diagnostics/canboat_pgn_reference.json. SPN numbers are copied from the upstream 'description' text only — nothing is inferred."
+}

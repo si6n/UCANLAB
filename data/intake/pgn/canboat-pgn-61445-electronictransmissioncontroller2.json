@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "intake_id": "canboat-pgn-61445-electronictransmissioncontroller2",
+  "record_type": "pgn_layout",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "automated",
+    "id": "scripts/intake_scan_sources.py",
+    "role": "author"
+  },
+  "source": {
+    "title": "CANboat J1939 PGN 61445 (electronicTransmissionController2) field layout",
+    "path": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/061445-electronicTransmissionController2.yaml",
+    "type": "standard",
+    "publisher": "CANboat (Kees Verruijt); layout per SAE J1939-71",
+    "revision": "f7f088b49d58",
+    "licence": "Apache-2.0",
+    "access_date": "2026-10-02",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": "d44126e7298ce2a2796bdb326101f65b581c918b5ab706276f13470fe7e94a98",
+      "bytes": 1144,
+      "pages_cited": []
+    }
+  },
+  "confidence": "single_source",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "pgn": 61445,
+    "pgn_id": "electronicTransmissionController2",
+    "description": "Electronic Transmission Controller 2",
+    "pgn_type": "Single",
+    "priority": 6,
+    "interval_ms": 100,
+    "fields": [
+      {
+        "field_id": "transmissionSelectedGear",
+        "name": "Transmission Selected Gear",
+        "spn": 524,
+        "bits": null,
+        "unit": null,
+        "resolution": null,
+        "description": "SPN 524, offset by -125 in J1939; negative gears are reverse, 0 is neutral"
+      },
+      {
+        "field_id": "transmissionActualGearRatio",
+        "name": "Transmission Actual Gear Ratio",
+        "spn": 526,
+        "bits": 16,
+        "unit": null,
+        "resolution": 0.001,
+        "description": "SPN 526, 0.001 per bit"
+      },
+      {
+        "field_id": "transmissionCurrentGear",
+        "name": "Transmission Current Gear",
+        "spn": 523,
+        "bits": null,
+        "unit": null,
+        "resolution": null,
+        "description": "SPN 523, offset by -125 in J1939; negative gears are reverse, 0 is neutral"
+      },
+      {
+        "field_id": "transmissionRequestedRange",
+        "name": "Transmission Requested Range",
+        "spn": 162,
+        "bits": 16,
+        "unit": null,
+        "resolution": null,
+        "description": "SPN 162, two ASCII characters"
+      },
+      {
+        "field_id": "transmissionCurrentRange",
+        "name": "Transmission Current Range",
+        "spn": 163,
+        "bits": 16,
+        "unit": null,
+        "resolution": null,
+        "description": "SPN 163, two ASCII characters"
+      }
+    ],
+    "upstream_keys": [
+      "notes"
+    ],
+    "source_file": "database/j1939/pgns/061445-electronicTransmissionController2.yaml"
+  },
+  "notes": "Verbatim field layout from the pinned CANboat commit; staged for review, NOT merged into data/diagnostics/canboat_pgn_reference.json. SPN numbers are copied from the upstream 'description' text only — nothing is inferred."
+}

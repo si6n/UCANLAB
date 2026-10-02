@@ -1,0 +1,144 @@
+{
+  "schema_version": 1,
+  "intake_id": "canboat-pgn-61442-electronictransmissioncontroller1",
+  "record_type": "pgn_layout",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "automated",
+    "id": "scripts/intake_scan_sources.py",
+    "role": "author"
+  },
+  "source": {
+    "title": "CANboat J1939 PGN 61442 (electronicTransmissionController1) field layout",
+    "path": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/061442-electronicTransmissionController1.yaml",
+    "type": "standard",
+    "publisher": "CANboat (Kees Verruijt); layout per SAE J1939-71",
+    "revision": "f7f088b49d58",
+    "licence": "Apache-2.0",
+    "access_date": "2026-10-02",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": "ebfb8b5d2643340b2a135a39adc845a1ea3684777908c03edef3fb73c6de5c64",
+      "bytes": 1512,
+      "pages_cited": []
+    }
+  },
+  "confidence": "single_source",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "pgn": 61442,
+    "pgn_id": "electronicTransmissionController1",
+    "description": "Electronic Transmission Controller 1",
+    "pgn_type": "Single",
+    "priority": null,
+    "interval_ms": null,
+    "fields": [
+      {
+        "field_id": "transmissionDrivelineEngaged",
+        "name": "Transmission Driveline Engaged",
+        "spn": null,
+        "bits": 2,
+        "unit": null,
+        "resolution": null,
+        "description": null
+      },
+      {
+        "field_id": "torqueConverterLockupEngaged",
+        "name": "Torque Converter Lockup Engaged",
+        "spn": null,
+        "bits": 2,
+        "unit": null,
+        "resolution": null,
+        "description": null
+      },
+      {
+        "field_id": "transmissionShiftInProgress",
+        "name": "Transmission Shift in Progress",
+        "spn": null,
+        "bits": 2,
+        "unit": null,
+        "resolution": null,
+        "description": null
+      },
+      {
+        "field_id": "torqueConverterLockupTransitionInProgress",
+        "name": "Torque Converter Lockup Transition in Progress",
+        "spn": null,
+        "bits": 2,
+        "unit": null,
+        "resolution": null,
+        "description": null
+      },
+      {
+        "field_id": "transmissionOutputShaftSpeed",
+        "name": "Transmission Output Shaft Speed",
+        "spn": null,
+        "bits": null,
+        "unit": null,
+        "resolution": null,
+        "description": null
+      },
+      {
+        "field_id": "percentClutchSlip",
+        "name": "Percent Clutch Slip",
+        "spn": null,
+        "bits": null,
+        "unit": null,
+        "resolution": null,
+        "description": null
+      },
+      {
+        "field_id": "engineMomentaryOverspeedEnable",
+        "name": "Engine Momentary Overspeed Enable",
+        "spn": null,
+        "bits": 2,
+        "unit": null,
+        "resolution": null,
+        "description": null
+      },
+      {
+        "field_id": "progressiveShiftDisable",
+        "name": "Progressive Shift Disable",
+        "spn": null,
+        "bits": 2,
+        "unit": null,
+        "resolution": null,
+        "description": null
+      },
+      {
+        "field_id": "reserved",
+        "name": "Reserved",
+        "spn": null,
+        "bits": 4,
+        "unit": null,
+        "resolution": null,
+        "description": null
+      },
+      {
+        "field_id": "transmissionInputShaftSpeed",
+        "name": "Transmission Input Shaft Speed",
+        "spn": null,
+        "bits": null,
+        "unit": null,
+        "resolution": null,
+        "description": null
+      },
+      {
+        "field_id": "sourceAddressOfControllingDeviceForTransmissionControl",
+        "name": "Source Address of Controlling Device for Transmission Control",
+        "spn": null,
+        "bits": null,
+        "unit": null,
+        "resolution": null,
+        "description": null
+      }
+    ],
+    "upstream_keys": [
+      "explanation",
+      "missing"
+    ],
+    "source_file": "database/j1939/pgns/061442-electronicTransmissionController1.yaml"
+  },
+  "notes": "Verbatim field layout from the pinned CANboat commit; staged for review, NOT merged into data/diagnostics/canboat_pgn_reference.json. SPN numbers are copied from the upstream 'description' text only — nothing is inferred."
+}

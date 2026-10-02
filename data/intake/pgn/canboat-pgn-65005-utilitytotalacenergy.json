@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "intake_id": "canboat-pgn-65005-utilitytotalacenergy",
+  "record_type": "pgn_layout",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "automated",
+    "id": "scripts/intake_scan_sources.py",
+    "role": "author"
+  },
+  "source": {
+    "title": "CANboat J1939 PGN 65005 (utilityTotalAcEnergy) field layout",
+    "path": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/065005-utilityTotalAcEnergy.yaml",
+    "type": "standard",
+    "publisher": "CANboat (Kees Verruijt); layout per SAE J1939-71",
+    "revision": "f7f088b49d58",
+    "licence": "Apache-2.0",
+    "access_date": "2026-10-02",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": "2e2d6885ec8ddcc5ec87d163fc6d5f1000853829d69d8b39fe141a077fa56771",
+      "bytes": 264,
+      "pages_cited": []
+    }
+  },
+  "confidence": "single_source",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "pgn": 65005,
+    "pgn_id": "utilityTotalAcEnergy",
+    "description": "Utility Total AC Energy",
+    "pgn_type": "Single",
+    "priority": null,
+    "interval_ms": null,
+    "fields": [
+      {
+        "field_id": "totalEnergyExport",
+        "name": "Total Energy Export",
+        "spn": null,
+        "bits": null,
+        "unit": null,
+        "resolution": null,
+        "description": null
+      },
+      {
+        "field_id": "totalEnergyImport",
+        "name": "Total Energy Import",
+        "spn": null,
+        "bits": null,
+        "unit": null,
+        "resolution": null,
+        "description": null
+      }
+    ],
+    "upstream_keys": [
+      "missing"
+    ],
+    "source_file": "database/j1939/pgns/065005-utilityTotalAcEnergy.yaml"
+  },
+  "notes": "Verbatim field layout from the pinned CANboat commit; staged for review, NOT merged into data/diagnostics/canboat_pgn_reference.json. SPN numbers are copied from the upstream 'description' text only — nothing is inferred."
+}

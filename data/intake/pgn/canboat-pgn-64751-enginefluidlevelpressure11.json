@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "intake_id": "canboat-pgn-64751-enginefluidlevelpressure11",
+  "record_type": "pgn_layout",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "automated",
+    "id": "scripts/intake_scan_sources.py",
+    "role": "author"
+  },
+  "source": {
+    "title": "CANboat J1939 PGN 64751 (engineFluidLevelPressure11) field layout",
+    "path": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/064751-engineFluidLevelPressure11.yaml",
+    "type": "standard",
+    "publisher": "CANboat (Kees Verruijt); layout per SAE J1939-71",
+    "revision": "f7f088b49d58",
+    "licence": "Apache-2.0",
+    "access_date": "2026-10-02",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": "7d4f60f3314459b5cf7bcf787208657fd1ff031304685426b7d97475cdaf3c85",
+      "bytes": 1003,
+      "pages_cited": []
+    }
+  },
+  "confidence": "single_source",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "pgn": 64751,
+    "pgn_id": "engineFluidLevelPressure11",
+    "description": "Engine Fluid Level/Pressure 11",
+    "pgn_type": "Single",
+    "priority": 6,
+    "interval_ms": 1000,
+    "fields": [
+      {
+        "field_id": "engineExhaustGasRecirculation1IntakeAbsolutePressure",
+        "name": "Engine Exhaust Gas Recirculation 1 Intake Absolute Pressure",
+        "spn": 5430,
+        "bits": null,
+        "unit": null,
+        "resolution": null,
+        "description": "SPN 5430, 0.1 kPa per bit"
+      },
+      {
+        "field_id": "engineExhaustGasRecirculation1OutletAbsolutePressure",
+        "name": "Engine Exhaust Gas Recirculation 1 Outlet Absolute Pressure",
+        "spn": 5431,
+        "bits": null,
+        "unit": null,
+        "resolution": null,
+        "description": "SPN 5431, 0.1 kPa per bit"
+      },
+      {
+        "field_id": "engineExhaustGasRecirculation2IntakeAbsolutePressure",
+        "name": "Engine Exhaust Gas Recirculation 2 Intake Absolute Pressure",
+        "spn": 7468,
+        "bits": null,
+        "unit": null,
+        "resolution": null,
+        "description": "SPN 7468, 0.1 kPa per bit"
+      },
+      {
+        "field_id": "engineExhaustGasRecirculation2OutletAbsolutePressure",
+        "name": "Engine Exhaust Gas Recirculation 2 Outlet Absolute Pressure",
+        "spn": 7469,
+        "bits": null,
+        "unit": null,
+        "resolution": null,
+        "description": "SPN 7469, 0.1 kPa per bit"
+      }
+    ],
+    "upstream_keys": [
+      "notes"
+    ],
+    "source_file": "database/j1939/pgns/064751-engineFluidLevelPressure11.yaml"
+  },
+  "notes": "Verbatim field layout from the pinned CANboat commit; staged for review, NOT merged into data/diagnostics/canboat_pgn_reference.json. SPN numbers are copied from the upstream 'description' text only — nothing is inferred."
+}

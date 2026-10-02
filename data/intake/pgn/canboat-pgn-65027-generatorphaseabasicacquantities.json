@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "intake_id": "canboat-pgn-65027-generatorphaseabasicacquantities",
+  "record_type": "pgn_layout",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "automated",
+    "id": "scripts/intake_scan_sources.py",
+    "role": "author"
+  },
+  "source": {
+    "title": "CANboat J1939 PGN 65027 (generatorPhaseABasicAcQuantities) field layout",
+    "path": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/065027-generatorPhaseABasicAcQuantities.yaml",
+    "type": "standard",
+    "publisher": "CANboat (Kees Verruijt); layout per SAE J1939-71",
+    "revision": "f7f088b49d58",
+    "licence": "Apache-2.0",
+    "access_date": "2026-10-02",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": "9c50d718019516af9f78a20c68e0441f02670618c48edc3746362791bdabe053",
+      "bytes": 451,
+      "pages_cited": []
+    }
+  },
+  "confidence": "single_source",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "pgn": 65027,
+    "pgn_id": "generatorPhaseABasicAcQuantities",
+    "description": "Generator Phase A Basic AC Quantities",
+    "pgn_type": "Single",
+    "priority": null,
+    "interval_ms": null,
+    "fields": [
+      {
+        "field_id": "lineLineAcRmsVoltage",
+        "name": "Line-Line AC RMS Voltage",
+        "spn": null,
+        "bits": null,
+        "unit": null,
+        "resolution": null,
+        "description": null
+      },
+      {
+        "field_id": "lineNeutralAcRmsVoltage",
+        "name": "Line-Neutral AC RMS Voltage",
+        "spn": null,
+        "bits": null,
+        "unit": null,
+        "resolution": null,
+        "description": null
+      },
+      {
+        "field_id": "acFrequency",
+        "name": "AC Frequency",
+        "spn": null,
+        "bits": null,
+        "unit": null,
+        "resolution": 0.0078125,
+        "description": null
+      },
+      {
+        "field_id": "acRmsCurrent",
+        "name": "AC RMS Current",
+        "spn": null,
+        "bits": null,
+        "unit": null,
+        "resolution": null,
+        "description": null
+      }
+    ],
+    "upstream_keys": [],
+    "source_file": "database/j1939/pgns/065027-generatorPhaseABasicAcQuantities.yaml"
+  },
+  "notes": "Verbatim field layout from the pinned CANboat commit; staged for review, NOT merged into data/diagnostics/canboat_pgn_reference.json. SPN numbers are copied from the upstream 'description' text only — nothing is inferred."
+}

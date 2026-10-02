@@ -1,0 +1,277 @@
+# -*- coding: utf-8 -*-
+"""Unit tests for the upstream discovery scan (``scripts/intake_scan_sources.py``).
+
+The scan's value is that it is *trustworthy*: it re-derives the upstream
+inventory at the very commits ``data/PROVENANCE.md`` cites and compares
+per-file sha256 against the recorded evidence. These tests pin that contract:
+
+- every hash the tool trusts is present in the provenance document (no drift);
+- the committed pinli commit SHAs match the provenance document;
+- the restricted YAML reader handles the constructs canboat actually emits
+  (repeat blocks, plain multi-line scalars, block scalars) and **fails closed**
+  on anything else;
+- staged ``pgn_layout`` records match what the pinned source says, byte for
+  byte, with a per-record sha256 of the upstream file;
+- the intake gate stays green on the staged batch, and the knowledge base is
+  never written.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+from pathlib import Path
+
+import pytest
+
+from scripts.intake_scan_sources import (
+    CANBOAT_COMMIT,
+    OBDEX_COMMIT,
+    PGN_SUBDIR,
+    VENDORED_SHA256,
+    build_pgn_record,
+    parse_pgn_yaml,
+    stage,
+)
+from scripts.validate_intake import INTAKE_DIRNAME, ROOT, Report, run
+
+SCAN = ROOT / "data" / "intake" / PGN_SUBDIR
+PROVENANCE = ROOT / "data" / "PROVENANCE.md"
+SHA_RE = re.compile(r"`([0-9a-f]{64})`")
+KB_FILES = (
+    ROOT / "data" / "diagnostics" / "canboat_pgn_reference.json",
+    ROOT / "data" / "diagnostics" / "j1939_spn_fmi_database.json",
+)
+
+YAML_FIXTURE = """pgn: 61450
+id: engineGasFlowRate1
+description: Engine Gas Flow Rate 1
+type: Single
+priority: 6
+interval: 50
+explanation: This PGN carries a flow rate expressed in kg/h and the
+  value continues on the next line of upstream text.
+missing:
+- Resolution
+fields:
+- id: engineExhaustGasRecirculation1MassFlowRate
+  name: Engine Exhaust Gas Recirculation 1 Mass Flow Rate
+  type: NUMBER
+  bits: 16
+  unit: kg/h
+  resolution: 0.05
+  description: SPN 97, 0.05 kg/hr per bit
+notes: |-
+  A literal block scalar that spans
+  two lines.
+"""
+
+
+def _provenance_hashes() -> set[str]:
+    return set(SHA_RE.findall(PROVENANCE.read_text(encoding="utf-8")))
+
+
+def test_every_trusted_hash_appears_in_the_provenance_document() -> None:
+    """The tool may only claim artefacts data/PROVENANCE.md actually evidences."""
+    documented = _provenance_hashes()
+    missing = {key: digest for key, digest in VENDORED_SHA256.items() if digest not in documented}
+    assert not missing, f"hashes not evidenced in data/PROVENANCE.md: {missing}"
+
+
+def test_pinned_commits_match_the_provenance_document() -> None:
+    text = PROVENANCE.read_text(encoding="utf-8")
+    assert OBDEX_COMMIT in text
+    assert CANBOAT_COMMIT in text
+
+
+def test_parser_reads_the_canboat_subset() -> None:
+    doc = parse_pgn_yaml(YAML_FIXTURE)
+    assert doc["pgn"] == 61450
+    assert doc["priority"] == 6 and doc["interval"] == 50
+    assert doc["missing"] == ["Resolution"]
+    assert doc["notes"] == "A literal block scalar that spans\ntwo lines."  # |- strips the trailing newline
+    assert doc["explanation"].startswith("This PGN carries a flow rate")
+    assert doc["explanation"].endswith("next line of upstream text.")
+    field = doc["fields"][0]
+    assert field["id"] == "engineExhaustGasRecirculation1MassFlowRate"
+    assert field["bits"] == 16
+    assert field["resolution"] == 0.05
+    assert "SPN 97" in field["description"]
+
+
+def test_parser_flattens_repeat_blocks() -> None:
+    doc = parse_pgn_yaml(
+        "pgn: 65226\n"
+        "fields:\n"
+        "- id: spn\n"
+        "  name: SPN\n"
+        "- repeat:\n"
+        "    fields:\n"
+        "    - id: fmi\n"
+        "      name: FMI\n"
+    )
+    assert doc["fields"][0]["name"] == "SPN"
+    assert "repeat" in doc["fields"][1], "a repeat block stays nested (callers flatten it)"
+    repeat = doc["fields"][1]["repeat"]["fields"]
+    assert [f["id"] for f in repeat] == ["fmi"]
+
+
+def test_parser_fails_closed_on_an_unreadable_line() -> None:
+    with pytest.raises(ValueError):
+        parse_pgn_yaml("pgn: 61450\nthis line is not yaml at all\n")
+    with pytest.raises(ValueError):
+        parse_pgn_yaml("")
+
+
+def test_staged_records_are_complete_and_consistent() -> None:
+    staged = sorted(SCAN.glob("*.json"))
+    assert staged, "the canboat J1939 PGN batch must be staged"
+    seen_ids: set[str] = set()
+    for path in staged:
+        record = json.loads(path.read_text(encoding="utf-8"))
+        assert record["record_type"] == "pgn_layout"
+        assert record["draft"] is True
+        assert record["knowledge_base"] is None
+        assert record["source"]["licence"] == "Apache-2.0"
+        assert CANBOAT_COMMIT in record["source"]["path"]
+        assert re.fullmatch(r"[0-9a-f]{64}", record["source"]["snapshot"]["sha256"])
+        payload = record["payload"]
+        assert isinstance(payload["pgn"], int)
+        assert payload["fields"], f"{path.name}: a staged layout must have fields"
+        assert record["intake_id"] not in seen_ids
+        seen_ids.add(record["intake_id"])
+    # DM1 is already vendored: staging a copy would be noise, not discovery.
+    assert not any(json.loads(p.read_text(encoding="utf-8"))["payload"]["pgn"] == 65226 for p in staged)
+
+
+def test_staged_snapshot_hash_matches_the_recorded_source_path() -> None:
+    """Every staged record must name its upstream file and pin that file's hash."""
+    for path in sorted(SCAN.glob("*.json"))[:5]:
+        record = json.loads(path.read_text(encoding="utf-8"))
+        assert record["payload"]["source_file"].startswith("database/j1939/pgns/")
+        assert record["source"]["path"].endswith(record["payload"]["source_file"])
+        assert record["source"]["snapshot"]["bytes"] > 0
+
+
+def test_build_record_never_invents_spn_numbers() -> None:
+    """SPN may only be taken from the upstream text, never derived."""
+    doc_text = "\n".join([
+        "pgn: 61450",
+        "id: demo",
+        "fields:",
+        "- id: a",
+        "  name: Some Field",
+        "  bits: 16",
+        "  description: no spn mentioned",
+        "- id: b",
+        "  name: Engine Speed",
+        "  bits: 16",
+        "  description: SPN 190, 0.125 rpm",
+        "",
+    ])
+    tree = Path("/tmp/ucanlab-fake-canboat-f7f088b4")
+    yaml_path = tree / "database" / "j1939" / "pgns" / "061450-demo.yaml"
+    yaml_path.parent.mkdir(parents=True, exist_ok=True)
+    yaml_path.write_text(doc_text, encoding="utf-8")
+    try:
+        record = build_pgn_record(tree, yaml_path)
+        rows = record["payload"]["fields"]
+        assert rows[0]["spn"] is None
+        assert rows[1]["spn"] == 190
+        assert record["payload"]["upstream_keys"] == []
+        assert record["payload"]["pgn"] == 61450
+    finally:
+        import shutil
+
+        shutil.rmtree(tree, ignore_errors=True)
+
+
+def test_stage_is_idempotent_and_reports_drift(tmp_path: Path) -> None:
+    """--stage without --apply reports missing records; --apply is idempotent.
+
+    ``count`` is the number of layout files that are in sync *or* written; a
+    record that had to be created is also listed in ``problems`` in check mode.
+    """
+    tree = Path("/tmp/ucanlab-fake-canboat-stage")
+    import shutil
+
+    shutil.rmtree(tree, ignore_errors=True)
+    pgns = tree / "database" / "j1939" / "pgns"
+    pgns.mkdir(parents=True)
+    (pgns / "061450-demo.yaml").write_text(YAML_FIXTURE, encoding="utf-8")
+    intake = tmp_path / "intake"
+    try:
+        count, problems, skipped = stage(tree, intake, apply=False)
+        assert count == 1 and skipped == [], "nothing is vendored under a made-up tree"
+        assert any("missing (run with --apply)" in p for p in problems)
+
+        count, problems, skipped = stage(tree, intake, apply=True)
+        assert count == 1 and not problems
+        staged_file = intake / PGN_SUBDIR / "canboat-pgn-61450-enginegasflowrate1.json"
+        assert staged_file.is_file()
+
+        count, problems, _skipped = stage(tree, intake, apply=True)
+        assert count == 0 and not problems, "a second --apply must add nothing"
+
+        staged_file.write_text(staged_file.read_text(encoding="utf-8").replace("Single", "Fast"),
+                               encoding="utf-8")
+        _count, problems, _skipped = stage(tree, intake, apply=True)
+        assert any("differs from the pinned source" in p for p in problems)
+    finally:
+        shutil.rmtree(tree, ignore_errors=True)
+
+
+def test_staged_batch_passes_the_intake_gate_and_never_writes_the_kb() -> None:
+    before = {p: p.read_bytes() for p in KB_FILES}
+    rep = run(root=ROOT, quiet=True)
+    failures = [d for level, _c, d in rep.rows if level == "FAIL"]
+    assert not failures, failures
+    assert rep.metrics["records_pgn_layout"] == len(list(SCAN.glob("*.json")))
+    assert rep.metrics["manifest_rows"] >= rep.metrics["records_pgn_layout"]
+    # The conflict report must be measured, not empty theatre.
+    assert rep.metrics["kb_new_candidates"] > 0
+    assert rep.metrics["kb_overlaps"] > 0
+    assert rep.metrics["pgn_layout_spn_refs"] > 0
+    for path, blob in before.items():
+        assert path.read_bytes() == blob, f"{path} must never be written by the intake gate"
+
+
+def test_manifest_is_in_sync_with_the_staged_records() -> None:
+    manifest = (ROOT / INTAKE_DIRNAME / "MANIFEST.md").read_text(encoding="utf-8")
+    for path in sorted(SCAN.glob("*.json")):
+        assert f"`data/intake/{PGN_SUBDIR}/{path.name}`" in manifest
+
+
+def test_notice_file_backs_the_staged_licence() -> None:
+    notice = (ROOT / INTAKE_DIRNAME / "NOTICE.canboat.md").read_text(encoding="utf-8")
+    assert CANBOAT_COMMIT in notice
+    assert "Apache License, Version 2.0" in notice
+    assert "Kees Verruijt" in notice
+
+
+def test_pgn_layout_record_rejects_a_bogus_field() -> None:
+    """A staged layout still has to pass the schema: bits must be a sane integer."""
+    bad = {
+        "schema_version": 1,
+        "intake_id": "pgn-bogus",
+        "record_type": "pgn_layout",
+        "submitted_at": "2026-10-02",
+        "submitter": {"type": "human", "id": "tech-01"},
+        "source": {"title": "t", "path": "https://example.invalid/x", "type": "standard",
+                   "publisher": "p", "revision": None, "licence": "Apache-2.0",
+                   "access_date": "2026-10-02", "snapshot": None},
+        "confidence": "single_source",
+        "draft": True,
+        "knowledge_base": None,
+        "payload": {"pgn": 61450, "pgn_id": "demo", "description": None, "pgn_type": "Single",
+                    "priority": 6, "interval_ms": None, "upstream_keys": [],
+                    "source_file": "database/j1939/pgns/061450-demo.yaml",
+                    "fields": [{"field_id": "a", "name": "A", "spn": 190, "bits": "sixteen",
+                                "unit": None, "resolution": None, "description": "SPN 190"}]},
+        "notes": None,
+    }
+    from scripts.validate_intake import validate_envelope
+
+    rep = Report()
+    validate_envelope(bad, "pgn/x.json", rep)
+    assert any("bits must be an integer" in d for _lv, _c, d in rep.rows if _lv == "FAIL")

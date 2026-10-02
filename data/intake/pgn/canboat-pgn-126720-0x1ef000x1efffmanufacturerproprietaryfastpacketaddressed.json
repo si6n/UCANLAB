@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "intake_id": "canboat-pgn-126720-0x1ef000x1efffmanufacturerproprietaryfastpacketaddressed",
+  "record_type": "pgn_layout",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "automated",
+    "id": "scripts/intake_scan_sources.py",
+    "role": "author"
+  },
+  "source": {
+    "title": "CANboat J1939 PGN 126720 (0x1ef000x1efffManufacturerProprietaryFastPacketAddressed) field layout",
+    "path": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/126720-0x1ef000x1efffManufacturerProprietaryFastPacketAddressed.yaml",
+    "type": "standard",
+    "publisher": "CANboat (Kees Verruijt); layout per SAE J1939-71",
+    "revision": "f7f088b49d58",
+    "licence": "Apache-2.0",
+    "access_date": "2026-10-02",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": "fda9ca23b6e7fa35fe6e7daebbc3ed81170ec2c3575065f94be2baab9b9babda",
+      "bytes": 748,
+      "pages_cited": []
+    }
+  },
+  "confidence": "single_source",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "pgn": 126720,
+    "pgn_id": "0x1ef000x1efffManufacturerProprietaryFastPacketAddressed",
+    "description": "0x1EF00-0x1EFFF: Manufacturer Proprietary fast-packet addressed",
+    "pgn_type": "Fast",
+    "priority": null,
+    "interval_ms": null,
+    "fields": [
+      {
+        "field_id": "manufacturerCode",
+        "name": "Manufacturer Code",
+        "spn": null,
+        "bits": 11,
+        "unit": null,
+        "resolution": null,
+        "description": null
+      },
+      {
+        "field_id": "reserved",
+        "name": "Reserved",
+        "spn": null,
+        "bits": 2,
+        "unit": null,
+        "resolution": null,
+        "description": null
+      },
+      {
+        "field_id": "industryCode",
+        "name": "Industry Code",
+        "spn": null,
+        "bits": 3,
+        "unit": null,
+        "resolution": null,
+        "description": null
+      },
+      {
+        "field_id": "data",
+        "name": "Data",
+        "spn": null,
+        "bits": 1768,
+        "unit": null,
+        "resolution": null,
+        "description": null
+      }
+    ],
+    "upstream_keys": [
+      "explanation",
+      "fallback",
+      "missing"
+    ],
+    "source_file": "database/j1939/pgns/126720-0x1ef000x1efffManufacturerProprietaryFastPacketAddressed.yaml"
+  },
+  "notes": "Verbatim field layout from the pinned CANboat commit; staged for review, NOT merged into data/diagnostics/canboat_pgn_reference.json. SPN numbers are copied from the upstream 'description' text only — nothing is inferred."
+}

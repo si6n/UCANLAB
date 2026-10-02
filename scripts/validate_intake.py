@@ -67,10 +67,14 @@ SCHEMA_VERSION = 1
 # hashed, not MANIFEST-listed and not record-validated.
 NON_RECORD_NAMES: frozenset[str] = frozenset({"README.md", "MANIFEST.md", ".gitkeep"})
 TEMPLATE_DIR = "_templates"
+# Licence notices are legal documents, not records: they are tracked in git but
+# never hashed as intake artefacts.
+NOTICE_RE = re.compile(r"^NOTICE[.-].*\.md$", re.IGNORECASE)
 
 RECORD_DIRS: dict[str, str] = {
     "dtc": "dtc",
     "spn_fmi": "spn_fmi",
+    "pgn_layout": "pgn",
     "trace": "traces",
     "case": "cases",
     "oem_note": "oem_notes",
@@ -90,7 +94,7 @@ SOURCE_FIELDS: frozenset[str] = frozenset({
 })
 SNAPSHOT_FIELDS: frozenset[str] = frozenset({"archive_url", "sha256", "bytes", "pages_cited"})
 
-SUBMITTER_TYPES: frozenset[str] = frozenset({"human", "curator", "organization"})
+SUBMITTER_TYPES: frozenset[str] = frozenset({"human", "curator", "organization", "automated"})
 # Mirrors data/diagnostics/provenance_schema.json -> source.type
 SOURCE_TYPES: frozenset[str] = frozenset({
     "standard", "oem_manual", "nhtsa", "academic", "web", "regulatory",
@@ -123,6 +127,10 @@ PAYLOAD_FIELDS: dict[str, frozenset[str]] = {
     }),
     "spn_fmi": frozenset({
         "spn", "fmi", "system", "description", "typical_causes", "pgn", "oem_ref", "vin_masked",
+    }),
+    "pgn_layout": frozenset({
+        "pgn", "pgn_id", "description", "pgn_type", "priority", "interval_ms",
+        "fields", "upstream_keys", "source_file",
     }),
     "case": frozenset({
         "case_id", "domain", "make", "model", "year", "symptom", "dtcs",
@@ -169,15 +177,24 @@ INTAKE_ID_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 # case-insensitive in the real world, so lowercase is rejected too).
 RAW_VIN_RE = re.compile(r"\b[A-HJ-NPR-Z0-9]{17}\b", re.IGNORECASE)
 EMAIL_RE = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
-# Turkish landline (0 + 10 digits) or mobile (+90 5xx …) in plain or grouped
-# form: 8–11 digits behind a +90/0 prefix, optional spaces/dots/dashes.
-PHONE_RE = re.compile(r"(?<![\d.])(?:\+90[\s.-]?|0)[2-5](?:[\s.-]?\d){6,9}(?![\d.])")
+# Turkish numbers are 10 digits (mobile, 05xx xxx xx xx) or 11 digits
+# (landline, 0212 xxx xx xx), optionally written with spaces/dots/dashes and
+# with a +90 country prefix. Anything shorter is a technical constant, not a
+# phone number — measured: an 8-digit run inside a sha256 used to false-positive.
+PHONE_RE = re.compile(
+    r"(?<![\d.])(?:\+90[\s.-]?\d{10}"
+    r"|0[2-5](?:[\s.-]?\d){8}"
+    r"|0[2-5](?:[\s.-]?\d){9})(?![\d.])"
+)
 IBAN_RE = re.compile(r"\bTR\d{2}[A-Z0-9]{20,26}\b", re.IGNORECASE)
 IPV4_RE = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
 CARDISH_RE = re.compile(r"(?<![\d.])\d{13,19}(?![\d.])")
 IMEI_RE = re.compile(r"(?<![\d.])\d{15}(?![\d.])")
 # Hex payload values of a CAN frame: technical noise, not PII candidates.
 HEX_FIELD_RE = re.compile(r'"(?:data|payload|bytes|raw)"\s*:\s*"[0-9A-Fa-f]*"')
+# sha256 digests are integrity evidence, never personal data (measured: an
+# 8-digit run inside a digest looked like a phone number).
+SHA256_HEX_RE = re.compile(r"\b[0-9a-f]{64}\b")
 
 # Trace policy. check_corpus_size_sentry.py is the repository-level gate
 # (100 MB per file, data/traces <= 350 MB); intake is deliberately far
@@ -186,6 +203,10 @@ DEFAULT_MAX_INLINE_TRACE_BYTES = 1_048_576  # 1 MiB
 DEFAULT_MAX_INTAKE_BYTES = 5_242_880  # 5 MiB for the whole directory
 
 ARTEFACT_RE = re.compile(r"(\.bak|\.orig$|~$|\.tmp-|\.swp$)")
+
+# A J1939/NMEA-2000 message never exceeds 255 bytes; 4096 bits is a safe
+# ceiling that still rejects garbage.
+MAX_FIELD_BITS = 4096
 
 
 class Report:
@@ -307,7 +328,10 @@ def _str_list(payload: dict[str, Any], key: str) -> bool:
 # --------------------------------------------------------------------------- #
 def scan_text(text: str, where: str, rep: Report, *, skip_hex_fields: bool = False) -> None:
     """Scan a blob for personal data. FAIL on VIN/e-mail/phone/IBAN."""
-    blob = HEX_FIELD_RE.sub('"data":"<hex>"', text) if skip_hex_fields else text
+    blob = text
+    if skip_hex_fields:
+        blob = HEX_FIELD_RE.sub('"data":"<hex>"', blob)
+    blob = SHA256_HEX_RE.sub("<sha256>", blob)
     for regex, level, label in (
         (RAW_VIN_RE, "FAIL", "raw_vin"),
         (EMAIL_RE, "FAIL", "email"),
@@ -541,9 +565,79 @@ def _validate_payload_trace(payload: dict[str, Any], where: str, rep: Report) ->
     _check_masked_vin(payload.get("vin_masked"), where, rep)
 
 
+PGN_LAYOUT_FIELD_FIELDS: frozenset[str] = frozenset({
+    "field_id", "name", "spn", "bits", "unit", "resolution", "description",
+})
+PGN_TYPES: frozenset[str] = frozenset({"Single", "Fast", "Mixed", "ISO", "Proprietary", "Other"})
+
+
+def _validate_payload_pgn_layout(payload: dict[str, Any], where: str, rep: Report) -> None:
+    """J1939/NMEA-2000 PGN field layout (e.g. canboat ``database/j1939/pgns/*.yaml``)."""
+    _check_exact_fields(payload, PAYLOAD_FIELDS["pgn_layout"], where, PAYLOAD_FIELDS["pgn_layout"], rep)
+    pgn = payload.get("pgn")
+    if not isinstance(pgn, int) or isinstance(pgn, bool) or not 0 <= pgn <= 262_143:
+        rep.fail("schema", f"{where}.pgn must be an integer in [0, 262143]")
+    pgn_id = payload.get("pgn_id")
+    if not isinstance(pgn_id, str) or not pgn_id.strip():
+        rep.fail("schema", f"{where}.pgn_id must be a non-empty string")
+    for key in ("description", "source_file"):
+        if not _is_opt_str(payload, key):
+            rep.fail("schema", f"{where}.{key} must be a string or null")
+    if payload.get("pgn_type") is not None and payload.get("pgn_type") not in PGN_TYPES:
+        rep.fail("schema", f"{where}.pgn_type must be one of {sorted(PGN_TYPES)} or null")
+    for key in ("priority", "interval_ms"):
+        value = payload.get(key)
+        if value is not None and (not isinstance(value, int) or isinstance(value, bool) or value < 0):
+            rep.fail("schema", f"{where}.{key} must be a non-negative integer or null")
+    upstream_keys = payload.get("upstream_keys")
+    if not isinstance(upstream_keys, list) or not all(isinstance(k, str) and k.strip() for k in upstream_keys):
+        rep.fail("schema", f"{where}.upstream_keys must be a list of non-empty strings")
+    fields = payload.get("fields")
+    if not isinstance(fields, list) or not fields:
+        rep.fail("schema", f"{where}.fields must be a non-empty array")
+        return
+    for i, item in enumerate(fields):
+        if not isinstance(item, dict) or not _check_exact_fields(
+            item, PGN_LAYOUT_FIELD_FIELDS, f"{where}.fields[{i}]", frozenset({"name"}), rep
+        ):
+            continue
+        name = item.get("name")
+        if not isinstance(name, str) or not name.strip():
+            rep.fail("schema", f"{where}.fields[{i}].name must be a non-empty string")
+        field_id = item.get("field_id")
+        if field_id is not None and (not isinstance(field_id, str) or not field_id.strip()):
+            rep.fail("schema", f"{where}.fields[{i}].field_id must be a non-empty string or null")
+        spn = item.get("spn")
+        if spn is not None and (not isinstance(spn, int) or isinstance(spn, bool) or not 0 <= spn <= 524_287):
+            rep.fail("schema", f"{where}.fields[{i}].spn must be an integer in [0, 524287] or null")
+        bits = item.get("bits")
+        if bits is not None and (not isinstance(bits, int) or isinstance(bits, bool)
+                                 or not 1 <= bits <= MAX_FIELD_BITS):
+            rep.fail("schema", f"{where}.fields[{i}].bits must be an integer in [1, {MAX_FIELD_BITS}] or null")
+        elif isinstance(bits, int) and bits > 64:
+            # NMEA-2000 scalars max out at 64 bits; upstream uses a bulk "Data"
+            # placeholder for not-yet-reverse-engineered fast packets. Kept
+            # verbatim, flagged for the reviewer instead of rejected.
+            rep.add("WARN", "pgn_bits_bulk",
+                    f"{where}.fields[{i}]: bits={bits} exceeds the 64-bit scalar limit — upstream payload "
+                    f"placeholder or unknown layout, not a scalar field")
+        resolution = item.get("resolution")
+        if resolution is not None and (isinstance(resolution, bool) or not isinstance(resolution, (int, float))):
+            rep.fail("schema", f"{where}.fields[{i}].resolution must be a number or null")
+        for key in ("unit", "description"):
+            if item.get(key) is not None and not isinstance(item.get(key), str):
+                rep.fail("schema", f"{where}.fields[{i}].{key} must be a string or null")
+        # The SPN may only come from the copied upstream text, never from us.
+        if isinstance(name, str) and isinstance(spn, int) and str(spn) not in f"{name} {item.get('description') or ''}":
+            rep.add("WARN", "pgn_spn_source",
+                    f"{where}.fields[{i}]: SPN {spn} is not mentioned in the copied upstream text — "
+                    f"verify how it was derived")
+
+
 PAYLOAD_VALIDATORS = {
     "dtc": _validate_payload_dtc,
     "spn_fmi": _validate_payload_spn,
+    "pgn_layout": _validate_payload_pgn_layout,
     "case": _validate_payload_case,
     "oem_note": _validate_payload_oem_note,
     "trace": _validate_payload_trace,
@@ -775,7 +869,8 @@ def parse_manifest(path: Path, rep: Report) -> Manifest:
             manifest.external[intake_id] = ExternalTraceEntry(intake_id, fmt, size_int, digest, location)
             continue
         if len(cells) < 7:
-            rep.fail("manifest", f"MANIFEST.md:{lineno}: row needs 7 columns (intake_id/path/kind/bytes/sha256/licence/source)")
+            rep.fail("manifest", f"MANIFEST.md:{lineno}: row needs 7 columns "
+                                 f"(intake_id/path/kind/bytes/sha256/licence/source)")
             continue
         intake_id, rel_path, kind, size, digest, licence, source = cells[:7]
         if rel_path.startswith("data/intake/"):
@@ -862,6 +957,8 @@ def load_records(intake_dir: Path, rep: Report) -> tuple[list[Record], list[Path
             continue
         if path.name in NON_RECORD_NAMES and path.parent == intake_dir:
             continue
+        if path.parent == intake_dir and NOTICE_RE.match(path.name):
+            continue  # licence notice: tracked, never hashed as a record
         if TEMPLATE_DIR in path.parts:
             continue
         if ARTEFACT_RE.search(path.name):
@@ -976,6 +1073,47 @@ def report_conflicts(records: list[Record], repo_root: Path, rep: Report) -> Non
     overlaps = 0
     candidates = 0
 
+    def check_pgn_layout(record: Record) -> None:
+        """Compare a staged PGN layout with the vendored PGN catalogue (report only)."""
+        nonlocal overlaps, candidates
+        pgn = record.payload.get("pgn")
+        where = record.rel_path
+        if not isinstance(pgn, int):
+            return
+        catalogue = repo_root / DIAGNOSTICS / "canboat_pgn_reference.json"
+        known_j1939: set[int] = set()
+        known_any: set[int] = set()
+        if catalogue.is_file():
+            blob = _load_json(catalogue)
+            known_j1939 = {int(k) for k in (blob.get("j1939") or {})}
+            known_any = {int(k) for k in (blob.get("pgns_by_number") or {})}
+        if pgn in known_j1939:
+            overlaps += 1
+            rep.add("INFO", "kb_overlap", f"{where}: PGN {pgn} is already vendored in "
+                                          f"canboat_pgn_reference.json (j1939 block) — nothing is overwritten")
+        elif pgn in known_any:
+            overlaps += 1
+            rep.add("INFO", "kb_overlap", f"{where}: PGN {pgn} already exists in the NMEA-2000 catalogue")
+        else:
+            candidates += 1
+            rep.add("INFO", "kb_new", f"{where}: PGN {pgn} is unknown to canboat_pgn_reference.json "
+                                      f"(promotion candidate, not merged)")
+        hits = 0
+        unknown_spns: set[int] = set()
+        for item in record.payload.get("fields") or []:
+            spn = item.get("spn") if isinstance(item, dict) else None
+            if not isinstance(spn, int):
+                continue
+            hits += 1
+            if f"SPN_{spn}" not in spns:
+                unknown_spns.add(spn)
+        if hits:
+            rep.metrics["pgn_layout_spn_refs"] = rep.metrics.get("pgn_layout_spn_refs", 0) + hits
+        if unknown_spns:
+            listed = ", ".join(str(s) for s in sorted(unknown_spns)[:8])
+            more = "" if len(unknown_spns) <= 8 else f" (+{len(unknown_spns) - 8} more)"
+            rep.add("WARN", "pgn_spn_unknown", f"{where}: SPN referansları KB'de yok: {listed}{more}")
+
     def check_dtc(code: str, where: str) -> None:
         nonlocal overlaps, candidates
         if not isinstance(code, str) or not DTC_CODE_RE.fullmatch(code):
@@ -1026,6 +1164,8 @@ def report_conflicts(records: list[Record], repo_root: Path, rep: Report) -> Non
                 candidates += 1
                 rep.add("INFO", "kb_new", f"{record.rel_path}: SPN {spn} exists but FMI {fmi} is not in its "
                                           f"fault matrix (promotion candidate, not merged)")
+        elif record.record_type == "pgn_layout":
+            check_pgn_layout(record)
     rep.metrics["kb_overlaps"] = overlaps
     rep.metrics["kb_new_candidates"] = candidates
 
@@ -1065,6 +1205,96 @@ def trace_meta_fields(frame_path: Path) -> dict[str, Any]:
         "bus": None,
         "vin_masked": None,
     }
+
+
+# --------------------------------------------------------------------------- #
+# MANIFEST sync (the only writer inside data/intake/)
+# --------------------------------------------------------------------------- #
+MANIFEST_HEADER = """# MANIFEST — `data/intake/` kaynak kaydı
+
+`data/intake/` altındaki **her** artefaktın kaynağı, lisansı, bayt sayısı ve
+`sha256` özeti burada zorunludur. Doğrulayıcı
+(`python scripts/validate_intake.py`) tabloyu diskle karşılaştırır: eksik
+satır, yanlış hash, yanlış lisans veya iki kaydın aynı `intake_id`'yi
+kullanması **FAIL**'dir.
+
+Bu tablo elle yazılmaz: `python scripts/validate_intake.py --sync-manifest
+--apply` tüm kayıtlardan yeniden üretir. Bu komut `data/intake/` içindeki tek
+yazıcıdır; `data/diagnostics` ve `data/golden_traces` içine **asla** yazmaz.
+
+Kurallar ve terfi adımları: `data/intake/README.md`.
+
+- `kind` değerleri: `dtc`, `spn_fmi`, `pgn_layout`, `case`, `oem_note`,
+  `trace`, `trace_frames` (bir trace'in kare dosyası).
+- `licence` kaydın kendi `source.licence` değeriyle **birebir** aynı olmalıdır
+  (kapalı liste: `ALLOWED_LICENCES`; belirsiz lisans reddedilir).
+- `_templates/` altındaki şablonlar kayıt değildir; buraya yazılmaz.
+- Satır biçimi örnekleri README § "MANIFEST satır biçimi" bölümündedir.
+
+## Git'e giren kayıtlar
+
+| intake_id | path | kind | bytes | sha256 | licence | source |
+|---|---|---|---|---|---|---|
+"""
+
+MANIFEST_EXTERNAL_HEADER = """
+## Git'e girmeyen trace'ler (yalnız hash + konum)
+
+Büyük yakalamalar (>`1 MiB`) depoya girmez; yalnız `sha256` + konum burada
+tutulur. `sha256` terfi öncesi mutlaka doğrulanır.
+
+| intake_id | format | bytes | sha256 | location |
+|---|---|---|---|---|
+"""
+
+MANIFEST_TAIL = """
+## Değişiklik günlüğü
+
+Kayda alınan her satır için: tarih, ekleyen, terfi kararı (ör. “P0301 üretici
+metnine göre zaten mevcut — terfi yok”). Bu günlük bilgi tabanı değildir;
+`data/PROVENANCE.md` ve `data/diagnostics/PROVENANCE.md` değiştirilmeden
+burada bırakılır.
+"""
+
+KIND_BY_TYPE: dict[str, str] = {
+    "dtc": "dtc", "spn_fmi": "spn_fmi", "pgn_layout": "pgn_layout",
+    "case": "case", "oem_note": "oem_note", "trace": "trace",
+}
+
+
+def sync_manifest(intake_dir: Path) -> str:
+    """Regenerate both MANIFEST tables from the records on disk (pure function)."""
+    records, _frames = load_records(intake_dir, Report())
+    rows: list[str] = []
+    external: dict[str, dict[str, Any]] = {}
+    for record in sorted(records, key=lambda r: r.rel_path):
+        licence = str(record.source.get("licence") or "unknown")
+        source_ref = str(record.source.get("path") or "")
+        for rel in record.manifest_paths():
+            path = intake_dir / rel
+            if not path.is_file():
+                continue
+            kind = KIND_BY_TYPE.get(record.record_type, record.record_type)
+            if record.record_type == "trace" and rel != record.rel_path:
+                kind = "trace_frames"
+            raw = path.read_bytes()
+            rows.append(
+                f"| {record.intake_id} | `data/intake/{rel}` | {kind} | {len(raw)} | "
+                f"`{hashlib.sha256(raw).hexdigest()}` | {licence} | `{source_ref}` |"
+            )
+        if record.record_type == "trace" and record.payload.get("in_git") is False:
+            payload = record.payload
+            external[record.intake_id] = {
+                "format": payload.get("format"),
+                "bytes": payload.get("frame_file_bytes"),
+                "sha256": payload.get("frame_file_sha256"),
+                "location": payload.get("external_location") or "",
+            }
+    text = MANIFEST_HEADER + "\n".join(rows) + "\n" + MANIFEST_EXTERNAL_HEADER
+    for intake_id, entry in sorted(external.items()):
+        text += (f"| {intake_id} | {entry['format']} | {entry['bytes']} | "
+                 f"`{entry['sha256']}` | `{entry['location']}` |\n")
+    return text + MANIFEST_TAIL
 
 
 # --------------------------------------------------------------------------- #
@@ -1142,8 +1372,25 @@ def main() -> int:
                     help="largest trace frame file allowed inside git (default 1 MiB)")
     ap.add_argument("--print-trace-meta", metavar="FRAME_FILE",
                     help="print the payload fields a trace .meta.json needs for this frame file, then exit")
+    ap.add_argument("--sync-manifest", action="store_true",
+                    help="regenerate MANIFEST.md from the records on disk (needs --apply to write)")
+    ap.add_argument("--apply", action="store_true", help="with --sync-manifest: write the file")
     ap.add_argument("--quiet", action="store_true", help="suppress console output")
     args = ap.parse_args()
+    if args.sync_manifest:
+        if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(errors="replace")
+        base = Path(args.root) if args.root else ROOT
+        intake_dir = (Path(args.intake_dir) if args.intake_dir else base / INTAKE_DIRNAME).resolve()
+        text = sync_manifest(intake_dir)
+        target = intake_dir / "MANIFEST.md"
+        current = target.read_text(encoding="utf-8") if target.is_file() else ""
+        if not args.apply:
+            print("[*] MANIFEST is up to date" if current == text else "[!] MANIFEST differs — run with --apply")
+            return 0 if current == text else 1
+        target.write_text(text, encoding="utf-8")
+        print(f"[*] MANIFEST.md rewritten ({text.count(chr(10) + '| `data/intake')} in-git rows)")
+        return 0
     if args.print_trace_meta:
         if hasattr(sys.stdout, "reconfigure"):
             sys.stdout.reconfigure(errors="replace")

@@ -20,11 +20,13 @@ geçirmeyle olur; aşağıdaki "Entegrasyon adımları" bölümü tek yol harita
 |---|---|---|
 | `dtc/` | ham DTC başvurusu | `<intake-id>.json` (zarf + `payload`) |
 | `spn_fmi/` | ham SPN/FMI çifti | `<intake-id>.json` |
+| `pgn/` | PGN alan düzeni (J1939/NMEA-2000) — `pgn_layout` | `<intake-id>.json` |
 | `traces/` | ham yakalama (kare dosyası + yan kenar dosyası) | `<id>.json`/`.jsonl` + `<id>.meta.json` |
 | `cases/` | vaka taslağı — **her zaman `draft: true`** | `<intake-id>.json` |
 | `oem_notes/` | OEM/üretici notu | `<intake-id>.md` (üstte JSON meta bloğu) |
 | `_templates/` | tür başına **dolu** örnek (kopyalanır, doğrulanır) | `*.template.json`, `*.template.md` |
-| `MANIFEST.md` | kaynak + lisans + `bytes` + `sha256` kaydı | Markdown tablo |
+| `MANIFEST.md` | kaynak + lisans + `bytes` + `sha256` kaydı (**üretilir**, elle yazılmaz) | Markdown tablo |
+| `NOTICE.*.md` | lisans atıfı (Apache-2.0 NOTICE vb.) — kayıt değildir | Markdown |
 | `README.md` | bu dosya | — |
 
 ## Kurallar (ihlal = doğrulama FAIL)
@@ -53,7 +55,13 @@ reddedilir (`RAW_VIN_RE`/`EMAIL_RE`/`PHONE_RE`/`IBAN_RE`; aynı regex ailesi
 
 Araç kimliği yalnızca maskeyle tutulur ve alan adı bunu söyler:
 `"vin_masked": "WBA*****X2M"`. Maske karakteri (`* X • <>`) içermeyen bir
-`vin_masked` değeri reddedilir. Müşteri adı, plaka, telefon, e-posta ve
+`vin_masked` değeri reddedilir.
+
+Ölçülmüş iki ayrım (ikisi de kanıtla sabitlendi): `sha256` özetleri ve CAN
+karelerinin hex verisi **kişisel veri değildir** — tarayıcı bunları çıkarır,
+aksi halde bir hash içindeki 8 haneli rakam dizisi "telefon" sanılıyordu.
+Telefon kuralı yalnız gerçek TR uzunluklarını (10 haneli mobil, 11 haneli
+sabit hat) kabul eder. Müşteri adı, plaka, telefon, e-posta ve
 kayıt tarihi/gps içeren trace satırları **kabul edilmez** — kare verisi
 teknik veridir, kişi verisi değildir. Şüpheli bulgular (IP, IMEI benzeri
 rakam) WARN'dir ve gözden geçirme kuyruğuna düşer.
@@ -100,13 +108,58 @@ yapılır (§ Entegrasyon adımları).
 - Şablonlardaki `example.invalid` adresleri yer tutucudur; gerçek kayıtta
   gerçek belge adresi yazılır.
 
+## Kayıt türleri
+
+| `record_type` | Dizin | Payload özeti |
+|---|---|---|
+| `dtc` | `dtc/` | `code`, `system`, `title_en/tr`, `description`, `severity`, `known_symptoms`, `possible_causes`, `status`, `freeze_frame_ref`, `oem_ref`, `vin_masked` |
+| `spn_fmi` | `spn_fmi/` | `spn` (0–524287), `fmi` (0–31), `system`, `description`, `typical_causes`, `pgn`, `oem_ref`, `vin_masked` |
+| `pgn_layout` | `pgn/` | `pgn`, `pgn_id`, `description`, `pgn_type`, `priority`, `interval_ms`, `fields[]`, `upstream_keys`, `source_file` |
+| `case` | `cases/` | `case_id`, `domain`, `make/model/year`, `symptom`, `dtcs[]`, `signals_of_interest[]`, `actual_fault`, `repair`, `verification`, `trace_refs[]`, `vin_masked` |
+| `oem_note` | `oem_notes/` | `make/model/year`, `oem_code`, `system`, `evidence_refs[]`, `related_dtcs[]`, `vin_masked` (gövde markdown dosyanın altında) |
+| `trace` | `traces/` | `frame_file`, `frame_file_sha256`, `frame_file_bytes`, `format`, `in_git`, `external_location`, `started_at`, `duration_s`, `channel_count`, `frame_count`, `bus`, `vin_masked` |
+
+`pgn_layout.fields[]` bir alanı tanımlar: `field_id`, `name`, `spn`, `bits`,
+`unit`, `resolution`, `description`. `spn` **yalnız** upstream metninde yazıyorsa
+doldurulur (doğrulayıcı bunu `WARN pgn_spn_source` ile denetler). Upstream'da
+okunamayan üst düzey anahtarlar `upstream_keys` içinde kayıt altına alınır —
+sessizce atılmaz. 64 biti aşan `bits` değerleri upstream'in "henüz çözülmemiş
+fast-packet" gösterimidir: düzeltilmez, `WARN pgn_bits_bulk` ile işaretlenir.
+
+## Kaynak taraması (keşif aracı)
+
+```bash
+python scripts/intake_scan_sources.py --report docs/audit/intake_source_scan_2026-10-02.md
+python scripts/intake_scan_sources.py --json /tmp/scan.json
+python scripts/intake_scan_sources.py --stage              # doğrula (yazmaz)
+python scripts/intake_scan_sources.py --stage --apply      # intake'e yaz
+python scripts/intake_scan_sources.py --offline --tarballs-dir /tmp/tb
+```
+
+Araç, `data/PROVENANCE.md` §2'de kanıtlanmış **pinli commit'leri** indirir,
+artefakt envanterini `sha256` ile çıkarır ve hangisinin zaten vendor edildiğini
+belgeler. Ağ erişimi yalnız bu araçtadır (build-time ingest). 2026-10-02
+ölçümü: 95 artefakt, 11 birebir doğrulanmış (0 sapma), **84 yeni** — canboat
+`database/j1939/pgns/` düzenleri. Ayrıntı:
+`docs/audit/intake_source_scan_2026-10-02.md`.
+
+YAML okuyucu canboat'ın üretilmiş alt kümesi için **kasıtlı olarak dar**tır ve
+kapatmada davranır: okuyamadığı satırı sessizce geçmez, hata verir. PyYAML
+bağımlılığı yoktur; her makinede aynı kayıt üretilir.
+
 ## Doğrulama
 
 ```bash
-python scripts/validate_intake.py                      # rapor + çıkış kodu
+python scripts/validate_intake.py                          # rapor + çıkış kodu
 python scripts/validate_intake.py --report docs/audit/intake.md
 python scripts/validate_intake.py --print-trace-meta data/intake/traces/<file>.jsonl
+python scripts/validate_intake.py --sync-manifest          # MANIFEST güncel mi?
+python scripts/validate_intake.py --sync-manifest --apply  # MANIFEST'i üret
 ```
+
+`--sync-manifest` intake'in **tek yazıcısıdır** ve yalnız `MANIFEST.md` üretir:
+hash, bayt, `intake_id`, `licence` ve `source.path` alanları kayıtlardan okunur,
+elle yazılmaz.
 
 Kontroller (hepsi fail-closed, yalnız stdlib — `golden_cases.py` ile aynı
 disiplin):
@@ -130,8 +183,10 @@ disiplin):
    aynı `intake_id`'yi taşır); iki ayrı kayıt aynı `intake_id`'yi kullanamaz.
 7. **Draft kuralı** — §4.
 8. **Çakışma raporu (yalnız rapor)** — mevcut `data/diagnostics/dtc_database.json`,
-   `dtc_database_oem_layer.json`, `j1939_spn_fmi_database.json` ve
-   `data/golden_traces/cases/` ile karşılaştırılır. Bulgu `kb_overlap`
+   `dtc_database_oem_layer.json`, `j1939_spn_fmi_database.json`,
+   `canboat_pgn_reference.json` ve `data/golden_traces/cases/` ile
+   karşılaştırılır. `pgn_layout` alanlarının SPN referansları da KB'de aranır:
+   bulunamayan SPN `WARN pgn_spn_unknown` üretir (bilgi eksiği, terfi iş kalemi). Bulgu `kb_overlap`
    ("zaten var") veya `kb_new` ("bilgi tabanında yok, terfi adayı") olur.
    **Hiçbir kayıt üzerine yazılmaz, hiçbir dosya değiştirilmez.** Doğrulayıcı
    `data/diagnostics` ve `data/golden_traces` dosyalarını yalnızca okur.
@@ -198,6 +253,19 @@ kapatılır). `data/licenses/` altına atıf metni eklenmesi gerekiyorsa eklenir
 > çapraz referans, CSV ikizleri senkron).
 > `python scripts/rebuild_csv_exports.py` ile CSV ikizleri yeniden üretilir.
 
+**Adım 3a — PGN düzeni terfisi (`pgn/`).** `pgn_layout` kayıtları terfi
+edilirse `data/diagnostics/canboat_pgn_reference.json` içindeki `j1939` bloğuna
+eklenir; **mevcut NMEA-2000 `pgns` listesi ve `pgns_by_number` indeksi
+bozulmaz** (data/PROVENANCE.md §3.4'teki katmanlılık kuralı, T25/HANDOFF_TUR24
+§4.4). Kayıt başına `_source_license` + `_source_ref` etiketi zorunludur ve
+Apache-2.0 atıfı `data/licenses/NOTICE.canboat` ile korunur.
+
+> **Kapı 3a:** `python scripts/validate_copilot_data.py` → FAIL=0 ve
+> `python -m pytest tests/unit/test_data_attributions.py -q` → PASS.
+> Bulgu: staged alanların **66 SPN referansı** KB'de yok; terfi önce bu SPN'ler
+> için `spn_fmi` kaydı açılması gerekir, aksi halde alan düzeni "tanınan
+> parametre" diye görünür ama parametre kaydı yoktur.
+
 **Adım 3 — Trace terfisi.** Sadece ≤ 1 MiB'lik, kişisel veri içermeyen ve
 `frame_count`/`sha256` doğrulanan yakalamalar `data/traces/` altına alınabilir.
 Büyük yakalamalar intake'te kalır: yalnız `sha256` + konum MANIFEST'te durur,
@@ -239,6 +307,7 @@ belirsiz bir satırı "sonra düzeliriz" diye bırakmak.
 | `_templates/dtc.template.json` | DTC başvurusu |
 | `_templates/spn_fmi.template.json` | SPN/FMI çifti |
 | `_templates/case.template.json` | vaka taslağı (`draft: true`) |
+| `_templates/pgn_layout.template.json` | PGN alan düzeni |
 | `_templates/trace.frames.template.json` + `_templates/trace.meta.template.json` | kare dosyası + kanadı |
 | `_templates/oem_note.template.md` | OEM notu (meta bloğu + gövde) |
 
