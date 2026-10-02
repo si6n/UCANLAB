@@ -62,6 +62,11 @@ export default {
         addedge: 'var(--add-edge)',
         addbg: 'var(--add-bg)',
         brandamber: 'var(--brand-amber)',
+        // Emergency stop: one dark red in both themes (white label ≥4.5:1)
+        estop: {
+          DEFAULT: 'var(--estop)',
+          hover: 'var(--estop-hover)',
+        },
 
         // Semantic Aliases
         danger: {

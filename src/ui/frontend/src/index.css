@@ -36,11 +36,11 @@
   --border-focus: rgba(29, 78, 216, 0.55);
   --inset-top-hl: #ffffff;
 
-  /* Metin: #1f1f1f/#3f3f46/#71717a/#a1a1aa/#d4d4d8 */
+  /* Metin: #1f1f1f/#3f3f46/#52525b/#63636c/#d4d4d8 — mid ve low WCAG AA (≥4.5:1) için bir ton koyu */
   --text-hi: #1f1f1f;
   --text-body: #3f3f46;
-  --text-mid: #71717a;
-  --text-low: #a1a1aa;
+  --text-mid: #52525b;
+  --text-low: #63636c;
   --text-faint: #d4d4d8;
 
   /* Accent: #1d4ed8, soft %10, line %28 */
@@ -53,19 +53,23 @@
   /* Brand Amber: #b45309 (yalnızca güneş + ASIL-D) */
   --brand-amber: #b45309;
 
-  /* Diff & Semantic: del #dc2626/bg %6/edge #b91c1c, add #16a34a/bg %8/edge #15803d */
-  --del: #dc2626;
+  /* Diff & Semantic: metin renkleri açık zeminde ≥4.5:1 olacak kadar koyu */
+  --del: #b91c1c;
   --del-bg: rgba(220, 38, 38, 0.06);
   --del-edge: #b91c1c;
-  --add: #16a34a;
+  --add: #166534;
   --add-bg: rgba(22, 163, 74, 0.08);
   --add-edge: #15803d;
-  --warn: #b45309;
+  --warn: #92400e;
   --warn-bg: rgba(180, 83, 9, 0.08);
   --warn-edge: #92400e;
   --info-teal: #71717a;
   --info-teal-bg: transparent;
   --info-teal-edge: transparent;
+
+  /* Acil durdurma: iki temada aynı koyu kırmızı, beyaz yazı 4.8:1 */
+  --estop: #dc2626;
+  --estop-hover: #b91c1c;
 }
 
 .dark {
@@ -105,7 +109,7 @@
   --text-hi: #ffffff;      /* Pure white: crisp headers & primary data */
   --text-body: #d4d4d4;    /* Neutral-300: clean, readable body text */
   --text-mid: #a3a3a3;     /* Neutral-400: secondary info */
-  --text-low: #737373;     /* Neutral-500: subtle metadata & timestamps */
+  --text-low: #949494;     /* Subtle metadata & timestamps (≥4.5:1 on panels) */
   --text-faint: #525252;   /* Neutral-600: placeholders & dividers */
 
   /* Accent: Clean Minimalist Pure Monochrome White */
