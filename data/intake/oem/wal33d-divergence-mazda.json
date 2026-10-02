@@ -1,0 +1,1178 @@
+{
+  "schema_version": 1,
+  "intake_id": "wal33d-divergence-mazda",
+  "record_type": "oem_divergence",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "automated",
+    "id": "scripts/intake_scan_sources.py",
+    "role": "author"
+  },
+  "source": {
+    "title": "Wal33D dtc-database source list for MAZDA (mazda_codes.txt)",
+    "path": "https://github.com/Wal33D/dtc-database/blob/04c43d72e7db7197658b6f72fe582c5076d9eee8/data/source-data/mazda_codes.txt",
+    "type": "web",
+    "publisher": "Wal33D (dtc-database)",
+    "revision": "04c43d72e7db",
+    "licence": "MIT",
+    "access_date": "2026-10-02",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": "3a1eb53716fc4d39dd745407dad31a618712d91ebbccaca81b957eb9b7279c7a",
+      "bytes": 11082,
+      "pages_cited": []
+    }
+  },
+  "confidence": "single_source",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "make": "MAZDA",
+    "source_file": "data/source-data/mazda_codes.txt",
+    "source_rows": 233,
+    "divergence_count": 228,
+    "divergences": [
+      {
+        "code": "P1000",
+        "source_description_en": "OBD II Monitor Testing Not Completed",
+        "kb_description_en": "OBD System Readiness Test Not Complete"
+      },
+      {
+        "code": "P1001",
+        "source_description_en": "Unable to Achieve Self-Test Function Or SCP Error",
+        "kb_description_en": "KOER Test Cannot Be Completed"
+      },
+      {
+        "code": "P1100",
+        "source_description_en": "Mass Air Flow Sensor Circuit Intermittent",
+        "kb_description_en": "BARO Sensor Circuit"
+      },
+      {
+        "code": "P1101",
+        "source_description_en": "Mass Air Flow Sensor Circuit Out Of Self-Test Range",
+        "kb_description_en": "Oxygen Sensor Circuit Bank 1 Sensor 1 Voltage Too Low/Air Leak"
+      },
+      {
+        "code": "P1102",
+        "source_description_en": "Mass Air Flow Sensor Signal Inconsistent With Throttle Position Sensor",
+        "kb_description_en": "Oxygen Sensor Heating Circuit Bank 1 Sensor 1 Voltage Too Low/Air Leak"
+      },
+      {
+        "code": "P1103",
+        "source_description_en": "Mass Air Flow Sensor Signal Inconsistent With Engine Speed",
+        "kb_description_en": "Oxygen Sensor Heating Circuit Bank 1 Sensor 1 Short To B+"
+      },
+      {
+        "code": "P1110",
+        "source_description_en": "Intake Air Temperature Sensor Signal Dynamic Chamber Circuit",
+        "kb_description_en": "Oxygen Sensor Heating Circuit Bank 2 Sensor 2 Short To B+"
+      },
+      {
+        "code": "P1112",
+        "source_description_en": "Intake Air Temperature Sensor Circuit Intermittent",
+        "kb_description_en": "Oxygen Sensor Control Bank 1 System Too Rich"
+      },
+      {
+        "code": "P1113",
+        "source_description_en": "Intake Air Temperature Sensor Signal Dynamic Chamber Circuit",
+        "kb_description_en": "Oxygen Sensor Heater Resistance Too High Bank 1 Sensor 1"
+      },
+      {
+        "code": "P1114",
+        "source_description_en": "Intake Air Temperature Sensor Circuit Low Input",
+        "kb_description_en": "Bank 1 Sensor 2 Resistance Too High"
+      },
+      {
+        "code": "P1116",
+        "source_description_en": "ECT Sensor Circuit Out Of Self Test Range",
+        "kb_description_en": "Oxygen Sensor Heater Circuit Open Bank 1 Sensor 1"
+      },
+      {
+        "code": "P1117",
+        "source_description_en": "ECT Sensor Signal Intermittent",
+        "kb_description_en": "Oxygen Sensor Heater Circuit Short To Ground Bank 1 Sensor 2"
+      },
+      {
+        "code": "P1120",
+        "source_description_en": "Throttle Position Sensor Out Of Range Low",
+        "kb_description_en": "Oxygen Sensor Heater Circuit Bank 2 Sensor 1 Open"
+      },
+      {
+        "code": "P1121",
+        "source_description_en": "Throttle Position Sensor Signal Not Consistent With Mass Air Flow Signal",
+        "kb_description_en": "Oxygen Sensor Heater Circuit Bank 2 Sensor 2 Short To Ground"
+      },
+      {
+        "code": "P1122",
+        "source_description_en": "Throttle Position Stuck Closed",
+        "kb_description_en": "Oxygen Sensor Heater Circuit Bank 2 Sensor 2 Open"
+      },
+      {
+        "code": "P1123",
+        "source_description_en": "Throttle Position Stuck Open",
+        "kb_description_en": "Long Term Fuel Trim Add Air Bank 1 System Too Rich"
+      },
+      {
+        "code": "P1124",
+        "source_description_en": "Throttle Position Sensor Signal Out Of Self Test Range",
+        "kb_description_en": "Long Term Fuel Trim Add Air Bank 1 System Too Lean"
+      },
+      {
+        "code": "P1125",
+        "source_description_en": "Throttle Position Sensor Signal Intermittent",
+        "kb_description_en": "Long Term Fuel Trim Add Air Bank 2 System Too Rich"
+      },
+      {
+        "code": "P1126",
+        "source_description_en": "Throttle Position Narrow Range Sensor Circuit",
+        "kb_description_en": "Long Term Fuel Trim Add Air Bank 2 System Too Lean"
+      },
+      {
+        "code": "P1127",
+        "source_description_en": "HO2S Bank 1 Sensor 2 Heater Not On During Key On Engine Running Self Test",
+        "kb_description_en": "Long Term Fuel Trim Bank 1 System Too Rich"
+      },
+      {
+        "code": "P1128",
+        "source_description_en": "HO2S Bank 1 Sensor 1 Signals Swapped In Key On Engine Running Self Test",
+        "kb_description_en": "Long Term Fuel Trim Bank 1 System Too Lean"
+      },
+      {
+        "code": "P1129",
+        "source_description_en": "Downstream H02S Sensors Swapped",
+        "kb_description_en": "Long Term Fuel Trim Bank 2 System Too Rich"
+      },
+      {
+        "code": "P1130",
+        "source_description_en": "HO2S Bank 1 Sensor 1 Not Switching Fuel Control Limit Reached",
+        "kb_description_en": "Long Term Fuel Trim Bank 2 System Too Lean"
+      },
+      {
+        "code": "P1131",
+        "source_description_en": "HO2S Bank 1 Sensor 1 Signal Below 0.45v AF Ratio Too Lean",
+        "kb_description_en": "Bank 2 Sensor 1 Resistance Too High"
+      },
+      {
+        "code": "P1132",
+        "source_description_en": "HO2S Bank 1 Sensor 1 Signal Above 0.45v AF Ratio Too Rich",
+        "kb_description_en": "Oxygen Sensor Heating Circuit Bank 1 + 2 Sensor 1 Short To B+"
+      },
+      {
+        "code": "P1133",
+        "source_description_en": "Bank 1 Fuel Control Shifted Lean",
+        "kb_description_en": "Oxygen Sensor Heating Circuit Bank 1 + 2 Sensor 1 Electrical Malfunction"
+      },
+      {
+        "code": "P1134",
+        "source_description_en": "Bank 1 Fuel Control Shifted Rich",
+        "kb_description_en": "Oxygen Sensor Heating Circuit Bank 1 + 2 Sensor 2 Short To B+"
+      },
+      {
+        "code": "P1135",
+        "source_description_en": "HO2S Bank 1 Sensor 1 Heater Circuit Low Input",
+        "kb_description_en": "Oxygen Sensor Heating Circuit Bank 1 + 2 Sensor 2 Electrical Malfunction"
+      },
+      {
+        "code": "P1136",
+        "source_description_en": "HO2S Bank 1 Sensor 1 Heater Circuit High Input",
+        "kb_description_en": "Long Term Fuel Trim Add Fuel Bank 1 System Too Lean"
+      },
+      {
+        "code": "P1137",
+        "source_description_en": "HO2S Bank 1 Sensor 2 Not Switching Fuel Control Limit Reached",
+        "kb_description_en": "Long Term Fuel Trim Add Fuel Bank 1 System Too Rich"
+      },
+      {
+        "code": "P1138",
+        "source_description_en": "HO2S Bank 1 Sensor 2 Signal Above 0.45v AF Ratio Too Rich",
+        "kb_description_en": "Long Term Fuel Trim Add Fuel Bank 2 System Too Lean"
+      },
+      {
+        "code": "P1141",
+        "source_description_en": "HO2S Bank 1 Sensor 2 Heater Circuit Low Input",
+        "kb_description_en": "Load Calculation Cross Check Range Performance"
+      },
+      {
+        "code": "P1142",
+        "source_description_en": "HO2S Bank 1 Sensor 2 Heater Circuit High Input",
+        "kb_description_en": "Load Calculation Cross Check Lower Limit Exceeded"
+      },
+      {
+        "code": "P1143",
+        "source_description_en": "HO2S Bank 1 Sensor 3 Signal Below 0.45v AF Ratio Too Lean",
+        "kb_description_en": "Load Calculation Cross Check Upper Limit Exceeded"
+      },
+      {
+        "code": "P1144",
+        "source_description_en": "HO2S Bank 1 Sensor 3 Signal Above 0.45v AF Ratio Too Rich",
+        "kb_description_en": "Mass Or Volume Air Flow Circuit Open/Short To Ground"
+      },
+      {
+        "code": "P1150",
+        "source_description_en": "HO2S Bank 2 Sensor 1 Not Switching Fuel Control Limit Reached",
+        "kb_description_en": "Oxygen Sensor Control Bank 2 Out Of Range"
+      },
+      {
+        "code": "P1151",
+        "source_description_en": "HO2S Bank 2 Sensor 1 Signal Below 0.45v AF Ratio Too Lean",
+        "kb_description_en": "Bank 1 Long Term Fuel Trim Range 1 Lower Lean Limit Exceeded"
+      },
+      {
+        "code": "P1152",
+        "source_description_en": "HO2S Bank 2 Sensor 1 Signal Above 0.45v AF Ratio Too Rich",
+        "kb_description_en": "Bank 1 Long Term Fuel Trim Range 2 Lower Lean Limit Exceeded"
+      },
+      {
+        "code": "P1153",
+        "source_description_en": "Bank 2 Fuel Control Shifted Lean FAOSC",
+        "kb_description_en": "Air/Fuel Sensor Circuit Response Bank 1 Sensor 2"
+      },
+      {
+        "code": "P1154",
+        "source_description_en": "Bank 2 Fuel Control Shifted Rich FAOSC",
+        "kb_description_en": "Manifold Switch Over Malfunction"
+      },
+      {
+        "code": "P1169",
+        "source_description_en": "HO2S Bank 1 Sensor 1 Circuit Fixed Bank 1 Sensor 1",
+        "kb_description_en": "Fuel Rail Sensor In-Range High Failure"
+      },
+      {
+        "code": "P1170",
+        "source_description_en": "HO2S Bank 1 Sensor 1 Circuit Fixed Bank 1 Sensor 1",
+        "kb_description_en": "Bank To Bank Fuel Trim Offset"
+      },
+      {
+        "code": "P1173",
+        "source_description_en": "HO2S Bank 2 Sensor 1 Circuit Fixed Bank 2 Sensor 1",
+        "kb_description_en": "Throttle Actuation Potentiometer Signal 2 Signal Too High"
+      },
+      {
+        "code": "P1182",
+        "source_description_en": "Fuel Shut Off Solenoid Circuit",
+        "kb_description_en": "Linear Oxygen Sensor Reference Voltage Short To Ground"
+      },
+      {
+        "code": "P1189",
+        "source_description_en": "Pump Speed Signal",
+        "kb_description_en": "Linear Oxygen Sensor Compensation Resistor Short To B+"
+      },
+      {
+        "code": "P1190",
+        "source_description_en": "Calibration Resistor Out Of Range",
+        "kb_description_en": "Linear Oxygen Sensor Reference Voltage Incorrect Signal"
+      },
+      {
+        "code": "P1191",
+        "source_description_en": "TP Controlled Circuit",
+        "kb_description_en": "Intake Air Duct Air Leak"
+      },
+      {
+        "code": "P1194",
+        "source_description_en": "ECM PCM A D Converter",
+        "kb_description_en": "Incorrect Or Irrational Performance Has Been Detected For The PWM"
+      },
+      {
+        "code": "P1195",
+        "source_description_en": "EGR Boost Sensor Circuit",
+        "kb_description_en": "O2 Sensor 1/1 (Bank 1 Sensor 1) Slow During Catalyst Monitor"
+      },
+      {
+        "code": "P1196",
+        "source_description_en": "Ignition Switch Start Circuit",
+        "kb_description_en": "Oxygen Sensor Heater Circuit Bank 1 Sensor 1 Electrical Malfunction"
+      },
+      {
+        "code": "P1197",
+        "source_description_en": "Mileage Switch Circuit",
+        "kb_description_en": "Oxygen Sensor Heater Circuit Bank 2 Sensor 1 Electrical Malfunction"
+      },
+      {
+        "code": "P1213",
+        "source_description_en": "Start Injector Circuit",
+        "kb_description_en": "Cylinder 1 Fuel Injector Circuit Short To B+"
+      },
+      {
+        "code": "P1221",
+        "source_description_en": "Traction Control System",
+        "kb_description_en": "Throttle Position TP Sensor 1-2 Correlation"
+      },
+      {
+        "code": "P1222",
+        "source_description_en": "Traction Control Output Circuit",
+        "kb_description_en": "Injector Control Circuit Intermittent"
+      },
+      {
+        "code": "P1226",
+        "source_description_en": "Control Sleeve Sensor Circuit",
+        "kb_description_en": "Cylinder 2 Injector Circuit Short To Ground"
+      },
+      {
+        "code": "P1235",
+        "source_description_en": "Fuel Pump Control Circuit",
+        "kb_description_en": "Fuel Pump Control Out Of Range"
+      },
+      {
+        "code": "P1236",
+        "source_description_en": "Fuel Pump Control Out Range",
+        "kb_description_en": "Fuel Pump Control Out Of Range"
+      },
+      {
+        "code": "P1248",
+        "source_description_en": "Turbo Boost Pressure Not Detected",
+        "kb_description_en": "Injection Start Control Deviation"
+      },
+      {
+        "code": "P1250",
+        "source_description_en": "Pressure Regulator Control Solenoid Circuit",
+        "kb_description_en": "Fuel Level Too Low"
+      },
+      {
+        "code": "P1251",
+        "source_description_en": "Air Mixture Solenoid Circuit",
+        "kb_description_en": "Start Of Injection Solenoid Circuit Short To B+"
+      },
+      {
+        "code": "P1252",
+        "source_description_en": "Pressure Regulator Control Solenoid 2 Circuit Malfunction",
+        "kb_description_en": "Start Of Injection Solenoid Circuit Open/Short To Ground"
+      },
+      {
+        "code": "P1260",
+        "source_description_en": "Anti-Theft System Signal Detected Engine Disabled",
+        "kb_description_en": "Last Test Failed SCC Or Theft Detected Vehicle Immobilized"
+      },
+      {
+        "code": "P1270",
+        "source_description_en": "Engine RPM or Vehicle Speed Limit Reached",
+        "kb_description_en": "Accelerator Pedal Position Sensor A/D Converter Error"
+      },
+      {
+        "code": "P1298",
+        "source_description_en": "Injector Driver Module Failure",
+        "kb_description_en": "Lean Operation At Wide Open Throttle"
+      },
+      {
+        "code": "P1309",
+        "source_description_en": "Misfire Detection Monitor",
+        "kb_description_en": "Misfire Monitor AICE Chip Fault"
+      },
+      {
+        "code": "P1312",
+        "source_description_en": "Injection Pump Timing Actuator Circuit",
+        "kb_description_en": "Exhaust Temperature Sensor Malfunction"
+      },
+      {
+        "code": "P1319",
+        "source_description_en": "Injection Timing Piston Position Sensor Circuit Range Performance",
+        "kb_description_en": "Knock Sensor 1 Circuit Short To Ground"
+      },
+      {
+        "code": "P1345",
+        "source_description_en": "No CMP or SGC Signal",
+        "kb_description_en": "Ignition Coil Output Stage 3 Short To Ground"
+      },
+      {
+        "code": "P1351",
+        "source_description_en": "Ignition Diagnostic Monitor Signal Lost To PCM Or Out Of Range",
+        "kb_description_en": "IC Circuit High Voltage"
+      },
+      {
+        "code": "P1352",
+        "source_description_en": "Ignition Coil A Primary Circuit",
+        "kb_description_en": "IC Output High Pulse Detected When Grounded Cyl.2"
+      },
+      {
+        "code": "P1353",
+        "source_description_en": "Ignition Coil B Primary Circuit",
+        "kb_description_en": "IC Output High Pulse Detected When Grounded Cyl.3"
+      },
+      {
+        "code": "P1354",
+        "source_description_en": "Ignition Coil C Primary Circuit",
+        "kb_description_en": "Modulation Piston Displacement Sensor Circuit Malfunction"
+      },
+      {
+        "code": "P1358",
+        "source_description_en": "Ignition Diagnostic Monitor Signal Out Of Self Test Range",
+        "kb_description_en": "Cylinder 2 Ignition Circuit Open"
+      },
+      {
+        "code": "P1359",
+        "source_description_en": "SPOUT Signal Lost To Powertrain Control Module Or Out Of Range",
+        "kb_description_en": "Cylinder 2 Ignition Circuit Short To B+"
+      },
+      {
+        "code": "P1360",
+        "source_description_en": "Ignition Coil A Secondary Circuit",
+        "kb_description_en": "Cylinder 2 Ignition Circuit Short To Ground"
+      },
+      {
+        "code": "P1361",
+        "source_description_en": "Ignition Coil B Secondary Circuit",
+        "kb_description_en": "Cylinder 3 Ignition Circuit Open"
+      },
+      {
+        "code": "P1362",
+        "source_description_en": "Ignition Coil C Secondary Circuit",
+        "kb_description_en": "Cylinder 3 Ignition Circuit Short To B+"
+      },
+      {
+        "code": "P1364",
+        "source_description_en": "Ignition Coil Primary Circuit",
+        "kb_description_en": "Cylinder 4 Ignition Circuit Open"
+      },
+      {
+        "code": "P1365",
+        "source_description_en": "Ignition Coil Secondary Circuit",
+        "kb_description_en": "Cylinder 4 Ignition Circuit Short To B+"
+      },
+      {
+        "code": "P1382",
+        "source_description_en": "Camshaft Position Timing Solenoid 1 Circuit",
+        "kb_description_en": "Variable Cam Timing Solenoid #1 Circuit Malfunction"
+      },
+      {
+        "code": "P1387",
+        "source_description_en": "Camshaft Position Timing Solenoid 2 Circuit",
+        "kb_description_en": "Control Unit Internal Altitude Sensor"
+      },
+      {
+        "code": "P1390",
+        "source_description_en": "Octane Adjust Shorting Bar Out Or Circuit Open",
+        "kb_description_en": "Wheel Speed Sensor 1 G-Sensor Circuit"
+      },
+      {
+        "code": "P1400",
+        "source_description_en": "DPFE Sensor Circuit Low Input",
+        "kb_description_en": "EGR Valve Circuit Electrical Malfunction"
+      },
+      {
+        "code": "P1401",
+        "source_description_en": "DPFE Sensor Circuit High Input",
+        "kb_description_en": "EGR Valve Power Stage Short To Ground"
+      },
+      {
+        "code": "P1402",
+        "source_description_en": "EGR Valve Position Sensor Circuit",
+        "kb_description_en": "EGR Valve Circuit Short To B+"
+      },
+      {
+        "code": "P1405",
+        "source_description_en": "DPFE Sensor Upstream Hose Off Or Plugged",
+        "kb_description_en": "Turbo Pressure Sensor Circuit"
+      },
+      {
+        "code": "P1406",
+        "source_description_en": "DPFE Sensor Downstream Hose Off Or Plugged",
+        "kb_description_en": "EGR Temperature Sensor Range Performance"
+      },
+      {
+        "code": "P1407",
+        "source_description_en": "No EGR Flow Detected",
+        "kb_description_en": "EGR Temperature Sensor Signal Too Low"
+      },
+      {
+        "code": "P1408",
+        "source_description_en": "EGR System Flow Out Of Key On Engine Running Self Test Range",
+        "kb_description_en": "EGR Temperature Sensor Signal Too High"
+      },
+      {
+        "code": "P1409",
+        "source_description_en": "EGR Vacuum Regulator Solenoid Circuit",
+        "kb_description_en": "Tank Ventilation Valve Electrical Malfunction"
+      },
+      {
+        "code": "P1410",
+        "source_description_en": "EGR Boost Solenoid Valve Stuck",
+        "kb_description_en": "Tank Ventilation Valve Circuit Short To B+"
+      },
+      {
+        "code": "P1412",
+        "source_description_en": "Exhaust Gas Recirculation Valve Frozen",
+        "kb_description_en": "EGR Differential Pressure Sensor Signal Too Low"
+      },
+      {
+        "code": "P1415",
+        "source_description_en": "Air Pump Circuit",
+        "kb_description_en": "Secondary Air Injection AIR System"
+      },
+      {
+        "code": "P1416",
+        "source_description_en": "Port Air Circuit",
+        "kb_description_en": "AIR System Bank 1"
+      },
+      {
+        "code": "P1417",
+        "source_description_en": "Port Air Relief Circuit",
+        "kb_description_en": "Fuel Level Sensor Signal Too Low"
+      },
+      {
+        "code": "P1418",
+        "source_description_en": "Split Air 1 Circuit",
+        "kb_description_en": "Fuel Level Sensor Signal Too High"
+      },
+      {
+        "code": "P1419",
+        "source_description_en": "Split Air 2 Circuit",
+        "kb_description_en": "Split Air #2 Circuit Malfunction"
+      },
+      {
+        "code": "P1439",
+        "source_description_en": "Floor Temp Switch Circuit",
+        "kb_description_en": "EGR Valve Position Sensor Adaptation At Limit"
+      },
+      {
+        "code": "P1443",
+        "source_description_en": "EVAP System Purge Flow Fault",
+        "kb_description_en": "EGR Valve Position Sensor Signal Too Low"
+      },
+      {
+        "code": "P1444",
+        "source_description_en": "EVAP Purge Flow Sensor Circuit Low Voltage",
+        "kb_description_en": "EGR Valve Position Sensor Range Performance"
+      },
+      {
+        "code": "P1445",
+        "source_description_en": "EVAP Purge Flow Sensor Circuit High Voltage",
+        "kb_description_en": "Catalyst Temperature Sensor 2 Circuit Range Performance"
+      },
+      {
+        "code": "P1446",
+        "source_description_en": "Evaporative Vacuum Solenoid Circuit",
+        "kb_description_en": "Catalyst Temperature Circuit Short To Ground"
+      },
+      {
+        "code": "P1449",
+        "source_description_en": "Evaporative Check Solenoid Circuit",
+        "kb_description_en": "Catalyst Temperature Sensor 2 Circuit Open Short To B+"
+      },
+      {
+        "code": "P1450",
+        "source_description_en": "Unable To Bleed Up Fuel Tank Vacuum",
+        "kb_description_en": "Secondary Air Injection System Circuit Short To B+"
+      },
+      {
+        "code": "P1451",
+        "source_description_en": "Canister Vent Solenoid Circuit",
+        "kb_description_en": "Secondary Air Injection Circuit Short To Ground"
+      },
+      {
+        "code": "P1455",
+        "source_description_en": "Fuel Tank Level Sensor Circuit",
+        "kb_description_en": "Exhaust Gas Temperature Sensor 1 Range Performance"
+      },
+      {
+        "code": "P1456",
+        "source_description_en": "Fuel Tank Temperature Sensor Circuit",
+        "kb_description_en": "Exhaust Gas Temperature Control Bank 1 Limit Attained"
+      },
+      {
+        "code": "P1457",
+        "source_description_en": "Purge Solenoid Control System",
+        "kb_description_en": "Exhaust Gas Temperature Sensor 2 Open Short To B+"
+      },
+      {
+        "code": "P1458",
+        "source_description_en": "A/C Compressor Clutch Signal Fault",
+        "kb_description_en": "Exhaust Gas Temperature Sensor 2 Short To Ground"
+      },
+      {
+        "code": "P1475",
+        "source_description_en": "Fan Relay Low Circuit",
+        "kb_description_en": "EVAP Emission Control System LDP Malfunction Signal Circuit Open"
+      },
+      {
+        "code": "P1476",
+        "source_description_en": "Fan Relay High Circuit",
+        "kb_description_en": "EVAP Emission Control System LDP Malfunction Insufficient Vacuum"
+      },
+      {
+        "code": "P1508",
+        "source_description_en": "Idle Air Control Circuit Open",
+        "kb_description_en": "Idle System Learned Value Upper Limit Attained"
+      },
+      {
+        "code": "P1509",
+        "source_description_en": "Idle Air Control Circuit Shorted",
+        "kb_description_en": "Idle Air Control Circuit Electrical Malfunction"
+      },
+      {
+        "code": "P1514",
+        "source_description_en": "High Load Neutral Drive Fault",
+        "kb_description_en": "Intake Manifold Changeover Valve 2 Circuit Short To Ground"
+      },
+      {
+        "code": "P1516",
+        "source_description_en": "Gear Change Neutral Drive Fault",
+        "kb_description_en": "Intake Manifold Changeover Valve Circuit Open"
+      },
+      {
+        "code": "P1517",
+        "source_description_en": "Cranking Neutral Drive Fault",
+        "kb_description_en": "Main Relay Circuit Electrical Malfunction"
+      },
+      {
+        "code": "P1534",
+        "source_description_en": "Restraint Deployment Indicator Circuit",
+        "kb_description_en": "Intake Camshaft Control Circuit Bank 2 Short To B+"
+      },
+      {
+        "code": "P1562",
+        "source_description_en": "Powertrain Control Module +B Voltage Low",
+        "kb_description_en": "Quantity Adjuster Upper Limit Attained"
+      },
+      {
+        "code": "P1566",
+        "source_description_en": "TCM B+ Voltage Low",
+        "kb_description_en": "Load Signal From A/C Compressor Range Performance"
+      },
+      {
+        "code": "P1569",
+        "source_description_en": "IMRC Circuit Low",
+        "kb_description_en": "Switch For CCS Signal Faulty"
+      },
+      {
+        "code": "P1570",
+        "source_description_en": "IMRC Circuit High",
+        "kb_description_en": "Control Unit Locked"
+      },
+      {
+        "code": "P1600",
+        "source_description_en": "Loss Of KAM Power Circuit Open",
+        "kb_description_en": "Power Supply Terminal No 15 Low Voltage"
+      },
+      {
+        "code": "P1601",
+        "source_description_en": "Powertrain Control Module Communication Line To TCM Error",
+        "kb_description_en": "Serial Communication Problem With Devise 1"
+      },
+      {
+        "code": "P1602",
+        "source_description_en": "Powertrain Control Module Communication Line To TCM Error, Immobilizer System Communication Error With Powertrain Control Module",
+        "kb_description_en": "Power Supply Terminal No 30 Low Voltage"
+      },
+      {
+        "code": "P1603",
+        "source_description_en": "Immobilizer System Fault",
+        "kb_description_en": "Internal Control Module Self Check"
+      },
+      {
+        "code": "P1604",
+        "source_description_en": "Immobilizer System Fault",
+        "kb_description_en": "Internal Control Module Driver Error"
+      },
+      {
+        "code": "P1605",
+        "source_description_en": "Powertrain Control Module Keep Alive Memory Test Error",
+        "kb_description_en": "Rough Road Acceleration Sensor Electrical Malfunction"
+      },
+      {
+        "code": "P1608",
+        "source_description_en": "Powertrain Control Module ECM CPU DTC Test Fault",
+        "kb_description_en": "Steering Angle Signal Error Message From Steering Angle Sensor"
+      },
+      {
+        "code": "P1609",
+        "source_description_en": "Powertrain Control Module ECM CPU Knock Sensor Circuit",
+        "kb_description_en": "Crash Shut Down Activated"
+      },
+      {
+        "code": "P1621",
+        "source_description_en": "Immobilizer System Fault",
+        "kb_description_en": "Engine Coolant Temperature Signal Short To Ground"
+      },
+      {
+        "code": "P1622",
+        "source_description_en": "Immobilizer System Fault",
+        "kb_description_en": "Engine Coolant Temperature Signal Range Performance"
+      },
+      {
+        "code": "P1623",
+        "source_description_en": "Immobilizer System Fault",
+        "kb_description_en": "Data Bus Powertrain No Communication"
+      },
+      {
+        "code": "P1624",
+        "source_description_en": "Immobilizer System Fault",
+        "kb_description_en": "MIL Request Signal Active"
+      },
+      {
+        "code": "P1627",
+        "source_description_en": "Powertrain Control Module ECM TCS Line Communication Error",
+        "kb_description_en": "Data Bus Powertrain Missing Message From Fuel Injection Pump"
+      },
+      {
+        "code": "P1628",
+        "source_description_en": "Powertrain Control Module ECM TCS Any Line Communication Error",
+        "kb_description_en": "Data Bus Powertrain Missing Message From Distance Control"
+      },
+      {
+        "code": "P1630",
+        "source_description_en": "Alternator Regulator 1 Control Circuit",
+        "kb_description_en": "Accelerator Pedal Position Sensor 1 Signal Too Low"
+      },
+      {
+        "code": "P1631",
+        "source_description_en": "Generator Output Voltage Signal No Output",
+        "kb_description_en": "Accelerator Pedal Position Sensor 1 Signal Too High"
+      },
+      {
+        "code": "P1632",
+        "source_description_en": "Battery Voltage Detection Circuit for Alternator Regulator",
+        "kb_description_en": "Accelerator Pedal Position Sensor 1 Power Supply Malfunction"
+      },
+      {
+        "code": "P1633",
+        "source_description_en": "Battery Overcharge Fault",
+        "kb_description_en": "Accelerator Pedal Position Sensor 2 Signal Too Low"
+      },
+      {
+        "code": "P1634",
+        "source_description_en": "Generator Terminal B Circuit Open",
+        "kb_description_en": "Accelerator Pedal Position Sensor 2 Signal Too High"
+      },
+      {
+        "code": "P1645",
+        "source_description_en": "Fuel Pump Resistor Switch Circuit",
+        "kb_description_en": "Data Bus Powertrain Defect"
+      },
+      {
+        "code": "P1649",
+        "source_description_en": "Fuel Injection Pump Module",
+        "kb_description_en": "Data Bus Powertrain Missing Message From Brake Controller"
+      },
+      {
+        "code": "P1650",
+        "source_description_en": "Power Steering Pressure Switch Out Of Range Fault",
+        "kb_description_en": "Data Bus Powertrain Missing Message From Instrument Panel ECU"
+      },
+      {
+        "code": "P1651",
+        "source_description_en": "Power Steering Pressure Switch Circuit",
+        "kb_description_en": "Data Bus Powertrain Missing Messages"
+      },
+      {
+        "code": "P1652",
+        "source_description_en": "Power Steering Pressure Switch Circuit",
+        "kb_description_en": "Check DTC Memory Of Transmissions ECU"
+      },
+      {
+        "code": "P1680",
+        "source_description_en": "Metering Oil Pump Failure",
+        "kb_description_en": "Driver 5"
+      },
+      {
+        "code": "P1682",
+        "source_description_en": "Metering Oil Pump Failure",
+        "kb_description_en": "Driver 5 Line 2"
+      },
+      {
+        "code": "P1683",
+        "source_description_en": "Metering Oil Pump Temperature Sensor Circuit",
+        "kb_description_en": "Driver 5 Line 3"
+      },
+      {
+        "code": "P1684",
+        "source_description_en": "Metering Oil Pump Position Sensor Circuit",
+        "kb_description_en": "Control Unit Programming Communication Error"
+      },
+      {
+        "code": "P1685",
+        "source_description_en": "Metering Oil Pump Stepping Motor Cont Circuit",
+        "kb_description_en": "Driver 5 Line 5"
+      },
+      {
+        "code": "P1686",
+        "source_description_en": "Metering Oil Pump Stepping Motor Cont Circuit",
+        "kb_description_en": "Control Unit Error Programming"
+      },
+      {
+        "code": "P1687",
+        "source_description_en": "Metering Oil Pump Stepping Motor Cont Circuit",
+        "kb_description_en": "Driver 5 Line 7"
+      },
+      {
+        "code": "P1688",
+        "source_description_en": "Metering Oil Pump Stepping Motor Cont Circuit",
+        "kb_description_en": "Internal Fuel Injection Pump Controller Failure"
+      },
+      {
+        "code": "P1689",
+        "source_description_en": "Oil Pressure Control Solenoid Circuit",
+        "kb_description_en": "Delivered Torque Circuit Fault"
+      },
+      {
+        "code": "P1690",
+        "source_description_en": "Wastegate Solenoid Circuit",
+        "kb_description_en": "MIL Malfunction"
+      },
+      {
+        "code": "P1691",
+        "source_description_en": "Turbo Pressure Control Solenoid Circuit",
+        "kb_description_en": "MIL Open Circuit"
+      },
+      {
+        "code": "P1692",
+        "source_description_en": "Turbo Control Solenoid Circuit",
+        "kb_description_en": "MIL Short To Ground"
+      },
+      {
+        "code": "P1693",
+        "source_description_en": "Turbo Charge Control Circuit",
+        "kb_description_en": "MIL Short To B+"
+      },
+      {
+        "code": "P1694",
+        "source_description_en": "Turbo Charge Relief Circuit",
+        "kb_description_en": "MIL Open Short To Ground"
+      },
+      {
+        "code": "P1701",
+        "source_description_en": "Transmission Range Sensor Reverse Engagement Error",
+        "kb_description_en": "Cruise Control Set Signal Circuit Malfunction AT"
+      },
+      {
+        "code": "P1702",
+        "source_description_en": "Transmission Range Sensor Circuit Intermittent",
+        "kb_description_en": "Auto Trans Diagnosis Input Signal Circuit"
+      },
+      {
+        "code": "P1703",
+        "source_description_en": "Brake On Off Switch Out Of Self Test Range",
+        "kb_description_en": "Low Clutch Timing Control Solenoid Valve Circuit Malfunction"
+      },
+      {
+        "code": "P1705",
+        "source_description_en": "Transmission Range Sensor Out Of Self Test Range",
+        "kb_description_en": "Direct Clutch Speed Circuit Fault"
+      },
+      {
+        "code": "P1708",
+        "source_description_en": "Clutch Switch Circuit",
+        "kb_description_en": "Clutch Switch Circuit Malfunction"
+      },
+      {
+        "code": "P1709",
+        "source_description_en": "Clutch Pedal Position Switch Circuit",
+        "kb_description_en": "PNP Switch Out Of Self Test Range"
+      },
+      {
+        "code": "P1710",
+        "source_description_en": "Transmission Control Module Solenoid Internal Ground Circuit",
+        "kb_description_en": "Back-Up Signal For Speed Sensor Circuit Malfunction"
+      },
+      {
+        "code": "P1711",
+        "source_description_en": "Transmission Fluid Temperature Sensor Circuit Out Of Self Test Range",
+        "kb_description_en": "Wheel Speed Signal 1 Range Performance"
+      },
+      {
+        "code": "P1713",
+        "source_description_en": "Transmission Fluid Temperature Sensor Circuit",
+        "kb_description_en": "TFT Sensor In Range Failure Low Value"
+      },
+      {
+        "code": "P1714",
+        "source_description_en": "Shift Solenoid 1 Mechanical Fault",
+        "kb_description_en": "SSA Inductive Signature Malfunction"
+      },
+      {
+        "code": "P1715",
+        "source_description_en": "Shift Solenoid 2 Mechanical Fault",
+        "kb_description_en": "PNP Switch Circuit Fault"
+      },
+      {
+        "code": "P1716",
+        "source_description_en": "Shift Solenoid 3 Mechanical Fault",
+        "kb_description_en": "Wheel Speed Signal 2 Range Performance"
+      },
+      {
+        "code": "P1717",
+        "source_description_en": "Shift Solenoid 4 Mechanical Fault",
+        "kb_description_en": "AT Drive Range Signal Circuit Fault"
+      },
+      {
+        "code": "P1718",
+        "source_description_en": "Transmission Fluid Temperature Sensor Circuit",
+        "kb_description_en": "TFT Sensor In Range Failure High"
+      },
+      {
+        "code": "P1719",
+        "source_description_en": "Engine Torque Signal",
+        "kb_description_en": "Skip Shift Solenoid Circuit Open Or Shorted"
+      },
+      {
+        "code": "P1720",
+        "source_description_en": "Vehicle Speed Sensor 2 Signal Error",
+        "kb_description_en": "Vehicle Speed (Meter) Circuit Malfunction"
+      },
+      {
+        "code": "P1721",
+        "source_description_en": "Gear 1 Incorrect Ratio",
+        "kb_description_en": "Wheel Speed Signal 3 Range Performance"
+      },
+      {
+        "code": "P1722",
+        "source_description_en": "Gear 2 Incorrect Ratio",
+        "kb_description_en": "Auto Trans Diagnosis Input Signal High Input"
+      },
+      {
+        "code": "P1723",
+        "source_description_en": "Gear 3 Incorrect Ratio",
+        "kb_description_en": "Starter Interlock Circuit Open"
+      },
+      {
+        "code": "P1724",
+        "source_description_en": "Gear 4 Incorrect Ratio",
+        "kb_description_en": "Starter Interlock Circuit Short To Ground"
+      },
+      {
+        "code": "P1729",
+        "source_description_en": "Transmission 4x4 Low Switch Error",
+        "kb_description_en": "Starter Interlock Circuit Short To B+"
+      },
+      {
+        "code": "P1735",
+        "source_description_en": "First Gear Switch Circuit Failure",
+        "kb_description_en": "First Gear Switch Circuit Malfunction"
+      },
+      {
+        "code": "P1736",
+        "source_description_en": "Second Gear Switch Circuit Failure",
+        "kb_description_en": "Second Gear Switch Circuit Malfunction"
+      },
+      {
+        "code": "P1737",
+        "source_description_en": "Lockup Solenoid",
+        "kb_description_en": "Lockup Solenoid System"
+      },
+      {
+        "code": "P1739",
+        "source_description_en": "Slip Solenoid",
+        "kb_description_en": "Tiptronic Switch Up Circuit Short To Ground"
+      },
+      {
+        "code": "P1740",
+        "source_description_en": "Torque Converter Clutch Solenoid Mechanical Fault",
+        "kb_description_en": "Transmission Torque Reduction Request Circuit"
+      },
+      {
+        "code": "P1741",
+        "source_description_en": "Torque Converter Clutch Control Electrical Fault",
+        "kb_description_en": "Clutch Pressure Adaptation At Limit"
+      },
+      {
+        "code": "P1742",
+        "source_description_en": "Torque Converter Clutch Solenoid Shorted",
+        "kb_description_en": "Clutch Torque Adaptation At Limit"
+      },
+      {
+        "code": "P1743",
+        "source_description_en": "Torque Converter Clutch Failed On TCIL Is On",
+        "kb_description_en": "Clutch Slip Control Signal Too High"
+      },
+      {
+        "code": "P1744",
+        "source_description_en": "Torque Converter Clutch Solenoid Mechanical Fault",
+        "kb_description_en": "Tiptronic Switch Recognition Circuit Short To Ground"
+      },
+      {
+        "code": "P1745",
+        "source_description_en": "Line Pressure Solenoid",
+        "kb_description_en": "Transmission Control Unit Relay Short To B+"
+      },
+      {
+        "code": "P1746",
+        "source_description_en": "Electronic Pressure Control Solenoid Circuit Open",
+        "kb_description_en": "Transmission Control Unit Relay Malfunction"
+      },
+      {
+        "code": "P1747",
+        "source_description_en": "Electronic Pressure Control Solenoid Circuit",
+        "kb_description_en": "Transmission Control Unit Relay Open Short To Ground"
+      },
+      {
+        "code": "P1748",
+        "source_description_en": "Pressure Control Solenoid A",
+        "kb_description_en": "Transmission Control Unit Self-Check"
+      },
+      {
+        "code": "P1749",
+        "source_description_en": "Electronic Pressure Control Solenoid Circuit Low",
+        "kb_description_en": "Transmission Control Unit Incorrect Coding"
+      },
+      {
+        "code": "P1751",
+        "source_description_en": "Transmission Shift Solenoid A Mechanical Fault",
+        "kb_description_en": "Power Supply Voltage High"
+      },
+      {
+        "code": "P1752",
+        "source_description_en": "Transmission Shift Solenoid A Circuit Shorted",
+        "kb_description_en": "Power Supply Malfunction"
+      },
+      {
+        "code": "P1754",
+        "source_description_en": "Transmission Coast Clutch Solenoid Electrical Fault",
+        "kb_description_en": "Coast Clutch Solenoid Circuit Malfunction"
+      },
+      {
+        "code": "P1756",
+        "source_description_en": "Transmission Shift Solenoid B Mechanical Fault",
+        "kb_description_en": "Governor Pressure Not Equal To Target At 15-20 PSI"
+      },
+      {
+        "code": "P1757",
+        "source_description_en": "Transmission Shift Solenoid B Circuit Shorted",
+        "kb_description_en": "Governor Pressure Above 3 PSI When Request Is 0 PSI"
+      },
+      {
+        "code": "P1761",
+        "source_description_en": "Transmission Shift Solenoid 3 Mechanical Fault",
+        "kb_description_en": "Shift Lock Short To Ground"
+      },
+      {
+        "code": "P1762",
+        "source_description_en": "Transmission SS3 SS4 OD Band Fault",
+        "kb_description_en": "Shift Lock Short To B+"
+      },
+      {
+        "code": "P1763",
+        "source_description_en": "Low And Reverse Brake Pressure Switch Circuit",
+        "kb_description_en": "Shift Lock Open"
+      },
+      {
+        "code": "P1764",
+        "source_description_en": "Low And Reverse Brake Failsafe Valve Malfunction",
+        "kb_description_en": "Governor Pressure Sensor Voltage Too Low"
+      },
+      {
+        "code": "P1765",
+        "source_description_en": "Transmission 3-2 Timing Solenoid Valve",
+        "kb_description_en": "Hydraulic Pressure Sensor 2 Adaptation At Limit"
+      },
+      {
+        "code": "P1767",
+        "source_description_en": "Torque Converter Clutch Solenoid Circuit",
+        "kb_description_en": "Throttle Angle Signal Stuck On"
+      },
+      {
+        "code": "P1770",
+        "source_description_en": "Clutch Solenoid Circuit",
+        "kb_description_en": "Load Signal Range Performance"
+      },
+      {
+        "code": "P1771",
+        "source_description_en": "Throttle Position Sensor Circuit Open To Transmission Control Module",
+        "kb_description_en": "Load Signal Stuck Off"
+      },
+      {
+        "code": "P1772",
+        "source_description_en": "Throttle Position Sensor Circuit Shorted To Transmission Control Module",
+        "kb_description_en": "Load Signal Stuck On"
+      },
+      {
+        "code": "P1775",
+        "source_description_en": "Torque Down Signal 1 Circuit",
+        "kb_description_en": "Hydraulic Pressure Sensor 1 Adaptation At Limit"
+      },
+      {
+        "code": "P1776",
+        "source_description_en": "Torque Down Signal 2 Circuit",
+        "kb_description_en": "Ignition Retard Request Duration Fault"
+      },
+      {
+        "code": "P1777",
+        "source_description_en": "Torque Down Response Signal Circuit",
+        "kb_description_en": "Ignition Retard Request Circuit Fault"
+      },
+      {
+        "code": "P1780",
+        "source_description_en": "Transmission Control Switch Circuit, Overdrive Off Switch Not Cycled During The Self Test",
+        "kb_description_en": "Engine Intervention Readable"
+      },
+      {
+        "code": "P1781",
+        "source_description_en": "Transmission 4x4 Low Switch Out Of Range Fault",
+        "kb_description_en": "Engine Torque Reduction Open Short To Ground"
+      },
+      {
+        "code": "P1783",
+        "source_description_en": "Transmission Fluid Temperature High Input",
+        "kb_description_en": "Transmission Overtemperature Condition"
+      },
+      {
+        "code": "P1788",
+        "source_description_en": "Pressure Control Solenoid B Circuit Open",
+        "kb_description_en": "Reversing Light Circuit Short To B+"
+      },
+      {
+        "code": "P1789",
+        "source_description_en": "Pressure Control Solenoid B Circuit Shorted",
+        "kb_description_en": "Idle Speed Intervention Circuit Error Message From Engine Control"
+      },
+      {
+        "code": "P1790",
+        "source_description_en": "TP Mechanical Circuit",
+        "kb_description_en": "Transmission Range Display Circuit Open"
+      },
+      {
+        "code": "P1791",
+        "source_description_en": "TP Electric Circuit",
+        "kb_description_en": "Transmission Range Display Circuit Short To Ground"
+      },
+      {
+        "code": "P1792",
+        "source_description_en": "Barometer Pressure Circuit",
+        "kb_description_en": "Transmission Range Display Circuit Short To B+"
+      },
+      {
+        "code": "P1793",
+        "source_description_en": "Intake Air Volume Circuit",
+        "kb_description_en": "Output Speed Sensor 2 Circuit No Signal"
+      },
+      {
+        "code": "P1794",
+        "source_description_en": "Powertrain Control Module Battery Direct Power Circuit",
+        "kb_description_en": "Battery Voltage Circuit Malfunction"
+      },
+      {
+        "code": "P1795",
+        "source_description_en": "Idle Switch Circuit",
+        "kb_description_en": "Vehicle Speed Signal Circuit Open"
+      },
+      {
+        "code": "P1796",
+        "source_description_en": "Kick Down Switch Circuit",
+        "kb_description_en": "Vehicle Speed Signal Short To Ground"
+      },
+      {
+        "code": "P1797",
+        "source_description_en": "P/N Switch Open Or Short Circuit",
+        "kb_description_en": "Vehicle Speed Signal Short To B+"
+      },
+      {
+        "code": "P1798",
+        "source_description_en": "Coolant Temperature Circuit",
+        "kb_description_en": "Output Speed Sensor 2 Circuit Range Performance"
+      },
+      {
+        "code": "P1799",
+        "source_description_en": "Hold Switch Circuit",
+        "kb_description_en": "Output Speed Sensor 2 Circuit RPM Too High"
+      },
+      {
+        "code": "P1900",
+        "source_description_en": "Turbine Speed Sensor Circuit Intermittent",
+        "kb_description_en": "OSS Circuit Intermittent Malfunction"
+      },
+      {
+        "code": "P1901",
+        "source_description_en": "Torque Converter Clutch Circuit Intermittent",
+        "kb_description_en": "TSS Circuit Intermittent Malfunction"
+      }
+    ]
+  },
+  "notes": "Staged from the pinned Wal33D/dtc-database source list. The per-manufacturer description is upstream evidence; kb_description_en is what the merged OEM layer currently stores for the same code. Nothing here is written to data/diagnostics/."
+}

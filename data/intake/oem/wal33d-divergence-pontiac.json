@@ -1,0 +1,388 @@
+{
+  "schema_version": 1,
+  "intake_id": "wal33d-divergence-pontiac",
+  "record_type": "oem_divergence",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "automated",
+    "id": "scripts/intake_scan_sources.py",
+    "role": "author"
+  },
+  "source": {
+    "title": "Wal33D dtc-database source list for PONTIAC (pontiac_codes.txt)",
+    "path": "https://github.com/Wal33D/dtc-database/blob/04c43d72e7db7197658b6f72fe582c5076d9eee8/data/source-data/pontiac_codes.txt",
+    "type": "web",
+    "publisher": "Wal33D (dtc-database)",
+    "revision": "04c43d72e7db",
+    "licence": "MIT",
+    "access_date": "2026-10-02",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": "d6d7b62c845914190557a224c8004e4b1d3cd1aab07b31f7091f7c9900040ddb",
+      "bytes": 6082,
+      "pages_cited": []
+    }
+  },
+  "confidence": "single_source",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "make": "PONTIAC",
+    "source_file": "data/source-data/pontiac_codes.txt",
+    "source_rows": 116,
+    "divergence_count": 70,
+    "divergences": [
+      {
+        "code": "P1105",
+        "source_description_en": "Open Or Shorted Condition Detected In The Baro Read Solenoid Control Circuit",
+        "kb_description_en": "Oxygen Sensor Heating Circuit Bank 1 Sensor 2 Short To B+"
+      },
+      {
+        "code": "P1196",
+        "source_description_en": "O2 Sensor 2/1 (Bank 2 Sensor 1) Slow During Catalyst Monitor",
+        "kb_description_en": "Oxygen Sensor Heater Circuit Bank 1 Sensor 1 Electrical Malfunction"
+      },
+      {
+        "code": "P1197",
+        "source_description_en": "O2 Sensor 1/2 (Bank 1 Sensor 2) Slow During Catalyst Monitor",
+        "kb_description_en": "Oxygen Sensor Heater Circuit Bank 2 Sensor 1 Electrical Malfunction"
+      },
+      {
+        "code": "P1198",
+        "source_description_en": "Radiator Temperature Sensor Voltage Too High",
+        "kb_description_en": "Oxygen Sensor Heater Circuit Bank 1 Sensor 2 Electrical Malfunction"
+      },
+      {
+        "code": "P1199",
+        "source_description_en": "Radiator Temperature Sensor Voltage Too Low",
+        "kb_description_en": "Oxygen Sensor Heater Circuit Bank 2 Sensor 2 Electrical Malfunction"
+      },
+      {
+        "code": "P1243",
+        "source_description_en": "Open Or Shorted Condition Detected In The Turbocharger Surge Valve Solenoid Control",
+        "kb_description_en": "Cylinder 7 Injector Circuit Open Circuit"
+      },
+      {
+        "code": "P1280",
+        "source_description_en": "Open Or Shorted Condition Detected In The Fuel System Relay Control Circuit",
+        "kb_description_en": "Fuel Injection Air Control Valve Circuit Flow Too Low"
+      },
+      {
+        "code": "P1281",
+        "source_description_en": "Engine Operating Temp Below Acceptable Range",
+        "kb_description_en": "Accelerator Pedal Position APP Sensor 2 Performance"
+      },
+      {
+        "code": "P1282",
+        "source_description_en": "Fuel Pump Relay Control Circuit Open Or Shorted",
+        "kb_description_en": "Accelerator Pedal Position Sensor 2 Circuit Low Voltage"
+      },
+      {
+        "code": "P1283",
+        "source_description_en": "Idle Select Signal Invalid",
+        "kb_description_en": "Fuel Injection Air Control Valve Circuit Electrical Malfunction"
+      },
+      {
+        "code": "P1284",
+        "source_description_en": "Fuel Injection Pump Battery Voltage Out Of Range",
+        "kb_description_en": "Fuel Injection Air Control Valve Circuit Open"
+      },
+      {
+        "code": "P1285",
+        "source_description_en": "Fuel Injection Pump Controller Always On",
+        "kb_description_en": "Fuel Injection Air Control Valve Circuit Short To Ground"
+      },
+      {
+        "code": "P1286",
+        "source_description_en": "Accelerator Pedal Position Sensor Supply Voltage Too High",
+        "kb_description_en": "Fuel Injection Air Control Valve Circuit Short To B+"
+      },
+      {
+        "code": "P1287",
+        "source_description_en": "Fuel Injection Pump Controller Supply Voltage Low",
+        "kb_description_en": "Turbocharge Bypass Valve Open"
+      },
+      {
+        "code": "P1288",
+        "source_description_en": "Intake Manifold Short Runner Solenoid Circuit Open Or Shorted",
+        "kb_description_en": "Turbocharge Bypass Valve Short To B+"
+      },
+      {
+        "code": "P1289",
+        "source_description_en": "Manifold Tune Valve Solenoid Circuit Open Or Shorted",
+        "kb_description_en": "Turbocharge Bypass Valve Short To Ground"
+      },
+      {
+        "code": "P1388",
+        "source_description_en": "Auto Shutdown ASD Relay Control Circuit Open Or Shorted",
+        "kb_description_en": "Control Unit Internal Throttle Control"
+      },
+      {
+        "code": "P1390",
+        "source_description_en": "Timing Belt Skipped One Tooth Or More",
+        "kb_description_en": "Wheel Speed Sensor 1 G-Sensor Circuit"
+      },
+      {
+        "code": "P1391",
+        "source_description_en": "Intermittent Loss of CMP Or CKP",
+        "kb_description_en": "CMP Sensor Bank 2 Short To Ground"
+      },
+      {
+        "code": "P1398",
+        "source_description_en": "PCM Is Unable To Learn The Crankshaft Position Sensor's Signal",
+        "kb_description_en": "Engine RPM Signal Short To Ground"
+      },
+      {
+        "code": "P1399",
+        "source_description_en": "Wait To Start Lamp Circuit Open Or Shorted",
+        "kb_description_en": "Engine RPM Signal Short To B+"
+      },
+      {
+        "code": "P1403",
+        "source_description_en": "Loss Of 5 Volts To EGR Sensor",
+        "kb_description_en": "EGR Flow Deviation"
+      },
+      {
+        "code": "P1404",
+        "source_description_en": "Exhaust Gas Recirculation System Valve 2",
+        "kb_description_en": "EGR Flow Adaptation Not Carried Out"
+      },
+      {
+        "code": "P1405",
+        "source_description_en": "Exhaust Gas Recirculation System Valve 3",
+        "kb_description_en": "Turbo Pressure Sensor Circuit"
+      },
+      {
+        "code": "P1406",
+        "source_description_en": "EGR Valve Pintle Position Circuit",
+        "kb_description_en": "EGR Temperature Sensor Range Performance"
+      },
+      {
+        "code": "P1407",
+        "source_description_en": "EGR Air Intrusion In Exhaust Supply To EGR Valve",
+        "kb_description_en": "EGR Temperature Sensor Signal Too Low"
+      },
+      {
+        "code": "P1408",
+        "source_description_en": "Intake Manifold Pressure Sensor Circuit",
+        "kb_description_en": "EGR Temperature Sensor Signal Too High"
+      },
+      {
+        "code": "P1409",
+        "source_description_en": "EGR Vacuum System Leak",
+        "kb_description_en": "Tank Ventilation Valve Electrical Malfunction"
+      },
+      {
+        "code": "P1410",
+        "source_description_en": "Fuel Tank Pressure System",
+        "kb_description_en": "Tank Ventilation Valve Circuit Short To B+"
+      },
+      {
+        "code": "P1418",
+        "source_description_en": "Secondary Air Injection System Relay A Control Circuit High",
+        "kb_description_en": "Fuel Level Sensor Signal Too High"
+      },
+      {
+        "code": "P1420",
+        "source_description_en": "Intake Air Low Pressure Switch Circuit Low Voltage",
+        "kb_description_en": "Secondary Air Injection Control Module Electrical Malfunction"
+      },
+      {
+        "code": "P1421",
+        "source_description_en": "Intake Air Low Pressure Switch Circuit High Voltage",
+        "kb_description_en": "Secondary Air Injection Valve Circuit Short To Ground"
+      },
+      {
+        "code": "P1423",
+        "source_description_en": "Intake Air High Pressure Switch Circuit High Voltage",
+        "kb_description_en": "Secondary Air Injection System Bank 1 Flow Too Low"
+      },
+      {
+        "code": "P1432",
+        "source_description_en": "Fuel Level Sensor 2 Circuit Low Voltage",
+        "kb_description_en": "Secondary Air Injection Valve Open"
+      },
+      {
+        "code": "P1433",
+        "source_description_en": "Fuel Level Sensor 2 Circuit High Voltage",
+        "kb_description_en": "Secondary Air Injection Pump Relay Circuit Open"
+      },
+      {
+        "code": "P1441",
+        "source_description_en": "Evaporative Emission EVAP System Flow During Non-Purge",
+        "kb_description_en": "EGR Valve Circuit Open Short To Ground"
+      },
+      {
+        "code": "P1442",
+        "source_description_en": "EVAP Vacuum Switch High Voltage During Ignition On",
+        "kb_description_en": "EGR Valve Position Sensor Signal Too High"
+      },
+      {
+        "code": "P1450",
+        "source_description_en": "Barometric Pressure Sensor Circuit",
+        "kb_description_en": "Secondary Air Injection System Circuit Short To B+"
+      },
+      {
+        "code": "P1451",
+        "source_description_en": "Barometric Pressure Sensor Performance",
+        "kb_description_en": "Secondary Air Injection Circuit Short To Ground"
+      },
+      {
+        "code": "P1460",
+        "source_description_en": "Cooling Fan Control System",
+        "kb_description_en": "Exhaust Gas Temperature Control Bank 2 Limit Attained"
+      },
+      {
+        "code": "P1480",
+        "source_description_en": "PCV Solenoid Valve Open Or Shorted",
+        "kb_description_en": "Cooling Fan Relay 1 Circuit High Input"
+      },
+      {
+        "code": "P1480",
+        "source_description_en": "Open Or Shorted Condition Detected In The Positive Crankcase Ventilation (PCV)",
+        "kb_description_en": "Cooling Fan Relay 1 Circuit High Input"
+      },
+      {
+        "code": "P1483",
+        "source_description_en": "Catalyst Temperature Sensor Circuit Shorted High",
+        "kb_description_en": "Engine Coolilng System Performance"
+      },
+      {
+        "code": "P1594",
+        "source_description_en": "Charging System Voltage Too High",
+        "kb_description_en": "Automatic Transmission Diagnosis Input Signal Circuit Malfunction"
+      },
+      {
+        "code": "P1595",
+        "source_description_en": "Speed Control Solenoid Circuit Open Or Shorted",
+        "kb_description_en": "Automatic Transmission Diagnosis Input Signal Circuit Low Input"
+      },
+      {
+        "code": "P1596",
+        "source_description_en": "Speed Control Switch Always High",
+        "kb_description_en": "Automatic Transmission Diagnosis Input Signal Circuit High Input"
+      },
+      {
+        "code": "P1599",
+        "source_description_en": "A/C Pressure Sensor Voltage Too Low",
+        "kb_description_en": "Engine Stall Or Near Stall Detected"
+      },
+      {
+        "code": "P1602",
+        "source_description_en": "PCM Not Programmed",
+        "kb_description_en": "Power Supply Terminal No 30 Low Voltage"
+      },
+      {
+        "code": "P1680",
+        "source_description_en": "Clutch Released Switch Circuit Open Or Shorted",
+        "kb_description_en": "Driver 5"
+      },
+      {
+        "code": "P1681",
+        "source_description_en": "No Instrument Panel Cluster CCD J1850 Messages Received",
+        "kb_description_en": "Control Module Programming Not Finished"
+      },
+      {
+        "code": "P1682",
+        "source_description_en": "Charging System Voltage Too Low",
+        "kb_description_en": "Driver 5 Line 2"
+      },
+      {
+        "code": "P1683",
+        "source_description_en": "Speed Control Power Relay Or Speed Control 12 Volt Driver Circuit Open Or Shorted",
+        "kb_description_en": "Driver 5 Line 3"
+      },
+      {
+        "code": "P1684",
+        "source_description_en": "Battery Disconnected Within Last 50 Starts",
+        "kb_description_en": "Control Unit Programming Communication Error"
+      },
+      {
+        "code": "P1685",
+        "source_description_en": "Skim Invalid Key",
+        "kb_description_en": "Driver 5 Line 5"
+      },
+      {
+        "code": "P1686",
+        "source_description_en": "No SKIM Bus Message Received",
+        "kb_description_en": "Control Unit Error Programming"
+      },
+      {
+        "code": "P1687",
+        "source_description_en": "No Cluster Bus Message",
+        "kb_description_en": "Driver 5 Line 7"
+      },
+      {
+        "code": "P1689",
+        "source_description_en": "No Communication Between ECM & Injection Pump Module",
+        "kb_description_en": "Delivered Torque Circuit Fault"
+      },
+      {
+        "code": "P1690",
+        "source_description_en": "Fuel Injection Pump CKP Sensor Does Not Agree With ECM CKP Sensor",
+        "kb_description_en": "MIL Malfunction"
+      },
+      {
+        "code": "P1691",
+        "source_description_en": "Fuel Injection Pump Controller Calibration Failure",
+        "kb_description_en": "MIL Open Circuit"
+      },
+      {
+        "code": "P1693",
+        "source_description_en": "DTC Detected In ECM Or PCM",
+        "kb_description_en": "MIL Short To B+"
+      },
+      {
+        "code": "P1694",
+        "source_description_en": "No CCD Messages Received From ECM",
+        "kb_description_en": "MIL Open Short To Ground"
+      },
+      {
+        "code": "P1695",
+        "source_description_en": "No CCD J1850 Message From BCM",
+        "kb_description_en": "Remote Keyless Entry Circuit Low"
+      },
+      {
+        "code": "P1696",
+        "source_description_en": "PCM Failure EEPROM Write Denied",
+        "kb_description_en": "Remote Keyless Entry Voltage High"
+      },
+      {
+        "code": "P1698",
+        "source_description_en": "No CCD Messages Received From PCM",
+        "kb_description_en": "Engine Torque Control Cut Signal Circuit Low Input"
+      },
+      {
+        "code": "P1699",
+        "source_description_en": "No CCD J1850 Messages Received From The Climate Control Module CCM",
+        "kb_description_en": "Engine Torque Control Cut Signal Circuit High Input"
+      },
+      {
+        "code": "P1740",
+        "source_description_en": "TCC Or OD Solenoid Performance",
+        "kb_description_en": "Transmission Torque Reduction Request Circuit"
+      },
+      {
+        "code": "P1762",
+        "source_description_en": "Governor Pressure Sensor Offset Improper Voltage",
+        "kb_description_en": "Shift Lock Short To B+"
+      },
+      {
+        "code": "P1763",
+        "source_description_en": "Governor Pressure Sensor Voltage Too High",
+        "kb_description_en": "Shift Lock Open"
+      },
+      {
+        "code": "P1765",
+        "source_description_en": "Trans 12 Volt Supply Relay Control Circuit Open Or Shorted",
+        "kb_description_en": "Hydraulic Pressure Sensor 2 Adaptation At Limit"
+      },
+      {
+        "code": "P1830",
+        "source_description_en": "Open Or Shorted Condition Detected In The Clutch Pedal Switch Over-Ride Relay Control",
+        "kb_description_en": "Pressure Control Solenoid 4 Short To B+"
+      }
+    ]
+  },
+  "notes": "Staged from the pinned Wal33D/dtc-database source list. The per-manufacturer description is upstream evidence; kb_description_en is what the merged OEM layer currently stores for the same code. Nothing here is written to data/diagnostics/."
+}

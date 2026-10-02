@@ -75,6 +75,7 @@ RECORD_DIRS: dict[str, str] = {
     "dtc": "dtc",
     "spn_fmi": "spn_fmi",
     "pgn_layout": "pgn",
+    "oem_divergence": "oem",
     "trace": "traces",
     "case": "cases",
     "oem_note": "oem_notes",
@@ -131,6 +132,9 @@ PAYLOAD_FIELDS: dict[str, frozenset[str]] = {
     "pgn_layout": frozenset({
         "pgn", "pgn_id", "description", "pgn_type", "priority", "interval_ms",
         "fields", "upstream_keys", "source_file",
+    }),
+    "oem_divergence": frozenset({
+        "make", "source_file", "source_rows", "divergence_count", "divergences",
     }),
     "case": frozenset({
         "case_id", "domain", "make", "model", "year", "symptom", "dtcs",
@@ -634,10 +638,57 @@ def _validate_payload_pgn_layout(payload: dict[str, Any], where: str, rep: Repor
                     f"verify how it was derived")
 
 
+OEM_DIVERGENCE_FIELDS: frozenset[str] = frozenset({
+    "code", "source_description_en", "kb_description_en",
+})
+
+
+def _validate_payload_oem_divergence(payload: dict[str, Any], where: str, rep: Report) -> None:
+    """Per-manufacturer DTC wording that the merged OEM layer does not carry.
+
+    The layer stores one description per code; upstream publishes one per
+    manufacturer. These records restore the per-make wording as *evidence*.
+    """
+    _check_exact_fields(payload, PAYLOAD_FIELDS["oem_divergence"], where,
+                        PAYLOAD_FIELDS["oem_divergence"], rep)
+    make = payload.get("make")
+    if not isinstance(make, str) or not make.strip() or make != make.upper():
+        rep.fail("schema", f"{where}.make must be a non-empty uppercase string")
+    if not _is_opt_str(payload, "source_file") or not str(payload.get("source_file") or "").strip():
+        rep.fail("schema", f"{where}.source_file must be a non-empty string")
+    for key in ("source_rows", "divergence_count"):
+        value = payload.get(key)
+        if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+            rep.fail("schema", f"{where}.{key} must be a non-negative integer")
+    rows = payload.get("divergences")
+    if not isinstance(rows, list):
+        rep.fail("schema", f"{where}.divergences must be an array")
+        return
+    if rows and payload.get("divergence_count") != len(rows):
+        rep.fail("schema", f"{where}.divergence_count {payload.get('divergence_count')} != "
+                           f"{len(rows)} rows")
+    for i, item in enumerate(rows):
+        if not isinstance(item, dict) or not _check_exact_fields(
+            item, OEM_DIVERGENCE_FIELDS, f"{where}.divergences[{i}]",
+            frozenset({"code", "source_description_en"}), rep
+        ):
+            continue
+        code = item.get("code")
+        if not isinstance(code, str) or not DTC_CODE_RE.fullmatch(code):
+            rep.fail("schema", f"{where}.divergences[{i}].code must be a SAE J2012 code")
+        for key in ("source_description_en", "kb_description_en"):
+            value = item.get(key)
+            if key == "source_description_en" and (not isinstance(value, str) or not value.strip()):
+                rep.fail("schema", f"{where}.divergences[{i}].source_description_en must be non-empty")
+            elif value is not None and not isinstance(value, str):
+                rep.fail("schema", f"{where}.divergences[{i}].{key} must be a string or null")
+
+
 PAYLOAD_VALIDATORS = {
     "dtc": _validate_payload_dtc,
     "spn_fmi": _validate_payload_spn,
     "pgn_layout": _validate_payload_pgn_layout,
+    "oem_divergence": _validate_payload_oem_divergence,
     "case": _validate_payload_case,
     "oem_note": _validate_payload_oem_note,
     "trace": _validate_payload_trace,
@@ -1056,6 +1107,7 @@ def report_conflicts(records: list[Record], repo_root: Path, rep: Report) -> Non
     dtc_db = repo_root / DIAGNOSTICS / "dtc_database.json"
     oem_db = repo_root / DIAGNOSTICS / "dtc_database_oem_layer.json"
     j1939_db = repo_root / DIAGNOSTICS / "j1939_spn_fmi_database.json"
+    oem_layer = repo_root / DIAGNOSTICS / "dtc_database_oem_layer.json"
     golden_dir = repo_root / "data" / "golden_traces" / "cases"
     if not dtc_db.is_file() or not j1939_db.is_file():
         rep.add("INFO", "conflict", "knowledge base databases not found — conflict report skipped")
@@ -1069,9 +1121,46 @@ def report_conflicts(records: list[Record], repo_root: Path, rep: Report) -> Non
         oem = _load_json(oem_db)
         oem_codes = oem.get("codes", {}) if isinstance(oem, dict) else {}
     golden_ids = {p.stem for p in golden_dir.glob("*.json")} if golden_dir.is_dir() else set()
+    oem_layer_payload = _load_json(oem_layer) if oem_layer.is_file() else {}
 
     overlaps = 0
     candidates = 0
+
+    def check_oem_divergence(record: Record) -> None:
+        """Re-measure the staged divergence against the OEM layer (report only)."""
+        nonlocal overlaps, candidates
+        where = record.rel_path
+        rows = record.payload.get("divergences") or []
+        if not isinstance(rows, list):
+            return
+        rep.metrics["oem_divergence_rows"] = rep.metrics.get("oem_divergence_rows", 0) + len(rows)
+        if not oem_layer.is_file():
+            rep.add("INFO", "conflict", f"{where}: OEM layer not found, divergence not re-checked")
+            return
+        stored_codes = (oem_layer_payload.get("codes") or {})
+        still_divergent = 0
+        unknown_codes = 0
+        for item in rows:
+            if not isinstance(item, dict):
+                continue
+            code = item.get("code")
+            rec = stored_codes.get(code)
+            if rec is None:
+                unknown_codes += 1
+                continue
+            current = str(((rec.get("description") or {}).get("en") or "")).strip().lower()
+            source_text = str(item.get("source_description_en") or "").strip().lower()
+            if current != source_text:
+                still_divergent += 1
+        if still_divergent:
+            overlaps += still_divergent
+            rep.add("INFO", "kb_divergence",
+                    f"{where}: {still_divergent}/{len(rows)} per-manufacturer descriptions still disagree "
+                    f"with dtc_database_oem_layer.json — evidence staged, nothing overwritten")
+        if unknown_codes:
+            candidates += unknown_codes
+            rep.add("INFO", "kb_new", f"{where}: {unknown_codes} codes are absent from the OEM layer")
+        rep.metrics["oem_divergence_open"] = rep.metrics.get("oem_divergence_open", 0) + still_divergent
 
     def check_pgn_layout(record: Record) -> None:
         """Compare a staged PGN layout with the vendored PGN catalogue (report only)."""
@@ -1166,6 +1255,8 @@ def report_conflicts(records: list[Record], repo_root: Path, rep: Report) -> Non
                                           f"fault matrix (promotion candidate, not merged)")
         elif record.record_type == "pgn_layout":
             check_pgn_layout(record)
+        elif record.record_type == "oem_divergence":
+            check_oem_divergence(record)
     rep.metrics["kb_overlaps"] = overlaps
     rep.metrics["kb_new_candidates"] = candidates
 
@@ -1258,7 +1349,8 @@ burada bırakılır.
 
 KIND_BY_TYPE: dict[str, str] = {
     "dtc": "dtc", "spn_fmi": "spn_fmi", "pgn_layout": "pgn_layout",
-    "case": "case", "oem_note": "oem_note", "trace": "trace",
+    "oem_divergence": "oem_divergence", "case": "case", "oem_note": "oem_note",
+    "trace": "trace",
 }
 
 
@@ -1389,7 +1481,7 @@ def main() -> int:
             print("[*] MANIFEST is up to date" if current == text else "[!] MANIFEST differs — run with --apply")
             return 0 if current == text else 1
         target.write_text(text, encoding="utf-8")
-        print(f"[*] MANIFEST.md rewritten ({text.count(chr(10) + '| `data/intake')} in-git rows)")
+        print(f"[*] MANIFEST.md rewritten ({text.count('| `data/intake/')} in-git rows)")
         return 0
     if args.print_trace_meta:
         if hasattr(sys.stdout, "reconfigure"):

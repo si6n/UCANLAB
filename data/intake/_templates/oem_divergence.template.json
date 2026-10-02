@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "intake_id": "template-oem-divergence-ford",
+  "record_type": "oem_divergence",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "automated",
+    "id": "scripts/intake_scan_sources.py",
+    "role": "author"
+  },
+  "source": {
+    "title": "Example: per-manufacturer DTC list for FORD",
+    "path": "https://example.invalid/replace-with-the-real-document-url",
+    "type": "web",
+    "publisher": "Example Parts Catalog",
+    "revision": null,
+    "licence": "MIT",
+    "access_date": "2026-10-02",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": null,
+      "bytes": null,
+      "pages_cited": []
+    }
+  },
+  "confidence": "single_source",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "make": "FORD",
+    "source_file": "data/source-data/ford_codes.txt",
+    "source_rows": 416,
+    "divergence_count": 2,
+    "divergences": [
+      {
+        "code": "P1100",
+        "source_description_en": "Mass Air Flow Sensor Intermittent",
+        "kb_description_en": "BARO Sensor Circuit"
+      },
+      {
+        "code": "P1101",
+        "source_description_en": "Mass Air Flow Sensor Out of Self-Test Range",
+        "kb_description_en": "Oxygen Sensor Circuit Bank 1 Sensor 1 Voltage Too Low/Air Leak"
+      }
+    ]
+  },
+  "notes": "One record per manufacturer list, carrying only the rows whose wording differs from data/diagnostics/dtc_database_oem_layer.json (that layer stores a single description per code, so per-manufacturer wording is lost). validate_intake.py re-measures every row on each run and reports kb_divergence. Staged as evidence — the layer is never rewritten from intake."
+}

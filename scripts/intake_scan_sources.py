@@ -63,9 +63,11 @@ INTAKE = ROOT / "data" / "intake"
 PGN_SUBDIR = "pgn"
 
 CANBOAT_REPO = "https://github.com/canboat/canboat"
+WAL33D_REPO = "https://github.com/Wal33D/dtc-database"
 OBDEX_REPO = "https://github.com/foerbsnavi/OBDex"
 CANBOAT_COMMIT = "f7f088b49d58f5b4a0feb9b29c288b0ae18a7880"
 OBDEX_COMMIT = "bc58b0eb7273226a1aabae98e956b70b8362bda1"
+WAL33D_COMMIT = "04c43d72e7db7197658b6f72fe582c5076d9eee8"
 
 # sha256 values recorded in data/PROVENANCE.md §2 (the ingest evidence).
 VENDORED_SHA256: dict[str, str] = {
@@ -81,11 +83,15 @@ VENDORED_SHA256: dict[str, str] = {
     "canboat/canboat.json": "b5a2c0c84b59af33caef583a372f9e763deb54ef4caf187825eff33d068735ba",
     "canboat/j1939_065226-activeTroubleCodes.yaml":
         "2c821042983bd5c751794dba388f1a8121c57ecacd5d0ab5a9ec95b03ec197c9",
+    "wal33d/data/dtc_codes.db": "099a4ffd60398112a0540b0bbc93a5929e05e7f4e6d4988ca2a50858af01b743",
 }
 
 OBDEX_TARBALL = f"https://codeload.github.com/foerbsnavi/OBDex/tar.gz/{OBDEX_COMMIT}"
+WAL33D_TARBALL = f"https://codeload.github.com/Wal33D/dtc-database/tar.gz/{WAL33D_COMMIT}"
 CANBOAT_TARBALL = f"https://codeload.github.com/canboat/canboat/tar.gz/{CANBOAT_COMMIT}"
 OBDEX_PREFIX = "data/"
+WAL33D_PREFIX = "data/source-data/"
+WAL33D_DB = "data/dtc_codes.db"
 CANBOAT_PREFIX = "database/j1939/pgns/"
 CANBOAT_JSON = "docs/canboat.json"
 
@@ -257,6 +263,8 @@ class ScanResult:
             "unvendored_bytes": sum(a["bytes"] for a in unvendored),
             "j1939_pgn_layouts_unvendored": sum(
                 1 for a in unvendored if a["rel_path"].startswith(CANBOAT_PREFIX)),
+            "wal33d_per_make_lists_unvendored": sum(
+                1 for a in unvendored if a["rel_path"].startswith(WAL33D_PREFIX)),
             "hash_mismatch": by_state.get("hash_mismatch", 0),
             "seconds": round(self.seconds, 2),
         }
@@ -312,6 +320,10 @@ def _vendored_key(repo_key: str, rel_path: str) -> str | None:
     if repo_key == "obdex":
         candidate = f"obdex/{rel_path}"
         return candidate if candidate in VENDORED_SHA256 else None
+    if repo_key == "wal33d":
+        if rel_path == WAL33D_DB:
+            return "wal33d/data/dtc_codes.db"
+        return None
     if rel_path == CANBOAT_JSON:
         return "canboat/canboat.json"
     if rel_path.startswith(CANBOAT_PREFIX):
@@ -354,15 +366,18 @@ def run_scan(workdir: Path, tarballs_dir: Path | None = None,
     t0 = time.perf_counter()
     obdex_tb = (tarballs_dir / "obdex.tar.gz") if tarballs_dir else workdir / "obdex.tar.gz"
     canboat_tb = (tarballs_dir / "canboat.tar.gz") if tarballs_dir else workdir / "canboat.tar.gz"
+    wal33d_tb = (tarballs_dir / "wal33d.tar.gz") if tarballs_dir else workdir / "wal33d.tar.gz"
     if not offline:
         fetch_tarball(OBDEX_TARBALL, obdex_tb)
         fetch_tarball(CANBOAT_TARBALL, canboat_tb)
-    for tarball in (obdex_tb, canboat_tb):
+        fetch_tarball(WAL33D_TARBALL, wal33d_tb)
+    for tarball in (obdex_tb, canboat_tb, wal33d_tb):
         if not tarball.is_file():
             raise FileNotFoundError(
                 f"{tarball} missing — run online or pass --tarballs-dir with both tarballs")
     obdex_tree = extract(obdex_tb, workdir / "obdex")
     canboat_tree = extract(canboat_tb, workdir / "canboat")
+    wal33d_tree = extract(wal33d_tb, workdir / "wal33d")
 
     result = ScanResult()
     result.sources = [
@@ -371,13 +386,19 @@ def run_scan(workdir: Path, tarballs_dir: Path | None = None,
         {"repo": "canboat/canboat", "commit": CANBOAT_COMMIT, "url": CANBOAT_TARBALL,
          "licence": "Apache-2.0", "attribution_required": True,
          "notice": "Kees Verruijt, CANboat — data/licenses/NOTICE.canboat"},
+        {"repo": "Wal33D/dtc-database", "commit": WAL33D_COMMIT, "url": WAL33D_TARBALL,
+         "licence": "MIT", "attribution_required": True,
+         "notice": "Copyright (c) Wal33D — data/licenses/ATTRIBUTION.obdex-and-dtcdb.md"},
     ]
     artifacts = scan_repo_tree("obdex", OBDEX_COMMIT, obdex_tree, (OBDEX_PREFIX,))
     # docs/canboat.json is a single 2.6 MB file: hashed, not parsed.
     artifacts += scan_repo_tree("canboat", CANBOAT_COMMIT, canboat_tree, (CANBOAT_PREFIX, CANBOAT_JSON))
+    # The compiled DB is hashed (3.2 MB); the 37 per-manufacturer source lists
+    # under data/source-data/ are the *primary* per-make evidence the DB collapsed.
+    artifacts += scan_repo_tree("wal33d", WAL33D_COMMIT, wal33d_tree, (WAL33D_DB, WAL33D_PREFIX))
     result.artifacts = [asdict(a) for a in artifacts]
     result.seconds = time.perf_counter() - t0
-    return result, {"obdex": obdex_tree, "canboat": canboat_tree}
+    return result, {"obdex": obdex_tree, "canboat": canboat_tree, "wal33d": wal33d_tree}
 
 
 # --------------------------------------------------------------------------- #
@@ -495,6 +516,127 @@ def stage(canboat_tree: Path, intake_dir: Path, apply: bool) -> tuple[int, list[
 
 
 # --------------------------------------------------------------------------- #
+# staging: Wal33D per-manufacturer source lists -> OEM divergence records
+# --------------------------------------------------------------------------- #
+DTC_LINE_RE = re.compile(r"^([PBCU][0-9A-Fa-f]{4})\s*-\s*(\S.*?)\s*$")
+OEM_SUBDIR = "oem"
+DIVERGENCE_NOTE = (
+    "Staged from the pinned Wal33D/dtc-database source list. The per-manufacturer "
+    "description is upstream evidence; kb_description_en is what the merged OEM layer "
+    "currently stores for the same code. Nothing here is written to data/diagnostics/."
+)
+
+
+def parse_oem_listing(text: str) -> list[tuple[str, str]]:
+    """Parse a ``CODE - Description`` source list; unparsable lines are dropped."""
+    rows: list[tuple[str, str]] = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        match = DTC_LINE_RE.match(stripped)
+        if match:
+            rows.append((match.group(1).upper(), match.group(2)))
+    return rows
+
+
+def _oem_layer_codes(repo_root: Path) -> dict[str, str]:
+    """``{code: stored description}`` from the merged OEM layer (read-only)."""
+    layer = repo_root / "data" / "diagnostics" / "dtc_database_oem_layer.json"
+    if not layer.is_file():
+        return {}
+    blob = json.loads(layer.read_text(encoding="utf-8"))
+    out: dict[str, str] = {}
+    for code, record in (blob.get("codes") or {}).items():
+        description = ((record or {}).get("description") or {})
+        out[code] = str(description.get("en") or "").strip()
+    return out
+
+
+def build_oem_divergence_records(wal33d_tree: Path, repo_root: Path) -> list[dict[str, Any]]:
+    """One record per manufacturer list, carrying only rows the KB disagrees with.
+
+    The merged OEM layer stores **one** description per code (last write wins), so
+    the per-manufacturer wording that upstream actually publishes is lost. These
+    records restore that evidence for review; they are not a merge.
+    """
+    stored = _oem_layer_codes(repo_root)
+    source_dir = wal33d_tree / WAL33D_PREFIX
+    records: list[dict[str, Any]] = []
+    for path in sorted(source_dir.glob("*_codes.txt")):
+        make = path.stem.replace("_codes", "").upper()
+        rows = parse_oem_listing(path.read_text(encoding="utf-8", errors="replace"))
+        divergences: list[dict[str, Any]] = []
+        for code, description in rows:
+            current = stored.get(code)
+            if current is None:
+                divergences.append({"code": code, "source_description_en": description,
+                                    "kb_description_en": None})
+            elif current.strip().lower() != description.strip().lower():
+                divergences.append({"code": code, "source_description_en": description,
+                                    "kb_description_en": current})
+        rel_source = path.relative_to(wal33d_tree).as_posix()
+        records.append({
+            "schema_version": 1,
+            "intake_id": f"wal33d-divergence-{make.lower()}",
+            "record_type": "oem_divergence",
+            "submitted_at": SCAN_DATE,
+            "submitter": {"type": "automated", "id": "scripts/intake_scan_sources.py", "role": "author"},
+            "source": {
+                "title": f"Wal33D dtc-database source list for {make} ({path.name})",
+                "path": f"{WAL33D_REPO}/blob/{WAL33D_COMMIT}/{rel_source}",
+                "type": "web",
+                "publisher": "Wal33D (dtc-database)",
+                "revision": WAL33D_COMMIT[:12],
+                "licence": "MIT",
+                "access_date": SCAN_DATE,
+                "snapshot": {
+                    "archive_url": None,
+                    "sha256": sha256_file(path),
+                    "bytes": path.stat().st_size,
+                    "pages_cited": [],
+                },
+            },
+            "confidence": "single_source",
+            "draft": True,
+            "knowledge_base": None,
+            "payload": {
+                "make": make,
+                "source_file": rel_source,
+                "source_rows": len(rows),
+                "divergence_count": len(divergences),
+                "divergences": divergences,
+            },
+            "notes": DIVERGENCE_NOTE,
+        })
+    return records
+
+
+def stage_oem(wal33d_tree: Path, intake_dir: Path, repo_root: Path, apply: bool,
+              ) -> tuple[int, list[str]]:
+    """Write (or verify) one ``oem_divergence`` record per manufacturer list."""
+    target = intake_dir / OEM_SUBDIR
+    if apply:
+        target.mkdir(parents=True, exist_ok=True)
+    written: list[str] = []
+    problems: list[str] = []
+    for record in build_oem_divergence_records(wal33d_tree, repo_root):
+        rel = f"{OEM_SUBDIR}/{record['intake_id']}.json"
+        out = intake_dir / rel
+        payload = json.dumps(record, ensure_ascii=False, indent=2) + "\n"
+        if out.exists():
+            if out.read_text(encoding="utf-8") != payload:
+                problems.append(f"{rel}: staged record differs from the pinned source")
+            continue
+        if apply:
+            out.write_text(payload, encoding="utf-8")
+        else:
+            problems.append(f"{rel}: missing (run with --apply)")
+        written.append(rel)
+    return len(written), problems
+
+
+# --------------------------------------------------------------------------- #
 # report
 # --------------------------------------------------------------------------- #
 def render(result: ScanResult) -> str:
@@ -536,6 +678,8 @@ def main() -> int:
     ap.add_argument("--offline", action="store_true", help="never touch the network")
     ap.add_argument("--stage", action="store_true",
                     help="stage the un-vendored J1939 PGN layouts (verify without --apply)")
+    ap.add_argument("--stage-oem", action="store_true",
+                    help="stage Wal33D per-manufacturer description divergences (verify without --apply)")
     ap.add_argument("--apply", action="store_true", help="with --stage: write the records")
     args = ap.parse_args()
 
@@ -550,6 +694,7 @@ def main() -> int:
         print(f"[*] artefacts={metrics['artifacts_scanned']} "
               f"not_vendored={metrics['unvendored_files']} "
               f"j1939_pgn_layouts={metrics['j1939_pgn_layouts_unvendored']} "
+              f"wal33d_lists={metrics['wal33d_per_make_lists_unvendored']} "
               f"hash_mismatch={metrics['hash_mismatch']}")
         if args.json_out:
             out = Path(args.json_out)
@@ -562,6 +707,12 @@ def main() -> int:
             out.parent.mkdir(parents=True, exist_ok=True)
             out.write_text(render(result), encoding="utf-8")
 
+        if args.stage_oem:
+            count, problems = stage_oem(trees["wal33d"], INTAKE, ROOT, apply=args.apply)
+            for problem in problems:
+                print(f"[!] {problem}")
+            print(f"[*] oem_divergence records: {count} ({'written' if args.apply else 'verify only'})")
+            return 1 if problems else 0
         if args.stage:
             count, problems, skipped = stage(trees["canboat"], INTAKE, apply=args.apply)
             for problem in problems:

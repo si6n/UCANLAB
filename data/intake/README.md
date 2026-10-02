@@ -21,6 +21,7 @@ geçirmeyle olur; aşağıdaki "Entegrasyon adımları" bölümü tek yol harita
 | `dtc/` | ham DTC başvurusu | `<intake-id>.json` (zarf + `payload`) |
 | `spn_fmi/` | ham SPN/FMI çifti | `<intake-id>.json` |
 | `pgn/` | PGN alan düzeni (J1939/NMEA-2000) — `pgn_layout` | `<intake-id>.json` |
+| `oem/` | üreticiye özgü açıklama ayrışması — `oem_divergence` | `<intake-id>.json` |
 | `traces/` | ham yakalama (kare dosyası + yan kenar dosyası) | `<id>.json`/`.jsonl` + `<id>.meta.json` |
 | `cases/` | vaka taslağı — **her zaman `draft: true`** | `<intake-id>.json` |
 | `oem_notes/` | OEM/üretici notu | `<intake-id>.md` (üstte JSON meta bloğu) |
@@ -117,7 +118,15 @@ yapılır (§ Entegrasyon adımları).
 | `pgn_layout` | `pgn/` | `pgn`, `pgn_id`, `description`, `pgn_type`, `priority`, `interval_ms`, `fields[]`, `upstream_keys`, `source_file` |
 | `case` | `cases/` | `case_id`, `domain`, `make/model/year`, `symptom`, `dtcs[]`, `signals_of_interest[]`, `actual_fault`, `repair`, `verification`, `trace_refs[]`, `vin_masked` |
 | `oem_note` | `oem_notes/` | `make/model/year`, `oem_code`, `system`, `evidence_refs[]`, `related_dtcs[]`, `vin_masked` (gövde markdown dosyanın altında) |
+| `oem_divergence` | `oem/` | `make`, `source_file`, `source_rows`, `divergence_count`, `divergences[]` |
 | `trace` | `traces/` | `frame_file`, `frame_file_sha256`, `frame_file_bytes`, `format`, `in_git`, `external_location`, `started_at`, `duration_s`, `channel_count`, `frame_count`, `bus`, `vin_masked` |
+
+`oem_divergence.divergences[]` bir satırdır: `code`, `source_description_en`
+(upstream'in üreticiye özgü metni) ve `kb_description_en` (OEM katmanının o kod
+için bugün sakladığı tek metin). Katman kod başına **tek** açıklama tuttuğu için
+üreticiye özgü ifade kaybolur; bu kayıtlar o kanıtı gözden geçirme için geri
+getirir. Doğrulayıcı her çalıştırmada satırları yeniden ölçer ve
+`kb_divergence` INFO satırı üretir.
 
 `pgn_layout.fields[]` bir alanı tanımlar: `field_id`, `name`, `spn`, `bits`,
 `unit`, `resolution`, `description`. `spn` **yalnız** upstream metninde yazıyorsa
@@ -133,8 +142,13 @@ python scripts/intake_scan_sources.py --report docs/audit/intake_source_scan_202
 python scripts/intake_scan_sources.py --json /tmp/scan.json
 python scripts/intake_scan_sources.py --stage              # doğrula (yazmaz)
 python scripts/intake_scan_sources.py --stage --apply      # intake'e yaz
+python scripts/intake_scan_sources.py --stage-oem --apply  # OEM ayrışmaları
 python scripts/intake_scan_sources.py --offline --tarballs-dir /tmp/tb
 ```
+
+Taranan dört kaynak: OBDex (CC0-1.0), canboat (Apache-2.0), Wal33D/dtc-database
+(MIT) ve (referans için) SITRAK (CC-BY-4.0). `--stage` canboat J1939 PGN
+düzenlerini, `--stage-oem` Wal33D üretici listelerini sahaya alır.
 
 Araç, `data/PROVENANCE.md` §2'de kanıtlanmış **pinli commit'leri** indirir,
 artefakt envanterini `sha256` ile çıkarır ve hangisinin zaten vendor edildiğini
@@ -265,6 +279,19 @@ Apache-2.0 atıfı `data/licenses/NOTICE.canboat` ile korunur.
 > Bulgu: staged alanların **66 SPN referansı** KB'de yok; terfi önce bu SPN'ler
 > için `spn_fmi` kaydı açılması gerekir, aksi halde alan düzeni "tanınan
 > parametre" diye görünür ama parametre kaydı yoktur.
+
+**Adım 3b — Üretici açıklaması ayrışmaları (`oem/`).** `oem_divergence`
+kayıtları, OEM katmanının "kod başına tek açıklama" darboğazını kanıtlar. Terfi
+kararı bir katmanlılık sorusudur: ya `dtc_database_oem_layer.json` kayıtları
+`oem_records[]` ile üreticiye özgü açıklamayı taşır (ana şema bozulmaz), ya da
+açıklama `description.en` içinde üreticiye göre birleştirilir. Her iki durumda
+da **hiçbir mevcut değer ezilmez**; yalnız yeni alan eklenir ve kayıt başına
+`_source_license` + `_source_ref` konur.
+
+> **Kapı 3b:** `python scripts/validate_copilot_data.py` → FAIL=0,
+> `python -m pytest tests/unit/test_data_integrity.py tests/unit/test_data_attributions.py -q`
+> → PASS ve `python scripts/validate_intake.py` → FAIL=0 (ayrışma yeniden
+> ölçülür ve kapanır).
 
 **Adım 3 — Trace terfisi.** Sadece ≤ 1 MiB'lik, kişisel veri içermeyen ve
 `frame_count`/`sha256` doğrulanan yakalamalar `data/traces/` altına alınabilir.

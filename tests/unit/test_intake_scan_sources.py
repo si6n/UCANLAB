@@ -27,11 +27,16 @@ import pytest
 from scripts.intake_scan_sources import (
     CANBOAT_COMMIT,
     OBDEX_COMMIT,
+    OEM_SUBDIR,
     PGN_SUBDIR,
     VENDORED_SHA256,
+    WAL33D_COMMIT,
+    build_oem_divergence_records,
     build_pgn_record,
+    parse_oem_listing,
     parse_pgn_yaml,
     stage,
+    stage_oem,
 )
 from scripts.validate_intake import INTAKE_DIRNAME, ROOT, Report, run
 
@@ -275,3 +280,98 @@ def test_pgn_layout_record_rejects_a_bogus_field() -> None:
     rep = Report()
     validate_envelope(bad, "pgn/x.json", rep)
     assert any("bits must be an integer" in d for _lv, _c, d in rep.rows if _lv == "FAIL")
+
+
+# --------------------------------------------------------------------------- #
+# Wal33D per-manufacturer divergence staging
+# --------------------------------------------------------------------------- #
+OEM_SRC = "oem"
+OEM_SAMPLE = """P1100 - Mass Air Flow Sensor Intermittent
+P1101 - Mass Air Flow Sensor Out of Self-Test Range
+P1105 - Dual Alternator Upper Fault
+garbage line without a code
+"""
+
+
+def test_parse_oem_listing_keeps_only_code_lines() -> None:
+    rows = parse_oem_listing(OEM_SAMPLE)
+    assert rows == [
+        ("P1100", "Mass Air Flow Sensor Intermittent"),
+        ("P1101", "Mass Air Flow Sensor Out of Self-Test Range"),
+        ("P1105", "Dual Alternator Upper Fault"),
+    ]
+
+
+def _fake_wal33d(tmp_path: Path) -> Path:
+    tree = tmp_path / "wal33d"
+    src = tree / "data" / "source-data"
+    src.mkdir(parents=True)
+    (src / "ford_codes.txt").write_text(OEM_SAMPLE, encoding="utf-8")
+    return tree
+
+
+def test_oem_divergence_records_carry_only_disagreeing_rows(tmp_path: Path) -> None:
+    tree = _fake_wal33d(tmp_path)
+    records = build_oem_divergence_records(tree, ROOT)
+    assert len(records) == 1
+    payload = records[0]["payload"]
+    assert payload["make"] == "FORD"
+    assert payload["source_rows"] == 3
+    assert payload["divergence_count"] == len(payload["divergences"])
+    codes = {row["code"]: row for row in payload["divergences"]}
+    # P1100 is in the repo's OEM layer with different wording -> both texts kept.
+    assert codes["P1100"]["source_description_en"] == "Mass Air Flow Sensor Intermittent"
+    assert codes["P1100"]["kb_description_en"] != codes["P1100"]["source_description_en"]
+    for row in payload["divergences"]:
+        assert set(row) == {"code", "source_description_en", "kb_description_en"}
+
+
+def test_stage_oem_is_idempotent_and_flags_drift(tmp_path: Path) -> None:
+    tree = _fake_wal33d(tmp_path)
+    intake = tmp_path / "intake"
+    _count, problems = stage_oem(tree, intake, ROOT, apply=False)
+    assert any("missing (run with --apply)" in p for p in problems)
+
+    count, problems = stage_oem(tree, intake, ROOT, apply=True)
+    assert count == 1 and not problems
+    staged = intake / OEM_SUBDIR / "wal33d-divergence-ford.json"
+    assert staged.is_file()
+
+    count, problems = stage_oem(tree, intake, ROOT, apply=True)
+    assert count == 0 and not problems, "a second --apply must add nothing"
+
+    staged.write_text(staged.read_text(encoding="utf-8").replace("FORD", "FORD2"), encoding="utf-8")
+    _count, problems = stage_oem(tree, intake, ROOT, apply=True)
+    assert any("differs from the pinned source" in p for p in problems)
+
+
+def test_staged_oem_divergences_are_re_measured_by_the_gate() -> None:
+    """The gate re-checks every staged row against the live OEM layer."""
+    staged = sorted((ROOT / "data" / "intake" / OEM_SRC).glob("*.json"))
+    assert staged, "the Wal33D per-manufacturer batch must be staged"
+    total = 0
+    for path in staged:
+        record = json.loads(path.read_text(encoding="utf-8"))
+        assert record["record_type"] == "oem_divergence"
+        assert record["source"]["licence"] == "MIT"
+        assert WAL33D_COMMIT in record["source"]["path"]
+        assert record["draft"] is True and record["knowledge_base"] is None
+        payload = record["payload"]
+        assert payload["divergence_count"] == len(payload["divergences"])
+        total += len(payload["divergences"])
+    rep = run(root=ROOT, quiet=True)
+    assert rep.count("FAIL") == 0, [d for lv, _c, d in rep.rows if lv == "FAIL"]
+    assert rep.metrics["oem_divergence_rows"] == total
+    assert rep.metrics["oem_divergence_open"] > 0, "the measured divergence must be re-reported"
+    assert any(check == "kb_divergence" for _lv, check, _d in rep.rows)
+
+
+def test_oem_divergence_record_rejects_a_count_mismatch() -> None:
+    from scripts.validate_intake import Report as _Report, validate_envelope
+
+    staged_path = ROOT / "data" / "intake" / OEM_SRC / "wal33d-divergence-ford.json"
+    record = json.loads(staged_path.read_text(encoding="utf-8"))
+    record["payload"]["divergence_count"] = 1
+    rep = _Report()
+    validate_envelope(record, "oem/x.json", rep)
+    assert any("divergence_count" in d for lv, _c, d in rep.rows if lv == "FAIL")

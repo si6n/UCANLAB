@@ -8,11 +8,12 @@ Dal: `ccr-intake`. Bu rapor **keşif kanıtıdır**; `data/diagnostics` ve
 
 | Ölçüm | Değer |
 |---|---|
-| Taranan upstream artefakt | **95** (OBDex `data/` + canboat `database/j1939/pgns/` + `docs/canboat.json`) |
-| Vendor edilmiş ve **hash birebir doğrulanmış** | **11** |
+| Taranan upstream artefakt | **133** (OBDex `data/` + canboat `database/j1939/pgns/` + `docs/canboat.json` + Wal33D `data/source-data/`) |
+| Vendor edilmiş ve **hash birebir doğrulanmış** | **12** |
 | Hash uyuşmazlığı | **0** |
 | Vendor edilmemiş (yeni bulunan) | **84** (64.461 bayt) |
 | Intake'e sahaya alınan `pgn_layout` kaydı | **84** |
+| Intake'e sahaya alınan `oem_divergence` kaydı | **37** (5.922 ayrışma satırı) |
 | Kopyalanan PGN alanı | **378** |
 | Kopyalanan SPN referansı | **171** (168 ayrı SPN) |
 | KB'de **olmayan** SPN referansı | **66** |
@@ -23,6 +24,7 @@ Dal: `ccr-intake`. Bu rapor **keşif kanıtıdır**; `data/diagnostics` ve
 |---|---|---|---|
 | `foerbsnavi/OBDex` | `bc58b0eb7273226a1aabae98e956b70b8362bda1` | CC0-1.0 | 9/9 dosya zaten vendor; **9/9 sha256 birebir** |
 | `canboat/canboat` | `f7f088b49d58f5b4a0feb9b29c288b0ae18a7880` | Apache-2.0 (NOTICE zorunlu) | `docs/canboat.json` (2,4 MB) ve DM1 YAML'ı birebir doğrulandı; **84 PGN düzeni yeni** |
+| `Wal33D/dtc-database` | `04c43d72e7db7197658b6f72fe582c5076d9eee8` | MIT (atıf zorunlu) | `data/dtc_codes.db` birebir doğrulandı; **37 per-manufacturer kaynak listesi yeni** |
 
 İndirilen tarball, `data/PROVENANCE.md` §2'deki kanıt satırlarıyla **birebir**
 örtüşüyor: 11/11 artefaktta hash eşleşti, sapma yok. Yani "upstream değişti"
@@ -93,6 +95,42 @@ sahaya alındı — **terfi edilmedi**.
 doğrulayıcı her biri için `WARN pgn_spn_unknown` üretir. Bu, terfi kuyruğunun
 ilk gerçek iş kalemidir; terfi kararı intake README'sindeki Kapı 1-2'ye bağlı.
 
+## 4b. Keşif: OEM katmanı üreticiye özgü açıklamayı kaybetmiş
+
+Wal33D/dtc-database deposunda vendor edilmemiş **37 per-manufacturer kaynak
+listesi** var (`data/source-data/*.txt`, 18.825 satır). Repo yalnız derlenmiş
+`data/dtc_codes.db` dosyasını (3.256.320 bayt, sha256 `099a4ffd…`) aldı; bu liste
+`build_database.py` ile derlenirken **açıklama kod başına tek satıra düşüyor**
+("last write wins").
+
+Ölçüm (gerçek satır karşılaştırması):
+
+| Ölçüm | Değer |
+|---|---|
+| Kaynak satır (37 dosya) | **18825** |
+| Kod sayısı | 12.128 — **OEM katmanında eksik kod yok** (0/18.825) |
+| **Açıklaması katmandaki metinden farklı satır** | **5922** |
+| Etkilenen ayrı kod | **877** |
+| Etkilenen üretici listesi | **37** |
+
+Yani katmanın *kapsamı* eksik değil; **anlam kaybı** var. Örnek (FORD listesi):
+
+| Kod | Upstream (FORD) | Katmanda saklanan |
+|---|---|---|
+| `P1100` | Mass Air Flow Sensor Intermittent | BARO Sensor Circuit |
+| `P1101` | Mass Air Flow Sensor Out of Self-Test Range | Oxygen Sensor Circuit Bank 1 Sensor 1 Voltage Too Low/Air Leak |
+
+Copilot bugün `P1100` için "BARO Sensor Circuit" cevabı verebilir; Acura/Honda
+tarafında aynı kod "BARO Circuit Range Performance Malfunction" anlamına gelir.
+Bu bir **veri kalitesi kusuru**, tespiti intake kuyruğuna `oem_divergence`
+kayıtları olarak girdi (37 kayıt, ~557 KiB satır kanıtı). Doğrulayıcı her
+çalıştırmada satırları yeniden ölçer: `oem_divergence_rows=5922`,
+`oem_divergence_open=5922` → **hiçbiri kapanmamış**, yani kusur kendiliğinden
+çözülmüyor ve terfi kararı gerekiyor (README Adım 3b).
+
+> Düzeltme intake'ten yapılmaz: `data/diagnostics/` dosyalarına bu turda
+> **hiçbir yazma yapılmadı** (test bunu byte seviyesinde doğrular).
+
 ## 5. Beklenen/dürüst sınırlar
 
 - **Hiçbir şey uydurulmadı.** Alan adları, `description`, `bits`, `unit`,
@@ -116,6 +154,7 @@ ilk gerçek iş kalemidir; terfi kararı intake README'sindeki Kapı 1-2'ye bağ
 python scripts/intake_scan_sources.py --report docs/audit/intake_source_scan_2026-10-02.md
 python scripts/intake_scan_sources.py --stage            # doğrula (yazmaz)
 python scripts/intake_scan_sources.py --stage --apply    # intake'e yaz
+python scripts/intake_scan_sources.py --stage-oem --apply
 python scripts/validate_intake.py --sync-manifest --apply
 python scripts/validate_intake.py                       # FAIL=0 beklenir
 python -m pytest tests/unit/test_validate_intake.py tests/unit/test_intake_scan_sources.py -q

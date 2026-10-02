@@ -1,0 +1,213 @@
+{
+  "schema_version": 1,
+  "intake_id": "wal33d-divergence-toyota",
+  "record_type": "oem_divergence",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "automated",
+    "id": "scripts/intake_scan_sources.py",
+    "role": "author"
+  },
+  "source": {
+    "title": "Wal33D dtc-database source list for TOYOTA (toyota_codes.txt)",
+    "path": "https://github.com/Wal33D/dtc-database/blob/04c43d72e7db7197658b6f72fe582c5076d9eee8/data/source-data/toyota_codes.txt",
+    "type": "web",
+    "publisher": "Wal33D (dtc-database)",
+    "revision": "04c43d72e7db",
+    "licence": "MIT",
+    "access_date": "2026-10-02",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": "6758d013d0f51f30402cdebf5a7a91ebb4916bdfc86b524c5914dc17c110c211",
+      "bytes": 1931,
+      "pages_cited": []
+    }
+  },
+  "confidence": "single_source",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "make": "TOYOTA",
+    "source_file": "data/source-data/toyota_codes.txt",
+    "source_rows": 45,
+    "divergence_count": 35,
+    "divergences": [
+      {
+        "code": "P1120",
+        "source_description_en": "Accelerator Pedal Position Sensor Circuit",
+        "kb_description_en": "Oxygen Sensor Heater Circuit Bank 2 Sensor 1 Open"
+      },
+      {
+        "code": "P1121",
+        "source_description_en": "Accelerator Pedal Position Sensor Range Performance Problem",
+        "kb_description_en": "Oxygen Sensor Heater Circuit Bank 2 Sensor 2 Short To Ground"
+      },
+      {
+        "code": "P1125",
+        "source_description_en": "Throttle Control Motor Circuit",
+        "kb_description_en": "Long Term Fuel Trim Add Air Bank 2 System Too Rich"
+      },
+      {
+        "code": "P1126",
+        "source_description_en": "Magnetic Clutch Circuit",
+        "kb_description_en": "Long Term Fuel Trim Add Air Bank 2 System Too Lean"
+      },
+      {
+        "code": "P1127",
+        "source_description_en": "ETCS Actuator Power Source Circuit",
+        "kb_description_en": "Long Term Fuel Trim Bank 1 System Too Rich"
+      },
+      {
+        "code": "P1128",
+        "source_description_en": "Throttle Control Motor Lock",
+        "kb_description_en": "Long Term Fuel Trim Bank 1 System Too Lean"
+      },
+      {
+        "code": "P1129",
+        "source_description_en": "Electric Throttle Control System",
+        "kb_description_en": "Long Term Fuel Trim Bank 2 System Too Rich"
+      },
+      {
+        "code": "P1130",
+        "source_description_en": "Air/Fuel Sensor Circuit Range Performance Bank 1 Sensor 1",
+        "kb_description_en": "Long Term Fuel Trim Bank 2 System Too Lean"
+      },
+      {
+        "code": "P1133",
+        "source_description_en": "Air/Fuel Sensor Circuit Response Bank 1 Sensor 1",
+        "kb_description_en": "Oxygen Sensor Heating Circuit Bank 1 + 2 Sensor 1 Electrical Malfunction"
+      },
+      {
+        "code": "P1135",
+        "source_description_en": "Air/Fuel Sensor Heater Circuit Response Bank 1 Sensor 1",
+        "kb_description_en": "Oxygen Sensor Heating Circuit Bank 1 + 2 Sensor 2 Electrical Malfunction"
+      },
+      {
+        "code": "P1150",
+        "source_description_en": "Air/Fuel Sensor Circuit Range Performance Bank 1 Sensor 2",
+        "kb_description_en": "Oxygen Sensor Control Bank 2 Out Of Range"
+      },
+      {
+        "code": "P1155",
+        "source_description_en": "Air/Fuel Sensor Heater Circuit Bank 1 Sensor 2",
+        "kb_description_en": "Manifold Absolute Pressure Sensor Circuit Short To B+"
+      },
+      {
+        "code": "P1300",
+        "source_description_en": "Igniter Circuit Malfunction No 1",
+        "kb_description_en": "Misfire Detected Fuel Level Too Low"
+      },
+      {
+        "code": "P1335",
+        "source_description_en": "No Crankshaft Position Sensor Signal Engine Running",
+        "kb_description_en": "Engine Torque Monitoring 2 Control Limit Exceeded"
+      },
+      {
+        "code": "P1349",
+        "source_description_en": "VVT System",
+        "kb_description_en": "Ignition Coil Power Output Stage 2 Open"
+      },
+      {
+        "code": "P1400",
+        "source_description_en": "Sub-Throttle Position Sensor",
+        "kb_description_en": "EGR Valve Circuit Electrical Malfunction"
+      },
+      {
+        "code": "P1401",
+        "source_description_en": "Sub-Throttle Position Sensor Range Performance Problem",
+        "kb_description_en": "EGR Valve Power Stage Short To Ground"
+      },
+      {
+        "code": "P1406",
+        "source_description_en": "Turbo Pressure Sensor Range Performance Problem",
+        "kb_description_en": "EGR Temperature Sensor Range Performance"
+      },
+      {
+        "code": "P1410",
+        "source_description_en": "EGR Valve Position Sensor Circuit Malfunction",
+        "kb_description_en": "Tank Ventilation Valve Circuit Short To B+"
+      },
+      {
+        "code": "P1411",
+        "source_description_en": "EGR Valve Position Sensor Circuit Range Performance",
+        "kb_description_en": "Secondary Air Injection System Bank 2 Flow Too Lean"
+      },
+      {
+        "code": "P1500",
+        "source_description_en": "Starter Signal Circuit",
+        "kb_description_en": "Fuel Pump Relay Electrical Circuit Malfunction"
+      },
+      {
+        "code": "P1510",
+        "source_description_en": "Boost Pressure Control Circuit",
+        "kb_description_en": "Idle Air Control Circuit Short To B+"
+      },
+      {
+        "code": "P1511",
+        "source_description_en": "Boost Pressure Low",
+        "kb_description_en": "Intake Manifold Changeover Valve Circuit Electrical Malfunction"
+      },
+      {
+        "code": "P1512",
+        "source_description_en": "Boost Pressure High",
+        "kb_description_en": "Intake Manifold Changeover Valve Circuit Short To B+"
+      },
+      {
+        "code": "P1520",
+        "source_description_en": "Stop Lamp Switch Signal Malfunction",
+        "kb_description_en": "Intake Manifold Changeover Valve 2 Circuit Open"
+      },
+      {
+        "code": "P1565",
+        "source_description_en": "Cruise Control Main Switch Circuit",
+        "kb_description_en": "Idle Speed Control Throttle Position Lower Limit Not Obtained"
+      },
+      {
+        "code": "P1600",
+        "source_description_en": "ECM BATT Malfunction",
+        "kb_description_en": "Power Supply Terminal No 15 Low Voltage"
+      },
+      {
+        "code": "P1605",
+        "source_description_en": "Knock Control CPU",
+        "kb_description_en": "Rough Road Acceleration Sensor Electrical Malfunction"
+      },
+      {
+        "code": "P1630",
+        "source_description_en": "Traction Control System",
+        "kb_description_en": "Accelerator Pedal Position Sensor 1 Signal Too Low"
+      },
+      {
+        "code": "P1633",
+        "source_description_en": "ECM",
+        "kb_description_en": "Accelerator Pedal Position Sensor 2 Signal Too Low"
+      },
+      {
+        "code": "P1652",
+        "source_description_en": "Idle Air Control Valve Control Circuit",
+        "kb_description_en": "Check DTC Memory Of Transmissions ECU"
+      },
+      {
+        "code": "P1656",
+        "source_description_en": "OCV Circuit",
+        "kb_description_en": "A/C Clutch Relays Circuit Short To Ground"
+      },
+      {
+        "code": "P1658",
+        "source_description_en": "Wastegate Valve Control Circuit",
+        "kb_description_en": "Data Bus Powertrain Range Performance From Distance Control"
+      },
+      {
+        "code": "P1765",
+        "source_description_en": "Linear Shift Solenoid Circuit Fault",
+        "kb_description_en": "Hydraulic Pressure Sensor 2 Adaptation At Limit"
+      },
+      {
+        "code": "P1780",
+        "source_description_en": "Park Neutral Position Switch Malfunction Only For A/T",
+        "kb_description_en": "Engine Intervention Readable"
+      }
+    ]
+  },
+  "notes": "Staged from the pinned Wal33D/dtc-database source list. The per-manufacturer description is upstream evidence; kb_description_en is what the merged OEM layer currently stores for the same code. Nothing here is written to data/diagnostics/."
+}
