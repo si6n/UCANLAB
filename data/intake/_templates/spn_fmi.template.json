@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "intake_id": "template-spn102-fmi16-example",
+  "record_type": "spn_fmi",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "curator",
+    "id": "workshop-berlin-01",
+    "role": "author"
+  },
+  "source": {
+    "title": "Example: J1939 SPN/FMI pair observed on a marine engine gateway",
+    "path": "https://example.invalid/replace-with-the-real-document-url",
+    "type": "oem_manual",
+    "publisher": "Example Marine Engine Documentation",
+    "revision": "2023-11",
+    "licence": "proprietary",
+    "access_date": "2026-10-01",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": null,
+      "bytes": null,
+      "pages_cited": []
+    }
+  },
+  "confidence": "single_source",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "spn": 102,
+    "fmi": 16,
+    "system": "Engine (J1939)",
+    "description": "Boost pressure above the normal operating band for this calibration.",
+    "typical_causes": [
+      "Boost pressure control valve stuck open",
+      "Intake hose downstream of the compressor split"
+    ],
+    "pgn": 61444,
+    "oem_ref": null,
+    "vin_masked": null
+  },
+  "notes": "spn 0..524287, fmi 0..31 (FMI is 5 bits). A pair that is already in the J1939 fault matrix is reported by validate_intake.py as kb_overlap — it is never merged twice."
+}

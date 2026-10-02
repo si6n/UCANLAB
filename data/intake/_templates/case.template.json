@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "intake_id": "template-case-p0171-example",
+  "record_type": "case",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "human",
+    "id": "tech-07",
+    "role": "author"
+  },
+  "source": {
+    "title": "Example: workshop repair order and freeze-frame capture",
+    "path": "internal://workshop/2026-10-01/ro-4417",
+    "type": "internal_kb",
+    "publisher": "UCanLab intake",
+    "revision": null,
+    "licence": "project-internal",
+    "access_date": "2026-10-02",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": null,
+      "bytes": null,
+      "pages_cited": []
+    }
+  },
+  "confidence": "unverified",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "case_id": "template-case-p0171-example",
+    "domain": "PASSENGER",
+    "make": "Example Motors",
+    "model": "Example Sedan",
+    "year": 2019,
+    "symptom": "Vehicle stumbles at idle after a cold start, P0171 pending, lambda trim not yet captured.",
+    "dtcs": [
+      {
+        "code": "P0171",
+        "status": "PENDING"
+      }
+    ],
+    "signals_of_interest": [
+      {
+        "name": "LambdaTrimBank1",
+        "expected_behavior": "within +/- 5 percent at closed loop",
+        "observed_behavior": null
+      }
+    ],
+    "actual_fault": null,
+    "repair": null,
+    "verification": null,
+    "trace_refs": [],
+    "vin_masked": "WBA*****X2M"
+  },
+  "notes": "Intake cases are always draft:true and may not claim verification. actual_fault/repair/verification stay null until a technician confirms them; an unverified case can never enter AI calibration (calibration_eligible_cases() filters it out)."
+}

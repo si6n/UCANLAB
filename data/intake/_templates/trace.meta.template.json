@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "intake_id": "template-trace-can-session-example",
+  "record_type": "trace",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "curator",
+    "id": "workshop-berlin-01",
+    "role": "author"
+  },
+  "source": {
+    "title": "Example: bench capture of a UDS session on a spare ECU",
+    "path": "internal://workshop/2026-10-02/bench/capture-018",
+    "type": "internal_kb",
+    "publisher": "UCanLab intake",
+    "revision": null,
+    "licence": "project-internal",
+    "access_date": "2026-10-02",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": null,
+      "bytes": null,
+      "pages_cited": []
+    }
+  },
+  "confidence": "unverified",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "frame_file": "trace.frames.template.json",
+    "frame_file_sha256": "c6a376de9f70d2c4c674c949aa7eebce4a9ee3766c055b191e22edee7362d574",
+    "frame_file_bytes": 757,
+    "format": "can_frames_json",
+    "in_git": true,
+    "external_location": null,
+    "started_at": "2026-10-02T09:14:05Z",
+    "duration_s": 0.02,
+    "channel_count": 1,
+    "frame_count": 3,
+    "bus": "can0",
+    "vin_masked": null
+  },
+  "notes": "frame_file_sha256/frame_file_bytes are never typed by hand: run `python scripts/validate_intake.py --print-trace-meta <file>`. A capture larger than 1 MiB must set in_git=false, give an external_location, and appear in the 'Git'e girmeyen trace'ler' table of MANIFEST.md."
+}

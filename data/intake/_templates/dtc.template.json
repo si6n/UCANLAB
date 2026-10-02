@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "intake_id": "template-dtc-p0301-example",
+  "record_type": "dtc",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "curator",
+    "id": "workshop-berlin-01",
+    "role": "author"
+  },
+  "source": {
+    "title": "Example: OEM fault-code reference, ignition section",
+    "path": "https://example.invalid/replace-with-the-real-document-url",
+    "type": "oem_manual",
+    "publisher": "Example Motorservice Division",
+    "revision": "2024-03",
+    "licence": "proprietary",
+    "access_date": "2026-10-01",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": null,
+      "bytes": null,
+      "pages_cited": [142]
+    }
+  },
+  "confidence": "single_source",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "code": "P0301",
+    "system": "Engine",
+    "title_en": "Cylinder 1 Misfire Detected",
+    "title_tr": "Silindir 1 Ateşleme Hatası Tespit Edildi",
+    "description": "EEC sensed a crankshaft-speed deviation beyond the permitted window on cylinder 1 during the last complete combustion cycle.",
+    "severity": "MEDIUM",
+    "known_symptoms": [
+      "Engine runs rough at idle",
+      "Noticeable vibration under light load"
+    ],
+    "possible_causes": [
+      "Ignition coil on cylinder 1 open circuit",
+      "Spark plug gap out of tolerance on cylinder 1",
+      "Fuel injector flow deviation on cylinder 1"
+    ],
+    "status": "ACTIVE",
+    "freeze_frame_ref": null,
+    "oem_ref": "16486",
+    "vin_masked": "WBA*****X2M"
+  },
+  "notes": "Copy this file, rename it to <kebab-case-intake-id>.json and replace every placeholder. Unknown fields stay null or [] — never invented."
+}

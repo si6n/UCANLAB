@@ -1,0 +1,29 @@
+{
+  "_comment": "Frame file template. Keep it small (<= 1 MiB, see README) so it can live in git; a real capture is a .jsonl or .json with the same frame shape. Regenerate the matching meta with: python scripts/validate_intake.py --print-trace-meta data/intake/traces/<file>",
+  "format": "can_frames_json",
+  "channel": "can0",
+  "bus": "can0",
+  "frames": [
+    {
+      "t": 0.000000,
+      "channel": "can0",
+      "id": "0x7E0",
+      "dlc": 8,
+      "data": "0209800100000000"
+    },
+    {
+      "t": 0.010000,
+      "channel": "can0",
+      "id": "0x7E8",
+      "dlc": 8,
+      "data": "0300FFFF00000000"
+    },
+    {
+      "t": 0.020000,
+      "channel": "can0",
+      "id": "0x18FEF100",
+      "dlc": 8,
+      "data": "0102030405060708"
+    }
+  ]
+}
