@@ -1,0 +1,106 @@
+# -*- coding: utf-8 -*-
+"""Generate data/diagnostics/signal_measurement_map.json from the shipped DBs.
+
+Every SPN/PGN/PID field is READ from j1939_spn_fmi_database.json /
+extended_pid_database.json (fail if absent) — nothing typed by hand except the
+everyday phrases used to recognise the signal in text.
+"""
+import json
+import os
+
+os.chdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))  # run from repo root
+
+D = "data/diagnostics/"
+spns = json.load(open(D + "j1939_spn_fmi_database.json"))["spns"]
+pids = json.load(open(D + "extended_pid_database.json"))["pids"]
+thr = json.load(open(D + "telemetry_thresholds.json"))["signals"]
+
+def pid_row(service, pid):
+    rows = [p for p in pids if str(p.get("service", "")).zfill(2) == service and
+            (f"{p['pid']:02X}" if isinstance(p.get("pid"), int) else str(p.get("pid", "")).upper().zfill(2)) == pid]
+    std = [r for r in rows if r.get("confidence") == "standard"] or rows
+    assert std, (service, pid)
+    return std[0]
+
+S = [
+ # canonical, unit, aliases, tr phrases, en phrases, threshold_key, spn, (service,pid)
+ ("CoolantTemp", "°C", ["EngineCoolantTemp", "coolant", "ECT"], ["su sicakligi", "sogutma suyu sicakligi", "motor suyu sicakligi", "motor sicakligi", "antifriz sicakligi"], ["coolant temperature", "coolant temp", "engine temperature", "engine temp"], "EngineCoolantTemp", 110, ("01", "05")),
+ ("EngineSpeed", "rpm", ["RPM"], ["motor devri", "devir"], ["engine speed", "rpm"], "EngineSpeed", 190, ("01", "0C")),
+ ("EngineOilPressure", "bar", ["OilPressure", "oil_pressure"], ["yag basinci"], ["oil pressure"], "EngineOilPressure", 100, None),
+ ("BoostPressure", "bar", ["TurboBoost", "Boost"], ["turbo basinci", "takviye basinci", "boost basinci"], ["boost pressure", "turbo pressure", "boost"], "TurboBoost", 102, ("01", "0B")),
+ ("BatteryVoltage", "V", ["SystemVoltage", "ModuleVoltage"], ["aku voltaji", "aku gerilimi", "sarj voltaji", "sistem voltaji"], ["battery voltage", "system voltage", "charging voltage"], None, 168, ("01", "42")),
+ ("VehicleSpeed", "km/h", ["VSS"], ["arac hizi"], ["vehicle speed"], "VehicleSpeed", 84, ("01", "0D")),
+ ("EngineLoad", "%", ["EngineLoadPct"], ["motor yuku"], ["engine load"], "EngineLoad", 92, ("01", "04")),
+ ("EngineTorque", "%", ["EngineTorquePct"], ["motor torku"], ["engine torque"], "EngineTorque", 513, None),
+ ("FuelPressure", "kPa", ["FuelRailPressure", "RailPressure"], ["rail basinci", "yakit basinci", "common rail basinci"], ["rail pressure", "fuel pressure", "fuel rail pressure"], None, 157, ("01", "23")),
+ ("DPFDiffPressure", "kPa", ["DPFPressure"], ["dpf fark basinci", "dpf basinci"], ["dpf differential pressure", "dpf pressure"], None, 3251, None),
+ ("DPFSootLoad", "%", ["SootLoad"], ["kurum orani", "dpf doluluk", "is yuku"], ["soot load", "dpf soot"], None, 3719, None),
+ ("EngineOilTemp", "°C", ["OilTemp"], ["yag sicakligi"], ["oil temperature", "oil temp"], None, 175, ("01", "5C")),
+ ("IntakeAirTemp", "°C", ["IAT"], ["emme havasi sicakligi"], ["intake air temperature", "intake temp"], None, 105, ("01", "0F")),
+ ("EngineAirFlow", "g/s", ["MAF", "MassAirFlow"], ["hava debisi", "maf degeri"], ["mass air flow", "maf"], None, 132, ("01", "10")),
+ ("DEFTankLevel", "%", ["AdBlueLevel"], ["adblue seviyesi", "def seviyesi"], ["def level", "adblue level"], None, 1761, None),
+ ("FuelLevel", "%", [], ["yakit seviyesi"], ["fuel level"], None, 96, ("01", "2F")),
+ ("CatalystTemperature", "°C", [], ["katalizor sicakligi"], ["catalyst temperature"], None, None, ("01", "3C")),
+ ("ExhaustTemp", "°C", ["EGT"], ["egzoz sicakligi"], ["exhaust temperature", "egt"], None, 173, None),
+ ("AirPressureCircuit1", "kPa", ["BrakeCircuit1Pressure"], ["fren hava basinci devre 1"], ["brake air pressure circuit 1"], None, 1087, None),
+ ("AirPressureCircuit2", "kPa", ["BrakeCircuit2Pressure"], ["fren hava basinci devre 2"], ["brake air pressure circuit 2"], None, 1088, None),
+ ("ThrottlePosition", "%", ["TPS"], ["gaz kelebegi konumu"], ["throttle position"], None, 51, ("01", "11")),
+ ("EGRPosition", "%", [], ["egr konumu", "egr valf konumu"], ["egr position"], None, 27, None),
+ ("IsolationResistance", "kΩ", ["HVIsolationResistance"], ["izolasyon direnci"], ["isolation resistance", "insulation resistance"], None, None, None),
+ ("HVPackVoltage", "V", ["PackVoltage", "HVBusVoltage"], ["batarya paket voltaji", "paket voltaji", "yuksek voltaj bara gerilimi"], ["pack voltage", "hv bus voltage", "battery pack voltage"], None, None, None),
+]
+
+def prov(canon, spn, pid):
+    srcs = []
+    if spn is not None:
+        srcs.append(f"j1939_spn_fmi_database.json['spns']['SPN_{spn}']")
+    if pid is not None:
+        srcs.append(f"extended_pid_database.json service {pid[0]} pid {pid[1]}")
+    return [{
+        "provenance_id": f"prv-sigmap-{canon.lower()}",
+        "target": {"record_id": canon, "field": "j1939/obd"},
+        "activity": "derive_from_internal_db",
+        "activity_version": "copilot-upgrade-1",
+        "agent": {"type": "automated", "id": "build_signal_measurement_map", "role": "generator"},
+        "source": {"title": "; ".join(srcs) or "curator note (no SAE J1939/J1979 standard parameter in the shipped DBs)",
+                   "path": "data/diagnostics/" + ("j1939_spn_fmi_database.json" if spn is not None else "extended_pid_database.json" if pid else "signal_measurement_map.json"),
+                   "type": "internal_kb"},
+        "transform": {"rule_id": "copy-spn-pgn-pid-fields"},
+        "confidence": "single_source" if (spn is not None or pid) else "unverified",
+    }]
+
+out = []
+for canon, unit, aliases, tr, en, tkey, spn, pid in S:
+    if tkey is not None:
+        assert tkey in thr, tkey
+    rec = {"canonical": canon, "unit": unit, "aliases": aliases, "phrases_tr": tr, "phrases_en": en}
+    if tkey:
+        rec["threshold_key"] = tkey
+    if spn is not None:
+        r = spns[f"SPN_{spn}"]
+        rec["j1939"] = {"spn": spn, "name": r["name"], "title_tr": r.get("title_tr"), "pgn": r.get("associated_pgn"),
+                        "pgn_acronym": r.get("pgn_acronym"), "unit": r.get("unit")}
+    if pid is not None:
+        row = pid_row(*pid)
+        rec["obd"] = {"service": pid[0], "pid": pid[1], "name": row["name"], "unit": row.get("unit")}
+    if canon in ("IsolationResistance", "HVPackVoltage"):
+        rec["hv_only"] = True
+        rec["how_to_tr"] = ("Yalnız yüksek gerilim eğitimi almış yetkili teknisyen, araç üreticisinin servis aracıyla "
+                            "BMS canlı verisinden okur. Turuncu kablolara dokunmayın.")
+        rec["how_to_en"] = ("Only an HV-trained, authorised technician reads this from BMS live data with the OEM "
+                            "service tool. Do not touch orange cables.")
+    rec["provenance"] = prov(canon, spn, pid)
+    out.append(rec)
+
+doc = {
+    "schema_version": 1,
+    "title": "Signal measurement map (canonical signal -> J1939 SPN/PGN, OBD-II PID, unit)",
+    "_rule": ("SPN name/PGN/acronym/unit and OBD PID name/unit are COPIED from the shipped databases by "
+              "the generator (see provenance). Only recognition phrases are curated. Used by the copilot to "
+              "say which measurement is missing and how to take it. scripts/validate_copilot_data.py re-checks "
+              "every SPN/PID against the databases."),
+    "signals": out,
+}
+json.dump(doc, open(D + "signal_measurement_map.json", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+open(D + "signal_measurement_map.json", "a").write("\n")
+print(len(out))

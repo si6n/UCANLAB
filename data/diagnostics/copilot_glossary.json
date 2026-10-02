@@ -1,0 +1,945 @@
+{
+ "schema_version": 1,
+ "title": "Copilot plain-language glossary (TR/EN)",
+ "_rule": "Definitions only: no values, limits, causes or procedures. README principle 2.",
+ "terms": {
+  "DTC": {
+   "match": [
+    "dtc",
+    "ariza kodu",
+    "fault code",
+    "trouble code"
+   ],
+   "tr": "Arıza kodu: kontrol ünitesinin bir sorunu tespit ettiğinde hafızasına yazdığı kısa kod (ör. P0101).",
+   "en": "Diagnostic trouble code: a short code a control unit stores when it detects a problem (e.g. P0101).",
+   "provenance": [
+    {
+     "provenance_id": "prv-gloss-dtc",
+     "target": {
+      "record_id": "DTC",
+      "field": "tr/en"
+     },
+     "activity": "curate_plain_language_definition",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "Term as used in SAE J2012 / ISO 15031-6",
+      "path": "docs/COPILOT.md#terim-sozlugu",
+      "type": "internal_kb"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "SPN": {
+   "match": [
+    "spn"
+   ],
+   "tr": "SPN (J1939 parametre numarası): ağır vasıtalarda hangi sensör/değerin arızalı olduğunu söyleyen numara.",
+   "en": "SPN (J1939 suspect parameter number): the number that says which sensor or value is at fault on heavy-duty vehicles.",
+   "provenance": [
+    {
+     "provenance_id": "prv-gloss-spn",
+     "target": {
+      "record_id": "SPN",
+      "field": "tr/en"
+     },
+     "activity": "curate_plain_language_definition",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "Term as used in SAE J1939-71 / -73",
+      "path": "docs/COPILOT.md#terim-sozlugu",
+      "type": "internal_kb"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "FMI": {
+   "match": [
+    "fmi"
+   ],
+   "tr": "FMI (arıza tipi): SPN'deki sorunun türü — ör. değer çok yüksek, kısa devre, sinyal yok.",
+   "en": "FMI (failure mode identifier): the kind of fault on the SPN — e.g. value too high, short circuit, no signal.",
+   "provenance": [
+    {
+     "provenance_id": "prv-gloss-fmi",
+     "target": {
+      "record_id": "FMI",
+      "field": "tr/en"
+     },
+     "activity": "curate_plain_language_definition",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "Term as used in SAE J1939-73",
+      "path": "docs/COPILOT.md#terim-sozlugu",
+      "type": "internal_kb"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "PGN": {
+   "match": [
+    "pgn"
+   ],
+   "tr": "PGN: J1939 hattında bir grup ölçümü taşıyan mesajın numarası.",
+   "en": "PGN: the number of the J1939 message that carries a group of measurements.",
+   "provenance": [
+    {
+     "provenance_id": "prv-gloss-pgn",
+     "target": {
+      "record_id": "PGN",
+      "field": "tr/en"
+     },
+     "activity": "curate_plain_language_definition",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "Term as used in SAE J1939-21",
+      "path": "docs/COPILOT.md#terim-sozlugu",
+      "type": "internal_kb"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "DM1": {
+   "match": [
+    "dm1"
+   ],
+   "tr": "DM1: J1939 araçlarda aktif arıza kodlarını ve uyarı lambalarının durumunu yayınlayan mesaj.",
+   "en": "DM1: the J1939 message that broadcasts active fault codes and warning-lamp status.",
+   "provenance": [
+    {
+     "provenance_id": "prv-gloss-dm1",
+     "target": {
+      "record_id": "DM1",
+      "field": "tr/en"
+     },
+     "activity": "curate_plain_language_definition",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "Term as used in SAE J1939-73",
+      "path": "docs/COPILOT.md#terim-sozlugu",
+      "type": "internal_kb"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "OBD": {
+   "match": [
+    "obd",
+    "obd ii",
+    "obd2"
+   ],
+   "tr": "OBD-II: binek araçlarda arıza kodlarını ve canlı verileri okumaya yarayan standart teşhis bağlantısı.",
+   "en": "OBD-II: the standard diagnostic connection on passenger cars for reading fault codes and live data.",
+   "provenance": [
+    {
+     "provenance_id": "prv-gloss-obd",
+     "target": {
+      "record_id": "OBD",
+      "field": "tr/en"
+     },
+     "activity": "curate_plain_language_definition",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "Term as used in SAE J1979 / ISO 15031",
+      "path": "docs/COPILOT.md#terim-sozlugu",
+      "type": "internal_kb"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "PID": {
+   "match": [
+    "pid"
+   ],
+   "tr": "PID: OBD-II üzerinden okunan tek bir canlı verinin numarası (ör. 05 = soğutma suyu sıcaklığı).",
+   "en": "PID: the number of one live value read over OBD-II (e.g. 05 = coolant temperature).",
+   "provenance": [
+    {
+     "provenance_id": "prv-gloss-pid",
+     "target": {
+      "record_id": "PID",
+      "field": "tr/en"
+     },
+     "activity": "curate_plain_language_definition",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "Term as used in SAE J1979",
+      "path": "docs/COPILOT.md#terim-sozlugu",
+      "type": "internal_kb"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "ECU": {
+   "match": [
+    "ecu",
+    "ecm",
+    "kontrol unitesi",
+    "beyin"
+   ],
+   "tr": "ECU: motoru veya bir sistemi yöneten elektronik kontrol ünitesi ('beyin').",
+   "en": "ECU: the electronic control unit that manages the engine or a system (the 'brain').",
+   "provenance": [
+    {
+     "provenance_id": "prv-gloss-ecu",
+     "target": {
+      "record_id": "ECU",
+      "field": "tr/en"
+     },
+     "activity": "curate_plain_language_definition",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "Term as used in ISO 14229",
+      "path": "docs/COPILOT.md#terim-sozlugu",
+      "type": "internal_kb"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "MIL": {
+   "match": [
+    "mil",
+    "motor ariza lambasi",
+    "check engine"
+   ],
+   "tr": "MIL: gösterge panelindeki motor arıza (check engine) lambası.",
+   "en": "MIL: the check-engine (malfunction indicator) lamp on the dashboard.",
+   "provenance": [
+    {
+     "provenance_id": "prv-gloss-mil",
+     "target": {
+      "record_id": "MIL",
+      "field": "tr/en"
+     },
+     "activity": "curate_plain_language_definition",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "Term as used in SAE J1979",
+      "path": "docs/COPILOT.md#terim-sozlugu",
+      "type": "internal_kb"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "DPF": {
+   "match": [
+    "dpf",
+    "partikul filtresi"
+   ],
+   "tr": "DPF: dizel egzozundaki isi (kurumu) tutan partikül filtresi; dolunca yakılarak temizlenir.",
+   "en": "DPF: the diesel particulate filter that traps soot; it is cleaned by burning the soot off (regeneration).",
+   "provenance": [
+    {
+     "provenance_id": "prv-gloss-dpf",
+     "target": {
+      "record_id": "DPF",
+      "field": "tr/en"
+     },
+     "activity": "curate_plain_language_definition",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "Term as used in SAE J1939-71",
+      "path": "docs/COPILOT.md#terim-sozlugu",
+      "type": "internal_kb"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "REGEN": {
+   "match": [
+    "rejenerasyon",
+    "regeneration",
+    "regen"
+   ],
+   "tr": "Rejenerasyon: DPF'de biriken kurumun yüksek egzoz sıcaklığıyla yakılarak temizlenmesi.",
+   "en": "Regeneration: burning the soot collected in the DPF off with high exhaust temperature.",
+   "provenance": [
+    {
+     "provenance_id": "prv-gloss-regen",
+     "target": {
+      "record_id": "REGEN",
+      "field": "tr/en"
+     },
+     "activity": "curate_plain_language_definition",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "Term as used in SAE J1939-71",
+      "path": "docs/COPILOT.md#terim-sozlugu",
+      "type": "internal_kb"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "EGR": {
+   "match": [
+    "egr"
+   ],
+   "tr": "EGR: egzoz gazının bir kısmını emişe geri gönderen ve NOx'u azaltan sistem.",
+   "en": "EGR: the system that sends part of the exhaust gas back to the intake to reduce NOx.",
+   "provenance": [
+    {
+     "provenance_id": "prv-gloss-egr",
+     "target": {
+      "record_id": "EGR",
+      "field": "tr/en"
+     },
+     "activity": "curate_plain_language_definition",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "Term as used in SAE J2012",
+      "path": "docs/COPILOT.md#terim-sozlugu",
+      "type": "internal_kb"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "SCR": {
+   "match": [
+    "scr",
+    "adblue",
+    "def",
+    "ure"
+   ],
+   "tr": "SCR/AdBlue: egzoza üre (AdBlue/DEF) püskürterek NOx gazını azaltan sistem.",
+   "en": "SCR/AdBlue: the system that injects urea (AdBlue/DEF) into the exhaust to reduce NOx.",
+   "provenance": [
+    {
+     "provenance_id": "prv-gloss-scr",
+     "target": {
+      "record_id": "SCR",
+      "field": "tr/en"
+     },
+     "activity": "curate_plain_language_definition",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "Term as used in SAE J1939-71",
+      "path": "docs/COPILOT.md#terim-sozlugu",
+      "type": "internal_kb"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "NOX": {
+   "match": [
+    "nox"
+   ],
+   "tr": "NOx: motorun ürettiği zararlı azot oksit gazları; sensörlerle ölçülür.",
+   "en": "NOx: harmful nitrogen-oxide gases produced by the engine, measured by sensors.",
+   "provenance": [
+    {
+     "provenance_id": "prv-gloss-nox",
+     "target": {
+      "record_id": "NOX",
+      "field": "tr/en"
+     },
+     "activity": "curate_plain_language_definition",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "Term as used in SAE J1939-71",
+      "path": "docs/COPILOT.md#terim-sozlugu",
+      "type": "internal_kb"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "DERATE": {
+   "match": [
+    "derate",
+    "guc sinirlama",
+    "tork dusurme"
+   ],
+   "tr": "Derate (güç sınırlama): motorun kendini korumak veya yasal zorunlulukla gücünü kısması.",
+   "en": "Derate: the engine reducing its own power to protect itself or to comply with regulations.",
+   "provenance": [
+    {
+     "provenance_id": "prv-gloss-derate",
+     "target": {
+      "record_id": "DERATE",
+      "field": "tr/en"
+     },
+     "activity": "curate_plain_language_definition",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "Term as used in SAE J1939-71",
+      "path": "docs/COPILOT.md#terim-sozlugu",
+      "type": "internal_kb"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "HV": {
+   "match": [
+    "yuksek voltaj",
+    "yuksek gerilim",
+    "high voltage",
+    "hv"
+   ],
+   "tr": "Yüksek voltaj (HV): elektrikli/hibrit araçlarda öldürücü olabilen yüksek gerilimli sistem; turuncu kablolarla taşınır.",
+   "en": "High voltage (HV): the potentially lethal high-voltage system in electric/hybrid vehicles, carried by orange cables.",
+   "provenance": [
+    {
+     "provenance_id": "prv-gloss-hv",
+     "target": {
+      "record_id": "HV",
+      "field": "tr/en"
+     },
+     "activity": "curate_plain_language_definition",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "Term as used in UN R100 / ISO 6469",
+      "path": "docs/COPILOT.md#terim-sozlugu",
+      "type": "internal_kb"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "BMS": {
+   "match": [
+    "bms"
+   ],
+   "tr": "BMS: yüksek voltaj bataryasının hücrelerini, sıcaklığını ve güvenliğini izleyen kontrol ünitesi.",
+   "en": "BMS: the control unit that monitors the HV battery's cells, temperature and safety.",
+   "provenance": [
+    {
+     "provenance_id": "prv-gloss-bms",
+     "target": {
+      "record_id": "BMS",
+      "field": "tr/en"
+     },
+     "activity": "curate_plain_language_definition",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "Term as used in ISO 6469",
+      "path": "docs/COPILOT.md#terim-sozlugu",
+      "type": "internal_kb"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "HVIL": {
+   "match": [
+    "hvil"
+   ],
+   "tr": "HVIL: yüksek voltaj soketleri açıldığında sistemi kapatan güvenlik devresi.",
+   "en": "HVIL: the safety loop that shuts the high-voltage system down when an HV connector is opened.",
+   "provenance": [
+    {
+     "provenance_id": "prv-gloss-hvil",
+     "target": {
+      "record_id": "HVIL",
+      "field": "tr/en"
+     },
+     "activity": "curate_plain_language_definition",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "Term as used in ISO 6469-3",
+      "path": "docs/COPILOT.md#terim-sozlugu",
+      "type": "internal_kb"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "ISOLATION": {
+   "match": [
+    "izolasyon",
+    "isolation",
+    "insulation"
+   ],
+   "tr": "İzolasyon direnci: yüksek voltaj devresinin araç gövdesinden ne kadar iyi yalıtıldığını gösteren değer.",
+   "en": "Isolation resistance: how well the high-voltage circuit is insulated from the vehicle body.",
+   "provenance": [
+    {
+     "provenance_id": "prv-gloss-isolation",
+     "target": {
+      "record_id": "ISOLATION",
+      "field": "tr/en"
+     },
+     "activity": "curate_plain_language_definition",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "Term as used in UN R100",
+      "path": "docs/COPILOT.md#terim-sozlugu",
+      "type": "internal_kb"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "MAF": {
+   "match": [
+    "maf",
+    "hava debisi"
+   ],
+   "tr": "MAF: motora giren hava miktarını ölçen sensör.",
+   "en": "MAF: the sensor that measures how much air enters the engine.",
+   "provenance": [
+    {
+     "provenance_id": "prv-gloss-maf",
+     "target": {
+      "record_id": "MAF",
+      "field": "tr/en"
+     },
+     "activity": "curate_plain_language_definition",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "Term as used in SAE J1979",
+      "path": "docs/COPILOT.md#terim-sozlugu",
+      "type": "internal_kb"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "MAP": {
+   "match": [
+    "map sensoru",
+    "manifold pressure"
+   ],
+   "tr": "MAP: emme manifoldundaki basıncı ölçen sensör.",
+   "en": "MAP: the sensor that measures intake-manifold pressure.",
+   "provenance": [
+    {
+     "provenance_id": "prv-gloss-map",
+     "target": {
+      "record_id": "MAP",
+      "field": "tr/en"
+     },
+     "activity": "curate_plain_language_definition",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "Term as used in SAE J1979",
+      "path": "docs/COPILOT.md#terim-sozlugu",
+      "type": "internal_kb"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "BOOST": {
+   "match": [
+    "boost",
+    "turbo basinci"
+   ],
+   "tr": "Boost (turbo basıncı): turbonun motora bastığı hava basıncı.",
+   "en": "Boost: the air pressure the turbocharger pushes into the engine.",
+   "provenance": [
+    {
+     "provenance_id": "prv-gloss-boost",
+     "target": {
+      "record_id": "BOOST",
+      "field": "tr/en"
+     },
+     "activity": "curate_plain_language_definition",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "Term as used in SAE J1939-71",
+      "path": "docs/COPILOT.md#terim-sozlugu",
+      "type": "internal_kb"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "RAIL": {
+   "match": [
+    "common rail",
+    "rail basinci",
+    "rail pressure"
+   ],
+   "tr": "Common rail: enjektörlere yüksek basınçlı yakıt dağıtan ortak boru; basıncı sensörle izlenir.",
+   "en": "Common rail: the shared high-pressure pipe feeding the injectors; its pressure is monitored by a sensor.",
+   "provenance": [
+    {
+     "provenance_id": "prv-gloss-rail",
+     "target": {
+      "record_id": "RAIL",
+      "field": "tr/en"
+     },
+     "activity": "curate_plain_language_definition",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "Term as used in SAE J1939-71",
+      "path": "docs/COPILOT.md#terim-sozlugu",
+      "type": "internal_kb"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "CKP": {
+   "match": [
+    "ckp",
+    "krank sensoru",
+    "krank mili konum"
+   ],
+   "tr": "CKP: krank milinin konumunu/devrini ölçen sensör; arızalanırsa motor çalışmayabilir.",
+   "en": "CKP: the sensor that reads crankshaft position/speed; if it fails the engine may not run.",
+   "provenance": [
+    {
+     "provenance_id": "prv-gloss-ckp",
+     "target": {
+      "record_id": "CKP",
+      "field": "tr/en"
+     },
+     "activity": "curate_plain_language_definition",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "Term as used in SAE J2012",
+      "path": "docs/COPILOT.md#terim-sozlugu",
+      "type": "internal_kb"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "CMP": {
+   "match": [
+    "cmp",
+    "eksantrik sensoru",
+    "kam mili konum"
+   ],
+   "tr": "CMP: eksantrik (kam) milinin konumunu ölçen sensör.",
+   "en": "CMP: the sensor that reads camshaft position.",
+   "provenance": [
+    {
+     "provenance_id": "prv-gloss-cmp",
+     "target": {
+      "record_id": "CMP",
+      "field": "tr/en"
+     },
+     "activity": "curate_plain_language_definition",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "Term as used in SAE J2012",
+      "path": "docs/COPILOT.md#terim-sozlugu",
+      "type": "internal_kb"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "TPS": {
+   "match": [
+    "tps",
+    "gaz kelebegi"
+   ],
+   "tr": "TPS: gaz kelebeğinin ne kadar açık olduğunu ölçen sensör.",
+   "en": "TPS: the sensor that measures how far the throttle is open.",
+   "provenance": [
+    {
+     "provenance_id": "prv-gloss-tps",
+     "target": {
+      "record_id": "TPS",
+      "field": "tr/en"
+     },
+     "activity": "curate_plain_language_definition",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "Term as used in SAE J2012",
+      "path": "docs/COPILOT.md#terim-sozlugu",
+      "type": "internal_kb"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "MISFIRE": {
+   "match": [
+    "misfire",
+    "tekleme"
+   ],
+   "tr": "Tekleme (misfire): bir silindirde yakıtın düzgün yanmaması; motor sarsılır.",
+   "en": "Misfire: fuel not burning properly in a cylinder; the engine shakes.",
+   "provenance": [
+    {
+     "provenance_id": "prv-gloss-misfire",
+     "target": {
+      "record_id": "MISFIRE",
+      "field": "tr/en"
+     },
+     "activity": "curate_plain_language_definition",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "Term as used in SAE J2012",
+      "path": "docs/COPILOT.md#terim-sozlugu",
+      "type": "internal_kb"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "CANBUS": {
+   "match": [
+    "can bus",
+    "can hatti",
+    "can-bus"
+   ],
+   "tr": "CAN hattı: araçtaki kontrol ünitelerinin birbiriyle konuştuğu iki telli veri hattı.",
+   "en": "CAN bus: the two-wire data network the vehicle's control units use to talk to each other.",
+   "provenance": [
+    {
+     "provenance_id": "prv-gloss-canbus",
+     "target": {
+      "record_id": "CANBUS",
+      "field": "tr/en"
+     },
+     "activity": "curate_plain_language_definition",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "Term as used in ISO 11898",
+      "path": "docs/COPILOT.md#terim-sozlugu",
+      "type": "internal_kb"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "UCODE": {
+   "match": [
+    "u kodu",
+    "u-code",
+    "u0"
+   ],
+   "tr": "U kodu: kontrol üniteleri arasındaki haberleşme kaybını bildiren arıza kodu ailesi.",
+   "en": "U-code: the fault-code family that reports lost communication between control units.",
+   "provenance": [
+    {
+     "provenance_id": "prv-gloss-ucode",
+     "target": {
+      "record_id": "UCODE",
+      "field": "tr/en"
+     },
+     "activity": "curate_plain_language_definition",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "Term as used in SAE J2012",
+      "path": "docs/COPILOT.md#terim-sozlugu",
+      "type": "internal_kb"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "FREEZE": {
+   "match": [
+    "freeze frame",
+    "donmus kare"
+   ],
+   "tr": "Freeze frame: arıza kodu oluştuğu andaki motor verilerinin kaydı.",
+   "en": "Freeze frame: the snapshot of engine data taken when the fault code was set.",
+   "provenance": [
+    {
+     "provenance_id": "prv-gloss-freeze",
+     "target": {
+      "record_id": "FREEZE",
+      "field": "tr/en"
+     },
+     "activity": "curate_plain_language_definition",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "Term as used in SAE J1979",
+      "path": "docs/COPILOT.md#terim-sozlugu",
+      "type": "internal_kb"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "THERMOSTAT": {
+   "match": [
+    "termostat",
+    "thermostat"
+   ],
+   "tr": "Termostat: motor ısınınca soğutma suyunu radyatöre açan valf.",
+   "en": "Thermostat: the valve that opens coolant flow to the radiator once the engine is warm.",
+   "provenance": [
+    {
+     "provenance_id": "prv-gloss-thermostat",
+     "target": {
+      "record_id": "THERMOSTAT",
+      "field": "tr/en"
+     },
+     "activity": "curate_plain_language_definition",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "Term as used in SAE J2012",
+      "path": "docs/COPILOT.md#terim-sozlugu",
+      "type": "internal_kb"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "O2": {
+   "match": [
+    "oksijen sensoru",
+    "lambda",
+    "o2 sensor"
+   ],
+   "tr": "Oksijen (lambda) sensörü: egzozdaki oksijeni ölçerek yakıt karışımını ayarlatan sensör.",
+   "en": "Oxygen (lambda) sensor: measures oxygen in the exhaust so the fuel mixture can be adjusted.",
+   "provenance": [
+    {
+     "provenance_id": "prv-gloss-o2",
+     "target": {
+      "record_id": "O2",
+      "field": "tr/en"
+     },
+     "activity": "curate_plain_language_definition",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "Term as used in SAE J1979",
+      "path": "docs/COPILOT.md#terim-sozlugu",
+      "type": "internal_kb"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  }
+ }
+}
