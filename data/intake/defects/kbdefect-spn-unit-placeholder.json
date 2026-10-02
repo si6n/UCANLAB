@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "intake_id": "kbdefect-spn-unit-placeholder",
+  "record_type": "kb_defect",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "automated",
+    "id": "scripts/intake_kb_defects.py",
+    "role": "author"
+  },
+  "source": {
+    "title": "Kendi verimizden ölçüm: SPN unit alanı yer tutucu değer (4202/4291); gerçek birim kayıp",
+    "path": "data/diagnostics/j1939_spn_fmi_database.json (repo içi ölçüm; sha256 kayıt altındadır)",
+    "type": "internal_kb",
+    "publisher": "UCanLab intake",
+    "revision": null,
+    "licence": "project-internal",
+    "access_date": "2026-10-02",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": "9dd4bc74b8ece777189d1851a94cc469fe73137909c55eaf114db8a1e2157f91",
+      "bytes": 50247082,
+      "pages_cited": []
+    }
+  },
+  "confidence": "corroborated",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "defect_code": "spn_unit_placeholder",
+    "severity": "medium",
+    "summary": "SPN unit alanı yer tutucu değer (4202/4291); gerçek birim kayıp",
+    "why_it_matters": "Birim olmadan sinyal aralığı/eşik karşılaştırması yapılamaz; copilot 'kPa cinsinden' diye bir şey söyleyemez.",
+    "target_file": "data/diagnostics/j1939_spn_fmi_database.json",
+    "target_sha256": "9dd4bc74b8ece777189d1851a94cc469fe73137909c55eaf114db8a1e2157f91",
+    "detector_expression": "unit.lower() in {'-', '', 'none', 'n/a', 'standart j1939', …}",
+    "affected_count": 4202,
+    "examples": [
+      {
+        "key": "SPN_0",
+        "current_unit": "Standart J1939",
+        "name": "SPN 0"
+      },
+      {
+        "key": "SPN_1",
+        "current_unit": "",
+        "name": "Component: 2/2 solenoid valve front axle right"
+      },
+      {
+        "key": "SPN_10",
+        "current_unit": "",
+        "name": "Component: 3 axle lift air spring 2/2 solenoid valve"
+      },
+      {
+        "key": "SPN_101",
+        "current_unit": "-",
+        "name": "Engine Crankcase Pressure 1"
+      },
+      {
+        "key": "SPN_1029",
+        "current_unit": "Standart J1939",
+        "name": "Trip Average Fuel Rate"
+      }
+    ]
+  },
+  "notes": "Düzeltme intake'ten yapılmaz: bu kayıt yalnız ölçümü ve tespit ifadesini saklar. validate_intake.py her çalıştırmada dedektörü yeniden çalıştırır; sayı değişirse WARN (drift), sıfırlanırsa kapanmış sayılır."
+}

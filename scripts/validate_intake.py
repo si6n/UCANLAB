@@ -76,6 +76,7 @@ RECORD_DIRS: dict[str, str] = {
     "spn_fmi": "spn_fmi",
     "pgn_layout": "pgn",
     "oem_divergence": "oem",
+    "kb_defect": "defects",
     "trace": "traces",
     "case": "cases",
     "oem_note": "oem_notes",
@@ -135,6 +136,10 @@ PAYLOAD_FIELDS: dict[str, frozenset[str]] = {
     }),
     "oem_divergence": frozenset({
         "make", "source_file", "source_rows", "divergence_count", "divergences",
+    }),
+    "kb_defect": frozenset({
+        "defect_code", "severity", "summary", "why_it_matters", "target_file",
+        "target_sha256", "detector_expression", "affected_count", "examples",
     }),
     "case": frozenset({
         "case_id", "domain", "make", "model", "year", "symptom", "dtcs",
@@ -684,8 +689,40 @@ def _validate_payload_oem_divergence(payload: dict[str, Any], where: str, rep: R
                 rep.fail("schema", f"{where}.divergences[{i}].{key} must be a string or null")
 
 
+DEFECT_SEVERITIES: frozenset[str] = frozenset({"high", "medium", "low"})
+
+
+def _validate_payload_kb_defect(payload: dict[str, Any], where: str, rep: Report) -> None:
+    """A *measured* defect in our own vendored data (re-checked on every run)."""
+    _check_exact_fields(payload, PAYLOAD_FIELDS["kb_defect"], where, PAYLOAD_FIELDS["kb_defect"], rep)
+    code = payload.get("defect_code")
+    # snake_case: this is the detector's identifier (DETECTORS registry key),
+    # not a filename. The record's intake_id is the kebab-case part.
+    if not isinstance(code, str) or not re.fullmatch(r"[a-z0-9]+(_[a-z0-9]+)*", code):
+        rep.fail("schema", f"{where}.defect_code must be snake_case detector id (got {code!r})")
+    if payload.get("severity") not in DEFECT_SEVERITIES:
+        rep.fail("schema", f"{where}.severity must be one of {sorted(DEFECT_SEVERITIES)}")
+    for key in ("summary", "why_it_matters", "detector_expression", "target_file"):
+        if not isinstance(payload.get(key), str) or not payload[key].strip():
+            rep.fail("schema", f"{where}.{key} must be a non-empty string")
+    digest = payload.get("target_sha256")
+    if not isinstance(digest, str) or not SHA256_RE.fullmatch(digest):
+        rep.fail("schema", f"{where}.target_sha256 must be a 64-char lowercase sha256 digest")
+    count = payload.get("affected_count")
+    if not isinstance(count, int) or isinstance(count, bool) or count < 0:
+        rep.fail("schema", f"{where}.affected_count must be a non-negative integer")
+    examples = payload.get("examples")
+    if not isinstance(examples, list):
+        rep.fail("schema", f"{where}.examples must be an array")
+    elif any(not isinstance(item, dict) or not item for item in examples):
+        rep.fail("schema", f"{where}.examples must be a list of non-empty objects")
+    if isinstance(count, int) and count > 0 and not examples:
+        rep.add("WARN", "defect", f"{where}: affected_count={count} but no verbatim example is staged")
+
+
 PAYLOAD_VALIDATORS = {
     "dtc": _validate_payload_dtc,
+    "kb_defect": _validate_payload_kb_defect,
     "spn_fmi": _validate_payload_spn,
     "pgn_layout": _validate_payload_pgn_layout,
     "oem_divergence": _validate_payload_oem_divergence,
@@ -1102,6 +1139,18 @@ def _register(records: list[Record], seen_ids: dict[str, str], record: Record, r
 # --------------------------------------------------------------------------- #
 # conflict report (read-only)
 # --------------------------------------------------------------------------- #
+def _kb_detectors() -> dict[str, Any]:
+    """The defect detectors, if the sibling tool is importable (else: none)."""
+    try:
+        from scripts.intake_kb_defects import DETECTORS  # type: ignore[import-not-found]
+    except ImportError:
+        try:
+            from intake_kb_defects import DETECTORS  # type: ignore[import-not-found,no-redef]
+        except ImportError:
+            return {}
+    return dict(DETECTORS)
+
+
 def report_conflicts(records: list[Record], repo_root: Path, rep: Report) -> None:
     """Compare intake records with the existing knowledge base. Report only."""
     dtc_db = repo_root / DIAGNOSTICS / "dtc_database.json"
@@ -1161,6 +1210,42 @@ def report_conflicts(records: list[Record], repo_root: Path, rep: Report) -> Non
             candidates += unknown_codes
             rep.add("INFO", "kb_new", f"{where}: {unknown_codes} codes are absent from the OEM layer")
         rep.metrics["oem_divergence_open"] = rep.metrics.get("oem_divergence_open", 0) + still_divergent
+
+    def check_kb_defect(record: Record) -> None:
+        """Re-run the staged detector and compare with the recorded measurement."""
+        nonlocal overlaps, candidates
+        where = record.rel_path
+        code = record.payload.get("defect_code")
+        target = record.payload.get("target_file")
+        if not isinstance(code, str) or not isinstance(target, str):
+            return
+        detectors = _kb_detectors()
+        detector = detectors.get(code)
+        if detector is None:
+            rep.add("WARN", "defect", f"{where}: detector '{code}' is unknown to "
+                                       f"scripts/intake_kb_defects.py — the finding cannot be re-checked")
+            return
+        staged_hash = record.payload.get("target_sha256")
+        try:
+            finding = detector(repo_root)
+        except (OSError, ValueError, KeyError) as exc:
+            rep.add("WARN", "defect", f"{where}: detector '{code}' failed on the current data ({exc})")
+            return
+        current_hash = sha256_of(repo_root / target)
+        if current_hash != staged_hash:
+            rep.add("WARN", "defect_stale", f"{where}: {target} sha256 değişti — ölçüm bayat, "
+                                             f"kaydı yeniden üret (scripts/intake_kb_defects.py --stage --apply)")
+        staged_count = record.payload.get("affected_count")
+        current_count = finding.get("affected_count")
+        rep.metrics[f"defect_{code}"] = current_count
+        if current_count == staged_count:
+            rep.add("INFO", "defect_open", f"{where}: '{code}' ölçümü hâlâ {current_count} — açık")
+        elif current_count == 0:
+            rep.add("INFO", "defect_closed", f"{where}: '{code}' artık 0 etkilenen kayıt — "
+                                              f"kayıt arşivlenebilir")
+        else:
+            rep.add("WARN", "defect_drift", f"{where}: '{code}' ölçümü {staged_count} → {current_count} "
+                                             f"(dedektör ya da veri değişti)")
 
     def check_pgn_layout(record: Record) -> None:
         """Compare a staged PGN layout with the vendored PGN catalogue (report only)."""
@@ -1257,6 +1342,15 @@ def report_conflicts(records: list[Record], repo_root: Path, rep: Report) -> Non
             check_pgn_layout(record)
         elif record.record_type == "oem_divergence":
             check_oem_divergence(record)
+        elif record.record_type == "kb_defect":
+            check_kb_defect(record)
+    # A detector that found something but has no staged record would silently
+    # vanish from the queue: report it so the register stays honest.
+    detectors = _kb_detectors()
+    staged_codes = {r.payload.get("defect_code") for r in records if r.record_type == "kb_defect"}
+    for code in sorted(set(detectors) - {c for c in staged_codes if isinstance(c, str)}):
+        rep.add("INFO", "defect_unstaged", f"'{code}' dedektörü var ama data/intake/defects/ içinde "
+                                           f"kaydı yok — sahalayın (--stage --apply)")
     rep.metrics["kb_overlaps"] = overlaps
     rep.metrics["kb_new_candidates"] = candidates
 
@@ -1349,8 +1443,8 @@ burada bırakılır.
 
 KIND_BY_TYPE: dict[str, str] = {
     "dtc": "dtc", "spn_fmi": "spn_fmi", "pgn_layout": "pgn_layout",
-    "oem_divergence": "oem_divergence", "case": "case", "oem_note": "oem_note",
-    "trace": "trace",
+    "oem_divergence": "oem_divergence", "kb_defect": "kb_defect", "case": "case",
+    "oem_note": "oem_note", "trace": "trace",
 }
 
 

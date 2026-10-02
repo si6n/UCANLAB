@@ -22,6 +22,7 @@ geçirmeyle olur; aşağıdaki "Entegrasyon adımları" bölümü tek yol harita
 | `spn_fmi/` | ham SPN/FMI çifti | `<intake-id>.json` |
 | `pgn/` | PGN alan düzeni (J1939/NMEA-2000) — `pgn_layout` | `<intake-id>.json` |
 | `oem/` | üreticiye özgü açıklama ayrışması — `oem_divergence` | `<intake-id>.json` |
+| `defects/` | kendi verimizden **ölçülmüş** kusur — `kb_defect` | `<intake-id>.json` |
 | `traces/` | ham yakalama (kare dosyası + yan kenar dosyası) | `<id>.json`/`.jsonl` + `<id>.meta.json` |
 | `cases/` | vaka taslağı — **her zaman `draft: true`** | `<intake-id>.json` |
 | `oem_notes/` | OEM/üretici notu | `<intake-id>.md` (üstte JSON meta bloğu) |
@@ -119,7 +120,22 @@ yapılır (§ Entegrasyon adımları).
 | `case` | `cases/` | `case_id`, `domain`, `make/model/year`, `symptom`, `dtcs[]`, `signals_of_interest[]`, `actual_fault`, `repair`, `verification`, `trace_refs[]`, `vin_masked` |
 | `oem_note` | `oem_notes/` | `make/model/year`, `oem_code`, `system`, `evidence_refs[]`, `related_dtcs[]`, `vin_masked` (gövde markdown dosyanın altında) |
 | `oem_divergence` | `oem/` | `make`, `source_file`, `source_rows`, `divergence_count`, `divergences[]` |
+| `kb_defect` | `defects/` | `defect_code`, `severity`, `summary`, `why_it_matters`, `target_file`, `target_sha256`, `detector_expression`, `affected_count`, `examples[]` |
 | `trace` | `traces/` | `frame_file`, `frame_file_sha256`, `frame_file_bytes`, `format`, `in_git`, `external_location`, `started_at`, `duration_s`, `channel_count`, `frame_count`, `bus`, `vin_masked` |
+
+`kb_defect` kayıtları **kendi verimizdeki** kusurları ölçümle kayda geçirir:
+`detector_expression` (kusuru tanımlayan ifade), `affected_count` (bugünkü sayı),
+`examples[]` (olduğu gibi örnekler) ve `target_file` + `target_sha256` (hangi
+veri sürümü ölçüldü). Doğrulayıcı her çalıştırmada dedektörü **yeniden
+çalıştırır**:
+
+| Durum | Anlamı | Rapor |
+|---|---|---|
+| sayı aynı | kusur hâlâ açık | `INFO defect_open` |
+| sayı 0 | düzeltildi, kayıt arşivlenebilir | `INFO defect_closed` |
+| sayı değişti | dedektör ya da veri değişti | `WARN defect_drift` |
+| hedef dosya sha256'ı değişti | ölçüm bayat | `WARN defect_stale` |
+| dedektör var, kaydı yok | kuyruktan kaybolmak üzere | `INFO defect_unstaged` |
 
 `oem_divergence.divergences[]` bir satırdır: `code`, `source_description_en`
 (upstream'in üreticiye özgü metni) ve `kb_description_en` (OEM katmanının o kod
@@ -144,6 +160,14 @@ python scripts/intake_scan_sources.py --stage              # doğrula (yazmaz)
 python scripts/intake_scan_sources.py --stage --apply      # intake'e yaz
 python scripts/intake_scan_sources.py --stage-oem --apply  # OEM ayrışmaları
 python scripts/intake_scan_sources.py --offline --tarballs-dir /tmp/tb
+```
+
+Kendi verimizdeki kusurları ölçer ve intake'e kaydeder:
+
+```bash
+python scripts/intake_kb_defects.py                     # ölç ve raporla
+python scripts/intake_kb_defects.py --stage            # kayıtları doğrula
+python scripts/intake_kb_defects.py --stage --apply    # ölçümü sahalama
 ```
 
 Taranan dört kaynak: OBDex (CC0-1.0), canboat (Apache-2.0), Wal33D/dtc-database

@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "intake_id": "kbdefect-spn-without-fault-matrix",
+  "record_type": "kb_defect",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "automated",
+    "id": "scripts/intake_kb_defects.py",
+    "role": "author"
+  },
+  "source": {
+    "title": "Kendi verimizden ölçüm: SPN kaydı var ama hiç FMI satırı yok — tanı kombinasyonu üretilemez",
+    "path": "data/diagnostics/j1939_spn_fmi_database.json (repo içi ölçüm; sha256 kayıt altındadır)",
+    "type": "internal_kb",
+    "publisher": "UCanLab intake",
+    "revision": null,
+    "licence": "project-internal",
+    "access_date": "2026-10-02",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": "9dd4bc74b8ece777189d1851a94cc469fe73137909c55eaf114db8a1e2157f91",
+      "bytes": 50247082,
+      "pages_cited": []
+    }
+  },
+  "confidence": "corroborated",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "defect_code": "spn_without_fault_matrix",
+    "severity": "medium",
+    "summary": "SPN kaydı var ama hiç FMI satırı yok — tanı kombinasyonu üretilemez",
+    "why_it_matters": "Copilot bu parametre için 'hangi FMI ile ne olur?' sorusuna cevap üretemez; vaka ile eşleştirme de zayıflar.",
+    "target_file": "data/diagnostics/j1939_spn_fmi_database.json",
+    "target_sha256": "9dd4bc74b8ece777189d1851a94cc469fe73137909c55eaf114db8a1e2157f91",
+    "detector_expression": "not record.get('fault_matrix')",
+    "affected_count": 64,
+    "examples": [
+      {
+        "key": "SPN_1086",
+        "name": "Parking and/or Trailer Air Pressure",
+        "spn": 1086
+      },
+      {
+        "key": "SPN_112",
+        "name": "SPN 112 FMI 1 — Coolant Level Critically Low",
+        "spn": 112
+      },
+      {
+        "key": "SPN_113",
+        "name": "SPN 113 FMI 0 — Coolant System Pressure Above Normal",
+        "spn": 113
+      },
+      {
+        "key": "SPN_123",
+        "name": "International SPN 123 FMI 2: Diagnose and Repair Intake Pressure Sensor Issues",
+        "spn": 123
+      },
+      {
+        "key": "SPN_1329",
+        "name": "Engine Misfire Cylinder #7",
+        "spn": 1329
+      }
+    ]
+  },
+  "notes": "Düzeltme intake'ten yapılmaz: bu kayıt yalnız ölçümü ve tespit ifadesini saklar. validate_intake.py her çalıştırmada dedektörü yeniden çalıştırır; sayı değişirse WARN (drift), sıfırlanırsa kapanmış sayılır."
+}
