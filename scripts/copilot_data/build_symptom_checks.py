@@ -467,6 +467,161 @@ C = {
  ],
 }
 
+# ---- numbered families: one question shape per family, numbered per member ----
+for n in range(1, 11):
+    C[f"misfire-cylinder-{n}"] = [
+        yn(0, f"When the cylinder {n} coil/plug is swapped with another cylinder, does the fault code move with it?",
+           yes=([0], [1, 2], "Arıza bobin/bujiyle birlikte taşındı: o bobin veya buji arızalı.",
+                "The fault moved with the coil/plug: that coil or plug has failed."),
+           no=([1, 2], [0], "Arıza silindirde kaldı: enjektör veya kompresyon tarafı.",
+               "The fault stayed in the cylinder: injector or compression side.")),
+        yn(2, f"Did the cylinder {n} compression or leakdown test come out low?",
+           tr=f"{n}. silindir kompresyon veya kaçak (leakdown) testi düşük mü çıktı?",
+           yes=([2], [], "Kompresyon düşük: supap, segman veya conta; mekanik onarım gerekir.",
+                "Compression low: valve, rings or gasket; mechanical repair needed."),
+           no=([], [2], "Kompresyon yeterli.", "Compression adequate.")),
+    ]
+for n in range(1, 9):
+    C[f"injector-circuit-cylinder-{n}"] = [
+        yn(0, f"Is the cylinder {n} injector's internal resistance outside its nominal range (solenoid 12 - 16 Ohm, piezo 180-220 kOhm)?",
+           tr=f"{n}. silindir enjektörünün iç direnci nominal aralığın dışında mı (selenoid 12 - 16 Ohm, piezo 180-220 kOhm)?",
+           yes=([0], [], "Enjektör bobini arızalı: enjektörü değiştirin.", "The injector coil has failed: replace the injector."),
+           no=([1], [0], "Enjektör sağlam: kablo demeti veya ECM sürücü devresi.",
+               "The injector is fine: wiring harness or the ECM driver circuit.")),
+        yn(1, "Is the harness chafed to ground or broken by vibration?",
+           yes=([1], [], "Kablo demeti hasarlı: onarın ve kodu silip yeniden deneyin.",
+                "Harness damaged: repair it, clear the code and retest.")),
+    ]
+for n in range(1, 9):
+    C[f"ignition-coil-circuit-cylinder-{n}"] = [
+        yn(0, f"With the ignition on, does the cylinder {n} coil connector get 12V supply and a good ground?",
+           yes=([0, 1], [], "Besleme ve şase var: bobin veya tetikleme sinyali; bobini başka silindirle değiştirip deneyin.",
+                "Supply and ground present: the coil or its trigger signal; swap the coil to another cylinder."),
+           no=([], [0], "Besleme veya şase yok: sigorta, röle ve kablo demeti.", "No supply or ground: fuse, relay and harness.")),
+        yn(1, "Are there white arc tracks or cracks on the coil body?",
+           yes=([0], [], "Bobin gövdesinde ark izi: bobini değiştirin.", "Arc tracks on the coil: replace the coil.")),
+    ]
+for n in range(1, 7):
+    C[f"transmission-gear-{n}-incorrect-ratio"] = [
+        yn(0, f"When gear {n} engages, does the engine rpm flare without the vehicle accelerating?",
+           yes=([0], [], f"Devir fırlıyor: {n}. vites debriyaj paketi kaydırıyor.", f"Rpm flares: the gear {n} clutch pack is slipping."),
+           no=([1], [], "Kaydırma hissedilmiyor: giriş/çıkış hız sensörü okumalarını karşılaştırın.",
+               "No slip felt: compare the input/output speed sensor readings.")),
+    ]
+C.update({
+ "wheel-speed-sensor-missing-fl": [
+  yn(0, "Is the magnetic encoder ring on the hub bearing cracked or rusted?",
+     yes=([1], [], "Encoder halkası hasarlı: poyra/halka değişimi.", "Encoder ring damaged: replace the hub or ring.")),
+  yn(1, "Does the oscilloscope show a square/sine signal when the wheel is turned by hand?",
+     yes=([1], [0], "Sinyal var: sensör çalışıyor; halka boşluğu veya aralıklı kopukluk.",
+          "Signal present: the sensor works; ring gap or an intermittent break."),
+     no=([0], [], "Sinyal yok: sensör veya kablosu.", "No signal: the sensor or its wiring.")),
+ ],
+ "o2-sensor-heater-circuit-bank1-sensor1": [
+  meas(0, "What is the internal resistance between the heater pins (Ohm)?", "Ohm", [
+     (None, 4, [0], [], "4 Ohm altında: ısıtıcıda kısa devre.", "Under 4 Ohm: the heater is shorted."),
+     (4, 15, [1], [0], "4 - 15 Ohm: ısıtıcı sağlam; besleme, sigorta ve röle.", "4 - 15 Ohm: the heater is fine; supply, fuse and relay."),
+     (15, None, [0], [], "15 Ohm üstü veya sonsuz: ısıtıcı açık devre; sensörü değiştirin.",
+      "Over 15 Ohm or open: the heater is open; replace the sensor."),
+  ], text_keys=["isitici direnci", "heater resistance"],
+     tr="Isıtıcı pinleri arasındaki iç omik direnç kaç Ohm? (genelde 4 - 15 Ohm)"),
+  yn(1, "With the ignition on, does the sensor connector get 12V heater supply?",
+     yes=([0], [1], "Besleme var: ısıtıcı elemanı.", "Supply present: the heater element."),
+     no=([1], [], "Besleme yok: ısıtıcı sigortası ve rölesi.", "No supply: the heater fuse and relay.")),
+ ],
+ "rich-condition-bank1": [
+  yn(1, "Is the EVAP purge valve stuck open when it should be closed?",
+     yes=([1], [], "Purge valfi açık kalmış: zengin karışımın kaynağı.", "Purge valve stuck open: the source of the rich mixture.")),
+  yn(2, "Are the spark plugs heavily sooted or wet with fuel?",
+     yes=([0], [], "Bujiler ıslak/kurumlu: enjektör damlatıyor olabilir.", "Plugs wet or sooted: an injector may be dripping.")),
+ ],
+ "maf-sensor-range-performance": [
+  yn(0, "Is there oil or dust on the MAF hot film?",
+     yes=([0], [], "MAF filmi kirli: temizleyin veya değiştirin.", "MAF film dirty: clean or replace it.")),
+  yn(2, "With the sensor unplugged (default map), does the engine run better?",
+     yes=([0], [], "Fişsiz daha iyi: MAF yanlış ölçüyor.", "Better unplugged: the MAF is measuring wrong."),
+     no=([1], [0], "Fişsiz de aynı: hava filtresi kutusu veya giriş kanalında kaçak/tıkanma.",
+         "Same unplugged: a leak or blockage in the air box or intake duct.")),
+ ],
+ "map-sensor-rationality": [
+  yn(0, "With the ignition on and the engine off, does the MAP sensor read atmospheric pressure (~101 kPa)?",
+     yes=([1], [0], "Atmosferik basıncı doğru okuyor: sensör sağlam; vakum portu ve hortumu.",
+          "Reads atmospheric correctly: the sensor is fine; the vacuum port and hose."),
+     no=([0], [], "Atmosferik basıncı yanlış okuyor: MAP sensörü.", "Reads atmospheric wrong: the MAP sensor.")),
+ ],
+ "throttle-position-discrepancy": [
+  yn(0, "Does TPS1 + TPS2 stay equal to 5.0 Volt at every pedal position?",
+     yes=([0], [1], "Potansiyometre toplamı doğru: kelebek motoru veya mekanik takılma.",
+          "Sum is correct: the throttle motor or mechanical sticking."),
+     no=([1], [], "Toplam 5.0 Volt değil: TPS potansiyometre izi bozuk.", "Sum is not 5.0 Volt: a worn TPS track.")),
+  yn(1, "Is the throttle flap sticking mechanically due to carbon in the bore?",
+     yes=([0], [], "Kelebek kurumla takılıyor: temizleyip öğrenme (adaptasyon) yapın.",
+          "Flap sticking with carbon: clean it and run the adaptation.")),
+ ],
+ "cam-crank-correlation-fault": [
+  yn(0, "Is there a metallic chain rattle from the front of the engine on first start?",
+     yes=([0], [], "İlk çalıştırmada zincir şakırtısı: triger zinciri uzamış veya gergi arızalı.",
+          "Chain rattle on first start: the timing chain has stretched or the tensioner has failed.")),
+  yn(2, "Do the timing locking tools fit fully?",
+     yes=([1, 2], [0], "Zamanlama doğru: krank/eksantrik sensörü ve sinyal tekerleri.",
+          "Timing correct: the crank/cam sensors and their tone wheels."),
+     no=([0], [], "Kitleme aparatları oturmuyor: zamanlama kaymış; triger seti.",
+         "Locking tools do not fit: timing has slipped; timing kit.")),
+ ],
+ "knock-sensor-circuit-fault": [
+  yn(0, "Was the knock sensor bolt tightened to exactly 20 Nm with a torque wrench?",
+     yes=([0], [1], "Tork doğru: sensör veya kablosu.", "Torque correct: the sensor or its wiring."),
+     no=([1], [], "Tork yanlış: sensörü 20 Nm ile yeniden sıkın.", "Wrong torque: retighten the sensor to 20 Nm.")),
+ ],
+ "catalyst-efficiency-below-threshold-bank1": [
+  yn(0, "Does the rear (post-cat) O2 voltage switch like the front sensor?",
+     yes=([0], [], "Arka sensör ön sensör gibi dalgalanıyor: katalizör oksijen depolamıyor.",
+          "Rear sensor switches like the front: the catalyst no longer stores oxygen."),
+     no=([1], [0], "Arka sensör sabit: katalizör çalışıyor olabilir; arka O2 sensörünü doğrulayın.",
+         "Rear sensor steady: the catalyst may work; verify the rear O2 sensor.")),
+  yn(1, "Is there an exhaust leak or crack before the catalyst?",
+     yes=([], [], "Katalizör öncesi kaçak O2 okumasını bozar: önce kaçağı giderin.",
+          "A leak before the catalyst corrupts the O2 reading: fix the leak first.")),
+ ],
+ "evap-gross-leak-detected": [
+  yn(0, "Is the fuel filler cap seal torn or the cap not fully latched?",
+     yes=([0], [], "Kapak contası yırtık veya kapak açık: kapağı değiştirin/kapatın, kodu silip izleyin.",
+          "Cap seal torn or cap open: replace or close it, clear the code and monitor.")),
+  yn(2, "In the EVAP smoke test, does smoke escape at the filler neck?",
+     yes=([0], [], "Dolum boynundan kaçak: kapak veya boyun.", "Leak at the filler neck: cap or neck."),
+     no=([1, 2], [0], "Dolum boynu sağlam: kanister, hortumlar ve havalandırma valfi.",
+         "Filler neck sound: canister, hoses and vent valve.")),
+ ],
+ "egr-flow-insufficient": [
+  yn(0, "In the active test, does MAP pressure rise as expected when the EGR opens?",
+     yes=([], [0, 1], "EGR açılınca basınç yükseliyor: akış var.", "Pressure rises with EGR open: there is flow."),
+     no=([0, 1], [], "EGR açılınca akış yok: EGR kanalları veya soğutucu kurumla tıkalı.",
+         "No flow with EGR open: EGR passages or cooler blocked with soot.")),
+ ],
+ "hd-vgt-actuator-stuck": [
+  yn(1, "Is the nozzle ring hard to turn by hand because of soot?",
+     yes=([1], [], "Nozul halkası kurumla sıkışmış: turbo temizliği veya revizyonu.",
+          "Nozzle ring seized with soot: turbo cleaning or overhaul.")),
+  yn(2, "Are there broken or stripped teeth in the VGT motor gearbox?",
+     yes=([0], [], "Aktüatör dişlisi kırık: aktüatörü değiştirip kalibre edin.",
+          "Actuator gear broken: replace and calibrate the actuator.")),
+ ],
+ "hd-crankcase-pressure-high": [
+  yn(1, "Is the crankcase ventilation centrifugal filter blocked?",
+     yes=([0], [], "Havalandırma filtresi tıkalı: filtreyi değiştirin.", "Ventilation filter blocked: replace it."),
+     no=([1], [0], "Filtre açık: segman veya gömlek kaçağı öne çıkar; kompresyon testi.",
+         "Filter clear: ring or liner leakage comes forward; compression test.")),
+  yn(2, "When the oil filler cap is loosened, does air pressure push it up?",
+     yes=([1], [], "Kapak basınçla zıplıyor: ciddi kompresyon kaçağı (blow-by).", "Cap pushed up: heavy blow-by.")),
+ ],
+ "air-suspension-compressor-timeout": [
+  yn(0, "After an overnight park, does one corner drop to the ground?",
+     yes=([1], [], "Tek köşe çöküyor: o körük veya valf bloğunda kaçak.", "One corner drops: a leak in that bag or the valve block.")),
+  yn(2, "Was a leak found with soapy water at the bag folds?",
+     yes=([1], [], "Sabunlu suyla kaçak bulundu: körüğü değiştirin.", "Soapy-water leak found: replace the bag.")),
+ ],
+})
+
 out = {
  "schema_version": 1,
  "title": "Copilot symptom checks (answer effects for canonical symptom questions)",

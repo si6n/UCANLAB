@@ -102,3 +102,12 @@ def test_english_answer_uses_english_question_and_note() -> None:
     chk = next(c for c in d["checks"] if c["key"] == "battery-drain-parasitic.q0")
     assert chk["question"].startswith("What is the sleep current") and chk["answer_text"] == "20 mA"
     assert chk["result"].startswith("Sleep current under 50 mA")
+
+
+@pytest.mark.parametrize("n", [1, 3, 10])
+def test_cylinder_swap_test_separates_coil_from_cylinder(n: int) -> None:
+    sid = f"misfire-cylinder-{n}"
+    moved = answer_query(f"{n}. silindir tekleme yapıyor", language="tr", answers={f"{sid}.q0": "evet"}).to_dict()
+    stayed = answer_query(f"{n}. silindir tekleme yapıyor", language="tr", answers={f"{sid}.q0": "hayır"}).to_dict()
+    assert moved["causes"][0]["title"] == f"{n}. Silindir Buji & Bobin"
+    assert stayed["causes"][0]["title"] in {f"{n}. Silindir Enjektörü", f"{n}. Silindir Kompresyon"}

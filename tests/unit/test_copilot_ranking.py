@@ -33,3 +33,16 @@ def test_no_start_complaint_never_leads_with_oil_pressure() -> None:
     d = answer_query("marş basıyor ama çalışmıyor", language="tr").to_dict()
     assert d["causes"] and all("yağ" not in c["title"].lower() for c in d["causes"])
     assert [c["kind"] for c in d["causes"]] == ["area"] * len(d["causes"])
+
+
+def test_leading_tie_is_named_as_a_tie() -> None:
+    d = answer_query("motor hararet yapıyor", language="tr").to_dict()
+    assert "Önde, eşit ağırlıkta" in d["summary"] and "En olası neden" not in d["summary"]
+
+
+def test_summary_points_to_the_most_useful_unanswered_question() -> None:
+    first = answer_query("akü bitiyor", language="tr").summary
+    assert first.endswith("Önce şu soruyu cevaplayın: Kontak kapalı ve araç kilitliyken çekilen uyku akımı kaç mA?")
+    done = answer_query("akü bitiyor", language="tr", answers={
+        "battery-drain-parasitic.q0": 320, "battery-drain-parasitic.q1": "hayır", "battery-drain-parasitic.q2": 14}).summary
+    assert "Önce şu soruyu" not in done

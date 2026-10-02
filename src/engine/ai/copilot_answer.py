@@ -431,11 +431,14 @@ def _summary(r: Reasoning, lang: str, kb: KnowledgeBase) -> str:
             areas = ", ".join(h.title for h in r.hypotheses[:3] if h.kind == "area" and not h.against)
             bits.append(f"Kayıtlı kök neden yok; önce şu alt sistemleri kontrol edin: {areas}." if lang == "tr"
                         else f"No recorded root cause; inspect these subsystems first: {areas}.")
-        elif top.likelihood == 0 and len([h for h in r.hypotheses if h.kind != "area"]) > 1:
-            tied = "; ".join(_short(h.title, 60) for h in r.hypotheses[:3])
-            bits.append(f"Eşit ağırlıklı adaylar (veri sıralamaya yetmiyor): {tied}. Soruları cevaplayın veya kodları okuyun."
-                        if lang == "tr" else
-                        f"Equally weighted candidates (not enough data to rank): {tied}. Answer the questions or read the codes.")
+        elif len(tied := [h for h in r.hypotheses if h.kind != "area" and abs(h.score - top.score) < 1e-9]) > 1:
+            names = "; ".join(_short(h.title, 60) for h in tied[:3])
+            if top.likelihood == 0:
+                bits.append(f"Eşit ağırlıklı adaylar (veri sıralamaya yetmiyor): {names}." if lang == "tr"
+                            else f"Equally weighted candidates (not enough data to rank): {names}.")
+            else:
+                bits.append(f"Önde, eşit ağırlıkta: {names} (güven: {conf})." if lang == "tr"
+                            else f"Leading, equally weighted: {names} (confidence: {conf}).")
         else:
             bits.append(f"En olası neden: {top.title} (güven: {conf})." if lang == "tr"
                         else f"Most likely cause: {top.title} (confidence: {conf}).")
@@ -541,6 +544,28 @@ def _checks(r: Reasoning, lang: str, kb: KnowledgeBase) -> list[dict[str, Any]]:
     # unanswered questions first: they are what the mechanic can act on next
     out.sort(key=lambda c: c["answer"] is not None)
     return out
+
+
+def _next_question(r: Reasoning, kb: KnowledgeBase, checks: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """The unanswered check whose answers move the most of the listed candidates (ties: list order)."""
+    listed_codes = {c for h in r.hypotheses for c in h.codes}
+    listed_areas = {h.id for h in r.hypotheses if h.kind == "area"}
+    best: tuple[int, int, dict[str, Any]] | None = None
+    for order, chk in enumerate(checks):
+        if chk["answer"] is not None:
+            continue
+        sid, _, cid = chk["key"].partition(".")
+        spec = next((c for c in kb.symptom_checks(sid) if c.get("id") == cid), {})
+        moved: set[str] = set()
+        for eff in list((spec.get("outcomes") or {}).values()) + list(spec.get("bands") or []):
+            for t in list(eff.get("favor") or []) + list(eff.get("rule_out") or []):
+                key = f"canonical_symptoms#{sid}.subsystems[{t}]" if isinstance(t, int) else str(t)
+                # a subsystem not listed yet still counts: an answer can bring it in
+                moved.add(key if key in listed_areas or key in listed_codes or isinstance(t, int) else "")
+        moved.discard("")
+        if best is None or len(moved) > best[0]:
+            best = (len(moved), order, chk)
+    return best[2] if best else None
 
 
 def _technical(r: Reasoning, lang: str, kb: KnowledgeBase, similar: list[Any]) -> dict[str, Any]:
@@ -653,6 +678,10 @@ def answer_query(
     ans.causes = [_cause_dict(h, i, lang, kb) for i, h in enumerate(r.hypotheses[: opts.max_causes], 1)]
     ans.steps = _steps(r, lang, opts.max_steps, kb)
     ans.checks = _checks(r, lang, kb)
+    nxt = _next_question(r, kb, ans.checks)
+    if nxt is not None:
+        ans.summary += (f" Önce şu soruyu cevaplayın: {nxt['question']}" if lang == "tr"
+                        else f" Answer this first: {nxt['question']}")
     ans.missing_data = [{
         "key": m.key, "what": m.what_tr if lang == "tr" else m.what_en,
         "how": m.how_tr if lang == "tr" else m.how_en, "refs": list(m.refs),

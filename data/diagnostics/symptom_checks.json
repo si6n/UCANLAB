@@ -3046,6 +3046,3246 @@
      "confidence": "single_source"
     }
    ]
+  },
+  "misfire-cylinder-1": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "When the cylinder 1 coil/plug is swapped with another cylinder, does the fault code move with it?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [
+        1,
+        2
+       ],
+       "note_tr": "Arıza bobin/bujiyle birlikte taşındı: o bobin veya buji arızalı.",
+       "note_en": "The fault moved with the coil/plug: that coil or plug has failed."
+      },
+      "no": {
+       "favor": [
+        1,
+        2
+       ],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Arıza silindirde kaldı: enjektör veya kompresyon tarafı.",
+       "note_en": "The fault stayed in the cylinder: injector or compression side."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 2,
+     "kind": "yes_no",
+     "question_en": "Did the cylinder 1 compression or leakdown test come out low?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        2
+       ],
+       "rule_out": [],
+       "note_tr": "Kompresyon düşük: supap, segman veya conta; mekanik onarım gerekir.",
+       "note_en": "Compression low: valve, rings or gasket; mechanical repair needed."
+      },
+      "no": {
+       "favor": [],
+       "rule_out": [
+        2
+       ],
+       "note_tr": "Kompresyon yeterli.",
+       "note_en": "Compression adequate."
+      }
+     },
+     "question_tr": "1. silindir kompresyon veya kaçak (leakdown) testi düşük mü çıktı?",
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-misfire-cylinder-1",
+     "target": {
+      "record_id": "misfire-cylinder-1",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'misfire-cylinder-1' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#misfire-cylinder-1",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "misfire-cylinder-2": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "When the cylinder 2 coil/plug is swapped with another cylinder, does the fault code move with it?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [
+        1,
+        2
+       ],
+       "note_tr": "Arıza bobin/bujiyle birlikte taşındı: o bobin veya buji arızalı.",
+       "note_en": "The fault moved with the coil/plug: that coil or plug has failed."
+      },
+      "no": {
+       "favor": [
+        1,
+        2
+       ],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Arıza silindirde kaldı: enjektör veya kompresyon tarafı.",
+       "note_en": "The fault stayed in the cylinder: injector or compression side."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 2,
+     "kind": "yes_no",
+     "question_en": "Did the cylinder 2 compression or leakdown test come out low?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        2
+       ],
+       "rule_out": [],
+       "note_tr": "Kompresyon düşük: supap, segman veya conta; mekanik onarım gerekir.",
+       "note_en": "Compression low: valve, rings or gasket; mechanical repair needed."
+      },
+      "no": {
+       "favor": [],
+       "rule_out": [
+        2
+       ],
+       "note_tr": "Kompresyon yeterli.",
+       "note_en": "Compression adequate."
+      }
+     },
+     "question_tr": "2. silindir kompresyon veya kaçak (leakdown) testi düşük mü çıktı?",
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-misfire-cylinder-2",
+     "target": {
+      "record_id": "misfire-cylinder-2",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'misfire-cylinder-2' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#misfire-cylinder-2",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "misfire-cylinder-3": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "When the cylinder 3 coil/plug is swapped with another cylinder, does the fault code move with it?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [
+        1,
+        2
+       ],
+       "note_tr": "Arıza bobin/bujiyle birlikte taşındı: o bobin veya buji arızalı.",
+       "note_en": "The fault moved with the coil/plug: that coil or plug has failed."
+      },
+      "no": {
+       "favor": [
+        1,
+        2
+       ],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Arıza silindirde kaldı: enjektör veya kompresyon tarafı.",
+       "note_en": "The fault stayed in the cylinder: injector or compression side."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 2,
+     "kind": "yes_no",
+     "question_en": "Did the cylinder 3 compression or leakdown test come out low?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        2
+       ],
+       "rule_out": [],
+       "note_tr": "Kompresyon düşük: supap, segman veya conta; mekanik onarım gerekir.",
+       "note_en": "Compression low: valve, rings or gasket; mechanical repair needed."
+      },
+      "no": {
+       "favor": [],
+       "rule_out": [
+        2
+       ],
+       "note_tr": "Kompresyon yeterli.",
+       "note_en": "Compression adequate."
+      }
+     },
+     "question_tr": "3. silindir kompresyon veya kaçak (leakdown) testi düşük mü çıktı?",
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-misfire-cylinder-3",
+     "target": {
+      "record_id": "misfire-cylinder-3",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'misfire-cylinder-3' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#misfire-cylinder-3",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "misfire-cylinder-4": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "When the cylinder 4 coil/plug is swapped with another cylinder, does the fault code move with it?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [
+        1,
+        2
+       ],
+       "note_tr": "Arıza bobin/bujiyle birlikte taşındı: o bobin veya buji arızalı.",
+       "note_en": "The fault moved with the coil/plug: that coil or plug has failed."
+      },
+      "no": {
+       "favor": [
+        1,
+        2
+       ],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Arıza silindirde kaldı: enjektör veya kompresyon tarafı.",
+       "note_en": "The fault stayed in the cylinder: injector or compression side."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 2,
+     "kind": "yes_no",
+     "question_en": "Did the cylinder 4 compression or leakdown test come out low?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        2
+       ],
+       "rule_out": [],
+       "note_tr": "Kompresyon düşük: supap, segman veya conta; mekanik onarım gerekir.",
+       "note_en": "Compression low: valve, rings or gasket; mechanical repair needed."
+      },
+      "no": {
+       "favor": [],
+       "rule_out": [
+        2
+       ],
+       "note_tr": "Kompresyon yeterli.",
+       "note_en": "Compression adequate."
+      }
+     },
+     "question_tr": "4. silindir kompresyon veya kaçak (leakdown) testi düşük mü çıktı?",
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-misfire-cylinder-4",
+     "target": {
+      "record_id": "misfire-cylinder-4",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'misfire-cylinder-4' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#misfire-cylinder-4",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "misfire-cylinder-5": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "When the cylinder 5 coil/plug is swapped with another cylinder, does the fault code move with it?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [
+        1,
+        2
+       ],
+       "note_tr": "Arıza bobin/bujiyle birlikte taşındı: o bobin veya buji arızalı.",
+       "note_en": "The fault moved with the coil/plug: that coil or plug has failed."
+      },
+      "no": {
+       "favor": [
+        1,
+        2
+       ],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Arıza silindirde kaldı: enjektör veya kompresyon tarafı.",
+       "note_en": "The fault stayed in the cylinder: injector or compression side."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 2,
+     "kind": "yes_no",
+     "question_en": "Did the cylinder 5 compression or leakdown test come out low?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        2
+       ],
+       "rule_out": [],
+       "note_tr": "Kompresyon düşük: supap, segman veya conta; mekanik onarım gerekir.",
+       "note_en": "Compression low: valve, rings or gasket; mechanical repair needed."
+      },
+      "no": {
+       "favor": [],
+       "rule_out": [
+        2
+       ],
+       "note_tr": "Kompresyon yeterli.",
+       "note_en": "Compression adequate."
+      }
+     },
+     "question_tr": "5. silindir kompresyon veya kaçak (leakdown) testi düşük mü çıktı?",
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-misfire-cylinder-5",
+     "target": {
+      "record_id": "misfire-cylinder-5",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'misfire-cylinder-5' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#misfire-cylinder-5",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "misfire-cylinder-6": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "When the cylinder 6 coil/plug is swapped with another cylinder, does the fault code move with it?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [
+        1,
+        2
+       ],
+       "note_tr": "Arıza bobin/bujiyle birlikte taşındı: o bobin veya buji arızalı.",
+       "note_en": "The fault moved with the coil/plug: that coil or plug has failed."
+      },
+      "no": {
+       "favor": [
+        1,
+        2
+       ],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Arıza silindirde kaldı: enjektör veya kompresyon tarafı.",
+       "note_en": "The fault stayed in the cylinder: injector or compression side."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 2,
+     "kind": "yes_no",
+     "question_en": "Did the cylinder 6 compression or leakdown test come out low?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        2
+       ],
+       "rule_out": [],
+       "note_tr": "Kompresyon düşük: supap, segman veya conta; mekanik onarım gerekir.",
+       "note_en": "Compression low: valve, rings or gasket; mechanical repair needed."
+      },
+      "no": {
+       "favor": [],
+       "rule_out": [
+        2
+       ],
+       "note_tr": "Kompresyon yeterli.",
+       "note_en": "Compression adequate."
+      }
+     },
+     "question_tr": "6. silindir kompresyon veya kaçak (leakdown) testi düşük mü çıktı?",
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-misfire-cylinder-6",
+     "target": {
+      "record_id": "misfire-cylinder-6",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'misfire-cylinder-6' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#misfire-cylinder-6",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "misfire-cylinder-7": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "When the cylinder 7 coil/plug is swapped with another cylinder, does the fault code move with it?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [
+        1,
+        2
+       ],
+       "note_tr": "Arıza bobin/bujiyle birlikte taşındı: o bobin veya buji arızalı.",
+       "note_en": "The fault moved with the coil/plug: that coil or plug has failed."
+      },
+      "no": {
+       "favor": [
+        1,
+        2
+       ],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Arıza silindirde kaldı: enjektör veya kompresyon tarafı.",
+       "note_en": "The fault stayed in the cylinder: injector or compression side."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 2,
+     "kind": "yes_no",
+     "question_en": "Did the cylinder 7 compression or leakdown test come out low?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        2
+       ],
+       "rule_out": [],
+       "note_tr": "Kompresyon düşük: supap, segman veya conta; mekanik onarım gerekir.",
+       "note_en": "Compression low: valve, rings or gasket; mechanical repair needed."
+      },
+      "no": {
+       "favor": [],
+       "rule_out": [
+        2
+       ],
+       "note_tr": "Kompresyon yeterli.",
+       "note_en": "Compression adequate."
+      }
+     },
+     "question_tr": "7. silindir kompresyon veya kaçak (leakdown) testi düşük mü çıktı?",
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-misfire-cylinder-7",
+     "target": {
+      "record_id": "misfire-cylinder-7",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'misfire-cylinder-7' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#misfire-cylinder-7",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "misfire-cylinder-8": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "When the cylinder 8 coil/plug is swapped with another cylinder, does the fault code move with it?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [
+        1,
+        2
+       ],
+       "note_tr": "Arıza bobin/bujiyle birlikte taşındı: o bobin veya buji arızalı.",
+       "note_en": "The fault moved with the coil/plug: that coil or plug has failed."
+      },
+      "no": {
+       "favor": [
+        1,
+        2
+       ],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Arıza silindirde kaldı: enjektör veya kompresyon tarafı.",
+       "note_en": "The fault stayed in the cylinder: injector or compression side."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 2,
+     "kind": "yes_no",
+     "question_en": "Did the cylinder 8 compression or leakdown test come out low?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        2
+       ],
+       "rule_out": [],
+       "note_tr": "Kompresyon düşük: supap, segman veya conta; mekanik onarım gerekir.",
+       "note_en": "Compression low: valve, rings or gasket; mechanical repair needed."
+      },
+      "no": {
+       "favor": [],
+       "rule_out": [
+        2
+       ],
+       "note_tr": "Kompresyon yeterli.",
+       "note_en": "Compression adequate."
+      }
+     },
+     "question_tr": "8. silindir kompresyon veya kaçak (leakdown) testi düşük mü çıktı?",
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-misfire-cylinder-8",
+     "target": {
+      "record_id": "misfire-cylinder-8",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'misfire-cylinder-8' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#misfire-cylinder-8",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "misfire-cylinder-9": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "When the cylinder 9 coil/plug is swapped with another cylinder, does the fault code move with it?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [
+        1,
+        2
+       ],
+       "note_tr": "Arıza bobin/bujiyle birlikte taşındı: o bobin veya buji arızalı.",
+       "note_en": "The fault moved with the coil/plug: that coil or plug has failed."
+      },
+      "no": {
+       "favor": [
+        1,
+        2
+       ],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Arıza silindirde kaldı: enjektör veya kompresyon tarafı.",
+       "note_en": "The fault stayed in the cylinder: injector or compression side."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 2,
+     "kind": "yes_no",
+     "question_en": "Did the cylinder 9 compression or leakdown test come out low?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        2
+       ],
+       "rule_out": [],
+       "note_tr": "Kompresyon düşük: supap, segman veya conta; mekanik onarım gerekir.",
+       "note_en": "Compression low: valve, rings or gasket; mechanical repair needed."
+      },
+      "no": {
+       "favor": [],
+       "rule_out": [
+        2
+       ],
+       "note_tr": "Kompresyon yeterli.",
+       "note_en": "Compression adequate."
+      }
+     },
+     "question_tr": "9. silindir kompresyon veya kaçak (leakdown) testi düşük mü çıktı?",
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-misfire-cylinder-9",
+     "target": {
+      "record_id": "misfire-cylinder-9",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'misfire-cylinder-9' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#misfire-cylinder-9",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "misfire-cylinder-10": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "When the cylinder 10 coil/plug is swapped with another cylinder, does the fault code move with it?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [
+        1,
+        2
+       ],
+       "note_tr": "Arıza bobin/bujiyle birlikte taşındı: o bobin veya buji arızalı.",
+       "note_en": "The fault moved with the coil/plug: that coil or plug has failed."
+      },
+      "no": {
+       "favor": [
+        1,
+        2
+       ],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Arıza silindirde kaldı: enjektör veya kompresyon tarafı.",
+       "note_en": "The fault stayed in the cylinder: injector or compression side."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 2,
+     "kind": "yes_no",
+     "question_en": "Did the cylinder 10 compression or leakdown test come out low?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        2
+       ],
+       "rule_out": [],
+       "note_tr": "Kompresyon düşük: supap, segman veya conta; mekanik onarım gerekir.",
+       "note_en": "Compression low: valve, rings or gasket; mechanical repair needed."
+      },
+      "no": {
+       "favor": [],
+       "rule_out": [
+        2
+       ],
+       "note_tr": "Kompresyon yeterli.",
+       "note_en": "Compression adequate."
+      }
+     },
+     "question_tr": "10. silindir kompresyon veya kaçak (leakdown) testi düşük mü çıktı?",
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-misfire-cylinder-10",
+     "target": {
+      "record_id": "misfire-cylinder-10",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'misfire-cylinder-10' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#misfire-cylinder-10",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "injector-circuit-cylinder-1": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Is the cylinder 1 injector's internal resistance outside its nominal range (solenoid 12 - 16 Ohm, piezo 180-220 kOhm)?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Enjektör bobini arızalı: enjektörü değiştirin.",
+       "note_en": "The injector coil has failed: replace the injector."
+      },
+      "no": {
+       "favor": [
+        1
+       ],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Enjektör sağlam: kablo demeti veya ECM sürücü devresi.",
+       "note_en": "The injector is fine: wiring harness or the ECM driver circuit."
+      }
+     },
+     "question_tr": "1. silindir enjektörünün iç direnci nominal aralığın dışında mı (selenoid 12 - 16 Ohm, piezo 180-220 kOhm)?",
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Is the harness chafed to ground or broken by vibration?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Kablo demeti hasarlı: onarın ve kodu silip yeniden deneyin.",
+       "note_en": "Harness damaged: repair it, clear the code and retest."
+      }
+     },
+     "id": "q1"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-injector-circuit-cylinder-1",
+     "target": {
+      "record_id": "injector-circuit-cylinder-1",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'injector-circuit-cylinder-1' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#injector-circuit-cylinder-1",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "injector-circuit-cylinder-2": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Is the cylinder 2 injector's internal resistance outside its nominal range (solenoid 12 - 16 Ohm, piezo 180-220 kOhm)?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Enjektör bobini arızalı: enjektörü değiştirin.",
+       "note_en": "The injector coil has failed: replace the injector."
+      },
+      "no": {
+       "favor": [
+        1
+       ],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Enjektör sağlam: kablo demeti veya ECM sürücü devresi.",
+       "note_en": "The injector is fine: wiring harness or the ECM driver circuit."
+      }
+     },
+     "question_tr": "2. silindir enjektörünün iç direnci nominal aralığın dışında mı (selenoid 12 - 16 Ohm, piezo 180-220 kOhm)?",
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Is the harness chafed to ground or broken by vibration?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Kablo demeti hasarlı: onarın ve kodu silip yeniden deneyin.",
+       "note_en": "Harness damaged: repair it, clear the code and retest."
+      }
+     },
+     "id": "q1"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-injector-circuit-cylinder-2",
+     "target": {
+      "record_id": "injector-circuit-cylinder-2",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'injector-circuit-cylinder-2' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#injector-circuit-cylinder-2",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "injector-circuit-cylinder-3": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Is the cylinder 3 injector's internal resistance outside its nominal range (solenoid 12 - 16 Ohm, piezo 180-220 kOhm)?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Enjektör bobini arızalı: enjektörü değiştirin.",
+       "note_en": "The injector coil has failed: replace the injector."
+      },
+      "no": {
+       "favor": [
+        1
+       ],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Enjektör sağlam: kablo demeti veya ECM sürücü devresi.",
+       "note_en": "The injector is fine: wiring harness or the ECM driver circuit."
+      }
+     },
+     "question_tr": "3. silindir enjektörünün iç direnci nominal aralığın dışında mı (selenoid 12 - 16 Ohm, piezo 180-220 kOhm)?",
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Is the harness chafed to ground or broken by vibration?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Kablo demeti hasarlı: onarın ve kodu silip yeniden deneyin.",
+       "note_en": "Harness damaged: repair it, clear the code and retest."
+      }
+     },
+     "id": "q1"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-injector-circuit-cylinder-3",
+     "target": {
+      "record_id": "injector-circuit-cylinder-3",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'injector-circuit-cylinder-3' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#injector-circuit-cylinder-3",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "injector-circuit-cylinder-4": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Is the cylinder 4 injector's internal resistance outside its nominal range (solenoid 12 - 16 Ohm, piezo 180-220 kOhm)?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Enjektör bobini arızalı: enjektörü değiştirin.",
+       "note_en": "The injector coil has failed: replace the injector."
+      },
+      "no": {
+       "favor": [
+        1
+       ],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Enjektör sağlam: kablo demeti veya ECM sürücü devresi.",
+       "note_en": "The injector is fine: wiring harness or the ECM driver circuit."
+      }
+     },
+     "question_tr": "4. silindir enjektörünün iç direnci nominal aralığın dışında mı (selenoid 12 - 16 Ohm, piezo 180-220 kOhm)?",
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Is the harness chafed to ground or broken by vibration?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Kablo demeti hasarlı: onarın ve kodu silip yeniden deneyin.",
+       "note_en": "Harness damaged: repair it, clear the code and retest."
+      }
+     },
+     "id": "q1"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-injector-circuit-cylinder-4",
+     "target": {
+      "record_id": "injector-circuit-cylinder-4",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'injector-circuit-cylinder-4' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#injector-circuit-cylinder-4",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "injector-circuit-cylinder-5": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Is the cylinder 5 injector's internal resistance outside its nominal range (solenoid 12 - 16 Ohm, piezo 180-220 kOhm)?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Enjektör bobini arızalı: enjektörü değiştirin.",
+       "note_en": "The injector coil has failed: replace the injector."
+      },
+      "no": {
+       "favor": [
+        1
+       ],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Enjektör sağlam: kablo demeti veya ECM sürücü devresi.",
+       "note_en": "The injector is fine: wiring harness or the ECM driver circuit."
+      }
+     },
+     "question_tr": "5. silindir enjektörünün iç direnci nominal aralığın dışında mı (selenoid 12 - 16 Ohm, piezo 180-220 kOhm)?",
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Is the harness chafed to ground or broken by vibration?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Kablo demeti hasarlı: onarın ve kodu silip yeniden deneyin.",
+       "note_en": "Harness damaged: repair it, clear the code and retest."
+      }
+     },
+     "id": "q1"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-injector-circuit-cylinder-5",
+     "target": {
+      "record_id": "injector-circuit-cylinder-5",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'injector-circuit-cylinder-5' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#injector-circuit-cylinder-5",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "injector-circuit-cylinder-6": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Is the cylinder 6 injector's internal resistance outside its nominal range (solenoid 12 - 16 Ohm, piezo 180-220 kOhm)?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Enjektör bobini arızalı: enjektörü değiştirin.",
+       "note_en": "The injector coil has failed: replace the injector."
+      },
+      "no": {
+       "favor": [
+        1
+       ],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Enjektör sağlam: kablo demeti veya ECM sürücü devresi.",
+       "note_en": "The injector is fine: wiring harness or the ECM driver circuit."
+      }
+     },
+     "question_tr": "6. silindir enjektörünün iç direnci nominal aralığın dışında mı (selenoid 12 - 16 Ohm, piezo 180-220 kOhm)?",
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Is the harness chafed to ground or broken by vibration?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Kablo demeti hasarlı: onarın ve kodu silip yeniden deneyin.",
+       "note_en": "Harness damaged: repair it, clear the code and retest."
+      }
+     },
+     "id": "q1"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-injector-circuit-cylinder-6",
+     "target": {
+      "record_id": "injector-circuit-cylinder-6",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'injector-circuit-cylinder-6' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#injector-circuit-cylinder-6",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "injector-circuit-cylinder-7": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Is the cylinder 7 injector's internal resistance outside its nominal range (solenoid 12 - 16 Ohm, piezo 180-220 kOhm)?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Enjektör bobini arızalı: enjektörü değiştirin.",
+       "note_en": "The injector coil has failed: replace the injector."
+      },
+      "no": {
+       "favor": [
+        1
+       ],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Enjektör sağlam: kablo demeti veya ECM sürücü devresi.",
+       "note_en": "The injector is fine: wiring harness or the ECM driver circuit."
+      }
+     },
+     "question_tr": "7. silindir enjektörünün iç direnci nominal aralığın dışında mı (selenoid 12 - 16 Ohm, piezo 180-220 kOhm)?",
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Is the harness chafed to ground or broken by vibration?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Kablo demeti hasarlı: onarın ve kodu silip yeniden deneyin.",
+       "note_en": "Harness damaged: repair it, clear the code and retest."
+      }
+     },
+     "id": "q1"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-injector-circuit-cylinder-7",
+     "target": {
+      "record_id": "injector-circuit-cylinder-7",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'injector-circuit-cylinder-7' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#injector-circuit-cylinder-7",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "injector-circuit-cylinder-8": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Is the cylinder 8 injector's internal resistance outside its nominal range (solenoid 12 - 16 Ohm, piezo 180-220 kOhm)?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Enjektör bobini arızalı: enjektörü değiştirin.",
+       "note_en": "The injector coil has failed: replace the injector."
+      },
+      "no": {
+       "favor": [
+        1
+       ],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Enjektör sağlam: kablo demeti veya ECM sürücü devresi.",
+       "note_en": "The injector is fine: wiring harness or the ECM driver circuit."
+      }
+     },
+     "question_tr": "8. silindir enjektörünün iç direnci nominal aralığın dışında mı (selenoid 12 - 16 Ohm, piezo 180-220 kOhm)?",
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Is the harness chafed to ground or broken by vibration?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Kablo demeti hasarlı: onarın ve kodu silip yeniden deneyin.",
+       "note_en": "Harness damaged: repair it, clear the code and retest."
+      }
+     },
+     "id": "q1"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-injector-circuit-cylinder-8",
+     "target": {
+      "record_id": "injector-circuit-cylinder-8",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'injector-circuit-cylinder-8' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#injector-circuit-cylinder-8",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "ignition-coil-circuit-cylinder-1": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "With the ignition on, does the cylinder 1 coil connector get 12V supply and a good ground?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0,
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Besleme ve şase var: bobin veya tetikleme sinyali; bobini başka silindirle değiştirip deneyin.",
+       "note_en": "Supply and ground present: the coil or its trigger signal; swap the coil to another cylinder."
+      },
+      "no": {
+       "favor": [],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Besleme veya şase yok: sigorta, röle ve kablo demeti.",
+       "note_en": "No supply or ground: fuse, relay and harness."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Are there white arc tracks or cracks on the coil body?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Bobin gövdesinde ark izi: bobini değiştirin.",
+       "note_en": "Arc tracks on the coil: replace the coil."
+      }
+     },
+     "id": "q1"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-ignition-coil-circuit-cylinder-1",
+     "target": {
+      "record_id": "ignition-coil-circuit-cylinder-1",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'ignition-coil-circuit-cylinder-1' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#ignition-coil-circuit-cylinder-1",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "ignition-coil-circuit-cylinder-2": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "With the ignition on, does the cylinder 2 coil connector get 12V supply and a good ground?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0,
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Besleme ve şase var: bobin veya tetikleme sinyali; bobini başka silindirle değiştirip deneyin.",
+       "note_en": "Supply and ground present: the coil or its trigger signal; swap the coil to another cylinder."
+      },
+      "no": {
+       "favor": [],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Besleme veya şase yok: sigorta, röle ve kablo demeti.",
+       "note_en": "No supply or ground: fuse, relay and harness."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Are there white arc tracks or cracks on the coil body?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Bobin gövdesinde ark izi: bobini değiştirin.",
+       "note_en": "Arc tracks on the coil: replace the coil."
+      }
+     },
+     "id": "q1"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-ignition-coil-circuit-cylinder-2",
+     "target": {
+      "record_id": "ignition-coil-circuit-cylinder-2",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'ignition-coil-circuit-cylinder-2' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#ignition-coil-circuit-cylinder-2",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "ignition-coil-circuit-cylinder-3": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "With the ignition on, does the cylinder 3 coil connector get 12V supply and a good ground?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0,
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Besleme ve şase var: bobin veya tetikleme sinyali; bobini başka silindirle değiştirip deneyin.",
+       "note_en": "Supply and ground present: the coil or its trigger signal; swap the coil to another cylinder."
+      },
+      "no": {
+       "favor": [],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Besleme veya şase yok: sigorta, röle ve kablo demeti.",
+       "note_en": "No supply or ground: fuse, relay and harness."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Are there white arc tracks or cracks on the coil body?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Bobin gövdesinde ark izi: bobini değiştirin.",
+       "note_en": "Arc tracks on the coil: replace the coil."
+      }
+     },
+     "id": "q1"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-ignition-coil-circuit-cylinder-3",
+     "target": {
+      "record_id": "ignition-coil-circuit-cylinder-3",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'ignition-coil-circuit-cylinder-3' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#ignition-coil-circuit-cylinder-3",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "ignition-coil-circuit-cylinder-4": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "With the ignition on, does the cylinder 4 coil connector get 12V supply and a good ground?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0,
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Besleme ve şase var: bobin veya tetikleme sinyali; bobini başka silindirle değiştirip deneyin.",
+       "note_en": "Supply and ground present: the coil or its trigger signal; swap the coil to another cylinder."
+      },
+      "no": {
+       "favor": [],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Besleme veya şase yok: sigorta, röle ve kablo demeti.",
+       "note_en": "No supply or ground: fuse, relay and harness."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Are there white arc tracks or cracks on the coil body?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Bobin gövdesinde ark izi: bobini değiştirin.",
+       "note_en": "Arc tracks on the coil: replace the coil."
+      }
+     },
+     "id": "q1"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-ignition-coil-circuit-cylinder-4",
+     "target": {
+      "record_id": "ignition-coil-circuit-cylinder-4",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'ignition-coil-circuit-cylinder-4' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#ignition-coil-circuit-cylinder-4",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "ignition-coil-circuit-cylinder-5": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "With the ignition on, does the cylinder 5 coil connector get 12V supply and a good ground?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0,
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Besleme ve şase var: bobin veya tetikleme sinyali; bobini başka silindirle değiştirip deneyin.",
+       "note_en": "Supply and ground present: the coil or its trigger signal; swap the coil to another cylinder."
+      },
+      "no": {
+       "favor": [],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Besleme veya şase yok: sigorta, röle ve kablo demeti.",
+       "note_en": "No supply or ground: fuse, relay and harness."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Are there white arc tracks or cracks on the coil body?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Bobin gövdesinde ark izi: bobini değiştirin.",
+       "note_en": "Arc tracks on the coil: replace the coil."
+      }
+     },
+     "id": "q1"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-ignition-coil-circuit-cylinder-5",
+     "target": {
+      "record_id": "ignition-coil-circuit-cylinder-5",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'ignition-coil-circuit-cylinder-5' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#ignition-coil-circuit-cylinder-5",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "ignition-coil-circuit-cylinder-6": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "With the ignition on, does the cylinder 6 coil connector get 12V supply and a good ground?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0,
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Besleme ve şase var: bobin veya tetikleme sinyali; bobini başka silindirle değiştirip deneyin.",
+       "note_en": "Supply and ground present: the coil or its trigger signal; swap the coil to another cylinder."
+      },
+      "no": {
+       "favor": [],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Besleme veya şase yok: sigorta, röle ve kablo demeti.",
+       "note_en": "No supply or ground: fuse, relay and harness."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Are there white arc tracks or cracks on the coil body?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Bobin gövdesinde ark izi: bobini değiştirin.",
+       "note_en": "Arc tracks on the coil: replace the coil."
+      }
+     },
+     "id": "q1"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-ignition-coil-circuit-cylinder-6",
+     "target": {
+      "record_id": "ignition-coil-circuit-cylinder-6",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'ignition-coil-circuit-cylinder-6' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#ignition-coil-circuit-cylinder-6",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "ignition-coil-circuit-cylinder-7": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "With the ignition on, does the cylinder 7 coil connector get 12V supply and a good ground?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0,
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Besleme ve şase var: bobin veya tetikleme sinyali; bobini başka silindirle değiştirip deneyin.",
+       "note_en": "Supply and ground present: the coil or its trigger signal; swap the coil to another cylinder."
+      },
+      "no": {
+       "favor": [],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Besleme veya şase yok: sigorta, röle ve kablo demeti.",
+       "note_en": "No supply or ground: fuse, relay and harness."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Are there white arc tracks or cracks on the coil body?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Bobin gövdesinde ark izi: bobini değiştirin.",
+       "note_en": "Arc tracks on the coil: replace the coil."
+      }
+     },
+     "id": "q1"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-ignition-coil-circuit-cylinder-7",
+     "target": {
+      "record_id": "ignition-coil-circuit-cylinder-7",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'ignition-coil-circuit-cylinder-7' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#ignition-coil-circuit-cylinder-7",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "ignition-coil-circuit-cylinder-8": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "With the ignition on, does the cylinder 8 coil connector get 12V supply and a good ground?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0,
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Besleme ve şase var: bobin veya tetikleme sinyali; bobini başka silindirle değiştirip deneyin.",
+       "note_en": "Supply and ground present: the coil or its trigger signal; swap the coil to another cylinder."
+      },
+      "no": {
+       "favor": [],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Besleme veya şase yok: sigorta, röle ve kablo demeti.",
+       "note_en": "No supply or ground: fuse, relay and harness."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Are there white arc tracks or cracks on the coil body?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Bobin gövdesinde ark izi: bobini değiştirin.",
+       "note_en": "Arc tracks on the coil: replace the coil."
+      }
+     },
+     "id": "q1"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-ignition-coil-circuit-cylinder-8",
+     "target": {
+      "record_id": "ignition-coil-circuit-cylinder-8",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'ignition-coil-circuit-cylinder-8' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#ignition-coil-circuit-cylinder-8",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "transmission-gear-1-incorrect-ratio": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "When gear 1 engages, does the engine rpm flare without the vehicle accelerating?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Devir fırlıyor: 1. vites debriyaj paketi kaydırıyor.",
+       "note_en": "Rpm flares: the gear 1 clutch pack is slipping."
+      },
+      "no": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Kaydırma hissedilmiyor: giriş/çıkış hız sensörü okumalarını karşılaştırın.",
+       "note_en": "No slip felt: compare the input/output speed sensor readings."
+      }
+     },
+     "id": "q0"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-transmission-gear-1-incorrect-ratio",
+     "target": {
+      "record_id": "transmission-gear-1-incorrect-ratio",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'transmission-gear-1-incorrect-ratio' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#transmission-gear-1-incorrect-ratio",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "transmission-gear-2-incorrect-ratio": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "When gear 2 engages, does the engine rpm flare without the vehicle accelerating?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Devir fırlıyor: 2. vites debriyaj paketi kaydırıyor.",
+       "note_en": "Rpm flares: the gear 2 clutch pack is slipping."
+      },
+      "no": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Kaydırma hissedilmiyor: giriş/çıkış hız sensörü okumalarını karşılaştırın.",
+       "note_en": "No slip felt: compare the input/output speed sensor readings."
+      }
+     },
+     "id": "q0"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-transmission-gear-2-incorrect-ratio",
+     "target": {
+      "record_id": "transmission-gear-2-incorrect-ratio",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'transmission-gear-2-incorrect-ratio' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#transmission-gear-2-incorrect-ratio",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "transmission-gear-3-incorrect-ratio": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "When gear 3 engages, does the engine rpm flare without the vehicle accelerating?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Devir fırlıyor: 3. vites debriyaj paketi kaydırıyor.",
+       "note_en": "Rpm flares: the gear 3 clutch pack is slipping."
+      },
+      "no": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Kaydırma hissedilmiyor: giriş/çıkış hız sensörü okumalarını karşılaştırın.",
+       "note_en": "No slip felt: compare the input/output speed sensor readings."
+      }
+     },
+     "id": "q0"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-transmission-gear-3-incorrect-ratio",
+     "target": {
+      "record_id": "transmission-gear-3-incorrect-ratio",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'transmission-gear-3-incorrect-ratio' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#transmission-gear-3-incorrect-ratio",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "transmission-gear-4-incorrect-ratio": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "When gear 4 engages, does the engine rpm flare without the vehicle accelerating?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Devir fırlıyor: 4. vites debriyaj paketi kaydırıyor.",
+       "note_en": "Rpm flares: the gear 4 clutch pack is slipping."
+      },
+      "no": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Kaydırma hissedilmiyor: giriş/çıkış hız sensörü okumalarını karşılaştırın.",
+       "note_en": "No slip felt: compare the input/output speed sensor readings."
+      }
+     },
+     "id": "q0"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-transmission-gear-4-incorrect-ratio",
+     "target": {
+      "record_id": "transmission-gear-4-incorrect-ratio",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'transmission-gear-4-incorrect-ratio' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#transmission-gear-4-incorrect-ratio",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "transmission-gear-5-incorrect-ratio": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "When gear 5 engages, does the engine rpm flare without the vehicle accelerating?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Devir fırlıyor: 5. vites debriyaj paketi kaydırıyor.",
+       "note_en": "Rpm flares: the gear 5 clutch pack is slipping."
+      },
+      "no": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Kaydırma hissedilmiyor: giriş/çıkış hız sensörü okumalarını karşılaştırın.",
+       "note_en": "No slip felt: compare the input/output speed sensor readings."
+      }
+     },
+     "id": "q0"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-transmission-gear-5-incorrect-ratio",
+     "target": {
+      "record_id": "transmission-gear-5-incorrect-ratio",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'transmission-gear-5-incorrect-ratio' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#transmission-gear-5-incorrect-ratio",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "transmission-gear-6-incorrect-ratio": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "When gear 6 engages, does the engine rpm flare without the vehicle accelerating?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Devir fırlıyor: 6. vites debriyaj paketi kaydırıyor.",
+       "note_en": "Rpm flares: the gear 6 clutch pack is slipping."
+      },
+      "no": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Kaydırma hissedilmiyor: giriş/çıkış hız sensörü okumalarını karşılaştırın.",
+       "note_en": "No slip felt: compare the input/output speed sensor readings."
+      }
+     },
+     "id": "q0"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-transmission-gear-6-incorrect-ratio",
+     "target": {
+      "record_id": "transmission-gear-6-incorrect-ratio",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'transmission-gear-6-incorrect-ratio' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#transmission-gear-6-incorrect-ratio",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "wheel-speed-sensor-missing-fl": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Is the magnetic encoder ring on the hub bearing cracked or rusted?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Encoder halkası hasarlı: poyra/halka değişimi.",
+       "note_en": "Encoder ring damaged: replace the hub or ring."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Does the oscilloscope show a square/sine signal when the wheel is turned by hand?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        1
+       ],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Sinyal var: sensör çalışıyor; halka boşluğu veya aralıklı kopukluk.",
+       "note_en": "Signal present: the sensor works; ring gap or an intermittent break."
+      },
+      "no": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Sinyal yok: sensör veya kablosu.",
+       "note_en": "No signal: the sensor or its wiring."
+      }
+     },
+     "id": "q1"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-wheel-speed-sensor-missing-fl",
+     "target": {
+      "record_id": "wheel-speed-sensor-missing-fl",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'wheel-speed-sensor-missing-fl' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#wheel-speed-sensor-missing-fl",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "o2-sensor-heater-circuit-bank1-sensor1": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "measurement",
+     "unit": "Ohm",
+     "question_en": "What is the internal resistance between the heater pins (Ohm)?",
+     "text_keys": [
+      "isitici direnci",
+      "heater resistance"
+     ],
+     "bands": [
+      {
+       "min": null,
+       "max": 4,
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "4 Ohm altında: ısıtıcıda kısa devre.",
+       "note_en": "Under 4 Ohm: the heater is shorted."
+      },
+      {
+       "min": 4,
+       "max": 15,
+       "favor": [
+        1
+       ],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "4 - 15 Ohm: ısıtıcı sağlam; besleme, sigorta ve röle.",
+       "note_en": "4 - 15 Ohm: the heater is fine; supply, fuse and relay."
+      },
+      {
+       "min": 15,
+       "max": null,
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "15 Ohm üstü veya sonsuz: ısıtıcı açık devre; sensörü değiştirin.",
+       "note_en": "Over 15 Ohm or open: the heater is open; replace the sensor."
+      }
+     ],
+     "question_tr": "Isıtıcı pinleri arasındaki iç omik direnç kaç Ohm? (genelde 4 - 15 Ohm)",
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "With the ignition on, does the sensor connector get 12V heater supply?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [
+        1
+       ],
+       "note_tr": "Besleme var: ısıtıcı elemanı.",
+       "note_en": "Supply present: the heater element."
+      },
+      "no": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Besleme yok: ısıtıcı sigortası ve rölesi.",
+       "note_en": "No supply: the heater fuse and relay."
+      }
+     },
+     "id": "q1"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-o2-sensor-heater-circuit-bank1-sensor1",
+     "target": {
+      "record_id": "o2-sensor-heater-circuit-bank1-sensor1",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'o2-sensor-heater-circuit-bank1-sensor1' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#o2-sensor-heater-circuit-bank1-sensor1",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "rich-condition-bank1": {
+   "checks": [
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Is the EVAP purge valve stuck open when it should be closed?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Purge valfi açık kalmış: zengin karışımın kaynağı.",
+       "note_en": "Purge valve stuck open: the source of the rich mixture."
+      }
+     },
+     "id": "q1"
+    },
+    {
+     "q": 2,
+     "kind": "yes_no",
+     "question_en": "Are the spark plugs heavily sooted or wet with fuel?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Bujiler ıslak/kurumlu: enjektör damlatıyor olabilir.",
+       "note_en": "Plugs wet or sooted: an injector may be dripping."
+      }
+     },
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-rich-condition-bank1",
+     "target": {
+      "record_id": "rich-condition-bank1",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'rich-condition-bank1' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#rich-condition-bank1",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "maf-sensor-range-performance": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Is there oil or dust on the MAF hot film?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "MAF filmi kirli: temizleyin veya değiştirin.",
+       "note_en": "MAF film dirty: clean or replace it."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 2,
+     "kind": "yes_no",
+     "question_en": "With the sensor unplugged (default map), does the engine run better?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Fişsiz daha iyi: MAF yanlış ölçüyor.",
+       "note_en": "Better unplugged: the MAF is measuring wrong."
+      },
+      "no": {
+       "favor": [
+        1
+       ],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Fişsiz de aynı: hava filtresi kutusu veya giriş kanalında kaçak/tıkanma.",
+       "note_en": "Same unplugged: a leak or blockage in the air box or intake duct."
+      }
+     },
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-maf-sensor-range-performance",
+     "target": {
+      "record_id": "maf-sensor-range-performance",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'maf-sensor-range-performance' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#maf-sensor-range-performance",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "map-sensor-rationality": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "With the ignition on and the engine off, does the MAP sensor read atmospheric pressure (~101 kPa)?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        1
+       ],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Atmosferik basıncı doğru okuyor: sensör sağlam; vakum portu ve hortumu.",
+       "note_en": "Reads atmospheric correctly: the sensor is fine; the vacuum port and hose."
+      },
+      "no": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Atmosferik basıncı yanlış okuyor: MAP sensörü.",
+       "note_en": "Reads atmospheric wrong: the MAP sensor."
+      }
+     },
+     "id": "q0"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-map-sensor-rationality",
+     "target": {
+      "record_id": "map-sensor-rationality",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'map-sensor-rationality' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#map-sensor-rationality",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "throttle-position-discrepancy": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Does TPS1 + TPS2 stay equal to 5.0 Volt at every pedal position?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [
+        1
+       ],
+       "note_tr": "Potansiyometre toplamı doğru: kelebek motoru veya mekanik takılma.",
+       "note_en": "Sum is correct: the throttle motor or mechanical sticking."
+      },
+      "no": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Toplam 5.0 Volt değil: TPS potansiyometre izi bozuk.",
+       "note_en": "Sum is not 5.0 Volt: a worn TPS track."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Is the throttle flap sticking mechanically due to carbon in the bore?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Kelebek kurumla takılıyor: temizleyip öğrenme (adaptasyon) yapın.",
+       "note_en": "Flap sticking with carbon: clean it and run the adaptation."
+      }
+     },
+     "id": "q1"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-throttle-position-discrepancy",
+     "target": {
+      "record_id": "throttle-position-discrepancy",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'throttle-position-discrepancy' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#throttle-position-discrepancy",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "cam-crank-correlation-fault": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Is there a metallic chain rattle from the front of the engine on first start?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "İlk çalıştırmada zincir şakırtısı: triger zinciri uzamış veya gergi arızalı.",
+       "note_en": "Chain rattle on first start: the timing chain has stretched or the tensioner has failed."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 2,
+     "kind": "yes_no",
+     "question_en": "Do the timing locking tools fit fully?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        1,
+        2
+       ],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Zamanlama doğru: krank/eksantrik sensörü ve sinyal tekerleri.",
+       "note_en": "Timing correct: the crank/cam sensors and their tone wheels."
+      },
+      "no": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Kitleme aparatları oturmuyor: zamanlama kaymış; triger seti.",
+       "note_en": "Locking tools do not fit: timing has slipped; timing kit."
+      }
+     },
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-cam-crank-correlation-fault",
+     "target": {
+      "record_id": "cam-crank-correlation-fault",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'cam-crank-correlation-fault' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#cam-crank-correlation-fault",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "knock-sensor-circuit-fault": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Was the knock sensor bolt tightened to exactly 20 Nm with a torque wrench?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [
+        1
+       ],
+       "note_tr": "Tork doğru: sensör veya kablosu.",
+       "note_en": "Torque correct: the sensor or its wiring."
+      },
+      "no": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Tork yanlış: sensörü 20 Nm ile yeniden sıkın.",
+       "note_en": "Wrong torque: retighten the sensor to 20 Nm."
+      }
+     },
+     "id": "q0"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-knock-sensor-circuit-fault",
+     "target": {
+      "record_id": "knock-sensor-circuit-fault",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'knock-sensor-circuit-fault' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#knock-sensor-circuit-fault",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "catalyst-efficiency-below-threshold-bank1": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Does the rear (post-cat) O2 voltage switch like the front sensor?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Arka sensör ön sensör gibi dalgalanıyor: katalizör oksijen depolamıyor.",
+       "note_en": "Rear sensor switches like the front: the catalyst no longer stores oxygen."
+      },
+      "no": {
+       "favor": [
+        1
+       ],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Arka sensör sabit: katalizör çalışıyor olabilir; arka O2 sensörünü doğrulayın.",
+       "note_en": "Rear sensor steady: the catalyst may work; verify the rear O2 sensor."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Is there an exhaust leak or crack before the catalyst?",
+     "outcomes": {
+      "yes": {
+       "favor": [],
+       "rule_out": [],
+       "note_tr": "Katalizör öncesi kaçak O2 okumasını bozar: önce kaçağı giderin.",
+       "note_en": "A leak before the catalyst corrupts the O2 reading: fix the leak first."
+      }
+     },
+     "id": "q1"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-catalyst-efficiency-below-threshold-bank1",
+     "target": {
+      "record_id": "catalyst-efficiency-below-threshold-bank1",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'catalyst-efficiency-below-threshold-bank1' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#catalyst-efficiency-below-threshold-bank1",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "evap-gross-leak-detected": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "Is the fuel filler cap seal torn or the cap not fully latched?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Kapak contası yırtık veya kapak açık: kapağı değiştirin/kapatın, kodu silip izleyin.",
+       "note_en": "Cap seal torn or cap open: replace or close it, clear the code and monitor."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 2,
+     "kind": "yes_no",
+     "question_en": "In the EVAP smoke test, does smoke escape at the filler neck?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Dolum boynundan kaçak: kapak veya boyun.",
+       "note_en": "Leak at the filler neck: cap or neck."
+      },
+      "no": {
+       "favor": [
+        1,
+        2
+       ],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Dolum boynu sağlam: kanister, hortumlar ve havalandırma valfi.",
+       "note_en": "Filler neck sound: canister, hoses and vent valve."
+      }
+     },
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-evap-gross-leak-detected",
+     "target": {
+      "record_id": "evap-gross-leak-detected",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'evap-gross-leak-detected' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#evap-gross-leak-detected",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "egr-flow-insufficient": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "In the active test, does MAP pressure rise as expected when the EGR opens?",
+     "outcomes": {
+      "yes": {
+       "favor": [],
+       "rule_out": [
+        0,
+        1
+       ],
+       "note_tr": "EGR açılınca basınç yükseliyor: akış var.",
+       "note_en": "Pressure rises with EGR open: there is flow."
+      },
+      "no": {
+       "favor": [
+        0,
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "EGR açılınca akış yok: EGR kanalları veya soğutucu kurumla tıkalı.",
+       "note_en": "No flow with EGR open: EGR passages or cooler blocked with soot."
+      }
+     },
+     "id": "q0"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-egr-flow-insufficient",
+     "target": {
+      "record_id": "egr-flow-insufficient",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'egr-flow-insufficient' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#egr-flow-insufficient",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "hd-vgt-actuator-stuck": {
+   "checks": [
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Is the nozzle ring hard to turn by hand because of soot?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Nozul halkası kurumla sıkışmış: turbo temizliği veya revizyonu.",
+       "note_en": "Nozzle ring seized with soot: turbo cleaning or overhaul."
+      }
+     },
+     "id": "q1"
+    },
+    {
+     "q": 2,
+     "kind": "yes_no",
+     "question_en": "Are there broken or stripped teeth in the VGT motor gearbox?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Aktüatör dişlisi kırık: aktüatörü değiştirip kalibre edin.",
+       "note_en": "Actuator gear broken: replace and calibrate the actuator."
+      }
+     },
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-hd-vgt-actuator-stuck",
+     "target": {
+      "record_id": "hd-vgt-actuator-stuck",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'hd-vgt-actuator-stuck' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#hd-vgt-actuator-stuck",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "hd-crankcase-pressure-high": {
+   "checks": [
+    {
+     "q": 1,
+     "kind": "yes_no",
+     "question_en": "Is the crankcase ventilation centrifugal filter blocked?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        0
+       ],
+       "rule_out": [],
+       "note_tr": "Havalandırma filtresi tıkalı: filtreyi değiştirin.",
+       "note_en": "Ventilation filter blocked: replace it."
+      },
+      "no": {
+       "favor": [
+        1
+       ],
+       "rule_out": [
+        0
+       ],
+       "note_tr": "Filtre açık: segman veya gömlek kaçağı öne çıkar; kompresyon testi.",
+       "note_en": "Filter clear: ring or liner leakage comes forward; compression test."
+      }
+     },
+     "id": "q1"
+    },
+    {
+     "q": 2,
+     "kind": "yes_no",
+     "question_en": "When the oil filler cap is loosened, does air pressure push it up?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Kapak basınçla zıplıyor: ciddi kompresyon kaçağı (blow-by).",
+       "note_en": "Cap pushed up: heavy blow-by."
+      }
+     },
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-hd-crankcase-pressure-high",
+     "target": {
+      "record_id": "hd-crankcase-pressure-high",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'hd-crankcase-pressure-high' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#hd-crankcase-pressure-high",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  "air-suspension-compressor-timeout": {
+   "checks": [
+    {
+     "q": 0,
+     "kind": "yes_no",
+     "question_en": "After an overnight park, does one corner drop to the ground?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Tek köşe çöküyor: o körük veya valf bloğunda kaçak.",
+       "note_en": "One corner drops: a leak in that bag or the valve block."
+      }
+     },
+     "id": "q0"
+    },
+    {
+     "q": 2,
+     "kind": "yes_no",
+     "question_en": "Was a leak found with soapy water at the bag folds?",
+     "outcomes": {
+      "yes": {
+       "favor": [
+        1
+       ],
+       "rule_out": [],
+       "note_tr": "Sabunlu suyla kaçak bulundu: körüğü değiştirin.",
+       "note_en": "Soapy-water leak found: replace the bag."
+      }
+     },
+     "id": "q2"
+    }
+   ],
+   "provenance": [
+    {
+     "provenance_id": "prv-chk-air-suspension-compressor-timeout",
+     "target": {
+      "record_id": "air-suspension-compressor-timeout",
+      "field": "checks"
+     },
+     "activity": "curate_answer_effects",
+     "activity_version": "copilot-checks-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "canonical_symptoms.json symptom 'air-suspension-compressor-timeout' (initial_questions, subsystems, candidate_dtcs)",
+      "path": "data/diagnostics/canonical_symptoms.json#air-suspension-compressor-timeout",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "answer-effect-over-existing-question"
+     },
+     "confidence": "single_source"
+    }
+   ]
   }
  }
 }
