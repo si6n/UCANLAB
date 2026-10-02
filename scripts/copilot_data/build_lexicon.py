@@ -70,6 +70,7 @@ lex = {
      "confidence": "single_source"}]
  }
 }
-json.dump(lex, open(P, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
-open(P, "a").write("\n")
+with open(P, "w", encoding="utf-8", newline="\n") as fh:
+    json.dump(lex, fh, ensure_ascii=False, indent=1)
+    fh.write("\n")
 print(len(E))

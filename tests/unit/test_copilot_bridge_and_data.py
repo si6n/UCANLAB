@@ -100,9 +100,13 @@ def test_copilot_data_files_regenerate_identically(tmp_path: Path) -> None:
     import subprocess
 
     targets = ["symptom_lexicon.json", "signal_measurement_map.json", "copilot_glossary.json"]
-    before = {t: (ROOT / "data" / "diagnostics" / t).read_bytes() for t in targets}
+    # Windows checkouts may carry CRLF (core.autocrlf); compare content, not line endings.
+    def read(t: str) -> bytes:
+        return (ROOT / "data" / "diagnostics" / t).read_bytes().replace(b"\r\n", b"\n")
+
+    before = {t: read(t) for t in targets}
     for script in ("build_lexicon.py", "build_signal_map.py", "build_glossary.py"):
         subprocess.run([sys.executable, str(ROOT / "scripts" / "copilot_data" / script)], check=True,
                        capture_output=True, cwd=ROOT)
-    after = {t: (ROOT / "data" / "diagnostics" / t).read_bytes() for t in targets}
+    after = {t: read(t) for t in targets}
     assert before == after

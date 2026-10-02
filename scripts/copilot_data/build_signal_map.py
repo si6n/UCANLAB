@@ -11,9 +11,9 @@ import os
 os.chdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))  # run from repo root
 
 D = "data/diagnostics/"
-spns = json.load(open(D + "j1939_spn_fmi_database.json"))["spns"]
-pids = json.load(open(D + "extended_pid_database.json"))["pids"]
-thr = json.load(open(D + "telemetry_thresholds.json"))["signals"]
+spns = json.load(open(D + "j1939_spn_fmi_database.json", encoding="utf-8"))["spns"]
+pids = json.load(open(D + "extended_pid_database.json", encoding="utf-8"))["pids"]
+thr = json.load(open(D + "telemetry_thresholds.json", encoding="utf-8"))["signals"]
 
 def pid_row(service, pid):
     rows = [p for p in pids if str(p.get("service", "")).zfill(2) == service and
@@ -105,6 +105,7 @@ doc = {
               "every SPN/PID against the databases."),
     "signals": out,
 }
-json.dump(doc, open(D + "signal_measurement_map.json", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
-open(D + "signal_measurement_map.json", "a").write("\n")
+with open(D + "signal_measurement_map.json", "w", encoding="utf-8", newline="\n") as fh:
+    json.dump(doc, fh, ensure_ascii=False, indent=1)
+    fh.write("\n")
 print(len(out))

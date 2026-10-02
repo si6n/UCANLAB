@@ -59,7 +59,7 @@ for key, (match, tr, en, std) in T.items():
     }
 doc = {"schema_version": 1, "title": "Copilot plain-language glossary (TR/EN)",
        "_rule": "Definitions only: no values, limits, causes or procedures. README principle 2.", "terms": out}
-with open("data/diagnostics/copilot_glossary.json", "w", encoding="utf-8") as fh:
+with open("data/diagnostics/copilot_glossary.json", "w", encoding="utf-8", newline="\n") as fh:
     json.dump(doc, fh, ensure_ascii=False, indent=1)
     fh.write("\n")
 print(len(out))
