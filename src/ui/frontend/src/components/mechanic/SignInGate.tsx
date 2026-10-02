@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { KeyRound, Laptop, Loader2, ShieldCheck, WifiOff } from 'lucide-react';
+import { KeyRound, Laptop, Loader2, WifiOff } from 'lucide-react';
 import { AuthLicenseState, AuthLoginOutcome, DesktopBridge, DeviceLoginStart } from '../../services/bridge';
+import { AppFrame } from '../shell/AppFrame';
+import { CARD, Screen } from './Screen';
 import { BTN_PRIMARY, BTN_SECONDARY, L, messageOf } from './text';
 
 /**
@@ -142,91 +144,88 @@ export const SignInGate: React.FC<{ children: React.ReactNode }> = ({ children }
     ) : null;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-bg-app px-4 py-10 text-text-body">
-      <div className="flex w-full max-w-md flex-col gap-5 rounded-2xl border border-border-whisper bg-bg-card p-6 shadow-sm">
-        <div className="flex items-center gap-2 text-sm font-semibold text-text-hi">
-          <ShieldCheck className="h-5 w-5 text-accent" />
-          UCanLab
+    <AppFrame>
+      <Screen width="narrow">
+        <div className={`${CARD} flex flex-col gap-5 p-6`}>
+          {phase === 'checking' && (
+            <div className="flex items-center gap-3 text-text-mid">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              {L('UCanLab hazırlanıyor…', 'Getting UCanLab ready…')}
+            </div>
+          )}
+
+          {phase === 'login' && (
+            <>
+              <h1 className="text-xl font-semibold text-text-hi">{L('Hesabınıza giriş yapın', 'Sign in to your account')}</h1>
+              <p className="text-sm">
+                {L(
+                  'Tarayıcınızda ucanlab.org açılacak. Giriş yaptıktan sonra buraya kendiliğinden döneceksiniz.',
+                  "ucanlab.org will open in your browser. After you sign in, you'll come back here automatically.",
+                )}
+              </p>
+              {offlineHint}
+              <button type="button" className={BTN_PRIMARY} onClick={() => void startBrowser()}>
+                <Laptop className="h-4 w-4" />
+                {L('Tarayıcıda giriş yap', 'Sign in with browser')}
+              </button>
+              <button type="button" className={BTN_SECONDARY} onClick={() => void startCode()}>
+                <KeyRound className="h-4 w-4" />
+                {L('Kodla giriş yap', 'Sign in with a code')}
+              </button>
+              <p className="text-xs text-text-low">
+                {L(
+                  'Parolanız bu uygulamaya yazılmaz. Uygulama yalnızca tek kullanımlık, birkaç dakikalık bir kod alır.',
+                  'Your password is never typed into this app. It only receives a one-time code that expires in minutes.',
+                )}
+              </p>
+            </>
+          )}
+
+          {phase === 'browser' && (
+            <>
+              <h1 className="text-xl font-semibold text-text-hi">{L('Tarayıcıda girişinizi bekliyoruz', 'Waiting for you to sign in')}</h1>
+              <div className="flex items-center gap-3 text-sm text-text-mid">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {L('ucanlab.org sekmesinde giriş yapın…', 'Sign in on the ucanlab.org tab…')}
+              </div>
+              <button type="button" className={BTN_SECONDARY} onClick={() => void startCode()}>
+                {L('Dönmedi mi? Kodla giriş yap', 'Not returning? Sign in with a code')}
+              </button>
+              <button type="button" className="text-sm text-accent-text" onClick={() => void cancel()}>
+                {L('İptal', 'Cancel')}
+              </button>
+            </>
+          )}
+
+          {(phase === 'code' || phase === 'finishing') && device && (
+            <>
+              <h1 className="text-xl font-semibold text-text-hi">{L('Kodla giriş', 'Sign in with a code')}</h1>
+              <p className="text-sm">
+                {L('Telefonunuzdan veya bilgisayarınızdan şu adrese gidin:', 'On your phone or computer, go to:')}{' '}
+                <span className="font-semibold text-text-hi">{(device.verification_uri || '').replace(/^https?:\/\//, '')}</span>
+              </p>
+              <div className="select-all rounded-xl bg-surface-inset-raw py-5 text-center font-mono text-3xl font-semibold tracking-[0.15em] text-text-hi">
+                {device.user_code}
+              </div>
+              <p className="text-xs text-text-low">
+                {L(
+                  `Kod ${Math.round((device.expires_in ?? 600) / 60)} dakika geçerlidir ve bir kez kullanılır.`,
+                  `The code is valid for ${Math.round((device.expires_in ?? 600) / 60)} minutes and works once.`,
+                )}
+              </p>
+              <div className="flex items-center gap-3 text-sm text-text-mid">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {phase === 'finishing'
+                  ? L('Lisans etkinleştiriliyor…', 'Activating your license…')
+                  : L('Onayınızı bekliyoruz…', 'Waiting for your approval…')}
+              </div>
+              <button type="button" className="text-sm text-accent-text" onClick={() => void cancel()}>
+                {L('İptal', 'Cancel')}
+              </button>
+            </>
+          )}
         </div>
-
-        {phase === 'checking' && (
-          <div className="flex items-center gap-3 text-text-mid">
-            <Loader2 className="h-5 w-5 animate-spin" />
-            {L('UCanLab hazırlanıyor…', 'Getting UCanLab ready…')}
-          </div>
-        )}
-
-        {phase === 'login' && (
-          <>
-            <h1 className="text-xl font-semibold text-text-hi">{L('Hesabınıza giriş yapın', 'Sign in to your account')}</h1>
-            <p className="text-sm">
-              {L(
-                'Tarayıcınızda ucanlab.org açılacak. Giriş yaptıktan sonra buraya kendiliğinden döneceksiniz.',
-                "ucanlab.org will open in your browser. After you sign in, you'll come back here automatically.",
-              )}
-            </p>
-            {offlineHint}
-            <button type="button" className={BTN_PRIMARY} onClick={() => void startBrowser()}>
-              <Laptop className="h-4 w-4" />
-              {L('Tarayıcıda giriş yap', 'Sign in with browser')}
-            </button>
-            <button type="button" className={BTN_SECONDARY} onClick={() => void startCode()}>
-              <KeyRound className="h-4 w-4" />
-              {L('Kodla giriş yap', 'Sign in with a code')}
-            </button>
-            <p className="text-xs text-text-low">
-              {L(
-                'Parolanız bu uygulamaya yazılmaz. Uygulama yalnızca tek kullanımlık, birkaç dakikalık bir kod alır.',
-                'Your password is never typed into this app. It only receives a one-time code that expires in minutes.',
-              )}
-            </p>
-          </>
-        )}
-
-        {phase === 'browser' && (
-          <>
-            <h1 className="text-xl font-semibold text-text-hi">{L('Tarayıcıda girişinizi bekliyoruz', 'Waiting for you to sign in')}</h1>
-            <div className="flex items-center gap-3 text-sm text-text-mid">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              {L('ucanlab.org sekmesinde giriş yapın…', 'Sign in on the ucanlab.org tab…')}
-            </div>
-            <button type="button" className={BTN_SECONDARY} onClick={() => void startCode()}>
-              {L('Dönmedi mi? Kodla giriş yap', 'Not returning? Sign in with a code')}
-            </button>
-            <button type="button" className="text-sm text-accent-text" onClick={() => void cancel()}>
-              {L('İptal', 'Cancel')}
-            </button>
-          </>
-        )}
-
-        {(phase === 'code' || phase === 'finishing') && device && (
-          <>
-            <h1 className="text-xl font-semibold text-text-hi">{L('Kodla giriş', 'Sign in with a code')}</h1>
-            <p className="text-sm">
-              {L('Telefonunuzdan veya bilgisayarınızdan şu adrese gidin:', 'On your phone or computer, go to:')}{' '}
-              <span className="font-semibold text-text-hi">{(device.verification_uri || '').replace(/^https?:\/\//, '')}</span>
-            </p>
-            <div className="select-all rounded-xl bg-surface-inset-raw py-5 text-center font-mono text-3xl font-semibold tracking-[0.15em] text-text-hi">
-              {device.user_code}
-            </div>
-            <p className="text-xs text-text-low">
-              {L(
-                `Kod ${Math.round((device.expires_in ?? 600) / 60)} dakika geçerlidir ve bir kez kullanılır.`,
-                `The code is valid for ${Math.round((device.expires_in ?? 600) / 60)} minutes and works once.`,
-              )}
-            </p>
-            <div className="flex items-center gap-3 text-sm text-text-mid">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              {phase === 'finishing'
-                ? L('Lisans etkinleştiriliyor…', 'Activating your license…')
-                : L('Onayınızı bekliyoruz…', 'Waiting for your approval…')}
-            </div>
-            <button type="button" className="text-sm text-accent-text" onClick={() => void cancel()}>
-              {L('İptal', 'Cancel')}
-            </button>
-          </>
-        )}
-      </div>
-    </div>
+      </Screen>
+    </AppFrame>
   );
 };
