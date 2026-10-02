@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "intake_id": "canboat-spn-03554",
+  "record_type": "spn_reference",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "automated",
+    "id": "scripts/intake_scan_sources.py",
+    "role": "author"
+  },
+  "source": {
+    "title": "CANboat J1939 PGN alan düzenlerinden SPN 3554 referansı",
+    "path": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/065130-engineFuelLubeSystems.yaml",
+    "type": "standard",
+    "publisher": "CANboat (Kees Verruijt); layout per SAE J1939-71",
+    "revision": "f7f088b49d58",
+    "licence": "Apache-2.0",
+    "access_date": "2026-10-02",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": null,
+      "bytes": null,
+      "pages_cited": []
+    }
+  },
+  "confidence": "single_source",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "spn": 3554,
+    "names_en": [
+      "Engine Ventilation Status"
+    ],
+    "units": [],
+    "resolutions": [],
+    "bit_lengths": [
+      3
+    ],
+    "evidence_pgns": [
+      65130
+    ],
+    "evidence_text": [
+      "SPN 3554"
+    ],
+    "sources": [
+      {
+        "source_file": "database/j1939/pgns/065130-engineFuelLubeSystems.yaml",
+        "sha256": "c9ccfe4fbbabff5a8e2721670f3cb5f92f377d7826cd777e51f3134a96a94774",
+        "bytes": 1873
+      }
+    ],
+    "kb_state": "absent",
+    "kb_name": null,
+    "kb_unit": null
+  },
+  "notes": "SPN referansi ve parametre metni, canboat'in pinli J1939 PGN alan duzenlerinden birebir toplandi. deger kaynagi upstream metnidir; hicbiri turetilmemistir. data/diagnostics/j1939_spn_fmi_database.json bu kayitlari OKUMAZ - terfi karari intake README'sindeki Adim 3a'ya bagli."
+}

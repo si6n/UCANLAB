@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "intake_id": "canboat-spn-01032",
+  "record_type": "spn_reference",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "automated",
+    "id": "scripts/intake_scan_sources.py",
+    "role": "author"
+  },
+  "source": {
+    "title": "CANboat J1939 PGN alan düzenlerinden SPN 1032 referansı",
+    "path": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/065201-ecuHistory.yaml",
+    "type": "standard",
+    "publisher": "CANboat (Kees Verruijt); layout per SAE J1939-71",
+    "revision": "f7f088b49d58",
+    "licence": "Apache-2.0",
+    "access_date": "2026-10-02",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": null,
+      "bytes": null,
+      "pages_cited": []
+    }
+  },
+  "confidence": "single_source",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "spn": 1032,
+    "names_en": [
+      "Total ECU Distance"
+    ],
+    "units": [
+      "km"
+    ],
+    "resolutions": [
+      0.125
+    ],
+    "bit_lengths": [
+      32
+    ],
+    "evidence_pgns": [
+      65201
+    ],
+    "evidence_text": [
+      "SPN 1032, 0.125 kilometre per bit"
+    ],
+    "sources": [
+      {
+        "source_file": "database/j1939/pgns/065201-ecuHistory.yaml",
+        "sha256": "eb406e8d0f85841537d152c1d214c11232e34abe0cbdd2f9ce6e0d8b2c015a1a",
+        "bytes": 463
+      }
+    ],
+    "kb_state": "absent",
+    "kb_name": null,
+    "kb_unit": null
+  },
+  "notes": "SPN referansi ve parametre metni, canboat'in pinli J1939 PGN alan duzenlerinden birebir toplandi. deger kaynagi upstream metnidir; hicbiri turetilmemistir. data/diagnostics/j1939_spn_fmi_database.json bu kayitlari OKUMAZ - terfi karari intake README'sindeki Adim 3a'ya bagli."
+}

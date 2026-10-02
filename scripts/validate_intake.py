@@ -77,6 +77,7 @@ RECORD_DIRS: dict[str, str] = {
     "pgn_layout": "pgn",
     "oem_divergence": "oem",
     "kb_defect": "defects",
+    "spn_reference": "spn_ref",
     "trace": "traces",
     "case": "cases",
     "oem_note": "oem_notes",
@@ -140,6 +141,10 @@ PAYLOAD_FIELDS: dict[str, frozenset[str]] = {
     "kb_defect": frozenset({
         "defect_code", "severity", "summary", "why_it_matters", "target_file",
         "target_sha256", "detector_expression", "affected_count", "examples",
+    }),
+    "spn_reference": frozenset({
+        "spn", "names_en", "units", "resolutions", "bit_lengths", "evidence_pgns",
+        "evidence_text", "sources", "kb_state", "kb_name", "kb_unit",
     }),
     "case": frozenset({
         "case_id", "domain", "make", "model", "year", "symptom", "dtcs",
@@ -212,6 +217,10 @@ DEFAULT_MAX_INLINE_TRACE_BYTES = 1_048_576  # 1 MiB
 DEFAULT_MAX_INTAKE_BYTES = 5_242_880  # 5 MiB for the whole directory
 
 ARTEFACT_RE = re.compile(r"(\.bak|\.orig$|~$|\.tmp-|\.swp$)")
+# A KB SPN "name" that is really a diagnosis sentence (defect class, see
+# scripts/intake_kb_defects.py). Duplicated here on purpose: the conflict report
+# must work even when the detector tool is not importable.
+FMI_SENTENCE_IN_NAME = re.compile(r"^SPN\s*\d+\s*FMI\s*\d+", re.IGNORECASE)
 
 # A J1939/NMEA-2000 message never exceeds 255 bytes; 4096 bits is a safe
 # ceiling that still rejects garbage.
@@ -720,9 +729,72 @@ def _validate_payload_kb_defect(payload: dict[str, Any], where: str, rep: Report
         rep.add("WARN", "defect", f"{where}: affected_count={count} but no verbatim example is staged")
 
 
+SPN_REF_SOURCE_FIELDS: frozenset[str] = frozenset({"source_file", "sha256", "bytes"})
+
+
+def _validate_payload_spn_reference(payload: dict[str, Any], where: str, rep: Report) -> None:
+    """An SPN mentioned in a PGN layout, with the evidence it was read from."""
+    _check_exact_fields(payload, PAYLOAD_FIELDS["spn_reference"], where,
+                        PAYLOAD_FIELDS["spn_reference"], rep)
+    spn = payload.get("spn")
+    if not isinstance(spn, int) or isinstance(spn, bool) or not 0 <= spn <= 524_287:
+        rep.fail("schema", f"{where}.spn must be an integer in [0, 524287]")
+    # names_en / units / evidence_text are text; resolutions and bit_lengths are
+    # numbers; evidence_pgns is a list of PGN integers (checked below).
+    for key in ("names_en", "units", "evidence_text"):
+        value = payload.get(key)
+        if not isinstance(value, list) or not all(
+            isinstance(item, str) and item.strip() for item in value
+        ):
+            rep.fail("schema", f"{where}.{key} must be a list of non-empty strings")
+    for key in ("resolutions", "bit_lengths"):
+        value = payload.get(key)
+        if not isinstance(value, list) or not all(
+            isinstance(item, (int, float)) and not isinstance(item, bool) and item > 0 for item in value
+        ):
+            rep.fail("schema", f"{where}.{key} must be a list of positive numbers")
+    names = payload.get("names_en") or []
+    if not names:
+        rep.fail("schema", f"{where}.names_en must not be empty (an SPN without a parameter name is unusable)")
+    sources = payload.get("sources")
+    if not isinstance(sources, list) or not sources:
+        rep.fail("schema", f"{where}.sources must be a non-empty array of cited files")
+    else:
+        for i, item in enumerate(sources):
+            if not isinstance(item, dict) or not _check_exact_fields(
+                item, SPN_REF_SOURCE_FIELDS, f"{where}.sources[{i}]",
+                frozenset({"source_file", "sha256"}), rep
+            ):
+                continue
+            digest = item.get("sha256")
+            if not isinstance(digest, str) or not SHA256_RE.fullmatch(digest):
+                rep.fail("schema", f"{where}.sources[{i}].sha256 must be a 64-char lowercase digest")
+            size = item.get("bytes")
+            if size is not None and (not isinstance(size, int) or isinstance(size, bool) or size < 0):
+                rep.fail("schema", f"{where}.sources[{i}].bytes must be a non-negative integer")
+    pgns = payload.get("evidence_pgns") or []
+    for i, pgn in enumerate(pgns):
+        if not isinstance(pgn, int) or isinstance(pgn, bool) or not 0 <= pgn <= 262_143:
+            rep.fail("schema", f"{where}.evidence_pgns[{i}] must be an integer in [0, 262143]")
+    for key in ("kb_state", "kb_name", "kb_unit"):
+        value = payload.get(key)
+        if key == "kb_state":
+            if value not in {"present", "absent"}:
+                rep.fail("schema", f"{where}.kb_state must be 'present' or 'absent'")
+        elif value is not None and not isinstance(value, str):
+            rep.fail("schema", f"{where}.{key} must be a string or null")
+    # The number may only come from the cited evidence text.
+    if isinstance(spn, int):
+        mentioned = any(f"SPN {spn}" in text for text in (payload.get("evidence_text") or []))
+        if not mentioned:
+            rep.add("WARN", "spn_evidence",
+                    f"{where}: SPN {spn} kaynak metinlerinde görünmüyor — türetilmiş olabilir")
+
+
 PAYLOAD_VALIDATORS = {
     "dtc": _validate_payload_dtc,
     "kb_defect": _validate_payload_kb_defect,
+    "spn_reference": _validate_payload_spn_reference,
     "spn_fmi": _validate_payload_spn,
     "pgn_layout": _validate_payload_pgn_layout,
     "oem_divergence": _validate_payload_oem_divergence,
@@ -1211,6 +1283,44 @@ def report_conflicts(records: list[Record], repo_root: Path, rep: Report) -> Non
             rep.add("INFO", "kb_new", f"{where}: {unknown_codes} codes are absent from the OEM layer")
         rep.metrics["oem_divergence_open"] = rep.metrics.get("oem_divergence_open", 0) + still_divergent
 
+    def check_spn_reference(record: Record) -> None:
+        """Re-measure one SPN reference against the live J1939 database."""
+        nonlocal overlaps, candidates
+        spn = record.payload.get("spn")
+        if not isinstance(spn, int):
+            return
+        where = record.rel_path
+        current = spns.get(f"SPN_{spn}")
+        staged_state = record.payload.get("kb_state")
+        actual_state = "present" if current else "absent"
+        rep.metrics[f"spn_ref_{actual_state}"] = rep.metrics.get(f"spn_ref_{actual_state}", 0) + 1
+        if staged_state != actual_state:
+            rep.add("WARN", "kb_drift",
+                    f"{where}: SPN {spn} durumu değişti ({staged_state} → {actual_state}) — "
+                    f"kaydı yeniden üret")
+        if current is None:
+            candidates += 1
+            rep.add("INFO", "kb_new", f"{where}: SPN {spn} bilgi tabanında yok — terfi adayı "
+                                      f"(kanıt: {len(record.payload.get('evidence_pgns') or [])} PGN, "
+                                      f"{len(record.payload.get('names_en') or [])} ad)")
+        else:
+            overlaps += 1
+            staged_names = {str(n).strip().lower() for n in (record.payload.get("names_en") or [])}
+            kb_name = str(current.get("name") or "").strip().lower()
+            if kb_name and kb_name not in staged_names:
+                # An abbreviation difference is normal (canboat uses short field
+                # names); only a *unit* conflict or a diagnosis sentence is news.
+                rep.metrics["spn_name_variant"] = rep.metrics.get("spn_name_variant", 0) + 1
+                staged_units = {str(u).strip().lower() for u in (record.payload.get("units") or [])}
+                kb_unit = str(current.get("unit") or "").strip().lower()
+                if staged_units and kb_unit and kb_unit not in staged_units:
+                    rep.add("INFO", "kb_unit_conflict",
+                            f"{where}: SPN {spn} birimi çelişiyor — upstream {sorted(staged_units)} "
+                            f"vs KB {kb_unit!r}")
+                if FMI_SENTENCE_IN_NAME.search(str(current.get("name") or "")):
+                    rep.add("INFO", "kb_name_defect",
+                            f"{where}: SPN {spn} KB adı bir tanım cümlesi (bkz. defects/ kaydı)")
+
     def check_kb_defect(record: Record) -> None:
         """Re-run the staged detector and compare with the recorded measurement."""
         nonlocal overlaps, candidates
@@ -1344,6 +1454,8 @@ def report_conflicts(records: list[Record], repo_root: Path, rep: Report) -> Non
             check_oem_divergence(record)
         elif record.record_type == "kb_defect":
             check_kb_defect(record)
+        elif record.record_type == "spn_reference":
+            check_spn_reference(record)
     # A detector that found something but has no staged record would silently
     # vanish from the queue: report it so the register stays honest.
     detectors = _kb_detectors()
@@ -1443,8 +1555,9 @@ burada bırakılır.
 
 KIND_BY_TYPE: dict[str, str] = {
     "dtc": "dtc", "spn_fmi": "spn_fmi", "pgn_layout": "pgn_layout",
-    "oem_divergence": "oem_divergence", "kb_defect": "kb_defect", "case": "case",
-    "oem_note": "oem_note", "trace": "trace",
+    "oem_divergence": "oem_divergence", "kb_defect": "kb_defect",
+    "spn_reference": "spn_reference", "case": "case", "oem_note": "oem_note",
+    "trace": "trace",
 }
 
 

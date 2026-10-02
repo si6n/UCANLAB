@@ -26,6 +26,7 @@ import pytest
 
 from scripts.intake_scan_sources import (
     CANBOAT_COMMIT,
+    SPN_REF_SUBDIR,
     OBDEX_COMMIT,
     OEM_SUBDIR,
     PGN_SUBDIR,
@@ -34,9 +35,11 @@ from scripts.intake_scan_sources import (
     build_oem_divergence_records,
     build_pgn_record,
     parse_oem_listing,
+    collect_spn_evidence,
     parse_pgn_yaml,
     stage,
     stage_oem,
+    stage_spn_refs,
 )
 from scripts.validate_intake import INTAKE_DIRNAME, ROOT, Report, run
 
@@ -375,3 +378,82 @@ def test_oem_divergence_record_rejects_a_count_mismatch() -> None:
     rep = _Report()
     validate_envelope(record, "oem/x.json", rep)
     assert any("divergence_count" in d for lv, _c, d in rep.rows if lv == "FAIL")
+
+
+# --------------------------------------------------------------------------- #
+# SPN references (harvested from the J1939 layouts)
+# --------------------------------------------------------------------------- #
+SPN_REF_DIR = ROOT / "data" / "intake" / SPN_REF_SUBDIR
+
+
+def test_collect_spn_evidence_only_tracks_mentioned_numbers() -> None:
+    tree = Path("/tmp/ucanlab-fake-canboat-spn")
+    import shutil
+
+    shutil.rmtree(tree, ignore_errors=True)
+    pgns = tree / "database" / "j1939" / "pgns"
+    pgns.mkdir(parents=True)
+    (pgns / "065201-ecuHistory.yaml").write_text(
+        "pgn: 65201\n"
+        "id: ecuHistory\n"
+        "fields:\n"
+        "- id: totalEcuDistance\n"
+        "  name: Total ECU Distance\n"
+        "  bits: 32\n"
+        "  unit: km\n"
+        "  resolution: 0.125\n"
+        "  description: SPN 1032, 0.125 kilometre per bit\n"
+        "- id: totalEcuRunTime\n"
+        "  name: Total ECU Run Time\n"
+        "  bits: 32\n"
+        "  unit: h\n"
+        "  description: no number in this text\n",
+        encoding="utf-8")
+    try:
+        evidence = collect_spn_evidence(tree)
+        assert sorted(evidence) == [1032], "only an explicit 'SPN n' mention counts"
+        entry = evidence[1032]
+        assert entry["names"] == ["Total ECU Distance"]
+        assert entry["units"] == ["km"]
+        assert entry["resolutions"] == [0.125]
+        assert entry["pgns"] == [65201]
+        assert entry["evidence"] == ["SPN 1032, 0.125 kilometre per bit"]
+    finally:
+        shutil.rmtree(tree, ignore_errors=True)
+
+
+def test_staged_spn_references_carry_evidence_and_kb_state() -> None:
+    staged = sorted(SPN_REF_DIR.glob("*.json"))
+    assert staged, "SPN reference records must be staged"
+    absent = 0
+    for path in staged:
+        record = json.loads(path.read_text(encoding="utf-8"))
+        assert record["record_type"] == "spn_reference"
+        assert record["draft"] is True and record["knowledge_base"] is None
+        assert record["source"]["licence"] == "Apache-2.0"
+        payload = record["payload"]
+        assert payload["names_en"], f"{path.name}: an SPN without a name is not usable"
+        assert payload["sources"] and payload["evidence_pgns"]
+        for source in payload["sources"]:
+            assert re.fullmatch(r"[0-9a-f]{64}", source["sha256"])
+        # The number must appear in the copied evidence text.
+        assert any(f"SPN {payload['spn']}" in text for text in payload["evidence_text"]), path.name
+        absent += payload["kb_state"] == "absent"
+    assert absent > 0, "some staged SPNs must be KB gaps (that is the point)"
+
+
+def test_gate_reconciles_spn_references_against_the_live_database() -> None:
+    rep = run(root=ROOT, quiet=True)
+    assert rep.count("FAIL") == 0, [d for lv, _c, d in rep.rows if lv == "FAIL"]
+    total = len(list(SPN_REF_DIR.glob("*.json")))
+    assert rep.metrics.get("records_spn_reference") == total
+    assert rep.metrics.get("spn_ref_absent", 0) + rep.metrics.get("spn_ref_present", 0) == total
+    assert rep.metrics.get("spn_ref_absent", 0) > 0
+    assert rep.metrics.get("spn_name_variant", 0) > 0, "name variants must be measured, not assumed"
+
+
+def test_stage_spn_refs_is_idempotent() -> None:
+    """A second --stage must add nothing (records are byte-stable)."""
+    written, problems = stage_spn_refs(Path("/nonexistent"), ROOT / "data" / "intake", ROOT, apply=True)
+    # No source tree: nothing is produced, no crash.
+    assert written == 0 and problems == []

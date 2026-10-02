@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "intake_id": "canboat-spn-00156",
+  "record_type": "spn_reference",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "automated",
+    "id": "scripts/intake_scan_sources.py",
+    "role": "author"
+  },
+  "source": {
+    "title": "CANboat J1939 PGN alan düzenlerinden SPN 156 referansı",
+    "path": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/065243-engineFluidLevelPressure2.yaml",
+    "type": "standard",
+    "publisher": "CANboat (Kees Verruijt); layout per SAE J1939-71",
+    "revision": "f7f088b49d58",
+    "licence": "Apache-2.0",
+    "access_date": "2026-10-02",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": null,
+      "bytes": null,
+      "pages_cited": []
+    }
+  },
+  "confidence": "single_source",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "spn": 156,
+    "names_en": [
+      "Engine Fuel 1 Injector Timing Rail 1 Pressure"
+    ],
+    "units": [
+      "MPa"
+    ],
+    "resolutions": [
+      0.00390625
+    ],
+    "bit_lengths": [
+      16
+    ],
+    "evidence_pgns": [
+      65243
+    ],
+    "evidence_text": [
+      "SPN 156, 1/256 MPa per bit"
+    ],
+    "sources": [
+      {
+        "source_file": "database/j1939/pgns/065243-engineFluidLevelPressure2.yaml",
+        "sha256": "27adcd1f543986306ea01406be545f12c9e0611f5a05f5476a9bda4a184d7d6e",
+        "bytes": 1028
+      }
+    ],
+    "kb_state": "present",
+    "kb_name": "Engine Fuel 1 Injector Timing Rail 1 Pressure",
+    "kb_unit": "MPa"
+  },
+  "notes": "SPN referansi ve parametre metni, canboat'in pinli J1939 PGN alan duzenlerinden birebir toplandi. deger kaynagi upstream metnidir; hicbiri turetilmemistir. data/diagnostics/j1939_spn_fmi_database.json bu kayitlari OKUMAZ - terfi karari intake README'sindeki Adim 3a'ya bagli."
+}

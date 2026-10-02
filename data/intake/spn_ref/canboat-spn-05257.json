@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "intake_id": "canboat-spn-05257",
+  "record_type": "spn_reference",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "automated",
+    "id": "scripts/intake_scan_sources.py",
+    "role": "author"
+  },
+  "source": {
+    "title": "CANboat J1939 PGN alan düzenlerinden SPN 5257 referansı",
+    "path": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/061450-engineGasFlowRate1.yaml",
+    "type": "standard",
+    "publisher": "CANboat (Kees Verruijt); layout per SAE J1939-71",
+    "revision": "f7f088b49d58",
+    "licence": "Apache-2.0",
+    "access_date": "2026-10-02",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": null,
+      "bytes": null,
+      "pages_cited": []
+    }
+  },
+  "confidence": "single_source",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "spn": 5257,
+    "names_en": [
+      "Engine Exhaust Gas Recirculation 2 Mass Flow Rate"
+    ],
+    "units": [
+      "kg/h"
+    ],
+    "resolutions": [
+      0.05
+    ],
+    "bit_lengths": [
+      16
+    ],
+    "evidence_pgns": [
+      61450
+    ],
+    "evidence_text": [
+      "SPN 5257, 0.05 kg/h per bit"
+    ],
+    "sources": [
+      {
+        "source_file": "database/j1939/pgns/061450-engineGasFlowRate1.yaml",
+        "sha256": "c4520f739a40c658171fe415b7b8eaa8737f64a805f4bbcb61bf34be02917c3c",
+        "bytes": 841
+      }
+    ],
+    "kb_state": "absent",
+    "kb_name": null,
+    "kb_unit": null
+  },
+  "notes": "SPN referansi ve parametre metni, canboat'in pinli J1939 PGN alan duzenlerinden birebir toplandi. deger kaynagi upstream metnidir; hicbiri turetilmemistir. data/diagnostics/j1939_spn_fmi_database.json bu kayitlari OKUMAZ - terfi karari intake README'sindeki Adim 3a'ya bagli."
+}

@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "intake_id": "canboat-spn-04768",
+  "record_type": "spn_reference",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "automated",
+    "id": "scripts/intake_scan_sources.py",
+    "role": "author"
+  },
+  "source": {
+    "title": "CANboat J1939 PGN alan düzenlerinden SPN 4768 referansı",
+    "path": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/064800-aftertreatment1DieselOxidationCatalyst.yaml",
+    "type": "standard",
+    "publisher": "CANboat (Kees Verruijt); layout per SAE J1939-71",
+    "revision": "f7f088b49d58",
+    "licence": "Apache-2.0",
+    "access_date": "2026-10-02",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": null,
+      "bytes": null,
+      "pages_cited": []
+    }
+  },
+  "confidence": "single_source",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "spn": 4768,
+    "names_en": [
+      "Aftertreatment 1 Diesel Oxidation Catalyst Intake Gas Temperature Preliminary FMI"
+    ],
+    "units": [],
+    "resolutions": [],
+    "bit_lengths": [
+      5
+    ],
+    "evidence_pgns": [
+      64800
+    ],
+    "evidence_text": [
+      "SPN 4768"
+    ],
+    "sources": [
+      {
+        "source_file": "database/j1939/pgns/064800-aftertreatment1DieselOxidationCatalyst.yaml",
+        "sha256": "b3678cba88062be70c0fccd83b12db3e8b4244b40b5d334e579bf750f211caf5",
+        "bytes": 1563
+      }
+    ],
+    "kb_state": "present",
+    "kb_name": "DOC upstream temperature sensor voltage signal below lower limit",
+    "kb_unit": null
+  },
+  "notes": "SPN referansi ve parametre metni, canboat'in pinli J1939 PGN alan duzenlerinden birebir toplandi. deger kaynagi upstream metnidir; hicbiri turetilmemistir. data/diagnostics/j1939_spn_fmi_database.json bu kayitlari OKUMAZ - terfi karari intake README'sindeki Adim 3a'ya bagli."
+}

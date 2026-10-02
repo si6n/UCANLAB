@@ -23,6 +23,7 @@ geçirmeyle olur; aşağıdaki "Entegrasyon adımları" bölümü tek yol harita
 | `pgn/` | PGN alan düzeni (J1939/NMEA-2000) — `pgn_layout` | `<intake-id>.json` |
 | `oem/` | üreticiye özgü açıklama ayrışması — `oem_divergence` | `<intake-id>.json` |
 | `defects/` | kendi verimizden **ölçülmüş** kusur — `kb_defect` | `<intake-id>.json` |
+| `spn_ref/` | PGN düzenlerinden toplanan SPN referansı — `spn_reference` | `<intake-id>.json` |
 | `traces/` | ham yakalama (kare dosyası + yan kenar dosyası) | `<id>.json`/`.jsonl` + `<id>.meta.json` |
 | `cases/` | vaka taslağı — **her zaman `draft: true`** | `<intake-id>.json` |
 | `oem_notes/` | OEM/üretici notu | `<intake-id>.md` (üstte JSON meta bloğu) |
@@ -120,8 +121,19 @@ yapılır (§ Entegrasyon adımları).
 | `case` | `cases/` | `case_id`, `domain`, `make/model/year`, `symptom`, `dtcs[]`, `signals_of_interest[]`, `actual_fault`, `repair`, `verification`, `trace_refs[]`, `vin_masked` |
 | `oem_note` | `oem_notes/` | `make/model/year`, `oem_code`, `system`, `evidence_refs[]`, `related_dtcs[]`, `vin_masked` (gövde markdown dosyanın altında) |
 | `oem_divergence` | `oem/` | `make`, `source_file`, `source_rows`, `divergence_count`, `divergences[]` |
+| `spn_reference` | `spn_ref/` | `spn`, `names_en[]`, `units[]`, `resolutions[]`, `bit_lengths[]`, `evidence_pgns[]`, `evidence_text[]`, `sources[]`, `kb_state`, `kb_name`, `kb_unit` |
 | `kb_defect` | `defects/` | `defect_code`, `severity`, `summary`, `why_it_matters`, `target_file`, `target_sha256`, `detector_expression`, `affected_count`, `examples[]` |
 | `trace` | `traces/` | `frame_file`, `frame_file_sha256`, `frame_file_bytes`, `format`, `in_git`, `external_location`, `started_at`, `duration_s`, `channel_count`, `frame_count`, `bus`, `vin_masked` |
+
+`spn_reference` kayıtları, J1939 PGN alan düzenlerinde **gerçekten yazan**
+(`SPN n` ifadesi geçen) SPN referanslarını toplar; sayı asla alan adından veya
+bit düzeninden **türetilmez**. `kb_state` o SPN'nin bilgi tabanında olup
+olmadığını gösterir (`absent` = terfi adayı) ve doğrulayıcı her çalıştırmada
+yeniden ölçer: durum değişirse `WARN kb_drift`. Ad farkları (canboat kısa alan
+adı kullanır: "Engine Coolant Temp" ↔ KB "Engine Coolant Temperature") kusur
+sayılmaz, `spn_name_variant` metriğiyle **sayılır**; yalnız *birim çelişkisi*
+(`kb_unit_conflict`) veya KB adının bir tanım cümlesi olması (`kb_name_defect`)
+kayda değer INFO üretir.
 
 `kb_defect` kayıtları **kendi verimizdeki** kusurları ölçümle kayda geçirir:
 `detector_expression` (kusuru tanımlayan ifade), `affected_count` (bugünkü sayı),
@@ -168,6 +180,7 @@ Kendi verimizdeki kusurları ölçer ve intake'e kaydeder:
 python scripts/intake_kb_defects.py                     # ölç ve raporla
 python scripts/intake_kb_defects.py --stage            # kayıtları doğrula
 python scripts/intake_kb_defects.py --stage --apply    # ölçümü sahalama
+python scripts/intake_scan_sources.py --stage-spn --apply   # SPN referansları
 ```
 
 Taranan dört kaynak: OBDex (CC0-1.0), canboat (Apache-2.0), Wal33D/dtc-database
@@ -359,6 +372,9 @@ belirsiz bir satırı "sonra düzeliriz" diye bırakmak.
 | `_templates/spn_fmi.template.json` | SPN/FMI çifti |
 | `_templates/case.template.json` | vaka taslağı (`draft: true`) |
 | `_templates/pgn_layout.template.json` | PGN alan düzeni |
+| `_templates/spn_reference.template.json` | SPN referansı |
+| `_templates/kb_defect.template.json` | ölçülmüş kusur |
+| `_templates/oem_divergence.template.json` | OEM açıklama ayrışması |
 | `_templates/trace.frames.template.json` + `_templates/trace.meta.template.json` | kare dosyası + kanadı |
 | `_templates/oem_note.template.md` | OEM notu (meta bloğu + gövde) |
 

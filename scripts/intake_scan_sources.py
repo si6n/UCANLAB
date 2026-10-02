@@ -653,6 +653,139 @@ def stage_oem(wal33d_tree: Path, intake_dir: Path, repo_root: Path, apply: bool,
 
 
 # --------------------------------------------------------------------------- #
+# staging: SPN references harvested from the canboat J1939 layouts
+# --------------------------------------------------------------------------- #
+SPN_REF_SUBDIR = "spn_ref"
+SPN_REF_NOTE = (
+    "SPN referansi ve parametre metni, canboat'in pinli J1939 PGN alan "
+    "duzenlerinden birebir toplandi. deger kaynagi upstream metnidir; hicbiri "
+    "turetilmemistir. data/diagnostics/j1939_spn_fmi_database.json bu kayitlari "
+    "OKUMAZ - terfi karari intake README'sindeki Adim 3a'ya bagli."
+)
+
+
+def collect_spn_evidence(canboat_tree: Path) -> dict[int, dict[str, Any]]:
+    """Aggregate every SPN mentioned in the canboat J1939 PGN layouts.
+
+    Only text that literally mentions ``SPN <n>`` counts: the number is never
+    derived from the field name, the PGN or the bit layout.
+    """
+    evidence: dict[int, dict[str, Any]] = {}
+    src = canboat_tree / "database" / "j1939" / "pgns"
+    for path in sorted(src.glob("*.yaml")):
+        doc = parse_pgn_yaml(path.read_text(encoding="utf-8"))
+        pgn = doc.get("pgn")
+        for row in _iter_field_rows(doc.get("fields")):
+            spn = row.get("spn")
+            if not isinstance(spn, int):
+                continue
+            entry = evidence.setdefault(spn, {
+                "names": [], "units": [], "resolutions": [], "bit_lengths": [],
+                "evidence": [], "files": [],
+            })
+            if row["name"] not in entry["names"]:
+                entry["names"].append(row["name"])
+            if row.get("unit") and row["unit"] not in entry["units"]:
+                entry["units"].append(row["unit"])
+            if row.get("resolution") is not None and row["resolution"] not in entry["resolutions"]:
+                entry["resolutions"].append(row["resolution"])
+            if row.get("bits") and row["bits"] not in entry["bit_lengths"]:
+                entry["bit_lengths"].append(row["bits"])
+            if row.get("description") and row["description"] not in entry["evidence"]:
+                entry["evidence"].append(row["description"])
+            rel = path.relative_to(canboat_tree).as_posix()
+            if rel not in entry["files"]:
+                entry["files"].append(rel)
+            if isinstance(pgn, int):
+                entry.setdefault("pgns", [])
+                if pgn not in entry["pgns"]:
+                    entry["pgns"].append(pgn)
+    return evidence
+
+
+def _kb_spn_db(repo_root: Path) -> dict[str, Any]:
+    """The live J1939 SPN database (read-only: intake never writes the KB)."""
+    path = repo_root / "data" / "diagnostics" / "j1939_spn_fmi_database.json"
+    if not path.is_file():
+        return {}
+    return json.loads(path.read_text(encoding="utf-8")).get("spns", {})
+
+
+def build_spn_reference_records(canboat_tree: Path, repo_root: Path) -> list[dict[str, Any]]:
+    """One record per SPN seen in the layouts, with the KB's current state."""
+    evidence = collect_spn_evidence(canboat_tree)
+    spns = _kb_spn_db(repo_root)
+    files_hash: dict[str, tuple[str, int]] = {}
+    src = canboat_tree / "database" / "j1939" / "pgns"
+    records: list[dict[str, Any]] = []
+    for spn in sorted(evidence):
+        entry = evidence[spn]
+        cited = []
+        for rel in entry["files"]:
+            if rel not in files_hash:
+                files_hash[rel] = (sha256_file(src / Path(rel).name), (src / Path(rel).name).stat().st_size)
+            cited.append({"source_file": rel, "sha256": files_hash[rel][0], "bytes": files_hash[rel][1]})
+        current = spns.get(f"SPN_{spn}") or {}
+        records.append({
+            "schema_version": 1,
+            "intake_id": f"canboat-spn-{spn:05d}",
+            "record_type": "spn_reference",
+            "submitted_at": SCAN_DATE,
+            "submitter": {"type": "automated", "id": "scripts/intake_scan_sources.py", "role": "author"},
+            "source": {
+                "title": f"CANboat J1939 PGN alan düzenlerinden SPN {spn} referansı",
+                "path": f"{CANBOAT_REPO}/blob/{CANBOAT_COMMIT}/{entry['files'][0]}",
+                "type": "standard",
+                "publisher": "CANboat (Kees Verruijt); layout per SAE J1939-71",
+                "revision": CANBOAT_COMMIT[:12],
+                "licence": "Apache-2.0",
+                "access_date": SCAN_DATE,
+                "snapshot": {"archive_url": None, "sha256": None, "bytes": None, "pages_cited": []},
+            },
+            "confidence": "single_source",
+            "draft": True,
+            "knowledge_base": None,
+            "payload": {
+                "spn": spn,
+                "names_en": entry["names"],
+                "units": entry["units"],
+                "resolutions": entry["resolutions"],
+                "bit_lengths": entry["bit_lengths"],
+                "evidence_pgns": sorted(entry.get("pgns", [])),
+                "evidence_text": entry["evidence"],
+                "sources": cited,
+                "kb_state": "present" if current else "absent",
+                "kb_name": current.get("name"),
+                "kb_unit": current.get("unit"),
+            },
+            "notes": SPN_REF_NOTE,
+        })
+    return records
+
+
+def stage_spn_refs(canboat_tree: Path, intake_dir: Path, repo_root: Path, apply: bool,
+                   ) -> tuple[int, list[str]]:
+    target = intake_dir / SPN_REF_SUBDIR
+    if apply:
+        target.mkdir(parents=True, exist_ok=True)
+    written = 0
+    problems: list[str] = []
+    for record in build_spn_reference_records(canboat_tree, repo_root):
+        rel = f"{SPN_REF_SUBDIR}/{record['intake_id']}.json"
+        out = intake_dir / rel
+        payload = json.dumps(record, ensure_ascii=False, indent=2) + "\n"
+        if out.exists():
+            if out.read_text(encoding="utf-8") != payload:
+                problems.append(f"{rel}: staged record differs from the pinned source")
+            continue
+        if apply:
+            out.write_text(payload, encoding="utf-8")
+        else:
+            problems.append(f"{rel}: missing (run with --apply)")
+        written += 1
+    return written, problems
+
+# --------------------------------------------------------------------------- #
 # report
 # --------------------------------------------------------------------------- #
 def render(result: ScanResult) -> str:
@@ -694,6 +827,8 @@ def main() -> int:
     ap.add_argument("--offline", action="store_true", help="never touch the network")
     ap.add_argument("--stage", action="store_true",
                     help="stage the un-vendored J1939 PGN layouts (verify without --apply)")
+    ap.add_argument("--stage-spn", action="store_true",
+                    help="stage SPN references harvested from the J1939 layouts (needs --apply)")
     ap.add_argument("--stage-oem", action="store_true",
                     help="stage Wal33D per-manufacturer description divergences (verify without --apply)")
     ap.add_argument("--apply", action="store_true", help="with --stage: write the records")
@@ -723,6 +858,12 @@ def main() -> int:
             out.parent.mkdir(parents=True, exist_ok=True)
             out.write_text(render(result), encoding="utf-8")
 
+        if args.stage_spn:
+            count, problems = stage_spn_refs(trees["canboat"], INTAKE, ROOT, apply=args.apply)
+            for problem in problems:
+                print(f"[!] {problem}")
+            print(f"[*] spn_reference records: {count} ({'written' if args.apply else 'verify only'})")
+            return 1 if problems else 0
         if args.stage_oem:
             count, problems = stage_oem(trees["wal33d"], INTAKE, ROOT, apply=args.apply)
             for problem in problems:

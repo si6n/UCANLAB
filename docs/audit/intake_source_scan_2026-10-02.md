@@ -14,6 +14,8 @@ Dal: `ccr-intake`. Bu rapor **keşif kanıtıdır**; `data/diagnostics` ve
 | Vendor edilmemiş (yeni bulunan) | **84** (64.461 bayt) |
 | Intake'e sahaya alınan `pgn_layout` kaydı | **84** |
 | Intake'e sahaya alınan `oem_divergence` kaydı | **37** (5.922 ayrışma satırı) |
+| Intake'e sahaya alınan `spn_reference` kaydı | **168** (66 terfi adayı + 102 uzlaştırma) |
+| Intake'e sahaya alınan `kb_defect` kaydı | **5** (kendi verimizden ölçülmüş kusur) |
 | Kopyalanan PGN alanı | **378** |
 | Kopyalanan SPN referansı | **171** (168 ayrı SPN) |
 | KB'de **olmayan** SPN referansı | **66** |
@@ -129,6 +131,67 @@ kayıtları olarak girdi (37 kayıt, ~557 KiB satır kanıtı). Doğrulayıcı h
 `oem_divergence_open=5922` → **hiçbiri kapanmamış**, yani kusur kendiliğinden
 çözülmüyor ve terfi kararı gerekiyor (README Adım 3b).
 
+## 4c. Keşif çıktısının terfiye hazır hâle getirilmesi: SPN referansları
+
+Bölüm 4'te bulunan 66 eksik SPN için intake kuyruğu artık **terfiye hazır kanıt**
+taşıyor: `data/intake/spn_ref/` altında her SPN için bir kayıt var (toplam **168**
+kayıt; 66'sı `kb_state: absent`, 102'si `present`).
+
+| Alan | İçerik |
+|---|---|
+| `spn`, `names_en[]` | upstream metninden birebir parametre adı |
+| `units[]`, `resolutions[]`, `bit_lengths[]` | yalnız upstream verdiyse |
+| `evidence_pgns[]`, `evidence_text[]` | SPN'nin **hangi PGN'de, hangi metinde** geçtiği |
+| `sources[]` | her kanıt dosyasının `sha256` + bayt boyutu |
+| `kb_state`, `kb_name`, `kb_unit` | bugünkü KB durumu (ölçülmüş) |
+
+Sayı **türetilmez**: yalnız upstream metninde yazan `SPN n` ifadesi sayılır
+(`collect_spn_evidence()`), test bunu ayrı bir fixture ile doğrular.
+
+Ölçülen uzlaştırma (kapı her çalıştırmada tekrarlar):
+
+| Ölçüm | Değer |
+|---|---|
+| KB'de **olmayan** SPN (terfi adayı) | **66** |
+| KB'de **olan** SPN | 102 |
+| Ad farkı (kısa alan adı ↔ uzun J1939 adı — kusur **değil**, sayılır) | 45 |
+| Birim çelişkisi (upstream birim ≠ KB birimi) | 1 (SPN 1127: canboat `kPa`, KB `Standart J1939`) |
+| KB adı bir tanım cümlesi olan SPN | 23 (`kb_name_defect` INFO) |
+
+İlk 25 terfi adayı:
+
+| SPN | Upstream parametre adı | Kanıt PGN |
+|---|---|---|
+| 126 | Transmission Filter Differential Pressure | PGN 65272 |
+| 163 | Transmission Current Range | PGN 61445 |
+| 526 | Transmission Actual Gear Ratio | PGN 61445 |
+| 1032 | Total ECU Distance | PGN 65201 |
+| 1128 | Engine Turbocharger 2 Boost Pressure | PGN 65190 |
+| 1129 | Engine Turbocharger 3 Boost Pressure | PGN 65190 |
+| 1130 | Engine Turbocharger 4 Boost Pressure | PGN 65190 |
+| 1132 | Engine Intake Manifold 3 Temperature | PGN 65189 |
+| 1133 | Engine Intake Manifold 4 Temperature | PGN 65189 |
+| 1802 | Engine Intake Manifold 5 Temperature | PGN 65189 |
+| 1803 | Engine Intake Manifold 6 Temperature | PGN 65189 |
+| 2433 | Engine Exhaust Manifold Bank 2 Temperature 1 | PGN 65031 |
+| 2434 | Engine Exhaust Manifold Bank 1 Temperature 1 | PGN 65031 |
+| 2807 | Engine Fuel Shutoff 2 Control | PGN 64914 |
+| 2809 | Engine Air Filter 2 Differential Pressure | PGN 64976 |
+| 2810 | Engine Air Filter 3 Differential Pressure | PGN 64976 |
+| 2811 | Engine Air Filter 4 Differential Pressure | PGN 64976 |
+| 2896 | Momentary Engine Maximum Power Enable | PGN 61443 |
+| 2970 | Accelerator Pedal 2 Low Idle Switch | PGN 61443 |
+| 2979 | Vehicle Acceleration Rate Limit Status | PGN 61443 |
+| 3027 | Transmission Oil Level 1 High / Low | PGN 65272 |
+| 3028 | Transmission Oil Level 1 Countdown Timer | PGN 65272 |
+| 3243 | Aftertreatment 1 Intake Gas Temperature 2 Preliminary FMI | PGN 64948 |
+| 3244 | Aftertreatment 1 Intake Gas Pressure 2 Preliminary FMI | PGN 64948 |
+| 3247 | Aftertreatment 1 Outlet Gas Temperature 2 Preliminary FMI | PGN 64947 |
+
+Doğrulayıcı her çalıştırmada `kb_state`'i yeniden ölçer; KB'de bir SPN eklendiyse
+`WARN kb_drift` verir ve kayıt gözden geçirilir — yani bu liste **kendini
+günceller**.
+
 ### Hangi üreticinin metni hayatta kaldı? (ölçüm)
 
 Katmandaki metnin **her kod için** tam olarak bir kaynak satırına eşit olduğu
@@ -185,8 +248,11 @@ python scripts/intake_scan_sources.py --report docs/audit/intake_source_scan_202
 python scripts/intake_scan_sources.py --stage            # doğrula (yazmaz)
 python scripts/intake_scan_sources.py --stage --apply    # intake'e yaz
 python scripts/intake_scan_sources.py --stage-oem --apply
+python scripts/intake_scan_sources.py --stage-spn --apply
+python scripts/intake_kb_defects.py --stage --apply
 python scripts/validate_intake.py --sync-manifest --apply
 python scripts/validate_intake.py --sync-manifest --apply
 python scripts/validate_intake.py                       # FAIL=0 beklenir
-python -m pytest tests/unit/test_validate_intake.py tests/unit/test_intake_scan_sources.py -q
+python -m pytest tests/unit/test_validate_intake.py tests/unit/test_intake_scan_sources.py \
+                   tests/unit/test_intake_kb_defects.py -q
 ```

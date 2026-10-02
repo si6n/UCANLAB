@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "intake_id": "canboat-spn-01032",
+  "record_type": "spn_reference",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "automated",
+    "id": "scripts/intake_scan_sources.py",
+    "role": "author"
+  },
+  "source": {
+    "title": "Example: SPN 1032 referenced by the CANboat J1939 PGN 65201 layout",
+    "path": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/065201-ecuHistory.yaml",
+    "type": "standard",
+    "publisher": "CANboat (Kees Verruijt); layout per SAE J1939-71",
+    "revision": "f7f088b4",
+    "licence": "Apache-2.0",
+    "access_date": "2026-10-02",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": null,
+      "bytes": null,
+      "pages_cited": []
+    }
+  },
+  "confidence": "single_source",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "spn": 1032,
+    "names_en": [
+      "Total ECU Distance"
+    ],
+    "units": [
+      "km"
+    ],
+    "resolutions": [
+      0.125
+    ],
+    "bit_lengths": [
+      32
+    ],
+    "evidence_pgns": [
+      65201
+    ],
+    "evidence_text": [
+      "SPN 1032, 0.125 kilometre per bit"
+    ],
+    "sources": [
+      {
+        "source_file": "database/j1939/pgns/065201-ecuHistory.yaml",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "bytes": 706
+      }
+    ],
+    "kb_state": "absent",
+    "kb_name": null,
+    "kb_unit": null
+  },
+  "notes": "SPN number and parameter text are read from the upstream 'description' text verbatim — never derived from the field name, the PGN or the bit layout. kb_state records what data/diagnostics/j1939_spn_fmi_database.json holds today ('absent' = promotion candidate); validate_intake.py re-measures it on every run and reports kb_drift if the state flips. Apache-2.0 NOTICE: data/intake/NOTICE.canboat.md."
+}

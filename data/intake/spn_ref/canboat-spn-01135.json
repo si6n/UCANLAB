@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "intake_id": "canboat-spn-01135",
+  "record_type": "spn_reference",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "automated",
+    "id": "scripts/intake_scan_sources.py",
+    "role": "author"
+  },
+  "source": {
+    "title": "CANboat J1939 PGN alan düzenlerinden SPN 1135 referansı",
+    "path": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/065188-engineTemperature2.yaml",
+    "type": "standard",
+    "publisher": "CANboat (Kees Verruijt); layout per SAE J1939-71",
+    "revision": "f7f088b49d58",
+    "licence": "Apache-2.0",
+    "access_date": "2026-10-02",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": null,
+      "bytes": null,
+      "pages_cited": []
+    }
+  },
+  "confidence": "single_source",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "spn": 1135,
+    "names_en": [
+      "Engine Oil Temperature 2"
+    ],
+    "units": [],
+    "resolutions": [],
+    "bit_lengths": [],
+    "evidence_pgns": [
+      65188
+    ],
+    "evidence_text": [
+      "SPN 1135"
+    ],
+    "sources": [
+      {
+        "source_file": "database/j1939/pgns/065188-engineTemperature2.yaml",
+        "sha256": "cb0637b764d676a29be80b4dade8fa885a37ae5117cfa3c89d8b05c31444d8af",
+        "bytes": 827
+      }
+    ],
+    "kb_state": "present",
+    "kb_name": "Engine Oil Temperature 2",
+    "kb_unit": "Standart J1939"
+  },
+  "notes": "SPN referansi ve parametre metni, canboat'in pinli J1939 PGN alan duzenlerinden birebir toplandi. deger kaynagi upstream metnidir; hicbiri turetilmemistir. data/diagnostics/j1939_spn_fmi_database.json bu kayitlari OKUMAZ - terfi karari intake README'sindeki Adim 3a'ya bagli."
+}
