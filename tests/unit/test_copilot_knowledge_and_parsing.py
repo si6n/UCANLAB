@@ -26,7 +26,7 @@ def test_every_registered_source_is_shipped() -> None:
 
 @pytest.mark.parametrize("raw,expected", [
     ("P0101", "P0101"), ("p0101", "P0101"), ("P 0101", "P0101"), ("PO101", "P0101"), ("u0100", "U0100"),
-    ("P01", None), ("X0101", None), ("P01011", None), ("", None),
+    ("P01", None), ("X0101", None), ("P01011", None), ("", None), ("C6500", None),
 ])
 def test_normalize_dtc_code(raw: str, expected: str | None) -> None:
     assert normalize_dtc_code(raw) == expected

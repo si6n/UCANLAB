@@ -213,6 +213,12 @@ def check_consistency(rep: Report, dtc: dict[str, Any], j1939: dict[str, Any]) -
     for k, v in j1939["spns"].items():
         if f"SPN_{v.get('spn')}" != k:
             rep.add("FAIL", "spn_key", f"{k} carries spn={v.get('spn')}")
+    bad_fmi = [(k, f) for k, v in j1939["spns"].items() for f in (v.get("fault_matrix") or {}) if not 0 <= int(f) <= 31]
+    if bad_fmi:
+        rep.add("WARN", "fmi_range", f"{len(bad_fmi)} fault_matrix rows use FMI > 31 (FMI is 5 bits; unreachable), e.g. {bad_fmi[:3]}")
+    non_j2012 = sorted(k for k in dtc if k[1] not in "0123")
+    if non_j2012:
+        rep.add("WARN", "dtc_j2012", f"{len(non_j2012)} DTC keys outside SAE J2012 (2nd char must be 0-3): {non_j2012[:5]}")
     for fmi, rec in j1939["fmi_definitions"].items():
         if not rec.get("description_tr"):
             rep.add("WARN", "fmi_tr", f"FMI {fmi} has no Turkish description")

@@ -6,6 +6,26 @@ Bu klasördeki teşhis bilgi tabanlarının kaynak zinciri, doğrulama yöntemi 
 güncelleme geçmişi burada tutulur. `data/dbc/LICENSES.md` ile aynı disiplini
 izler: içerik üretilmez, kamuya açık kaynaklar ve resmî belgeler referans alınır.
 
+## Copilot upgrade — 2026-10-02 (yeni dosyalar + veri kalitesi düzeltmeleri)
+
+Ayrıntılı rapor: `docs/audit/copilot_data_quality_2026-10-02.md`. Doğrulama:
+`python scripts/validate_copilot_data.py` (CI'da, FAIL=0).
+
+| Dosya | Değişiklik | Kaynak / yöntem | Lisans |
+|---|---|---|---|
+| `symptom_lexicon.json` (YENİ) | 25 kayıt, 186 TR/EN gündelik ifade + güvenlik yönlendirme terimleri | Yalnız mevcut `canonical_symptoms` kimliklerine işaret eder; her kayıtta `provenance` (curator, `internal_kb`). Üretici: `scripts/copilot_data/build_lexicon.py` | Proje içi |
+| `signal_measurement_map.json` (YENİ) | 24 sinyal → SPN/PGN/OBD PID/birim/eşik anahtarı | SPN/PID alanları `j1939_spn_fmi_database.json` ve `extended_pid_database.json`'dan **kopyalanır**; doğrulayıcı adları yeniden eşler. Üretici: `build_signal_map.py` | Kaynak dosyaların lisansı |
+| `copilot_glossary.json` (YENİ) | 32 terim, tek cümlelik TR/EN tanım | Curator; değer/limit/neden içermez. Üretici: `build_glossary.py` | Proje içi |
+| `extended_pid_database.json` | 226 → **244**: T2-4'ün atladığı 18 standart Mode 01 PID | OBDex `data/pids/mode01.yaml` @ `bc58b0eb…`, sha256 `cc4c435f…` (yazmadan önce doğrulanır). `scripts/copilot_data/add_obdex_standard_pids.py` | CC0-1.0 |
+| `dtc_database.json` | 303 kayıtta `procedures_full` metni adım listesine bölündü | Kendi "N." işaretleri (1..n kesintisiz); metin aynen. `fix_data_quality.py` | değişmedi |
+| `j1939_spn_fmi_database.json` | FMI 13, 20–30 `description_tr` | Kaydın kendi SAE J1939-73 adının Türkçesi; `description_tr_source` alanında | değişmedi |
+| `root_cause_graph.json` | 39 seed düğüme `system` | Kodun kayıttaki alt sistem etiketi → `system_taxonomy` | değişmedi |
+| `hv_safety_thresholds.json` | provenance şema uyumu (`agent: legacy-unrecorded`, 2 `source.type` eşlemesi) | Değer ve alıntılar aynen | değişmedi |
+| `root_cause_graph.json.t21_before` | **silindi** | Kullanılmayan seed artığı; karar kaydı `quarantine/t21_seed_audit.json` | — |
+
+CSV ikizleri (7 dosya) artık tek kaynaktan üretilir: `python scripts/rebuild_csv_exports.py`
+(`--verify` CI kontrolü). NHTSA geri çağırma CSV'si kuralı bu turda çıkarıldı ve bayt-eşdeğer doğrulandı.
+
 ## T2-4 — Dış veri kaynakları (licence-verified vendor merge)
 
 > Kardeş dosyalar: `data/PROVENANCE.md` (merge tarafı, artefakt sha256'ları),

@@ -106,7 +106,10 @@ def fold_text(text: str) -> str:
     return " ".join(_NON_WORD_RE.sub(" ", folded).split())
 
 
-_DTC_RE = re.compile(r"^([PBCU])([0-9A-F]{4})$")
+# SAE J2012: the second character is 0-3 (0/2 generic, 1/3 manufacturer). The
+# shipped DB holds two malformed "C6xxx" rows (garbled PDF titles, see
+# docs/audit/copilot_data_quality_2026-10-02.md); they are not valid codes.
+_DTC_RE = re.compile(r"^([PBCU])([0-3][0-9A-F]{3})$")
 
 
 def normalize_dtc_code(raw: str) -> str | None:

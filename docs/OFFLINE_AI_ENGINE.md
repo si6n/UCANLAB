@@ -6,6 +6,11 @@
 > uçlar. Motoru geliştirmek isteyen bir mühendise (insan veya AI) doğrudan
 > rehber olması için yazılmıştır.
 
+> **Yapılandırılmış cevap yolu (2026-10):** serbest metin + kod + telemetri + DM1
+> girdisini 6 bölümlü, kaynak atıflı cevaba çeviren katman (`knowledge_base.py`,
+> `query_understanding.py`, `copilot_reasoner.py`, `copilot_answer.py`) için
+> `docs/COPILOT.md`'ye bakın.
+
 ---
 
 ## 1. Genel Bakış
