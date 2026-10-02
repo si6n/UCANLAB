@@ -42,7 +42,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from src.engine.ai.knowledge_base import KnowledgeBase, fold_text
-from src.engine.ai.query_understanding import _SYMPTOM_SIGNAL, ParsedQuery, Reading
+from src.engine.ai.query_understanding import _SYMPTOM_SIGNAL, ParsedQuery, Reading, code_check_symptoms
 
 __all__ = [
     "CodeFact",
@@ -215,6 +215,8 @@ class Reasoning:
     complaints: dict[str, Any] | None = None
     similar_records: list[tuple[str, str, float]] = field(default_factory=list)
     check_results: list[CheckResult] = field(default_factory=list)
+    # symptoms an active code points at, kept only for their questions (not "understood" complaints)
+    code_symptoms: list[tuple[str, dict[str, Any]]] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------- helpers
@@ -563,7 +565,7 @@ def _area(r: Reasoning, hyps: dict[str, Hypothesis], sid: str, i: int, create: b
     hid = f"canonical_symptoms#{sid}.subsystems[{i}]"
     if hid in hyps or not create:
         return hyps.get(hid)
-    rec = next((rec for s, rec in r.symptom_records if s == sid), None)
+    rec = next((rec for s, rec in r.symptom_records + r.code_symptoms if s == sid), None)
     labels = [str(x).strip() for x in (rec or {}).get("subsystems") or []]
     if i >= len(labels) or not labels[i]:
         return None
@@ -822,6 +824,10 @@ def reason(parsed: ParsedQuery, kb: KnowledgeBase, *, include_recalls: bool = Tr
         look = kb.symptom(sym.symptom_id)
         if look.found:
             r.symptom_records.append((sym.symptom_id, look.record))
+    known = {sid for sid, _ in r.symptom_records}
+    for sid in code_check_symptoms([c.key.split(" FMI")[0] for c in r.codes if c.found], kb):
+        if sid not in known:
+            r.code_symptoms.append((sid, kb.symptom(sid).record))
 
     # telemetry
     rpm_reading = next((x for x in parsed.readings if x.canonical == "EngineSpeed"), None)

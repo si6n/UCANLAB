@@ -520,7 +520,7 @@ def _checks(r: Reasoning, lang: str, kb: KnowledgeBase) -> list[dict[str, Any]]:
     """Answerable questions for the top complaints; answered ones carry their curated effect."""
     results = {c.key: c for c in r.check_results}
     out: list[dict[str, Any]] = []
-    for sid, rec in r.symptom_records[:2]:
+    for sid, rec in r.symptom_records[:2] + r.code_symptoms:
         questions = list(rec.get("initial_questions") or [])
         for check in kb.symptom_checks(sid):
             qi = check.get("q")

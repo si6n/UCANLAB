@@ -111,3 +111,13 @@ def test_cylinder_swap_test_separates_coil_from_cylinder(n: int) -> None:
     stayed = answer_query(f"{n}. silindir tekleme yapıyor", language="tr", answers={f"{sid}.q0": "hayır"}).to_dict()
     assert moved["causes"][0]["title"] == f"{n}. Silindir Buji & Bobin"
     assert stayed["causes"][0]["title"] in {f"{n}. Silindir Enjektörü", f"{n}. Silindir Kompresyon"}
+
+
+def test_active_code_offers_the_questions_of_the_symptom_it_points_at() -> None:
+    d = answer_query("P0301", language="tr").to_dict()
+    assert [c["key"] for c in d["checks"]][:1] == ["misfire-cylinder-1.q0"]
+    assert d["understood"]["symptoms"] == [], "a code-implied symptom is not reported as the operator's complaint"
+    answered = answer_query("P0301", language="tr", answers={"misfire-cylinder-1.q0": "evet"}).to_dict()
+    area = next(c for c in answered["causes"] if c["title"] == "1. Silindir Buji & Bobin")
+    assert any(e["ref"] == "symptom_checks#misfire-cylinder-1.q0" for e in area["support"])
+    assert answered["causes"][0]["kind"] == "graph", "an answer never outranks the active code's own graph cause"

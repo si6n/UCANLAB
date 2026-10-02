@@ -111,6 +111,11 @@ Bilmiyorum düğmeleri ve ölçüm alanı gösterir.
 * Ölçüm soruları bantlarla değerlendirilir (`min ≤ v < max`; bantlar boşluksuz).
   Metinde sorunun kendi anahtar kelimesi ve tek bir birimli sayı varsa
   ("uyku akımı 320 mA") cevap metinden alınır; iki aday sayı varsa alınmaz.
+* Aktif bir kod, `candidate_dtcs` alanında o kodu sayan ve sorusu olan
+  semptomların sorularını da getirir (P0301 → `misfire-cylinder-1`: bobin/buji
+  değiştirme testi). Bu semptom operatörün şikâyeti olarak raporlanmaz
+  (`understood.symptoms` boş kalır); cevabı yalnız soru etkisi olarak işlenir ve
+  aktif kodun graf nedeninin önüne geçmez.
 * Özet, cevaplanmamış sorular arasından listelenen adayları en çok etkileyeni
   "Önce şu soruyu cevaplayın: …" diye gösterir. Önde birden fazla aday aynı
   puandaysa özet "En olası neden" demez, "Önde, eşit ağırlıkta: …" der.

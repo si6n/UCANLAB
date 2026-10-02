@@ -605,13 +605,23 @@ def _answer_value(kind: str, raw: Any) -> str | float:
     return "yes" if folded in _YES else "no" if folded in _NO else "unknown"
 
 
+def code_check_symptoms(codes: Iterable[str], kb: KnowledgeBase, limit: int = 2) -> list[str]:
+    """Symptoms with questions that an active code points at (P0301 -> misfire-cylinder-1)."""
+    out: list[str] = []
+    for code in codes:
+        for sid in kb.symptoms_for_code(code):
+            if sid not in out and kb.symptom_checks(sid):
+                out.append(sid)
+    return out[:limit]
+
+
 def _check_answers(answers: Mapping[str, Any], text: str, symptoms: list[SymptomMatch],
-                   kb: KnowledgeBase) -> tuple[list[CheckAnswer], list[str]]:
-    """Answers for the matched symptoms' checks: explicit input first, then
-    measurements written in the text next to the check's own keyword."""
+                   kb: KnowledgeBase, code_symptoms: Iterable[str] = ()) -> tuple[list[CheckAnswer], list[str]]:
+    """Answers for the matched (or code-implied) symptoms' checks: explicit input
+    first, then measurements written in the text next to the check's own keyword."""
     out: dict[str, CheckAnswer] = {}
     notes: list[str] = []
-    matched = {s.symptom_id for s in symptoms}
+    matched = {s.symptom_id for s in symptoms} | set(code_symptoms)
     for raw_key, raw in list(answers.items())[:40]:
         sid, _, cid = str(raw_key).partition(".")
         check = next((c for c in kb.symptom_checks(sid) if c.get("id") == cid), None)
@@ -715,7 +725,8 @@ def parse_query(
     pq.notes.extend(notes)
     pq.readings = readings
     pq.unknown_telemetry = unknown
-    pq.answers, notes = _check_answers(answers or {}, text, pq.symptoms, kb)
+    codes_read = [c.code for c in pq.dtcs] + [f"SPN {x.spn}" for x in pq.spns]
+    pq.answers, notes = _check_answers(answers or {}, text, pq.symptoms, kb, code_check_symptoms(codes_read, kb))
     pq.notes.extend(notes)
 
     pq.vehicle_make = vehicle_make or None

@@ -481,6 +481,20 @@ class KnowledgeBase:
             return Lookup.miss("canonical_symptoms", symptom_id)
         return Lookup(True, "canonical_symptoms", symptom_id, rec)
 
+    def symptoms_for_code(self, code_key: str) -> list[str]:
+        """Symptom ids whose ``candidate_dtcs`` name this code ("P0301", "SPN 100"), file order."""
+        def build() -> dict[str, list[str]]:
+            out: dict[str, list[str]] = {}
+            for sid, rec in self.symptoms().items():
+                for code in (rec.get("candidate_dtcs") or []) if isinstance(rec, dict) else []:
+                    key = " ".join(str(code).upper().split())
+                    if sid not in out.setdefault(key, []):
+                        out[key].append(sid)
+            return out
+
+        index = self._load("_idx_symptoms_by_code", build)
+        return list(index.get(" ".join(code_key.upper().split()), [])) if isinstance(index, dict) else []
+
     def symptom_checks(self, symptom_id: str) -> list[dict[str, Any]]:
         """Curated answer effects for one symptom's questions (``[]`` when none)."""
         data = self._json_source("symptom_checks")
