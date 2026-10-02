@@ -25,6 +25,8 @@
     "engine temp"
    ],
    "threshold_key": "EngineCoolantTemp",
+   "label_tr": "Motor Soğutma Suyu Sıcaklığı",
+   "label_en": "Engine Coolant Temperature",
    "j1939": {
     "spn": 110,
     "name": "Engine Coolant Temperature",
@@ -80,6 +82,8 @@
     "rpm"
    ],
    "threshold_key": "EngineSpeed",
+   "label_tr": "Motor Devri (Krank Hızı)",
+   "label_en": "Engine Speed",
    "j1939": {
     "spn": 190,
     "name": "Engine Speed",
@@ -134,6 +138,8 @@
     "oil pressure"
    ],
    "threshold_key": "EngineOilPressure",
+   "label_tr": "Motor Yağ Basıncı",
+   "label_en": "Engine Oil Pressure",
    "j1939": {
     "spn": 100,
     "name": "Engine Oil Pressure",
@@ -186,6 +192,8 @@
     "boost"
    ],
    "threshold_key": "TurboBoost",
+   "label_tr": "Turboşarj Takviye Basıncı (Boost Pressure)",
+   "label_en": "Engine Turbocharger 1 Boost Pressure",
    "j1939": {
     "spn": 102,
     "name": "Engine Turbocharger 1 Boost Pressure",
@@ -244,6 +252,8 @@
     "system voltage",
     "charging voltage"
    ],
+   "label_tr": "Akü Voltajı / Ana Besleme Hattı (KL30)",
+   "label_en": "Battery Potential / Power Input 1",
    "j1939": {
     "spn": 168,
     "name": "Battery Potential / Power Input 1",
@@ -297,6 +307,8 @@
     "vehicle speed"
    ],
    "threshold_key": "VehicleSpeed",
+   "label_tr": "Tekerlek Tabanlı Araç Hızı (Takograf/TCM)",
+   "label_en": "Wheel-Based Vehicle Speed",
    "j1939": {
     "spn": 84,
     "name": "Wheel-Based Vehicle Speed",
@@ -350,6 +362,8 @@
     "engine load"
    ],
    "threshold_key": "EngineLoad",
+   "label_tr": "Mevcut Devirdeki Motor Yük Yüzdesi",
+   "label_en": "Engine Percent Load At Current Speed",
    "j1939": {
     "spn": 92,
     "name": "Engine Percent Load At Current Speed",
@@ -403,6 +417,8 @@
     "engine torque"
    ],
    "threshold_key": "EngineTorque",
+   "label_tr": "Gerçekleşen Motor Torku Oranı",
+   "label_en": "Actual Engine - Percent Torque",
    "j1939": {
     "spn": 513,
     "name": "Actual Engine - Percent Torque",
@@ -454,6 +470,8 @@
     "fuel pressure",
     "fuel rail pressure"
    ],
+   "label_tr": "Ortak Yakıt Yolu (Common Rail) Basıncı",
+   "label_en": "Engine Fuel 1 Injector Metering Rail 1 Pressure",
    "j1939": {
     "spn": 157,
     "name": "Engine Fuel 1 Injector Metering Rail 1 Pressure",
@@ -508,6 +526,8 @@
     "dpf differential pressure",
     "dpf pressure"
    ],
+   "label_tr": "DPF Partikül Filtresi Fark Basıncı",
+   "label_en": "Aftertreatment 1 Diesel Particulate Filter Differential Pressure",
    "j1939": {
     "spn": 3251,
     "name": "Aftertreatment 1 Diesel Particulate Filter Differential Pressure",
@@ -557,6 +577,8 @@
     "soot load",
     "dpf soot"
    ],
+   "label_tr": "DPF Kurum Doluluk Oranı",
+   "label_en": "Aftertreatment 1 Diesel Particulate Filter Soot Load Percent",
    "j1939": {
     "spn": 3719,
     "name": "Aftertreatment 1 Diesel Particulate Filter Soot Load Percent",
@@ -604,6 +626,8 @@
     "oil temperature",
     "oil temp"
    ],
+   "label_tr": "Motor Yağ Sıcaklığı",
+   "label_en": "Engine Oil Temperature 1",
    "j1939": {
     "spn": 175,
     "name": "Engine Oil Temperature 1",
@@ -657,6 +681,8 @@
     "intake air temperature",
     "intake temp"
    ],
+   "label_tr": "Emme Manifoldu Hava Sıcaklığı",
+   "label_en": "Engine Intake Manifold 1 Temperature",
    "j1939": {
     "spn": 105,
     "name": "Engine Intake Manifold 1 Temperature",
@@ -712,6 +738,8 @@
     "mass air flow",
     "maf"
    ],
+   "label_tr": "Motor Emme Havası Kütle Debisi (MAF)",
+   "label_en": "Engine Intake Air Mass Flow Rate",
    "j1939": {
     "spn": 132,
     "name": "Engine Intake Air Mass Flow Rate",
@@ -766,6 +794,8 @@
     "def level",
     "adblue level"
    ],
+   "label_tr": "AdBlue / DEF Sıvı Tankı Seviyesi",
+   "label_en": "Aftertreatment 1 Diesel Exhaust Fluid Tank Volume",
    "j1939": {
     "spn": 1761,
     "name": "Aftertreatment 1 Diesel Exhaust Fluid Tank Volume",
@@ -810,6 +840,8 @@
    "phrases_en": [
     "fuel level"
    ],
+   "label_tr": "Yakıt Deposu Seviyesi 1",
+   "label_en": "Fuel Level 1",
    "j1939": {
     "spn": 96,
     "name": "Fuel Level 1",
@@ -860,6 +892,8 @@
    "phrases_en": [
     "catalyst temperature"
    ],
+   "label_tr": "Katalizör sıcaklığı",
+   "label_en": "Catalyst temperature",
    "obd": {
     "service": "01",
     "pid": "3C",
@@ -905,6 +939,8 @@
     "exhaust temperature",
     "egt"
    ],
+   "label_tr": "Egzoz Gazı Sıcaklığı",
+   "label_en": "Engine Exhaust Temperature",
    "j1939": {
     "spn": 173,
     "name": "Engine Exhaust Temperature",
@@ -951,6 +987,8 @@
    "phrases_en": [
     "brake air pressure circuit 1"
    ],
+   "label_tr": "Pnömatik Fren Hava Basıncı - Devre 1",
+   "label_en": "Service Brake Air Pressure Circuit 1",
    "j1939": {
     "spn": 1087,
     "name": "Service Brake Air Pressure Circuit 1",
@@ -997,6 +1035,8 @@
    "phrases_en": [
     "brake air pressure circuit 2"
    ],
+   "label_tr": "Pnömatik Fren Hava Basıncı - Devre 2",
+   "label_en": "Service Brake Air Pressure Circuit 2",
    "j1939": {
     "spn": 1088,
     "name": "Service Brake Air Pressure Circuit 2",
@@ -1043,6 +1083,8 @@
    "phrases_en": [
     "throttle position"
    ],
+   "label_tr": "Gaz Kelebeği Pozisyonu",
+   "label_en": "Throttle Position",
    "j1939": {
     "spn": 51,
     "name": "Throttle Position",
@@ -1094,6 +1136,8 @@
    "phrases_en": [
     "egr position"
    ],
+   "label_tr": "Motor Egzoz Gazı Devridaim 1 Valfi Konumu",
+   "label_en": "Engine Exhaust Gas Recirculation 1 Valve Position",
    "j1939": {
     "spn": 27,
     "name": "Engine Exhaust Gas Recirculation 1 Valve Position",
@@ -1141,6 +1185,8 @@
     "isolation resistance",
     "insulation resistance"
    ],
+   "label_tr": "HV izolasyon direnci",
+   "label_en": "Isolation resistance",
    "hv_only": true,
    "how_to_tr": "Yalnız yüksek gerilim eğitimi almış yetkili teknisyen, araç üreticisinin servis aracıyla BMS canlı verisinden okur. Turuncu kablolara dokunmayın.",
    "how_to_en": "Only an HV-trained, authorised technician reads this from BMS live data with the OEM service tool. Do not touch orange cables.",
@@ -1187,6 +1233,8 @@
     "hv bus voltage",
     "battery pack voltage"
    ],
+   "label_tr": "HV batarya paket voltajı",
+   "label_en": "Pack voltage",
    "hv_only": true,
    "how_to_tr": "Yalnız yüksek gerilim eğitimi almış yetkili teknisyen, araç üreticisinin servis aracıyla BMS canlı verisinden okur. Turuncu kablolara dokunmayın.",
    "how_to_en": "Only an HV-trained, authorised technician reads this from BMS live data with the OEM service tool. Do not touch orange cables.",

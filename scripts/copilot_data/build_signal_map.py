@@ -69,6 +69,8 @@ def prov(canon, spn, pid):
         "confidence": "single_source" if (spn is not None or pid) else "unverified",
     }]
 
+LABEL_TR = {"CatalystTemperature": "Katalizör sıcaklığı", "IsolationResistance": "HV izolasyon direnci",
+            "HVPackVoltage": "HV batarya paket voltajı"}
 out = []
 for canon, unit, aliases, tr, en, tkey, spn, pid in S:
     if tkey is not None:
@@ -76,6 +78,8 @@ for canon, unit, aliases, tr, en, tkey, spn, pid in S:
     rec = {"canonical": canon, "unit": unit, "aliases": aliases, "phrases_tr": tr, "phrases_en": en}
     if tkey:
         rec["threshold_key"] = tkey
+    rec["label_tr"] = spns[f"SPN_{spn}"]["title_tr"] if spn is not None else LABEL_TR[canon]
+    rec["label_en"] = spns[f"SPN_{spn}"]["name"] if spn is not None else en[0].capitalize()
     if spn is not None:
         r = spns[f"SPN_{spn}"]
         rec["j1939"] = {"spn": spn, "name": r["name"], "title_tr": r.get("title_tr"), "pgn": r.get("associated_pgn"),
