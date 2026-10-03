@@ -391,3 +391,38 @@ def test_s3_05_blf_fd_frame_keeps_its_dlc(tmp_path: Any) -> None:
                 data=bytes(range(n)), channel=1))
     frames = VectorBlfParser.parse_file(path)
     assert [(f.dlc, len(f.data)) for f in frames] == [(length_to_dlc(12), 12), (length_to_dlc(64), 64)]
+
+
+# ---------------------------------------------------------------------------
+# S4-01 (YÜKSEK): a decoded boost pressure reached the copilot without its
+# unit; the copilot's "> 10 means kPa" guess turned an idle 6 kPa into 6 bar
+# and reported an overboost that was never measured.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("value", "unit", "expected"),
+    [(6.0, "kPa", 0.06), (150.0, "kPa", 1.5), (1.2, "bar", 1.2), (20.0, "psi", 1.378952), (5.0, "", None),
+     (5.0, "%", None), (float("nan"), "kPa", None)],
+)
+def test_s4_01_boost_is_converted_by_its_unit(value: float, unit: str, expected: float | None) -> None:
+    from src.ui.desktop_app import _boost_in_bar
+
+    result = _boost_in_bar(value, unit)
+    if expected is None:
+        assert result is None
+    else:
+        assert result == pytest.approx(expected)
+
+
+def test_s4_01_idle_boost_is_not_an_overboost() -> None:
+    from src.engine.ai.diagnostic_copilot import CausalBayesianInferenceEngine
+    from src.ui.desktop_app import _boost_in_bar
+
+    # The unconverted 6 kPa read as "6 bar" was reported as a CRITICAL_STOP overboost.
+    raw = repr(CausalBayesianInferenceEngine.evaluate_diagnostic_query("turbo", [], {"BoostPressure": 6.0}))
+    assert "limit üstü" in raw
+    idle_bar = _boost_in_bar(6.0, "kPa")
+    text = repr(CausalBayesianInferenceEngine.evaluate_diagnostic_query("turbo", [], {"BoostPressure": idle_bar}))
+    assert "limit üstü" not in text
+    assert "6.00 Bar" not in text

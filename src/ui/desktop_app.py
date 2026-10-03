@@ -131,6 +131,27 @@ logger = get_logger("app.desktop")
 # ("SPN <n> FMI <m>"); the copilot's J1939 KB path needs the numeric fields,
 # so the bridge re-derives them here. Anchored on the SPN token so an FMI-less
 # code still yields its SPN, and a non-SPN code yields no match at all.
+# Pressure unit -> factor to bar. Units are compared case-insensitively.
+_PRESSURE_TO_BAR: dict[str, float] = {
+    "bar": 1.0, "mbar": 0.001, "hpa": 0.001, "kpa": 0.01, "pa": 0.00001, "psi": 0.0689476,
+}
+
+
+def _boost_in_bar(value: object, unit: object) -> float | None:
+    """A decoded boost-pressure value in bar, or None when its unit is unknown.
+
+    AUDIT 2026-10-03 (S4-01): the decoder's physical value (J1939 SPN 102 is
+    kPa) was handed to the copilot without its unit. The copilot then guessed
+    "> 10 means kPa", so an idle reading of 6 kPa became 6 bar, triggered the
+    overboost scenario and was narrated as "Turbo basıncı 6.00 Bar". A value
+    whose unit cannot be identified is not a measurement the copilot may use.
+    """
+    if not isinstance(value, (int, float)) or isinstance(value, bool) or not math.isfinite(value):
+        return None
+    factor = _PRESSURE_TO_BAR.get(str(unit or "").strip().lower())
+    return None if factor is None else float(value) * factor
+
+
 def _listen_only_bus(interface: str, channel: str, bitrate: int) -> Any:
     """Connection-test bus factory: the app's own builder, forced listen-only."""
     from src.main import build_bus
@@ -6437,8 +6458,9 @@ class UniversalCanDesktopApp:
                             if isinstance(phys_val, (int, float)):
                                 self._current_temp = float(phys_val)
                         elif "boost" in sig_name_lower:
-                            if isinstance(phys_val, (int, float)):
-                                self._current_boost = float(phys_val)
+                            boost_bar = _boost_in_bar(phys_val, getattr(sig, "unit", ""))
+                            if boost_bar is not None:
+                                self._current_boost = boost_bar
                                 self._boost_measured = True
         except (IndexError, ValueError, AttributeError) as exc:
             logger.debug("J1939 live decode failed", extra={"error": str(exc)})
