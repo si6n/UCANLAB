@@ -594,7 +594,14 @@ class PythonCanBus(AbstractBus):
             # corruption" the review claimed — `CanFrame` deliberately permits
             # a short FD payload (`0 < len(data) <= capacity`), so no data was
             # ever lost; only the trailing zero padding was missing.
-            dlc = msg.dlc if msg.dlc is not None else length_to_dlc(len(msg.data))
+            # AUDIT 2026-10-03 (S3-03): python-can's `Message.dlc` is the
+            # payload LENGTH in bytes for CAN FD (12, 16, ... 64), not the
+            # 4-bit DLC code. Reading it as a code mapped a 12-byte FD frame to
+            # code 12 (= 24 bytes, half of it zero padding) and raised on 16..64
+            # (dropped as "malformed"), so every FD frame longer than 8 bytes
+            # was corrupted or lost. Convert length -> code first.
+            length = msg.dlc if msg.dlc is not None else len(msg.data)
+            dlc = length_to_dlc(max(length, len(msg.data)))
             expected_len = dlc_to_length(dlc)
             rx_data = bytes(msg.data)
             if len(rx_data) < expected_len:

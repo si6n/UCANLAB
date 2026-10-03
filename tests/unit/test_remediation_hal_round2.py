@@ -16,7 +16,7 @@ import can
 import pytest
 
 from src.core.errors import HardwareError
-from src.core.models.can_frame import CanFrame, dlc_to_length
+from src.core.models.can_frame import CanFrame, dlc_to_length, length_to_dlc
 from src.hal.base import BusMetrics, BusState
 from src.hal.drivers.pcan_kvaser import PythonCanBus
 from src.hal.power.win32_power import WindowsPowerManager
@@ -166,8 +166,10 @@ def test_hal02_fd_payload_padded_to_dlc_to_length() -> None:
     bus._bus = _Backend()
     frame = bus.recv(timeout_s=0.1)
     assert frame is not None
-    assert frame.dlc == 12
-    assert len(frame.data) == dlc_to_length(12) == 24
+    # AUDIT 2026-10-03 (S3-03): python-can's Message.dlc is the FD payload
+    # LENGTH (12 bytes here), not the DLC code; 12 bytes = DLC code 9.
+    assert frame.dlc == length_to_dlc(12) == 9
+    assert len(frame.data) == dlc_to_length(frame.dlc) == 12
     assert frame.data[:3] == b"\x01\x02\x03"
 
 

@@ -699,7 +699,7 @@ class UdsClient:
 
     # N_Bs (ISO 15765-2 §4.6.2): max wait for FC after FF/before next CF
     N_BS_TIMEOUT_S: ClassVar[float] = 1.0
-    # REVIEW hardening (flow-control spoofing): strict FC validation caps.
+    # STmin above this is honoured but logged as unusual (S3-01).
     FC_STMIN_CAP_MS: ClassVar[float] = 10.0
     FC_WAIT_ABSOLUTE_TIMEOUT_S: ClassVar[float] = 2.0
     FC_CHANNEL_MISMATCH_IS_FATAL: ClassVar[bool] = True
@@ -765,12 +765,13 @@ class UdsClient:
                     return None
             else:
                 wait_start = None
-            # STmin cap: reject/clamp spoofed stall values (>10 ms).
+            # A long STmin is honoured (S3-01) but logged: it makes the
+            # transfer slow and may come from a spoofed FC.
             st_min_raw = rx_frame.data[2]
             st_min_ms = decode_st_min(st_min_raw)
             if st_min_ms > self.FC_STMIN_CAP_MS:
                 logger.warning(
-                    "ISO-TP FC STmin capped (spoof/stall protection)",
+                    "ISO-TP FC requests a long STmin (honoured; slow transfer)",
                     extra={"raw": st_min_raw, "decoded_ms": st_min_ms, "cap_ms": self.FC_STMIN_CAP_MS},
                 )
             return rx_frame
@@ -831,10 +832,14 @@ class UdsClient:
             while idx < total:
                 if bs > 0 and block_sent >= bs:
                     break  # block exhausted — wait for the next FC
-                # REVIEW hardening: clamp spoofed STmin stalls at the cap
-                # (a 127 ms STmin would otherwise serialize a flash to a
-                # crawl; pacing above the cap is never legitimate).
-                delay_ms = min(decode_st_min(st_min), self.FC_STMIN_CAP_MS)
+                # AUDIT 2026-10-03 (S3-01): honour the ECU's STmin. ISO
+                # 15765-2 makes STmin the MINIMUM gap the receiver can take;
+                # clamping a legitimate 20..127 ms request to 10 ms sent CFs
+                # faster than a slow bootloader can buffer and aborted
+                # flashes mid-block. decode_st_min already bounds the value
+                # (0..127 ms, reserved codes -> 10 ms); a slow transfer is the
+                # price, a corrupted one is not acceptable.
+                delay_ms = decode_st_min(st_min)
                 if delay_ms > 0:
                     time.sleep(delay_ms / 1000.0)
                 # Consecutive Frames carry no service ID; they continue the

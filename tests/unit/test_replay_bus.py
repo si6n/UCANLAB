@@ -349,7 +349,9 @@ def test_blf_parser_classic_and_fd_roundtrip() -> None:
         assert f2.is_fd is True
         assert f2.brs is True
         assert f2.esi is False
-        assert f2.dlc == 12
+        # AUDIT 2026-10-03 (S3-05): 12 FD bytes = DLC code 9 (python-can
+        # stores the byte length in Message.dlc, not the code).
+        assert f2.dlc == 9
         assert f2.data == b"\x10\x20\x30\x40\x50\x60\x70\x80\x90\xA0\xB0\xC0"
         assert f2.direction == "tx"
         assert f2.timestamp_ns == 50_000_000

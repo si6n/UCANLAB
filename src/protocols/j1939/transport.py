@@ -1108,16 +1108,10 @@ class J1939TransportProtocol:
             # follow-ups — otherwise a capped initial grant would stall the
             # transfer forever (self-DoS: no follow-up CTS ever issued).
             if not session.is_bam and session.destination_address == self.my_address:
-                rx_window = (
-                    getattr(session, "rx_cts_window", 0)
-                    or getattr(self, "RX_CTS_WINDOW", 0)
-                    or MAX_CTS_PACKET_COUNT
-                )
-                if rx_window > 0 and (session.expected_sequence - 1) % rx_window == 0:
+                rx_window = self._cts_window(session)
+                if (session.expected_sequence - 1) % rx_window == 0:
                     remaining_packets = session.total_packets - (session.expected_sequence - 1)
-                    # REVIEW hardening: clamp our own windowed grants to the
-                    # CTS cap (see _create_cts_frame).
-                    grant = min(rx_window, remaining_packets, MAX_CTS_PACKET_COUNT)
+                    grant = min(rx_window, remaining_packets)
                     cts_data = bytearray(8)
                     cts_data[0] = TP_CTRL_CTS
                     cts_data[1] = grant
@@ -1136,6 +1130,23 @@ class J1939TransportProtocol:
 
             return None, None
 
+    def _cts_window(self, session: ReassemblySession) -> int:
+        """Packets granted per CTS for this session (AUDIT 2026-10-03, S3-02).
+
+        The smallest of: our configured receive window (default the CTS cap),
+        the CTS cap itself, and the sender's own limit from RTS byte 5 (0xFF =
+        no limit). The DT handler used a different window (``rx_window or
+        cap``) than the initial grant, so a sender that allows fewer than 16
+        packets per CTS — or a configured window above the cap — received no
+        follow-up CTS: it waited, the session hit T3/T4 and the multi-packet
+        reply (e.g. a DM2 to the tool) was lost.
+        """
+        window = getattr(session, "rx_cts_window", 0) or getattr(self, "RX_CTS_WINDOW", 0) or MAX_CTS_PACKET_COUNT
+        window = min(window, MAX_CTS_PACKET_COUNT)
+        if 0 < session.max_packets_per_cts < 0xFF:
+            window = min(window, session.max_packets_per_cts)
+        return max(1, window)
+
     def _create_cts_frame(self, session: ReassemblySession) -> CanFrame:
         """Construct standard J1939 TP.CM_CTS frame (PGN 60416 / 0xEC00 with Control Byte 0x11).
 
@@ -1145,19 +1156,10 @@ class J1939TransportProtocol:
         own legitimate transfers (self-DoS), so emission and receipt caps
         are symmetric by construction.
         """
-        grant = session.total_packets
-        if session.max_packets_per_cts > 0 and session.max_packets_per_cts < session.total_packets:
-            grant = min(grant, session.max_packets_per_cts)
-        # REVIEW 1-M1 (MEDIUM): rx_cts_window must bound the FIRST grant too
-        # — previously the initial CTS granted the whole transfer (or the
-        # sender's max) while the DT handler re-issued CTS every rx_window
-        # packets, producing duplicate CTS frames against a fully-granted
-        # sender. Windowed receivers now emit windowed grants from the start;
-        # the default rx_cts_window=0 path is unchanged.
-        rx_window = getattr(session, "rx_cts_window", 0) or getattr(self, "RX_CTS_WINDOW", 0)
-        if rx_window > 0:
-            grant = min(grant, rx_window)
-        grant = min(grant, MAX_CTS_PACKET_COUNT)
+        # REVIEW 1-M1 / AUDIT 2026-10-03 (S3-02): the first grant and every
+        # follow-up grant use ONE window (see _cts_window), so the DT handler
+        # issues the next CTS exactly where this grant ends.
+        grant = min(session.total_packets, self._cts_window(session))
 
         cts_data = bytearray(8)
         cts_data[0] = TP_CTRL_CTS

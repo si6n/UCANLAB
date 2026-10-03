@@ -502,14 +502,14 @@ class VectorBlfParser:
         is_rx = getattr(msg, "is_rx", True)
         direction = "rx" if is_rx else "tx"
 
+        # AUDIT 2026-10-03 (S3-05): python-can's `Message.dlc` is the payload
+        # LENGTH for CAN FD (12..64), not the 4-bit code. Reading 12 as a code
+        # declared a 12-byte frame as 24 bytes. Convert length -> code.
         raw_dlc = getattr(msg, "dlc", None)
-        if is_fd and raw_dlc is not None and 0 <= raw_dlc <= 15:
-            if dlc_to_length(raw_dlc) >= len(data_bytes):
-                dlc = raw_dlc
-            else:
-                dlc = length_to_dlc(len(data_bytes))
-        else:
-            dlc = length_to_dlc(len(data_bytes))
+        length = len(data_bytes)
+        if is_fd and isinstance(raw_dlc, int) and length < raw_dlc <= 64:
+            length = raw_dlc
+        dlc = length_to_dlc(length)
 
         ch = getattr(msg, "channel", None)
         if ch is None:

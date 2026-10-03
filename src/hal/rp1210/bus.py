@@ -14,6 +14,7 @@ while classic CAN protocols use the compact 2-byte header.
 
 from __future__ import annotations
 
+import sys
 import threading
 import time
 from typing import ClassVar
@@ -177,6 +178,23 @@ class RP1210Bus(AbstractBus):
             if self.is_connected:
                 logger.debug("connect() called while already connected — ignoring")
                 return
+            if getattr(sys, "frozen", False) or getattr(sys, "_MEIPASS", None):
+                # AUDIT 2026-10-03 (S3-04, KRİTİK): the wire layout above is NOT
+                # the TMC RP1210C message format. RP1210_SendMessage for the
+                # J1939 protocol takes <PGN:3 LE><how/priority><SA><DA><data>,
+                # for CAN <type><ID big-endian><data>, and RP1210_ReadMessage
+                # prefixes a 4-byte big-endian timestamp (+ echo byte). Sending
+                # <id:LE32><dlc><data> to a real adapter puts the SA/DA/PF bytes
+                # into the PGN, the CAN ID's top byte into the priority and the
+                # DLC into the source address; received timestamps are decoded
+                # as CAN IDs. Until the layout is reimplemented and verified on
+                # an adapter (BACKLOG B-19), a shipped build refuses RP1210.
+                raise HardwareError(
+                    "RP1210 is disabled in this build: its message layout is not "
+                    "verified against TMC RP1210C (fail-closed, no TX/RX)",
+                    code="RP1210_WIRE_FORMAT_UNVERIFIED",
+                    details={"protocol": self.protocol, "device_id": self.device_id},
+                )
             protocol_key = self.protocol.strip().upper()
             if protocol_key in self.UNSUPPORTED_PROTOCOLS:
                 # Fail CLOSED before any client session is opened.

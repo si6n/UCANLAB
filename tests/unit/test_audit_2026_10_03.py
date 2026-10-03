@@ -239,3 +239,155 @@ def test_s2_02_frozen_launcher_refuses_a_python_target(tmp_path: Any, monkeypatc
     monkeypatch.setattr(sys, "frozen", True, raising=False)
     with pytest.raises(RuntimeError):
         UniversalCanLauncher.verify_resolved_target(planted)
+
+
+# ---------------------------------------------------------------------------
+# S3-01 (YÜKSEK): the synchronous UDS client clamped the ECU's STmin to 10 ms,
+# so an ECU asking for 20..127 ms between consecutive frames (typical for a
+# bootloader) received them twice (or more) as fast as it can buffer.
+# ---------------------------------------------------------------------------
+
+
+def test_s3_01_uds_client_honours_a_long_stmin() -> None:
+    import time as _time
+
+    from src.protocols.uds.client import UdsClient
+
+    sent: list[tuple[float, CanFrame]] = []
+
+    class _Port:
+        def validate_and_transmit(self, frame: CanFrame, **_kw: Any) -> bool:
+            sent.append((_time.monotonic(), frame))
+            return True
+
+    fc = CanFrame(channel_id="uds_ch0", arbitration_id=0x7E8, dlc=8,
+                  data=bytes([0x30, 0x00, 0x14, 0, 0, 0, 0, 0]))  # CTS, BS=0, STmin=20 ms
+
+    class _Bus:
+        channel_id = "uds_ch0"
+        is_fd = False
+
+        def __init__(self) -> None:
+            self.fc_pending = True
+
+        def recv(self, timeout_s: float | None = None) -> CanFrame | None:
+            if self.fc_pending:
+                self.fc_pending = False
+                return fc
+            return None
+
+    client = UdsClient(bus=_Bus(), tx_port=_Port())  # type: ignore[arg-type]
+    try:
+        client._send_payload(bytes([0x36, 0x01]) + bytes(30), is_critical_command=True, user_confirmed=True)
+    finally:
+        client.shutdown(wait=False)
+    stamps = [t for t, frame in sent if frame.data[0] >> 4 == 0x2]  # consecutive frames
+    assert len(stamps) >= 4
+    gaps = [b - a for a, b in zip(stamps, stamps[1:], strict=False)]
+    assert min(gaps) >= 0.018, gaps
+
+
+# ---------------------------------------------------------------------------
+# S3-02 (YÜKSEK): J1939 CMDT receive — the first CTS honoured the sender's
+# "max packets per CTS" (RTS byte 5) but the follow-up CTS was only issued
+# every 16 packets. A sender allowing fewer than 16 packets per CTS waited
+# forever for the next CTS; the transfer timed out and the reply was lost.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(("sender_max", "rx_window"), [(4, 0), (0xFF, 32), (7, 3)])
+def test_s3_02_cmdt_issues_the_next_cts_where_the_grant_ends(sender_max: int, rx_window: int) -> None:
+    from src.protocols.j1939.transport import J1939TransportProtocol
+
+    tp = J1939TransportProtocol(rx_cts_window=rx_window)
+    me, sa, packets = tp.my_address, 0x00, 40
+    total = packets * 7
+    rts = bytes([0x10, total & 0xFF, total >> 8, packets, sender_max, 0xCB, 0xFE, 0x00])
+    _msg, cts = tp.handle_rx_frame(_frame(0x1CEC0000 | (me << 8) | sa, rts))
+    assert cts is not None and cts.data[0] == 0x11
+    granted_until = cts.data[2] - 1 + cts.data[1]
+    done = None
+    for seq in range(1, packets + 1):
+        assert seq <= granted_until, f"sender would wait at packet {seq}: no CTS covers it"
+        done, resp = tp.handle_rx_frame(_frame(0x1CEB0000 | (me << 8) | sa, bytes([seq]) + bytes(7)))
+        if resp is not None and resp.data[0] == 0x11:
+            assert resp.data[2] == seq + 1
+            granted_until = resp.data[2] - 1 + resp.data[1]
+    assert done is not None and len(done.data) == total
+
+
+# ---------------------------------------------------------------------------
+# S3-03 (YÜKSEK): PythonCanBus (PCAN / Kvaser / Vector / SocketCAN) treated
+# python-can's `Message.dlc` as a DLC code. For CAN FD python-can reports the
+# byte length, so a 12-byte FD frame came out as 24 bytes and 16..64-byte
+# frames were dropped as malformed.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("length", [8, 12, 16, 48, 64])
+def test_s3_03_python_can_fd_frames_keep_their_length(length: int) -> None:
+    import can
+
+    from src.hal.drivers.pcan_kvaser import PythonCanBus
+
+    bus = PythonCanBus(interface="virtual", channel="audit_fd", is_fd=True, listen_only=False)
+    peer = can.Bus(interface="virtual", channel="audit_fd", fd=True)
+    try:
+        bus.connect()
+        payload = bytes(range(length))
+        peer.send(can.Message(arbitration_id=0x18DAF100, is_extended_id=True, is_fd=True, data=payload))
+        frame = bus.recv(timeout_s=1.0)
+        assert frame is not None
+        assert frame.data == payload
+        assert len(frame.data) == length
+    finally:
+        peer.shutdown()
+        bus.disconnect()
+
+
+# ---------------------------------------------------------------------------
+# S3-04 (KRİTİK, mitigated): RP1210Bus marshals frames in a layout that is not
+# the TMC RP1210C message format. A shipped (frozen) build now refuses to open
+# an RP1210 session instead of putting malformed J1939 messages on a vehicle
+# bus and decoding adapter timestamps as CAN IDs.
+# ---------------------------------------------------------------------------
+
+
+def test_s3_04_frozen_build_refuses_rp1210(monkeypatch: pytest.MonkeyPatch) -> None:
+    import sys
+
+    from src.core.errors import HardwareError
+    from src.hal.rp1210.bus import RP1210Bus
+
+    class _Client:
+        def connect(self, *args: Any, **kwargs: Any) -> int:
+            raise AssertionError("the adapter must not be opened")
+
+    bus = RP1210Bus(device_id=1, protocol="J1939", client=_Client(), listen_only=False)  # type: ignore[arg-type]
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    with pytest.raises(HardwareError) as exc:
+        bus.connect()
+    assert exc.value.code == "RP1210_WIRE_FORMAT_UNVERIFIED"
+    assert bus.is_connected is False
+
+
+# ---------------------------------------------------------------------------
+# S3-05 (ORTA): the BLF trace parser read python-can's FD length as a DLC
+# code, so a 12-byte FD frame was declared as a 24-byte frame.
+# ---------------------------------------------------------------------------
+
+
+def test_s3_05_blf_fd_frame_keeps_its_dlc(tmp_path: Any) -> None:
+    import can
+
+    from src.core.models.can_frame import length_to_dlc
+    from src.hal.replay.parsers import VectorBlfParser
+
+    path = tmp_path / "fd.blf"
+    with can.BLFWriter(str(path)) as writer:
+        for n in (12, 64):
+            writer.on_message_received(can.Message(
+                timestamp=1.0, arbitration_id=0x18DAF100, is_extended_id=True, is_fd=True,
+                data=bytes(range(n)), channel=1))
+    frames = VectorBlfParser.parse_file(path)
+    assert [(f.dlc, len(f.data)) for f in frames] == [(length_to_dlc(12), 12), (length_to_dlc(64), 64)]
