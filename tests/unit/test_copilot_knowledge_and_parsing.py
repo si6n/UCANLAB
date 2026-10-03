@@ -314,3 +314,25 @@ def test_safety_only_complaint_summary_says_what_was_recognised() -> None:
 ])
 def test_everyday_english_phrasings(text: str, expected: str) -> None:
     assert expected in [s.symptom_id for s in parse_query(text).symptoms]
+
+
+@pytest.mark.parametrize("cause", [
+    "O2 Sensor : Measures the oxygen level in the exhaust gases.",
+    "A properly functioning O2 sensor heater is important for reducing emissions and ensuring the engine runs efficiently.",
+    "A faulty MAF sensor can lead to incorrect air-fuel mixture.",
+    "FMI 4: Motor Yağ Sıcaklığı - Voltaj normalin altında. → Sinyal pini ile şasi arasındaki direnci ölçün",
+    "x" * 230,
+])
+def test_descriptions_and_procedures_are_not_causes(cause: str) -> None:
+    from src.engine.ai.copilot_reasoner import _is_harvest_residue
+
+    assert _is_harvest_residue(cause)
+
+
+def test_graph_titles_are_shown_in_the_answer_language() -> None:
+    from src.engine.ai.copilot_answer import answer_query
+
+    tr = [c["title"] for c in answer_query("motor hararet yapıyor", language="tr").to_dict()["causes"]]
+    en = [c["title"] for c in answer_query("engine overheating", language="en").to_dict()["causes"]]
+    assert "Soğutma sistemindeki kaçak nedeniyle soğutma suyu eksik" in tr and "Low coolant due to leak in cooling system" not in tr
+    assert "Engine overheating" in en and "Motor aşırı sıcaklık" not in en

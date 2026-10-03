@@ -372,8 +372,10 @@ def _code_title(c: CodeFact, lang: str) -> str:
 
 def _title(h: Hypothesis, lang: str, kb: KnowledgeBase) -> str:
     """Display title: an area row (a symptom subsystem, Turkish in the data) gets its English name in English."""
-    if h.kind == "area" and lang == "en":
-        return kb.subsystem_label_en(h.title) or h.title
+    if h.kind == "area":
+        return (kb.subsystem_label_en(h.title) or h.title) if lang == "en" else h.title
+    if h.kind in ("graph", "suspected"):
+        return kb.graph_title(h.id, lang) or h.title  # graph titles mix TR and EN in the data
     return h.title
 
 
@@ -450,7 +452,7 @@ def _summary(r: Reasoning, lang: str, kb: KnowledgeBase) -> str:
             bits.append(f"Kayıtlı kök neden yok; önce şu alt sistemleri kontrol edin: {areas}." if lang == "tr"
                         else f"No recorded root cause; inspect these subsystems first: {areas}.")
         elif len(tied := [h for h in r.hypotheses if h.kind != "area" and abs(h.score - top.score) < 1e-9]) > 1:
-            names = "; ".join(_short(h.title, 60) for h in tied[:3])
+            names = "; ".join(_short(_title(h, lang, kb), 60) for h in tied[:3])
             if top.likelihood == 0:
                 bits.append(f"Eşit ağırlıklı adaylar (veri sıralamaya yetmiyor): {names}." if lang == "tr"
                             else f"Equally weighted candidates (not enough data to rank): {names}.")
@@ -458,8 +460,8 @@ def _summary(r: Reasoning, lang: str, kb: KnowledgeBase) -> str:
                 bits.append(f"Önde, eşit ağırlıkta: {names} (güven: {conf})." if lang == "tr"
                             else f"Leading, equally weighted: {names} (confidence: {conf}).")
         else:
-            bits.append(f"En olası neden: {top.title} (güven: {conf})." if lang == "tr"
-                        else f"Most likely cause: {top.title} (confidence: {conf}).")
+            bits.append(f"En olası neden: {_title(top, lang, kb)} (güven: {conf})." if lang == "tr"
+                        else f"Most likely cause: {_title(top, lang, kb)} (confidence: {conf}).")
     else:
         bits.append(_t("no_causes", lang))
     if pq.corrections:

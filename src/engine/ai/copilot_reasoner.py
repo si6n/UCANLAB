@@ -73,6 +73,16 @@ _FILLER_RE = re.compile(
 _PARTS_LEGEND_RE = re.compile(r"^\s*\d+[.)]\s+\S.*\s\d+[.)]\s+\S")
 _FMI_TABLE_RE = re.compile(r"\S\s+FMI\s+\d+(?:\s*,\s*\d+)*\s*:")  # "... failure FMI 1, 4, 17, 18: ..." table dump
 _PROCEDURE_RE = re.compile(r"^(?:note|notice)\s*:|\bkey (?:on|off)\b|\brefer to\b|\breference image\b", re.IGNORECASE)
+# A component description or a benefit statement, not a cause:
+# "O2 Sensor : Measures the oxygen level...", "... heater is important for ...",
+# "A faulty MAF sensor can lead to ...". An FMI table row carrying a procedure
+# after an arrow ("FMI 4: ... → measure the resistance") is a test step.
+_DESCRIPTION_RE = re.compile(
+    r"^[\w /()-]{2,40}\s:\s*(?:ensures|measures|monitors|provides)\b|\bis important for\b|"
+    r"^a (?:faulty|properly functioning) .{3,60} (?:can lead to|is important)|^FMI\s+\d+\s*:.*→",
+    re.IGNORECASE,
+)
+_MAX_TITLE_CHARS = 220  # longer than this is several sentences pasted together, not a cause title
 # Lower-case "a"/"an" only: a trailing capital "A" is a circuit/bank label
 # ("... boost pressure control solenoid A"), not a cut-off article.
 _TRUNCATED_RE = re.compile(
@@ -221,7 +231,8 @@ class Reasoning:
 
 # ---------------------------------------------------------------- helpers
 def _is_harvest_residue(text: str) -> bool:
-    return bool(_PARTS_LEGEND_RE.search(text) or _FMI_TABLE_RE.search(text) or _PROCEDURE_RE.search(text)
+    return bool(len(text) > _MAX_TITLE_CHARS or _DESCRIPTION_RE.search(text)
+                or _PARTS_LEGEND_RE.search(text) or _FMI_TABLE_RE.search(text) or _PROCEDURE_RE.search(text)
                 or _TRUNCATED_RE.search(text))
 
 

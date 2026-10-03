@@ -23,7 +23,7 @@ def test_complaint_reading_puts_the_physical_fault_before_the_sensor_fault() -> 
 
 def test_overheating_complaint_lists_physical_causes_first() -> None:
     d = answer_query("motor hararet yapıyor", language="tr").to_dict()
-    physical = {"low coolant due to leak in cooling system", "motor aşırı sıcaklık",
+    physical = {"soğutma sistemindeki kaçak nedeniyle soğutma suyu eksik", "motor aşırı sıcaklık",
                 "termostat kapalı kalması / viskoz fan kilitlemez / radyatör tıkalı"}
     assert {c["title"].lower() for c in d["causes"][:3]} == physical
     assert all("P0128" not in c["codes"] for c in d["causes"]), "P0128 means the engine runs too COLD"

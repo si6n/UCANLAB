@@ -71,6 +71,7 @@ SOURCE_FILES: dict[str, str] = {
     "symptom_lexicon": "diagnostics/symptom_lexicon.json",
     "symptom_checks": "diagnostics/symptom_checks.json",
     "subsystem_labels_en": "diagnostics/subsystem_labels_en.json",
+    "graph_title_i18n": "diagnostics/graph_title_i18n.json",
     "root_cause_graph": "diagnostics/root_cause_graph.json",
     "signal_aliases": "diagnostics/signal_aliases.json",
     "signal_measurement_map": "diagnostics/signal_measurement_map.json",
@@ -482,6 +483,14 @@ class KnowledgeBase:
             return Lookup.miss("canonical_symptoms", symptom_id)
         return Lookup(True, "canonical_symptoms", symptom_id, rec)
 
+    def graph_title(self, node_id: str, lang: str) -> str | None:
+        """Display title of a graph node in ``lang`` when a translation exists (else ``None``)."""
+        data = self._json_source("graph_title_i18n")
+        titles = data.get("titles") if isinstance(data, dict) else None
+        entry = titles.get(node_id) if isinstance(titles, dict) else None
+        found = entry.get(lang) if isinstance(entry, dict) else None
+        return str(found) if found else None
+
     def subsystem_label_en(self, label: str) -> str | None:
         """English name of a canonical symptom subsystem label (``None`` when not translated)."""
         data = self._json_source("subsystem_labels_en")
@@ -791,6 +800,8 @@ class KnowledgeBase:
         if source == "symptom_lexicon":
             lex = self._json_source("symptom_lexicon")
             return (key == "safety_terms" and isinstance(lex, dict) and "safety_terms" in lex) or self.symptom(key).found
+        if source == "graph_title_i18n":
+            return self.graph_title(key, "tr") is not None or self.graph_title(key, "en") is not None
         if source == "subsystem_labels_en":
             return self.subsystem_label_en(key) is not None
         if source == "symptom_checks":

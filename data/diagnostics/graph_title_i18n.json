@@ -1,0 +1,474 @@
+{
+ "schema_version": 1,
+ "title": "TR/EN display titles for root-cause graph nodes",
+ "_rule": "A display translation of the SAME node title (curated by node id, or by template for OEM-tagged phrasings with a known component). No new cause, code or value. Nodes without an entry keep their original title.",
+ "titles": {
+  "b1049-nissan-driver-air-bag-circuit-poor-electrical-connec": {
+   "tr": "[Nissan] Sürücü hava yastığı devresinde zayıf elektrik bağlantısı"
+  },
+  "b1049-nissan-faulty-driver-air-bag": {
+   "tr": "[Nissan] Sürücü hava yastığı arızalı"
+  },
+  "b1049-nissan-faulty-spiral-cable": {
+   "tr": "[Nissan] Spiral kablo (zemberek) arızalı"
+  },
+  "b2799-toyota-faulty-engine-control-module-ecm": {
+   "tr": "[Toyota] Motor kontrol modülü (ECM) arızalı"
+  },
+  "battery-soh-degradation": {
+   "en": "EV battery pack SOH / cell delta degradation"
+  },
+  "c1130-nissan-faulty-abs-actuator-and-electric-unit-control": {
+   "tr": "[Nissan] ABS aktüatörü ve elektronik ünitesi (kontrol ünitesi) arızalı"
+  },
+  "c1130-nissan-faulty-engine-control-module-ecm": {
+   "tr": "[Nissan] Motor kontrol modülü (ECM) arızalı"
+  },
+  "can-power-ground": {
+   "en": "Supply/ground fault (CAN communication + alternator control loss)"
+  },
+  "charge-air-leak": {
+   "en": "Torn intercooler hose / compressor wheel damage (low boost)"
+  },
+  "coolant-level-low": {
+   "tr": "Motor soğutma suyu seviyesi düşük",
+   "en": "Engine coolant level low"
+  },
+  "coolant-sensor-open": {
+   "en": "ECT sensor wire open (ECU reads a false -40°C)"
+  },
+  "crank-sync-loss": {
+   "en": "Crank/cam phase synchronisation loss (tooth gap / angular offset)"
+  },
+  "def-level-low": {
+   "en": "AdBlue (DEF) level low / quality unsuitable"
+  },
+  "dpf-diff-pressure": {
+   "en": "DPF blockage (efficiency + differential pressure sensor)"
+  },
+  "dpf-efficiency": {
+   "en": "DPF efficiency below threshold (Bank 1)"
+  },
+  "dpf-soot-overload": {
+   "en": "DPF soot load exceeded (>35 kPa delta-P)"
+  },
+  "ebs-air-circuit1": {
+   "en": "Brake circuit 1 pneumatic leak / compressor fault (<5.5 bar)"
+  },
+  "egr-low-flow": {
+   "en": "Low EGR flow + low turbo boost (shared air path)"
+  },
+  "egr-valve-stuck": {
+   "en": "EGR valve/system insufficient flow"
+  },
+  "engine-overtemp": {
+   "en": "Engine overheating"
+  },
+  "fuel-rail-low": {
+   "en": "High-pressure fuel pump wear / filter blockage"
+  },
+  "fuel-rail-regulator": {
+   "en": "Fuel rail pressure regulator / pump fault"
+  },
+  "hv-isolation-loss": {
+   "en": "Low HV isolation resistance (moisture ingress / winding damage)"
+  },
+  "hvil-open": {
+   "en": "HVIL interlock loop broken (MSD/bridge open)"
+  },
+  "injector-circuit": {
+   "en": "Cylinder injector circuit open/short (SPN 651..656)"
+  },
+  "inverter-coolant-pump": {
+   "en": "Inverter cooling system performance (EV)"
+  },
+  "lean-bank-1": {
+   "en": "Bank 1 lean mixture (vacuum leak / MAF)"
+  },
+  "lean-both-banks": {
+   "en": "Lean mixture on both banks (vacuum leak / MAF)"
+  },
+  "misfire-ignition": {
+   "en": "Spark plug/coil ignition leak or blocked injector (misfires)"
+  },
+  "oil-pressure-sensor": {
+   "en": "Oil pressure sensor range/performance problem"
+  },
+  "oil-pump-wear": {
+   "en": "Oil pump wear / low oil in the sump (SPN 100 FMI 1)"
+  },
+  "oil-sensor-shorts": {
+   "en": "Oil pressure sensor wiring short / open (SPN 100 FMI 3/4)"
+  },
+  "oil-temp-high": {
+   "tr": "Motor yağ sıcaklığı yüksek",
+   "en": "Engine oil temperature high"
+  },
+  "p0011-chevrolet-faulty-intake-camshaft-position-actuator-s": {
+   "tr": "[Chevrolet] Emme eksantrik konum aktüatör solenoidi arızalı"
+  },
+  "p0011-chevrolet-intake-camshaft-position-actuator-solenoid": {
+   "tr": "[Chevrolet] Emme eksantrik konum aktüatör solenoidi kablo demeti kopuk veya kısa devre"
+  },
+  "p0011-failed-timing-valve-control-solenoid-stuck-open": {
+   "tr": "Zamanlama kontrol solenoidi arızalı (açık takılı)"
+  },
+  "p0011-hyundai-faulty-valve-timing-control-vtc": {
+   "tr": "[Hyundai] Supap zamanlama kontrolü (VTC) arızalı"
+  },
+  "p0011-hyundai-valve-timing-control-vtc-circuit-poor-electr": {
+   "tr": "[Hyundai] Supap zamanlama kontrolü (VTC) devresinde zayıf elektrik bağlantısı"
+  },
+  "p0011-hyundai-valve-timing-control-vtc-harness-is-open-or": {
+   "tr": "[Hyundai] Supap zamanlama kontrolü (VTC) kablo demeti kopuk veya kısa devre"
+  },
+  "p0011-incorrect-camshaft-timing": {
+   "tr": "Eksantrik zamanlaması yanlış"
+  },
+  "p0011-kia-faulty-valve-timing-control-vtc": {
+   "tr": "[Kia] Supap zamanlama kontrolü (VTC) arızalı"
+  },
+  "p0011-kia-valve-timing-control-vtc-circuit-poor-electrical": {
+   "tr": "[Kia] Supap zamanlama kontrolü (VTC) devresinde zayıf elektrik bağlantısı"
+  },
+  "p0011-kia-valve-timing-control-vtc-harness-is-open-or-shor": {
+   "tr": "[Kia] Supap zamanlama kontrolü (VTC) kablo demeti kopuk veya kısa devre"
+  },
+  "p0011-nissan-camshaft-position-sensor-circuit-poor-electri": {
+   "tr": "[Nissan] Eksantrik konum sensörü devresinde zayıf elektrik bağlantısı"
+  },
+  "p0011-nissan-camshaft-position-sensor-harness-is-open-or-s": {
+   "tr": "[Nissan] Eksantrik konum sensörü kablo demeti kopuk veya kısa devre"
+  },
+  "p0011-nissan-faulty-camshaft-position-sensor": {
+   "tr": "[Nissan] Eksantrik konum sensörü arızalı"
+  },
+  "p0011-nissan-faulty-intake-valve-timing-control-solenoid-v": {
+   "tr": "[Nissan] Emme supap zamanlama kontrol solenoid valfi arızalı"
+  },
+  "p0011-nissan-intake-valve-timing-control-solenoid-valve-ci": {
+   "tr": "[Nissan] Emme supap zamanlama kontrol solenoid valfi devresinde zayıf elektrik bağlantısı"
+  },
+  "p0011-nissan-intake-valve-timing-control-solenoid-valve-ha": {
+   "tr": "[Nissan] Emme supap zamanlama kontrol solenoid valfi kablo demeti kopuk veya kısa devre"
+  },
+  "p0011-volkswagen-camshaft-actuator-circuit-open-or-shorted": {
+   "tr": "[Volkswagen] Eksantrik aktüatörü devresi kopuk veya kısa devre"
+  },
+  "p0011-volkswagen-camshaft-actuator-circuit-poor-electrical": {
+   "tr": "[Volkswagen] Eksantrik aktüatörü devresinde zayıf elektrik bağlantısı"
+  },
+  "p0011-volkswagen-faulty-camshaft-actuator": {
+   "tr": "[Volkswagen] Eksantrik aktüatörü arızalı"
+  },
+  "p0011-wiring-problems-harness-wiring-in-intake-timing-cont": {
+   "tr": "Emme zamanlama kontrol solenoidi tesisatında kablo sorunu",
+   "en": "Wiring problem in the intake timing control solenoid circuit"
+  },
+  "p0012-bmw-faulty-camshaft-position-sensor": {
+   "tr": "[Bmw] Eksantrik konum sensörü arızalı"
+  },
+  "p0012-toyota-camshaft-timing-oil-control-valve-assembly-ci": {
+   "tr": "[Toyota] Eksantrik zamanlama yağ kontrol valfi kablo demeti kopuk veya kısa devre"
+  },
+  "p0012-toyota-faulty-camshaft-timing-oil-control-valve-asse": {
+   "tr": "[Toyota] Eksantrik zamanlama yağ kontrol valfi arızalı"
+  },
+  "p0014-chevrolet-exhaust-camshaft-position-actuator-solenoi": {
+   "tr": "[Chevrolet] Egzoz eksantrik konum aktüatör solenoidi kablo demeti kopuk veya kısa devre"
+  },
+  "p0014-chevrolet-faulty-exhaust-camshaft-position-actuator": {
+   "tr": "[Chevrolet] Egzoz eksantrik konum aktüatör solenoidi arızalı"
+  },
+  "p0016-chevrolet-faulty-crankshaft-position-ckp-sensor": {
+   "tr": "[Chevrolet] Krank konum (CKP) sensörü arızalı"
+  },
+  "p0016-chevrolet-faulty-intake-a-camshaft-position-cmp-sens": {
+   "tr": "[Chevrolet] Emme ('A') eksantrik konum (CMP) sensörü arızalı"
+  },
+  "p0016-dodge-camshaft-position-sensor-circuit-is-open-or-sh": {
+   "tr": "[Dodge] Eksantrik konum sensörü kablo demeti kopuk veya kısa devre"
+  },
+  "p0016-dodge-crankshaft-position-sensor-circuit-is-open-or": {
+   "tr": "[Dodge] Krank konum sensörü kablo demeti kopuk veya kısa devre"
+  },
+  "p0016-dodge-faulty-camshaft-position-sensor": {
+   "tr": "[Dodge] Eksantrik konum sensörü arızalı"
+  },
+  "p0016-dodge-faulty-crankshaft-position-sensor": {
+   "tr": "[Dodge] Krank konum sensörü arızalı"
+  },
+  "p0016-kia-camshaft-position-circuit-poor-electrical-connec": {
+   "tr": "[Kia] Eksantrik konum sensörü devresinde zayıf elektrik bağlantısı"
+  },
+  "p0016-kia-camshaft-position-harness-is-open-or-shorted-cir": {
+   "tr": "[Kia] Eksantrik konum sensörü kablo demeti kopuk veya kısa devre"
+  },
+  "p0016-kia-crankshaft-position-circuit-poor-electrical-conn": {
+   "tr": "[Kia] Krank konum sensörü devresinde zayıf elektrik bağlantısı"
+  },
+  "p0016-kia-crankshaft-position-harness-is-open-or-shorted-c": {
+   "tr": "[Kia] Krank konum sensörü kablo demeti kopuk veya kısa devre"
+  },
+  "p0016-kia-faulty-camshaft-position": {
+   "tr": "[Kia] Eksantrik konum sensörü arızalı"
+  },
+  "p0016-kia-faulty-crankshaft-position": {
+   "tr": "[Kia] Krank konum sensörü arızalı"
+  },
+  "p0016-tone-ring-on-camshaft-slipped-broken": {
+   "tr": "Eksantrik sinyal halkası kaymış/kırık"
+  },
+  "p0016-tone-ring-on-crankshaft-slipped-broken": {
+   "tr": "Krank sinyal halkası kaymış/kırık"
+  },
+  "p0016-toyota-faulty-camshaft-timing-oil-control-valve-asse": {
+   "tr": "[Toyota] Eksantrik zamanlama yağ kontrol valfi (emme eksantriği) arızalı"
+  },
+  "p0016-volkswagen-faulty-camshaft-position-sensor": {
+   "tr": "[Volkswagen] Eksantrik konum sensörü arızalı"
+  },
+  "p0017-chevrolet-faulty-exhaust-b-camshaft-position-cmp-sen": {
+   "tr": "[Chevrolet] Egzoz ('B') eksantrik konum (CMP) sensörü arızalı"
+  },
+  "p0088-defective-fuel-pressure-regulator": {
+   "tr": "Arızalı yakıt basınç regülatörü"
+  },
+  "p0088-faulty-fuel-rail-pressure-sensor": {
+   "tr": "Arızalı yakıt rayı basınç sensörü"
+  },
+  "p0088-shorted-or-open-wiring-and-or-connectors-in-the-fuel": {
+   "tr": "Yakıt rayı basınç sensörü devresinde kısa devre veya kopuk kablo/konnektör"
+  },
+  "p0097-excessively-high-intake-air-temperatures": {
+   "tr": "Emme havası sıcaklığı aşırı yüksek"
+  },
+  "p0098-iat-harness-and-or-wiring-routed-too-close-to-high-v": {
+   "tr": "IAT kablosu yüksek gerilim kablolarına (alternatör, buji kabloları) çok yakın döşenmiş"
+  },
+  "p0098-open-in-iat-ground-circuit-or-signal-circuit": {
+   "tr": "IAT şase veya sinyal devresinde kopukluk"
+  },
+  "p0098-short-to-voltage-in-iat-signal-circuit-or-reference": {
+   "tr": "IAT sinyal veya referans devresinde gerilime kısa devre"
+  },
+  "p0101-maf-sensoru-sicak-telinde-yag-toz-veya-partikul-kirl": {
+   "en": "Oil, dust or particle contamination on the MAF hot wire"
+  },
+  "p0102-dirty-or-contaminated-mass-air-flow-sensor": {
+   "tr": "Kirli veya kirlenmiş hava akış (MAF) sensörü"
+  },
+  "p0102-maf-sensor-electrical-harness-or-wiring-problem-open": {
+   "tr": "MAF sensörü kablo demeti veya tesisat sorunu (kopuk, kısa devre, yıpranmış, kötü bağlantı)"
+  },
+  "p0106-ground-problem-due-to-corrosion-causing-intermittent": {
+   "tr": "Korozyon kaynaklı şase sorunu, aralıklı sinyal kaybı"
+  },
+  "p0108-engine-vacuum-leak": {
+   "tr": "Motorda vakum kaçağı"
+  },
+  "p0108-leak-in-vacuum-supply-line-to-map-sensor": {
+   "tr": "MAP sensörüne giden vakum hattında kaçak"
+  },
+  "p0108-short-on-reference-voltage-wire-from-pcm": {
+   "tr": "PCM referans voltaj kablosunda kısa devre"
+  },
+  "p0108-short-on-signal-wire-to-pcm": {
+   "tr": "PCM'ye giden sinyal kablosunda kısa devre"
+  },
+  "p0112-intake-air-leaks-the-accuracy-of-the-iat-sensor-can": {
+   "tr": "Emme kaçağı: ölçülmeyen hava IAT okumasını bozar",
+   "en": "Intake air leak: unmeasured air corrupts the IAT reading"
+  },
+  "p0113-faulty-connection-at-iat-sensor": {
+   "tr": "IAT sensöründe hatalı bağlantı"
+  },
+  "p0113-internally-failed-iat-sensor": {
+   "tr": "IAT sensörü içten arızalı"
+  },
+  "p0117-faulty-or-damaged-connectors": {
+   "tr": "Arızalı veya hasarlı konnektörler (ECT devresi)"
+  },
+  "p0117-loose-terminals-at-ect-or-pcm": {
+   "tr": "ECT sensöründe veya PCM'de gevşek terminal"
+  },
+  "p0117-short-to-ground-on-ect-signal-circuit": {
+   "tr": "ECT sinyal devresinde şasiye kısa devre"
+  },
+  "p0117-wiring-harness-damaged": {
+   "tr": "Kablo demeti hasarlı (ECT devresi)"
+  },
+  "p0128-motor-sogutma-suyu-sicaklik-ect-sensoru-direnc-kayma": {
+   "en": "Engine coolant temperature (ECT) sensor resistance drift"
+  },
+  "p0128-radyator-sogutma-fani-motor-sogukken-dahi-surekli-de": {
+   "en": "Radiator fan runs continuously even with a cold engine"
+  },
+  "p0133-the-oxygen-sensor-is-faulty": {
+   "tr": "Oksijen sensörü arızalı"
+  },
+  "p0135-internal-short-or-open-in-the-heater-element": {
+   "tr": "Isıtıcı elemanında iç kısa devre veya kopukluk"
+  },
+  "p0135-o2-heater-circuit-wiring-high-resistance": {
+   "tr": "O2 ısıtıcı devresi kablosunda yüksek direnç"
+  },
+  "p0135-o2-heater-element-resistance-is-high": {
+   "tr": "O2 ısıtıcı elemanı direnci yüksek"
+  },
+  "p0174-fuel-problem-rail-injectors-pump-regulator": {
+   "tr": "Yakıt sorunu (ray/enjektörler/pompa/regülatör)"
+  },
+  "p0174-the-maf-mass-air-flow-sensor-is-dirty-or-faulty-if-e": {
+   "tr": "MAF (hava akış) sensörü kirli veya arızalı",
+   "en": "The MAF (mass air flow) sensor is dirty or faulty"
+  },
+  "p0174-there-could-be-a-vacuum-leak-downstream-of-the-maf-s": {
+   "tr": "MAF sensöründen sonra vakum kaçağı olabilir"
+  },
+  "p0175-the-maf-mass-air-flow-sensor-is-dirty-or-faulty-note": {
+   "tr": "MAF (hava akış) sensörü kirli veya arızalı",
+   "en": "The MAF (mass air flow) sensor is dirty or faulty"
+  },
+  "p0175-there-could-be-a-fuel-pressure-or-delivery-problem": {
+   "tr": "Yakıt basıncı veya besleme sorunu olabilir"
+  },
+  "p0175-there-could-be-a-vacuum-leak": {
+   "tr": "Vakum kaçağı olabilir"
+  },
+  "p0197-faulty-engine-oil-temperature-sensor": {
+   "tr": "Arızalı motor yağ sıcaklık sensörü"
+  },
+  "p0201-bad-injector-this-is-usually-the-cause-of-this-code": {
+   "tr": "Arızalı enjektör (en sık neden; diğer nedenleri dışlamaz)"
+  },
+  "p0201-open-in-the-wiring-to-the-injector": {
+   "tr": "Enjektör kablosunda kopukluk"
+  },
+  "p0201-short-in-the-wiring-to-the-injector": {
+   "tr": "Enjektör kablosunda kısa devre"
+  },
+  "p0217-inoperative-cooling-fan-s": {
+   "tr": "Soğutma fanı (fanları) çalışmıyor"
+  },
+  "p0217-low-coolant-due-to-leak-in-cooling-system": {
+   "tr": "Soğutma sistemindeki kaçak nedeniyle soğutma suyu eksik"
+  },
+  "p0217-restriction-debris-in-the-a-c-condenser-or-radiator": {
+   "tr": "Klima kondenserinde veya radyatörde tıkanma/kir"
+  },
+  "p0217-restriction-debris-in-the-cooling-system": {
+   "tr": "Soğutma sisteminde tıkanma/tortu"
+  },
+  "p0217-thermostat-stuck-closed-or-faulty": {
+   "tr": "Termostat kapalı takılı veya arızalı"
+  },
+  "p0218-restriction-debris-in-transmission-cooler": {
+   "tr": "Şanzıman yağ soğutucusunda tıkanma/tortu"
+  },
+  "p0218-transmission-cooler-or-lines-restricted": {
+   "tr": "Şanzıman soğutucusu veya hatları tıkalı"
+  },
+  "p0299-failed-or-damaged-turbocharger-sticking-binding-etc": {
+   "tr": "Arızalı veya hasarlı turbo (sıkışma, takılma vb.)"
+  },
+  "p0299-low-fuel-pressure-condition-isuzu": {
+   "tr": "Düşük yakıt basıncı durumu (Isuzu)"
+  },
+  "p0325-the-knock-sensor-is-faulty-and-needs-to-be-replaced": {
+   "tr": "Vuruntu sensörü arızalı, değişmeli",
+   "en": "The knock sensor is faulty and needs to be replaced"
+  },
+  "p0325-there-is-a-wiring-short-fault-in-the-knock-sensor-ci": {
+   "tr": "Vuruntu sensörü devresinde kablo kısa devresi/arızası",
+   "en": "Wiring short/fault in the knock sensor circuit"
+  },
+  "p0326-knock-sensor-circuit-is-open-or-shorted-to-ground": {
+   "tr": "Vuruntu sensörü devresi kopuk veya şasiye kısa devre"
+  },
+  "p0326-knock-sensor-circuit-is-shorted-to-voltage": {
+   "tr": "Vuruntu sensörü devresi gerilime kısa devre"
+  },
+  "p0326-knock-sensor-connector-is-damaged": {
+   "tr": "Vuruntu sensörü konnektörü hasarlı"
+  },
+  "p0326-knock-sensor-has-failed": {
+   "tr": "Vuruntu sensörü arızalı"
+  },
+  "p0328-loose-knock-sensor": {
+   "tr": "Vuruntu sensörü gevşek"
+  },
+  "p0340-the-camshaft-position-sensor-may-have-failed": {
+   "tr": "Eksantrik konum sensörü arızalanmış olabilir",
+   "en": "The camshaft position sensor may have failed"
+  },
+  "p0420-downstream-katalizor-sonrasi-sensor-2-oksijen-sensor": {
+   "tr": "Katalizör sonrası (sensör 2) oksijen sensörünün yaşlanması",
+   "en": "Ageing of the downstream (post-catalyst, sensor 2) oxygen sensor"
+  },
+  "p0420-katalizor-oncesi-egzoz-manifoldunda-catlak-veya-cont": {
+   "en": "Crack or gasket leak in the exhaust manifold before the catalyst"
+  },
+  "p0442-yakit-depo-kapaginin-gevsek-takilmasi-contanin-catla": {
+   "en": "Fuel cap loose, seal cracked or wrong cap"
+  },
+  "p0442-yakit-deposu-basinc-sensoru-ftp-kalibrasyon-hatasi": {
+   "en": "Fuel tank pressure (FTP) sensor calibration error"
+  },
+  "p0700-sanziman-kontrol-modulunde-tcm-aktif-bir-mekanik-vey": {
+   "en": "An active mechanical or hydraulic fault code stored in the TCM"
+  },
+  "p0700-tcm-ile-motor-kontrol-modulu-ecm-arasinda-can-bus-ha": {
+   "en": "CAN bus communication delay between the TCM and the ECM"
+  },
+  "p0a7d-defective-hv-battery-cell-or-battery-pack": {
+   "tr": "Arızalı HV batarya, hücre veya batarya paketi"
+  },
+  "p0a7d-hv-battery-pack-fans-not-working-properly": {
+   "tr": "HV batarya paketi fanları düzgün çalışmıyor"
+  },
+  "p2263-the-boost-pressure-sensor-may-have-failed": {
+   "tr": "Turbo basınç sensörü arızalanmış olabilir"
+  },
+  "rail-pressure-sensor": {
+   "en": "Common rail pressure sensor / data"
+  },
+  "scr-nox-dosing": {
+   "en": "SCR dosing / fuel quality problem (NOx + SCR system)"
+  },
+  "thermostat-stuck": {
+   "en": "Thermostat stuck closed / viscous fan not locking / radiator blocked"
+  },
+  "vgt-stuck": {
+   "en": "VGT vanes stuck with soot / wastegate fault (overboost)"
+  },
+  "vvt-oil-sludge": {
+   "en": "VVT solenoid blocked by oil sludge / timing chain stretch"
+  }
+ },
+ "provenance": [
+  {
+   "provenance_id": "prv-graph-title-i18n",
+   "target": {
+    "record_id": "graph_title_i18n",
+    "field": "titles"
+   },
+   "activity": "translate_labels",
+   "activity_version": "copilot-graph-titles-1",
+   "agent": {
+    "type": "curator",
+    "id": "ucanlab-copilot-curation",
+    "role": "author"
+   },
+   "source": {
+    "title": "root_cause_graph.json node titles",
+    "path": "data/diagnostics/root_cause_graph.json",
+    "type": "internal_kb"
+   },
+   "transform": {
+    "rule_id": "label-translation"
+   },
+   "confidence": "single_source"
+  }
+ ]
+}

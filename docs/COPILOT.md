@@ -65,7 +65,7 @@ Neden metni olamayan hasat artıkları hem kayıt nedenlerinden hem graf düğü
 başlıklarından elenir (`_is_harvest_residue`): numaralı parça listesi
 ("1. 20-Way TCM … 2. …"), FMI tablo dökümü ("… FMI 1, 4, 17, 18: …"), prosedür
 metni ("Key off", "Note:", "refer to") ve cümle ortasında kesilmiş parça
-("… power supply to"). Veri değişmez; yalnız cevapta neden olarak gösterilmez.
+("… power supply to"). Veri değişmez; yalnız cevapta neden olarak gösterilmez, 220 karakteri aşan yapıştırılmış paragraflar, bileşen tanımları ("O2 Sensor : Measures …") ve ok işaretli FMI test adımları da elenir.
 
 Şikâyet eşleşti ama ne graf ne kod kaydı neden veriyorsa (şikâyet-only
 sorguların %43'ü) neden uydurulmaz: semptom kaydının `subsystems` alanındaki ilk
@@ -156,6 +156,7 @@ Bilmiyorum düğmeleri ve ölçüm alanı gösterir. Canlı oturum cevabında (k
 | `obd_mode06`, `uds_did` | Mode 06 / UDS DID | KB üzerinden erişilebilir (eski paket açıklama yolu) |
 | `canonical_symptoms` | 152 semptom | Şikâyet → aday kod, ilk kontroller |
 | `symptom_lexicon` (yeni) | 34 kayıt, 301 TR/EN ifade + güvenlik terimleri | Gündelik ifadeler |
+| `graph_title_i18n` (yeni) | 144 graf düğümü | Graf başlıklarının TR/EN gösterimi: sık ulaşılan düğümler küratörlü, OEM etiketli kalıplar ("[Kia] Faulty X") bileşen sözlüğüyle |
 | `subsystem_labels_en` (yeni) | 315 alt sistem etiketi | İngilizce cevapta `area` satırlarının adı (yalnız etiket çevirisi) |
 | `symptom_checks` (yeni) | 147 semptom, 270 soru | Soru cevaplarının küratörlü etkileri (§3.1.1) |
 | `root_cause_graph` | 8.884 düğüm | Kök neden adayları, kanıt/çelişen sinyaller |

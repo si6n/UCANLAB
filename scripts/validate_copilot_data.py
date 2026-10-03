@@ -41,7 +41,7 @@ DATA = ROOT / "data"
 D = DATA / "diagnostics"
 
 COPILOT_FILES = ("symptom_lexicon.json", "signal_measurement_map.json", "copilot_glossary.json", "symptom_checks.json",
-                 "subsystem_labels_en.json")
+                 "subsystem_labels_en.json", "graph_title_i18n.json")
 SPECIAL_CODE_RE = re.compile(r"^(N2K_|CAN_)")
 
 
@@ -106,6 +106,7 @@ def check_provenance(rep: Report) -> None:
     for sid, rec in _load(D / "symptom_checks.json").get("symptoms", {}).items():
         validate(rec.get("provenance"), f"symptom_checks[{sid}]")
     validate(_load(D / "subsystem_labels_en.json").get("provenance"), "subsystem_labels_en")
+    validate(_load(D / "graph_title_i18n.json").get("provenance"), "graph_title_i18n")
     for s in _load(D / "signal_measurement_map.json").get("signals", []):
         validate(s.get("provenance"), f"signal_measurement_map[{s.get('canonical')}]")
     for term, rec in _load(D / "copilot_glossary.json").get("terms", {}).items():
