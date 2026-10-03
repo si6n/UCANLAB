@@ -100,7 +100,9 @@ _NON_WORD_RE = re.compile(r"[^0-9a-z]+")
 # A signal named by its protocol identifier instead of a name, as bus tools and
 # exported logs often do: "SPN 110", "SPN_190", "J1939 SPN 102", "PID 0C",
 # "PID 0x05", "01 PID 0C". Matched on fold_text() output.
-_SPN_KEY_RE = re.compile(r"^(?:j1939 )?spn ?(\d{1,6})$")
+# One definition only: a second module-level `_SPN_KEY_RE` used to shadow this
+# one and silently dropped the "J1939 SPN 190" key form.
+_SPN_KEY_RE = re.compile(r"^(?:j1939[\s_]?)?spn[\s_]?(\d{1,6})$", re.IGNORECASE)
 _PID_KEY_RE = re.compile(r"^(?:obd )?(?:(?:mode |service )?0?1 )?pid ?(?:0x)?([0-9a-f]{1,2})$")
 
 
@@ -169,8 +171,6 @@ def _read_json(path: Path) -> Any:
     with path.open("r", encoding="utf-8") as handle:
         return json.load(handle)
 
-
-_SPN_KEY_RE = re.compile(r"^SPN[\s_]?(\d{1,6})$", re.IGNORECASE)
 
 
 @dataclass(slots=True)

@@ -9,7 +9,7 @@
     "role": "author"
   },
   "source": {
-    "title": "Kendi verimizden ölçüm: 17/24 ölçüm sinyali için eşik tanımı yok (telemetry_thresholds.json'da 7 sinyal var)",
+    "title": "Kendi verimizden ölçüm: 16/26 ölçüm sinyali için eşik tanımı yok (telemetry_thresholds.json'da 10 sinyal var)",
     "path": "data/diagnostics/signal_measurement_map.json (repo içi ölçüm; sha256 kayıt altındadır)",
     "type": "internal_kb",
     "publisher": "UCanLab intake",
@@ -18,8 +18,8 @@
     "access_date": "2026-10-02",
     "snapshot": {
       "archive_url": null,
-      "sha256": "e43fb6a3cad21f94a131fa9889149b8aedc698681b7c77b790e376d9ba2e0a3d",
-      "bytes": 31850,
+      "sha256": "db41d1665a89261a2bcc0308b37e1d144622f598c22bb355ead6132d1546c7d8",
+      "bytes": 42335,
       "pages_cited": []
     }
   },
@@ -29,13 +29,29 @@
   "payload": {
     "defect_code": "measurement_signal_without_threshold",
     "severity": "medium",
-    "summary": "17/24 ölçüm sinyali için eşik tanımı yok (telemetry_thresholds.json'da 7 sinyal var)",
+    "summary": "16/26 ölçüm sinyali için eşik tanımı yok (telemetry_thresholds.json'da 10 sinyal var)",
     "why_it_matters": "Sinyal çözülüyor ama 'iyi mi kötü mü' sorusu cevaplanamıyor: eşik olmadan canlı değer değerlendirilemez. İsim uyumu ayrıca kontrol edilir: eşik anahtarı ölçüm sözlüğündeki kanonik adla eşleşmeli.",
     "target_file": "data/diagnostics/signal_measurement_map.json",
-    "target_sha256": "e43fb6a3cad21f94a131fa9889149b8aedc698681b7c77b790e376d9ba2e0a3d",
+    "target_sha256": "db41d1665a89261a2bcc0308b37e1d144622f598c22bb355ead6132d1546c7d8",
     "detector_expression": "not signal.get('threshold_key') or threshold_key not in telemetry_thresholds",
-    "affected_count": 17,
+    "affected_count": 16,
     "examples": [
+      {
+        "canonical": "ShortTermFuelTrimB1",
+        "unit": "%",
+        "aliases": [
+          "STFT",
+          "STFT_B1"
+        ]
+      },
+      {
+        "canonical": "LongTermFuelTrimB1",
+        "unit": "%",
+        "aliases": [
+          "LTFT",
+          "LTFT_B1"
+        ]
+      },
       {
         "canonical": "BatteryVoltage",
         "unit": "V",
@@ -49,14 +65,8 @@
         "unit": "kPa",
         "aliases": [
           "FuelRailPressure",
-          "RailPressure"
-        ]
-      },
-      {
-        "canonical": "DPFDiffPressure",
-        "unit": "kPa",
-        "aliases": [
-          "DPFPressure"
+          "RailPressure",
+          "Engine Fuel 1 Injector Metering Rail 1 Pressure"
         ]
       },
       {
@@ -64,13 +74,6 @@
         "unit": "%",
         "aliases": [
           "SootLoad"
-        ]
-      },
-      {
-        "canonical": "EngineOilTemp",
-        "unit": "°C",
-        "aliases": [
-          "OilTemp"
         ]
       }
     ]

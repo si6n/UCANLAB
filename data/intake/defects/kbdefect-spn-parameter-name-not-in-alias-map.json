@@ -9,7 +9,7 @@
     "role": "author"
   },
   "source": {
-    "title": "Kendi verimizden ölçüm: canboat kanıtındaki 175 J1939 parametre adından 160 tanesi copilot sözlüğünde karşılık bulamıyor",
+    "title": "Kendi verimizden ölçüm: canboat kanıtındaki 153 J1939 parametre adından 142 tanesi copilot sözlüğünde karşılık bulamıyor",
     "path": "data/diagnostics/signal_aliases.json (repo içi ölçüm; sha256 kayıt altındadır)",
     "type": "internal_kb",
     "publisher": "UCanLab intake",
@@ -29,12 +29,12 @@
   "payload": {
     "defect_code": "spn_parameter_name_not_in_alias_map",
     "severity": "medium",
-    "summary": "canboat kanıtındaki 175 J1939 parametre adından 160 tanesi copilot sözlüğünde karşılık bulamıyor",
+    "summary": "canboat kanıtındaki 153 J1939 parametre adından 142 tanesi copilot sözlüğünde karşılık bulamıyor",
     "why_it_matters": "Kullanıcı 'Engine Intercooler Temp' gibi gerçek bir J1939 sinyalini sorduğunda sinyal çözümlemesi başarısız olur; sorgu kanala düşer ve yanlış/alakasız cevap riski doğar. Çözüm: signal_aliases.json (source_forms) + signal_measurement_map.json (aliases) genişletmesi.",
     "target_file": "data/diagnostics/signal_aliases.json",
     "target_sha256": "af72aa3ea39dddef18ba8ad46bfee85ec465f5135344b9f9f667ce6dd6c411b8",
     "detector_expression": "normalize(name) not in vocabulary (signal_aliases + signal_measurement_map)",
-    "affected_count": 160,
+    "affected_count": 142,
     "examples": [
       {
         "spn": 29,

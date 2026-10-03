@@ -12,11 +12,9 @@ import json
 import shutil
 from pathlib import Path
 
-import pytest
-
 from scripts.intake_kb_defects import (
-    DETECTORS,
     DEFECT_SUBDIR,
+    DETECTORS,
     build_record,
     measure,
     stage,
@@ -449,7 +447,7 @@ def test_uds_did_examples_are_verbatim_sourceless_rows() -> None:
 
 def test_traceability_severity_follows_the_policy_classification() -> None:
     """A source the policy never named must not be reported as a policy breach."""
-    from scripts.intake_kb_defects import measure_provenance_gaps, classify_source
+    from scripts.intake_kb_defects import classify_source, measure_provenance_gaps
 
     policy = (ROOT / "data" / "PROVENANCE.md").read_text(encoding="utf-8").lower()
     gaps = measure_provenance_gaps(ROOT)

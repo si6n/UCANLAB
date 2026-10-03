@@ -9,7 +9,7 @@
     "role": "author"
   },
   "source": {
-    "title": "Kendi verimizden ölçüm: SPN unit alanı yer tutucu değer (4202/4291); gerçek birim kayıp",
+    "title": "Kendi verimizden ölçüm: SPN unit alanı yer tutucu değer (4202/4300); gerçek birim kayıp",
     "path": "data/diagnostics/j1939_spn_fmi_database.json (repo içi ölçüm; sha256 kayıt altındadır)",
     "type": "internal_kb",
     "publisher": "UCanLab intake",
@@ -18,8 +18,8 @@
     "access_date": "2026-10-02",
     "snapshot": {
       "archive_url": null,
-      "sha256": "9dd4bc74b8ece777189d1851a94cc469fe73137909c55eaf114db8a1e2157f91",
-      "bytes": 50247082,
+      "sha256": "e981dd9e7c985b63d81f3fe99a0b0d01397e2d2258b71cf748305d0cccbf2f62",
+      "bytes": 50254015,
       "pages_cited": []
     }
   },
@@ -29,10 +29,10 @@
   "payload": {
     "defect_code": "spn_unit_placeholder",
     "severity": "medium",
-    "summary": "SPN unit alanı yer tutucu değer (4202/4291); gerçek birim kayıp",
+    "summary": "SPN unit alanı yer tutucu değer (4202/4300); gerçek birim kayıp",
     "why_it_matters": "Birim olmadan sinyal aralığı/eşik karşılaştırması yapılamaz; copilot 'kPa cinsinden' diye bir şey söyleyemez.",
     "target_file": "data/diagnostics/j1939_spn_fmi_database.json",
-    "target_sha256": "9dd4bc74b8ece777189d1851a94cc469fe73137909c55eaf114db8a1e2157f91",
+    "target_sha256": "e981dd9e7c985b63d81f3fe99a0b0d01397e2d2258b71cf748305d0cccbf2f62",
     "detector_expression": "unit.lower() in {'-', '', 'none', 'n/a', 'standart j1939', …}",
     "affected_count": 4202,
     "examples": [

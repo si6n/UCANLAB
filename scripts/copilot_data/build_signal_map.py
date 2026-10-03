@@ -71,6 +71,27 @@ def prov(canon, spn, pid):
         "confidence": "single_source" if (spn is not None or pid) else "unverified",
     }]
 
+def promoted_entries():
+    """Aliases scripts/promote_intake.py added from retired intake records.
+
+    The intake records are deleted once promoted, so this generator cannot
+    re-derive them; it carries them (and their provenance) forward from the
+    current file. Without this, regenerating silently dropped every promoted
+    alias.
+    """
+    try:
+        current = json.load(open(D + "signal_measurement_map.json", encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    kept = {}
+    for sig in current.get("signals", []):
+        for entry in sig.get("provenance") or []:
+            if entry.get("activity") == "promote_from_intake":
+                kept.setdefault(sig["canonical"], []).append(entry)
+    return kept
+
+PROMOTED = promoted_entries()
+
 LABEL_TR = {"ShortTermFuelTrimB1": "Kısa dönem yakıt düzeltmesi (Sıra 1)",
             "LongTermFuelTrimB1": "Uzun dönem yakıt düzeltmesi (Sıra 1)",
             "CatalystTemperature": "Katalizör sıcaklığı", "IsolationResistance": "HV izolasyon direnci",
@@ -98,6 +119,10 @@ for canon, unit, aliases, tr, en, tkey, spn, pid in S:
         rec["how_to_en"] = ("Only an HV-trained, authorised technician reads this from BMS live data with the OEM "
                             "service tool. Do not touch orange cables.")
     rec["provenance"] = prov(canon, spn, pid)
+    for entry in PROMOTED.get(canon, []):
+        names = [v for v in entry.get("verbatim", "").split("; ") if v]
+        rec["aliases"] += [v for v in names if v not in rec["aliases"]]
+        rec["provenance"].append(entry)
     out.append(rec)
 
 doc = {

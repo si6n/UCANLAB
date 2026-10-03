@@ -271,6 +271,8 @@ def test_case_cannot_claim_to_be_verified(tmp_path: Path) -> None:
         "notes": None,
     }
     intake = _make_intake(tmp_path, {"cases/case-p0171-x.json": case})
+    # The test used to stop here and asserted nothing, so it could never fail.
+    assert "draft" in _fails(run(root=ROOT, intake_dir=intake, quiet=True))
 
 
 def test_manifest_hash_drift_is_detected(tmp_path: Path) -> None:

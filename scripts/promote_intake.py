@@ -41,6 +41,9 @@ SPN_DB = DIAG / "j1939_spn_fmi_database.json"
 PGN_REF = DIAG / "canboat_pgn_reference.json"
 SIGNAL_MAP = DIAG / "signal_measurement_map.json"
 SIGNAL_ALIASES = DIAG / "signal_aliases.json"
+# Joins promoted alias names in a provenance `verbatim` field;
+# scripts/copilot_data/build_signal_map.py splits on the same separator.
+ALIAS_SEPARATOR = "; "
 MANIFEST = INTAKE / "MANIFEST.md"
 BULK_BITS = 512
 TODAY = "2026-10-03"
@@ -175,7 +178,10 @@ def promote_signal_names(removed: list[Path]) -> int:
                 "agent": {"type": "automated", "id": "scripts/promote_intake.py", "role": "generator"},
                 "source": {"title": f"canboat J1939 parameter name of SPN {p['spn']} (YAML + vendored DBC)",
                            "path": rec["source"]["path"], "type": "standard", "licence": "Apache-2.0"},
-                "transform": {"rule_id": "same-spn-name-alias", "values": new},
+                # provenance_schema.json allows only rule_id/rule_hash in
+                # `transform`; the copied names are exact source text.
+                "verbatim": ALIAS_SEPARATOR.join(new),
+                "transform": {"rule_id": "same-spn-name-alias"},
                 "confidence": rec.get("confidence", "single_source"),
             })
             added += len(new)

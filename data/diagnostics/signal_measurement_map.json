@@ -141,11 +141,9 @@
       "type": "standard",
       "licence": "Apache-2.0"
      },
+     "verbatim": "Engine RPM",
      "transform": {
-      "rule_id": "same-spn-name-alias",
-      "values": [
-       "Engine RPM"
-      ]
+      "rule_id": "same-spn-name-alias"
      },
      "confidence": "corroborated"
     }
@@ -492,11 +490,9 @@
       "type": "standard",
       "licence": "Apache-2.0"
      },
+     "verbatim": "Wheel_Based_Vehicle_Speed",
      "transform": {
-      "rule_id": "same-spn-name-alias",
-      "values": [
-       "Wheel_Based_Vehicle_Speed"
-      ]
+      "rule_id": "same-spn-name-alias"
      },
      "confidence": "single_source"
     }
@@ -574,11 +570,9 @@
       "type": "standard",
       "licence": "Apache-2.0"
      },
+     "verbatim": "Engine Percent Load At Current Speed",
      "transform": {
-      "rule_id": "same-spn-name-alias",
-      "values": [
-       "Engine Percent Load At Current Speed"
-      ]
+      "rule_id": "same-spn-name-alias"
      },
      "confidence": "corroborated"
     }
@@ -650,11 +644,9 @@
       "type": "standard",
       "licence": "Apache-2.0"
      },
+     "verbatim": "Actual Engine - Percent Torque",
      "transform": {
-      "rule_id": "same-spn-name-alias",
-      "values": [
-       "Actual Engine - Percent Torque"
-      ]
+      "rule_id": "same-spn-name-alias"
      },
      "confidence": "corroborated"
     }
@@ -736,11 +728,9 @@
       "type": "standard",
       "licence": "Apache-2.0"
      },
+     "verbatim": "Engine Fuel 1 Injector Metering Rail 1 Pressure",
      "transform": {
-      "rule_id": "same-spn-name-alias",
-      "values": [
-       "Engine Fuel 1 Injector Metering Rail 1 Pressure"
-      ]
+      "rule_id": "same-spn-name-alias"
      },
      "confidence": "corroborated"
     }
@@ -814,11 +804,9 @@
       "type": "standard",
       "licence": "Apache-2.0"
      },
+     "verbatim": "Aftertreatment 1 Diesel Particulate Filter Differential Pressure",
      "transform": {
-      "rule_id": "same-spn-name-alias",
-      "values": [
-       "Aftertreatment 1 Diesel Particulate Filter Differential Pressure"
-      ]
+      "rule_id": "same-spn-name-alias"
      },
      "confidence": "corroborated"
     }
@@ -947,11 +935,9 @@
       "type": "standard",
       "licence": "Apache-2.0"
      },
+     "verbatim": "Engine Oil Temp 1",
      "transform": {
-      "rule_id": "same-spn-name-alias",
-      "values": [
-       "Engine Oil Temp 1"
-      ]
+      "rule_id": "same-spn-name-alias"
      },
      "confidence": "corroborated"
     }
@@ -1029,11 +1015,9 @@
       "type": "standard",
       "licence": "Apache-2.0"
      },
+     "verbatim": "Intake Manifold Temp",
      "transform": {
-      "rule_id": "same-spn-name-alias",
-      "values": [
-       "Intake Manifold Temp"
-      ]
+      "rule_id": "same-spn-name-alias"
      },
      "confidence": "corroborated"
     }
@@ -1113,11 +1097,9 @@
       "type": "standard",
       "licence": "Apache-2.0"
      },
+     "verbatim": "Engine Intake Air Mass Flow Rate",
      "transform": {
-      "rule_id": "same-spn-name-alias",
-      "values": [
-       "Engine Intake Air Mass Flow Rate"
-      ]
+      "rule_id": "same-spn-name-alias"
      },
      "confidence": "corroborated"
     }
@@ -1335,11 +1317,9 @@
       "type": "standard",
       "licence": "Apache-2.0"
      },
+     "verbatim": "Exhaust Gas Temperature",
      "transform": {
-      "rule_id": "same-spn-name-alias",
-      "values": [
-       "Exhaust Gas Temperature"
-      ]
+      "rule_id": "same-spn-name-alias"
      },
      "confidence": "corroborated"
     }

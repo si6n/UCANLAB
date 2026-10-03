@@ -18,8 +18,8 @@
     "access_date": "2026-10-02",
     "snapshot": {
       "archive_url": null,
-      "sha256": "9dd4bc74b8ece777189d1851a94cc469fe73137909c55eaf114db8a1e2157f91",
-      "bytes": 50247082,
+      "sha256": "e981dd9e7c985b63d81f3fe99a0b0d01397e2d2258b71cf748305d0cccbf2f62",
+      "bytes": 50254015,
       "pages_cited": []
     }
   },
@@ -32,10 +32,15 @@
     "summary": "SPN kaydı var ama hiç FMI satırı yok — tanı kombinasyonu üretilemez",
     "why_it_matters": "Copilot bu parametre için 'hangi FMI ile ne olur?' sorusuna cevap üretemez; vaka ile eşleştirme de zayıflar.",
     "target_file": "data/diagnostics/j1939_spn_fmi_database.json",
-    "target_sha256": "9dd4bc74b8ece777189d1851a94cc469fe73137909c55eaf114db8a1e2157f91",
+    "target_sha256": "e981dd9e7c985b63d81f3fe99a0b0d01397e2d2258b71cf748305d0cccbf2f62",
     "detector_expression": "not record.get('fault_matrix')",
-    "affected_count": 64,
+    "affected_count": 73,
     "examples": [
+      {
+        "key": "SPN_1032",
+        "name": "Total ECU Distance",
+        "spn": 1032
+      },
       {
         "key": "SPN_1086",
         "name": "Parking and/or Trailer Air Pressure",
@@ -47,19 +52,14 @@
         "spn": 112
       },
       {
-        "key": "SPN_113",
-        "name": "SPN 113 FMI 0 — Coolant System Pressure Above Normal",
-        "spn": 113
+        "key": "SPN_1128",
+        "name": "Engine Turbocharger 2 Boost Pressure",
+        "spn": 1128
       },
       {
-        "key": "SPN_123",
-        "name": "International SPN 123 FMI 2: Diagnose and Repair Intake Pressure Sensor Issues",
-        "spn": 123
-      },
-      {
-        "key": "SPN_1329",
-        "name": "Engine Misfire Cylinder #7",
-        "spn": 1329
+        "key": "SPN_1129",
+        "name": "Engine Turbocharger 3 Boost Pressure",
+        "spn": 1129
       }
     ]
   },

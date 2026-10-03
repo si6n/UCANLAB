@@ -821,10 +821,10 @@ def _validate_payload_provenance_gap(payload: dict[str, Any], where: str, rep: R
     count = payload.get("occurrences")
     if not isinstance(count, int) or isinstance(count, bool) or count <= 0:
         rep.fail("schema", f"{where}.occurrences must be a positive integer")
-    for field in ("files", "fields", "sample_values", "sample_record_keys", "documented_in"):
-        value = payload.get(field)
+    for name in ("files", "fields", "sample_values", "sample_record_keys", "documented_in"):
+        value = payload.get(name)
         if not isinstance(value, list) or not all(isinstance(item, str) and item.strip() for item in value):
-            rep.fail("schema", f"{where}.{field} must be a list of non-empty strings")
+            rep.fail("schema", f"{where}.{name} must be a list of non-empty strings")
     if not payload.get("files"):
         rep.fail("schema", f"{where}.files must not be empty (which KB file carries the gap?)")
     if payload.get("licence_status") != "unresolved":
@@ -1744,7 +1744,7 @@ def check_pgn_layout_consistency(records: list[Record], repo_root: Path, rep: Re
         delta = abs(len(dbc_signals) - total_fields)
         if delta > max(2, 0.4 * max(len(dbc_signals), total_fields)):
             mismatch += len(layouts)
-            for rel, count in layouts:
+            for rel, _count in layouts:
                 rep.add("WARN", "pgn_layout_dbc_mismatch",
                         f"{rel}: PGN {pgn} düzenleri toplam {total_fields} alan, DBC "
                         f"{len(dbc_signals)} sinyal — iki temsil ayrışıyor")

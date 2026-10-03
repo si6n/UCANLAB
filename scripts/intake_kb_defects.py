@@ -52,9 +52,8 @@ import json
 import re
 import sys
 from pathlib import Path
-from urllib.parse import urlparse
-from collections import Counter
 from typing import Any, Callable
+from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parents[1]
 INTAKE = ROOT / "data" / "intake"
@@ -363,10 +362,23 @@ def _provenance_corpus(root: Path) -> str:
     return "\n".join(parts)
 
 
+def _source_host(low: str) -> str:
+    """URL host of a lower-cased source value, or the value itself.
+
+    Free-text sources such as ``canboat pgn.h [lines 10-20]`` are not URLs;
+    ``urlparse`` raises ``ValueError`` ("Invalid IPv6 URL") on the bracket,
+    which used to abort the whole gate.
+    """
+    try:
+        return urlparse(low if "//" in low else "//" + low).netloc or low
+    except ValueError:
+        return low
+
+
 def _is_documented(value: str, corpus: str) -> bool:
     """True when any meaningful token of ``value`` occurs in a provenance doc."""
     low = value.lower()
-    host = urlparse(low if "//" in low else "//" + low).netloc or low
+    host = _source_host(low)
     tokens = [t for t in re.split(r"[^a-z0-9]+", host) if len(t) > 3]
     tokens += [t for t in re.split(r"[^a-z0-9]+", low) if len(t) > 3]
     return any(token in corpus for token in tokens)
@@ -404,7 +416,7 @@ def measure_provenance_gaps(root: Path = ROOT) -> dict[str, dict[str, Any]]:
                     if _is_documented(value, corpus):
                         continue
                     low = value.strip().lower()
-                    host = urlparse(low if "//" in low else "//" + low).netloc or low
+                    host = _source_host(low)
                     key = host or low.split()[0]
                     entry = gaps.setdefault(key, {
                         "occurrences": 0, "files": [], "sample_values": [],
@@ -518,7 +530,9 @@ def classify_source(key: str, policy: str) -> str:
     if any(marker in low for marker in POLICY_CATEGORY_MARKERS):
         return "policy_breach"
     if any(marker in low for marker in POLICY_NAMED_MARKERS):
-        return "policy_breach" if marker in policy or marker in POLICY_NAMED_MARKERS else "unattested"
+        # A named marker is a breach by definition. The old expression read the
+        # generator's loop variable outside the generator -> NameError.
+        return "policy_breach"
     return "unattested"
 
 

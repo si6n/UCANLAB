@@ -26,16 +26,16 @@ import pytest
 
 from scripts.intake_scan_sources import (
     CANBOAT_COMMIT,
-    SPN_REF_SUBDIR,
     OBDEX_COMMIT,
     OEM_SUBDIR,
     PGN_SUBDIR,
+    SPN_REF_SUBDIR,
     VENDORED_SHA256,
     WAL33D_COMMIT,
     build_oem_divergence_records,
     build_pgn_record,
-    parse_oem_listing,
     collect_spn_evidence,
+    parse_oem_listing,
     parse_pgn_yaml,
     stage,
     stage_oem,
@@ -370,7 +370,8 @@ def test_staged_oem_divergences_are_re_measured_by_the_gate() -> None:
 
 
 def test_oem_divergence_record_rejects_a_count_mismatch() -> None:
-    from scripts.validate_intake import Report as _Report, validate_envelope
+    from scripts.validate_intake import Report as _Report
+    from scripts.validate_intake import validate_envelope
 
     staged_path = ROOT / "data" / "intake" / OEM_SRC / "wal33d-divergence-ford.json"
     record = json.loads(staged_path.read_text(encoding="utf-8"))
@@ -514,7 +515,8 @@ def test_two_source_records_declare_corroborated() -> None:
 
 
 def test_validator_rejects_two_sources_without_corroborated_confidence() -> None:
-    from scripts.validate_intake import Report as _Report, validate_envelope
+    from scripts.validate_intake import Report as _Report
+    from scripts.validate_intake import validate_envelope
 
     record = json.loads((SPN_REF_DIR / "canboat-spn-01032.json").read_text(encoding="utf-8"))
     assert len(record["payload"]["sources"]) >= 2

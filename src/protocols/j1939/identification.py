@@ -76,7 +76,7 @@ def decode_ci(payload: bytes) -> dict[str, str]:
     """Component identification: the fields that are present of make / model / serial / unit."""
     parts = bytes(payload).split(b"*")
     out: dict[str, str] = {}
-    for key, raw in zip(("make", "model", "serial", "unit"), parts):
+    for key, raw in zip(("make", "model", "serial", "unit"), parts, strict=False):
         value = _ascii(raw)
         if value is not None:
             out[key] = value

@@ -30,6 +30,7 @@ from typing import Any, Protocol
 from src.core.logging import get_logger
 from src.core.models.diagnostics import DiagnosticDomain, VehicleSession
 from src.engine.diagnosis.events import dm1_to_events, obd_codes_to_events
+from src.engine.diagnosis.j1939_reader import SimulatedJ1939Ecu, read_j1939_snapshot, spns_from_codes
 from src.engine.diagnosis.mechanic_result import (
     CodeEvidence,
     ScanContext,
@@ -37,7 +38,6 @@ from src.engine.diagnosis.mechanic_result import (
     customer_report_text,
     explain_code,
 )
-from src.engine.diagnosis.j1939_reader import SimulatedJ1939Ecu, read_j1939_snapshot, spns_from_codes
 from src.engine.diagnosis.obd_reader import ObdReadOutcome, SimulatedObdEcu, read_obd_fault_codes
 
 logger = get_logger("engine.diagnosis.scan")

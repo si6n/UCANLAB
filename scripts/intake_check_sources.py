@@ -113,7 +113,7 @@ def run(root: Path = ROOT, limit: int = 60, timeout: int = 8, sample: int = 0,
         ranked += random.Random(seed).sample(tail, min(sample, len(tail)))
     started = time.perf_counter()
     with ThreadPoolExecutor(max_workers=10) as pool:
-        results = dict(zip(ranked, pool.map(lambda u: probe(u, timeout), ranked)))
+        results = dict(zip(ranked, pool.map(lambda u: probe(u, timeout), ranked), strict=True))
     tally = Counter(status for status, _ in results.values())
     return {
         "scanned": len(ranked),
