@@ -15,6 +15,10 @@ Inputs, all already in the repository and pinned to Wal33D commit 04c43d72:
   no divergence row carries exactly the layer text (intake §4o: every layer
   text equals one source row; the divergence rows are all the others).
 
+The ``oem_divergence`` inputs were retired from intake after promotion
+(``scripts/promote_intake.py``); to rebuild, restore them first with
+``git checkout a68a2d3 -- data/intake/oem``.
+
 Generic lists (other/p/c/u/b codes) are not a make and are left out. Text is
 copied verbatim; nothing is translated, merged or inferred. Only codes whose
 makes disagree are written. Build-time tool; the copilot only reads the output.

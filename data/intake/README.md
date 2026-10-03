@@ -14,6 +14,16 @@ geçirmeyle olur; aşağıdaki "Entegrasyon adımları" bölümü tek yol harita
 > `data/diagnostics/PROVENANCE.md` içindedir. `data/intake/` o iki dosyanın
 > **yerine geçmez**; sadece kaynak notlarının toplandığı ilk duraktır.
 
+> **Terfi durumu (2026-10-03):** terfiye hazır kayıtlar
+> `scripts/promote_intake.py` ile bilgi tabanına aktarıldı ve buradan
+> kaldırıldı: 9 SPN kaydı, 33 J1939 PGN düzeni, 10 J1939 parametre adı ve
+> `dtc_oem_meanings.json`'a dönüşen 35 `oem_divergence` kaydı (toplam 90
+> dosya + MANIFEST satırları). Kalanlar kanıt (birim, alan düzeni) ya da
+> veri sahibinin kararını (lisans, kaynak) bekler. Bu, aşağıdaki Adım 5'teki
+> "arşivle, silme" kuralından bilinçli bir sapmadır: kaldırılan kayıtların
+> tamamı git geçmişinde (a68a2d3) ve terfi edilen kayıtlarda
+> (`_promoted_from`, `_source_ref`, sha256) izlenebilir kalır.
+
 ## Dizin yapısı
 
 | Yol | İçerik | Dosya biçimi |

@@ -71,7 +71,8 @@
    "canonical": "EngineSpeed",
    "unit": "rpm",
    "aliases": [
-    "RPM"
+    "RPM",
+    "Engine RPM"
    ],
    "phrases_tr": [
     "motor devri",
@@ -121,6 +122,32 @@
       "rule_id": "copy-spn-pgn-pid-fields"
      },
      "confidence": "single_source"
+    },
+    {
+     "provenance_id": "prv-sigmap-enginespeed-j1939-names",
+     "target": {
+      "record_id": "EngineSpeed",
+      "field": "aliases"
+     },
+     "activity": "promote_from_intake",
+     "agent": {
+      "type": "automated",
+      "id": "scripts/promote_intake.py",
+      "role": "generator"
+     },
+     "source": {
+      "title": "canboat J1939 parameter name of SPN 190 (YAML + vendored DBC)",
+      "path": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/061444-ecu1.yaml",
+      "type": "standard",
+      "licence": "Apache-2.0"
+     },
+     "transform": {
+      "rule_id": "same-spn-name-alias",
+      "values": [
+       "Engine RPM"
+      ]
+     },
+     "confidence": "corroborated"
     }
    ]
   },
@@ -397,7 +424,8 @@
    "canonical": "VehicleSpeed",
    "unit": "km/h",
    "aliases": [
-    "VSS"
+    "VSS",
+    "Wheel_Based_Vehicle_Speed"
    ],
    "phrases_tr": [
     "arac hizi"
@@ -445,6 +473,32 @@
       "rule_id": "copy-spn-pgn-pid-fields"
      },
      "confidence": "single_source"
+    },
+    {
+     "provenance_id": "prv-sigmap-vehiclespeed-j1939-names",
+     "target": {
+      "record_id": "VehicleSpeed",
+      "field": "aliases"
+     },
+     "activity": "promote_from_intake",
+     "agent": {
+      "type": "automated",
+      "id": "scripts/promote_intake.py",
+      "role": "generator"
+     },
+     "source": {
+      "title": "canboat J1939 parameter name of SPN 84 (YAML + vendored DBC)",
+      "path": "data/dbc/heavy_duty/j1939_canboat.dbc",
+      "type": "standard",
+      "licence": "Apache-2.0"
+     },
+     "transform": {
+      "rule_id": "same-spn-name-alias",
+      "values": [
+       "Wheel_Based_Vehicle_Speed"
+      ]
+     },
+     "confidence": "single_source"
     }
    ]
   },
@@ -452,7 +506,8 @@
    "canonical": "EngineLoad",
    "unit": "%",
    "aliases": [
-    "EngineLoadPct"
+    "EngineLoadPct",
+    "Engine Percent Load At Current Speed"
    ],
    "phrases_tr": [
     "motor yuku"
@@ -500,6 +555,32 @@
       "rule_id": "copy-spn-pgn-pid-fields"
      },
      "confidence": "single_source"
+    },
+    {
+     "provenance_id": "prv-sigmap-engineload-j1939-names",
+     "target": {
+      "record_id": "EngineLoad",
+      "field": "aliases"
+     },
+     "activity": "promote_from_intake",
+     "agent": {
+      "type": "automated",
+      "id": "scripts/promote_intake.py",
+      "role": "generator"
+     },
+     "source": {
+      "title": "canboat J1939 parameter name of SPN 92 (YAML + vendored DBC)",
+      "path": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/061443-ecu2.yaml",
+      "type": "standard",
+      "licence": "Apache-2.0"
+     },
+     "transform": {
+      "rule_id": "same-spn-name-alias",
+      "values": [
+       "Engine Percent Load At Current Speed"
+      ]
+     },
+     "confidence": "corroborated"
     }
    ]
   },
@@ -507,7 +588,8 @@
    "canonical": "EngineTorque",
    "unit": "%",
    "aliases": [
-    "EngineTorquePct"
+    "EngineTorquePct",
+    "Actual Engine - Percent Torque"
    ],
    "phrases_tr": [
     "motor torku"
@@ -549,6 +631,32 @@
       "rule_id": "copy-spn-pgn-pid-fields"
      },
      "confidence": "single_source"
+    },
+    {
+     "provenance_id": "prv-sigmap-enginetorque-j1939-names",
+     "target": {
+      "record_id": "EngineTorque",
+      "field": "aliases"
+     },
+     "activity": "promote_from_intake",
+     "agent": {
+      "type": "automated",
+      "id": "scripts/promote_intake.py",
+      "role": "generator"
+     },
+     "source": {
+      "title": "canboat J1939 parameter name of SPN 513 (YAML + vendored DBC)",
+      "path": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/061444-ecu1.yaml",
+      "type": "standard",
+      "licence": "Apache-2.0"
+     },
+     "transform": {
+      "rule_id": "same-spn-name-alias",
+      "values": [
+       "Actual Engine - Percent Torque"
+      ]
+     },
+     "confidence": "corroborated"
     }
    ]
   },
@@ -557,7 +665,8 @@
    "unit": "kPa",
    "aliases": [
     "FuelRailPressure",
-    "RailPressure"
+    "RailPressure",
+    "Engine Fuel 1 Injector Metering Rail 1 Pressure"
    ],
    "phrases_tr": [
     "rail basinci",
@@ -608,6 +717,32 @@
       "rule_id": "copy-spn-pgn-pid-fields"
      },
      "confidence": "single_source"
+    },
+    {
+     "provenance_id": "prv-sigmap-fuelpressure-j1939-names",
+     "target": {
+      "record_id": "FuelPressure",
+      "field": "aliases"
+     },
+     "activity": "promote_from_intake",
+     "agent": {
+      "type": "automated",
+      "id": "scripts/promote_intake.py",
+      "role": "generator"
+     },
+     "source": {
+      "title": "canboat J1939 parameter name of SPN 157 (YAML + vendored DBC)",
+      "path": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/065243-engineFluidLevelPressure2.yaml",
+      "type": "standard",
+      "licence": "Apache-2.0"
+     },
+     "transform": {
+      "rule_id": "same-spn-name-alias",
+      "values": [
+       "Engine Fuel 1 Injector Metering Rail 1 Pressure"
+      ]
+     },
+     "confidence": "corroborated"
     }
    ]
   },
@@ -615,7 +750,8 @@
    "canonical": "DPFDiffPressure",
    "unit": "kPa",
    "aliases": [
-    "DPFPressure"
+    "DPFPressure",
+    "Aftertreatment 1 Diesel Particulate Filter Differential Pressure"
    ],
    "phrases_tr": [
     "dpf fark basinci",
@@ -659,6 +795,32 @@
       "rule_id": "copy-spn-pgn-pid-fields"
      },
      "confidence": "single_source"
+    },
+    {
+     "provenance_id": "prv-sigmap-dpfdiffpressure-j1939-names",
+     "target": {
+      "record_id": "DPFDiffPressure",
+      "field": "aliases"
+     },
+     "activity": "promote_from_intake",
+     "agent": {
+      "type": "automated",
+      "id": "scripts/promote_intake.py",
+      "role": "generator"
+     },
+     "source": {
+      "title": "canboat J1939 parameter name of SPN 3251 (YAML + vendored DBC)",
+      "path": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/064946-aftertreatment1IntermediateGas.yaml",
+      "type": "standard",
+      "licence": "Apache-2.0"
+     },
+     "transform": {
+      "rule_id": "same-spn-name-alias",
+      "values": [
+       "Aftertreatment 1 Diesel Particulate Filter Differential Pressure"
+      ]
+     },
+     "confidence": "corroborated"
     }
    ]
   },
@@ -717,7 +879,8 @@
    "canonical": "EngineOilTemp",
    "unit": "°C",
    "aliases": [
-    "OilTemp"
+    "OilTemp",
+    "Engine Oil Temp 1"
    ],
    "phrases_tr": [
     "yag sicakligi"
@@ -765,6 +928,32 @@
       "rule_id": "copy-spn-pgn-pid-fields"
      },
      "confidence": "single_source"
+    },
+    {
+     "provenance_id": "prv-sigmap-engineoiltemp-j1939-names",
+     "target": {
+      "record_id": "EngineOilTemp",
+      "field": "aliases"
+     },
+     "activity": "promote_from_intake",
+     "agent": {
+      "type": "automated",
+      "id": "scripts/promote_intake.py",
+      "role": "generator"
+     },
+     "source": {
+      "title": "canboat J1939 parameter name of SPN 175 (YAML + vendored DBC)",
+      "path": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/065262-engineTemp1.yaml",
+      "type": "standard",
+      "licence": "Apache-2.0"
+     },
+     "transform": {
+      "rule_id": "same-spn-name-alias",
+      "values": [
+       "Engine Oil Temp 1"
+      ]
+     },
+     "confidence": "corroborated"
     }
    ]
   },
@@ -772,7 +961,8 @@
    "canonical": "IntakeAirTemp",
    "unit": "°C",
    "aliases": [
-    "IAT"
+    "IAT",
+    "Intake Manifold Temp"
    ],
    "phrases_tr": [
     "emme havasi sicakligi"
@@ -820,6 +1010,32 @@
       "rule_id": "copy-spn-pgn-pid-fields"
      },
      "confidence": "single_source"
+    },
+    {
+     "provenance_id": "prv-sigmap-intakeairtemp-j1939-names",
+     "target": {
+      "record_id": "IntakeAirTemp",
+      "field": "aliases"
+     },
+     "activity": "promote_from_intake",
+     "agent": {
+      "type": "automated",
+      "id": "scripts/promote_intake.py",
+      "role": "generator"
+     },
+     "source": {
+      "title": "canboat J1939 parameter name of SPN 105 (YAML + vendored DBC)",
+      "path": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/065270-inletExhaustConditions.yaml",
+      "type": "standard",
+      "licence": "Apache-2.0"
+     },
+     "transform": {
+      "rule_id": "same-spn-name-alias",
+      "values": [
+       "Intake Manifold Temp"
+      ]
+     },
+     "confidence": "corroborated"
     }
    ]
   },
@@ -828,7 +1044,8 @@
    "unit": "g/s",
    "aliases": [
     "MAF",
-    "MassAirFlow"
+    "MassAirFlow",
+    "Engine Intake Air Mass Flow Rate"
    ],
    "phrases_tr": [
     "hava debisi",
@@ -877,6 +1094,32 @@
       "rule_id": "copy-spn-pgn-pid-fields"
      },
      "confidence": "single_source"
+    },
+    {
+     "provenance_id": "prv-sigmap-engineairflow-j1939-names",
+     "target": {
+      "record_id": "EngineAirFlow",
+      "field": "aliases"
+     },
+     "activity": "promote_from_intake",
+     "agent": {
+      "type": "automated",
+      "id": "scripts/promote_intake.py",
+      "role": "generator"
+     },
+     "source": {
+      "title": "canboat J1939 parameter name of SPN 132 (YAML + vendored DBC)",
+      "path": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/061450-engineGasFlowRate1.yaml",
+      "type": "standard",
+      "licence": "Apache-2.0"
+     },
+     "transform": {
+      "rule_id": "same-spn-name-alias",
+      "values": [
+       "Engine Intake Air Mass Flow Rate"
+      ]
+     },
+     "confidence": "corroborated"
     }
    ]
   },
@@ -1030,7 +1273,8 @@
    "canonical": "ExhaustTemp",
    "unit": "°C",
    "aliases": [
-    "EGT"
+    "EGT",
+    "Exhaust Gas Temperature"
    ],
    "phrases_tr": [
     "egzoz sicakligi"
@@ -1072,6 +1316,32 @@
       "rule_id": "copy-spn-pgn-pid-fields"
      },
      "confidence": "single_source"
+    },
+    {
+     "provenance_id": "prv-sigmap-exhausttemp-j1939-names",
+     "target": {
+      "record_id": "ExhaustTemp",
+      "field": "aliases"
+     },
+     "activity": "promote_from_intake",
+     "agent": {
+      "type": "automated",
+      "id": "scripts/promote_intake.py",
+      "role": "generator"
+     },
+     "source": {
+      "title": "canboat J1939 parameter name of SPN 173 (YAML + vendored DBC)",
+      "path": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/065270-inletExhaustConditions.yaml",
+      "type": "standard",
+      "licence": "Apache-2.0"
+     },
+     "transform": {
+      "rule_id": "same-spn-name-alias",
+      "values": [
+       "Exhaust Gas Temperature"
+      ]
+     },
+     "confidence": "corroborated"
     }
    ]
   },

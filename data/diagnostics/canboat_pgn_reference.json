@@ -17,7 +17,8 @@
     "schema_casing": "PascalCase (PGN/Fields/Id) — J1939 YAML tarafi kucuk harf (pgn/fields)",
     "note": "T2-4 KATMANLI export. Yeni PGN dosyasi; mevcut DBC/katalog dosyalarina YAZILMADI. Her PGN kaydinda _source_license + _source_ref.",
     "distinct_pgn_numbers": 348,
-    "variant_records": 280
+    "variant_records": 280,
+    "j1939_layouts": 34
   },
   "pgns": [
     {
@@ -89110,6 +89111,1728 @@
       "notes": "J1939 PGN 65226 See https://embeddedflakes.com/j1939-diagnostics-part-1/\n\nLamp modes are: 0 = off, 01 = on",
       "_source_license": "Apache-2.0",
       "_source_ref": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/065226-activeTroubleCodes.yaml"
+    },
+    "61443": {
+      "pgn": 61443,
+      "id": "ecu2",
+      "description": "ECU #2",
+      "type": "Single",
+      "priority": 3,
+      "interval_ms": 50,
+      "fields": [
+        {
+          "id": "accelerationPedalKickdownSwitch",
+          "name": "Accelerator Pedal 1 Low Idle Switch",
+          "spn": 558,
+          "bits": 2,
+          "description": "SPN 558"
+        },
+        {
+          "id": "accelerationPedalKickdownSwitchStatus",
+          "name": "Accelerator Pedal Kickdown Switch",
+          "spn": 559,
+          "bits": 2,
+          "description": "SPN 559"
+        },
+        {
+          "id": "roadSpeedLimitStatus",
+          "name": "Road Speed Limit Status",
+          "spn": 1437,
+          "bits": 2,
+          "description": "SPN 1437"
+        },
+        {
+          "id": "accelerationPedal2LowIdleSwitch",
+          "name": "Accelerator Pedal 2 Low Idle Switch",
+          "spn": 2970,
+          "bits": 2,
+          "description": "SPN 2970"
+        },
+        {
+          "id": "throttleLever",
+          "name": "Accelerator Pedal Position 1",
+          "spn": 91,
+          "resolution": 0.4,
+          "description": "SPN 91, historically reported as Throttle Lever"
+        },
+        {
+          "id": "engineLoadAtCurrentSpeed",
+          "name": "Engine Percent Load At Current Speed",
+          "spn": 92,
+          "description": "SPN 92"
+        },
+        {
+          "id": "remoteAcceleratorPedalPosition",
+          "name": "Remote Accelerator Pedal Position",
+          "spn": 974,
+          "resolution": 0.4,
+          "description": "SPN 974"
+        },
+        {
+          "id": "acceleratorPedalPosition2",
+          "name": "Accelerator Pedal Position 2",
+          "spn": 29,
+          "resolution": 0.4,
+          "description": "SPN 29"
+        },
+        {
+          "id": "vehicleAccelerationRateLimitStatus",
+          "name": "Vehicle Acceleration Rate Limit Status",
+          "spn": 2979,
+          "bits": 2,
+          "description": "SPN 2979"
+        },
+        {
+          "id": "momentaryEngineMaximumPowerEnable",
+          "name": "Momentary Engine Maximum Power Enable",
+          "spn": 2896,
+          "bits": 2,
+          "description": "SPN 2896"
+        },
+        {
+          "id": "reserved",
+          "name": "Reserved",
+          "bits": 4
+        },
+        {
+          "id": "actualMaximumAvailableEnginePercentTorque",
+          "name": "Actual Maximum Available Engine - Percent Torque",
+          "spn": 3357,
+          "resolution": 0.4,
+          "description": "SPN 3357"
+        },
+        {
+          "id": "estimatedPumpingPercentTorque",
+          "name": "Estimated Pumping - Percent Torque",
+          "spn": 2978,
+          "description": "SPN 2978"
+        }
+      ],
+      "_source_license": "Apache-2.0",
+      "_source_ref": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/061443-ecu2.yaml",
+      "_source_sha256": "a99d3ce6194ae8cd6d516da6a5458c6597d49480c1a3e5f6b6b65170e1ddf65a",
+      "_promoted_from": "data/intake/pgn/canboat-pgn-61443-ecu2.json"
+    },
+    "61444": {
+      "pgn": 61444,
+      "id": "ecu1",
+      "description": "ECU #1",
+      "type": "Single",
+      "priority": 3,
+      "interval_ms": 20,
+      "fields": [
+        {
+          "id": "engineTorqueMode",
+          "name": "Engine Torque Mode",
+          "spn": 899,
+          "bits": 4,
+          "description": "SPN 899"
+        },
+        {
+          "id": "actualEnginePercentTorqueHighResolution",
+          "name": "Actual Engine - Percent Torque High Resolution",
+          "spn": 4154,
+          "bits": 4,
+          "unit": "%",
+          "resolution": 0.125,
+          "description": "SPN 4154, fractional part of the actual engine torque in 0.125 % steps"
+        },
+        {
+          "id": "driversDemandEnginePercentTorque",
+          "name": "Driver's Demand Engine - Percent Torque",
+          "spn": 512,
+          "description": "SPN 512"
+        },
+        {
+          "id": "actualEnginePercentTorque",
+          "name": "Actual Engine - Percent Torque",
+          "spn": 513,
+          "description": "SPN 513"
+        },
+        {
+          "id": "engineRpm",
+          "name": "Engine RPM",
+          "spn": 190,
+          "description": "SPN 190"
+        },
+        {
+          "id": "sourceAddressOfControllingDeviceForEngineControl",
+          "name": "Source Address of Controlling Device for Engine Control",
+          "spn": 1483,
+          "bits": 8,
+          "description": "SPN 1483"
+        },
+        {
+          "id": "engineStarterMode",
+          "name": "Engine Starter Mode",
+          "spn": 1675,
+          "bits": 4,
+          "description": "SPN 1675"
+        },
+        {
+          "id": "reserved",
+          "name": "Reserved",
+          "bits": 4
+        },
+        {
+          "id": "engineDemandPercentTorque",
+          "name": "Engine Demand - Percent Torque",
+          "spn": 2432,
+          "description": "SPN 2432"
+        }
+      ],
+      "_source_license": "Apache-2.0",
+      "_source_ref": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/061444-ecu1.yaml",
+      "_source_sha256": "cb064b5b78a597abd8821d85663d3e85c6818b25479acec9c234e57157c16f08",
+      "_promoted_from": "data/intake/pgn/canboat-pgn-61444-ecu1.json"
+    },
+    "61445": {
+      "pgn": 61445,
+      "id": "electronicTransmissionController2",
+      "description": "Electronic Transmission Controller 2",
+      "type": "Single",
+      "priority": 6,
+      "interval_ms": 100,
+      "fields": [
+        {
+          "id": "transmissionSelectedGear",
+          "name": "Transmission Selected Gear",
+          "spn": 524,
+          "description": "SPN 524, offset by -125 in J1939; negative gears are reverse, 0 is neutral"
+        },
+        {
+          "id": "transmissionActualGearRatio",
+          "name": "Transmission Actual Gear Ratio",
+          "spn": 526,
+          "bits": 16,
+          "resolution": 0.001,
+          "description": "SPN 526, 0.001 per bit"
+        },
+        {
+          "id": "transmissionCurrentGear",
+          "name": "Transmission Current Gear",
+          "spn": 523,
+          "description": "SPN 523, offset by -125 in J1939; negative gears are reverse, 0 is neutral"
+        },
+        {
+          "id": "transmissionRequestedRange",
+          "name": "Transmission Requested Range",
+          "spn": 162,
+          "bits": 16,
+          "description": "SPN 162, two ASCII characters"
+        },
+        {
+          "id": "transmissionCurrentRange",
+          "name": "Transmission Current Range",
+          "spn": 163,
+          "bits": 16,
+          "description": "SPN 163, two ASCII characters"
+        }
+      ],
+      "_source_license": "Apache-2.0",
+      "_source_ref": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/061445-electronicTransmissionController2.yaml",
+      "_source_sha256": "d44126e7298ce2a2796bdb326101f65b581c918b5ab706276f13470fe7e94a98",
+      "_promoted_from": "data/intake/pgn/canboat-pgn-61445-electronictransmissioncontroller2.json"
+    },
+    "61450": {
+      "pgn": 61450,
+      "id": "engineGasFlowRate1",
+      "description": "Engine Gas Flow Rate 1",
+      "type": "Single",
+      "priority": 6,
+      "interval_ms": 50,
+      "fields": [
+        {
+          "id": "engineExhaustGasRecirculation1MassFlowRate",
+          "name": "Engine Exhaust Gas Recirculation 1 Mass Flow Rate",
+          "spn": 2659,
+          "bits": 16,
+          "unit": "kg/h",
+          "resolution": 0.05,
+          "description": "SPN 2659, 0.05 kg/h per bit"
+        },
+        {
+          "id": "engineIntakeAirMassFlowRate",
+          "name": "Engine Intake Air Mass Flow Rate",
+          "spn": 132,
+          "bits": 16,
+          "unit": "kg/h",
+          "resolution": 0.05,
+          "description": "SPN 132, 0.05 kg/h per bit"
+        },
+        {
+          "id": "engineExhaustGasRecirculation2MassFlowRate",
+          "name": "Engine Exhaust Gas Recirculation 2 Mass Flow Rate",
+          "spn": 5257,
+          "bits": 16,
+          "unit": "kg/h",
+          "resolution": 0.05,
+          "description": "SPN 5257, 0.05 kg/h per bit"
+        },
+        {
+          "id": "reserved",
+          "name": "Reserved",
+          "bits": 16
+        }
+      ],
+      "_source_license": "Apache-2.0",
+      "_source_ref": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/061450-engineGasFlowRate1.yaml",
+      "_source_sha256": "c4520f739a40c658171fe415b7b8eaa8737f64a805f4bbcb61bf34be02917c3c",
+      "_promoted_from": "data/intake/pgn/canboat-pgn-61450-enginegasflowrate1.json"
+    },
+    "64709": {
+      "pgn": 64709,
+      "id": "aftertreatment1ScrExhaustGasTemperature2",
+      "description": "Aftertreatment 1 SCR Exhaust Gas Temperature 2",
+      "type": "Single",
+      "priority": 6,
+      "interval_ms": 1000,
+      "fields": [
+        {
+          "id": "aftertreatment1ScrCatalystIntakeGasTemperature2",
+          "name": "Aftertreatment 1 SCR Catalyst Intake Gas Temperature 2",
+          "spn": 5862,
+          "description": "SPN 5862"
+        },
+        {
+          "id": "aftertreatment1ScrCatalystIntakeGasTemperature2PreliminaryFmi",
+          "name": "Aftertreatment 1 SCR Catalyst Intake Gas Temperature 2 Preliminary FMI",
+          "spn": 5863,
+          "bits": 5,
+          "description": "SPN 5863"
+        },
+        {
+          "id": "reserved",
+          "name": "Reserved",
+          "bits": 43
+        }
+      ],
+      "_source_license": "Apache-2.0",
+      "_source_ref": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/064709-aftertreatment1ScrExhaustGasTemperature2.yaml",
+      "_source_sha256": "b25244ad3f52ef4388250df8951311109a5db7ecfbd968efa340d98727890a33",
+      "_promoted_from": "data/intake/pgn/canboat-pgn-64709-aftertreatment1screxhaustgastemperature2.json"
+    },
+    "64740": {
+      "pgn": 64740,
+      "id": "engineFuelProperties",
+      "description": "Engine Fuel Properties",
+      "type": "Single",
+      "priority": 6,
+      "interval_ms": 1000,
+      "fields": [
+        {
+          "id": "engineFuelDynamicViscosity",
+          "name": "Engine Fuel Dynamic Viscosity",
+          "spn": 5537,
+          "bits": 16,
+          "description": "SPN 5537"
+        },
+        {
+          "id": "engineFuelDensity",
+          "name": "Engine Fuel Density",
+          "spn": 5538,
+          "bits": 16,
+          "description": "SPN 5538"
+        },
+        {
+          "id": "engineFuelRelativeDielectricity",
+          "name": "Engine Fuel Relative Dielectricity",
+          "spn": 5539,
+          "bits": 16,
+          "description": "SPN 5539"
+        },
+        {
+          "id": "engineFuelTemperature2",
+          "name": "Engine Fuel Temperature 2",
+          "spn": 5540,
+          "description": "SPN 5540"
+        }
+      ],
+      "_source_license": "Apache-2.0",
+      "_source_ref": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/064740-engineFuelProperties.yaml",
+      "_source_sha256": "07cab994342b6012df231116ec67a5625ed1aa5fe1779f19832ceb81766c244b",
+      "_promoted_from": "data/intake/pgn/canboat-pgn-64740-enginefuelproperties.json"
+    },
+    "64751": {
+      "pgn": 64751,
+      "id": "engineFluidLevelPressure11",
+      "description": "Engine Fluid Level/Pressure 11",
+      "type": "Single",
+      "priority": 6,
+      "interval_ms": 1000,
+      "fields": [
+        {
+          "id": "engineExhaustGasRecirculation1IntakeAbsolutePressure",
+          "name": "Engine Exhaust Gas Recirculation 1 Intake Absolute Pressure",
+          "spn": 5430,
+          "description": "SPN 5430, 0.1 kPa per bit"
+        },
+        {
+          "id": "engineExhaustGasRecirculation1OutletAbsolutePressure",
+          "name": "Engine Exhaust Gas Recirculation 1 Outlet Absolute Pressure",
+          "spn": 5431,
+          "description": "SPN 5431, 0.1 kPa per bit"
+        },
+        {
+          "id": "engineExhaustGasRecirculation2IntakeAbsolutePressure",
+          "name": "Engine Exhaust Gas Recirculation 2 Intake Absolute Pressure",
+          "spn": 7468,
+          "description": "SPN 7468, 0.1 kPa per bit"
+        },
+        {
+          "id": "engineExhaustGasRecirculation2OutletAbsolutePressure",
+          "name": "Engine Exhaust Gas Recirculation 2 Outlet Absolute Pressure",
+          "spn": 7469,
+          "description": "SPN 7469, 0.1 kPa per bit"
+        }
+      ],
+      "_source_license": "Apache-2.0",
+      "_source_ref": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/064751-engineFluidLevelPressure11.yaml",
+      "_source_sha256": "7d4f60f3314459b5cf7bcf787208657fd1ff031304685426b7d97475cdaf3c85",
+      "_promoted_from": "data/intake/pgn/canboat-pgn-64751-enginefluidlevelpressure11.json"
+    },
+    "64776": {
+      "pgn": 64776,
+      "id": "engineOilMessage",
+      "description": "Engine Oil Message",
+      "type": "Single",
+      "priority": 6,
+      "interval_ms": 1000,
+      "fields": [
+        {
+          "id": "engineOilViscosity",
+          "name": "Engine Oil Viscosity",
+          "spn": 5055,
+          "bits": 16,
+          "unit": "cP",
+          "resolution": 0.015625,
+          "description": "SPN 5055, 0.015625 cP per bit"
+        },
+        {
+          "id": "engineOilDensity",
+          "name": "Engine Oil Density",
+          "spn": 5056,
+          "bits": 16,
+          "unit": "g/cm3",
+          "description": "SPN 5056, 1/32768 g/cm3 per bit"
+        },
+        {
+          "id": "engineOilRelativeDielectricity",
+          "name": "Engine Oil Relative Dielectricity",
+          "spn": 5468,
+          "bits": 16,
+          "resolution": 0.0001220703125,
+          "description": "SPN 5468, 1/8192 per bit"
+        },
+        {
+          "id": "engineOilTemperature3",
+          "name": "Engine Oil Temperature 3",
+          "spn": 5925,
+          "description": "SPN 5925"
+        }
+      ],
+      "_source_license": "Apache-2.0",
+      "_source_ref": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/064776-engineOilMessage.yaml",
+      "_source_sha256": "0ce1dc818f4ccb6607a129e05e67ce19e0ba24989f486d9ee101c8d8b500cd5e",
+      "_promoted_from": "data/intake/pgn/canboat-pgn-64776-engineoilmessage.json"
+    },
+    "64777": {
+      "pgn": 64777,
+      "id": "fuelConsumption",
+      "description": "Fuel Consumption (Liquid)",
+      "type": "Single",
+      "priority": 6,
+      "interval_ms": 100,
+      "fields": [
+        {
+          "id": "engineTripFuel",
+          "name": "Engine Trip Fuel",
+          "spn": 182,
+          "description": "SPN 182, 0.5 litre per bit"
+        },
+        {
+          "id": "engineTotalFuelUsed",
+          "name": "Engine Total Fuel Used",
+          "spn": 250,
+          "description": "SPN 250, 0.5 litre per bit"
+        }
+      ],
+      "_source_license": "Apache-2.0",
+      "_source_ref": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/064777-fuelConsumption.yaml",
+      "_source_sha256": "c06f4cfee40e62482eca8bef2b79a5e3530cf0f99c33f926d1c9bbfd6c4f9de1",
+      "_promoted_from": "data/intake/pgn/canboat-pgn-64777-fuelconsumption.json"
+    },
+    "64800": {
+      "pgn": 64800,
+      "id": "aftertreatment1DieselOxidationCatalyst",
+      "description": "Aftertreatment 1 Diesel Oxidation Catalyst",
+      "type": "Single",
+      "priority": 6,
+      "interval_ms": 500,
+      "fields": [
+        {
+          "id": "aftertreatment1DieselOxidationCatalystIntakeGasTemperature",
+          "name": "Aftertreatment 1 Diesel Oxidation Catalyst Intake Gas Temperature",
+          "spn": 4765,
+          "description": "SPN 4765"
+        },
+        {
+          "id": "aftertreatment1DieselOxidationCatalystOutletGasTemperature",
+          "name": "Aftertreatment 1 Diesel Oxidation Catalyst Outlet Gas Temperature",
+          "spn": 4766,
+          "description": "SPN 4766"
+        },
+        {
+          "id": "aftertreatment1DieselOxidationCatalystDifferentialPressure",
+          "name": "Aftertreatment 1 Diesel Oxidation Catalyst Differential Pressure",
+          "spn": 4767,
+          "description": "SPN 4767, 0.1 kPa per bit"
+        },
+        {
+          "id": "aftertreatment1DieselOxidationCatalystIntakeGasTemperaturePreliminaryFmi",
+          "name": "Aftertreatment 1 Diesel Oxidation Catalyst Intake Gas Temperature Preliminary FMI",
+          "spn": 4768,
+          "bits": 5,
+          "description": "SPN 4768"
+        },
+        {
+          "id": "aftertreatment1DieselOxidationCatalystOutletGasTemperaturePreliminaryFmi",
+          "name": "Aftertreatment 1 Diesel Oxidation Catalyst Outlet Gas Temperature Preliminary FMI",
+          "spn": 4769,
+          "bits": 5,
+          "description": "SPN 4769"
+        },
+        {
+          "id": "aftertreatment1DieselOxidationCatalystDifferentialPressurePreliminaryFmi",
+          "name": "Aftertreatment 1 Diesel Oxidation Catalyst Differential Pressure Preliminary FMI",
+          "spn": 4770,
+          "bits": 5,
+          "description": "SPN 4770"
+        },
+        {
+          "id": "reserved",
+          "name": "Reserved",
+          "bits": 1
+        }
+      ],
+      "_source_license": "Apache-2.0",
+      "_source_ref": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/064800-aftertreatment1DieselOxidationCatalyst.yaml",
+      "_source_sha256": "b3678cba88062be70c0fccd83b12db3e8b4244b40b5d334e579bf750f211caf5",
+      "_promoted_from": "data/intake/pgn/canboat-pgn-64800-aftertreatment1dieseloxidationcatalyst.json"
+    },
+    "64908": {
+      "pgn": 64908,
+      "id": "aftertreatment1GasParameters",
+      "description": "Aftertreatment 1 Gas Parameters",
+      "type": "Single",
+      "priority": 6,
+      "interval_ms": 500,
+      "fields": [
+        {
+          "id": "aftertreatment1DieselParticulateFilterIntakePressure",
+          "name": "Aftertreatment 1 Diesel Particulate Filter Intake Pressure",
+          "spn": 3609,
+          "description": "SPN 3609, 0.1 kPa per bit"
+        },
+        {
+          "id": "aftertreatment1DieselParticulateFilterOutletPressure",
+          "name": "Aftertreatment 1 Diesel Particulate Filter Outlet Pressure",
+          "spn": 3610,
+          "description": "SPN 3610, 0.1 kPa per bit"
+        },
+        {
+          "id": "reserved",
+          "name": "Reserved",
+          "bits": 32
+        }
+      ],
+      "_source_license": "Apache-2.0",
+      "_source_ref": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/064908-aftertreatment1GasParameters.yaml",
+      "_source_sha256": "7bd03e4410dc2649bc6c90e5c822a8dff1b255b51175ed3f4c0e9b91ecb50bcd",
+      "_promoted_from": "data/intake/pgn/canboat-pgn-64908-aftertreatment1gasparameters.json"
+    },
+    "64914": {
+      "pgn": 64914,
+      "id": "engineOperatingInformation",
+      "description": "Engine Operating Information",
+      "type": "Single",
+      "priority": 6,
+      "interval_ms": 1000,
+      "fields": [
+        {
+          "id": "engineOperatingState",
+          "name": "Engine Operating State",
+          "spn": 3543,
+          "bits": 4,
+          "description": "SPN 3543"
+        },
+        {
+          "id": "fuelPumpPrimerControl",
+          "name": "Fuel Pump Primer Control",
+          "spn": 4082,
+          "bits": 2,
+          "description": "SPN 4082"
+        },
+        {
+          "id": "engineAutomaticStartEnableStatus",
+          "name": "Engine Automatic Start Enable Status",
+          "spn": 6385,
+          "bits": 2,
+          "description": "SPN 6385"
+        },
+        {
+          "id": "timeRemainingInEngineOperatingState",
+          "name": "Time Remaining in Engine Operating State",
+          "spn": 3544,
+          "description": "SPN 3544"
+        },
+        {
+          "id": "engineFuelShutoffVentControl",
+          "name": "Engine Fuel Shutoff Vent Control",
+          "spn": 3608,
+          "bits": 2,
+          "description": "SPN 3608"
+        },
+        {
+          "id": "engineFuelShutoff1Control",
+          "name": "Engine Fuel Shutoff 1 Control",
+          "spn": 632,
+          "bits": 2,
+          "description": "SPN 632"
+        },
+        {
+          "id": "engineFuelShutoff2Control",
+          "name": "Engine Fuel Shutoff 2 Control",
+          "spn": 2807,
+          "bits": 2,
+          "description": "SPN 2807"
+        },
+        {
+          "id": "engineFuelShutoffValveLeakTestControl",
+          "name": "Engine Fuel Shutoff Valve Leak Test Control",
+          "spn": 3601,
+          "bits": 2,
+          "description": "SPN 3601"
+        },
+        {
+          "id": "engineOilPrimingPumpControl",
+          "name": "Engine Oil Priming Pump Control",
+          "spn": 3589,
+          "bits": 2,
+          "description": "SPN 3589"
+        },
+        {
+          "id": "engineOilPreheaterControl",
+          "name": "Engine Oil Preheater Control",
+          "spn": 3602,
+          "bits": 2,
+          "description": "SPN 3602"
+        },
+        {
+          "id": "engineElectricalSystemPowerConservationControl",
+          "name": "Engine Electrical System Power Conservation Control",
+          "spn": 3603,
+          "bits": 2,
+          "description": "SPN 3603"
+        },
+        {
+          "id": "engineBlockCoolantPreheaterControl",
+          "name": "Engine Block/Coolant Preheater Control",
+          "spn": 3604,
+          "bits": 2,
+          "description": "SPN 3604"
+        },
+        {
+          "id": "engineCoolantCirculatingPumpControl",
+          "name": "Engine Coolant Circulating Pump Control",
+          "spn": 3605,
+          "bits": 2,
+          "description": "SPN 3605"
+        },
+        {
+          "id": "engineControlledShutdownRequest",
+          "name": "Engine Controlled Shutdown Request",
+          "spn": 3606,
+          "bits": 2,
+          "description": "SPN 3606"
+        },
+        {
+          "id": "engineEmergencyImmediateShutdownIndication",
+          "name": "Engine Emergency (Immediate) Shutdown Indication",
+          "spn": 3607,
+          "bits": 2,
+          "description": "SPN 3607"
+        },
+        {
+          "id": "engineAutomaticStartSafetyInterlockStatus",
+          "name": "Engine Automatic Start Safety Interlock Status",
+          "spn": 6884,
+          "bits": 2,
+          "description": "SPN 6884"
+        },
+        {
+          "id": "engineAutomaticStartEnableTimeRemaining",
+          "name": "Engine Automatic Start Enable Time Remaining",
+          "spn": 6807,
+          "bits": 8,
+          "description": "SPN 6807"
+        },
+        {
+          "id": "engineDerateRequest",
+          "name": "Engine Derate Request",
+          "spn": 3644,
+          "resolution": 0.4,
+          "description": "SPN 3644"
+        }
+      ],
+      "_source_license": "Apache-2.0",
+      "_source_ref": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/064914-engineOperatingInformation.yaml",
+      "_source_sha256": "290a766e5734240fa37c11f052277bdbb077c64b1de871e61616db3179bb775f",
+      "_promoted_from": "data/intake/pgn/canboat-pgn-64914-engineoperatinginformation.json"
+    },
+    "64946": {
+      "pgn": 64946,
+      "id": "aftertreatment1IntermediateGas",
+      "description": "Aftertreatment 1 Intermediate Gas",
+      "type": "Single",
+      "priority": 6,
+      "interval_ms": 500,
+      "fields": [
+        {
+          "id": "aftertreatment1ExhaustGasTemperature2",
+          "name": "Aftertreatment 1 Exhaust Gas Temperature 2",
+          "spn": 3249,
+          "description": "SPN 3249"
+        },
+        {
+          "id": "aftertreatment1DieselParticulateFilterIntermediateTemperature",
+          "name": "Aftertreatment 1 Diesel Particulate Filter Intermediate Temperature",
+          "spn": 3250,
+          "description": "SPN 3250"
+        },
+        {
+          "id": "aftertreatment1DieselParticulateFilterDifferentialPressure",
+          "name": "Aftertreatment 1 Diesel Particulate Filter Differential Pressure",
+          "spn": 3251,
+          "description": "SPN 3251, 0.1 kPa per bit"
+        },
+        {
+          "id": "aftertreatment1ExhaustGasTemperature2PreliminaryFmi",
+          "name": "Aftertreatment 1 Exhaust Gas Temperature 2 Preliminary FMI",
+          "spn": 3252,
+          "bits": 5,
+          "description": "SPN 3252"
+        },
+        {
+          "id": "aftertreatment1DieselParticulateFilterIntermediateTemperaturePreliminaryFmi",
+          "name": "Aftertreatment 1 Diesel Particulate Filter Intermediate Temperature Preliminary FMI",
+          "spn": 3253,
+          "bits": 5,
+          "description": "SPN 3253"
+        },
+        {
+          "id": "aftertreatment1DieselParticulateFilterDifferentialPressurePreliminaryFmi",
+          "name": "Aftertreatment 1 Diesel Particulate Filter Differential Pressure Preliminary FMI",
+          "spn": 3254,
+          "bits": 5,
+          "description": "SPN 3254"
+        },
+        {
+          "id": "reserved",
+          "name": "Reserved",
+          "bits": 1
+        }
+      ],
+      "_source_license": "Apache-2.0",
+      "_source_ref": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/064946-aftertreatment1IntermediateGas.yaml",
+      "_source_sha256": "870f911aad1816a02203ae84df1d19cd791732bc7fc24d552500d5d23bf93bfb",
+      "_promoted_from": "data/intake/pgn/canboat-pgn-64946-aftertreatment1intermediategas.json"
+    },
+    "64947": {
+      "pgn": 64947,
+      "id": "aftertreatment1OutletGas2",
+      "description": "Aftertreatment 1 Outlet Gas 2",
+      "type": "Single",
+      "priority": 6,
+      "interval_ms": 500,
+      "fields": [
+        {
+          "id": "aftertreatment1OutletGasTemperature2",
+          "name": "Aftertreatment 1 Outlet Gas Temperature 2",
+          "spn": 3245,
+          "description": "SPN 3245"
+        },
+        {
+          "id": "aftertreatment1OutletGasPressure2",
+          "name": "Aftertreatment 1 Outlet Gas Pressure 2",
+          "spn": 3246,
+          "description": "SPN 3246, 0.1 kPa per bit"
+        },
+        {
+          "id": "aftertreatment1OutletGasTemperature2PreliminaryFMI",
+          "name": "Aftertreatment 1 Outlet Gas Temperature 2 Preliminary FMI",
+          "spn": 3247,
+          "bits": 5,
+          "description": "SPN 3247"
+        },
+        {
+          "id": "reserved",
+          "name": "Reserved",
+          "bits": 3
+        },
+        {
+          "id": "aftertreatment1OutletGasPressure2PreliminaryFMI",
+          "name": "Aftertreatment 1 Outlet Gas Pressure 2 Preliminary FMI",
+          "spn": 3248,
+          "bits": 5,
+          "description": "SPN 3248"
+        },
+        {
+          "id": "reserved2",
+          "name": "Reserved",
+          "bits": 19
+        }
+      ],
+      "_source_license": "Apache-2.0",
+      "_source_ref": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/064947-aftertreatment1OutletGas2.yaml",
+      "_source_sha256": "7ab0469c6bac03f80a744f6a0b599f7415f27b52220988019f5a71ef564cf3b8",
+      "_promoted_from": "data/intake/pgn/canboat-pgn-64947-aftertreatment1outletgas2.json"
+    },
+    "64948": {
+      "pgn": 64948,
+      "id": "aftertreatment1IntakeGas2",
+      "description": "Aftertreatment 1 Intake Gas 2",
+      "type": "Single",
+      "priority": 6,
+      "interval_ms": 500,
+      "fields": [
+        {
+          "id": "aftertreatment1IntakeGasTemperature2",
+          "name": "Aftertreatment 1 Intake Gas Temperature 2",
+          "spn": 3241,
+          "description": "SPN 3241"
+        },
+        {
+          "id": "aftertreatment1IntakeGasPressure2",
+          "name": "Aftertreatment 1 Intake Gas Pressure 2",
+          "spn": 3242,
+          "description": "SPN 3242, 0.1 kPa per bit"
+        },
+        {
+          "id": "aftertreatment1IntakeGasTemperature2PreliminaryFMI",
+          "name": "Aftertreatment 1 Intake Gas Temperature 2 Preliminary FMI",
+          "spn": 3243,
+          "bits": 5,
+          "description": "SPN 3243"
+        },
+        {
+          "id": "reserved",
+          "name": "Reserved",
+          "bits": 3
+        },
+        {
+          "id": "aftertreatment1IntakeGasPressure2PreliminaryFMI",
+          "name": "Aftertreatment 1 Intake Gas Pressure 2 Preliminary FMI",
+          "spn": 3244,
+          "bits": 5,
+          "description": "SPN 3244"
+        },
+        {
+          "id": "reserved2",
+          "name": "Reserved",
+          "bits": 19
+        }
+      ],
+      "_source_license": "Apache-2.0",
+      "_source_ref": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/064948-aftertreatment1IntakeGas2.yaml",
+      "_source_sha256": "c4ebfe54c60a4e9aab0a37330f29caf4a93f8bcacb21b4b9e5b79c6897402606",
+      "_promoted_from": "data/intake/pgn/canboat-pgn-64948-aftertreatment1intakegas2.json"
+    },
+    "64976": {
+      "pgn": 64976,
+      "id": "intakeExhaustConditions2",
+      "description": "Intake/Exhaust Conditions 2",
+      "type": "Single",
+      "priority": 6,
+      "interval_ms": 500,
+      "fields": [
+        {
+          "id": "engineAirFilter2DifferentialPressure",
+          "name": "Engine Air Filter 2 Differential Pressure",
+          "spn": 2809,
+          "description": "SPN 2809, 0.05 kPa per bit"
+        },
+        {
+          "id": "engineAirFilter3DifferentialPressure",
+          "name": "Engine Air Filter 3 Differential Pressure",
+          "spn": 2810,
+          "description": "SPN 2810, 0.05 kPa per bit"
+        },
+        {
+          "id": "engineAirFilter4DifferentialPressure",
+          "name": "Engine Air Filter 4 Differential Pressure",
+          "spn": 2811,
+          "description": "SPN 2811, 0.05 kPa per bit"
+        },
+        {
+          "id": "engineIntakeManifold2Pressure",
+          "name": "Engine Intake Manifold #2 Pressure",
+          "spn": 3562,
+          "description": "SPN 3562"
+        },
+        {
+          "id": "engineIntakeManifold1AbsolutePressure",
+          "name": "Engine Intake Manifold #1 Absolute Pressure",
+          "spn": 3563,
+          "bits": 8,
+          "unit": "kPa",
+          "resolution": 0.1,
+          "description": "SPN 3563, 0.1 kPa per bit"
+        },
+        {
+          "id": "engineIntakeManifold1AbsolutePressureHighResolution",
+          "name": "Engine Intake Manifold 1 Absolute Pressure (High Resolution)",
+          "spn": 4817,
+          "description": "SPN 4817, 0.1 kPa per bit"
+        },
+        {
+          "id": "engineIntakeManifold2AbsolutePressure",
+          "name": "Engine Intake Manifold 2 Absolute Pressure",
+          "spn": 5422,
+          "description": "SPN 5422"
+        }
+      ],
+      "_source_license": "Apache-2.0",
+      "_source_ref": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/064976-intakeExhaustConditions2.yaml",
+      "_source_sha256": "06105819d289960b7f14aa090f03be09d1daa2866ba39be2ebe3097f388ec5b6",
+      "_promoted_from": "data/intake/pgn/canboat-pgn-64976-intakeexhaustconditions2.json"
+    },
+    "65031": {
+      "pgn": 65031,
+      "id": "exhaustTemperature",
+      "description": "Exhaust Temperature",
+      "type": "Single",
+      "priority": 6,
+      "interval_ms": 1000,
+      "fields": [
+        {
+          "id": "engineExhaustManifoldBank2Temperature1",
+          "name": "Engine Exhaust Manifold Bank 2 Temperature 1",
+          "spn": 2433,
+          "description": "SPN 2433"
+        },
+        {
+          "id": "engineExhaustManifoldBank1Temperature1",
+          "name": "Engine Exhaust Manifold Bank 1 Temperature 1",
+          "spn": 2434,
+          "description": "SPN 2434"
+        },
+        {
+          "id": "engineExhaustManifoldBank2Temperature2",
+          "name": "Engine Exhaust Manifold Bank 2 Temperature 2",
+          "spn": 5969,
+          "description": "SPN 5969"
+        },
+        {
+          "id": "engineExhaustManifoldBank1Temperature2",
+          "name": "Engine Exhaust Manifold Bank 1 Temperature 2",
+          "spn": 5970,
+          "description": "SPN 5970"
+        }
+      ],
+      "_source_license": "Apache-2.0",
+      "_source_ref": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/065031-exhaustTemperature.yaml",
+      "_source_sha256": "a51d045b622f81d00bcd045a10b85465315ff2708132f902794afdbf10f55ad9",
+      "_promoted_from": "data/intake/pgn/canboat-pgn-65031-exhausttemperature.json"
+    },
+    "65130": {
+      "pgn": 65130,
+      "id": "engineFuelLubeSystems",
+      "description": "Engine Fuel/Lube Systems",
+      "type": "Single",
+      "priority": 6,
+      "interval_ms": 500,
+      "fields": [
+        {
+          "id": "engineOilLevelRemoteReservoir",
+          "name": "Engine Oil Level Remote Reservoir",
+          "spn": 1380,
+          "resolution": 0.4,
+          "description": "SPN 1380"
+        },
+        {
+          "id": "engineFuelSupplyPumpIntakeAbsolutePressure",
+          "name": "Engine Fuel Supply Pump Intake Absolute Pressure",
+          "spn": 1381,
+          "description": "SPN 1381"
+        },
+        {
+          "id": "engineFuelFilterSuctionSideDifferentialPressure",
+          "name": "Engine Fuel Filter (suction side) Differential Pressure",
+          "spn": 1382,
+          "description": "SPN 1382"
+        },
+        {
+          "id": "engineWasteOilReservoirLevel",
+          "name": "Engine Waste Oil Reservoir Level",
+          "spn": 3548,
+          "resolution": 0.4,
+          "description": "SPN 3548"
+        },
+        {
+          "id": "engineOilFilterOutletPressure",
+          "name": "Engine Oil Filter Outlet Pressure",
+          "spn": 3549,
+          "bits": 8,
+          "unit": "kPa",
+          "resolution": 4,
+          "description": "SPN 3549, 4 kPa per bit"
+        },
+        {
+          "id": "engineOilPrimingPumpSwitch",
+          "name": "Engine Oil Priming Pump Switch",
+          "spn": 3550,
+          "bits": 2,
+          "description": "SPN 3550"
+        },
+        {
+          "id": "engineOilPrimingState",
+          "name": "Engine Oil Priming State",
+          "spn": 3551,
+          "bits": 2,
+          "description": "SPN 3551"
+        },
+        {
+          "id": "engineOilPreHeatedState",
+          "name": "Engine Oil Pre-Heated State",
+          "spn": 3552,
+          "bits": 2,
+          "description": "SPN 3552"
+        },
+        {
+          "id": "engineCoolantPreHeatedState",
+          "name": "Engine Coolant Pre-heated State",
+          "spn": 3553,
+          "bits": 2,
+          "description": "SPN 3553"
+        },
+        {
+          "id": "engineVentilationStatus",
+          "name": "Engine Ventilation Status",
+          "spn": 3554,
+          "bits": 3,
+          "description": "SPN 3554"
+        },
+        {
+          "id": "fuelPumpPrimerStatus",
+          "name": "Fuel Pump Primer Status",
+          "spn": 4083,
+          "bits": 2,
+          "description": "SPN 4083"
+        },
+        {
+          "id": "reserved",
+          "name": "Reserved",
+          "bits": 3
+        },
+        {
+          "id": "engineFuelSupplyPumpIntakePressure",
+          "name": "Engine Fuel Supply Pump Intake Pressure",
+          "spn": 7104,
+          "description": "SPN 7104"
+        }
+      ],
+      "_source_license": "Apache-2.0",
+      "_source_ref": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/065130-engineFuelLubeSystems.yaml",
+      "_source_sha256": "c9ccfe4fbbabff5a8e2721670f3cb5f92f377d7826cd777e51f3134a96a94774",
+      "_promoted_from": "data/intake/pgn/canboat-pgn-65130-enginefuellubesystems.json"
+    },
+    "65188": {
+      "pgn": 65188,
+      "id": "engineTemperature2",
+      "description": "Engine Temperature 2",
+      "type": "Single",
+      "priority": 6,
+      "interval_ms": 500,
+      "fields": [
+        {
+          "id": "engineOilTemperature2",
+          "name": "Engine Oil Temperature 2",
+          "spn": 1135,
+          "description": "SPN 1135"
+        },
+        {
+          "id": "engineEcuTemperature",
+          "name": "Engine ECU Temperature",
+          "spn": 1136,
+          "description": "SPN 1136"
+        },
+        {
+          "id": "engineExhaustGasRecirculation1DifferentialPressure",
+          "name": "Engine Exhaust Gas Recirculation 1 Differential Pressure",
+          "spn": 411,
+          "bits": 16,
+          "unit": "kPa",
+          "resolution": 0.0078125,
+          "description": "SPN 411, 1/128 kPa per bit with a -250 kPa offset"
+        },
+        {
+          "id": "engineExhaustGasRecirculation1Temperature",
+          "name": "Engine Exhaust Gas Recirculation 1 Temperature",
+          "spn": 412,
+          "description": "SPN 412"
+        }
+      ],
+      "_source_license": "Apache-2.0",
+      "_source_ref": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/065188-engineTemperature2.yaml",
+      "_source_sha256": "cb0637b764d676a29be80b4dade8fa885a37ae5117cfa3c89d8b05c31444d8af",
+      "_promoted_from": "data/intake/pgn/canboat-pgn-65188-enginetemperature2.json"
+    },
+    "65189": {
+      "pgn": 65189,
+      "id": "intakeManifoldInformation2",
+      "description": "Intake Manifold Information 2",
+      "type": "Single",
+      "priority": 6,
+      "interval_ms": 500,
+      "fields": [
+        {
+          "id": "engineIntakeManifold2Temperature",
+          "name": "Engine Intake Manifold 2 Temperature",
+          "spn": 1131,
+          "description": "SPN 1131"
+        },
+        {
+          "id": "engineIntakeManifold3Temperature",
+          "name": "Engine Intake Manifold 3 Temperature",
+          "spn": 1132,
+          "description": "SPN 1132"
+        },
+        {
+          "id": "engineIntakeManifold4Temperature",
+          "name": "Engine Intake Manifold 4 Temperature",
+          "spn": 1133,
+          "description": "SPN 1133"
+        },
+        {
+          "id": "engineIntakeManifold5Temperature",
+          "name": "Engine Intake Manifold 5 Temperature",
+          "spn": 1802,
+          "description": "SPN 1802"
+        },
+        {
+          "id": "engineIntakeManifold6Temperature",
+          "name": "Engine Intake Manifold 6 Temperature",
+          "spn": 1803,
+          "description": "SPN 1803"
+        },
+        {
+          "id": "reserved",
+          "name": "Reserved",
+          "bits": 24
+        }
+      ],
+      "_source_license": "Apache-2.0",
+      "_source_ref": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/065189-intakeManifoldInformation2.yaml",
+      "_source_sha256": "7ec7567462ae734934373444c642f6f711f19bd8230b1314f3281b89b4ad709d",
+      "_promoted_from": "data/intake/pgn/canboat-pgn-65189-intakemanifoldinformation2.json"
+    },
+    "65190": {
+      "pgn": 65190,
+      "id": "intakeManifoldInformation1",
+      "description": "Intake Manifold Information 1",
+      "type": "Single",
+      "priority": 6,
+      "interval_ms": 500,
+      "fields": [
+        {
+          "id": "engineTurbocharger1BoostPressure",
+          "name": "Engine Turbocharger 1 Boost Pressure",
+          "spn": 1127,
+          "bits": 16,
+          "unit": "kPa",
+          "resolution": 0.125,
+          "description": "SPN 1127, 0.125 kPa per bit"
+        },
+        {
+          "id": "engineTurbocharger2BoostPressure",
+          "name": "Engine Turbocharger 2 Boost Pressure",
+          "spn": 1128,
+          "bits": 16,
+          "unit": "kPa",
+          "resolution": 0.125,
+          "description": "SPN 1128, 0.125 kPa per bit"
+        },
+        {
+          "id": "engineTurbocharger3BoostPressure",
+          "name": "Engine Turbocharger 3 Boost Pressure",
+          "spn": 1129,
+          "bits": 16,
+          "unit": "kPa",
+          "resolution": 0.125,
+          "description": "SPN 1129, 0.125 kPa per bit"
+        },
+        {
+          "id": "engineTurbocharger4BoostPressure",
+          "name": "Engine Turbocharger 4 Boost Pressure",
+          "spn": 1130,
+          "bits": 16,
+          "unit": "kPa",
+          "resolution": 0.125,
+          "description": "SPN 1130, 0.125 kPa per bit"
+        }
+      ],
+      "_source_license": "Apache-2.0",
+      "_source_ref": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/065190-intakeManifoldInformation1.yaml",
+      "_source_sha256": "97ab786e3458a6e3b991516ddf883bf780da7a686ca944368ac42fc957346aa8",
+      "_promoted_from": "data/intake/pgn/canboat-pgn-65190-intakemanifoldinformation1.json"
+    },
+    "65201": {
+      "pgn": 65201,
+      "id": "ecuHistory",
+      "description": "ECU History",
+      "type": "Single",
+      "priority": 6,
+      "interval_ms": 1000,
+      "fields": [
+        {
+          "id": "totalEcuDistance",
+          "name": "Total ECU Distance",
+          "spn": 1032,
+          "bits": 32,
+          "unit": "km",
+          "resolution": 0.125,
+          "description": "SPN 1032, 0.125 kilometre per bit"
+        },
+        {
+          "id": "totalEcuRunTime",
+          "name": "Total ECU Run Time",
+          "spn": 1033,
+          "bits": 32,
+          "unit": "h",
+          "resolution": 0.05,
+          "description": "SPN 1033, 0.05 hour per bit"
+        }
+      ],
+      "_source_license": "Apache-2.0",
+      "_source_ref": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/065201-ecuHistory.yaml",
+      "_source_sha256": "eb406e8d0f85841537d152c1d214c11232e34abe0cbdd2f9ce6e0d8b2c015a1a",
+      "_promoted_from": "data/intake/pgn/canboat-pgn-65201-ecuhistory.json"
+    },
+    "65213": {
+      "pgn": 65213,
+      "id": "fanDrive",
+      "description": "Fan Drive",
+      "type": "Single",
+      "priority": 6,
+      "interval_ms": 1000,
+      "fields": [
+        {
+          "id": "estimatedPercentFanSpeed",
+          "name": "Estimated Percent Fan Speed",
+          "spn": 975,
+          "resolution": 0.4,
+          "description": "SPN 975"
+        },
+        {
+          "id": "fanDriveState",
+          "name": "Fan Drive State",
+          "spn": 977,
+          "bits": 4,
+          "description": "SPN 977"
+        },
+        {
+          "id": "reserved",
+          "name": "Reserved",
+          "bits": 4
+        },
+        {
+          "id": "fanSpeed",
+          "name": "Fan Speed",
+          "spn": 1639,
+          "description": "SPN 1639"
+        },
+        {
+          "id": "hydraulicFanMotorPressure",
+          "name": "Hydraulic Fan Motor Pressure",
+          "spn": 4211,
+          "description": "SPN 4211"
+        },
+        {
+          "id": "hydraulicFanMotorPressure2",
+          "name": "Hydraulic Fan Motor Pressure 2",
+          "spn": 4212,
+          "description": "SPN 4212"
+        },
+        {
+          "id": "reserved2",
+          "name": "Reserved",
+          "bits": 8
+        }
+      ],
+      "_source_license": "Apache-2.0",
+      "_source_ref": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/065213-fanDrive.yaml",
+      "_source_sha256": "3fb425a3b60103771eae85907edb0c283c9e5550e23b1afa7a752e2732e240be",
+      "_promoted_from": "data/intake/pgn/canboat-pgn-65213-fandrive.json"
+    },
+    "65214": {
+      "pgn": 65214,
+      "id": "electronicEngineController4",
+      "description": "Electronic Engine Controller 4",
+      "type": "Single",
+      "priority": 6,
+      "fields": [
+        {
+          "id": "engineRatedPower",
+          "name": "Engine Rated Power",
+          "spn": 166,
+          "bits": 16,
+          "unit": "kW",
+          "resolution": 0.5,
+          "description": "SPN 166, 0.5 kW per bit"
+        },
+        {
+          "id": "engineRatedSpeed",
+          "name": "Engine Rated Speed",
+          "spn": 189,
+          "description": "SPN 189"
+        },
+        {
+          "id": "engineRotationDirection",
+          "name": "Engine Rotation Direction",
+          "spn": 3669,
+          "bits": 2,
+          "description": "SPN 3669"
+        },
+        {
+          "id": "engineIntakeManifoldPressureControlMode",
+          "name": "Engine Intake Manifold Pressure Control Mode",
+          "spn": 5465,
+          "bits": 2,
+          "description": "SPN 5465"
+        },
+        {
+          "id": "reserved",
+          "name": "Reserved",
+          "bits": 4
+        },
+        {
+          "id": "crankAttemptCountOnPresentStartAttempt",
+          "name": "Crank Attempt Count on Present Start Attempt",
+          "spn": 3671,
+          "bits": 8,
+          "description": "SPN 3671"
+        },
+        {
+          "id": "reserved8",
+          "name": "Reserved",
+          "bits": 16
+        }
+      ],
+      "_source_license": "Apache-2.0",
+      "_source_ref": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/065214-electronicEngineController4.yaml",
+      "_source_sha256": "d80046a440248ed10d61d2f611539d7c9126a01e6c8cca6e5ac8a044b1c6da10",
+      "_promoted_from": "data/intake/pgn/canboat-pgn-65214-electronicenginecontroller4.json"
+    },
+    "65243": {
+      "pgn": 65243,
+      "id": "engineFluidLevelPressure2",
+      "description": "Engine Fluid Level/Pressure 2",
+      "type": "Single",
+      "priority": 6,
+      "interval_ms": 500,
+      "fields": [
+        {
+          "id": "engineFuelInjectionControlPressure",
+          "name": "Engine Fuel Injection Control Pressure",
+          "spn": 164,
+          "bits": 16,
+          "unit": "MPa",
+          "resolution": 0.00390625,
+          "description": "SPN 164, 1/256 MPa per bit"
+        },
+        {
+          "id": "engineFuel1InjectorMeteringRail1Pressure",
+          "name": "Engine Fuel 1 Injector Metering Rail 1 Pressure",
+          "spn": 157,
+          "bits": 16,
+          "unit": "MPa",
+          "resolution": 0.00390625,
+          "description": "SPN 157, 1/256 MPa per bit"
+        },
+        {
+          "id": "engineFuel1InjectorTimingRail1Pressure",
+          "name": "Engine Fuel 1 Injector Timing Rail 1 Pressure",
+          "spn": 156,
+          "bits": 16,
+          "unit": "MPa",
+          "resolution": 0.00390625,
+          "description": "SPN 156, 1/256 MPa per bit"
+        },
+        {
+          "id": "engineFuel1InjectorMeteringRail2Pressure",
+          "name": "Engine Fuel 1 Injector Metering Rail 2 Pressure",
+          "spn": 1349,
+          "bits": 16,
+          "unit": "MPa",
+          "resolution": 0.00390625,
+          "description": "SPN 1349, 1/256 MPa per bit"
+        }
+      ],
+      "_source_license": "Apache-2.0",
+      "_source_ref": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/065243-engineFluidLevelPressure2.yaml",
+      "_source_sha256": "27adcd1f543986306ea01406be545f12c9e0611f5a05f5476a9bda4a184d7d6e",
+      "_promoted_from": "data/intake/pgn/canboat-pgn-65243-enginefluidlevelpressure2.json"
+    },
+    "65244": {
+      "pgn": 65244,
+      "id": "idleOperation",
+      "description": "Idle Operation",
+      "type": "Single",
+      "priority": 6,
+      "interval_ms": 1000,
+      "fields": [
+        {
+          "id": "engineTotalIdleFuelUsed",
+          "name": "Engine Total Idle Fuel Used",
+          "spn": 236,
+          "description": "SPN 236, 0.5 litre per bit"
+        },
+        {
+          "id": "engineTotalIdleHours",
+          "name": "Engine Total Idle Hours",
+          "spn": 235,
+          "description": "SPN 235, 0.05 hour per bit"
+        }
+      ],
+      "_source_license": "Apache-2.0",
+      "_source_ref": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/065244-idleOperation.yaml",
+      "_source_sha256": "33aad7cb9652b0a298df19680dfb281d10d6ae8258f480e447ffb662e2ea87ef",
+      "_promoted_from": "data/intake/pgn/canboat-pgn-65244-idleoperation.json"
+    },
+    "65247": {
+      "pgn": 65247,
+      "id": "ecu3",
+      "description": "ECU #3",
+      "type": "Single",
+      "priority": 6,
+      "interval_ms": 250,
+      "fields": [
+        {
+          "id": "nominalFrictionPercentTorque",
+          "name": "Nominal Friction - Percent Torque",
+          "spn": 514,
+          "description": "SPN 514"
+        },
+        {
+          "id": "engineDesiredOperatingSpeed",
+          "name": "Engine's Desired Operating Speed",
+          "spn": 515,
+          "description": "SPN 515"
+        },
+        {
+          "id": "engineDesiredOperatingSpeedAsymmetryAdjustment",
+          "name": "Engine's Desired Operating Speed Asymmetry Adjustment",
+          "spn": 519,
+          "bits": 8,
+          "description": "SPN 519"
+        },
+        {
+          "id": "estimatedEnginePowerLossAccessories",
+          "name": "Estimated Engine Power Loss - Accessories",
+          "spn": 2978,
+          "description": "SPN 2978"
+        },
+        {
+          "id": "reserved",
+          "name": "Reserved",
+          "bits": 24
+        }
+      ],
+      "_source_license": "Apache-2.0",
+      "_source_ref": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/065247-ecu3.yaml",
+      "_source_sha256": "780c2d5e3898d9b112be859668b200780bc85db6b0cf3869317cd34c91de6525",
+      "_promoted_from": "data/intake/pgn/canboat-pgn-65247-ecu3.json"
+    },
+    "65253": {
+      "pgn": 65253,
+      "id": "engineHours",
+      "description": "Engine Hours, Revolutions",
+      "type": "Single",
+      "priority": 6,
+      "interval_ms": 10000,
+      "fields": [
+        {
+          "id": "engineTotalHoursOfOperation",
+          "name": "Engine Total Hours of Operation",
+          "spn": 247,
+          "description": "SPN 247, 0.05 hours per bit"
+        },
+        {
+          "id": "engineTotalRevolutions",
+          "name": "Engine Total Revolutions",
+          "spn": 249,
+          "bits": 32,
+          "unit": "r",
+          "resolution": 1000,
+          "description": "SPN 249, 1000 revolutions per bit"
+        }
+      ],
+      "_source_license": "Apache-2.0",
+      "_source_ref": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/065253-engineHours.yaml",
+      "_source_sha256": "e67465443661c6a64b27ffa3e9cfc8290dc52c3d5faf5a03cabca89984704b10",
+      "_promoted_from": "data/intake/pgn/canboat-pgn-65253-enginehours.json"
+    },
+    "65257": {
+      "pgn": 65257,
+      "id": "fuelConsumptionLiquid1",
+      "description": "Fuel Consumption (Liquid) 1",
+      "type": "Single",
+      "priority": 6,
+      "interval_ms": 1000,
+      "fields": [
+        {
+          "id": "engineTripFuel",
+          "name": "Engine Trip Fuel",
+          "spn": 182,
+          "description": "SPN 182, 0.5 litre per bit"
+        },
+        {
+          "id": "engineTotalFuelUsed",
+          "name": "Engine Total Fuel Used",
+          "spn": 250,
+          "description": "SPN 250, 0.5 litre per bit"
+        }
+      ],
+      "_source_license": "Apache-2.0",
+      "_source_ref": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/065257-fuelConsumptionLiquid1.yaml",
+      "_source_sha256": "7b58bc168b4fc4d9587703c8777f3527f294723695aa4a0ce07486dab8205d85",
+      "_promoted_from": "data/intake/pgn/canboat-pgn-65257-fuelconsumptionliquid1.json"
+    },
+    "65262": {
+      "pgn": 65262,
+      "id": "engineTemp1",
+      "description": "Engine Temp #1",
+      "type": "Single",
+      "priority": 6,
+      "interval_ms": 1000,
+      "fields": [
+        {
+          "id": "engineCoolantTemp",
+          "name": "Engine Coolant Temp",
+          "spn": 110,
+          "description": "SPN 110"
+        },
+        {
+          "id": "engineFuelTemp",
+          "name": "Engine Fuel Temp 1",
+          "spn": 174,
+          "description": "SPN 174"
+        },
+        {
+          "id": "engineOilTemp",
+          "name": "Engine Oil Temp 1",
+          "spn": 175,
+          "description": "SPN 175, 0.03125 K per bit with a -273 K offset"
+        },
+        {
+          "id": "engineTurbochargerOilTemp",
+          "name": "Engine Turbocharger Oil Temp",
+          "spn": 176,
+          "description": "SPN 176"
+        },
+        {
+          "id": "engineInterCoolerTemp",
+          "name": "Engine Intercooler Temp",
+          "spn": 52,
+          "description": "SPN 52"
+        },
+        {
+          "id": "engineInterCoolerThermostatOpening",
+          "name": "Engine Intercooler Thermostat Opening",
+          "spn": 1134,
+          "resolution": 0.4,
+          "description": "SPN 1134"
+        }
+      ],
+      "_source_license": "Apache-2.0",
+      "_source_ref": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/065262-engineTemp1.yaml",
+      "_source_sha256": "ffcc09bc8c30568bd89837947523fe50140158aad586dae4bd4fe5d4b2c3e739",
+      "_promoted_from": "data/intake/pgn/canboat-pgn-65262-enginetemp1.json"
+    },
+    "65266": {
+      "pgn": 65266,
+      "id": "fuelEconomy",
+      "description": "Fuel Economy",
+      "type": "Single",
+      "priority": 6,
+      "interval_ms": 100,
+      "fields": [
+        {
+          "id": "fuelRate",
+          "name": "Fuel Rate",
+          "spn": 183,
+          "description": "SPN 183, 0.05 l/h per bit"
+        },
+        {
+          "id": "instantaneousFuelEconomy",
+          "name": "Instantaneous Fuel Economy",
+          "spn": 184,
+          "description": "SPN 184, 1/512 km/l per bit"
+        },
+        {
+          "id": "averageFuelEconomy",
+          "name": "Average Fuel Economy",
+          "spn": 185,
+          "description": "SPN 185, 1/512 km/l per bit"
+        },
+        {
+          "id": "throttlePosition",
+          "name": "Throttle Position",
+          "spn": 51,
+          "resolution": 0.4,
+          "description": "SPN 51"
+        },
+        {
+          "id": "reserved",
+          "name": "Reserved",
+          "bits": 8
+        }
+      ],
+      "_source_license": "Apache-2.0",
+      "_source_ref": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/065266-fuelEconomy.yaml",
+      "_source_sha256": "a66d216d2b1d5fa0002cc53f9583102998d0bd912112252fe5d02274d9214abd",
+      "_promoted_from": "data/intake/pgn/canboat-pgn-65266-fueleconomy.json"
+    },
+    "65270": {
+      "pgn": 65270,
+      "id": "inletExhaustConditions",
+      "description": "Inlet/Exhaust Conditions",
+      "type": "Single",
+      "priority": 6,
+      "interval_ms": 500,
+      "fields": [
+        {
+          "id": "particulateTrapInletPressure",
+          "name": "Particulate Trap Inlet Pressure",
+          "spn": 81,
+          "description": "SPN 81"
+        },
+        {
+          "id": "boostPressure",
+          "name": "Boost Pressure",
+          "spn": 102,
+          "description": "SPN 102"
+        },
+        {
+          "id": "intakeManifoldTemp",
+          "name": "Intake Manifold Temp",
+          "spn": 105,
+          "description": "SPN 105"
+        },
+        {
+          "id": "airInletPressure",
+          "name": "Air Inlet Pressure",
+          "spn": 106,
+          "description": "SPN 106"
+        },
+        {
+          "id": "airFilterDifferentialPressure",
+          "name": "Air Filter Differential Pressure",
+          "spn": 107,
+          "description": "SPN 107, 0.05 kPa per bit"
+        },
+        {
+          "id": "exhaustGasTemperature",
+          "name": "Exhaust Gas Temperature",
+          "spn": 173,
+          "description": "SPN 173"
+        },
+        {
+          "id": "coolantFilterDifferentialPressure",
+          "name": "Coolant Filter Differential Pressure",
+          "spn": 112,
+          "description": "SPN 112, 0.5 kPa per bit"
+        }
+      ],
+      "_source_license": "Apache-2.0",
+      "_source_ref": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/065270-inletExhaustConditions.yaml",
+      "_source_sha256": "0d9a75561707816933695476465e0905d75b26340a60530e31658c8e5a5fb4b4",
+      "_promoted_from": "data/intake/pgn/canboat-pgn-65270-inletexhaustconditions.json"
+    },
+    "65272": {
+      "pgn": 65272,
+      "id": "transmissionFluids1",
+      "description": "Transmission Fluids 1",
+      "type": "Single",
+      "priority": 6,
+      "interval_ms": 1000,
+      "fields": [
+        {
+          "id": "transmissionClutch1Pressure",
+          "name": "Transmission Clutch 1 Pressure",
+          "spn": 123,
+          "bits": 8,
+          "unit": "kPa",
+          "resolution": 16,
+          "description": "SPN 123, 16 kPa per bit"
+        },
+        {
+          "id": "transmissionOilLevel1",
+          "name": "Transmission Oil Level 1",
+          "spn": 124,
+          "resolution": 0.4,
+          "description": "SPN 124"
+        },
+        {
+          "id": "transmissionFilterDifferentialPressure",
+          "name": "Transmission Filter Differential Pressure",
+          "spn": 126,
+          "description": "SPN 126"
+        },
+        {
+          "id": "transmission1OilPressure",
+          "name": "Transmission 1 Oil Pressure",
+          "spn": 127,
+          "bits": 8,
+          "unit": "kPa",
+          "resolution": 16,
+          "description": "SPN 127, 16 kPa per bit"
+        },
+        {
+          "id": "transmission1OilTemperature1",
+          "name": "Transmission 1 Oil Temperature 1",
+          "spn": 177,
+          "description": "SPN 177"
+        },
+        {
+          "id": "transmissionOilLevel1HighLow",
+          "name": "Transmission Oil Level 1 High / Low",
+          "spn": 3027,
+          "bits": 8,
+          "unit": "L",
+          "resolution": 0.5,
+          "description": "SPN 3027, 0.5 litre per bit with a -62.5 litre offset"
+        },
+        {
+          "id": "transmissionOilLevel1CountdownTimer",
+          "name": "Transmission Oil Level 1 Countdown Timer",
+          "spn": 3028,
+          "bits": 4,
+          "description": "SPN 3028"
+        },
+        {
+          "id": "transmissionOilLevel1MeasurementStatus",
+          "name": "Transmission Oil Level 1 Measurement Status",
+          "spn": 3026,
+          "bits": 4,
+          "description": "SPN 3026"
+        }
+      ],
+      "_source_license": "Apache-2.0",
+      "_source_ref": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/065272-transmissionFluids1.yaml",
+      "_source_sha256": "71aa7f50dd0662b8cfd034dc37054ff819504f74f46f8891f71e5756e47bc942",
+      "_promoted_from": "data/intake/pgn/canboat-pgn-65272-transmissionfluids1.json"
     }
   }
 }

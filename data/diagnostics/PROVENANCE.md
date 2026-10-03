@@ -96,6 +96,9 @@ Bağımsız decode doğrulaması (5 pass / 0 fail): `tools/data_ingest/verificat
 | `j1939_spn_fmi_database.json` | 4.253 SPN | **4.253 SPN** / **3.399 sitrak etiketli** / 7.981 FMI | SITRAK 8.042 kayıt | CC-BY-4.0 |
 | `dtc_database_oem_layer.json` | (yok) | **YENİ** 12.128 kod / 9.390 OEM / 33 üretici | Wal33D 18.805 satır | MIT |
 | `dtc_oem_meanings.json` | (yok) | **YENİ** 694 kodun üretici başına anlamı | Wal33D üretici listeleri (`data/intake/oem/`, sha256'lı) + OEM katmanı; `scripts/build_dtc_oem_meanings.py` | MIT |
+| `j1939_spn_fmi_database.json` | 4.291 SPN | **+9 SPN** (ad, birim, çözünürlük, bit, PGN; `_promoted_from`) | canboat YAML + vendor DBC, iki temsil (`data/intake/spn_ref`, `scripts/promote_intake.py`) | Apache-2.0 |
+| `canboat_pgn_reference.json` | DM1 | **+33 J1939 PGN düzeni** (`j1939` bloğu; N2K kataloğu değişmedi) | canboat `database/j1939/pgns` YAML, sha256'lı (`scripts/promote_intake.py`) | Apache-2.0 |
+| `signal_measurement_map.json` | 24 sinyal | **+10 J1939 parametre adı** (aynı SPN'i ölçen kanonik sinyale alias) | canboat YAML + DBC adları (`scripts/promote_intake.py`) | Apache-2.0 |
 | `canboat_pgn_reference.json` | (yok) | **YENİ** 628 N2K PGN + DM1 (65226) | canboat | Apache-2.0 |
 
 **Katmanlılık kanıtı:** `--verify-idempotent` → "hicbir mevcut deger silinmedi/degismedi".
