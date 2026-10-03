@@ -14,7 +14,7 @@ Dal: `ccr-intake`. Bu rapor **keşif kanıtıdır**; `data/diagnostics` ve
 | Vendor edilmemiş (yeni bulunan) | **84** (64.461 bayt) |
 | Intake'e sahaya alınan `pgn_layout` kaydı | **84** |
 | Intake'e sahaya alınan `oem_divergence` kaydı | **37** (5.922 ayrışma satırı) |
-| Intake'e sahaya alınan `spn_reference` kaydı | **168** (66 terfi adayı + 102 uzlaştırma) |
+| Intake'e sahaya alınan `spn_reference` kaydı | **174** (69 terfi adayı + 105 uzlaştırma; 168'i çapraz doğrulanmış) |
 | Intake'e sahaya alınan `kb_defect` kaydı | **13** (kendi verimizden ölçülmüş kusur) |
 | Intake'e sahaya alınan `provenance_gap` kaydı | **26** (kaynak başına izlenebilirlik kanıtı) |
 | Kopyalanan PGN alanı | **378** |
@@ -389,6 +389,37 @@ Aynı `source` anahtarı üzerinden iki envanter birleştirilebilir: T3-3 tablos
 "bu kaynaktan gelen metin kirli mi?" sorusuna, bu turun kayıtları "bu kaynağın
 lisansı/izlenebilirliği ne?" sorusuna yanıt veriyor. Veri sahibinin kararı
 üçlü: **belgele + etiketle**, **sadece etiketle**, **çıkar**.
+
+## 4k. İkinci temsil: aynı upstream'in DBC'si, 3 yeni terfi adayı
+
+4c'deki SPN referansları canboat'ın **YAML alan düzenlerinden** toplandı. Aynı
+upstream'in ikinci bir temsili zaten repoda vendor durumda:
+`data/dbc/heavy_duty/j1939_canboat.dbc`, `CM_ SG_` yorumlarında
+`"SPN 190; canboat type: NUMBER"` biçiminde **174 SPN** referansı taşıyor
+(`data/dbc/manifest.json` sha256'ı ile doğrulanır: `ca8502f4…`).
+
+Çapraz ölçüm:
+
+| Ölçüm | Değer |
+|---|---|
+| DBC'de adı geçen ayrı SPN | 174 |
+| Staged kümesi (YAML) | 168 |
+| **İkisinde de olan** | 168 — isim uzlaşması: 150 birebir, 18 yalnızca noktalama biçimi (`Engine_s_Demand_Engine___Percent_Torque` ↔ `Driver's Demand Engine - Percent Torque`) |
+| **Yalnız DBC'de olan** | 6 (SPN 73, 84, 597, 1184, 1185, 3885) |
+| — bunlardan **KB'de olmayan** | **3**: SPN 1184 Cruise_Control_Set_Speed · SPN 1185 Two_Speed_Axle_Switch · SPN 3885 Cruise_Control_Pause_Switch |
+
+Sonuç iki yönlü:
+
+1. **Terfi kuyruğu büyüdü:** staging toplamı 66 → **69** aday. Üçü yeni kaynak
+   indirmeden, yalnız repoda **zaten bulunan** hash'li kanıttan çıktı.
+2. **Kanıt kalitesi arttı:** 168 kayıt artık iki bağımsız temsille (YAML + DBC)
+   doğrulanıyor, bu yüzden `confidence: corroborated`. DBC yorumları ayrıca bit
+   konumu ve çözünürlük metni taşıdığı için kanıt değeri yüksek —
+   ör. `SPN 1184: bits 33-40 (byte 4), 1 km/h per bit`.
+
+Doğrulayıcı bu iddiayı zorunlu kılar: iki kaynak alıntılanan bir kayıt
+`corroborated` demiyorsa **FAIL** alır — çapraz doğrulama beyanı kanıtlanmadan
+ilerletilemez.
 
 ### Hangi üreticinin metni hayatta kaldı? (ölçüm)
 

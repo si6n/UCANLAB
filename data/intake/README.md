@@ -127,6 +127,15 @@ yapılır (§ Entegrasyon adımları).
 | `kb_defect` | `defects/` | `defect_code`, `severity`, `summary`, `why_it_matters`, `target_file`, `target_sha256`, `detector_expression`, `affected_count`, `examples[]` |
 | `trace` | `traces/` | `frame_file`, `frame_file_sha256`, `frame_file_bytes`, `format`, `in_git`, `external_location`, `started_at`, `duration_s`, `channel_count`, `frame_count`, `bus`, `vin_masked` |
 
+`spn_reference` kayıtları **iki bağımsız temsilden** beslenir: canboat'ın pinli
+J1939 PGN alan düzenleri (YAML) ve repoda zaten vendor olan
+`data/dbc/heavy_duty/j1939_canboat.dbc` (`CM_ SG_` yorumları, `data/dbc/manifest.json`
+sha256'ı ile doğrulanır — eşleşmezse hiç kullanılmaz). İki temsil aynı cümlenin
+iki biçimi olduğu için, ikisi de alıntılanan kayıt `confidence: corroborated`
+der; validator bunu **zorunlu** kılar (iki kaynak + `single_source` → FAIL).
+DBC yorumları ayrıca bit konumu ve çözünürlük metni taşır
+(`SPN 1184: bits 33-40 (byte 4), 1 km/h per bit`).
+
 `spn_reference` kayıtları, J1939 PGN alan düzenlerinde **gerçekten yazan**
 (`SPN n` ifadesi geçen) SPN referanslarını toplar; sayı asla alan adından veya
 bit düzeninden **türetilmez**. `kb_state` o SPN'nin bilgi tabanında olup
