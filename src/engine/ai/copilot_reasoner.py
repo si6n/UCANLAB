@@ -823,21 +823,50 @@ def monitor_names(kb: KnowledgeBase, mid: int, tid: int) -> tuple[str, str, str,
             str(test.get("name_tr") or test.get("name") or ""), str(test.get("name") or ""))
 
 
+def j1939_test_names(kb: KnowledgeBase, spn: int) -> tuple[str, str, str]:
+    """(SPN title TR, SPN title EN, ref) from the J1939 SPN database; ('', '', '') when the SPN is unknown."""
+    look = kb.spn(spn)
+    rec = look.record if look.found and isinstance(look.record, dict) else None
+    if rec is None:
+        return "", "", ""
+    return str(rec.get("title_tr") or rec.get("name") or ""), str(rec.get("name") or ""), look.ref
+
+
+def monitor_ref(kb: KnowledgeBase, m: dict[str, Any]) -> str:
+    """Citation for one monitor record: the OBDMID record (Mode 06) or the SPN record (J1939 DM30)."""
+    if "spn" in m:
+        return j1939_test_names(kb, m["spn"])[2]
+    return f"obd_mode06#0x{m['mid']:02X}"
+
+
+def monitor_marker(m: dict[str, Any]) -> str:
+    lo = "" if m["min"] is None else _fmt(m["min"])
+    hi = "" if m["max"] is None else _fmt(m["max"])
+    if "spn" in m:
+        return f"monitor_j1939:{m['spn']}|{m['fmi']}|{m['tid']}|{_fmt(m['value'])}|{lo}|{hi}|{m['unit']}"
+    return f"monitor:{m['mid']}|{m['tid']}|{_fmt(m['value'])}|{lo}|{hi}|{m['unit']}"
+
+
 def _monitor_candidates(kb: KnowledgeBase, r: Reasoning, hyps: dict[str, Hypothesis]) -> None:
-    """A failed Mode 06 test is the ECU saying 'this system fails MY limit' — even before a code."""
+    """A failed Mode 06 / DM30 test is the ECU saying 'this system fails MY limit' — even before a code."""
     for m in r.parsed.monitors:
-        rel = 0.0
-        span = m["max"] - m["min"]
-        if span > 0:
-            rel = max((m["value"] - m["min"]) / span, (m["max"] - m["value"]) / span)
-        finding = dict(m, margin=round(1.0 - rel, 3) if m["passed"] and span > 0 else None)
-        r.monitor_findings.append(finding)
+        margin = None
+        if m["passed"] and m["min"] is not None and m["max"] is not None and m["max"] - m["min"] > 0:
+            span = m["max"] - m["min"]
+            margin = round(1.0 - max((m["value"] - m["min"]) / span, (m["max"] - m["value"]) / span), 3)
+        r.monitor_findings.append(dict(m, margin=margin))
         if m["passed"]:
             continue
-        ref = f"obd_mode06#0x{m['mid']:02X}"
-        marker = f"monitor:{m['mid']}|{m['tid']}|{_fmt(m['value'])}|{_fmt(m['min'])}|{_fmt(m['max'])}|{m['unit']}"
-        codes = list(_MID_CODES.get(m["mid"], ()))
-        mon_tr, _mon_en, _t_tr, _t_en = monitor_names(kb, m["mid"], m["tid"])
+        ref = monitor_ref(kb, m)
+        if not ref:
+            continue  # unknown SPN: shown as a row, but nothing to cite for a candidate
+        marker = monitor_marker(m)
+        if "spn" in m:
+            codes = [f"SPN {m['spn']}"]
+            mon_tr = j1939_test_names(kb, m["spn"])[0]
+        else:
+            codes = list(_MID_CODES.get(m["mid"], ()))
+            mon_tr = monitor_names(kb, m["mid"], m["tid"])[0]
         h = hyps.get(ref) or Hypothesis(ref, f"ECU testi başarısız: {mon_tr or ref}", 4.0, "monitor",
                                         codes=codes, refs=[ref])
         h.support.append((marker, ref))
@@ -1141,8 +1170,7 @@ def reason(parsed: ParsedQuery, kb: KnowledgeBase, *, include_recalls: bool = Tr
     for m in r.monitor_findings:
         if not m["passed"]:
             risk = _raise_risk(risk, "YELLOW")
-            r.risk_reasons.append((f"monitor:{m['mid']}|{m['tid']}|{_fmt(m['value'])}|{_fmt(m['min'])}|"
-                                   f"{_fmt(m['max'])}|{m['unit']}", f"obd_mode06#0x{m['mid']:02X}"))
+            r.risk_reasons.append((monitor_marker(m), monitor_ref(kb, m) or "template:j1939_dm30"))
     for lamps in parsed.dm1_lamps:
         if lamps.red_stop:
             risk = "RED"

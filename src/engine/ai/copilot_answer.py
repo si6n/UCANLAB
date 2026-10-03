@@ -56,7 +56,7 @@ _S: dict[str, dict[str, str]] = {
     "conf.low": {"tr": "düşük", "en": "low"},
     "kind.graph": {"tr": "kök neden grafiği", "en": "root-cause graph"},
     "kind.record": {"tr": "kod kaydındaki olası neden", "en": "possible cause listed in the code record"},
-    "kind.monitor": {"tr": "ECU'nun kendi testi (Mode 06), kendi limitiyle", "en": "the ECU's own test (Mode 06), against its own limit"},
+    "kind.monitor": {"tr": "ECU'nun kendi testi (Mode 06 / J1939 DM30), kendi limitiyle", "en": "the ECU's own test (Mode 06 / J1939 DM30), against its own limit"},
     "kind.scenario": {"tr": "ölçümün çalışma durumuna göre yorumu", "en": "reading interpreted in its operating state"},
     "kind.pattern": {"tr": "birden çok kodu tek nedenle açıklayan ortak kök neden", "en": "one shared cause explaining several codes"},
     "kind.area": {"tr": "şikâyetin işaret ettiği alt sistem (kesin neden değil; kontrol edilecek bölge)",
@@ -269,7 +269,8 @@ class StructuredAnswer:
             mark = "✓" if m["passed"] and not m["near_limit"] else ("⚠" if m["passed"] else "✗")
             unit = f" {m['unit']}" if m["unit"] and m["unit"] != "raw" else ""
             lines.append(f"- {mark} {m['monitor']} / {m['test']}: {m['value']:g}{unit} "
-                         f"({'ECU limiti' if lang == 'tr' else 'ECU limit'} {m['min']:g}–{m['max']:g}) `{m['ref']}`")
+                         f"({'ECU limiti' if lang == 'tr' else 'ECU limit'} {_limit_text(m['min'], m['max'])})"
+                         + (f" `{m['ref']}`" if m["ref"] else ""))
         if self.technical.get("state"):
             st = self.technical["state"]
             lines.append(f"- {'Çalışma durumu' if lang == 'tr' else 'Operating state'}: {st['text']} "
@@ -320,6 +321,15 @@ def _state_words(engine: str, thermal: str, lang: str) -> str:
     i = 0 if lang == "tr" else 1
     bits = [w[i] for w in (_ENGINE_WORDS.get(engine), _THERMAL_WORDS.get(thermal)) if w]
     return ", ".join(bits) or ("durum bilinmiyor" if lang == "tr" else "state unknown")
+
+
+def _limit_text(lo: float | None, hi: float | None) -> str:
+    """ECU limit as shown: "lo–hi", or one side only (J1939 DM30 tests may have one limit)."""
+    if lo is not None and hi is not None:
+        return f"{lo:g}–{hi:g}"
+    if hi is not None:
+        return f"≤ {hi:g}"
+    return f"≥ {lo:g}" if lo is not None else "—"
 
 
 def _evidence_text(marker: str, lang: str, kb: KnowledgeBase) -> str:
@@ -379,6 +389,17 @@ def _evidence_text(marker: str, lang: str, kb: KnowledgeBase) -> str:
         if origin == "freeze_frame":
             where = (f"arıza anında (freeze frame), {where}" if lang == "tr" else f"at the fault moment (freeze frame), {where}")
         return f"{where}: {sig} = {value} {unit} — {why}"
+    if kind == "monitor_j1939":
+        spn, fmi, tid, value, lo, hi, unit = (payload.split("|") + [""] * 7)[:7]
+        from src.engine.ai.copilot_reasoner import j1939_test_names
+
+        n_tr, n_en, _ref = j1939_test_names(kb, int(spn))
+        name = (n_tr if lang == "tr" else n_en) or f"SPN {spn}"
+        u = f" {unit}" if unit and unit != "raw" else ""
+        limit = _limit_text(float(lo) if lo else None, float(hi) if hi else None)
+        return (f"ECU testi başarısız (J1939 DM30) — {name} / FMI {fmi}, test {tid}: {value}{u}, ECU limiti {limit}{u}"
+                if lang == "tr" else
+                f"ECU test failed (J1939 DM30) — {name} / FMI {fmi}, test {tid}: {value}{u}, ECU limit {limit}{u}")
     if kind == "monitor":
         mid, tid, value, lo, hi, unit = (payload.split("|") + [""] * 6)[:6]
         from src.engine.ai.copilot_reasoner import monitor_names
@@ -444,6 +465,11 @@ def _title(h: Hypothesis, lang: str, kb: KnowledgeBase) -> str:
     if h.kind == "scenario":
         sc = kb.operating_scenario(h.id.partition("#")[2]) or {}
         return str(sc.get("title_en" if lang == "en" else "title_tr") or h.title)
+    if h.kind == "monitor" and h.id.startswith("j1939_spn_fmi#SPN_"):
+        from src.engine.ai.copilot_reasoner import j1939_test_names
+
+        n_tr, n_en, _ref = j1939_test_names(kb, int(h.id.rpartition("_")[2]))
+        return (f"ECU testi başarısız: {n_tr or h.id}" if lang == "tr" else f"ECU test failed: {n_en or h.id}")
     if h.kind == "monitor":
         from src.engine.ai.copilot_reasoner import monitor_names
 
@@ -599,7 +625,14 @@ def _steps(r: Reasoning, lang: str, max_steps: int, kb: KnowledgeBase) -> list[d
             step = str(sc.get("step_tr" if lang == "tr" else "step_en") or "")
             if step:
                 add(step, "", [h.id])
-    if any(not m["passed"] for m in r.monitor_findings):
+    if any(not m["passed"] and "spn" in m for m in r.monitor_findings):
+        add("ECU'nun kendi testi başarısız (J1939 DM30): onarımdan sonra testin yeniden çalışması için ilgili "
+            "sürüş/rejenerasyon koşulunu tamamlayın ve DM30 sonuçlarını yeniden okuyun; test geçmeden onarım bitmiş "
+            "sayılmaz." if lang == "tr"
+            else "The ECU's own test failed (J1939 DM30): after the repair complete the drive / regeneration "
+            "conditions that rerun it and read the DM30 results again; the repair is not done until the test passes.",
+            "", ["template:dm30_verify"])
+    if any(not m["passed"] and "mid" in m for m in r.monitor_findings):
         add("ECU'nun kendi testi başarısız (Mode 06): onarımdan sonra testin yeniden çalışması için ilgili sürüş "
             "koşulunu tamamlayın ve Mode 06'yı yeniden okuyun; test geçmeden onarım bitmiş sayılmaz." if lang == "tr"
             else "The ECU's own test failed (Mode 06): after the repair complete the drive conditions that rerun it "
@@ -883,15 +916,21 @@ def answer_query(
                         else f" Fault moment ({r.parsed.freeze_dtc}, freeze frame): "
                         f"{ans.technical['freeze_frame']['state'] or 'state unclear'}; {vals}.")
     if r.monitor_findings:
-        from src.engine.ai.copilot_reasoner import monitor_names
+        from src.engine.ai.copilot_reasoner import j1939_test_names, monitor_names
 
         rows = []
         for m in r.monitor_findings:
+            near = m.get("margin") is not None and m["margin"] < 0.1
+            if "spn" in m:
+                n_tr, n_en, ref = j1939_test_names(kb, m["spn"])
+                rows.append({**m, "monitor": (n_tr if lang == "tr" else n_en) or f"SPN {m['spn']}",
+                             "test": f"FMI {m['fmi']} / test {m['tid']}",
+                             "near_limit": near, "ref": ref, "protocol": "J1939 DM30"})
+                continue
             mon_tr, mon_en, t_tr, t_en = monitor_names(kb, m["mid"], m["tid"])
             rows.append({**m, "monitor": (mon_tr if lang == "tr" else mon_en) or f"OBDMID 0x{m['mid']:02X}",
                          "test": (t_tr if lang == "tr" else t_en) or f"TID 0x{m['tid']:02X}",
-                         "near_limit": m.get("margin") is not None and m["margin"] < 0.1,
-                         "ref": f"obd_mode06#0x{m['mid']:02X}"})
+                         "near_limit": near, "ref": f"obd_mode06#0x{m['mid']:02X}", "protocol": "Mode 06"})
         ans.technical["monitors"] = rows
         failed = [x["monitor"] for x in rows if not x["passed"]]
         near = [x["monitor"] for x in rows if x["near_limit"]]
@@ -903,7 +942,8 @@ def answer_query(
             bits.append((f"{len(near)} sınırda ({', '.join(near[:2])})") if lang == "tr"
                         else f"{len(near)} near the limit ({', '.join(near[:2])})")
         if bits:
-            ans.summary += (" ECU testleri (Mode 06): " if lang == "tr" else " ECU tests (Mode 06): ") + "; ".join(bits) + "."
+            label = " / ".join(sorted({x["protocol"] for x in rows}, key=lambda p: p != "Mode 06"))
+            ans.summary += (f" ECU testleri ({label}): " if lang == "tr" else f" ECU tests ({label}): ") + "; ".join(bits) + "."
     if r.state.known:
         ans.technical["state"] = {
             "engine": r.state.engine, "thermal": r.state.thermal, "system_voltage": r.state.system_voltage,

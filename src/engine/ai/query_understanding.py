@@ -687,11 +687,53 @@ def _check_answers(answers: Mapping[str, Any], text: str, symptoms: list[Symptom
     return list(out.values()), notes
 
 
+_FREEZE_SPN_RE = re.compile(r"^\s*SPN\s*(\d{1,6})\s*(?:FMI\s*(\d{1,2}))?\s*$", re.IGNORECASE)
+
+
+def _freeze_spn_code(raw: str) -> str | None:
+    """``"SPN 3251 FMI 0"`` (a J1939 DM4 freeze frame's code) in canonical form, or None."""
+    m = _FREEZE_SPN_RE.match(raw)
+    if not m or not 0 < int(m.group(1)) <= 0x7FFFF or (m.group(2) and int(m.group(2)) > 31):
+        return None
+    return f"SPN {int(m.group(1))}" + (f" FMI {int(m.group(2))}" if m.group(2) else "")
+
+
+def _optional_limit(raw: Any) -> float | None:
+    """A J1939 DM30 limit: None means "no limit on this side"; anything else must be a finite number."""
+    if raw is None:
+        return None
+    value = float(raw)
+    if not math.isfinite(value):
+        raise ValueError("limit is not finite")
+    return value
+
+
+def _j1939_test_result(m: Mapping[str, Any]) -> dict[str, Any] | None:
+    """One DM30 record (``spn``/``fmi``/``tid``, value, optional limits) or None when malformed."""
+    try:
+        spn, fmi, tid = int(m["spn"]), int(m["fmi"]), int(m["tid"])
+        value = float(m["value"])
+        lo, hi = _optional_limit(m.get("min")), _optional_limit(m.get("max"))
+    except (KeyError, TypeError, ValueError):
+        return None
+    if not (0 < spn <= 0x7FFFF and 0 <= fmi <= 31 and 0 <= tid <= 0xFF and math.isfinite(value)):
+        return None
+    if lo is None and hi is None:
+        return None  # a test without any limit has no verdict
+    return {"spn": spn, "fmi": fmi, "tid": tid, "value": value, "min": lo, "max": hi,
+            "unit": str(m.get("unit") or ""), "passed": bool(m.get("passed"))}
+
+
 def _monitor_results(monitors: Iterable[Any]) -> list[dict[str, Any]]:
-    """Mode 06 records as given by the reader; anything malformed is dropped, never repaired."""
+    """Mode 06 / J1939 DM30 records as given by the reader; anything malformed is dropped, never repaired."""
     out: list[dict[str, Any]] = []
     for m in list(monitors)[:200]:
         if not isinstance(m, Mapping):
+            continue
+        if "spn" in m:
+            rec = _j1939_test_result(m)
+            if rec is not None:
+                out.append(rec)
             continue
         try:
             mid, tid = int(m["mid"]), int(m["tid"])
@@ -788,7 +830,8 @@ def parse_query(
     pq.unknown_telemetry = unknown
     codes_read = [c.code for c in pq.dtcs] + [f"SPN {x.spn}" for x in pq.spns]
     if isinstance(freeze_frame, Mapping):
-        ff_code = normalize_dtc_code(str(freeze_frame.get("dtc") or ""))
+        ff_code = normalize_dtc_code(str(freeze_frame.get("dtc") or "")) \
+            or _freeze_spn_code(str(freeze_frame.get("dtc") or ""))
         raw = freeze_frame.get("readings")
         if ff_code and isinstance(raw, Mapping):
             ff_readings, _unknown = _input_readings(raw, kb)

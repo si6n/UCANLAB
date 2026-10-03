@@ -237,6 +237,46 @@ koşulları (devir, yük, su sıcaklığı, yakıt düzeltmeleri, akü gerilimi 
     %10'unda olan test "sınırda" diye özetlenir.
 * Simülatör (`SimulatedObdEcu`) freeze frame ve Mode 06 cevaplarını da verir.
 
+### 3.1.7 Ağır vasıta: J1939 DM4 (freeze frame) ve DM7 → DM30 (test sonuçları)
+
+Kamyon/iş makinesinde aktif kodlar DM1 yayınıyla zaten gelir; Mode 02/06'nın
+J1939 karşılığı ise yalnız istenince verilir:
+
+* **DM4** (PGN 65229): kodun kaydedildiği andaki zorunlu parametreler —
+  boost (SPN 102), devir (SPN 190), yük (SPN 92), su sıcaklığı (SPN 110), araç
+  hızı (SPN 84). Request PGN 59904 ile istenir. "Mevcut değil" aralığındaki
+  (0xFB.. / 0xFB00..) parametre okumaya eklenmez, uydurulmaz.
+* **DM7 → DM30** (PGN 58112 → 41984): yalnız **TID 247 + FMI 31** biçimi
+  kurulur ("bu SPN için ECU'nun zaten çalıştırdığı testlerin sonuçlarını
+  bildir"). TID 1–245 test *başlatır*; ne okuyucu kurar ne politika geçirir.
+  DM30 kaydı: TID, SPN/FMI, SLOT, değer, üst limit, alt limit. Karar ham
+  değerle verilir (aynı SLOT); 0xFB00+ değer = test tamamlanmamış (kayıt
+  atlanır), 0xFB00+ limit = o tarafta limit yok (tek taraflı limit "≤ 400"
+  diye gösterilir). Doğrulanmış SLOT tablosu olmadığından değerler **ham**
+  gösterilir. DM8 (PGN 65232) DM30 ile değiştirildiği için istenmez.
+* Güvenlik: `ReadOnlyPolicy(j1939=True)` 29-bit çerçevede yalnız (1) okunur
+  DM'ler için Request (DM1/2/4/5/6/12; DM3/DM11 silme reddedilir), (2) TID 247
+  DM7, (3) belirli ECU'ya TP.CM CTS / ACK / abort (çok paketli cevabı almak
+  için) geçirir. Binek araç oturumu (`j1939=False`) her 29-bit çerçeveyi
+  reddetmeye devam eder.
+* Kod: `protocols/j1939/dm_results.py` (çözümleme), `engine/diagnosis/j1939_reader.py`
+  (`read_j1939_snapshot`: DM4, sonra aktif DM1 kodlarının ve freeze frame'in
+  SPN'leri için DM30, en çok 20 SPN; çok paketli cevaplar mevcut
+  `J1939TransportProtocol` ile RTS/CTS üzerinden). Sonuç `ObdReadOutcome`
+  olarak döner; tarama izni verilen kamyon/iş makinesi taramasında
+  `ScanRunner.last_obd` dolar ve copilot'a otomatik gider.
+* Copilot: freeze frame kodu "SPN 3251 FMI 0" biçiminde kabul edilir; arıza
+  anı durumu aynı şekilde çıkarılır. DM30 kayıtları (`spn`/`fmi`/`tid`)
+  `monitors` içinde gelir; başarısız test `kind=monitor` aday olur
+  (`j1939_spn_fmi#SPN_<n>` atfıyla), "SPN <n>" kodunun graf nedenlerini
+  güçlendirir, aciliyeti SARI yapar ve "DM30 yeniden okunmadan onarım bitmiş
+  sayılmaz" adımı ekler. SPN veritabanında olmayan test satır olarak
+  gösterilir ama atıf olmadan aday olmaz.
+* Simülatör (`SimulatedJ1939Ecu`): SPN 3251 FMI 0 (DPF fark basıncı) için
+  freeze frame ve iki DM30 testi (biri limit dışı) verir.
+* Sınır: yalnız simülatörle doğrulandı; gerçek ECU'larda DM4/DM30 desteği
+  ve DM7'ye hedefli/global cevap biçimi üreticiye göre değişir.
+
 ### 3.2 Aciliyet ve güvenlik
 
 * Aciliyet: kod ciddiyeti `drive_safety_policy.decide_risk` ile (tek otorite),

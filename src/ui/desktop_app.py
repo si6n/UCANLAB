@@ -49,6 +49,7 @@ from src.engine.connection.simulated_vehicle import NATIVE_BITRATE, SimulatedVeh
 from src.engine.connection.simulated_vehicle import SCENARIOS as SIMULATOR_SCENARIOS
 from src.engine.connection.wizard import ConnectionWizard
 from src.engine.diagnosis.events import dm1_to_events
+from src.engine.diagnosis.j1939_reader import read_j1939_snapshot
 from src.engine.diagnosis.obd_reader import ObdReadOutcome, read_obd_fault_codes
 from src.engine.diagnosis.scan import LiveScanBackend, ScanRequest, ScanRunner, SimulatorScanBackend
 from src.engine.discovery.engine import SignalDiscoveryEngine
@@ -3588,7 +3589,8 @@ class UniversalCanDesktopApp:
 
     READ_ONLY_SESSION_TTL_S: ClassVar[float] = 120.0
 
-    def open_read_only_session(self, reason: str = "Mechanic allowed reading fault codes") -> dict[str, Any]:
+    def open_read_only_session(self, reason: str = "Mechanic allowed reading fault codes", *,
+                               j1939: bool = False) -> dict[str, Any]:
         """Arm TX restricted to read-only OBD requests after explicit consent.
 
         Differs from ``arm_tx`` in exactly one respect: an UNKNOWN vehicle
@@ -3610,6 +3612,7 @@ class UniversalCanDesktopApp:
                 return {"success": False, "error_code": "TX_ALREADY_ARMED"}
             self.gateway.install_read_only_policy(ReadOnlyPolicy(
                 expires_ns=time.monotonic_ns() + int(self.READ_ONLY_SESSION_TTL_S * 1e9), reason=reason,
+                j1939=j1939,
             ))
             result = self._arm_driver_and_supervisor(reason)
             if not result.get("success"):
@@ -5896,6 +5899,7 @@ class UniversalCanDesktopApp:
         return LiveScanBackend(
             new_session=self._new_scan_session,
             read_obd=self._read_obd_codes_in_read_only_session,
+            read_j1939=self._read_j1939_snapshot_in_read_only_session,
             analyze=lambda session: self._analyze_session(
                 session, self._live_telemetry_snapshot(), is_simulating=self._is_simulating),
         )
@@ -5924,6 +5928,23 @@ class UniversalCanDesktopApp:
             with self._bus_lock:
                 channel_id = self.bus.channel_id
             return asyncio.run(read_obd_fault_codes(self.gateway, subscribe, channel_id=channel_id))
+        finally:
+            self.close_read_only_session()
+
+    def _read_j1939_snapshot_in_read_only_session(self, spns: list[int]) -> ObdReadOutcome:
+        """J1939 DM4 freeze frame + DM30 test results inside a read-only session that is always closed again."""
+        opened = self.open_read_only_session("Mechanic allowed reading the J1939 snapshot", j1939=True)
+        if not opened.get("success"):
+            logger.warning("Read-only session refused", extra={"error_code": opened.get("error_code")})
+            return ObdReadOutcome(status="refused")
+        try:
+            def subscribe(callback: Any) -> Any:
+                sub_id, _queue = self.router.subscribe(callback=callback)
+                return lambda: self.router.unsubscribe(sub_id)
+
+            with self._bus_lock:
+                channel_id = self.bus.channel_id
+            return asyncio.run(read_j1939_snapshot(self.gateway, subscribe, channel_id=channel_id, spns=spns))
         finally:
             self.close_read_only_session()
 

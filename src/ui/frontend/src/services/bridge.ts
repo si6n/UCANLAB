@@ -378,15 +378,19 @@ export interface CopilotStructuredAnswer {
       state: string;
       readings: Array<{ signal: string; value: number; unit: string; status: string; status_text: string; ref: string }>;
     };
-    /** Mode 06: the ECU's own tests with its own limits. */
+    /** Mode 06 (mid) or J1939 DM30 (spn/fmi): the ECU's own tests with its own limits.
+     *  A DM30 test may have only one limit (the other side is null). */
     monitors?: Array<{
-      mid: number;
+      mid?: number;
+      spn?: number;
+      fmi?: number;
       tid: number;
+      protocol?: string;
       monitor: string;
       test: string;
       value: number;
-      min: number;
-      max: number;
+      min: number | null;
+      max: number | null;
       unit: string;
       passed: boolean;
       near_limit: boolean;

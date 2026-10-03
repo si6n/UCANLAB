@@ -8,6 +8,9 @@ differs. A backend provides four things:
   (J1939 DM1 broadcasts land in the session as events);
 * ``read_obd()`` — the read-only OBD-II readout; called only for a car and
   only when the mechanic allowed reading;
+* ``read_j1939(spns)`` (optional) — the read-only J1939 snapshot of a truck or
+  machine (DM4 freeze frame, DM30 test results for the active codes' SPNs);
+  called only when the mechanic allowed reading;
 * ``analyze(session)`` — the existing analysis pipeline.
 
 Repeated broadcasts of the same code are collapsed before analysis, so a
@@ -34,6 +37,7 @@ from src.engine.diagnosis.mechanic_result import (
     customer_report_text,
     explain_code,
 )
+from src.engine.diagnosis.j1939_reader import SimulatedJ1939Ecu, read_j1939_snapshot, spns_from_codes
 from src.engine.diagnosis.obd_reader import ObdReadOutcome, SimulatedObdEcu, read_obd_fault_codes
 
 logger = get_logger("engine.diagnosis.scan")
@@ -142,6 +146,14 @@ class ScanRunner:
                         kinds.setdefault(code.code, (code.kind, code.ecu_tr))
                 else:
                     read_status = "declined"
+            elif request.allow_read and request.vehicle_type in ("truck", "construction"):
+                # DM1 already arrived while listening; the snapshot (DM4 freeze frame,
+                # DM30 test results) is for the copilot and does not change the code list.
+                read_j1939 = getattr(backend, "read_j1939", None)
+                if read_j1939 is not None:
+                    self._set(step="reading")
+                    active = [e.code for e in list(session.events) if e.status == "ACTIVE"]
+                    self.last_obd = read_j1939(spns_from_codes(active))
 
             self._set(step="analyzing")
             unique = _unique_session(session)
@@ -214,6 +226,13 @@ class SimulatorScanBackend:
         ecu = SimulatedObdEcu()
         return asyncio.run(read_obd_fault_codes(ecu, ecu.subscribe, channel_id="sim_obd", timeout_s=0.3))
 
+    def read_j1939(self, spns: list[int]) -> ObdReadOutcome:
+        if self.scenario == "ignition_off":
+            return ObdReadOutcome(status="no_answer")
+        ecu = SimulatedJ1939Ecu()
+        return asyncio.run(read_j1939_snapshot(ecu, ecu.subscribe, channel_id="sim_j1939", spns=spns,
+                                               timeout_s=0.3))
+
     def analyze(self, session: VehicleSession) -> dict[str, Any]:
         return self._analyze(session)
 
@@ -223,9 +242,11 @@ class LiveScanBackend:
 
     def __init__(self, new_session: Callable[[DiagnosticDomain], VehicleSession],
                  read_obd: Callable[[], ObdReadOutcome],
-                 analyze: Callable[[VehicleSession], dict[str, Any]], *, tick_s: float = 0.2) -> None:
+                 analyze: Callable[[VehicleSession], dict[str, Any]], *, tick_s: float = 0.2,
+                 read_j1939: Callable[[list[int]], ObdReadOutcome] | None = None) -> None:
         self._new_session = new_session
         self._read_obd = read_obd
+        self._read_j1939 = read_j1939
         self._analyze = analyze
         self._tick = tick_s
 
@@ -242,6 +263,11 @@ class LiveScanBackend:
 
     def read_obd(self) -> ObdReadOutcome:
         return self._read_obd()
+
+    def read_j1939(self, spns: list[int]) -> ObdReadOutcome:
+        if self._read_j1939 is None:
+            return ObdReadOutcome(status="no_answer")
+        return self._read_j1939(spns)
 
     def analyze(self, session: VehicleSession) -> dict[str, Any]:
         return self._analyze(session)

@@ -99,6 +99,13 @@ const CheckRow: React.FC<{ check: CopilotCheck; onAnswer?: AnswerFn; busy: boole
   );
 };
 
+/** ECU limit text; a J1939 DM30 test may have only one limit. */
+function limitText(min: number | null, max: number | null): string {
+  if (min !== null && max !== null) return `${min}–${max}`;
+  if (max !== null) return `≤ ${max}`;
+  return min !== null ? `≥ ${min}` : '—';
+}
+
 export const CopilotAnswerView: React.FC<{ answer: CopilotStructuredAnswer; onAnswer?: AnswerFn; busy?: boolean }> = ({
   answer,
   onAnswer,
@@ -267,9 +274,10 @@ export const CopilotAnswerView: React.FC<{ answer: CopilotStructuredAnswer; onAn
             </li>
           )}
           {(answer.technical.monitors ?? []).map((m) => (
-            <li key={`${m.mid}-${m.tid}`} data-testid="copilot-monitor" className={m.passed ? '' : 'text-del'}>
+            <li key={`${m.mid ?? `spn${m.spn}-${m.fmi}`}-${m.tid}`} data-testid="copilot-monitor"
+              className={m.passed ? '' : 'text-del'}>
               {m.passed ? (m.near_limit ? '⚠' : '✓') : '✗'} {m.monitor} / {m.test}: {m.value} {m.unit !== 'raw' ? m.unit : ''} (
-              {L('ECU limiti', 'ECU limit')} {m.min}–{m.max})
+              {L('ECU limiti', 'ECU limit')} {limitText(m.min, m.max)})
               <Ref value={m.ref} />
             </li>
           ))}
