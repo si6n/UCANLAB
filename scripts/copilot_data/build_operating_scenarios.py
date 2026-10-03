@@ -10,7 +10,9 @@ running. This file holds:
   engine state (running / off / cranking). Values approved by the operator
   (AGENTS.md 2.3: new threshold values only with operator approval).
 * scenarios: rules "in state S, signal X above/below V means Y". Each one adds
-  a candidate (or only a note) with its reason and first check. The limits
+  a candidate (or only a note) with its reason and first check; ``codes`` are
+  the codes whose causes the scenario confirms (their graph causes gain it as
+  evidence when those codes are active). The limits
   come from the knowledge base records named in ``source`` or from the
   operator-approved battery bands.
 """
@@ -31,7 +33,7 @@ BATTERY_12V = {
 }
 
 SCENARIOS = [
- {"id": "alternator-not-charging",
+ {"id": "alternator-not-charging", "codes": ["P0562"],
   "when": {"engine": ["idle", "running", "load"], "signal": "BatteryVoltage", "lt": 13.2, "per_12v": True},
   "title_tr": "Alternatör şarj etmiyor (kayış, regülatör, şarj kablosu)",
   "title_en": "Alternator not charging (belt, regulator, charge cable)",
@@ -40,7 +42,7 @@ SCENARIOS = [
   "step_tr": "Alternatör kayışını, B+ kablosunu ve şasesini kontrol edin; alternatör çıkışında gerilimi ölçün (motor çalışırken).",
   "step_en": "Check the alternator belt, the B+ cable and its ground; measure voltage at the alternator output with the engine running.",
   "source": "operating_scenarios#battery_voltage"},
- {"id": "regulator-overcharging",
+ {"id": "regulator-overcharging", "codes": ["P0563"],
   "when": {"engine": ["idle", "running", "load"], "signal": "BatteryVoltage", "gt": 15.0, "per_12v": True},
   "title_tr": "Voltaj regülatörü aşırı şarj ediyor",
   "title_en": "Voltage regulator overcharging",
@@ -73,7 +75,7 @@ SCENARIOS = [
   "rationale_tr": "motor dururken gerilim 12.9 V üstünde: yüzey şarjı (motor yeni durdu veya akü yeni şarj edildi); bu okuma akünün durumunu göstermez, 1 saat bekleyip yeniden ölçün",
   "rationale_en": "resting voltage above 12.9 V: surface charge (engine just stopped or battery just charged); this reading does not show the battery's state, re-measure after 1 hour",
   "source": "operating_scenarios#battery_voltage"},
- {"id": "dpf-loaded-at-idle",
+ {"id": "dpf-loaded-at-idle", "codes": ["P2002", "P2463"],
   "when": {"engine": ["idle"], "signal": "DPFDiffPressure", "gt": 2.0},
   "title_tr": "DPF dolu: rölantide fark basıncı temiz filtre sınırının üstünde",
   "title_en": "DPF loaded: idle differential pressure above the clean-filter limit",
@@ -82,7 +84,7 @@ SCENARIOS = [
   "step_tr": "Uzun otoyol sürüşü veya servis rejenerasyonu yapın; sonra rölantide fark basıncını yeniden okuyun.",
   "step_en": "Do a long motorway drive or a service regeneration; then re-read the idle differential pressure.",
   "source": "diagnostic_copilot.py SPN3251 measurement"},
- {"id": "underboost-under-load",
+ {"id": "underboost-under-load", "codes": ["P0299"],
   "when": {"engine": ["load"], "signal": "BoostPressure", "lt": 2.2},
   "title_tr": "Yükte turbo basıncı düşük (basınç kaçağı, wastegate/VNT, turbo)",
   "title_en": "Low boost under load (boost leak, wastegate/VNT, turbo)",
@@ -91,7 +93,7 @@ SCENARIOS = [
   "step_tr": "Şarj havası hortumlarını ve intercooler'ı kaçak için kontrol edin; wastegate/VNT hareketini test edin.",
   "step_en": "Check the charge air hoses and intercooler for leaks; test wastegate/VNT movement.",
   "source": "diagnostic_copilot.py SPN102 measurement"},
- {"id": "thermostat-open-warm-engine",
+ {"id": "thermostat-open-warm-engine", "codes": ["P0128"],
   "when": {"thermal": ["warm"], "engine": ["running", "load"], "signal": "CoolantTemp", "lt": 70.0},
   "title_tr": "Termostat açık kalmış: ısınmış ve çalışan motorda su sıcaklığı düşük",
   "title_en": "Thermostat stuck open: coolant temperature low on a warmed-up running engine",
@@ -100,7 +102,7 @@ SCENARIOS = [
   "step_tr": "Termostatı değiştirin; değişimden önce ECT okumasını bir kızılötesi termometreyle doğrulayın.",
   "step_en": "Replace the thermostat; before that, confirm the ECT reading with an infrared thermometer.",
   "source": "diagnostic_copilot.py SPN 110 measurement"},
- {"id": "overheat-at-idle",
+ {"id": "overheat-at-idle", "codes": ["P0217"],
   "when": {"engine": ["idle"], "signal": "CoolantTemp", "gt": 103.0},
   "title_tr": "Rölantide hararet: fan veya radyatör hava akışı yetersiz",
   "title_en": "Overheating at idle: radiator fan or airflow insufficient",
@@ -109,7 +111,7 @@ SCENARIOS = [
   "step_tr": "Radyatör fanının devreye girdiğini, fan kumandasını ve radyatör peteklerinin temizliğini kontrol edin.",
   "step_en": "Check that the radiator fan engages, its control, and that the radiator fins are clean.",
   "source": "diagnostic_copilot.py SPN 110 measurement"},
- {"id": "overheat-under-load",
+ {"id": "overheat-under-load", "codes": ["P0217"],
   "when": {"engine": ["load"], "signal": "CoolantTemp", "gt": 103.0},
   "title_tr": "Yükte hararet: soğutma kapasitesi yetersiz (radyatör tıkanıklığı, su pompası, termostat)",
   "title_en": "Overheating under load: cooling capacity insufficient (radiator blockage, water pump, thermostat)",
@@ -118,6 +120,24 @@ SCENARIOS = [
   "step_tr": "Radyatör iç tıkanıklığını (giriş/çıkış sıcaklık farkı), su pompasını ve termostat açılmasını kontrol edin.",
   "step_en": "Check radiator internal blockage (inlet/outlet temperature difference), the water pump and thermostat opening.",
   "source": "diagnostic_copilot.py SPN 110 measurement"},
+ {"id": "lean-confirmed-by-trims", "codes": ["P0171", "P0174"],
+  "when": {"engine": ["idle", "running", "load"], "sum": ["ShortTermFuelTrimB1", "LongTermFuelTrimB1"], "gt": 20.0},
+  "title_tr": "Fakir karışım doğrulandı: yakıt düzeltmeleri toplamı +%20 üstünde (hava kaçağı, MAF, düşük yakıt basıncı)",
+  "title_en": "Lean mixture confirmed: fuel trims add up to over +20 % (air leak, MAF, low fuel pressure)",
+  "rationale_tr": "STFT + LTFT toplamı +%20'yi aşıyorsa ECU fazla yakıt ekleyerek fakir karışımı telafi ediyordur",
+  "rationale_en": "when STFT + LTFT exceed +20 % the ECU is adding fuel to make up for a lean mixture",
+  "step_tr": "Emme tarafında duman testi yapın, MAF okumasını ve yakıt basıncını kontrol edin.",
+  "step_en": "Smoke test the intake, check the MAF reading and the fuel pressure.",
+  "source": "dtc_database P0171 steps[1] (STFT + LTFT > +20 %)"},
+ {"id": "rich-confirmed-by-trims", "codes": ["P0172", "P0175"],
+  "when": {"engine": ["idle", "running", "load"], "sum": ["ShortTermFuelTrimB1", "LongTermFuelTrimB1"], "lt": -20.0},
+  "title_tr": "Zengin karışım doğrulandı: yakıt düzeltmeleri toplamı -%20 altında (damlatan enjektör, purge valfi, yüksek yakıt basıncı)",
+  "title_en": "Rich mixture confirmed: fuel trims add up to below -20 % (leaking injector, purge valve, high fuel pressure)",
+  "rationale_tr": "STFT + LTFT toplamı -%20'nin altındaysa ECU yakıtı keserek zengin karışımı telafi ediyordur",
+  "rationale_en": "when STFT + LTFT fall below -20 % the ECU is cutting fuel to make up for a rich mixture",
+  "step_tr": "Enjektör kaçağını, EVAP purge valfini ve yakıt basınç regülatörünü kontrol edin.",
+  "step_en": "Check for injector leakage, the EVAP purge valve and the fuel pressure regulator.",
+  "source": "canonical_symptoms rich-condition-bank1 (trims pulling towards -20 %)"},
  {"id": "oil-pressure-engine-off",
   "when": {"engine": ["off"], "signal": "EngineOilPressure", "gt": 0.5},
   "title_tr": "Yağ basınç sensörü/okuması güvenilmez: motor dururken basınç gösteriyor",

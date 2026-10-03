@@ -820,6 +820,9 @@ class KnowledgeBase:
         if source == "symptom_lexicon":
             lex = self._json_source("symptom_lexicon")
             return (key == "safety_terms" and isinstance(lex, dict) and "safety_terms" in lex) or self.symptom(key).found
+        if source == "obd_mode06":
+            db = self._json_source("obd_mode06")
+            return isinstance(db, dict) and key.upper().replace("0X", "0x") in (db.get("monitors") or {})
         if source == "operating_scenarios":
             return key == "battery_voltage" and bool(self.operating_scenarios().get("battery_voltage")) \
                 or self.operating_scenario(key) is not None

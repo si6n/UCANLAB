@@ -1057,6 +1057,73 @@ class ActiveDiagnosticPoller:
         )
         return result  # type: ignore[return-value]
 
+    async def poll_freeze_frame_once(
+        self,
+        pid: int,
+        frame: int = 0,
+        tx_id: int | None = None,
+        rx_id: int | None = None,
+        timeout_s: float = DEFAULT_P2_TIMEOUT_S,
+    ) -> ObdPidResult:
+        """One-shot SAE J1979 Mode 02 (freeze frame) read of one PID from one stored frame.
+
+        Request ``[0x03, 0x02, PID, frame]``; positive answer ``[0x42, PID, frame, data…]``
+        decodes exactly like the Mode 01 PID. PID 0x02 returns the DTC that stored the frame.
+        """
+        target_tx_id = tx_id if tx_id is not None else self.default_tx_id
+        target_rx_id = rx_id if rx_id is not None else self.default_rx_id
+        payload = bytes([0x03, 0x02, pid & 0xFF, frame & 0xFF, 0x55, 0x55, 0x55, 0x55])
+        req_frame = CanFrame.create(channel_id=self.channel_id, arbitration_id=target_tx_id, data=payload,
+                                    is_extended=target_tx_id > 0x7FF, direction="tx")
+
+        async def _match_ff(completed: bytes) -> object | None:
+            if completed[0] == 0x42 and len(completed) >= 3 and completed[1] == pid and completed[2] == (frame & 0xFF):
+                return self.obd_registry.decode(pid, completed[3:])
+            if completed[0] == 0x7F and len(completed) >= 3 and completed[1] == 0x02:
+                if completed[2] == UdsNrc.REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING:
+                    return None
+                raise ProtocolError(f"OBD freeze frame PID 0x{pid:02X} rejected with NRC 0x{completed[2]:02X}",
+                                    code="OBD_NEGATIVE_RESPONSE", details={"pid": pid, "nrc": completed[2]})
+            return None
+
+        result = await self._await_diagnostic_response(req_frame=req_frame, target_rx_id=target_rx_id,
+                                                       timeout_s=timeout_s, protocol_name="OBD_FREEZE_FRAME",
+                                                       match_response=_match_ff)
+        return result  # type: ignore[return-value]
+
+    async def poll_mode06_once(
+        self,
+        mid: int,
+        tx_id: int | None = None,
+        rx_id: int | None = None,
+        timeout_s: float = DEFAULT_P2_TIMEOUT_S,
+    ) -> bytes:
+        """One-shot SAE J1979 Mode 06 request for one OBDMID; returns the reassembled 0x46 payload.
+
+        Decode with ``src.protocols.obd.mode06.decode_mode06_response`` (supported-MID
+        bitmask for 0x00/0x20/…, otherwise the test records with the ECU's own limits).
+        """
+        target_tx_id = tx_id if tx_id is not None else self.default_tx_id
+        target_rx_id = rx_id if rx_id is not None else self.default_rx_id
+        payload = bytes([0x02, 0x06, mid & 0xFF, 0x55, 0x55, 0x55, 0x55, 0x55])
+        req_frame = CanFrame.create(channel_id=self.channel_id, arbitration_id=target_tx_id, data=payload,
+                                    is_extended=target_tx_id > 0x7FF, direction="tx")
+
+        async def _match_m06(completed: bytes) -> object | None:
+            if completed[0] == 0x46 and len(completed) >= 2 and completed[1] == (mid & 0xFF):
+                return bytes(completed)
+            if completed[0] == 0x7F and len(completed) >= 3 and completed[1] == 0x06:
+                if completed[2] == UdsNrc.REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING:
+                    return None
+                raise ProtocolError(f"OBD Mode 06 MID 0x{mid:02X} rejected with NRC 0x{completed[2]:02X}",
+                                    code="OBD_NEGATIVE_RESPONSE", details={"mid": mid, "nrc": completed[2]})
+            return None
+
+        result = await self._await_diagnostic_response(req_frame=req_frame, target_rx_id=target_rx_id,
+                                                       timeout_s=timeout_s, protocol_name="OBD_MODE06",
+                                                       match_response=_match_m06)
+        return result  # type: ignore[return-value]
+
     async def poll_dtc_once(
         self,
         mode: int,

@@ -3260,12 +3260,17 @@ class UniversalCanDesktopApp:
                             best[e.code] = e.status
                     codes = [c if st == "ACTIVE" else {"code": c, "status": st} for c, st in best.items()]
                     make, model = session.make, session.model
+            # The last OBD read's freeze frame (fault moment) and Mode 06 results (ECU's own limits).
+            obd = getattr(getattr(self, "scan_runner", None), "last_obd", None)
+            freeze = getattr(obd, "freeze_frame", None)
+            monitors = list(getattr(obd, "monitors", None) or [])
             answer = self.copilot.answer(text, dtcs=codes, telemetry=live_telemetry, vehicle_make=make,
                                          vehicle_model=model, language=language, answers=answers,
-                                         context_text=context) \
+                                         context_text=context, freeze_frame=freeze, monitors=monitors) \
                 if hasattr(self.copilot, "answer") \
                 else answer_query(text, dtcs=codes, telemetry=live_telemetry, vehicle_make=make,
-                                  vehicle_model=model, language=language, answers=answers, context_text=context)
+                                  vehicle_model=model, language=language, answers=answers, context_text=context,
+                                  freeze_frame=freeze, monitors=monitors)
             payload = answer.to_dict()
             payload["markdown"] = answer.to_markdown()
             return payload

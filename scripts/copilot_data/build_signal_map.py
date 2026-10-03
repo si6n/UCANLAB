@@ -26,6 +26,8 @@ S = [
  # canonical, unit, aliases, tr phrases, en phrases, threshold_key, spn, (service,pid)
  ("CoolantTemp", "°C", ["EngineCoolantTemp", "coolant", "ECT"], ["su sicakligi", "sogutma suyu sicakligi", "motor suyu sicakligi", "motor sicakligi", "antifriz sicakligi"], ["coolant temperature", "coolant temp", "engine temperature", "engine temp"], "EngineCoolantTemp", 110, ("01", "05")),
  ("EngineSpeed", "rpm", ["RPM"], ["motor devri", "devir"], ["engine speed", "rpm"], "EngineSpeed", 190, ("01", "0C")),
+ ("ShortTermFuelTrimB1", "%", ["STFT", "STFT_B1"], ["kisa donem yakit duzeltmesi", "stft"], ["short term fuel trim", "stft"], None, None, ("01", "06")),
+ ("LongTermFuelTrimB1", "%", ["LTFT", "LTFT_B1"], ["uzun donem yakit duzeltmesi", "ltft"], ["long term fuel trim", "ltft"], None, None, ("01", "07")),
  ("EngineOilPressure", "bar", ["OilPressure", "oil_pressure"], ["yag basinci"], ["oil pressure"], "EngineOilPressure", 100, None),
  ("BoostPressure", "bar", ["TurboBoost", "Boost"], ["turbo basinci", "takviye basinci", "boost basinci"], ["boost pressure", "turbo pressure", "boost"], "TurboBoost", 102, ("01", "0B")),
  ("BatteryVoltage", "V", ["SystemVoltage", "ModuleVoltage"], ["aku voltaji", "aku gerilimi", "sarj voltaji", "sistem voltaji", "aku"], ["battery voltage", "system voltage", "charging voltage"], None, 168, ("01", "42")),
@@ -69,7 +71,9 @@ def prov(canon, spn, pid):
         "confidence": "single_source" if (spn is not None or pid) else "unverified",
     }]
 
-LABEL_TR = {"CatalystTemperature": "Katalizör sıcaklığı", "IsolationResistance": "HV izolasyon direnci",
+LABEL_TR = {"ShortTermFuelTrimB1": "Kısa dönem yakıt düzeltmesi (Sıra 1)",
+            "LongTermFuelTrimB1": "Uzun dönem yakıt düzeltmesi (Sıra 1)",
+            "CatalystTemperature": "Katalizör sıcaklığı", "IsolationResistance": "HV izolasyon direnci",
             "HVPackVoltage": "HV batarya paket voltajı"}
 out = []
 for canon, unit, aliases, tr, en, tkey, spn, pid in S:

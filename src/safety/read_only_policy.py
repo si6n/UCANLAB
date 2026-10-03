@@ -8,8 +8,9 @@ exactly that and nothing else. While it is installed on the
 * an 11-bit, classic-CAN frame to the OBD functional address ``0x7DF`` or a
   physical request address ``0x7E0``–``0x7E7``;
 * an ISO-TP *single frame* whose service byte is a read-only SAE J1979 mode:
-  ``0x01`` (current data), ``0x03`` (stored codes), ``0x07`` (pending codes),
-  ``0x09`` (vehicle information / VIN) or ``0x0A`` (permanent codes);
+  ``0x01`` (current data), ``0x02`` (freeze frame data), ``0x03`` (stored
+  codes), ``0x06`` (on-board monitoring test results), ``0x07`` (pending
+  codes), ``0x09`` (vehicle information / VIN) or ``0x0A`` (permanent codes);
 * or an ISO-TP *flow control* "continue to send" (``0x30``) to a physical
   address, which a tester must send to receive a multi-frame answer.
 
@@ -30,7 +31,9 @@ from src.core.models.can_frame import CanFrame
 
 OBD_FUNCTIONAL_ID = 0x7DF
 OBD_PHYSICAL_REQUEST_IDS = frozenset(range(0x7E0, 0x7E8))
-READ_ONLY_OBD_SERVICES = frozenset({0x01, 0x03, 0x07, 0x09, 0x0A})
+# Modes 02 and 06 only READ what the ECU already stored (freeze frame, monitor
+# test results); Mode 04 (clear) and Mode 08 (on-board control) stay refused.
+READ_ONLY_OBD_SERVICES = frozenset({0x01, 0x02, 0x03, 0x06, 0x07, 0x09, 0x0A})
 _FLOW_CONTROL_CONTINUE = 0x30
 
 

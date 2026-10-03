@@ -56,6 +56,7 @@ _S: dict[str, dict[str, str]] = {
     "conf.low": {"tr": "düşük", "en": "low"},
     "kind.graph": {"tr": "kök neden grafiği", "en": "root-cause graph"},
     "kind.record": {"tr": "kod kaydındaki olası neden", "en": "possible cause listed in the code record"},
+    "kind.monitor": {"tr": "ECU'nun kendi testi (Mode 06), kendi limitiyle", "en": "the ECU's own test (Mode 06), against its own limit"},
     "kind.scenario": {"tr": "ölçümün çalışma durumuna göre yorumu", "en": "reading interpreted in its operating state"},
     "kind.pattern": {"tr": "birden çok kodu tek nedenle açıklayan ortak kök neden", "en": "one shared cause explaining several codes"},
     "kind.area": {"tr": "şikâyetin işaret ettiği alt sistem (kesin neden değil; kontrol edilecek bölge)",
@@ -259,6 +260,16 @@ class StructuredAnswer:
         for m in self.missing_data:
             lines.append(f"- **{m['what']}** {m['how']}")
         lines += ["", f"<details><summary>{_t('h.technical', lang)}</summary>", ""]
+        if self.technical.get("freeze_frame"):
+            ff = self.technical["freeze_frame"]
+            vals = ", ".join(f"{x['signal']} {x['value']:g} {x['unit']}".strip() for x in ff["readings"])
+            lines.append(f"- {'Arıza anı (freeze frame)' if lang == 'tr' else 'Fault moment (freeze frame)'} "
+                         f"{ff['dtc']}: {ff['state'] or '—'}; {vals}")
+        for m in self.technical.get("monitors", []):
+            mark = "✓" if m["passed"] and not m["near_limit"] else ("⚠" if m["passed"] else "✗")
+            unit = f" {m['unit']}" if m["unit"] and m["unit"] != "raw" else ""
+            lines.append(f"- {mark} {m['monitor']} / {m['test']}: {m['value']:g}{unit} "
+                         f"({'ECU limiti' if lang == 'tr' else 'ECU limit'} {m['min']:g}–{m['max']:g}) `{m['ref']}`")
         if self.technical.get("state"):
             st = self.technical["state"]
             lines.append(f"- {'Çalışma durumu' if lang == 'tr' else 'Operating state'}: {st['text']} "
@@ -361,12 +372,23 @@ def _evidence_text(marker: str, lang: str, kb: KnowledgeBase) -> str:
         return (f"şikâyet: {name or payload} — motor çalıştırılmaya devam ederse kalıcı hasar görebilir"
                 if lang == "tr" else f"complaint: {name or payload} — running the engine on can cause permanent damage")
     if kind == "scenario":
-        sid, engine, thermal, sig, value, unit = (payload.split("|") + [""] * 6)[:6]
+        sid, engine, thermal, sig, value, unit, origin = (payload.split("|") + [""] * 7)[:7]
         sc = kb.operating_scenario(sid) or {}
         why = str(sc.get("rationale_tr" if lang == "tr" else "rationale_en") or "")
         where = _state_words(engine, thermal, lang)
-        return (f"{where}: {sig} = {value} {unit} — {why}" if lang == "tr"
-                else f"{where}: {sig} = {value} {unit} — {why}")
+        if origin == "freeze_frame":
+            where = (f"arıza anında (freeze frame), {where}" if lang == "tr" else f"at the fault moment (freeze frame), {where}")
+        return f"{where}: {sig} = {value} {unit} — {why}"
+    if kind == "monitor":
+        mid, tid, value, lo, hi, unit = (payload.split("|") + [""] * 6)[:6]
+        from src.engine.ai.copilot_reasoner import monitor_names
+
+        mon_tr, mon_en, t_tr, t_en = monitor_names(kb, int(mid), int(tid))
+        name = (mon_tr if lang == "tr" else mon_en) or f"OBDMID 0x{int(mid):02X}"
+        test = (t_tr if lang == "tr" else t_en) or f"TID 0x{int(tid):02X}"
+        u = f" {unit}" if unit and unit != "raw" else ""
+        return (f"ECU testi başarısız — {name} / {test}: {value}{u}, ECU limiti {lo}–{hi}{u}" if lang == "tr"
+                else f"ECU test failed — {name} / {test}: {value}{u}, ECU limit {lo}–{hi}{u}")
     if kind == "pattern":
         rid, _, n = payload.partition("|")
         rule = kb.reasoning_rule(rid) or {}
@@ -422,6 +444,13 @@ def _title(h: Hypothesis, lang: str, kb: KnowledgeBase) -> str:
     if h.kind == "scenario":
         sc = kb.operating_scenario(h.id.partition("#")[2]) or {}
         return str(sc.get("title_en" if lang == "en" else "title_tr") or h.title)
+    if h.kind == "monitor":
+        from src.engine.ai.copilot_reasoner import monitor_names
+
+        mid = int(h.id.partition("#")[2], 16)
+        mon_tr, mon_en, _t, _e = monitor_names(kb, mid, 0)
+        return (f"ECU testi başarısız: {mon_tr or h.id}" if lang == "tr"
+                else f"ECU test failed: {mon_en or h.id}")
     if h.kind in ("graph", "suspected"):
         return kb.graph_title(h.id, lang) or h.title  # graph titles mix TR and EN in the data
     return h.title
@@ -570,6 +599,11 @@ def _steps(r: Reasoning, lang: str, max_steps: int, kb: KnowledgeBase) -> list[d
             step = str(sc.get("step_tr" if lang == "tr" else "step_en") or "")
             if step:
                 add(step, "", [h.id])
+    if any(not m["passed"] for m in r.monitor_findings):
+        add("ECU'nun kendi testi başarısız (Mode 06): onarımdan sonra testin yeniden çalışması için ilgili sürüş "
+            "koşulunu tamamlayın ve Mode 06'yı yeniden okuyun; test geçmeden onarım bitmiş sayılmaz." if lang == "tr"
+            else "The ECU's own test failed (Mode 06): after the repair complete the drive conditions that rerun it "
+            "and read Mode 06 again; the repair is not done until the test passes.", "", ["template:mode06_verify"])
     # What the operator's answers concluded is the next thing to do.
     for res in r.check_results:
         note = res.note_tr if lang == "tr" else res.note_en
@@ -618,7 +652,8 @@ def _steps(r: Reasoning, lang: str, max_steps: int, kb: KnowledgeBase) -> list[d
                   "appeared in, then re-read the codes."), "", ["template:pending"])
     # Every diagnosis ends with proving the repair, in the state the fault was seen in.
     if any(c.found for c in r.codes):
-        where = _state_words(r.state.engine, r.state.thermal, lang) if r.state.known else ""
+        st = r.fault_state if r.fault_state.known else r.state  # the freeze frame knows the fault moment best
+        where = _state_words(st.engine, st.thermal, lang) if st.known else ""
         verify = (("Onarımdan sonra: kodları silin, arızanın görüldüğü koşulda" + (f" ({where})" if where else "")
                    + " test edin; kod geri gelirse listedeki sonraki adaya geçin.") if lang == "tr"
                   else ("After the repair: clear the codes and test in the conditions the fault appeared in"
@@ -766,6 +801,8 @@ def answer_query(
     options: CopilotOptions | None = None,
     kb: KnowledgeBase | None = None,
     context_text: str = "",
+    freeze_frame: Mapping[str, Any] | None = None,
+    monitors: Iterable[Any] = (),
 ) -> StructuredAnswer:
     """Answer one copilot request with the six-section structured format.
 
@@ -777,12 +814,13 @@ def answer_query(
     opts = options or CopilotOptions()
     kb = kb or get_knowledge_base()
     parsed = parse_query(text, dtcs=dtcs, telemetry=telemetry, dm1=dm1, vehicle_make=vehicle_make,
-                         vehicle_model=vehicle_model, language=language, answers=answers, kb=kb)
+                         vehicle_model=vehicle_model, language=language, answers=answers, kb=kb,
+                         freeze_frame=freeze_frame, monitors=monitors)
     context_text = str(context_text or "")[:2000].strip()
     if context_text and text.strip() and not (parsed.dtcs or parsed.spns or parsed.symptoms):
         parsed = parse_query(f"{context_text}. {text}", dtcs=dtcs, telemetry=telemetry, dm1=dm1,
                              vehicle_make=vehicle_make, vehicle_model=vehicle_model, language=language or parsed.language,
-                             answers=answers, kb=kb)
+                             answers=answers, kb=kb, freeze_frame=freeze_frame, monitors=monitors)
         parsed.notes.append("followup_merged")
     r = reason(parsed, kb, include_recalls=opts.include_recalls)
     lang = parsed.language
@@ -830,6 +868,42 @@ def answer_query(
             else "Say 'engine running' or 'engine off' with the reading, or also send the engine speed (rpm).",
             "refs": ["operating_scenarios#battery_voltage"]})
     ans.technical = _technical(r, lang, kb, similar)
+    if r.parsed.freeze_dtc:
+        fs = r.fault_state
+        ans.technical["freeze_frame"] = {
+            "dtc": r.parsed.freeze_dtc,
+            "state": _state_words(fs.engine, fs.thermal, lang) if fs.known else "",
+            "readings": [{"signal": f.signal, "value": f.value, "unit": f.unit, "status": f.status,
+                          "status_text": _STATUS.get(f.status, {}).get(lang, f.status), "ref": f.ref}
+                         for f in r.freeze_findings],
+        }
+        vals = ", ".join(f"{f.signal} {f.value:g} {f.unit}".strip() for f in r.freeze_findings[:4])
+        ans.summary += (f" Arıza anı ({r.parsed.freeze_dtc}, freeze frame): "
+                        f"{ans.technical['freeze_frame']['state'] or 'durum belirsiz'}; {vals}." if lang == "tr"
+                        else f" Fault moment ({r.parsed.freeze_dtc}, freeze frame): "
+                        f"{ans.technical['freeze_frame']['state'] or 'state unclear'}; {vals}.")
+    if r.monitor_findings:
+        from src.engine.ai.copilot_reasoner import monitor_names
+
+        rows = []
+        for m in r.monitor_findings:
+            mon_tr, mon_en, t_tr, t_en = monitor_names(kb, m["mid"], m["tid"])
+            rows.append({**m, "monitor": (mon_tr if lang == "tr" else mon_en) or f"OBDMID 0x{m['mid']:02X}",
+                         "test": (t_tr if lang == "tr" else t_en) or f"TID 0x{m['tid']:02X}",
+                         "near_limit": m.get("margin") is not None and m["margin"] < 0.1,
+                         "ref": f"obd_mode06#0x{m['mid']:02X}"})
+        ans.technical["monitors"] = rows
+        failed = [x["monitor"] for x in rows if not x["passed"]]
+        near = [x["monitor"] for x in rows if x["near_limit"]]
+        bits = []
+        if failed:
+            bits.append((f"{len(failed)} başarısız ({', '.join(failed[:2])})") if lang == "tr"
+                        else f"{len(failed)} failed ({', '.join(failed[:2])})")
+        if near:
+            bits.append((f"{len(near)} sınırda ({', '.join(near[:2])})") if lang == "tr"
+                        else f"{len(near)} near the limit ({', '.join(near[:2])})")
+        if bits:
+            ans.summary += (" ECU testleri (Mode 06): " if lang == "tr" else " ECU tests (Mode 06): ") + "; ".join(bits) + "."
     if r.state.known:
         ans.technical["state"] = {
             "engine": r.state.engine, "thermal": r.state.thermal, "system_voltage": r.state.system_voltage,

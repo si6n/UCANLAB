@@ -6899,6 +6899,8 @@ class AiDiagnosticCopilot:
         options: Any = None,
         answers: dict[str, Any] | None = None,
         context_text: str = "",
+        freeze_frame: dict[str, Any] | None = None,
+        monitors: Any = (),
     ) -> Any:
         """Six-section structured answer (``copilot_answer.answer_query``).
 
@@ -6910,7 +6912,7 @@ class AiDiagnosticCopilot:
 
         return answer_query(text, dtcs=dtcs, telemetry=telemetry, dm1=dm1, vehicle_make=vehicle_make,
                             vehicle_model=vehicle_model, language=language, options=options, answers=answers,
-                            context_text=context_text)
+                            context_text=context_text, freeze_frame=freeze_frame, monitors=monitors)
 
     def analyze_session(
         self,

@@ -125,6 +125,104 @@
    ]
   },
   {
+   "canonical": "ShortTermFuelTrimB1",
+   "unit": "%",
+   "aliases": [
+    "STFT",
+    "STFT_B1"
+   ],
+   "phrases_tr": [
+    "kisa donem yakit duzeltmesi",
+    "stft"
+   ],
+   "phrases_en": [
+    "short term fuel trim",
+    "stft"
+   ],
+   "label_tr": "Kısa dönem yakıt düzeltmesi (Sıra 1)",
+   "label_en": "Short term fuel trim",
+   "obd": {
+    "service": "01",
+    "pid": "06",
+    "name": "Short term fuel trim — Bank 1",
+    "unit": "%"
+   },
+   "provenance": [
+    {
+     "provenance_id": "prv-sigmap-shorttermfueltrimb1",
+     "target": {
+      "record_id": "ShortTermFuelTrimB1",
+      "field": "j1939/obd"
+     },
+     "activity": "derive_from_internal_db",
+     "activity_version": "copilot-upgrade-1",
+     "agent": {
+      "type": "automated",
+      "id": "build_signal_measurement_map",
+      "role": "generator"
+     },
+     "source": {
+      "title": "extended_pid_database.json service 01 pid 06",
+      "path": "data/diagnostics/extended_pid_database.json",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "copy-spn-pgn-pid-fields"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  {
+   "canonical": "LongTermFuelTrimB1",
+   "unit": "%",
+   "aliases": [
+    "LTFT",
+    "LTFT_B1"
+   ],
+   "phrases_tr": [
+    "uzun donem yakit duzeltmesi",
+    "ltft"
+   ],
+   "phrases_en": [
+    "long term fuel trim",
+    "ltft"
+   ],
+   "label_tr": "Uzun dönem yakıt düzeltmesi (Sıra 1)",
+   "label_en": "Long term fuel trim",
+   "obd": {
+    "service": "01",
+    "pid": "07",
+    "name": "Long term fuel trim — Bank 1",
+    "unit": "%"
+   },
+   "provenance": [
+    {
+     "provenance_id": "prv-sigmap-longtermfueltrimb1",
+     "target": {
+      "record_id": "LongTermFuelTrimB1",
+      "field": "j1939/obd"
+     },
+     "activity": "derive_from_internal_db",
+     "activity_version": "copilot-upgrade-1",
+     "agent": {
+      "type": "automated",
+      "id": "build_signal_measurement_map",
+      "role": "generator"
+     },
+     "source": {
+      "title": "extended_pid_database.json service 01 pid 07",
+      "path": "data/diagnostics/extended_pid_database.json",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "copy-spn-pgn-pid-fields"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  {
    "canonical": "EngineOilPressure",
    "unit": "bar",
    "aliases": [

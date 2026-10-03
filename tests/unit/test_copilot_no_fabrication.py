@@ -101,6 +101,12 @@ def _allowed_numbers(kwargs: dict[str, Any], answer: StructuredAnswer) -> set[fl
     allowed |= _numbers(json.dumps(kwargs.get("dtcs", []), default=str))
     allowed |= _numbers(json.dumps(kwargs.get("telemetry", {}), default=str))
     allowed |= _numbers(json.dumps(kwargs.get("answers", {}), default=str))
+    allowed |= _numbers(json.dumps(kwargs.get("freeze_frame", {}), default=str))
+    allowed |= _numbers(json.dumps(kwargs.get("monitors", []), default=str))
+    # combined values the scenarios compute from the input (STFT + LTFT)
+    ff = (kwargs.get("freeze_frame") or {}).get("readings") or {}
+    if "ShortTermFuelTrimB1" in ff and "LongTermFuelTrimB1" in ff:
+        allowed.add(round(float(ff["ShortTermFuelTrimB1"]) + float(ff["LongTermFuelTrimB1"]), 3))
     # values the parser derived from the input (unit conversion, HV Ω/V ratio)
     for r in answer.understood.get("readings", []):
         allowed.add(round(float(r["value"]), 3))

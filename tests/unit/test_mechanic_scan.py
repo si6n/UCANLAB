@@ -46,9 +46,10 @@ def _policy(ttl_s: float = 60.0) -> ReadOnlyPolicy:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("mode", [0x01, 0x03, 0x07, 0x09, 0x0A])
+@pytest.mark.parametrize("mode", [0x01, 0x02, 0x03, 0x06, 0x07, 0x09, 0x0A])
 def test_policy_allows_read_modes(mode: int) -> None:
-    data = bytes([0x02, mode, 0x00]) if mode in (0x01, 0x09) else bytes([0x01, mode])
+    data = (bytes([0x03, mode, 0x05, 0x00]) if mode == 0x02 else
+            bytes([0x02, mode, 0x00]) if mode in (0x01, 0x06, 0x09) else bytes([0x01, mode]))
     assert _policy().violation(_frame(0x7DF, data.ljust(8, b"\x55")), time.monotonic_ns()) is None
     assert _policy().violation(_frame(0x7E0, data.ljust(8, b"\x55")), time.monotonic_ns()) is None
 
@@ -57,6 +58,7 @@ def test_policy_allows_read_modes(mode: int) -> None:
     ("arbitration_id", "data", "reason"),
     [
         (0x7DF, bytes([0x01, 0x04]), "READ_ONLY_SERVICE"),  # OBD Mode 04: clear codes
+        (0x7E0, bytes([0x02, 0x08, 0x01]), "READ_ONLY_SERVICE"),  # OBD Mode 08: on-board control (writes)
         (0x7E0, bytes([0x04, 0x14, 0xFF, 0xFF, 0xFF]), "READ_ONLY_SERVICE"),  # UDS clear DTC
         (0x7E0, bytes([0x02, 0x10, 0x03]), "READ_ONLY_SERVICE"),  # UDS session control
         (0x7E0, bytes([0x03, 0x22, 0xF1, 0x90]), "READ_ONLY_SERVICE"),  # UDS read DID (not in the list)

@@ -88,6 +88,8 @@ class ScanRunner:
         self._thread: threading.Thread | None = None
         self._state: dict[str, Any] = {"state": "idle"}
         self.last_result: dict[str, Any] | None = None
+        # The last OBD read (codes, freeze frame, Mode 06 monitors) for the copilot.
+        self.last_obd: ObdReadOutcome | None = None
 
     def status(self) -> dict[str, Any]:
         with self._lock:
@@ -110,6 +112,7 @@ class ScanRunner:
                 raise RuntimeError("scan already running")
             scan_id = uuid.uuid4().hex[:12]
             self._cancel.clear()
+            self.last_obd = None  # a new scan never reuses another vehicle's freeze frame
             self._state = {"state": "running", "scan_id": scan_id, "step": "listening", "progress": 0.0,
                            "result": None, "report_text": None}
             self._thread = threading.Thread(target=self._run, args=(request,), name="mechanic-scan", daemon=True)
@@ -132,6 +135,7 @@ class ScanRunner:
                 if request.allow_read:
                     self._set(step="reading")
                     outcome = backend.read_obd()
+                    self.last_obd = outcome
                     read_status = outcome.status
                     session.events.extend(obd_codes_to_events(outcome.codes, time.monotonic_ns()))
                     for code in outcome.codes:

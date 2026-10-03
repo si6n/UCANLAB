@@ -25,6 +25,7 @@ Pure functions, standard library + the knowledge layer only.
 
 from __future__ import annotations
 
+import math
 import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
@@ -129,6 +130,11 @@ class ParsedQuery:
     corrections: list[tuple[str, str]] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
     answers: list[CheckAnswer] = field(default_factory=list)
+    # Mode 02 freeze frame: the conditions when ``freeze_dtc`` was stored (origin "freeze_frame")
+    freeze_dtc: str = ""
+    freeze_readings: list[Reading] = field(default_factory=list)
+    # Mode 06 monitor results: the ECU's own test verdicts with its own limits
+    monitors: list[dict[str, Any]] = field(default_factory=list)
 
     @property
     def is_empty(self) -> bool:
@@ -154,6 +160,10 @@ class ParsedQuery:
             "corrections": [list(c) for c in self.corrections],
             "notes": list(self.notes),
             "answers": [{"key": a.key, "value": a.value, "origin": a.origin} for a in self.answers],
+            "freeze_frame": ({"dtc": self.freeze_dtc, "readings": [
+                {"signal": r.canonical, "value": r.value, "unit": r.unit} for r in self.freeze_readings]}
+                if self.freeze_dtc else None),
+            "monitors": len(self.monitors),
         }
 
 
@@ -677,6 +687,23 @@ def _check_answers(answers: Mapping[str, Any], text: str, symptoms: list[Symptom
     return list(out.values()), notes
 
 
+def _monitor_results(monitors: Iterable[Any]) -> list[dict[str, Any]]:
+    """Mode 06 records as given by the reader; anything malformed is dropped, never repaired."""
+    out: list[dict[str, Any]] = []
+    for m in list(monitors)[:200]:
+        if not isinstance(m, Mapping):
+            continue
+        try:
+            mid, tid = int(m["mid"]), int(m["tid"])
+            value, lo, hi = float(m["value"]), float(m["min"]), float(m["max"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if 0 < mid <= 0xFF and 0 <= tid <= 0xFF and all(math.isfinite(x) for x in (value, lo, hi)):
+            out.append({"mid": mid, "tid": tid, "value": value, "min": lo, "max": hi,
+                        "unit": str(m.get("unit") or ""), "passed": bool(m.get("passed"))})
+    return out
+
+
 def parse_query(
     text: str = "",
     *,
@@ -688,6 +715,8 @@ def parse_query(
     language: str | None = None,
     answers: Mapping[str, Any] | None = None,
     kb: KnowledgeBase | None = None,
+    freeze_frame: Mapping[str, Any] | None = None,
+    monitors: Iterable[Any] = (),
 ) -> ParsedQuery:
     """Parse everything the copilot was given into one deterministic structure."""
     kb = kb or get_knowledge_base()
@@ -758,6 +787,15 @@ def parse_query(
     pq.readings = readings
     pq.unknown_telemetry = unknown
     codes_read = [c.code for c in pq.dtcs] + [f"SPN {x.spn}" for x in pq.spns]
+    if isinstance(freeze_frame, Mapping):
+        ff_code = normalize_dtc_code(str(freeze_frame.get("dtc") or ""))
+        raw = freeze_frame.get("readings")
+        if ff_code and isinstance(raw, Mapping):
+            ff_readings, _unknown = _input_readings(raw, kb)
+            pq.freeze_dtc = ff_code
+            pq.freeze_readings = [Reading(x.canonical, x.value, x.unit, x.raw_name, "freeze_frame", x.unit_assumed,
+                                          x.raw_value, x.raw_unit) for x in ff_readings]
+    pq.monitors = _monitor_results(monitors)
     pq.answers, notes = _check_answers(answers or {}, text, pq.symptoms, kb, code_check_symptoms(codes_read, kb))
     pq.notes.extend(notes)
 

@@ -18,12 +18,13 @@ the field "unknown".
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 
 from src.engine.ai.knowledge_base import fold_text
-from src.engine.ai.query_understanding import ParsedQuery
+from src.engine.ai.query_understanding import ParsedQuery, Reading
 
-__all__ = ["OperatingState", "infer_state"]
+__all__ = ["OperatingState", "infer_state", "infer_state_from"]
 
 # Folded word cues (Turkish + English). Longer phrases first where they overlap.
 _ENGINE_CUES: tuple[tuple[str, tuple[str, ...]], ...] = (
@@ -69,9 +70,14 @@ def _cue(folded: str, table: tuple[tuple[str, tuple[str, ...]], ...]) -> tuple[s
 
 
 def infer_state(parsed: ParsedQuery) -> OperatingState:
+    return infer_state_from(parsed.readings, parsed.text)
+
+
+def infer_state_from(readings: Iterable[Reading], text: str = "") -> OperatingState:
+    """Same inference over any set of readings (live, or a freeze frame: the fault moment)."""
     st = OperatingState()
-    values = {r.canonical: r.value for r in parsed.readings}
-    folded = fold_text(parsed.text)
+    values = {r.canonical: r.value for r in readings}
+    folded = fold_text(text)
 
     rpm = values.get("EngineSpeed")
     load = values.get("EngineLoad")
@@ -109,7 +115,7 @@ def infer_state(parsed: ParsedQuery) -> OperatingState:
         if st.thermal != "unknown":
             st.sources.append(f"thermal:CoolantTemp={coolant:g}")
 
-    m = _VOLT_RE.search(parsed.text.lower())
+    m = _VOLT_RE.search(text.lower())
     if m and ("sistem" in folded or "system" in folded or "arac" in folded or "truck" in folded or "kamyon" in folded):
         st.system_voltage = int(m.group(1))
         st.sources.append(f"voltage:text:{m.group(0)}")

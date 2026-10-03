@@ -44,6 +44,14 @@ SCENARIOS: list[tuple[str, dict[str, Any], dict[str, Any]]] = [
      {"symptoms": ["crank-no-start"], "not_symptoms": ["starter-relay-circuit-open"]}),
     ("sym_numbered_cylinder", {"text": "3. silindir tekleme yapıyor"},
      {"symptoms": ["misfire-cylinder-3"], "not_symptoms": ["misfire-random-multiple", "rough-idle-vibration"]}),
+    # ---- freeze frame (Mode 02) and the ECU's own tests (Mode 06) -------
+    ("obd_freeze_and_monitors", {
+        "dtcs": ["P0301", "P0171"],
+        "freeze_frame": {"dtc": "P0301", "readings": {"EngineSpeed": 780, "CoolantTemp": 91,
+                                                      "ShortTermFuelTrimB1": 9.4, "LongTermFuelTrimB1": 14.1}},
+        "monitors": [{"mid": 0xA2, "tid": 11, "value": 41, "min": 0, "max": 20, "unit": "counts", "passed": False},
+                     {"mid": 0x21, "tid": 130, "value": 46, "min": 0, "max": 48, "unit": "", "passed": True}]},
+     {"risk": "YELLOW", "top": "buji bobin", "summary": "Arıza anı (P0301, freeze frame)"}),
     # ---- several codes, one shared cause (reasoning_rules.json) ---------
     ("rule_sensor_reference", {"dtcs": ["P0107", "P0122", "P0117"]}, {"top": "5 v sensor referans", "conf": {"medium"}}),
     ("rule_network", {"dtcs": ["U0100", "U0121", "U0140"]}, {"top": "ortak can hatti"}),

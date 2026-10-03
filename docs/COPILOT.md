@@ -206,6 +206,37 @@ birlikte değerlendirildi.)" diye başlar; kendi şikâyeti varsa ("klima çalı
 yeni konu sayılır. Arayüz konuşmayı biriktirir; "Yeni konu" düğmesi sıfırlar.
 "rölanti" tek başına artık bir şikâyet değil, durum kelimesidir.
 
+### 3.1.6 Freeze frame (Mode 02) ve ECU'nun kendi testleri (Mode 06)
+
+ECU ikaz eşiklerini kalibrasyonunda tutar ve standart servislerle vermez; tek
+standart istisna **Mode 06**'dır: ECU her izleme testinin (katalizör, O2,
+silindir başına tekleme, EVAP, EGR …) ölçtüğü değeri **kendi min/max
+limitiyle** yayınlar. **Mode 02 (freeze frame)**, kod kaydedildiği andaki
+koşulları (devir, yük, su sıcaklığı, yakıt düzeltmeleri, akü gerilimi …) verir.
+
+* Okuma: `engine/diagnosis/obd_reader.py` Mode 03/07/0A'dan sonra ilk cevap veren
+  ECU'dan freeze frame (çerçeve 0: önce kodu kaydeden DTC, sonra PID'ler) ve
+  Mode 06 (desteklenen OBDMID zinciri 0x00/0x20/…, sonra her MID; en çok 40)
+  okur. `ReadOnlyPolicy` yalnız okuma servislerine izin verir; 0x02 ve 0x06
+  listeye eklendi, Mode 04 (silme) ve 08 (kontrol) reddedilmeye devam eder.
+* Çözümleme: `protocols/obd/mode06.py`. Geçti/kaldı kararı ham değerlerle
+  verilir (değer ve limitler aynı UASID'yi paylaşır; 0x80+ işaretli); ölçekleme
+  yalnız gösterim içindir, tabloda olmayan UASID ham gösterilir.
+* Copilot: `answer_query(..., freeze_frame=, monitors=)`; masaüstünde son
+  taramanın okuması (`ScanRunner.last_obd`, her yeni taramada temizlenir)
+  otomatik verilir.
+  * Freeze frame **arıza anı durumunu** verir (`fault_state`): özet "Arıza anı
+    (P0301, freeze frame): rölantide, sıcak motor; …", senaryolar arıza anı
+    değerleriyle de çalışır ("arıza anında" kanıtı), onarım doğrulaması bu
+    durumda yapılır. STFT+LTFT toplamı >+%20 / <-%20 fakir/zengin karışımı
+    doğrular ve aktif kodun nedenlerine kanıt olur.
+  * Başarısız Mode 06 testi `kind=monitor` aday olur ("ECU testi başarısız: …;
+    41 sayım, ECU limiti 0–20"), testin ilgili kodunun (OBDMID→DTC eşlemesi)
+    graf nedenlerini kod olmasa da güçlendirir, aciliyeti SARI yapar ve
+    "test geçmeden onarım bitmiş sayılmaz" adımı ekler. Geçen ama limitin son
+    %10'unda olan test "sınırda" diye özetlenir.
+* Simülatör (`SimulatedObdEcu`) freeze frame ve Mode 06 cevaplarını da verir.
+
 ### 3.2 Aciliyet ve güvenlik
 
 * Aciliyet: kod ciddiyeti `drive_safety_policy.decide_risk` ile (tek otorite),
@@ -289,6 +320,7 @@ python -m pytest tests/unit/test_copilot_*.py tests/safety/test_ai_tx_isolation.
 | `test_copilot_no_fabrication.py` | Her küratörlü sorunun her cevabı (424 durum) için atıf çözümü ve sayı izlenebilirliği; atıf çözümü, sayı izlenebilirliği, yalnız verilen sinyallerde bulgu, bilinmeyen koda anlam verilmemesi, NaN/birim reddi, determinizm, yazma/TX yokluğu |
 | `test_copilot_knowledge_and_parsing.py` | KB tembelliği, indeksler, kaçırma nedenleri, ayrıştırıcı birim testleri |
 | `test_copilot_performance.py` | Kurulum < 10 ms, sıcak sorgu ort. < 150 ms (ölçülen 2–13 ms), bellek < 8 MB, arama katmanı aç/kapa |
+| `test_obd_freeze_frame_mode06.py` | Mode 06 çözümleme (işaretli/ham UASID, bitmask), okuyucu + salt-okuma politikası, tarama sonrası saklama, copilot arıza anı/ECU testi/yakıt düzeltmesi |
 | `test_copilot_operating_state.py` | Durum çıkarımı, akü gerilimi duruma göre, 24 V, DPF/turbo/hararet senaryoları, yüzey şarjı |
 | `test_copilot_checks.py` | Soru hedeflerinin semptoma aitliği, bant sürekliliği, cevapla öne alma/geri itme, metinden ölçüm, etkisiz cevaplar, TR/EN |
 | `test_copilot_bridge_and_data.py` | Köprü uç noktası, `answers` doğrulaması, ek analiz anahtarı, veri kapısı, üreticilerin bayt-eşdeğerliği |

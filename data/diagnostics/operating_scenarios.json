@@ -188,6 +188,9 @@
  "scenarios": [
   {
    "id": "alternator-not-charging",
+   "codes": [
+    "P0562"
+   ],
    "when": {
     "engine": [
      "idle",
@@ -233,6 +236,9 @@
   },
   {
    "id": "regulator-overcharging",
+   "codes": [
+    "P0563"
+   ],
    "when": {
     "engine": [
      "idle",
@@ -404,6 +410,10 @@
   },
   {
    "id": "dpf-loaded-at-idle",
+   "codes": [
+    "P2002",
+    "P2463"
+   ],
    "when": {
     "engine": [
      "idle"
@@ -446,6 +456,9 @@
   },
   {
    "id": "underboost-under-load",
+   "codes": [
+    "P0299"
+   ],
    "when": {
     "engine": [
      "load"
@@ -488,6 +501,9 @@
   },
   {
    "id": "thermostat-open-warm-engine",
+   "codes": [
+    "P0128"
+   ],
    "when": {
     "thermal": [
      "warm"
@@ -534,6 +550,9 @@
   },
   {
    "id": "overheat-at-idle",
+   "codes": [
+    "P0217"
+   ],
    "when": {
     "engine": [
      "idle"
@@ -576,6 +595,9 @@
   },
   {
    "id": "overheat-under-load",
+   "codes": [
+    "P0217"
+   ],
    "when": {
     "engine": [
      "load"
@@ -595,6 +617,108 @@
      "provenance_id": "prv-scenario-overheat-under-load",
      "target": {
       "record_id": "overheat-under-load",
+      "field": "scenario"
+     },
+     "activity": "curate_operating_scenario",
+     "activity_version": "copilot-scenarios-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "Knowledge-base measurement texts and operator-approved battery bands",
+      "path": "data/diagnostics/operating_scenarios.json",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "state-aware-judgement"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  {
+   "id": "lean-confirmed-by-trims",
+   "codes": [
+    "P0171",
+    "P0174"
+   ],
+   "when": {
+    "engine": [
+     "idle",
+     "running",
+     "load"
+    ],
+    "sum": [
+     "ShortTermFuelTrimB1",
+     "LongTermFuelTrimB1"
+    ],
+    "gt": 20.0
+   },
+   "title_tr": "Fakir karışım doğrulandı: yakıt düzeltmeleri toplamı +%20 üstünde (hava kaçağı, MAF, düşük yakıt basıncı)",
+   "title_en": "Lean mixture confirmed: fuel trims add up to over +20 % (air leak, MAF, low fuel pressure)",
+   "rationale_tr": "STFT + LTFT toplamı +%20'yi aşıyorsa ECU fazla yakıt ekleyerek fakir karışımı telafi ediyordur",
+   "rationale_en": "when STFT + LTFT exceed +20 % the ECU is adding fuel to make up for a lean mixture",
+   "step_tr": "Emme tarafında duman testi yapın, MAF okumasını ve yakıt basıncını kontrol edin.",
+   "step_en": "Smoke test the intake, check the MAF reading and the fuel pressure.",
+   "source": "dtc_database P0171 steps[1] (STFT + LTFT > +20 %)",
+   "provenance": [
+    {
+     "provenance_id": "prv-scenario-lean-confirmed-by-trims",
+     "target": {
+      "record_id": "lean-confirmed-by-trims",
+      "field": "scenario"
+     },
+     "activity": "curate_operating_scenario",
+     "activity_version": "copilot-scenarios-1",
+     "agent": {
+      "type": "curator",
+      "id": "ucanlab-copilot-curation",
+      "role": "author"
+     },
+     "source": {
+      "title": "Knowledge-base measurement texts and operator-approved battery bands",
+      "path": "data/diagnostics/operating_scenarios.json",
+      "type": "internal_kb"
+     },
+     "transform": {
+      "rule_id": "state-aware-judgement"
+     },
+     "confidence": "single_source"
+    }
+   ]
+  },
+  {
+   "id": "rich-confirmed-by-trims",
+   "codes": [
+    "P0172",
+    "P0175"
+   ],
+   "when": {
+    "engine": [
+     "idle",
+     "running",
+     "load"
+    ],
+    "sum": [
+     "ShortTermFuelTrimB1",
+     "LongTermFuelTrimB1"
+    ],
+    "lt": -20.0
+   },
+   "title_tr": "Zengin karışım doğrulandı: yakıt düzeltmeleri toplamı -%20 altında (damlatan enjektör, purge valfi, yüksek yakıt basıncı)",
+   "title_en": "Rich mixture confirmed: fuel trims add up to below -20 % (leaking injector, purge valve, high fuel pressure)",
+   "rationale_tr": "STFT + LTFT toplamı -%20'nin altındaysa ECU yakıtı keserek zengin karışımı telafi ediyordur",
+   "rationale_en": "when STFT + LTFT fall below -20 % the ECU is cutting fuel to make up for a rich mixture",
+   "step_tr": "Enjektör kaçağını, EVAP purge valfini ve yakıt basınç regülatörünü kontrol edin.",
+   "step_en": "Check for injector leakage, the EVAP purge valve and the fuel pressure regulator.",
+   "source": "canonical_symptoms rich-condition-bank1 (trims pulling towards -20 %)",
+   "provenance": [
+    {
+     "provenance_id": "prv-scenario-rich-confirmed-by-trims",
+     "target": {
+      "record_id": "rich-confirmed-by-trims",
       "field": "scenario"
      },
      "activity": "curate_operating_scenario",

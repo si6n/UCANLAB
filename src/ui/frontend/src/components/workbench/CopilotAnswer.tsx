@@ -134,6 +134,11 @@ export const CopilotAnswerView: React.FC<{ answer: CopilotStructuredAnswer; onAn
               {L('Durum', 'State')}: {answer.technical.state.text}
             </Chip>
           )}
+          {answer.technical.freeze_frame && (
+            <Chip testId="copilot-freeze-frame">
+              {L('Arıza anı', 'Fault moment')} ({answer.technical.freeze_frame.dtc}): {answer.technical.freeze_frame.state || '—'}
+            </Chip>
+          )}
         </div>
         <ul className="mt-1 text-[13px] text-text-body">
           {answer.urgency.advice.map((a) => (
@@ -252,6 +257,20 @@ export const CopilotAnswerView: React.FC<{ answer: CopilotStructuredAnswer; onAn
               {c.refs.map((r) => (
                 <Ref key={r} value={r} />
               ))}
+            </li>
+          ))}
+          {answer.technical.freeze_frame && (
+            <li data-testid="copilot-freeze-frame-rows">
+              <b>{L('Arıza anı (freeze frame)', 'Fault moment (freeze frame)')}</b> {answer.technical.freeze_frame.dtc}
+              {': '}
+              {answer.technical.freeze_frame.readings.map((f) => `${f.signal} ${f.value} ${f.unit}`).join(' · ')}
+            </li>
+          )}
+          {(answer.technical.monitors ?? []).map((m) => (
+            <li key={`${m.mid}-${m.tid}`} data-testid="copilot-monitor" className={m.passed ? '' : 'text-del'}>
+              {m.passed ? (m.near_limit ? '⚠' : '✓') : '✗'} {m.monitor} / {m.test}: {m.value} {m.unit !== 'raw' ? m.unit : ''} (
+              {L('ECU limiti', 'ECU limit')} {m.min}–{m.max})
+              <Ref value={m.ref} />
             </li>
           ))}
           {answer.technical.telemetry.map((t) => (

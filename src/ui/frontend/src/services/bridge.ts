@@ -372,6 +372,26 @@ export interface CopilotStructuredAnswer {
     sources: string[];
     /** Operating state the readings were judged in (engine / thermal / system voltage). */
     state?: { engine: string; thermal: string; system_voltage: number | null; text: string; sources: string[] };
+    /** Mode 02: conditions when the code was stored. */
+    freeze_frame?: {
+      dtc: string;
+      state: string;
+      readings: Array<{ signal: string; value: number; unit: string; status: string; status_text: string; ref: string }>;
+    };
+    /** Mode 06: the ECU's own tests with its own limits. */
+    monitors?: Array<{
+      mid: number;
+      tid: number;
+      monitor: string;
+      test: string;
+      value: number;
+      min: number;
+      max: number;
+      unit: string;
+      passed: boolean;
+      near_limit: boolean;
+      ref: string;
+    }>;
   };
   recalls: { note?: string; items?: Array<{ campaign: string; component: string; ref: string }>; complaints?: CopilotEvidence | null };
   /** Answerable questions; an answer is sent back with the same query and narrows the causes. */

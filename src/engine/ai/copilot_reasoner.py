@@ -42,7 +42,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from src.engine.ai.knowledge_base import KnowledgeBase, fold_text
-from src.engine.ai.operating_state import OperatingState, infer_state
+from src.engine.ai.operating_state import OperatingState, infer_state, infer_state_from
 from src.engine.ai.query_understanding import _SYMPTOM_SIGNAL, ParsedQuery, Reading, code_check_symptoms
 
 __all__ = [
@@ -178,7 +178,7 @@ class Hypothesis:
     id: str
     title: str
     score: float
-    kind: str                       # graph | record | suspected | area | pattern | scenario
+    kind: str                       # graph | record | suspected | area | pattern | scenario | monitor
     codes: list[str] = field(default_factory=list)
     support: list[tuple[str, str]] = field(default_factory=list)       # (text, ref)
     against: list[tuple[str, str]] = field(default_factory=list)
@@ -233,6 +233,11 @@ class Reasoning:
     code_symptoms: list[tuple[str, dict[str, Any]]] = field(default_factory=list)
     state: OperatingState = field(default_factory=OperatingState)
     scenario_notes: list[str] = field(default_factory=list)   # note-only scenario ids that fired
+    # Mode 02 freeze frame: the state and readings at the moment the code was stored
+    fault_state: OperatingState = field(default_factory=OperatingState)
+    freeze_findings: list[TelemetryFinding] = field(default_factory=list)
+    # Mode 06: the ECU's own test verdicts (failed tests become candidates)
+    monitor_findings: list[dict[str, Any]] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------- helpers
@@ -742,19 +747,31 @@ def _common_causes(kb: KnowledgeBase, r: Reasoning, active: dict[str, CodeFact],
         hyps[ref] = h
 
 
-def _scenarios(kb: KnowledgeBase, r: Reasoning, hyps: dict[str, Hypothesis]) -> None:
-    """State-aware rules: in state S, signal X above/below V means Y (operating_scenarios.json)."""
-    st = r.state
+def _scenarios(kb: KnowledgeBase, r: Reasoning, hyps: dict[str, Hypothesis], st: OperatingState,
+               findings: list[TelemetryFinding], origin: str = "live") -> None:
+    """State-aware rules: in state S, signal X above/below V means Y (operating_scenarios.json).
+
+    Run once for the live readings in the live state and once for the freeze
+    frame in the fault-moment state (``origin="freeze_frame"``)."""
     if not st.known:
         return
-    by_signal = {f.signal: f for f in r.findings}
+    by_signal = {f.signal: f for f in findings}
     for sc in kb.operating_scenarios().get("scenarios") or []:
         when = sc.get("when") or {}
         if when.get("engine") and st.engine not in when["engine"]:
             continue
         if when.get("thermal") and st.thermal not in when["thermal"]:
             continue
-        f = by_signal.get(str(when.get("signal") or ""))
+        f: TelemetryFinding | None
+        if when.get("sum"):  # a combined value, e.g. STFT + LTFT
+            parts = [by_signal.get(str(name)) for name in when["sum"]]
+            found = [p for p in parts if p is not None and p.status != "implausible"]
+            if len(found) != len(parts):
+                continue
+            f = TelemetryFinding("+".join(str(n) for n in when["sum"]), round(sum(p.value for p in found), 3),
+                                 found[0].unit, "normal", origin)
+        else:
+            f = by_signal.get(str(when.get("signal") or ""))
         if f is None or f.status == "implausible":
             continue
         value = f.value
@@ -764,12 +781,79 @@ def _scenarios(kb: KnowledgeBase, r: Reasoning, hyps: dict[str, Hypothesis]) -> 
             continue
         ref = f"operating_scenarios#{sc['id']}"
         if sc.get("note_only"):
-            r.scenario_notes.append(str(sc["id"]))
+            if origin == "live":
+                r.scenario_notes.append(str(sc["id"]))
             continue
-        marker = f"scenario:{sc['id']}|{st.engine}|{st.thermal}|{f.signal}|{_fmt(f.value)}|{f.unit}"
+        marker = f"scenario:{sc['id']}|{st.engine}|{st.thermal}|{f.signal}|{_fmt(f.value)}|{f.unit}|{origin}"
+        confirms = set(sc.get("codes") or [])
+        for g in hyps.values():  # the causes of the ACTIVE codes this reading confirms gain it as evidence
+            active_code = any(m.startswith("code:") for m, _ in g.support)
+            if g.kind != "scenario" and active_code and confirms & {c.split(" FMI")[0] for c in g.codes}:
+                g.score += 1.0
+                g.support.append((marker, ref))
+        if ref in hyps:
+            hyps[ref].support.append((marker, ref))
+            continue
         h = Hypothesis(ref, str(sc.get("title_tr") or sc["id"]), 3.0 + (0.5 if f.abnormal else 0.0), "scenario",
                        support=[(marker, ref)], refs=[ref])
         hyps[ref] = h
+
+
+# SAE J1979 OBDMID -> the codes the same monitor sets when it fails (for linking a
+# failed test to the graph's causes; standard OBDMID assignments).
+_MID_CODES: dict[int, tuple[str, ...]] = {
+    0x01: ("P0133",), 0x02: ("P0139",), 0x05: ("P0153",), 0x06: ("P0159",),
+    0x21: ("P0420",), 0x22: ("P0430",), 0x31: ("P0401",), 0x32: ("P0401",),
+    0x39: ("P0455",), 0x3A: ("P0456",), 0x3B: ("P0442",), 0x3C: ("P0456",), 0x3D: ("P0496",),
+    0x41: ("P0135",), 0x42: ("P0141",), 0x45: ("P0155",), 0x46: ("P0161",),
+    0x71: ("P0410",), 0x81: ("P0171", "P0172"), 0x82: ("P0174", "P0175"), 0xA1: ("P0300",),
+    **{0xA1 + n: (f"P03{n:02d}",) for n in range(1, 13)},
+}
+
+
+def monitor_names(kb: KnowledgeBase, mid: int, tid: int) -> tuple[str, str, str, str]:
+    """(monitor TR, monitor EN, test TR, test EN) from obd_mode06_database.json ('' when unknown)."""
+    db = kb._json_source("obd_mode06")  # noqa: SLF001 — same package
+    mon = ((db or {}).get("monitors") or {}).get(f"0x{mid:02X}") if isinstance(db, dict) else None
+    if not isinstance(mon, dict):
+        return "", "", "", ""
+    test: dict[str, Any] = next((t for t in mon.get("tests") or []
+                                 if str(t.get("tid_hex", "")).upper() == f"0X{tid:02X}"), {})
+    return (str(mon.get("name_tr") or mon.get("name") or ""), str(mon.get("name") or ""),
+            str(test.get("name_tr") or test.get("name") or ""), str(test.get("name") or ""))
+
+
+def _monitor_candidates(kb: KnowledgeBase, r: Reasoning, hyps: dict[str, Hypothesis]) -> None:
+    """A failed Mode 06 test is the ECU saying 'this system fails MY limit' — even before a code."""
+    for m in r.parsed.monitors:
+        rel = 0.0
+        span = m["max"] - m["min"]
+        if span > 0:
+            rel = max((m["value"] - m["min"]) / span, (m["max"] - m["value"]) / span)
+        finding = dict(m, margin=round(1.0 - rel, 3) if m["passed"] and span > 0 else None)
+        r.monitor_findings.append(finding)
+        if m["passed"]:
+            continue
+        ref = f"obd_mode06#0x{m['mid']:02X}"
+        marker = f"monitor:{m['mid']}|{m['tid']}|{_fmt(m['value'])}|{_fmt(m['min'])}|{_fmt(m['max'])}|{m['unit']}"
+        codes = list(_MID_CODES.get(m["mid"], ()))
+        mon_tr, _mon_en, _t_tr, _t_en = monitor_names(kb, m["mid"], m["tid"])
+        h = hyps.get(ref) or Hypothesis(ref, f"ECU testi başarısız: {mon_tr or ref}", 4.0, "monitor",
+                                        codes=codes, refs=[ref])
+        h.support.append((marker, ref))
+        hyps[ref] = h
+        # The graph's causes for the code this monitor sets are now ECU-confirmed suspects.
+        for code in codes:
+            for node in [n for n in kb.graph_nodes_for_code(code) if not _is_harvest_residue(n.title)][:3]:
+                g = hyps.get(node.id)
+                if g is None:
+                    g = Hypothesis(node.id, node.title, 0.0, "suspected", refs=[f"root_cause_graph#{node.id}"],
+                                   falsifiable=bool(node.evidence_signals or node.contradicting_signals))
+                    hyps[node.id] = g
+                g.score += 2.5
+                if code not in g.codes:
+                    g.codes.append(code)
+                g.support.append((marker, ref))
 
 
 def _build_hypotheses(kb: KnowledgeBase, r: Reasoning) -> None:
@@ -842,7 +926,10 @@ def _build_hypotheses(kb: KnowledgeBase, r: Reasoning) -> None:
                 h.support.append((f"complaint_signal:{sid}|{implied}", f"root_cause_graph#{node.id}"))
 
     # (3a) what the readings mean in the operating state they were taken in
-    _scenarios(kb, r, hyps)
+    _scenarios(kb, r, hyps, r.state, r.findings)
+    _scenarios(kb, r, hyps, r.fault_state, r.freeze_findings, origin="freeze_frame")
+    # (3c) the ECU's own failed monitor tests (Mode 06)
+    _monitor_candidates(kb, r, hyps)
 
     # (3b) several active codes explained by one shared fault
     if len(active) >= 1:
@@ -894,7 +981,7 @@ def _build_hypotheses(kb: KnowledgeBase, r: Reasoning) -> None:
             h.likelihood = round(e / total, 3) if h.kind != "area" and informative else 0.0
             has_code = any(s.startswith("code:") for s, _ in h.support)
             has_signal = any(s.startswith("signal:") for s, _ in h.support)
-            has_check = any(s.startswith(("check:", "scenario:")) for s, _ in h.support)
+            has_check = any(s.startswith(("check:", "scenario:", "monitor:")) for s, _ in h.support)
             if has_code and has_signal and not h.against:
                 h.confidence = "high"
             elif (has_code and h.kind in ("graph", "pattern") and not h.against) or ((has_signal or has_check) and not h.against):
@@ -1008,6 +1095,11 @@ def reason(parsed: ParsedQuery, kb: KnowledgeBase, *, include_recalls: bool = Tr
                                                reading.origin, unit_assumed=reading.unit_assumed))
             continue
         r.findings.append(_judge_reading(kb, reading, rpm, r.state))
+    if parsed.freeze_readings:
+        r.fault_state = infer_state_from(parsed.freeze_readings)
+        ff_rpm = next((x.value for x in parsed.freeze_readings if x.canonical == "EngineSpeed"), None)
+        r.freeze_findings = [_judge_reading(kb, x, ff_rpm, r.fault_state) for x in parsed.freeze_readings
+                             if x.canonical not in HV_SIGNALS]
     hv = _hv_isolation_finding(kb, {x.canonical: x for x in parsed.readings})
     if hv is not None:
         r.findings.append(hv)
@@ -1046,6 +1138,11 @@ def reason(parsed: ParsedQuery, kb: KnowledgeBase, *, include_recalls: bool = Tr
         elif f.status in ("high", "low"):
             risk = _raise_risk(risk, "YELLOW")
             r.risk_reasons.append((f"signal:{f.signal}|{_fmt(f.value)}|{f.unit}|{f.status}", f.ref))
+    for m in r.monitor_findings:
+        if not m["passed"]:
+            risk = _raise_risk(risk, "YELLOW")
+            r.risk_reasons.append((f"monitor:{m['mid']}|{m['tid']}|{_fmt(m['value'])}|{_fmt(m['min'])}|"
+                                   f"{_fmt(m['max'])}|{m['unit']}", f"obd_mode06#0x{m['mid']:02X}"))
     for lamps in parsed.dm1_lamps:
         if lamps.red_stop:
             risk = "RED"
