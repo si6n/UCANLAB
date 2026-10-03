@@ -9,7 +9,7 @@
     "role": "author"
   },
   "source": {
-    "title": "Kendi verimizden ölçüm: canboat kanıtındaki 169 J1939 parametre adından 155 tanesi copilot sözlüğünde karşılık bulamıyor",
+    "title": "Kendi verimizden ölçüm: canboat kanıtındaki 175 J1939 parametre adından 160 tanesi copilot sözlüğünde karşılık bulamıyor",
     "path": "data/diagnostics/signal_aliases.json (repo içi ölçüm; sha256 kayıt altındadır)",
     "type": "internal_kb",
     "publisher": "UCanLab intake",
@@ -29,12 +29,12 @@
   "payload": {
     "defect_code": "spn_parameter_name_not_in_alias_map",
     "severity": "medium",
-    "summary": "canboat kanıtındaki 169 J1939 parametre adından 155 tanesi copilot sözlüğünde karşılık bulamıyor",
+    "summary": "canboat kanıtındaki 175 J1939 parametre adından 160 tanesi copilot sözlüğünde karşılık bulamıyor",
     "why_it_matters": "Kullanıcı 'Engine Intercooler Temp' gibi gerçek bir J1939 sinyalini sorduğunda sinyal çözümlemesi başarısız olur; sorgu kanala düşer ve yanlış/alakasız cevap riski doğar. Çözüm: signal_aliases.json (source_forms) + signal_measurement_map.json (aliases) genişletmesi.",
     "target_file": "data/diagnostics/signal_aliases.json",
     "target_sha256": "af72aa3ea39dddef18ba8ad46bfee85ec465f5135344b9f9f667ce6dd6c411b8",
     "detector_expression": "normalize(name) not in vocabulary (signal_aliases + signal_measurement_map)",
-    "affected_count": 155,
+    "affected_count": 160,
     "examples": [
       {
         "spn": 29,
@@ -53,6 +53,14 @@
         "source": "database/j1939/pgns/065262-engineTemp1.yaml"
       },
       {
+        "spn": 73,
+        "name": "PTO_State",
+        "evidence_pgns": [
+          65265
+        ],
+        "source": "data/dbc/heavy_duty/j1939_canboat.dbc"
+      },
+      {
         "spn": 81,
         "name": "Particulate Trap Inlet Pressure",
         "evidence_pgns": [
@@ -63,14 +71,6 @@
       {
         "spn": 91,
         "name": "Accelerator Pedal Position 1",
-        "evidence_pgns": [
-          61443
-        ],
-        "source": "database/j1939/pgns/061443-ecu2.yaml"
-      },
-      {
-        "spn": 92,
-        "name": "Engine Percent Load At Current Speed",
         "evidence_pgns": [
           61443
         ],

@@ -23,11 +23,15 @@
       "pages_cited": []
     }
   },
-  "confidence": "single_source",
+  "confidence": "corroborated",
   "draft": true,
   "knowledge_base": null,
   "payload": {
     "spn": 2978,
+    "dbc_signals": [
+      "Estimated_Pumping___Percent_Torque",
+      "Estimated_Engine_Power_Loss___Accessories"
+    ],
     "names_en": [
       "Estimated Pumping - Percent Torque",
       "Estimated Engine Power Loss - Accessories"
@@ -52,11 +56,16 @@
         "source_file": "database/j1939/pgns/065247-ecu3.yaml",
         "sha256": "780c2d5e3898d9b112be859668b200780bc85db6b0cf3869317cd34c91de6525",
         "bytes": 893
+      },
+      {
+        "source_file": "data/dbc/heavy_duty/j1939_canboat.dbc",
+        "sha256": "ca8502f4d435be7a78f75f643f8fcd1bc11b6d442da05ed7357c6d550b2f9836",
+        "bytes": 364357
       }
     ],
     "kb_state": "present",
     "kb_name": "Estimated Engine Parasitic Losses - Percent Torque",
     "kb_unit": "-"
   },
-  "notes": "SPN referansi ve parametre metni, canboat'in pinli J1939 PGN alan duzenlerinden birebir toplandi. deger kaynagi upstream metnidir; hicbiri turetilmemistir. data/diagnostics/j1939_spn_fmi_database.json bu kayitlari OKUMAZ - terfi karari intake README'sindeki Adim 3a'ya bagli."
+  "notes": "SPN referansi ve parametre metni IKI ayri upstream temsilinden birebir toplandi: canboat'in pinli J1939 PGN alan duzenleri (YAML) ve repoda vendor edilmis data/dbc/heavy_duty/j1939_canboat.dbc (CM_ SG_ yorumlari, sha256 data/dbc/manifest.json ile sabitli). Iki temsil ayni cumleyi soyleyen iki bicimdir; hicbir deger TURETILMEMISTIR. data/diagnostics/j1939_spn_fmi_database.json bu kayitlari OKUMAZ - terfi karari intake README'sindeki Adim 3a'ya bagli."
 }

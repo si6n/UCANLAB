@@ -23,11 +23,14 @@
       "pages_cited": []
     }
   },
-  "confidence": "single_source",
+  "confidence": "corroborated",
   "draft": true,
   "knowledge_base": null,
   "payload": {
     "spn": 1437,
+    "dbc_signals": [
+      "Road_Speed_Limit_Status"
+    ],
     "names_en": [
       "Road Speed Limit Status"
     ],
@@ -47,11 +50,16 @@
         "source_file": "database/j1939/pgns/061443-ecu2.yaml",
         "sha256": "a99d3ce6194ae8cd6d516da6a5458c6597d49480c1a3e5f6b6b65170e1ddf65a",
         "bytes": 1946
+      },
+      {
+        "source_file": "data/dbc/heavy_duty/j1939_canboat.dbc",
+        "sha256": "ca8502f4d435be7a78f75f643f8fcd1bc11b6d442da05ed7357c6d550b2f9836",
+        "bytes": 364357
       }
     ],
     "kb_state": "present",
     "kb_name": "Aftertreatment System",
     "kb_unit": ""
   },
-  "notes": "SPN referansi ve parametre metni, canboat'in pinli J1939 PGN alan duzenlerinden birebir toplandi. deger kaynagi upstream metnidir; hicbiri turetilmemistir. data/diagnostics/j1939_spn_fmi_database.json bu kayitlari OKUMAZ - terfi karari intake README'sindeki Adim 3a'ya bagli."
+  "notes": "SPN referansi ve parametre metni IKI ayri upstream temsilinden birebir toplandi: canboat'in pinli J1939 PGN alan duzenleri (YAML) ve repoda vendor edilmis data/dbc/heavy_duty/j1939_canboat.dbc (CM_ SG_ yorumlari, sha256 data/dbc/manifest.json ile sabitli). Iki temsil ayni cumleyi soyleyen iki bicimdir; hicbir deger TURETILMEMISTIR. data/diagnostics/j1939_spn_fmi_database.json bu kayitlari OKUMAZ - terfi karari intake README'sindeki Adim 3a'ya bagli."
 }
