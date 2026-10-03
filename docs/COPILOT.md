@@ -300,6 +300,43 @@ okumayı çoğu zaman ad yerine bu kimlikle verir: `{"SPN 110": 104}`,
 * Metin içindeki "SPN 110" arıza kodu olarak kalır; bu katman yalnız
   telemetri / freeze frame anahtarlarına uygulanır.
 
+### 3.1.9 Araç ve ECU kimliği (Mode 09, J1939 VI / DM19 / SOFT / CI)
+
+Okuma izni verilmiş taramada ECU'dan kimlik de okunur. Bunların hepsi
+yalnız bilgi bildirir; ECU'da hiçbir şeyi değiştirmez.
+
+* Binek: Mode 09 InfoType 0x02 (VIN), 0x04 (kalibrasyon kimliği, CAL ID),
+  0x06 (CVN), 0x0A (ECU adı). Mode 09 salt-okuma politikasında zaten
+  vardı.
+* Ağır vasıta: Request (PGN 59904) ile VI (65260, VIN), DM19 (54016,
+  CAL ID + CVN), SOFT (65242, yazılım kimliği), CI (65259, bileşen
+  kimliği). Bu dört PGN `READ_ONLY_J1939_REQUEST_PGNS`'e eklendi.
+* Çözümleme katıdır: temiz yazdırılabilir ASCII olmayan alan atılır,
+  onarılıp kimlik gibi gösterilmez. CVN'si gelmeyen kalibrasyonun CVN'i
+  boş kalır.
+* Sonuç `ObdReadOutcome.identity` olarak copilot'a `identity=` ile gelir.
+  Okuma yoksa uygulama bus'tan yayınla gelen VIN'i (PGN 65260) kullanır.
+
+Copilot'ta:
+
+* VIN biçimi ISO 3779'a göre denetlenir. Marka yalnız araç kataloğundaki
+  WMI öneklerinden çıkarılır (`profiles_for_vin`); bilinmeyen önek tahmin
+  edilmez.
+* Marka önceliği: seçilen araç > VIN > metindeki marka kelimesi. Araç
+  seçilmemişse VIN'in markası geri çağırma / şikâyet aramasında kullanılır
+  ve not "marka VIN'den belirlendi" der. Aynı WMI'yi paylaşan marka
+  grubunda (Hyundai-Kia) arama markası belirlenmez.
+* Seçilen marka ile VIN'in markası çelişirse özet uyarır: markaya özel
+  kayıtlar yanlış araca ait olabilir.
+* Özet ve teknik bölüm VIN'i maskeli gösterir (WMI + son 4 hane); tam VIN
+  cevaba hiç girmez.
+* Kalibrasyon kimliği varsa ve kod bulunduysa "bu kalibrasyon için yazılım
+  güncellemesi / teknik bülten var mı bakın" adımı eklenir
+  (`template:calibration_check`). Elimizde bülten verisi yoktur; copilot
+  bülten uydurmaz, yalnız bakılacak yeri söyler.
+* Simülatör VIN'leri sentetiktir (VW ve Volvo Trucks WMI'li, gerçek araç
+  değil).
+
 ### 3.2 Aciliyet ve güvenlik
 
 * Aciliyet: kod ciddiyeti `drive_safety_policy.decide_risk` ile (tek otorite),

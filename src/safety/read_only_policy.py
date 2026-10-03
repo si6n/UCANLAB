@@ -21,9 +21,11 @@ refused even if it would otherwise match.
 A heavy-duty read session (``j1939=True``) additionally allows exactly three
 29-bit frame kinds, for SAE J1939-73 reads:
 
-* a Request (PGN 59904) whose requested PGN is a read-only diagnostic message
-  (``READ_ONLY_J1939_REQUEST_PGNS``: DM1, DM2, DM4 freeze frame, DM5, DM6,
-  DM12) — never DM3/DM11 (clear) or anything else;
+* a Request (PGN 59904) whose requested PGN is a read-only diagnostic or
+  identification message (``READ_ONLY_J1939_REQUEST_PGNS``: DM1, DM2, DM4
+  freeze frame, DM5, DM6, DM12, DM19 calibration information, VI vehicle
+  identification, SOFT software identification, CI component identification)
+  — never DM3/DM11 (clear) or anything else;
 * a DM7 (PGN 58112) with test identifier 247 and FMI 31: "report the results
   of the tests already run for this SPN" (answered with DM30). Test
   identifiers 1–245 command a test to run and are refused;
@@ -52,7 +54,10 @@ READ_ONLY_OBD_SERVICES = frozenset({0x01, 0x02, 0x03, 0x06, 0x07, 0x09, 0x0A})
 _FLOW_CONTROL_CONTINUE = 0x30
 
 # SAE J1939-73 read-only messages a heavy-duty read session may request.
-READ_ONLY_J1939_REQUEST_PGNS = frozenset({65226, 65227, 65229, 65230, 65231, 65236})  # DM1 DM2 DM4 DM5 DM6 DM12
+READ_ONLY_J1939_REQUEST_PGNS = frozenset({
+    65226, 65227, 65229, 65230, 65231, 65236,  # DM1 DM2 DM4 DM5 DM6 DM12
+    54016, 65260, 65242, 65259,  # DM19 (calibration info), VI (VIN), SOFT, CI: identification only
+})
 _J1939_PF_REQUEST = 0xEA
 _J1939_PF_DM7 = 0xE3
 _J1939_PF_TP_CM = 0xEC

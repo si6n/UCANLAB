@@ -9,7 +9,10 @@ is what the engine ECU only gives when asked:
   stored with a fault code, requested with PGN 59904;
 * **DM30**: the ECU's own test results with its own limits, asked for with
   DM7 test identifier 247 ("report the results already stored") for the SPNs
-  of the active codes and of the freeze frame. No test is ever started.
+  of the active codes and of the freeze frame. No test is ever started;
+* **identification**: VI (VIN), DM19 (calibration IDs with CVNs), SOFT
+  (software identification) and CI (component identification), all requested
+  with PGN 59904.
 
 Multi-packet answers arrive over the J1939-21 transport protocol; the reader
 answers the ECU's RTS with CTS / end-of-message ACK through the existing
@@ -44,6 +47,16 @@ from src.protocols.j1939.dm_results import (
     decode_dm30,
     dm7_arbitration_id,
     dm7_report_payload,
+)
+from src.protocols.j1939.identification import (
+    PGN_CI,
+    PGN_DM19,
+    PGN_SOFT,
+    PGN_VI,
+    decode_ci,
+    decode_dm19,
+    decode_soft,
+    decode_vi,
 )
 from src.protocols.j1939.transport import PGN_TP_CM, PGN_TP_DT, J1939TransportProtocol
 from src.safety.read_only_policy import ReadOnlyPolicy
@@ -85,7 +98,8 @@ async def read_j1939_snapshot(
     source: int = TOOL_SA,
     timeout_s: float = 1.25,
 ) -> ObdReadOutcome:
-    """DM4 from ``target``, then DM30 for ``spns`` plus the freeze frame's SPN. Never raises."""
+    """DM4 from ``target``, then DM30 for ``spns`` plus the freeze frame's SPN, then the
+    identification messages. Never raises."""
     loop = asyncio.get_running_loop()
     queue: asyncio.Queue[CanFrame] = asyncio.Queue()
     tp = J1939TransportProtocol(my_address=source, channel_id=channel_id)
@@ -144,6 +158,22 @@ async def read_j1939_snapshot(
                 continue
             answered = True
             outcome.monitors += [t.as_dict() for t in decode_dm30(dm30)]
+        identity: dict[str, Any] = {}
+        for pgn in (PGN_VI, PGN_DM19, PGN_SOFT, PGN_CI):
+            raw = await exchange(_request_frame(pgn, target, source, channel_id), pgn, pgn)
+            if raw is None:
+                continue
+            answered = True
+            if pgn == PGN_VI and (vin := decode_vi(raw)):
+                identity["vin"] = vin
+            elif pgn == PGN_DM19 and (cals := decode_dm19(raw)):
+                identity["calibrations"] = [c.as_dict() for c in cals]
+            elif pgn == PGN_SOFT and (soft := decode_soft(raw)):
+                identity["software"] = soft
+            elif pgn == PGN_CI and (ci := decode_ci(raw)):
+                identity["component"] = ci
+        if identity:
+            outcome.identity = dict(identity, ecu=ENGINE_NAME_TR, protocol="J1939")
     except SafetyError as exc:
         logger.error("J1939 read request refused by the TX gateway", extra={"code": getattr(exc, "code", "")})
         outcome.status = "refused"
@@ -191,6 +221,15 @@ class SimulatedJ1939Ecu:
         + bytes([11, 0xB3, 0x0C, 0x01, 0x01, 0x00, 0x23, 0x00, 0x3C, 0x00, 0x14, 0x00]),
     }
 
+    # Identification: a synthetic VIN with a Volvo Trucks WMI (no real vehicle),
+    # one DM19 calibration, one software field and the component identification.
+    IDENTIFICATION: dict[int, bytes] = {
+        PGN_VI: b"YV2XSM0A0S1000001*",
+        PGN_DM19: bytes([0x4D, 0x3C, 0x2B, 0x1A]) + b"SIMCAL-HD-0001".ljust(16, b"\x00"),
+        PGN_SOFT: b"\x01SIM-SW-1.0*",
+        PGN_CI: b"SIM*ENGINE-ECU*000001*SIM*",
+    }
+
     def __init__(self, *, policy_ttl_s: float = 60.0) -> None:
         self._policy = ReadOnlyPolicy(expires_ns=time.monotonic_ns() + int(policy_ttl_s * 1e9),
                                       reason="simulator", j1939=True)
@@ -214,7 +253,7 @@ class SimulatedJ1939Ecu:
 
     def _respond(self, pgn: int, payload: bytes, dest: int) -> None:
         if len(payload) <= 8:
-            pdu = ((pgn | dest) if (pgn >> 8) & 0xFF < 0xF0 else pgn)
+            pdu = (pgn | dest) if ((pgn >> 8) & 0xFF) < 0xF0 else pgn
             self._emit(0x18000000 | (pdu << 8) | ENGINE_SA, payload)
             return
         chunks = [bytes([seq + 1]) + payload[seq * 7:seq * 7 + 7] for seq in range((len(payload) + 6) // 7)]
@@ -240,6 +279,8 @@ class SimulatedJ1939Ecu:
             requested = int.from_bytes(data[:3], "little")
             if requested == PGN_DM4:
                 self._respond(PGN_DM4, self.FREEZE_FRAME, sa)
+            elif requested in self.IDENTIFICATION:
+                self._respond(requested, self.IDENTIFICATION[requested], sa)
             elif da == ENGINE_SA:
                 self._nack(requested, sa)
         elif pgn == 0xE300:

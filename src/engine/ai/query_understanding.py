@@ -41,6 +41,7 @@ __all__ = [
     "Reading",
     "SpnMention",
     "SymptomMatch",
+    "VehicleIdentity",
     "decode_dm1_payload",
     "detect_language",
     "parse_query",
@@ -112,6 +113,33 @@ class Dm1Lamps:
     protect: bool
 
 
+@dataclass(frozen=True, slots=True)
+class VehicleIdentity:
+    """What the vehicle said about itself (OBD Mode 09 / J1939 VI, DM19, SOFT, CI)."""
+
+    vin: str = ""  # well-formed VIN (ISO 3779); shown masked
+    vin_make: str = ""  # catalog make of the VIN's WMI ("Volkswagen Group"); "" = unknown, never guessed
+    vin_make_key: str = ""  # one lookup make ("volkswagen") for recalls/complaints; "" when none or several
+    calibrations: tuple[tuple[str, str], ...] = ()  # (Calibration ID, CVN)
+    ecu_name: str = ""
+    software: tuple[str, ...] = ()
+    component: tuple[tuple[str, str], ...] = ()  # J1939 CI (make, model, serial, unit)
+    ecu: str = ""
+    protocol: str = ""
+
+    @property
+    def masked_vin(self) -> str:
+        return f"{self.vin[:3]}{'*' * 10}{self.vin[-4:]}" if len(self.vin) == 17 else ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "vin": self.masked_vin, "vin_make": self.vin_make,
+            "calibrations": [{"cal_id": c, "cvn": v} for c, v in self.calibrations],
+            "ecu_name": self.ecu_name, "software": list(self.software), "component": dict(self.component),
+            "ecu": self.ecu, "protocol": self.protocol,
+        }
+
+
 @dataclass(slots=True)
 class ParsedQuery:
     text: str
@@ -135,6 +163,11 @@ class ParsedQuery:
     freeze_readings: list[Reading] = field(default_factory=list)
     # Mode 06 monitor results: the ECU's own test verdicts with its own limits
     monitors: list[dict[str, Any]] = field(default_factory=list)
+    identity: VehicleIdentity | None = None
+    # Where vehicle_make came from: input (selected vehicle) | vin (WMI) | text | ""
+    make_source: str = ""
+    # The VIN's make when it contradicts the selected make, else ""
+    make_mismatch: str = ""
 
     @property
     def is_empty(self) -> bool:
@@ -164,6 +197,8 @@ class ParsedQuery:
                 {"signal": r.canonical, "value": r.value, "unit": r.unit} for r in self.freeze_readings]}
                 if self.freeze_dtc else None),
             "monitors": len(self.monitors),
+            "identity": self.identity.to_dict() if self.identity else None,
+            "make_source": self.make_source,
         }
 
 
@@ -765,6 +800,7 @@ def parse_query(
     kb: KnowledgeBase | None = None,
     freeze_frame: Mapping[str, Any] | None = None,
     monitors: Iterable[Any] = (),
+    identity: Mapping[str, Any] | None = None,
 ) -> ParsedQuery:
     """Parse everything the copilot was given into one deterministic structure."""
     kb = kb or get_knowledge_base()
@@ -848,13 +884,68 @@ def parse_query(
     pq.answers, notes = _check_answers(answers or {}, text, pq.symptoms, kb, code_check_symptoms(codes_read, kb))
     pq.notes.extend(notes)
 
+    pq.identity = _vehicle_identity(identity)
     pq.vehicle_make = vehicle_make or None
     pq.vehicle_model = vehicle_model or None
+    pq.make_source = "input" if pq.vehicle_make else ""
+    vin_key = pq.identity.vin_make_key if pq.identity else ""
+    if pq.vehicle_make and pq.identity and pq.identity.vin_make:
+        selected = _make_keys(pq.vehicle_make)
+        vin_keys = _make_keys(pq.identity.vin_make)
+        if selected and vin_keys and not selected & vin_keys:
+            pq.make_mismatch = pq.identity.vin_make  # the selected vehicle and the bus disagree
+    if pq.vehicle_make is None and vin_key:
+        pq.vehicle_make, pq.make_source = vin_key, "vin"  # the vehicle's own VIN beats a word in the text
     if pq.vehicle_make is None and text:
         try:
             from src.engine.ai.diagnostic_copilot import detect_vehicle_make
 
             pq.vehicle_make = detect_vehicle_make(text)
+            pq.make_source = "text" if pq.vehicle_make else ""
         except Exception:  # noqa: BLE001 — make detection is optional context
             pq.vehicle_make = None
     return pq
+
+
+def _make_keys(label: str) -> set[str]:
+    """Lookup makes named in a make label: "Volkswagen Group" -> {volkswagen}, "Hyundai-Kia" -> two."""
+    try:
+        from src.engine.ai.diagnostic_copilot import detect_vehicle_make
+    except Exception:  # noqa: BLE001 — make detection is optional context
+        return set()
+    return {k for word in re.split(r"[^A-Za-z]+", str(label)) if word and (k := detect_vehicle_make(word))}
+
+
+def _vehicle_identity(raw: Mapping[str, Any] | None) -> VehicleIdentity | None:
+    """Validate an identity read; the VIN's make comes only from the catalog's WMI prefixes."""
+    if not isinstance(raw, Mapping):
+        return None
+
+    def text(value: Any, limit: int = 40) -> str:
+        v = str(value or "").strip()
+        return v[:limit] if v.isprintable() else ""
+
+    vin = vin_make = vin_key = ""
+    try:
+        from src.engine.vehicle.identity import normalize_vin, profiles_for_vin
+        from src.engine.vehicle.profiles import default_catalog
+
+        vin = normalize_vin(raw.get("vin")) or ""
+        if vin:
+            makes = {p.make for p in profiles_for_vin(default_catalog(), vin)}
+            if len(makes) == 1:
+                vin_make = next(iter(makes))
+                keys = _make_keys(vin_make)
+                vin_key = next(iter(keys)) if len(keys) == 1 else ""
+    except Exception:  # noqa: BLE001 — the catalog is optional context; the VIN stays unattributed
+        vin_make = vin_key = ""
+    cals = tuple((text(c.get("cal_id"), 16), text(c.get("cvn"), 8)) for c in raw.get("calibrations") or []
+                 if isinstance(c, Mapping) and text(c.get("cal_id"), 16))
+    software = tuple(t for s in raw.get("software") or [] if (t := text(s)))
+    comp_raw = raw.get("component")
+    component = tuple((k, t) for k in ("make", "model", "serial", "unit")
+                      if isinstance(comp_raw, Mapping) and (t := text(comp_raw.get(k))))
+    ident = VehicleIdentity(vin=vin, vin_make=vin_make, vin_make_key=vin_key, calibrations=cals[:8],
+                            ecu_name=text(raw.get("ecu_name")), software=software[:4], component=component,
+                            ecu=text(raw.get("ecu"), 60), protocol=text(raw.get("protocol")))
+    return ident if (ident.vin or ident.calibrations or ident.ecu_name or ident.software or ident.component) else None

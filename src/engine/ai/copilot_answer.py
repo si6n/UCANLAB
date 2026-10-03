@@ -683,6 +683,16 @@ def _steps(r: Reasoning, lang: str, max_steps: int, kb: KnowledgeBase) -> list[d
              "sürüş döngüsü tamamlayın, sonra kodları yeniden okuyun.") if lang == "tr"
             else ("Pending code (" + ", ".join(pending[:3]) + "): complete one drive cycle in the conditions the fault "
                   "appeared in, then re-read the codes."), "", ["template:pending"])
+    # A known calibration lets the mechanic check for a software fix before replacing parts.
+    ident = r.parsed.identity
+    if ident is not None and ident.calibrations and any(c.found for c in r.codes):
+        cal = ident.calibrations[0][0]
+        add((f"ECU kalibrasyonu {cal}: üreticinin servis sisteminde bu kalibrasyon için yazılım güncellemesi veya "
+             "teknik servis bülteni olup olmadığına bakın; bazı arızalar parça değişmeden yazılımla giderilir.")
+            if lang == "tr" else
+            (f"ECU calibration {cal}: check the manufacturer's service system for a software update or technical "
+             "service bulletin for this calibration; some faults are fixed by software without replacing parts."),
+            "", ["template:calibration_check"])
     # Every diagnosis ends with proving the repair, in the state the fault was seen in.
     if any(c.found for c in r.codes):
         st = r.fault_state if r.fault_state.known else r.state  # the freeze frame knows the fault moment best
@@ -836,6 +846,7 @@ def answer_query(
     context_text: str = "",
     freeze_frame: Mapping[str, Any] | None = None,
     monitors: Iterable[Any] = (),
+    identity: Mapping[str, Any] | None = None,
 ) -> StructuredAnswer:
     """Answer one copilot request with the six-section structured format.
 
@@ -848,12 +859,13 @@ def answer_query(
     kb = kb or get_knowledge_base()
     parsed = parse_query(text, dtcs=dtcs, telemetry=telemetry, dm1=dm1, vehicle_make=vehicle_make,
                          vehicle_model=vehicle_model, language=language, answers=answers, kb=kb,
-                         freeze_frame=freeze_frame, monitors=monitors)
+                         freeze_frame=freeze_frame, monitors=monitors, identity=identity)
     context_text = str(context_text or "")[:2000].strip()
     if context_text and text.strip() and not (parsed.dtcs or parsed.spns or parsed.symptoms):
         parsed = parse_query(f"{context_text}. {text}", dtcs=dtcs, telemetry=telemetry, dm1=dm1,
                              vehicle_make=vehicle_make, vehicle_model=vehicle_model, language=language or parsed.language,
-                             answers=answers, kb=kb, freeze_frame=freeze_frame, monitors=monitors)
+                             answers=answers, kb=kb, freeze_frame=freeze_frame, monitors=monitors,
+                             identity=identity)
         parsed.notes.append("followup_merged")
     r = reason(parsed, kb, include_recalls=opts.include_recalls)
     lang = parsed.language
@@ -944,6 +956,22 @@ def answer_query(
         if bits:
             label = " / ".join(sorted({x["protocol"] for x in rows}, key=lambda p: p != "Mode 06"))
             ans.summary += (f" ECU testleri ({label}): " if lang == "tr" else f" ECU tests ({label}): ") + "; ".join(bits) + "."
+    ident = parsed.identity
+    if ident is not None:
+        ans.technical["identity"] = ident.to_dict()
+        bits = []
+        if ident.vin:
+            bits.append(f"VIN {ident.masked_vin}" + (f" ({ident.vin_make}, WMI)" if ident.vin_make else ""))
+        if ident.calibrations:
+            bits.append(("kalibrasyon " if lang == "tr" else "calibration ") + ident.calibrations[0][0])
+        if bits:
+            ans.summary += (" Araç kimliği: " if lang == "tr" else " Vehicle identity: ") + "; ".join(bits) + "."
+    if parsed.make_mismatch:
+        ans.summary += (f" Dikkat: seçilen araç ({parsed.vehicle_make}) ile VIN'in markası ({parsed.make_mismatch}) "
+                        "uyuşmuyor; araç seçimini kontrol edin, markaya özel kayıtlar yanlış araca ait olabilir."
+                        if lang == "tr" else
+                        f" Note: the selected vehicle ({parsed.vehicle_make}) and the VIN's make ({parsed.make_mismatch}) "
+                        "disagree; check the vehicle selection, make-specific records may belong to another vehicle.")
     if r.state.known:
         ans.technical["state"] = {
             "engine": r.state.engine, "thermal": r.state.thermal, "system_voltage": r.state.system_voltage,
@@ -961,7 +989,11 @@ def answer_query(
                          f"{parsed.vehicle_make}: {n} CAN/electronics-related NHTSA complaints on file (general; not specific to this fault)."),
                 "ref": r.complaints.get("ref", ""),
             }
-        ans.recalls = {"note": _t("recall_note", lang), "items": list(r.recalls), "complaints": complaints}
+        note = _t("recall_note", lang)
+        if parsed.make_source == "vin":
+            note = ("Marka araçtan okunan VIN'in üretici kodundan (WMI) belirlendi. " if lang == "tr"
+                    else "The make was taken from the manufacturer code (WMI) of the VIN read from the vehicle. ") + note
+        ans.recalls = {"note": note, "items": list(r.recalls), "complaints": complaints}
     ans.understood = parsed.to_dict()
     ans.technical["glossary"] = _glossary(ans, kb, lang)
     ans.technical["sources"] = ans.all_refs()

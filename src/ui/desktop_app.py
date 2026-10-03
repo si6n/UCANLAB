@@ -3265,13 +3265,18 @@ class UniversalCanDesktopApp:
             obd = getattr(getattr(self, "scan_runner", None), "last_obd", None)
             freeze = getattr(obd, "freeze_frame", None)
             monitors = list(getattr(obd, "monitors", None) or [])
+            # Identification from the read session (Mode 09 / J1939 VI+DM19), else the broadcast VIN.
+            identity = getattr(obd, "identity", None)
+            if identity is None and getattr(self, "_detected_vin", None):
+                identity = {"vin": self._detected_vin, "protocol": "J1939 VI"}
             answer = self.copilot.answer(text, dtcs=codes, telemetry=live_telemetry, vehicle_make=make,
                                          vehicle_model=model, language=language, answers=answers,
-                                         context_text=context, freeze_frame=freeze, monitors=monitors) \
+                                         context_text=context, freeze_frame=freeze, monitors=monitors,
+                                         identity=identity) \
                 if hasattr(self.copilot, "answer") \
                 else answer_query(text, dtcs=codes, telemetry=live_telemetry, vehicle_make=make,
                                   vehicle_model=model, language=language, answers=answers, context_text=context,
-                                  freeze_frame=freeze, monitors=monitors)
+                                  freeze_frame=freeze, monitors=monitors, identity=identity)
             payload = answer.to_dict()
             payload["markdown"] = answer.to_markdown()
             return payload

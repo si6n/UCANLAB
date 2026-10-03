@@ -52,7 +52,7 @@ def test_reader_gets_freeze_frame_and_monitors_through_the_read_only_policy() ->
     failed = [m for m in out.monitors if not m["passed"]]
     assert [(m["mid"], m["value"], m["max"]) for m in failed] == [(0xA2, 41.0, 20.0)]
     services = {bytes(f.data)[1] for f in ecu.sent if bytes(f.data)[0] != 0x30}
-    assert services <= {0x02, 0x03, 0x06, 0x07, 0x0A}, "only read services went out"
+    assert services <= {0x02, 0x03, 0x06, 0x07, 0x09, 0x0A}, "only read services went out"
 
 
 def test_reader_without_snapshot_sends_no_mode_02_or_06() -> None:

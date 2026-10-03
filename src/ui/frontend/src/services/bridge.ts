@@ -372,6 +372,17 @@ export interface CopilotStructuredAnswer {
     sources: string[];
     /** Operating state the readings were judged in (engine / thermal / system voltage). */
     state?: { engine: string; thermal: string; system_voltage: number | null; text: string; sources: string[] };
+    /** Mode 09 / J1939 VI+DM19+SOFT+CI: what the vehicle said about itself. VIN is masked. */
+    identity?: {
+      vin: string;
+      vin_make: string;
+      calibrations: Array<{ cal_id: string; cvn: string }>;
+      ecu_name: string;
+      software: string[];
+      component: Record<string, string>;
+      ecu: string;
+      protocol: string;
+    };
     /** Mode 02: conditions when the code was stored. */
     freeze_frame?: {
       dtc: string;

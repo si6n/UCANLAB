@@ -4,7 +4,8 @@ Asks the engine and transmission controllers for stored (Mode 03), pending
 (Mode 07) and permanent (Mode 0A) codes, and the engine controller for its
 freeze frame (Mode 02: the conditions when the code was stored) and its
 on-board monitor results (Mode 06: each test with the ECU's own min/max
-limits), through the existing
+limits) and its identification (Mode 09: VIN, calibration IDs, CVNs, ECU
+name), through the existing
 ``ActiveDiagnosticPoller`` and the ``TxSafetyGateway``. It only runs inside a
 consented read-only session (``ReadOnlyPolicy`` installed on the gateway); the
 reader itself never builds anything but these read requests.
@@ -75,6 +76,9 @@ class ObdReadOutcome:
     freeze_frame: dict[str, Any] | None = None
     # Mode 06: [{"mid", "tid", "uasid", "value", "min", "max", "unit", "scaled", "passed"}]
     monitors: list[dict[str, Any]] = field(default_factory=list)
+    # Mode 09 / J1939 VI+DM19+SOFT+CI: {"vin", "calibrations": [{"cal_id", "cvn"}], "ecu_name",
+    # "software", "component", "ecu", "protocol"} with only the fields the ECU answered, or None
+    identity: dict[str, Any] | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -84,6 +88,7 @@ class ObdReadOutcome:
             "unsupported_modes": list(self.unsupported_modes),
             "freeze_frame": self.freeze_frame,
             "monitors": list(self.monitors),
+            "identity": self.identity,
         }
 
 
@@ -136,6 +141,34 @@ async def read_monitor_results(poller: ActiveDiagnosticPoller, tx_id: int, rx_id
     return out
 
 
+async def read_vehicle_identity(poller: ActiveDiagnosticPoller, tx_id: int, rx_id: int,
+                                timeout_s: float) -> dict[str, Any] | None:
+    """Mode 09 VIN, calibration IDs, CVNs and ECU name; None when the ECU answers none of them."""
+    from src.protocols.obd import mode09
+
+    async def ask(infotype: int) -> bytes | None:
+        try:
+            return await poller.poll_vehicle_info_once(infotype, tx_id=tx_id, rx_id=rx_id, timeout_s=timeout_s)
+        except (TimeoutError, ProtocolError):
+            return None
+
+    out: dict[str, Any] = {}
+    try:
+        if (raw := await ask(mode09.INFOTYPE_VIN)) is not None and (vin := mode09.decode_vin(raw)):
+            out["vin"] = vin
+        cal_ids = mode09.decode_cal_ids(raw) if (raw := await ask(mode09.INFOTYPE_CAL_ID)) is not None else []
+        cvns = mode09.decode_cvns(raw) if cal_ids and (raw := await ask(mode09.INFOTYPE_CVN)) is not None else []
+        if cal_ids:
+            # CVN n belongs to calibration n (SAE J1979); a missing CVN stays empty, never invented.
+            out["calibrations"] = [{"cal_id": c, "cvn": cvns[i] if i < len(cvns) else ""}
+                                   for i, c in enumerate(cal_ids)]
+        if (raw := await ask(mode09.INFOTYPE_ECU_NAME)) is not None and (name := mode09.decode_ecu_name(raw)):
+            out["ecu_name"] = name
+    except ValueError:
+        pass  # a malformed answer ends the identity read; what was decoded stays
+    return out or None
+
+
 async def read_obd_fault_codes(
     tx_port: Any,
     subscribe: Subscribe,
@@ -146,8 +179,8 @@ async def read_obd_fault_codes(
     snapshot: bool = True,
 ) -> ObdReadOutcome:
     """Mode 03/07/0A from each ECU, then (``snapshot``) the first answering ECU's
-    freeze frame (Mode 02) and monitor results (Mode 06). Never raises; the
-    outcome says what happened."""
+    freeze frame (Mode 02), monitor results (Mode 06) and identification
+    (Mode 09). Never raises; the outcome says what happened."""
     loop = asyncio.get_running_loop()
     queue: asyncio.Queue[CanFrame] = asyncio.Queue()
     subscription = QueueRxSubscription(queue)
@@ -183,6 +216,9 @@ async def read_obd_fault_codes(
                     if ff is not None:
                         outcome.freeze_frame = dict(ff, ecu=name_tr)
                     outcome.monitors = await read_monitor_results(poller, tx_id, rx_id, timeout_s)
+                    identity = await read_vehicle_identity(poller, tx_id, rx_id, timeout_s)
+                    if identity is not None:
+                        outcome.identity = dict(identity, ecu=name_tr, protocol="OBD Mode 09")
     except SafetyError as exc:
         logger.error("Read request refused by the TX gateway", extra={"code": getattr(exc, "code", "")})
         outcome.status = "refused"
@@ -225,6 +261,13 @@ class SimulatedObdEcu:
         0x21: [bytes([0x21, 0x82, 0x01, 0x00, 0x2E, 0x00, 0x00, 0x00, 0x30])],   # catalyst B1: 46 of max 48
         0xA2: [bytes([0xA2, 0x0B, 0x24, 0x00, 0x29, 0x00, 0x00, 0x00, 0x14])],   # cylinder 1 misfires: 41 > 20
     }
+
+    # Mode 09: a synthetic VIN with a Volkswagen Group WMI (no real vehicle), one
+    # calibration with its CVN and the ECU name.
+    VIN = "WVWZZZ1KZS1M00001"
+    CAL_ID = "SIMCAL-0001"
+    CVN = bytes([0x1A, 0x2B, 0x3C, 0x4D])
+    ECU_NAME = b"ECM\x00-EngineControl".ljust(20, b"\x00")
 
     def __init__(self, stored: Sequence[str] = ("P0301", "P0420"), pending: Sequence[str] = ("P0171",),
                  permanent: Sequence[str] = (), *, policy_ttl_s: float = 60.0) -> None:
@@ -272,7 +315,7 @@ class SimulatedObdEcu:
         mode = data[1]
         payload = self._answer(mode, data)
         if payload is None:
-            self._emit(response_id, bytes([0x03, 0x7F, mode, 0x31 if mode in (0x02, 0x06) else 0x11]))
+            self._emit(response_id, bytes([0x03, 0x7F, mode, 0x31 if mode in (0x02, 0x06, 0x09) else 0x11]))
             return
         if len(payload) <= 7:
             self._emit(response_id, bytes([len(payload)]) + payload)
@@ -302,4 +345,9 @@ class SimulatedObdEcu:
                 return bytes([0x46, mid]) + self.MODE06[mid]
             tests = self.MODE06_TESTS.get(mid)
             return None if tests is None else bytes([0x46]) + b"".join(tests)
+        if mode == 0x09:
+            infotype = data[2]
+            items = {0x02: self.VIN.encode("ascii"), 0x04: self.CAL_ID.encode("ascii").ljust(16, b"\x00"),
+                     0x06: self.CVN, 0x0A: self.ECU_NAME}.get(infotype)
+            return None if items is None else bytes([0x49, infotype, 0x01]) + items
         return None

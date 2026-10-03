@@ -1124,6 +1124,38 @@ class ActiveDiagnosticPoller:
                                                        match_response=_match_m06)
         return result  # type: ignore[return-value]
 
+    async def poll_vehicle_info_once(
+        self,
+        infotype: int,
+        tx_id: int | None = None,
+        rx_id: int | None = None,
+        timeout_s: float = DEFAULT_P2_TIMEOUT_S,
+    ) -> bytes:
+        """One-shot SAE J1979 Mode 09 request for one InfoType; returns the reassembled 0x49 payload.
+
+        Decode with ``src.protocols.obd.mode09`` (VIN, calibration IDs, CVNs, ECU name).
+        """
+        target_tx_id = tx_id if tx_id is not None else self.default_tx_id
+        target_rx_id = rx_id if rx_id is not None else self.default_rx_id
+        payload = bytes([0x02, 0x09, infotype & 0xFF, 0x55, 0x55, 0x55, 0x55, 0x55])
+        req_frame = CanFrame.create(channel_id=self.channel_id, arbitration_id=target_tx_id, data=payload,
+                                    is_extended=target_tx_id > 0x7FF, direction="tx")
+
+        async def _match_m09(completed: bytes) -> object | None:
+            if completed[0] == 0x49 and len(completed) >= 2 and completed[1] == (infotype & 0xFF):
+                return bytes(completed)
+            if completed[0] == 0x7F and len(completed) >= 3 and completed[1] == 0x09:
+                if completed[2] == UdsNrc.REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING:
+                    return None
+                raise ProtocolError(f"OBD Mode 09 InfoType 0x{infotype:02X} rejected with NRC 0x{completed[2]:02X}",
+                                    code="OBD_NEGATIVE_RESPONSE", details={"infotype": infotype, "nrc": completed[2]})
+            return None
+
+        result = await self._await_diagnostic_response(req_frame=req_frame, target_rx_id=target_rx_id,
+                                                       timeout_s=timeout_s, protocol_name="OBD_MODE09",
+                                                       match_response=_match_m09)
+        return result  # type: ignore[return-value]
+
     async def poll_dtc_once(
         self,
         mode: int,

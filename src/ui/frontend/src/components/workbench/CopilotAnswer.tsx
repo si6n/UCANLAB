@@ -266,6 +266,24 @@ export const CopilotAnswerView: React.FC<{ answer: CopilotStructuredAnswer; onAn
               ))}
             </li>
           ))}
+          {answer.technical.identity && (
+            <li data-testid="copilot-identity">
+              <b>{L('Araç kimliği', 'Vehicle identity')}</b> ({answer.technical.identity.protocol})
+              {answer.technical.identity.vin && (
+                <span>
+                  {' '}VIN {answer.technical.identity.vin}
+                  {answer.technical.identity.vin_make && ` (${answer.technical.identity.vin_make})`}
+                </span>
+              )}
+              {answer.technical.identity.calibrations.map((c) => (
+                <span key={c.cal_id}> · CAL ID {c.cal_id}{c.cvn && ` / CVN ${c.cvn}`}</span>
+              ))}
+              {answer.technical.identity.ecu_name && <span> · {answer.technical.identity.ecu_name}</span>}
+              {answer.technical.identity.software.length > 0 && (
+                <span> · {L('Yazılım', 'Software')} {answer.technical.identity.software.join(', ')}</span>
+              )}
+            </li>
+          )}
           {answer.technical.freeze_frame && (
             <li data-testid="copilot-freeze-frame-rows">
               <b>{L('Arıza anı (freeze frame)', 'Fault moment (freeze frame)')}</b> {answer.technical.freeze_frame.dtc}
