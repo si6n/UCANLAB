@@ -465,3 +465,47 @@ def test_traceability_severity_follows_the_policy_classification() -> None:
     expected = "high" if breaches else "medium"
     assert finding["severity"] == expected
     assert all("policy_class" in e for e in finding["examples"])
+
+
+# --------------------------------------------------------------------------- #
+# source URL liveness (tooling, network only when explicitly run)
+# --------------------------------------------------------------------------- #
+def test_url_classification_does_not_call_redirects_dead() -> None:
+    """A 3xx is a measurement limit, not a dead source — false positives are worse."""
+    import urllib.error
+
+    class _Resp:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def _raise_http(code):
+        def _open(request, timeout=None):
+            raise urllib.error.HTTPError("u", code, "err", {}, None)  # type: ignore[arg-type]
+        return _open
+
+    import scripts.intake_check_sources as mod
+
+    original = mod.urllib.request.urlopen
+    try:
+        for code, expected in ((308, "redirect"), (301, "redirect"), (404, "dead"),
+                               (500, "dead"), (403, "unverified"), (429, "unverified")):
+            mod.urllib.request.urlopen = _raise_http(code)
+            assert mod.probe("https://example.invalid/x")[0] == expected, code
+        mod.urllib.request.urlopen = lambda request, timeout=None: _Resp()
+        assert mod.probe("https://example.invalid/x")[0] == "live"
+    finally:
+        mod.urllib.request.urlopen = original
+
+
+def test_cited_url_extraction_counts_occurrences() -> None:
+    from scripts.intake_check_sources import cited_urls
+
+    counts = cited_urls(ROOT)
+    assert len(counts) > 100, "the knowledge base cites a large URL surface"
+    assert max(counts.values()) > 1, "provenance documents cite some URLs repeatedly"
+    assert all(url.startswith("http") for url in counts)
