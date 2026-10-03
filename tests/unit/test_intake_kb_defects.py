@@ -445,3 +445,23 @@ def test_uds_did_examples_are_verbatim_sourceless_rows() -> None:
         record = dids[example["did"]]
         assert record.get("name") == example["name"]
         assert not str(record.get("source") or "").strip(), "example must be a sourceless row"
+
+
+def test_traceability_severity_follows_the_policy_classification() -> None:
+    """A source the policy never named must not be reported as a policy breach."""
+    from scripts.intake_kb_defects import measure_provenance_gaps, classify_source
+
+    policy = (ROOT / "data" / "PROVENANCE.md").read_text(encoding="utf-8").lower()
+    gaps = measure_provenance_gaps(ROOT)
+    classes = {key: classify_source(key, policy) for key in gaps}
+    assert "unattested" in classes.values(), "most measured sources are simply undocumented"
+    # justanswer is a public forum, which §5 rejects by kind
+    assert classes.get("justanswer") == "policy_breach"
+    # a plain commercial DTC site is undocumented, not forbidden
+    assert classes.get("obd2.com") == "unattested"
+
+    finding = DETECTORS["kb_source_value_not_in_provenance_doc"](ROOT)
+    breaches = {k for k, v in classes.items() if v == "policy_breach"}
+    expected = "high" if breaches else "medium"
+    assert finding["severity"] == expected
+    assert all("policy_class" in e for e in finding["examples"])

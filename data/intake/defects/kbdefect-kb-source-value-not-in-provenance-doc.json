@@ -9,7 +9,7 @@
     "role": "author"
   },
   "source": {
-    "title": "Kendi verimizden ölçüm: 8918 kaynak alanı değeri hiçbir provenance belgesinde geçmiyor (dtc_database.json: 8656, j1939_spn_fmi_database.json: 247, extended_pid_database.json: 15)",
+    "title": "Kendi verimizden ölçüm: 8918 kaynak alanı değeri hiçbir provenance belgesinde geçmiyor (dtc_database.json: 8656, j1939_spn_fmi_database.json: 247, extended_pid_database.json: 15); politika §5'in yasakladığı türden: justanswer",
     "path": "data/diagnostics/dtc_database.json (repo içi ölçüm; sha256 kayıt altındadır)",
     "type": "internal_kb",
     "publisher": "UCanLab intake",
@@ -29,8 +29,8 @@
   "payload": {
     "defect_code": "kb_source_value_not_in_provenance_doc",
     "severity": "high",
-    "summary": "8918 kaynak alanı değeri hiçbir provenance belgesinde geçmiyor (dtc_database.json: 8656, j1939_spn_fmi_database.json: 247, extended_pid_database.json: 15)",
-    "why_it_matters": "Veri, kökeni repo'da hiç yazılmamış bir kaynağı işaret ediyor: data/PROVENANCE.md (13 satırlık hash kanıtı) ve data/diagnostics/PROVENANCE.md (hasat günlüğü) bu değerleri içermiyor. Böyle bir alan kanıt zinciri yürütülemeyen bir iddiadır. Çözüm ikisinden biri: kaynağı belgele ya da alanı kaldır. En büyük dosya dtc_database.json (obd2.com, openlaborproject.com, autofaultcodes.com …).",
+    "summary": "8918 kaynak alanı değeri hiçbir provenance belgesinde geçmiyor (dtc_database.json: 8656, j1939_spn_fmi_database.json: 247, extended_pid_database.json: 15); politika §5'in yasakladığı türden: justanswer",
+    "why_it_matters": "Veri, kökeni repo'da hiç yazılmamış bir kaynağı işaret ediyor: data/PROVENANCE.md (13 satırlık hash kanıtı) ve data/diagnostics/PROVENANCE.md (hasat günlüğü) bu değerleri içermiyor. Böyle bir alan kanıt zinciri yürütülemeyen bir iddiadır. Çözüm ikisinden biri: kaynağı belgele ya da alanı kaldır. En büyük dosya dtc_database.json. Öncelik, ölçülen kaynağın politika §5'te yasaklı türden olup olmadığına göre verilir — politika adıyla yasaklamadığı bir kaynak 'high' ile suçlanmaz.",
     "target_file": "data/diagnostics/dtc_database.json",
     "target_sha256": "d39b5582ec84686ae7ac710941a3dcf56e8b83ab43e062b829576491d4658eb7",
     "detector_expression": "token(source-ish field) not found in data/PROVENANCE.md + data/diagnostics/PROVENANCE.md",
@@ -42,6 +42,7 @@
         "files": [
           "dtc_database.json"
         ],
+        "policy_class": "unattested",
         "sample_value": "obd2.com"
       },
       {
@@ -50,6 +51,7 @@
         "files": [
           "dtc_database.json"
         ],
+        "policy_class": "unattested",
         "sample_value": "openlaborproject.com"
       },
       {
@@ -58,6 +60,7 @@
         "files": [
           "dtc_database.json"
         ],
+        "policy_class": "unattested",
         "sample_value": "autofaultcodes.com"
       },
       {
@@ -66,6 +69,7 @@
         "files": [
           "dtc_database.json"
         ],
+        "policy_class": "unattested",
         "sample_value": "geekobd.com"
       },
       {
@@ -74,6 +78,7 @@
         "files": [
           "dtc_database.json"
         ],
+        "policy_class": "unattested",
         "sample_value": "obd2hub.com"
       }
     ]

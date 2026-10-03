@@ -501,15 +501,39 @@ def stage_gaps(root: Path = ROOT, intake_dir: Path = INTAKE, apply: bool = False
     return written, problems
 
 
+# Categories the repository policy rejects by *name* or by *kind*
+# (data/PROVENANCE.md §5: "iATN ve herkese açık forumlar · … · lisanssız depolar
+# (alperunlu/DTCparser, f-steff/…, digitalyacht/…, linux-can/can-utils)").
+# A measured source that matches one of these is a policy breach; anything else is
+# an attribution gap. Hard-coding "high" would accuse sources the policy never
+# named, so the classification is measured instead.
+POLICY_NAMED_MARKERS = ("iatn", "alperunlu", "dtcparser", "f-steff", "digitalyacht",
+                        "linux-can", "can-utils", "wikipedia")
+POLICY_CATEGORY_MARKERS = ("forum", "justanswer", "reddit", "stackexchange", "obscure")
+
+
+def classify_source(key: str, policy: str) -> str:
+    """``policy_breach`` when the policy names or forbids this kind of source."""
+    low = key.lower()
+    if any(marker in low for marker in POLICY_CATEGORY_MARKERS):
+        return "policy_breach"
+    if any(marker in low for marker in POLICY_NAMED_MARKERS):
+        return "policy_breach" if marker in policy or marker in POLICY_NAMED_MARKERS else "unattested"
+    return "unattested"
+
+
 def detect_kb_source_value_not_in_provenance_doc(root: Path = ROOT) -> dict[str, Any]:
     """Shipped records point at sources that neither provenance document records.
 
     This is a *traceability* measurement, not a legal claim: the data asserts a
     provenance value and no repository document mentions it, so the chain cannot
-    be walked. It is the cheapest class of finding to fix (document or drop) and
-    the most embarrassing one to be asked about.
+    be walked. Severity follows the documented policy — a measured source that
+    the rejected list names or forbids by kind is a breach, everything else is an
+    attribution gap.
     """
     gaps = measure_provenance_gaps(root)
+    policy_path = root / Path("data") / "PROVENANCE.md"
+    policy = policy_path.read_text(encoding="utf-8").lower() if policy_path.is_file() else ""
     per_file: dict[str, int] = {}
     total = 0
     for entry in gaps.values():
@@ -517,27 +541,34 @@ def detect_kb_source_value_not_in_provenance_doc(root: Path = ROOT) -> dict[str,
         for name in entry["files"]:
             per_file[name] = per_file.get(name, 0) + entry["occurrences"]
     ranked = sorted(per_file.items(), key=lambda kv: -kv[1])
+    classified = {key: classify_source(key, policy) for key in gaps}
+    breaches = sorted(k for k, v in classified.items() if v == "policy_breach")
+    severity = "high" if breaches else "medium"
     sample_examples: list[dict[str, Any]] = []
     for key in sorted(gaps, key=lambda k: -gaps[k]["occurrences"])[:EXAMPLE_LIMIT]:
         entry = gaps[key]
         sample_examples.append({"source_key": key, "occurrences": entry["occurrences"],
-                                "files": entry["files"],
+                                "files": entry["files"], "policy_class": classified[key],
                                 "sample_value": (entry["sample_values"] or [""])[0]})
     return {
         "code": "kb_source_value_not_in_provenance_doc",
-        "severity": "high",
+        "severity": severity,
         "summary": (f"{total} kaynak alanı değeri hiçbir provenance belgesinde geçmiyor "
-                    f"({', '.join(f'{name}: {count}' for name, count in ranked[:3])})"),
-        "why_it_matters": ("Veri, kökeni repo'da hiç yazılmamış bir kaynağı işaret ediyor: "
-                           "data/PROVENANCE.md (13 satırlık hash kanıtı) ve "
-                           "data/diagnostics/PROVENANCE.md (hasat günlüğü) bu değerleri içermiyor. "
-                           "Böyle bir alan kanıt zinciri yürütülemeyen bir iddiadır. Çözüm ikisinden "
-                           "biri: kaynağı belgele ya da alanı kaldır. En büyük dosya "
-                           "dtc_database.json (obd2.com, openlaborproject.com, autofaultcodes.com …)."),
+                    f"({', '.join(f'{name}: {count}' for name, count in ranked[:3])})"
+                    + (f"; politika §5'in yasakladığı türden: {', '.join(breaches[:4])}" if breaches
+                       else "; politika §5 bu kaynakları adıyla yasaklamıyor (atıf eksiği)")),
+        "why_it_matters": (
+            "Veri, kökeni repo'da hiç yazılmamış bir kaynağı işaret ediyor: "
+            "data/PROVENANCE.md (13 satırlık hash kanıtı) ve data/diagnostics/PROVENANCE.md "
+            "(hasat günlüğü) bu değerleri içermiyor. Böyle bir alan kanıt zinciri "
+            "yürütülemeyen bir iddiadır. Çözüm ikisinden biri: kaynağı belgele ya da alanı "
+            "kaldır. En büyük dosya dtc_database.json. Öncelik, ölçülen kaynağın politika §5'te "
+            "yasaklı türden olup olmadığına göre verilir — politika adıyla yasaklamadığı bir "
+            "kaynak 'high' ile suçlanmaz."),
         "expression": "token(source-ish field) not found in data/PROVENANCE.md + data/diagnostics/PROVENANCE.md",
         **_target(DTC_DB),
         "affected_count": total,
-        "examples": sample_examples[:EXAMPLE_LIMIT],
+        "examples": sample_examples,
     }
 
 
