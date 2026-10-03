@@ -180,6 +180,23 @@ kaynağı tutulur (`EngineSpeed=750`, `text:rolantide`).
 * Ölçüm şikâyetle çelişirse ölçüm kazanır: "hararet" denip su 62 °C ölçülürse
   aciliyet KIRMIZI'ya çekilmez.
 
+### 3.1.4 Kod durumu, aralıklı arıza ve onarım doğrulaması
+
+* Kodlar durumuyla gelebilir: `dtcs=[{"code": "P0301", "status": "HISTORY"}]`
+  (`ACTIVE` / `HISTORY` / `PENDING`, J1939'da `oc` tekrar sayısı). Canlı oturumda
+  masaüstü uygulaması her kodun en güçlü durumunu gönderir (ACTIVE > PENDING > HISTORY).
+* **Geçmiş kod** şu an mevcut değildir: nedenleri yine sıralar ama daha az
+  puanla (2.0, aktifte 3.0), güven "düşük", aciliyete katılmaz; kanıt satırı
+  "geçmiş kod (aralıklı arıza olabilir)" der. **Bekleyen kod** aciliyeti en çok
+  SARI yapar.
+* **Aralıklı arıza** (geçmiş kod veya ≥5 tekrarlı elektriksel kod) için
+  "kablo demetini sallayarak (wiggle test) izleyin" adımı eklenir; "veri geçerli"
+  FMI'lı tekrar (gerçek bir koşul) için eklenmez. Bekleyen kod için "onay için
+  bir sürüş döngüsü" adımı eklenir.
+* Kodlu her cevabın son adımı **onarım doğrulamasıdır**: "kodları silin,
+  arızanın görüldüğü koşulda (ör. rölantide) test edin; kod geri gelirse
+  sonraki adaya geçin".
+
 ### 3.2 Aciliyet ve güvenlik
 
 * Aciliyet: kod ciddiyeti `drive_safety_policy.decide_risk` ile (tek otorite),

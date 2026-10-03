@@ -315,6 +315,15 @@ def _evidence_text(marker: str, lang: str, kb: KnowledgeBase) -> str:
     kind, _, payload = marker.partition(":")
     if kind == "code":
         return f"{payload} {'aktif' if lang == 'tr' else 'active'}"
+    if kind == "code_history":
+        return (f"{payload} geçmiş kod (şu an aktif değil: aralıklı arıza olabilir)" if lang == "tr"
+                else f"{payload} stored code (not active now: may be intermittent)")
+    if kind == "code_pending":
+        return (f"{payload} bekleyen kod (bir kez görüldü, henüz onaylanmadı)" if lang == "tr"
+                else f"{payload} pending code (seen once, not confirmed yet)")
+    if kind == "history":
+        return (f"{payload}: geçmiş kod; aciliyete katılmadı (şu an mevcut değil)" if lang == "tr"
+                else f"{payload}: stored code; not counted for urgency (not present now)")
     if kind == "complaint":
         rec = kb.symptom(payload).record or {}
         name = rec.get("name_tr") if lang == "tr" else rec.get("name_en")
@@ -463,7 +472,10 @@ def _summary(r: Reasoning, lang: str, kb: KnowledgeBase) -> str:
         return " ".join(parts + [_t("nothing", lang)]) if not parts else " ".join(parts)
     bits: list[str] = []
     if found:
-        listing = ", ".join(f"{c.key} ({_short(_code_title(c, lang))})" if _code_title(c, lang) else c.key for c in found[:4])
+        tag = {"HISTORY": (" [geçmiş]", " [stored]"), "PENDING": (" [bekleyen]", " [pending]")}
+        listing = ", ".join(
+            (f"{c.key}{tag[c.status][0 if lang == 'tr' else 1] if c.status in tag else ''} ({_short(_code_title(c, lang))})"
+             if _code_title(c, lang) else c.key) for c in found[:4])
         bits.append(f"Değerlendirilen kod: {listing}." if lang == "tr" else f"Codes evaluated: {listing}.")
     for c in unknown:
         bits.append(_t("unknown_code", lang, code=c.key))
@@ -587,6 +599,31 @@ def _steps(r: Reasoning, lang: str, max_steps: int, kb: KnowledgeBase) -> list[d
             code_steps.append((_difficulty_rank(difficulty) if difficulty else 1, ci * 10 + si, action, difficulty, ref))
     for _rank, _order, action, difficulty, ref in sorted(code_steps):
         add(action, difficulty, [ref])
+    # Intermittent faults: a stored code, a pending code or a code that keeps coming back.
+    from src.engine.ai.copilot_reasoner import VALID_DATA_FMIS
+
+    # A repeated code with a "data valid" FMI is a real recurring condition, not a loose wire.
+    intermittent = [c.key for c in r.codes if c.found and (
+        c.status == "HISTORY" or ((c.occurrence_count or 0) >= 5 and c.fmi not in VALID_DATA_FMIS))]
+    if intermittent:
+        add(("Aralıklı arıza (" + ", ".join(intermittent[:3]) + "): motor çalışırken ilgili kablo demetini ve "
+             "konnektörleri sallayarak (wiggle test) kodun geri gelip gelmediğini canlı veriyle izleyin.") if lang == "tr"
+            else ("Intermittent fault (" + ", ".join(intermittent[:3]) + "): with the engine running, wiggle the related "
+                  "harness and connectors and watch live data for the code to return."), "", ["template:intermittent"])
+    pending = [c.key for c in r.codes if c.found and c.status == "PENDING"]
+    if pending:
+        add(("Bekleyen kod (" + ", ".join(pending[:3]) + "): onaylanması için arızanın görüldüğü koşulda bir "
+             "sürüş döngüsü tamamlayın, sonra kodları yeniden okuyun.") if lang == "tr"
+            else ("Pending code (" + ", ".join(pending[:3]) + "): complete one drive cycle in the conditions the fault "
+                  "appeared in, then re-read the codes."), "", ["template:pending"])
+    # Every diagnosis ends with proving the repair, in the state the fault was seen in.
+    if any(c.found for c in r.codes):
+        where = _state_words(r.state.engine, r.state.thermal, lang) if r.state.known else ""
+        verify = (("Onarımdan sonra: kodları silin, arızanın görüldüğü koşulda" + (f" ({where})" if where else "")
+                   + " test edin; kod geri gelirse listedeki sonraki adaya geçin.") if lang == "tr"
+                  else ("After the repair: clear the codes and test in the conditions the fault appeared in"
+                        + (f" ({where})" if where else "") + "; if the code returns, move to the next candidate."))
+        steps = steps[: max_steps - 1] + [(verify, "", ["template:verify_repair"])]
     out = []
     for i, (text, difficulty, refs) in enumerate(steps[:max_steps], 1):
         out.append({"n": i, "text": text, "difficulty": difficulty, "refs": refs})
@@ -658,7 +695,7 @@ def _technical(r: Reasoning, lang: str, kb: KnowledgeBase, similar: list[Any]) -
             pgn_text = f"{c.pgn}" + (f" ({c.pgn_acronym})" if c.pgn_acronym else "") + (f" — {c.pgn_label}" if c.pgn_label else "")
         sev = f"{c.severity}" + (f" `{c.severity_ref}`" if c.severity_ref else "")
         codes.append({
-            "key": c.key, "kind": c.kind, "found": c.found, "origin": c.origin,
+            "key": c.key, "kind": c.kind, "found": c.found, "origin": c.origin, "status": c.status,
             "title": _code_title(c, lang), "title_tr": c.title_tr, "title_en": c.title_en,
             "description": c.description[:400], "subsystem": c.subsystem, "system": c.system_id,
             "fmi_text": fmi_text, "pgn_text": pgn_text, "severity": sev if c.found else "",

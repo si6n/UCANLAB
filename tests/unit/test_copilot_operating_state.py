@@ -95,3 +95,32 @@ def test_oil_pressure_at_idle_uses_the_idle_band_without_rpm() -> None:
     assert d["technical"]["telemetry"][0]["status"] == "low"
     ok = answer_query("rölantide yağ basıncı 1.6 bar", language="tr").to_dict()
     assert ok["technical"]["telemetry"][0]["status"] == "normal"
+
+
+def test_stored_code_is_intermittent_evidence_not_present_danger() -> None:
+    active = answer_query("", dtcs=["SPN 100 FMI 1"], language="tr").to_dict()
+    stored = answer_query("", dtcs=[{"code": "SPN 100 FMI 1", "status": "HISTORY"}], language="tr").to_dict()
+    assert active["urgency"]["level"] == "RED" and stored["urgency"]["level"] != "RED"
+    assert "[geçmiş]" in stored["summary"]
+    assert any("Aralıklı arıza" in s["text"] for s in stored["steps"])
+    assert stored["causes"][0]["confidence"] == "low"
+
+
+def test_pending_code_never_raises_red_and_asks_for_a_drive_cycle() -> None:
+    d = answer_query("", dtcs=[{"code": "SPN 100 FMI 1", "status": "PENDING"}], language="tr").to_dict()
+    assert d["urgency"]["level"] == "YELLOW"
+    assert any(s["refs"] == ["template:pending"] for s in d["steps"])
+
+
+def test_repeated_electrical_code_is_intermittent_but_repeated_real_condition_is_not() -> None:
+    wire = answer_query("", dtcs=[{"spn": 110, "fmi": 4, "oc": 9}], language="tr").to_dict()
+    real = answer_query("", dtcs=[{"spn": 110, "fmi": 0, "oc": 9}], language="tr").to_dict()
+    assert any(s["refs"] == ["template:intermittent"] for s in wire["steps"])
+    assert not any(s["refs"] == ["template:intermittent"] for s in real["steps"])
+
+
+def test_every_code_answer_ends_with_repair_verification_in_the_fault_state() -> None:
+    d = answer_query("rölantide P0300", language="tr").to_dict()
+    assert d["steps"][-1]["refs"] == ["template:verify_repair"]
+    assert "(rölantide)" in d["steps"][-1]["text"]
+    assert answer_query("akü bitiyor", language="tr").to_dict()["steps"][-1]["refs"] != ["template:verify_repair"]

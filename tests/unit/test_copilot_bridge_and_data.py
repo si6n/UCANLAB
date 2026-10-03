@@ -141,3 +141,19 @@ def test_copilot_data_files_regenerate_identically(tmp_path: Path) -> None:
                        capture_output=True, cwd=ROOT)
     after = {t: read(t) for t in targets}
     assert before == after
+
+
+def test_session_codes_keep_their_strongest_status() -> None:
+    from types import SimpleNamespace
+
+    from src.core.models.diagnostics import DiagnosticDomain, DiagnosticEvent, Severity
+
+    def ev(code: str, status: str, t: int) -> DiagnosticEvent:
+        return DiagnosticEvent(t, code, list(DiagnosticDomain)[0], Severity.MEDIUM, status)
+
+    session = SimpleNamespace(make=None, model=None, events=[
+        ev("P0301", "PENDING", 1), ev("P0301", "ACTIVE", 2), ev("P0420", "HISTORY", 3)])
+    answer = _app()._structured_answer_for(session, {}, "", "tr")  # type: ignore[arg-type]
+    assert answer is not None
+    statuses = {c["code"]: c["status"] for c in answer["understood"]["dtcs"]}
+    assert statuses == {"P0301": "ACTIVE", "P0420": "HISTORY"}

@@ -51,6 +51,7 @@ class CodeMention:
     code: str
     origin: str  # text | input | dm1
     raw: str = ""
+    status: str = "ACTIVE"  # ACTIVE | HISTORY (stored, not present now) | PENDING (seen once, not confirmed)
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,6 +61,7 @@ class SpnMention:
     origin: str  # text | input | dm1
     occurrence_count: int | None = None
     note: str = ""
+    status: str = "ACTIVE"
 
     @property
     def key(self) -> str:
@@ -135,8 +137,9 @@ class ParsedQuery:
     def to_dict(self) -> dict[str, Any]:
         return {
             "language": self.language,
-            "dtcs": [{"code": c.code, "origin": c.origin} for c in self.dtcs],
-            "spns": [{"spn": s.spn, "fmi": s.fmi, "origin": s.origin, "oc": s.occurrence_count} for s in self.spns],
+            "dtcs": [{"code": c.code, "origin": c.origin, "status": c.status} for c in self.dtcs],
+            "spns": [{"spn": s.spn, "fmi": s.fmi, "origin": s.origin, "oc": s.occurrence_count, "status": s.status}
+                     for s in self.spns],
             "pgns": list(self.pgns),
             "pids": list(self.pids),
             "symptoms": [{"id": s.symptom_id, "phrase": s.phrase, "fuzzy": s.fuzzy} for s in self.symptoms],
@@ -562,27 +565,35 @@ def _input_readings(telemetry: Mapping[str, Any], kb: KnowledgeBase) -> tuple[li
 
 
 # ------------------------------------------------------------------- public
+_CODE_STATUSES = frozenset({"ACTIVE", "HISTORY", "PENDING"})
+
+
 def _explicit_codes(dtcs: Iterable[Any]) -> tuple[list[CodeMention], list[SpnMention]]:
     codes: list[CodeMention] = []
     spns: list[SpnMention] = []
     for item in dtcs:
+        status = "ACTIVE"
+        oc: int | None = None
         if isinstance(item, Mapping):
+            raw_status = str(item.get("status") or "ACTIVE").upper()
+            status = raw_status if raw_status in _CODE_STATUSES else "ACTIVE"
+            oc = item.get("oc") if isinstance(item.get("oc"), int) and not isinstance(item.get("oc"), bool) else None
             spn = item.get("spn")
             fmi = item.get("fmi")
             if isinstance(spn, int) and not isinstance(spn, bool):
                 spns.append(SpnMention(spn, fmi if isinstance(fmi, int) and 0 <= fmi <= 31 else None, "input",
-                                       item.get("oc") if isinstance(item.get("oc"), int) else None))
+                                       oc, status=status))
                 continue
             item = item.get("code") or ""
         text = str(item)
         m = _SPN_TEXT_RE.search(text)
         if m:
             fmi_v = int(m.group(2)) if m.group(2) is not None and int(m.group(2)) <= 31 else None
-            spns.append(SpnMention(int(m.group(1)), fmi_v, "input"))
+            spns.append(SpnMention(int(m.group(1)), fmi_v, "input", oc, status=status))
             continue
         code = normalize_dtc_code(text)
         if code:
-            codes.append(CodeMention(code, "input", text))
+            codes.append(CodeMention(code, "input", text, status=status))
     return codes, spns
 
 

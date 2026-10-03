@@ -150,6 +150,7 @@ class CodeFact:
     occurrence_count: int | None = None
     notice: str = ""
     refs: list[str] = field(default_factory=list)
+    status: str = "ACTIVE"        # ACTIVE | HISTORY (stored, not present now) | PENDING (seen once)
 
     @property
     def graph_key(self) -> str:
@@ -235,6 +236,12 @@ class Reasoning:
 
 
 # ---------------------------------------------------------------- helpers
+def _code_marker(fact: CodeFact) -> str:
+    """Evidence marker of a code: an active code is "code:", a stored/pending one says so
+    (and does not count as a present fault for confidence)."""
+    return {"HISTORY": "code_history", "PENDING": "code_pending"}.get(fact.status, "code") + f":{fact.key}"
+
+
 def _is_harvest_residue(text: str) -> bool:
     return bool(len(text) > _MAX_TITLE_CHARS or _DESCRIPTION_RE.search(text)
                 or _PARTS_LEGEND_RE.search(text) or _FMI_TABLE_RE.search(text) or _PROCEDURE_RE.search(text)
@@ -726,7 +733,7 @@ def _common_causes(kb: KnowledgeBase, r: Reasoning, active: dict[str, CodeFact],
         h = Hypothesis(ref, str(rule.get("title_tr") or rule["id"]), score, "pattern",
                        codes=sorted(set(matched)), refs=[ref])
         h.support.append((f"pattern:{rule['id']}|{units}", ref))
-        h.support += [(f"code:{c}", active[c].refs[0] if active[c].refs else ref) for c in sorted(set(matched))]
+        h.support += [(_code_marker(active[c]), active[c].refs[0] if active[c].refs else ref) for c in sorted(set(matched))]
         if signal_hit and low_sig is not None:
             h.support.append((f"signal:{low_sig.signal}|{_fmt(low_sig.value)}|{low_sig.unit}|{low_sig.status}",
                               low_sig.ref or "input"))
@@ -788,11 +795,12 @@ def _build_hypotheses(kb: KnowledgeBase, r: Reasoning) -> None:
                                falsifiable=bool(node.evidence_signals or node.contradicting_signals))
                 hyps[node.id] = h
                 _signal_evidence(kb, h, node, by_signal)
-            h.score += 3.0 + (0.5 if exact else 0.0)
+            # a stored (HISTORY) or unconfirmed (PENDING) code is weaker evidence than a present one
+            h.score += (3.0 if fact.status == "ACTIVE" else 2.0) + (0.5 if exact else 0.0)
             h.codes.append(fact.key)
             h.severity_rank = max(h.severity_rank, _SEVERITY_ORDER.index(fact.severity) if fact.severity in _SEVERITY_ORDER else 0)
             _fmi_semantics(h, node, fact)
-            h.support.append((f"code:{fact.key}", fact.refs[0] if fact.refs else f"root_cause_graph#{node.id}"))
+            h.support.append((_code_marker(fact), fact.refs[0] if fact.refs else f"root_cause_graph#{node.id}"))
             if gkey in complaint_codes:
                 h.score += 0.5
                 sid = complaint_codes[gkey]
@@ -807,7 +815,7 @@ def _build_hypotheses(kb: KnowledgeBase, r: Reasoning) -> None:
             if hid in hyps:
                 continue
             hyps[hid] = Hypothesis(hid, text, 2.0 - 0.05 * i, "record", codes=[fact.key],
-                                   support=[(f"code:{fact.key}", fact.refs[0] if fact.refs else ref)], refs=[ref])
+                                   support=[(_code_marker(fact), fact.refs[0] if fact.refs else ref)], refs=[ref])
 
     # (3) complaint-only candidates (codes suggested by the symptom, not active)
     for code, sid in complaint_codes.items():
@@ -977,8 +985,10 @@ def reason(parsed: ParsedQuery, kb: KnowledgeBase, *, include_recalls: bool = Tr
     r = Reasoning(parsed=parsed)
     for dm in parsed.dtcs:
         r.codes.append(_dtc_fact(kb, dm.code, dm.origin))
+        r.codes[-1].status = dm.status
     for sm in parsed.spns:
         r.codes.append(_spn_fact(kb, sm.spn, sm.fmi, sm.origin, sm.occurrence_count))
+        r.codes[-1].status = sm.status
     for sym in parsed.symptoms:
         look = kb.symptom(sym.symptom_id)
         if look.found:
@@ -1009,7 +1019,13 @@ def reason(parsed: ParsedQuery, kb: KnowledgeBase, *, include_recalls: bool = Tr
     for cf in r.codes:
         if not cf.found:
             continue
+        if cf.status == "HISTORY":
+            # not present now: it explains, it does not make the vehicle unsafe this minute
+            r.risk_reasons.append((f"history:{cf.key}", cf.refs[0] if cf.refs else ""))
+            continue
         cr = _severity_to_risk(cf.severity)
+        if cf.status == "PENDING" and cr == "RED":
+            cr = "YELLOW"  # seen once, not confirmed by the ECU yet
         if cr != "GRAY":
             r.risk_reasons.append((f"severity:{cf.key}|{cf.severity}", cf.severity_ref or (cf.refs[0] if cf.refs else "")))
         risk = _raise_risk(risk, cr)

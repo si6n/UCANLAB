@@ -3245,11 +3245,18 @@ class UniversalCanDesktopApp:
         from src.engine.ai.copilot_answer import answer_query
 
         try:
-            codes: list[str] = []
+            codes: list[Any] = []
             make = model = None
             if session is not None:
                 with self._session_lock:
-                    codes = [e.code for e in session.events if e.status == "ACTIVE" and e.code]
+                    # Active codes as plain strings; stored/pending ones carry their status so the
+                    # copilot treats them as intermittent / unconfirmed, never as present faults.
+                    rank = {"ACTIVE": 2, "PENDING": 1, "HISTORY": 0}
+                    best: dict[str, str] = {}
+                    for e in session.events:
+                        if e.code and rank.get(e.status, -1) > rank.get(best.get(e.code, ""), -1):
+                            best[e.code] = e.status
+                    codes = [c if st == "ACTIVE" else {"code": c, "status": st} for c, st in best.items()]
                     make, model = session.make, session.model
             answer = self.copilot.answer(text, dtcs=codes, telemetry=live_telemetry, vehicle_make=make,
                                          vehicle_model=model, language=language, answers=answers) \
