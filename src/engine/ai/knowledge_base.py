@@ -717,9 +717,10 @@ class KnowledgeBase:
                 continue
             canonical = str(rec["canonical"])
             j1939 = rec.get("j1939")
-            spn = j1939.get("spn") if isinstance(j1939, dict) else None
-            if isinstance(spn, int) and not isinstance(spn, bool):
-                claims.setdefault(f"spn:{spn}", set()).add((canonical, str(j1939.get("unit") or "")))
+            if isinstance(j1939, dict):
+                spn = j1939.get("spn")
+                if isinstance(spn, int) and not isinstance(spn, bool):
+                    claims.setdefault(f"spn:{spn}", set()).add((canonical, str(j1939.get("unit") or "")))
             obd = rec.get("obd")
             if isinstance(obd, dict) and str(obd.get("service") or "") == "01":
                 try:
