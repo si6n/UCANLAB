@@ -157,17 +157,37 @@ class AlarmItem:
         self.shelved_until: float | None = None
         self.timestamp = time.monotonic()
 
+    def _expire_shelving(self) -> None:
+        """AUDIT 2026-10-03 (S6-03): shelving is time-limited (EEMUA 191).
+
+        An expired shelve used to stay SHELVED until the next ``trip()`` edge,
+        so an alarm whose condition was still present stayed hidden for good.
+        On expiry the alarm comes back unacknowledged (fail-closed: shown).
+        """
+        if (
+            self.state == AlarmState.SHELVED
+            and self.shelved_until is not None
+            and time.monotonic() > self.shelved_until
+        ):
+            self.state = AlarmState.UNACKNOWLEDGED
+            self.shelved_until = None
+
     def trip(self) -> None:
         """Process variable crossed threshold into alarm."""
-        if self.state in (AlarmState.NORMAL, AlarmState.RTN_UNACKNOWLEDGED):
+        self._expire_shelving()
+        # S6-03: a trip is evaluated on valid data, so it also takes the alarm
+        # out of BAD_QUALITY — that state used to be a dead end that hid every
+        # later alarm of the channel.
+        if self.state in (
+            AlarmState.NORMAL,
+            AlarmState.RTN_UNACKNOWLEDGED,
+            AlarmState.OUT_OF_SERVICE_BAD_QUALITY,
+        ):
             self.state = AlarmState.UNACKNOWLEDGED
-        elif self.state == AlarmState.SHELVED:
-            # Check shelving expiry
-            if self.shelved_until and time.monotonic() > self.shelved_until:
-                self.state = AlarmState.UNACKNOWLEDGED
 
     def acknowledge(self) -> None:
         """Operator explicitly acknowledged the alarm."""
+        self._expire_shelving()
         if self.state == AlarmState.UNACKNOWLEDGED:
             self.state = AlarmState.ACKNOWLEDGED
         elif self.state == AlarmState.RTN_UNACKNOWLEDGED:
@@ -176,7 +196,11 @@ class AlarmItem:
 
     def clear(self) -> None:
         """Process variable returned to normal plausibility envelope."""
-        if self.state == AlarmState.UNACKNOWLEDGED:
+        self._expire_shelving()
+        if self.state == AlarmState.OUT_OF_SERVICE_BAD_QUALITY:
+            # S6-03: valid in-range data restores the channel.
+            self.state = AlarmState.NORMAL
+        elif self.state == AlarmState.UNACKNOWLEDGED:
             # Cleared before acknowledgment -> RTN_UNACKNOWLEDGED (never directly NORMAL!)
             self.state = AlarmState.RTN_UNACKNOWLEDGED
         elif self.state == AlarmState.ACKNOWLEDGED:
@@ -195,4 +219,5 @@ class AlarmItem:
 
     @property
     def badge(self) -> VisualBadge:
+        self._expire_shelving()
         return get_visual_badge(self.state, self.severity)

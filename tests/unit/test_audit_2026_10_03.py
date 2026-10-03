@@ -426,3 +426,105 @@ def test_s4_01_idle_boost_is_not_an_overboost() -> None:
     text = repr(CausalBayesianInferenceEngine.evaluate_diagnostic_query("turbo", [], {"BoostPressure": idle_bar}))
     assert "limit üstü" not in text
     assert "6.00 Bar" not in text
+
+
+# ---------------------------------------------------------------------------
+# S6-01 (KRİTİK): DesktopApiBridge.register_e2e_profile (renderer-callable)
+# wired an E2E profile into the gateway's TX stamping. The stamp runs AFTER
+# the criticality and read-only checks; an AUTOSAR P01 profile (CRC at byte
+# 0, counter in the low nibble of byte 1) on 0x7E0 rewrote a UDS 0x22 read
+# into 0x2E / 0x2F / 0x27 with no interlock and no confirmation.
+# ---------------------------------------------------------------------------
+
+
+def test_s6_01_renderer_registered_profile_is_rx_only() -> None:
+    from src.ui.desktop_app import DesktopApiBridge, UniversalCanDesktopApp
+
+    app: Any = UniversalCanDesktopApp(channel="vcan0", bitrate=500000)
+    result = DesktopApiBridge(app).register_e2e_profile(0x7E0, "AUTOSAR_P01")
+    assert result["success"] is True
+    assert 0x7E0 in app._rx_e2e_profiles
+    assert 0x7E0 not in app.gateway.e2e_profiles
+
+
+def test_s6_01_gateway_refuses_a_stamp_that_creates_a_critical_service() -> None:
+    from src.core.errors import SafetyError
+    from src.safety.e2e.profiles import E2EProfileConfig
+
+    bus = VirtualBus("vcan0")
+    bus.connect()
+    sent: list[CanFrame] = []
+    bus.privileged_send = sent.append  # type: ignore[method-assign]
+    gw = TxSafetyGateway(bus, whitelist_ids={0x7E0})
+    # Counter in the low nibble of the SID byte, CRC in the last byte: the PCI
+    # stays a valid single frame and the SID walks through 0x20..0x2F.
+    gw.register_e2e_profile(0x7E0, E2EProfileConfig.create_sae_j1850(crc_byte_offset=7, counter_byte_offset=1))
+    read_did = _frame(0x7E0, bytes([0x03, 0x22, 0xF1, 0x90, 0x55, 0x55, 0x55, 0x55]), extended=False)
+    refused = 0
+    for _ in range(16):  # walk the whole 4-bit counter
+        try:
+            gw.validate_and_transmit(read_did)
+        except SafetyError as exc:
+            assert exc.code in {"E2E_STAMP_SEMANTIC_CHANGE", "RATE_LIMIT_EXCEEDED"}
+            refused += 1
+    assert refused > 0
+    for frame in sent:
+        assert not gw._frame_is_critical(frame), frame.data.hex()
+
+
+# ---------------------------------------------------------------------------
+# S6-03 (ORTA): alarm model — an expired shelve stayed SHELVED until the next
+# trip edge, and BAD_QUALITY was a dead end (trip/clear ignored it), so a
+# single sensor glitch hid every later alarm of that channel.
+# ---------------------------------------------------------------------------
+
+
+def test_s6_03_expired_shelve_brings_the_alarm_back(monkeypatch: pytest.MonkeyPatch) -> None:
+    from src.ui import alarm_model
+    from src.ui.alarm_model import AlarmItem, AlarmSeverity, AlarmState
+
+    clock = [100.0]
+    monkeypatch.setattr(alarm_model.time, "monotonic", lambda: clock[0])
+    alarm = AlarmItem("oil", "Oil pressure low", AlarmSeverity.DANGER)
+    alarm.trip()
+    alarm.shelve(60.0)
+    assert alarm.badge.text_label == "SHELVED"
+    clock[0] += 61.0
+    assert alarm.badge.text_label == "UNACK DANGER"
+    assert alarm.state == AlarmState.UNACKNOWLEDGED
+
+
+def test_s6_03_bad_quality_is_not_a_dead_end() -> None:
+    from src.ui.alarm_model import AlarmItem, AlarmSeverity, AlarmState
+
+    alarm = AlarmItem("oil", "Oil pressure low", AlarmSeverity.DANGER)
+    alarm.mark_bad_quality()
+    alarm.trip()
+    assert alarm.state == AlarmState.UNACKNOWLEDGED
+    alarm.mark_bad_quality()
+    alarm.clear()
+    assert alarm.state == AlarmState.NORMAL
+
+
+# ---------------------------------------------------------------------------
+# S6-04 (DÜŞÜK): seven operator messages still carried UTF-8 double-encoded
+# through cp1254 (the Turkish code page): "ğŸ“„" instead of "📄". The
+# AUD-12 guard only looked for the cp1252 lead bytes, so it missed them.
+# ---------------------------------------------------------------------------
+
+
+def test_s6_04_no_cp1254_double_encoded_utf8_in_python_sources() -> None:
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2] / "src"
+    # UTF-8 4-byte lead F0 9F read as cp1254 is "ğŸ"; E2 9C / E2 9D is "âœ" / "â\u009d".
+    mojibake = re.compile("ğŸ|âœ|âŒ|â€[™œ\u009d]")
+    offenders = [
+        f"{path.relative_to(root)}:{no}"
+        for path in root.rglob("*.py")
+        if path.name != "junk_content_signatures.py"
+        for no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1)
+        if mojibake.search(line)
+    ]
+    assert offenders == []

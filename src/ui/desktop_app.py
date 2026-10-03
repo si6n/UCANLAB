@@ -4264,7 +4264,7 @@ class UniversalCanDesktopApp:
                     val = "WVWZZZ1KZ9W123456" if did == 0xF190 else "01 A4 B2 C3"
                     return {
                         "success": True,
-                        "message": f"ğŸ“„ [UDS 0x22 DID 0x{did:04X}] {name}: `{val}` (Pozitif Yanıt 0x62).",
+                        "message": f"📄 [UDS 0x22 DID 0x{did:04X}] {name}: `{val}` (Pozitif Yanıt 0x62).",
                         "vin": val if did == 0xF190 else "",
                         "did": hex(did),
                         "data": {"did": f"0x{did:04X}", "value": val, "name": name, "vin": val if did == 0xF190 else ""},
@@ -4278,7 +4278,7 @@ class UniversalCanDesktopApp:
                             val_str = "".join(chr(b) for b in resp.data if 32 <= b <= 126)
                         return {
                             "success": True,
-                            "message": f"ğŸ“„ [UDS 0x22 DID 0x{did:04X}] {name}: `{val_str}` (Pozitif Yanıt 0x62).",
+                            "message": f"📄 [UDS 0x22 DID 0x{did:04X}] {name}: `{val_str}` (Pozitif Yanıt 0x62).",
                             "data": {"did": f"0x{did:04X}", "value": val_str, "name": name},
                         }
                     else:
@@ -4295,7 +4295,7 @@ class UniversalCanDesktopApp:
                 if self._is_simulating:
                     return {
                         "success": True,
-                        "message": f"ğŸ”„ [UDS 0x10] Oturum başarıyla değiştirildi (Oturum: 0x{st:02X}, Pozitif Yanıt 0x50 0x{st:02X}).",
+                        "message": f"🔄 [UDS 0x10] Oturum başarıyla değiştirildi (Oturum: 0x{st:02X}, Pozitif Yanıt 0x50 0x{st:02X}).",
                         "session_type": st,
                         "data": {"session_type": st},
                     }
@@ -4314,7 +4314,7 @@ class UniversalCanDesktopApp:
                     if resp.is_positive:
                         return {
                             "success": True,
-                            "message": f"ğŸ”„ [UDS 0x10] Teşhis oturumu 0x{st:02X} moduna geçirildi (Pozitif Yanıt 0x50).",
+                            "message": f"🔄 [UDS 0x10] Teşhis oturumu 0x{st:02X} moduna geçirildi (Pozitif Yanıt 0x50).",
                             "data": {"session_type": st},
                         }
                     else:
@@ -4450,7 +4450,7 @@ class UniversalCanDesktopApp:
                 dtc = self.SCENARIO_DTCS.get(self._active_scenario, "Aktif Arıza Yok")
                 return {
                     "success": True,
-                    "message": f"ğŸ“‹ [J1939 DM1] Aktif Arıza Durumu: {dtc} (PGN 65226 DM1 yayını dinleniyor).",
+                    "message": f"📋 [J1939 DM1] Aktif Arıza Durumu: {dtc} (PGN 65226 DM1 yayını dinleniyor).",
                     "active_dtc": dtc,
                     "data": {"pgn": 65226, "active_dtc": dtc},
                 }
@@ -4731,10 +4731,18 @@ class UniversalCanDesktopApp:
                 logger.info("Reassembled vehicle VIN", extra={"vin": mask_vin(vin)})
 
     def register_e2e_profile(self, arbitration_id: int, profile: E2EProfileConfig) -> None:
-        """Register an E2E profile directly for RX verification and TX packaging."""
+        """Register an E2E profile for RX verification only.
+
+        AUDIT 2026-10-03 (S6-01): this used to wire the profile into the
+        gateway's TX stamping too, although the TX E2E stage is wiring-gated
+        (gateway module docstring, R2-N1) and this method is reachable from
+        the renderer through ``DesktopApiBridge.register_e2e_profile``. The
+        stamp rewrites payload bytes AFTER the criticality and read-only
+        checks: an AUTOSAR P01 profile on 0x7E0 turned a UDS 0x22 read into
+        0x2E/0x2F/0x27 by writing the counter into the SID nibble.
+        """
         with self._e2e_lock:
             self._rx_e2e_profiles[arbitration_id] = profile
-        self.gateway.register_e2e_profile(arbitration_id, profile)
 
     def register_e2e_profile_by_name(self, arbitration_id: int, profile_name: str = "AUTOSAR_P01") -> dict[str, Any]:
         """Register an E2E safety profile by standard name for an arbitration ID."""
@@ -5678,7 +5686,7 @@ class UniversalCanDesktopApp:
             if res.get("success"):
                 analysis = self.get_diagnostic_analysis()
                 hyps = analysis.get("hypotheses", []) if analysis.get("success") else []
-                lines = [f"ğŸ“ Operatör ölçümü kaydedildi: **{res.get('recorded')} = {value:g}** (kanıt tabanına %50 ağırlıkla eklendi)."]
+                lines = [f"📝 Operatör ölçümü kaydedildi: **{res.get('recorded')} = {value:g}** (kanıt tabanına %50 ağırlıkla eklendi)."]
                 if hyps:
                     lines.append("")
                     lines.append("**Güncel hipotez sıralaması:**")
@@ -5749,7 +5757,7 @@ class UniversalCanDesktopApp:
                 dtc_list = [dtc]
 
         if symptom_res.matched_symptoms and not dtc_list:
-            s_lines = [f"ğŸ” **Semptom Tespiti:** '{query}'"]
+            s_lines = [f"🔍 **Semptom Tespiti:** '{query}'"]
             s_lines.append(f"- **Etkilenen Sistemler:** {', '.join(symptom_res.suspected_subsystems)}")
             s_lines.append(f"- **Olası DTC Adayları:** {', '.join(symptom_res.candidate_dtcs)}")
             s_lines.append("")

@@ -1831,6 +1831,7 @@ class TxSafetyGateway:
             # exception (NotImplementedError/ValueError).
             # -----------------------------------------------------------------
             if self.e2e_packager is not None and frame.arbitration_id in self.e2e_profiles:
+                original_frame = frame
                 try:
                     frame = self.e2e_packager.package(frame, self.e2e_profiles[frame.arbitration_id])
                 except Exception as exc:
@@ -1843,6 +1844,20 @@ class TxSafetyGateway:
                         code="E2E_STAMP_FAILED",
                         cause=exc,
                     ) from exc
+                # AUDIT 2026-10-03 (S1-08/S6-01): every policy stage above judged
+                # the UNSTAMPED bytes. A stamp that changes what the frame means
+                # (a counter written into a service byte, a CRC into the ISO-TP
+                # PCI) would put an unchecked command on the wire — refuse it.
+                if self._stamp_changed_semantics(original_frame, frame, is_critical_command, now_ns):
+                    self._rollback_tx_reservation(
+                        timestamp_consumed, budget_consumed, stamp, budget,
+                        total_stamp=total_stamp,
+                    )
+                    raise SafetyError(
+                        "E2E stamping would change the frame's meaning after the policy checks",
+                        code="E2E_STAMP_SEMANTIC_CHANGE",
+                        details={"arbitration_id": frame.arbitration_id},
+                    )
 
             # R2-G1: no-return point — every rejectable stage passed; burn the
             # validated token while still under the lock.
@@ -1926,6 +1941,27 @@ class TxSafetyGateway:
                 )
             self._bus.privileged_send(frame)
         return True
+
+    def _stamp_changed_semantics(
+        self, original: CanFrame, stamped: CanFrame, is_critical_command: bool, now_ns: int
+    ) -> bool:
+        """True when E2E stamping changed anything the policy stages decided on.
+
+        * a non-critical frame must not become critical;
+        * a confirmed critical command must keep its service byte (the token
+          and the operator approved THAT service);
+        * an active read-only policy must still accept the stamped bytes.
+        """
+        if not is_critical_command and self._frame_is_critical(stamped):
+            return True
+        if is_critical_command:
+            original_sid = self._iso_tp_service_byte(bytes(original.data), original.is_fd)
+            if original_sid is not None and original_sid != self._iso_tp_service_byte(
+                bytes(stamped.data), stamped.is_fd
+            ):
+                return True
+        read_only = self._read_only_policy
+        return read_only is not None and read_only.violation(stamped, now_ns) is not None
 
     def _rollback_tx_reservation(
         self,
