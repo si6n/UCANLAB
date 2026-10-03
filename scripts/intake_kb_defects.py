@@ -691,12 +691,71 @@ def detect_measurement_signal_without_threshold(root: Path = ROOT) -> dict[str, 
     }
 
 
+UDS_DID_DB = Path("data") / "diagnostics" / "uds_did_database.json"
+# data/PROVENANCE.md §5: "UDS DID / Mode 06 veri tabloları (açık yeniden-dağıtılabilir
+# kaynak YOK — uydurulmaz)". The policy text is matched, not hardcoded as fact: if
+# someone rewrites the policy, the finding degrades from "policy breach" to
+# "attribution gap" instead of quietly accusing them.
+UDS_POLICY_MARKER = "UDS DID / Mode 06"
+
+
+def detect_uds_oem_did_without_source(root: Path = ROOT) -> dict[str, Any]:
+    """OEM-specific DIDs that carry no ``source`` at all.
+
+    The universal ISO 14229 rows do cite a licence-accurate source
+    (python-udsoncan, MIT) for their identity. The OEM rows carry byte length,
+    scaling, offset and unit — and no source for any of it.
+    """
+    blob = _load(root / UDS_DID_DB)
+    dids = blob.get("dids") or {}
+    without: list[dict[str, Any]] = []
+    with_source = 0
+    by_oem: dict[str, int] = {}
+    for did, record in sorted(dids.items()):
+        record = record or {}
+        source = str(record.get("source") or record.get("_source_ref") or "").strip()
+        if source:
+            with_source += 1
+            continue
+        oem = str(record.get("oem") or "(belirtilmemiş)")
+        by_oem[oem] = by_oem.get(oem, 0) + 1
+        if len(without) < EXAMPLE_LIMIT:
+            without.append({"did": did, "name": record.get("name"), "oem": record.get("oem"),
+                            "byte_length": record.get("byte_length"), "unit": record.get("unit")})
+    policy_path = root / Path("data") / "PROVENANCE.md"
+    policy = policy_path.read_text(encoding="utf-8") if policy_path.is_file() else ""
+    breach = UDS_POLICY_MARKER in policy
+    severity = "high" if breach else "medium"
+    return {
+        "code": "uds_oem_did_without_source",
+        "severity": severity,
+        "summary": (f"{len(dids) - with_source}/{len(dids)} UDS DID kaydında kaynak yok "
+                    f"(yalnız {with_source} kayıt kaynak belirtiyor); üretici dağılımı: "
+                    f"{', '.join(f'{k}: {v}' for k, v in sorted(by_oem.items(), key=lambda kv: -kv[1])[:6])}"),
+        "why_it_matters": (
+            ("data/PROVENANCE.md §5 bu tablo için açık yeniden-dağıtılabilir kaynak olmadığını ve "
+             "'uydurulmaz' ilkesini yazıyor; buna rağmen üreticiye özgü satırlar byte_length/scaling/"
+             "offset/unit değerlerini kaynaksız taşıyor. Doğrulanmış kısım: 32 ISO 14229 satırının "
+             "kimliği (DID + ad) python-udsoncan (MIT, Pier-Yves Lessard) udsoncan/common/dids.py "
+             "sabitlerinden geliyor — kütüphane YALNIZCA numara ve sabit adı veriyor, ölçek/birim/"
+             "bayt uzunluğu vermiyor; yani kaynak dizesi kapsamından biraz geniş atıf yapıyor.")
+            if breach else
+            ("Politika metni değişmiş görünüyor; yine de üreticiye özgü DID satırlarının "
+             "ölçek/birim öznitelikleri kaynaksız.")),
+        "expression": "no record.source / _source_ref",
+        **_target(UDS_DID_DB),
+        "affected_count": len(dids) - with_source,
+        "examples": without,
+    }
+
+
 Detector = Callable[[Path], dict[str, Any]]
 DETECTORS: dict[str, Detector] = {
     "cause_node_without_evidence_signal": detect_cause_node_without_evidence_signal,
     "dtc_missing_symptoms": detect_dtc_missing_symptoms,
     "measurement_signal_without_threshold": detect_measurement_signal_without_threshold,
     "root_cause_graph_dtc_coverage": detect_root_cause_graph_dtc_coverage,
+    "uds_oem_did_without_source": detect_uds_oem_did_without_source,
     "dtc_severity_unknown_and_unclassed": detect_dtc_severity_unknown_and_unclassed,
     "kb_source_value_not_in_provenance_doc": detect_kb_source_value_not_in_provenance_doc,
     "j1939_source_without_licence": detect_j1939_source_without_licence,
