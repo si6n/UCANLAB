@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "intake_id": "kbdefect-root-cause-graph-dtc-coverage",
+  "record_type": "kb_defect",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "automated",
+    "id": "scripts/intake_kb_defects.py",
+    "role": "author"
+  },
+  "source": {
+    "title": "Kendi verimizden ölçüm: 5589/14484 DTC kodu bir neden düğümünde referans veriyor (%38.6); 8895 kod için neden zinciri yok (8884 düğüm)",
+    "path": "data/diagnostics/dtc_database.json (repo içi ölçüm; sha256 kayıt altındadır)",
+    "type": "internal_kb",
+    "publisher": "UCanLab intake",
+    "revision": null,
+    "licence": "project-internal",
+    "access_date": "2026-10-02",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": "d39b5582ec84686ae7ac710941a3dcf56e8b83ab43e062b829576491d4658eb7",
+      "bytes": 54452139,
+      "pages_cited": []
+    }
+  },
+  "confidence": "corroborated",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "defect_code": "root_cause_graph_dtc_coverage",
+    "severity": "medium",
+    "summary": "5589/14484 DTC kodu bir neden düğümünde referans veriyor (%38.6); 8895 kod için neden zinciri yok (8884 düğüm)",
+    "why_it_matters": "Kök neden zinciri yalnız referans verilen kodlarda kurulabilir. Kapsanmayan kodlarda copilot yalnız metin yanıtlar; 'neden olur' sorusunda zincir kurulamaz. Ölçüm referans taramasıyla yapılır (düğüm sayısı kapsam değildir) ve referansların tamamı DB'de karşılık bulur — yani eksiklik üretim değil, kapsam eksiğidir.",
+    "target_file": "data/diagnostics/dtc_database.json",
+    "target_sha256": "d39b5582ec84686ae7ac710941a3dcf56e8b83ab43e062b829576491d4658eb7",
+    "detector_expression": "DTC codes absent from every node's expected_dtcs",
+    "affected_count": 8895,
+    "examples": [
+      {
+        "code": "B0001"
+      },
+      {
+        "code": "B0002"
+      },
+      {
+        "code": "B0003"
+      },
+      {
+        "code": "B0004"
+      },
+      {
+        "code": "B0005"
+      }
+    ]
+  },
+  "notes": "Düzeltme intake'ten yapılmaz: bu kayıt yalnız ölçümü ve tespit ifadesini saklar. validate_intake.py her çalıştırmada dedektörü yeniden çalıştırır; sayı değişirse WARN (drift), sıfırlanırsa kapanmış sayılır."
+}

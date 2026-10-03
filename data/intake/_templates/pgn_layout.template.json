@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "intake_id": "template-pgn-65226-example",
+  "record_type": "pgn_layout",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "automated",
+    "id": "scripts/intake_scan_sources.py",
+    "role": "author"
+  },
+  "source": {
+    "title": "Example: J1939 PGN field layout, one record per upstream file",
+    "path": "https://example.invalid/replace-with-the-real-document-url",
+    "type": "standard",
+    "publisher": "Example Layout Publisher; layout per SAE J1939-71",
+    "revision": null,
+    "licence": "Apache-2.0",
+    "access_date": "2026-10-02",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": null,
+      "bytes": null,
+      "pages_cited": []
+    }
+  },
+  "confidence": "single_source",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "pgn": 65226,
+    "pgn_id": "activeTroubleCodes",
+    "description": "Active Trouble Codes",
+    "pgn_type": "Single",
+    "priority": 6,
+    "interval_ms": 1000,
+    "fields": [
+      {
+        "field_id": "spn",
+        "name": "Suspect Parameter Number",
+        "spn": null,
+        "bits": 19,
+        "unit": null,
+        "resolution": null,
+        "description": "The SPN value itself is carried in this field; no separate SPN number applies."
+      },
+      {
+        "field_id": "engineSpeed",
+        "name": "Engine Speed",
+        "spn": 190,
+        "bits": 16,
+        "unit": "rpm",
+        "resolution": 0.125,
+        "description": "SPN 190, 0.125 rpm per bit"
+      }
+    ],
+    "upstream_keys": [],
+    "source_file": "database/j1939/pgns/065226-activeTroubleCodes.yaml"
+  },
+  "notes": "Field values are copied verbatim from the upstream file; the SPN number is only ever read out of the upstream 'name'/'description' text, never inferred (the validator WARNs when it is not mentioned there). Records in data/intake/pgn/ are staged for review and are NOT merged into data/diagnostics/canboat_pgn_reference.json."
+}

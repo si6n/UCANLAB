@@ -1,0 +1,635 @@
+# Upstream kaynak taraması — intake keşfi (2026-10-02)
+
+Araç: `python scripts/intake_scan_sources.py --report …` (ağ yalnız burada).
+Dal: `ccr-intake`. Bu rapor **keşif kanıtıdır**; `data/diagnostics` ve
+`data/golden_traces` dosyalarına yazılmamıştır.
+
+## 1. Özet (ölçülen)
+
+| Ölçüm | Değer |
+|---|---|
+| Taranan upstream artefakt | **134** (OBDex `data/` + canboat `database/j1939/pgns/` + `docs/canboat.json` + Wal33D `data/source-data/`) |
+| Vendor edilmiş ve **hash birebir doğrulanmış** | **13** |
+| Hash uyuşmazlığı | **0** |
+| Vendor edilmemiş (yeni bulunan) | **84** (64.461 bayt) |
+| Intake'e sahaya alınan `pgn_layout` kaydı | **84** |
+| Intake'e sahaya alınan `oem_divergence` kaydı | **35** (5.922 ayrışma satırı; 2 listede ayrışma yok) |
+| Intake'e sahaya alınan `spn_reference` kaydı | **174** (69 terfi adayı + 105 uzlaştırma; 168'i çapraz doğrulanmış) |
+| Intake'e sahaya alınan `kb_defect` kaydı | **14** (kendi verimizden ölçülmüş kusur) |
+| Intake'e sahaya alınan `provenance_gap` kaydı | **26** (kaynak başına izlenebilirlik kanıtı) |
+| Kopyalanan PGN alanı | **378** |
+| Kopyalanan SPN referansı | **171** (168 ayrı SPN) |
+| KB'de **olmayan** SPN referansı | **66** |
+
+## 2. Kaynak doğrulaması
+
+| Repo | Commit | Lisans | Sonuç |
+|---|---|---|---|
+| `foerbsnavi/OBDex` | `bc58b0eb7273226a1aabae98e956b70b8362bda1` | CC0-1.0 | 9/9 dosya zaten vendor; **9/9 sha256 birebir** |
+| `canboat/canboat` | `f7f088b49d58f5b4a0feb9b29c288b0ae18a7880` | Apache-2.0 (NOTICE zorunlu) | `docs/canboat.json` (2,4 MB) ve DM1 YAML'ı birebir doğrulandı; **84 PGN düzeni yeni** |
+| `Wal33D/dtc-database` | `04c43d72e7db7197658b6f72fe582c5076d9eee8` | MIT (atıf zorunlu) | `data/dtc_codes.db` birebir doğrulandı; **37 per-manufacturer kaynak listesi yeni** |
+| `STAS63-bit/sitrak-error-codes` | `fdb0c0d9daf0643975b0ff62e0ff69ef9c07f742` | CC-BY-4.0 (atıf zorunlu) | `error-codes.json` birebir doğrulandı; **artık artefakt yok** (taranan 4 kaynak tamamen) |
+
+İndirilen tarball, `data/PROVENANCE.md` §2'deki kanıt satırlarıyla **birebir**
+örtüşüyor: 11/11 artefaktta hash eşleşti, sapma yok. Yani "upstream değişti"
+spekülasyonu bu ölçümle dışlandı.
+
+## 3. Keşif: canboat J1939 PGN düzenleri repoda yok
+
+`data/diagnostics/canboat_pgn_reference.json` kendi notunda bunu zaten söylüyor:
+*"canboat.json J1939 ICERMEZ (T1-3 dogrulamasi: PGN 65226 yok, SPN/FMI alani
+olan PGN 0, J1939 tipli PGN 0). J1939 DM1 ayri artefakttir."*
+
+Sonuç: repoda J1939 tarafı **yalnız DM1 (PGN 65226)** ile temsil ediliyor; 84
+PGN'nin alan düzeni, `bits`/`unit`/`resolution` değerleri ve SPN referansları
+hiçbir yerde yok. Bunlar `data/intake/pgn/` altında `pgn_layout` kaydı olarak
+sahaya alındı — **terfi edilmedi**.
+
+## 4. İkincil keşif: 66 SPN bilgi tabanında eksik
+
+84 kayıttaki 168 ayrı SPN referansının **66** tanesi
+`data/diagnostics/j1939_spn_fmi_database.json` içinde **yok**:
+
+| SPN | Staged kaynak (PGN) |
+|---|---|
+| SPN 126 | PGN 65272 |
+| SPN 163 | PGN 61445 |
+| SPN 526 | PGN 61445 |
+| SPN 1032 | PGN 65201 |
+| SPN 1128 | PGN 65190 |
+| SPN 1129 | PGN 65190 |
+| SPN 1130 | PGN 65190 |
+| SPN 1132 | PGN 65189 |
+| SPN 1133 | PGN 65189 |
+| SPN 1802 | PGN 65189 |
+| SPN 1803 | PGN 65189 |
+| SPN 2433 | PGN 65031 |
+| SPN 2434 | PGN 65031 |
+| SPN 2807 | PGN 64914 |
+| SPN 2809 | PGN 64976 |
+| SPN 2810 | PGN 64976 |
+| SPN 2811 | PGN 64976 |
+| SPN 2896 | PGN 61443 |
+| SPN 2970 | PGN 61443 |
+| SPN 2979 | PGN 61443 |
+| SPN 3027 | PGN 65272 |
+| SPN 3028 | PGN 65272 |
+| SPN 3243 | PGN 64948 |
+| SPN 3244 | PGN 64948 |
+| SPN 3247 | PGN 64947 |
+| SPN 3254 | PGN 64946 |
+| SPN 3543 | PGN 64914 |
+| SPN 3544 | PGN 64914 |
+| SPN 3548 | PGN 65130 |
+| SPN 3549 | PGN 65130 |
+| SPN 3550 | PGN 65130 |
+| SPN 3551 | PGN 65130 |
+| SPN 3552 | PGN 65130 |
+| SPN 3553 | PGN 65130 |
+| SPN 3554 | PGN 65130 |
+| SPN 3562 | PGN 64976 |
+| SPN 3589 | PGN 64914 |
+| SPN 3601 | PGN 64914 |
+| SPN 3602 | PGN 64914 |
+| SPN 3604 | PGN 64914 |
+| … | +26 SPN daha |
+
+Örnekler: SPN 1032/1033 (ECU Distance / Run Time, PGN 65201), SPN 2896/2970/2979
+(ECU2, PGN 61443). Copilot bu parametreleri "tanıyorma" iddiasında bulunmuyor —
+doğrulayıcı her biri için `WARN pgn_spn_unknown` üretir. Bu, terfi kuyruğunun
+ilk gerçek iş kalemidir; terfi kararı intake README'sindeki Kapı 1-2'ye bağlı.
+
+## 4b. Keşif: OEM katmanı üreticiye özgü açıklamayı kaybetmiş
+
+Wal33D/dtc-database deposunda vendor edilmemiş **37 per-manufacturer kaynak
+listesi** var (`data/source-data/*.txt`, 18.825 satır). Repo yalnız derlenmiş
+`data/dtc_codes.db` dosyasını (3.256.320 bayt, sha256 `099a4ffd…`) aldı; bu liste
+`build_database.py` ile derlenirken **açıklama kod başına tek satıra düşüyor**
+("last write wins").
+
+Ölçüm (gerçek satır karşılaştırması):
+
+| Ölçüm | Değer |
+|---|---|
+| Kaynak satır (37 dosya) | **18825** |
+| Kod sayısı | 12.128 — **OEM katmanında eksik kod yok** (0/18.825) |
+| **Açıklaması katmandaki metinden farklı satır** | **5922** |
+| Etkilenen ayrı kod | **877** |
+| Etkilenen üretici listesi | **37** |
+
+Yani katmanın *kapsamı* eksik değil; **anlam kaybı** var. Örnek (FORD listesi):
+
+| Kod | Upstream (FORD) | Katmanda saklanan |
+|---|---|---|
+| `P1100` | Mass Air Flow Sensor Intermittent | BARO Sensor Circuit |
+| `P1101` | Mass Air Flow Sensor Out of Self-Test Range | Oxygen Sensor Circuit Bank 1 Sensor 1 Voltage Too Low/Air Leak |
+
+Copilot bugün `P1100` için "BARO Sensor Circuit" cevabı verebilir; Acura/Honda
+tarafında aynı kod "BARO Circuit Range Performance Malfunction" anlamına gelir.
+Bu bir **veri kalitesi kusuru**, tespiti intake kuyruğuna `oem_divergence`
+kayıtları olarak girdi (37 kayıt, ~557 KiB satır kanıtı). Doğrulayıcı her
+çalıştırmada satırları yeniden ölçer: `oem_divergence_rows=5922`,
+`oem_divergence_open=5922` → **hiçbiri kapanmamış**, yani kusur kendiliğinden
+çözülmüyor ve terfi kararı gerekiyor (README Adım 3b).
+
+## 4c. Keşif çıktısının terfiye hazır hâle getirilmesi: SPN referansları
+
+Bölüm 4'te bulunan 66 eksik SPN için intake kuyruğu artık **terfiye hazır kanıt**
+taşıyor: `data/intake/spn_ref/` altında her SPN için bir kayıt var (toplam **168**
+kayıt; 66'sı `kb_state: absent`, 102'si `present`).
+
+| Alan | İçerik |
+|---|---|
+| `spn`, `names_en[]` | upstream metninden birebir parametre adı |
+| `units[]`, `resolutions[]`, `bit_lengths[]` | yalnız upstream verdiyse |
+| `evidence_pgns[]`, `evidence_text[]` | SPN'nin **hangi PGN'de, hangi metinde** geçtiği |
+| `sources[]` | her kanıt dosyasının `sha256` + bayt boyutu |
+| `kb_state`, `kb_name`, `kb_unit` | bugünkü KB durumu (ölçülmüş) |
+
+Sayı **türetilmez**: yalnız upstream metninde yazan `SPN n` ifadesi sayılır
+(`collect_spn_evidence()`), test bunu ayrı bir fixture ile doğrular.
+
+Ölçülen uzlaştırma (kapı her çalıştırmada tekrarlar):
+
+| Ölçüm | Değer |
+|---|---|
+| KB'de **olmayan** SPN (terfi adayı) | **66** |
+| KB'de **olan** SPN | 102 |
+| Ad farkı (kısa alan adı ↔ uzun J1939 adı — kusur **değil**, sayılır) | 45 |
+| Birim çelişkisi (upstream birim ≠ KB birimi) | 1 (SPN 1127: canboat `kPa`, KB `Standart J1939`) |
+| KB adı bir tanım cümlesi olan SPN | 23 (`kb_name_defect` INFO) |
+
+İlk 25 terfi adayı:
+
+| SPN | Upstream parametre adı | Kanıt PGN |
+|---|---|---|
+| 126 | Transmission Filter Differential Pressure | PGN 65272 |
+| 163 | Transmission Current Range | PGN 61445 |
+| 526 | Transmission Actual Gear Ratio | PGN 61445 |
+| 1032 | Total ECU Distance | PGN 65201 |
+| 1128 | Engine Turbocharger 2 Boost Pressure | PGN 65190 |
+| 1129 | Engine Turbocharger 3 Boost Pressure | PGN 65190 |
+| 1130 | Engine Turbocharger 4 Boost Pressure | PGN 65190 |
+| 1132 | Engine Intake Manifold 3 Temperature | PGN 65189 |
+| 1133 | Engine Intake Manifold 4 Temperature | PGN 65189 |
+| 1802 | Engine Intake Manifold 5 Temperature | PGN 65189 |
+| 1803 | Engine Intake Manifold 6 Temperature | PGN 65189 |
+| 2433 | Engine Exhaust Manifold Bank 2 Temperature 1 | PGN 65031 |
+| 2434 | Engine Exhaust Manifold Bank 1 Temperature 1 | PGN 65031 |
+| 2807 | Engine Fuel Shutoff 2 Control | PGN 64914 |
+| 2809 | Engine Air Filter 2 Differential Pressure | PGN 64976 |
+| 2810 | Engine Air Filter 3 Differential Pressure | PGN 64976 |
+| 2811 | Engine Air Filter 4 Differential Pressure | PGN 64976 |
+| 2896 | Momentary Engine Maximum Power Enable | PGN 61443 |
+| 2970 | Accelerator Pedal 2 Low Idle Switch | PGN 61443 |
+| 2979 | Vehicle Acceleration Rate Limit Status | PGN 61443 |
+| 3027 | Transmission Oil Level 1 High / Low | PGN 65272 |
+| 3028 | Transmission Oil Level 1 Countdown Timer | PGN 65272 |
+| 3243 | Aftertreatment 1 Intake Gas Temperature 2 Preliminary FMI | PGN 64948 |
+| 3244 | Aftertreatment 1 Intake Gas Pressure 2 Preliminary FMI | PGN 64948 |
+| 3247 | Aftertreatment 1 Outlet Gas Temperature 2 Preliminary FMI | PGN 64947 |
+
+Doğrulayıcı her çalıştırmada `kb_state`'i yeniden ölçer; KB'de bir SPN eklendiyse
+`WARN kb_drift` verir ve kayıt gözden geçirilir — yani bu liste **kendini
+günceller**.
+
+## 4d. Fonksiyonel boşluk: J1939 sinyal adlarının 155'u çözümlenemiyor
+
+Yukarıdaki bulguların pratik karşılığı şu: kullanıcı gerçek bir J1939 sinyalinin
+adını sorduğunda copilot bunu kanonik sinyale **çözülemiyor**. Ölçüm:
+
+| Ölçüm | Değer |
+|---|---|
+| canboat kanıtındaki J1939 parametre adı | 168 |
+| `signal_aliases.json` + `signal_measurement_map.json` sözlüğü | 136 form |
+| **Çözümlenemeyen ad** | **155** |
+
+Örnekler: `Engine Intercooler Temp` (SPN 52), `Intake Manifold Temp` (SPN 105),
+`Transmission Oil Level 1` (SPN 124), `Engine Intake Air Mass Flow Rate`
+(SPN 132), `Accelerator Pedal Position 1` (SPN 91) — hepsi gerçek ECU
+mesajlarında geçiyor, hiçbiri sözlükte yok.
+
+Bu bir **kusur değil, kapsam boşluğudur**, ama işlevsel sonucu gerçek: sorgu
+kanala düşüyor. Çözüm intake'ten değil, `signal_aliases.json`
+(`source_forms`) + `signal_measurement_map.json` (`aliases`) genişletmesinden
+gelir; terfi kanıtı `data/intake/spn_ref/` altında hazır.
+
+Bu ölçüm `scripts/intake_kb_defects.py` içinde bir dedektör
+(`spn_parameter_name_not_in_alias_map`) olarak yaşar: yani kavram ileride
+sözlük genişletildikçe **kendiliğinden kapanır** ve kapıdan geçen bir sayıya
+dönüşür.
+
+## 4e. En ciddi bulgu: 1.220 SPN kaydının kaynağı lisansa bağlanamıyor
+
+Bu turda upstream yerine **kendi teslim ettiğimiz verinin** kanıt zinciri
+denetlendi ve politika ihlali ölçüldü. `data/PROVENANCE.md` §1 her kaynak için
+çözülebilir bir lisans ister ("belirsizse reddet") ve §5 ticari/forum kazımasını
+reddeder. `data/diagnostics/j1939_spn_fmi_database.json` bu standardın dışında:
+
+| Ölçüm | Değer |
+|---|---|
+| `metadata.sources` içindeki kaynak | 19 |
+| **Kendi lisansını yazan kaynak** | **2** (canboat Apache-2.0, SITRAK CC BY 4.0) |
+| Kamu/standart kaynağı (NHTSA ×2, ISO 11783 ölçek tabloları) | 3 |
+| **Lisansı belirtilmemiş ticari-manual sitesinden toplama** | **11** |
+| `attribution` bloğunda adı geçen kaynak | **1 / 19** |
+
+Kayda göre en çok geçen kaynak alanları: `sitrak_ccby4` (2.845 — lisanslı ve
+atıflı), `tur23_j1939hub` (224), `tier_b` (117), `tier_c_ss_verified` (98),
+`detroitdieselengines.info` (72), `dtcdocs.com` (39), `t66_procarmanuals` (29),
+`wholefleet.ca` (9).
+
+Kayıt düzeyinde ölçüm (**1220 / 4.291 kayıt**):
+
+| Sınıf | Adet | Örnek |
+|---|---|---|
+| `no_source` — hiç `source` alanı yok, metnin nereden geldiği belirsiz | 855 | `SPN_190` (Engine Speed), `SPN_1033` (Total ECU Run Time), `SPN_10294` |
+| `unlicensed_src` — kaynak adı var, lisans alanı yok, beyan edilmiş lisanslı kaynak da değil | 365 | `tier_b`, `tier_c_ss_verified`, `t66_procarmanuals` |
+
+Bu **hukuki hüküm değildir**; kanıtlanmış bir *atıf/lisans çözülebilirliği*
+eksikliğidir ve karar veri sahibinindir (atıf eklemek, kaynakları temizlemek veya
+ilgili SPN'leri çıkarmak). Ama bugün itiraz gelirse cevap üretilebilecek bir kanıt
+zinciri **yok**.
+
+Ölçüm `j1939_source_without_licence` dedektörü olarak yaşıyor ve
+`data/intake/defects/` altında `severity: high` ile kayıtlı: kaynak temizlenirse
+sayaç düşer, kayıt kapanır; yeni lisanssız kaynak eklirse sayaç artar.
+Aynı dosyanın diğer kusurları (`spn_name_is_fmi_sentence`,
+`spn_unit_placeholder`) da aynı dosyada ölçülüyor — yani tek bir veri dosyası
+üç ayrı, birbirinden bağımsız kanıt zinciri sorunu taşıyor.
+
+## 4f. İzlenebilirlik: 8.918 kaynak alanı hiçbir provenance belgesinde yok
+
+4e'de *lisans* eksikliği ölçüldü. Bu turda daha zayıf ama daha ucuz düzeltilebilir
+sınıf ölçüldü: **verinin işaret ettiği ama repoda hiç yazılmamış kaynaklar**.
+
+Yöntem: `data/diagnostics/**.json` içindeki kaynak taşıyan alanlar
+(`source`, `_source_ref`, `evidence_url`, `url`, `*_source`) tarandı; her değerin
+anlamlı token'ı `data/PROVENANCE.md` **ve** `data/diagnostics/PROVENANCE.md`
+korpusunda arandı. Eşleşme yoksa "belgelenmemiş" sayıldı.
+Doğrulayıcı kalibrasyonu: OBDex/canboat/SITRAK/Wal33D/troublecodes.net/
+j1939hub/GM/ISO değerleri **belgelenmiş** olarak sınıflanıyor (yanlış-pozitif
+kontrolü testte sabit).
+
+| Dosya | Belgelenmemiş kaynak alanı | En sık değerler |
+|---|---|---|
+| `dtc_database.json` | **8.656** | `obd2.com` (3.960), `openlaborproject.com` (1.202), `autofaultcodes.com` (621), `geekobd.com`, `obd2hub.com`, `theerrorcodes.com` |
+| `j1939_spn_fmi_database.json` | **247** | `detroitdieselengines.info` (72), `T66 procarmanuals.com` (61), `dtcdocs.com` (39) |
+| `extended_pid_database.json` | **15** | `ForScan community`, `ISTA/BimmerLink community`, `VCDS/OBD11 community` |
+
+Toplam **8918**.
+
+Neden önemli: copilotun **ana** bilgi tabanı (`dtc_database.json`, 14.484 kod)
+kaynak alanlarının büyük kısmını, repo'da hiç geçmeyen ticari DTC sitelerine
+işaret ediyor. Bu gizli bir veri değil — `data/diagnostics/PROVENANCE.md` T45/T54
+hasat günlüğünü açıkça tutuyor — ama **bu alanlar için** zincir yürütülemez.
+En ucuz düzeltme: ya belgele (satır düzeyinde kaynak + lisans) ya da alanı kaldır.
+
+Ölçüm `kb_source_value_not_in_provenance_doc` dedektörü olarak yaşıyor
+(`severity: high`): kaynaklar belgelendikçe sayaç düşer ve kayıt kapanır.
+
+## 4g. İzlenebilirliği kaynak başına kanıtlaştırma (26 kayıt)
+
+4f'deki 8.918 alan tek bir sayı olarak okunmaz bulgu. Aynı ölçüm **ayrı kaynak
+anahtarı** başına ayrıldığında 26 kayda iner ve her biri karar verilebilir hale
+gelir:
+
+| Alan | Ölçüm |
+|---|---|
+| Belgelenmemiş kaynak anahtarı | **26** |
+| — bunlardan politika §5'in **tür olarak** yasakladığı | **1** (`justanswer` — "herkese açık forumlar") |
+| — adıyla yasaklanmayan (yalnız belgelenmemiş) | **25** |
+| Toplam alan | 8.918 |
+
+**Öncelik düzeltmesi (dürüstlük notu):** bu bulgu ilk yazıldığında `severity: high`
+ile kaydedilmişti, oysa ölçüm bunun çoğunu desteklemiyordu — 26 kaynağın 25'i
+politika §5'te **adıyla geçmiyor**. Artık öncelik ölçülüyor (`classify_source()`):
+politika kaynağı adıyla yasakladıysa ya da tür olarak yasaklıyorsa ("herkese açık
+forumlar" → `justanswer`, `reddit`, `forum …`) `policy_breach`, aksi halde
+`unattested`. Ölçüm sonucu: yalnız **`justanswer`** §5'in forum yasağına giriyor;
+kalan 25 kaynak yalnızca **belgelenmemiş** — yani atıf eksiği. Her kayıt artık
+`policy_class` taşıyor. Sayılar değişmedi, gerekçe sadeleşti.
+| Kayıt sayısı | 26 (`data/intake/gaps/`) |
+| En büyük | `obd2.com` 3.960 (yalnız `dtc_database.json`, `source`) |
+| Sonrakiler | `openlaborproject.com` 1.202 · `autofaultcodes.com` 621 · `geekobd.com` 596 · `obd2hub.com` 566 · `theerrorcodes.com` 540 · `carberry.pro` 473 · `tuningbot.com` 413 · `faultcodedb.com` 156 |
+
+Her kayıt şunları taşır: `source_key`, `occurrences`, `files`, `fields`,
+`sample_values`, `sample_record_keys`, `documented_in: []` ve
+`licence_status: "unresolved"`.
+
+Bu, "belgele / öznitelik ekle / alanı kaldır" kararını **kaynak kaynak**
+verilebilir kılar. `licence_status` şemada yalnız `unresolved` kabul eder:
+lisans çözülürse kayıt arşivlenmek üzere işaretlenir, uydurma "MIT" yazılamaz.
+Doğrulayıcı her koşuda anahtarı yeniden ölçer (open / closed / drift).
+
+## 4h. Ürünün cevaplayabileceği alanı ölçmek
+
+Son iki dedektor, veri kalitesi yerine **yetkinliği** ölçüyor: copilot bu
+kodlarla ne yapamaz?
+
+| Ölçüm | Değer | Anlamı |
+|---|---|---|
+| `severity=UNKNOWN` **ve** `dtc_class=NoClass` | **1.756** / 14.484 (%12,1) | Şiddet sıralaması ve sınıf gruplaması yok — iki alan aynı kayıtlarda placeholder kaldığı için **sistematik** atlanmış küme |
+| — bunların namespace dağılımı | SAE_J2012 1.201 · OEM 555 | |
+| `symptoms` metni yok | **13.209** / 14.484 (%91,2) | Semptom→DTC eşleştiricinin göreceği metin yok; "aracım titriyor" diyen kullanıcı bu kodlara ulaşamaz |
+| `steps` dolu | 14.349 (%99,1) | iyi durumda |
+| `causes` dolu | 14.481 (%99,98) | iyi durumda |
+
+Ek olarak: `dtc_missing_title_tr` 13.971 (%96,5) — arayüz Türkçe ama başlıklar
+büyük ölçüde İngilizce; bu bilinen çeviri kapsamı eksiği (severity low).
+
+Bu üçü de `data/diagnostics/` dosyalarına dokunmadan, yalnız ölçüm olarak
+kayıt altındadır; düzeltme intake'ten yapılmaz.
+
+## 4i. Yetkinlik: kök neden zinciri ve eşik kapsamı
+
+Aynı yaklaşım iki tabloya daha uygulandı — "bu veriyle ne yapılabilir?":
+
+| Ölçüm | Değer | Anlamı |
+|---|---|---|
+| Neden düğümü (`root_cause_graph.json`) | 8.884 | neden anahtarıyla kurulmuş, DTC anahtarıyla değil |
+| Bu düğümlerin referans verdiği ayrı DTC | **5.589** / 14.484 (%38,6) | Zincir kurulabilen kod |
+| **Zinciri olmayan kod** | **8.895** (%61,4) | Bu kodlarda "neden olur" zinciri kurulamaz |
+| Referansların DB'de karşılığı | 5.589/5.589 DTC · 1.590/1.590 SPN | **sarkan referans 0** |
+| Kanıt sinyali olmayan düğüm | **6.167** / 8.884 (%69,4) | Nedeni canlı değerle doğrulayacak sinyal yok |
+| Eşiği olmayan ölçüm sinyali | **17** / 24 | Sinyal çözülüyor, "iyi mi kötü mi" cevaplanamıyor |
+
+Kapsam ölçümü yanıltıcı olmasın diye **düğüm sayısıyla değil referans taramasıyla**
+yapıldı: grafik neden odaklı olduğu için 8.884 düğüm %61,4 kod kapsamı anlamına
+gelmiyor. Test, grafikteki her DTC/SPN referansının DB'de karşılık bulmasını
+zorunlu kılar (bugün 0 sarkan referans var; bir referans bozulursa kırmızı).
+
+Ayrıca not: `telemetry_thresholds.json` 7 sinyal için eşik tanımlıyor ve eşik
+anahtarları ölçüm sözlüğündeki kanonik adlardan **farklı**
+(`EngineCoolantTemp` ↔ `CoolantTemp`). Dedektör yalnız `threshold_key` eşleşmesini
+denetler; isim uyumu `data/diagnostics/PROVENANCE.md` P0-2 uzlaştırmasında
+kayıtlıdır.
+
+## 4j. Önceki temizlik çalışmalarının doğrulanması + iki kaydın birleştirilmesi
+
+### 4j-1. Karantina iddiaları bugün de doğru
+
+`data/diagnostics/quarantine/` içindeki dört denetim düğümden okunup
+**yeniden doğrulandı**:
+
+| Denetim | İddia | Ölçüm (2026-10-02) |
+|---|---|---|
+| `t21_seed_audit.json` | 38 tohum düğüm grafta (`already_in_graph`) | **38/38 var** |
+| `t21_seed_audit.json` | 15 düğüm kurtarılmadı (`not_recovered`) | **0/15 grafta** (yanlışlıkla yok) |
+| `t2_4_sitrak_shell_rows.json` | 13 kabuk satırı anahtarı kaldırıldı | **0/13 sızıntı** |
+| `dtcdocs_llm_blocks.json` | 19 karantina LLM bloğu DB'den çıkarıldı | **0/19 blok özeti DB metninde** |
+
+Bu artık bir not değil, kapı: `validate_intake.py` her koşuda yeniden ölçüyor
+(`quarantine_invariants_checked=85`, geri gelen iz yok). Regresyon olursa FAIL.
+
+### 4j-2. T3-3 zaten kaynak başına envanter tutuyor
+
+`quarantine/t3_3_junk_causes.json` **aynı opak kaynak etiketlerini** kullanıyor
+(`sitrak_ccby4`, `tur23_j1939hub`, `tier_b`, `tier_c_ss_verified`) ve kaynak
+başında ölçüm tablosu tutuyor: 7.713 neden kaydı, 142'si (%1,84) kirli;
+`detroitdieselengines.info` toptan kirli **değil** (320 nedenin 17'si).
+
+Yani iki çalışma birbirinin değil **tamamlayıcısı**:
+
+| Boyut | Sonuç | Nerede |
+|---|---|---|
+| **İçerik** (kirli metin) | ölçülmüş, %1,84, toplu karantina yapılmamış | T3-3 (mevcut) |
+| **Lisans/izlenebilirlik** | 26 kaynak anahtarı hiçbir provenance belgesinde yok | 4f/4g (bu tur) |
+
+Aynı `source` anahtarı üzerinden iki envanter birleştirilebilir: T3-3 tablosu
+"bu kaynaktan gelen metin kirli mi?" sorusuna, bu turun kayıtları "bu kaynağın
+lisansı/izlenebilirliği ne?" sorusuna yanıt veriyor. Veri sahibinin kararı
+üçlü: **belgele + etiketle**, **sadece etiketle**, **çıkar**.
+
+## 4k. İkinci temsil: aynı upstream'in DBC'si, 3 yeni terfi adayı
+
+4c'deki SPN referansları canboat'ın **YAML alan düzenlerinden** toplandı. Aynı
+upstream'in ikinci bir temsili zaten repoda vendor durumda:
+`data/dbc/heavy_duty/j1939_canboat.dbc`, `CM_ SG_` yorumlarında
+`"SPN 190; canboat type: NUMBER"` biçiminde **174 SPN** referansı taşıyor
+(`data/dbc/manifest.json` sha256'ı ile doğrulanır: `ca8502f4…`).
+
+Çapraz ölçüm:
+
+| Ölçüm | Değer |
+|---|---|
+| DBC'de adı geçen ayrı SPN | 174 |
+| Staged kümesi (YAML) | 168 |
+| **İkisinde de olan** | 168 — isim uzlaşması: 150 birebir, 18 yalnızca noktalama biçimi (`Engine_s_Demand_Engine___Percent_Torque` ↔ `Driver's Demand Engine - Percent Torque`) |
+| **Yalnız DBC'de olan** | 6 (SPN 73, 84, 597, 1184, 1185, 3885) |
+| — bunlardan **KB'de olmayan** | **3**: SPN 1184 Cruise_Control_Set_Speed · SPN 1185 Two_Speed_Axle_Switch · SPN 3885 Cruise_Control_Pause_Switch |
+
+Sonuç iki yönlü:
+
+1. **Terfi kuyruğu büyüdü:** staging toplamı 66 → **69** aday. Üçü yeni kaynak
+   indirmeden, yalnız repoda **zaten bulunan** hash'li kanıttan çıktı.
+2. **Kanıt kalitesi arttı:** 168 kayıt artık iki bağımsız temsille (YAML + DBC)
+   doğrulanıyor, bu yüzden `confidence: corroborated`. DBC yorumları ayrıca bit
+   konumu ve çözünürlük metni taşıdığı için kanıt değeri yüksek —
+   ör. `SPN 1184: bits 33-40 (byte 4), 1 km/h per bit`.
+
+Doğrulayıcı bu iddiayı zorunlu kılar: iki kaynak alıntılanan bir kayıt
+`corroborated` demiyorsa **FAIL** alır — çapraz doğrulama beyanı kanıtlanmadan
+ilerletilemez.
+
+## 4l. Kuyruk ne kadar aksiyona dönük? (terfiye hazırlık ölçümü)
+
+Keşif kuyruğu "bir backlog" olmaktan çıkıp "bir plan" olmak için, kayanın ne
+kadarının **bugün** birleştirilebileceğini ölçtük. Bölme mekaniktir, yani
+sayıyı pohpohlamaz:
+
+| Aile | Terfiye hazır | Kanıt bekleyen | Hazır olma kuralı |
+|---|---|---|---|
+| `spn_reference` (yalnız `kb_state: absent` olanlar) | **9** | **60** | parametre adı **ve** birim **ve** iki bağımsız kaynak |
+| `pgn_layout` | **44** | **40** | her alanda ad + (SPN **veya** bit genişliği) |
+| `oem_divergence` | **35** | 0 | her satırda hem upstream hem katman metni |
+| `provenance_gap` + `kb_defect` | — | **39** karar kaydı | veri değil, karar kanıtı |
+
+60 SPN adayının birimi yok çünkü upstream metni birim vermiyor (ör. SPN 5925
+"Engine Oil Temperature 3" — yalnız ad). Bu **uydurulacak** bir alan: terfi
+kuralı, birimi upstream vermiyorsa boş bırakılmasını şart koşuyor.
+
+Ölçüm `validate_intake.py` içinde her koşuda üretilir
+(`promotable_*`, `waiting_evidence_*`, `decision_records` metrikleri +
+`INFO readiness` satırı). Yani kuyruk büyüdükçe "ne yapılabilir" sorusunun
+cevabı da otomatik güncellenir.
+
+Bu ölçüm bir de **küçük bir hatayı yakaladı**: Wal33D'nin `b_codes.txt` ve
+`volkswagen_codes.txt` listelerinde **hiç ayrışma yok** (tüm ifadeler katmanla
+aynı). Boş bir `oem_divergence` kaydı "bir bulgu yok" demek olduğu için
+kuyruğa yanlışlıkla girmişti: kayıtlar temizlendi, stager artık ayrışması
+olmayan listeyi hiç sahalamıyor ve doğrulayıcı boş `divergences` dizisini FAIL
+ile reddediyor. (Ayrıca not: "katmanda saklanan metin = VOLKSWAGEN'inki" —
+yani DB'nin hayatta kalan metni çoğunlukla VW listesinden geliyor. 4b.)
+
+## 4m. Üçüncü çapraz doğrulama: staged düzenler ↔ vendor DBC
+
+4k'de SPN referanslarını iki temsille doğruladık. Aynı mantığı **yapı düzeyinde**
+uyguladık: `data/dbc/heavy_duty/j1939_canboat.dbc` her mesaj için sinyal
+listesi taşıyor, staged `pgn_layout` kayıtları ise alan listesi. Karşılaştırma
+sonucu:
+
+| Ölçüm | Değer |
+|---|---|
+| Staged PGN düzeni | 84 kayıt / 79 ayrı PGN |
+| DBC'deki J1939 mesaj | 81 |
+| **Çapraz doğrulanan** | **84** (0 ayrışma) |
+| Varyant grubu (aynı PGN'in birden çok YAML düzeni) | 2 (PGN 59392, PGN 60416) |
+
+Bu kontrol ilk çalıştırmada **6 yanlış alarm** üretti ve bu bir hataydı, veri
+hatası değil: canboat TP.CM (PGN 60416) için **beş ayrı YAML düzeni** yayımlar
+(her alt-fonksiyon için), DBC ise PGN başına **tek mesaj** tutar (tüm alt
+fonksiyonların birleşimi). Kayıt başına sayım beş hayalet uyuşmazlık
+üretiyordu. Doğru karşılaştırma **PGN başına, o PGN'in tüm staged düzenlerinin
+toplamı** üzerinden yapılıyor; kural kalıcı olarak böyle yazıldı ve testlerde
+sabitlendi.
+
+Kapı artık üç bağımsız temsili çapraz denetliyor: YAML alan düzeni ↔ DBC sinyal
+listesi (yapı), YAML metni ↔ DBC `CM_ SG_` yorumu (ad/SPN) ve upstream ↔ KB
+(çakışma raporu).
+
+## 4n. UDS DID tablosu: politika ile veri çelişiyor (36/68 kaynaksız)
+
+`data/diagnostics/uds_did_database.json` 68 DID içeriyor; **36'sı (%53) hiçbir
+kaynak alanı taşımıyor** (yalnız 32 ISO 14229 satırı `source` belirtiyor).
+Üretici dağılımı: VAG 10, Tesla 6, BMW 6, Mercedes-Benz 4, Toyota 4, Ford 3,
+Hyundai-Kia 3.
+
+Bu, `data/PROVENANCE.md` §5'in bu tablo için yazdığı ilkeyle doğrudan çelişiyor:
+
+> "UDS DID / Mode 06 veri tabloları (açık yeniden-dağıtılabilir kaynak YOK —
+> uydurulmaz)"
+
+Kaynaksız satırlar yine de `byte_length`, `scaling`, `offset` ve `unit`
+taşıyor — yani teknik öznitelikler bir yerde üretilmiş, kaynağı yazılmamış.
+
+### Doğrulanmış kısım ve dürüst sınırı
+
+32 ISO satırının kaynak dizesi "ISO 14229:2006 Annex F (via python-udsoncan
+DataIdentifier, MIT)". Bunu **gerçekten kontrol ettik** (2026-10-03):
+
+| İddia | Doğrulama | Sonuç |
+|---|---|---|
+| python-udsoncan MIT lisanslı | `LICENSE`: "MIT License, Copyright (c) 2017 Pier-Yves Lessard" | ✅ doğru |
+| ISO DID numaraları orada | `udsoncan/common/dids.py`: `BootSoftwareIdentification = 0xF180` … | ✅ doğru |
+| Ölçek/birim/bayt uzunluğu orada | dosya yalnız sabit numara + sabit adı tanımlıyor | ❌ **yok** |
+
+Yani kaynak dizesi, dosyanın kapsamından biraz geniş bir atıf yapıyor: kimlik
+(DID + ad) izlenebilir, öznitelikler (ölçek/birim/bayt) izlenebilir değil.
+
+Dedektör (`uds_oem_did_without_source`) **önceliği politika metninden türetir**:
+§5 cümlesi kaldırılırsa bulgu "policy breach" değil "attribution gap"
+seviyesine iner. Yani birini suçlamadan, politika değişimini de takip eder.
+
+## 4o. Bağlantı canlılığı: kanıt zinciri çürüyor (ölçüldü)
+
+Araç: `scripts/intake_check_sources.py` (ağ yalnız burada, build-time).
+
+### Kapsam
+
+KB'nin alıntıladığı **9.695 farklı URL** var (DTC veritabanı neredeyse tamamını
+`evidence_url` ile, yani kod başına bir tane; 34'ü ise provenance belgelerinde).
+En çok alıntılanan 40 + uzun kuyruktan **deterministik 160** örnek (tohum sabit)
+→ toplam 200 bağlantı, HEAD isteği.
+
+| Sonuç | Adet | Not |
+|---|---|---|
+| canlı | 134 | — |
+| yönlendirme (3xx) | 34 | **ölü değil**: urllib 308'i izlemiyor (3.11+ özelliği) — ölçüm sınırı, kaynağın durumu değil |
+| doğrulanamayan (403/405/429) | 18 | engelli/HEAD desteklemiyor — ölü demek değil |
+| **ölü (404/500/DNS)** | **13** | gerçek ölü bağlantı |
+
+Dürüstlük notu: ilk çalıştırmada 34 adet 308'i "ölü" saydım — bu **yanlış
+pozitif** olurdu (yönlendirme ölü demek değil). Araç artık 3xx'i ayrı bir sınıf
+olarak işaretliyor. Sınıflandırmadaki bu düzeltme ölü sayısını 47'den 13'e
+düşürdü; ikisi de "bulgu" değildi, ikisi de ölçüm aracının sınırıydı.
+
+### Ölü bağlantılar nereden?
+
+| Host | Ölü bağlantı (örneklemde) | KB'de alıntı sayısı | `provenance_gap` durumu |
+|---|---|---|---|
+| `carberry.pro` | 10 | 473 | **belgelenmemiş** |
+| `j1939hub.com` | 2 | 224 | belgelenmemiş (T3-3'te anılıyor) |
+| `www.nmea.org` | 1 | 3 | belgelenmemiş |
+
+**Ölü bağlantıların 10/13'ü `provenance_gap` kuyruğundaki bir kaynağa ait** ve
+ölü+yönlendirme kümesinin 43/66'sı yine belgelenmemiş host'larda. Örneklem küçük
+ve birkaç host'ta yoğunlaşıyor (per-host oran iddiası yapılmıyor), ama yön
+belirgin: **belgelenmemiş kaynaklar aynı zamanda çürüyen kaynaklar.** Yani 4g'deki
+"belgele ya da alanı kaldır" önerisi, bakım yüküyle de destekleniyor — belgelenen
+kaynakların bağlantısı da izlenebilir olur.
+
+Tam rapor: `docs/audit/source_links_2026-10-03.md`. Tarama yeniden üretilebilir:
+
+```bash
+python scripts/intake_check_sources.py --limit 40 --sample 160 \
+    --report docs/audit/source_links_2026-10-03.md
+```
+
+### Hangi üreticinin metni hayatta kaldı? (ölçüm)
+
+Katmandaki metnin **her kod için** tam olarak bir kaynak satırına eşit olduğu
+doğrulandı (12.128/12.128; hiçbir metin uydurulmamış, hiçbiri kaybolmamış).
+Ama upstream'da **877 kodun birden çok farklı ifadesi** var ve hayatta kalan
+metin şu dağılımla tek bir tanesine bağlıyor:
+
+| Hayatta kalan liste | Kod sayısı |
+|---|---|
+| `p_codes.txt` (genel) | 7.355 |
+| `other_codes.txt` (genel) | 1.990 |
+| `u_codes.txt` (genel) | 1.228 |
+| `volkswagen_codes.txt` | 528 |
+| `c_codes.txt` (genel) | 497 |
+| `b_codes.txt` (genel) | 300 |
+| diğer (FORD 42, DODGE 31, SUBARU 28 …) | kalanı |
+
+Somut örnek — `P1101` upstream'ta **üç** farklı tanım taşıyor:
+
+| Liste | `P1101` metni |
+|---|---|
+| `other_codes.txt` | MAF Sensor Out Of Self Test Range./KOER Not Able To Complete KOER Aborted |
+| `ford_codes.txt` | Mass Air Flow Sensor Out of Self-Test Range |
+| `volkswagen_codes.txt` | Oxygen Sensor Circuit Bank 1 Sensor 1 Voltage Too Low/Air Leak |
+| **katmanda saklanan** | **Oxygen Sensor Circuit Bank 1 Sensor 1 Voltage Too Low/Air Leak** (VW) |
+
+Yani bir Ford/Acura aracında copilot **Volkswagen tanımını** servis edebilir.
+Bu bir stil tercihi değil, ölçülmüş bir veri kaybıdır.
+
+> Düzeltme intake'ten yapılmaz: `data/diagnostics/` dosyalarına bu turda
+> **hiçbir yazma yapılmadı** (test bunu byte seviyesinde doğrular).
+
+## 5. Beklenen/dürüst sınırlar
+
+- **Hiçbir şey uydurulmadı.** Alan adları, `description`, `bits`, `unit`,
+  `resolution` metinleri upstream'ten birebir kopyalandı. Upstream'da olmayan
+  alan `null`/`[]` bırakıldı; okunmayan üst düzey anahtarlar
+  `payload.upstream_keys` içinde **kayıt altında** tutuldu (sessizce atılmadı).
+- **SPN türetilmedi.** SPN yalnız upstream `name`/`description` metninde
+  yazıyorsa alınır; doğrulayıcı bunu ayrıca denetler (`WARN pgn_spn_source`).
+- **Bulk `bits` yerinde tutuldu.** 4 fast-packet kaydında upstream
+  "reverse engineered değil" anlamına gelen 1768-1784 bitlik `Data` alanı
+  vardır; bu değerler *düzeltilmedi*, `WARN pgn_bits_bulk` ile işaretlendi.
+- **Yalnız lisansı belli olan kaynak tarandı.** `data/PROVENANCE.md` §5'teki
+  reddedilmiş kaynaklar (SAE/ISO metinleri, AllData, forumlar) taramaya
+  **hiç girmedi**.
+- **DM1 kaydı sahaya alınmadı** (zaten vendor): aynı şeyi kopyalamak keşif
+  değildir.
+
+## 6. Yeniden üretme
+
+```bash
+python scripts/intake_scan_sources.py --report docs/audit/intake_source_scan_2026-10-02.md
+python scripts/intake_scan_sources.py --stage            # doğrula (yazmaz)
+python scripts/intake_scan_sources.py --stage --apply    # intake'e yaz
+python scripts/intake_scan_sources.py --stage-oem --apply
+python scripts/intake_scan_sources.py --stage-spn --apply
+python scripts/intake_kb_defects.py --stage --apply
+python scripts/intake_kb_defects.py --stage-gaps --apply
+# python-udsoncan (MIT) kaynak iddiasının doğrulaması:
+#   curl -sSL https://codeload.github.com/pylessard/python-udsoncan/tar.gz/refs/heads/master
+python scripts/validate_intake.py --sync-manifest --apply
+python scripts/validate_intake.py --sync-manifest --apply
+python scripts/validate_intake.py                       # FAIL=0 beklenir
+python -m pytest tests/unit/test_validate_intake.py tests/unit/test_intake_scan_sources.py \
+                   tests/unit/test_intake_kb_defects.py -q
+```

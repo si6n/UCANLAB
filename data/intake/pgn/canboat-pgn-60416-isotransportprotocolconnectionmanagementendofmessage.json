@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "intake_id": "canboat-pgn-60416-isotransportprotocolconnectionmanagementendofmessage",
+  "record_type": "pgn_layout",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "automated",
+    "id": "scripts/intake_scan_sources.py",
+    "role": "author"
+  },
+  "source": {
+    "title": "CANboat J1939 PGN 60416 (isoTransportProtocolConnectionManagementEndOfMessage) field layout",
+    "path": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/060416-isoTransportProtocolConnectionManagementEndOfMessage.yaml",
+    "type": "standard",
+    "publisher": "CANboat (Kees Verruijt); layout per SAE J1939-71",
+    "revision": "f7f088b49d58",
+    "licence": "Apache-2.0",
+    "access_date": "2026-10-02",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": "68ad60331dc8f4ce09c7394b4f41a84f9f8035373740622fc229a9afa4fa839f",
+      "bytes": 952,
+      "pages_cited": []
+    }
+  },
+  "confidence": "single_source",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "pgn": 60416,
+    "pgn_id": "isoTransportProtocolConnectionManagementEndOfMessage",
+    "description": "ISO Transport Protocol, Connection Management - End Of Message",
+    "pgn_type": "Single",
+    "priority": null,
+    "interval_ms": null,
+    "fields": [
+      {
+        "field_id": "groupFunctionCode",
+        "name": "Group Function Code",
+        "spn": null,
+        "bits": 8,
+        "unit": null,
+        "resolution": null,
+        "description": "EOM"
+      },
+      {
+        "field_id": "totalMessageSize",
+        "name": "Total message size",
+        "spn": null,
+        "bits": null,
+        "unit": null,
+        "resolution": null,
+        "description": "bytes"
+      },
+      {
+        "field_id": "totalNumberOfFramesReceived",
+        "name": "Total number of frames received",
+        "spn": null,
+        "bits": null,
+        "unit": null,
+        "resolution": null,
+        "description": "Total number of of frames received"
+      },
+      {
+        "field_id": "reserved",
+        "name": "Reserved",
+        "spn": null,
+        "bits": 8,
+        "unit": null,
+        "resolution": null,
+        "description": null
+      },
+      {
+        "field_id": "pgn",
+        "name": "PGN",
+        "spn": null,
+        "bits": 24,
+        "unit": null,
+        "resolution": null,
+        "description": null
+      }
+    ],
+    "upstream_keys": [
+      "explanation",
+      "url",
+      "variantOrder"
+    ],
+    "source_file": "database/j1939/pgns/060416-isoTransportProtocolConnectionManagementEndOfMessage.yaml"
+  },
+  "notes": "Verbatim field layout from the pinned CANboat commit; staged for review, NOT merged into data/diagnostics/canboat_pgn_reference.json. SPN numbers are copied from the upstream 'description' text only — nothing is inferred."
+}

@@ -1,0 +1,143 @@
+{
+  "schema_version": 1,
+  "intake_id": "canboat-pgn-65240-isocommandedaddress",
+  "record_type": "pgn_layout",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "automated",
+    "id": "scripts/intake_scan_sources.py",
+    "role": "author"
+  },
+  "source": {
+    "title": "CANboat J1939 PGN 65240 (isoCommandedAddress) field layout",
+    "path": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/065240-isoCommandedAddress.yaml",
+    "type": "standard",
+    "publisher": "CANboat (Kees Verruijt); layout per SAE J1939-71",
+    "revision": "f7f088b49d58",
+    "licence": "Apache-2.0",
+    "access_date": "2026-10-02",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": "765dd63c02ced9fdfc3e99a034ae8270927a76250f1c79f3e84f62d4ffc1e879",
+      "bytes": 1490,
+      "pages_cited": []
+    }
+  },
+  "confidence": "single_source",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "pgn": 65240,
+    "pgn_id": "isoCommandedAddress",
+    "description": "ISO Commanded Address",
+    "pgn_type": "ISO",
+    "priority": null,
+    "interval_ms": null,
+    "fields": [
+      {
+        "field_id": "uniqueNumber",
+        "name": "Unique Number",
+        "spn": null,
+        "bits": 21,
+        "unit": null,
+        "resolution": null,
+        "description": "ISO Identity Number"
+      },
+      {
+        "field_id": "manufacturerCode",
+        "name": "Manufacturer Code",
+        "spn": null,
+        "bits": 11,
+        "unit": "Manufacturer Code",
+        "resolution": null,
+        "description": null
+      },
+      {
+        "field_id": "deviceInstanceLower",
+        "name": "Device Instance Lower",
+        "spn": null,
+        "bits": 3,
+        "unit": null,
+        "resolution": null,
+        "description": "ISO ECU Instance"
+      },
+      {
+        "field_id": "deviceInstanceUpper",
+        "name": "Device Instance Upper",
+        "spn": null,
+        "bits": 5,
+        "unit": null,
+        "resolution": null,
+        "description": "ISO Function Instance"
+      },
+      {
+        "field_id": "deviceFunction",
+        "name": "Device Function",
+        "spn": null,
+        "bits": 8,
+        "unit": null,
+        "resolution": null,
+        "description": "ISO Function"
+      },
+      {
+        "field_id": "reserved",
+        "name": "Reserved",
+        "spn": null,
+        "bits": 1,
+        "unit": null,
+        "resolution": null,
+        "description": null
+      },
+      {
+        "field_id": "deviceClass",
+        "name": "Device Class",
+        "spn": null,
+        "bits": 7,
+        "unit": null,
+        "resolution": null,
+        "description": null
+      },
+      {
+        "field_id": "systemInstance",
+        "name": "System Instance",
+        "spn": null,
+        "bits": 4,
+        "unit": null,
+        "resolution": null,
+        "description": "ISO Device Class Instance"
+      },
+      {
+        "field_id": "industryCode",
+        "name": "Industry Code",
+        "spn": null,
+        "bits": 3,
+        "unit": null,
+        "resolution": null,
+        "description": null
+      },
+      {
+        "field_id": "reserved10",
+        "name": "Reserved",
+        "spn": null,
+        "bits": 1,
+        "unit": null,
+        "resolution": null,
+        "description": null
+      },
+      {
+        "field_id": "newSourceAddress",
+        "name": "New Source Address",
+        "spn": null,
+        "bits": null,
+        "unit": null,
+        "resolution": null,
+        "description": null
+      }
+    ],
+    "upstream_keys": [
+      "notes"
+    ],
+    "source_file": "database/j1939/pgns/065240-isoCommandedAddress.yaml"
+  },
+  "notes": "Verbatim field layout from the pinned CANboat commit; staged for review, NOT merged into data/diagnostics/canboat_pgn_reference.json. SPN numbers are copied from the upstream 'description' text only — nothing is inferred."
+}

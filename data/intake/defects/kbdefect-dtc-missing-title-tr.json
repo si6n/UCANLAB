@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "intake_id": "kbdefect-dtc-missing-title-tr",
+  "record_type": "kb_defect",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "automated",
+    "id": "scripts/intake_kb_defects.py",
+    "role": "author"
+  },
+  "source": {
+    "title": "Kendi verimizden ölçüm: DTC kayıtlarında Türkçe başlık yok (13971/14484) — bilinen kapsam eksiği",
+    "path": "data/diagnostics/dtc_database.json (repo içi ölçüm; sha256 kayıt altındadır)",
+    "type": "internal_kb",
+    "publisher": "UCanLab intake",
+    "revision": null,
+    "licence": "project-internal",
+    "access_date": "2026-10-02",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": "d39b5582ec84686ae7ac710941a3dcf56e8b83ab43e062b829576491d4658eb7",
+      "bytes": 54452139,
+      "pages_cited": []
+    }
+  },
+  "confidence": "corroborated",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "defect_code": "dtc_missing_title_tr",
+    "severity": "low",
+    "summary": "DTC kayıtlarında Türkçe başlık yok (13971/14484) — bilinen kapsam eksiği",
+    "why_it_matters": "Türkçe arayüzde başlık İngilizce kalıyor; bilgi eksikliği değil çeviri kapsamı eksiği, bu yüzden severity düşük ve kayıtta 'known'.",
+    "target_file": "data/diagnostics/dtc_database.json",
+    "target_sha256": "d39b5582ec84686ae7ac710941a3dcf56e8b83ab43e062b829576491d4658eb7",
+    "detector_expression": "not record.get('title_tr', '').strip()",
+    "affected_count": 13971,
+    "examples": [
+      {
+        "key": "B0001",
+        "title": "Body Code DTC"
+      },
+      {
+        "key": "B0002",
+        "title": "Body Code DTC"
+      },
+      {
+        "key": "B0003",
+        "title": "Body DTC Code"
+      },
+      {
+        "key": "B0004",
+        "title": "Body DTC Code"
+      },
+      {
+        "key": "B0005",
+        "title": "Body DTC Code"
+      }
+    ]
+  },
+  "notes": "Düzeltme intake'ten yapılmaz: bu kayıt yalnız ölçümü ve tespit ifadesini saklar. validate_intake.py her çalıştırmada dedektörü yeniden çalıştırır; sayı değişirse WARN (drift), sıfırlanırsa kapanmış sayılır."
+}

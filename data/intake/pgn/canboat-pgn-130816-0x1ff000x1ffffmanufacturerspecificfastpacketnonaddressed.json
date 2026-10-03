@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "intake_id": "canboat-pgn-130816-0x1ff000x1ffffmanufacturerspecificfastpacketnonaddressed",
+  "record_type": "pgn_layout",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "automated",
+    "id": "scripts/intake_scan_sources.py",
+    "role": "author"
+  },
+  "source": {
+    "title": "CANboat J1939 PGN 130816 (0x1ff000x1ffffManufacturerSpecificFastPacketNonAddressed) field layout",
+    "path": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/130816-0x1ff000x1ffffManufacturerSpecificFastPacketNonAddressed.yaml",
+    "type": "standard",
+    "publisher": "CANboat (Kees Verruijt); layout per SAE J1939-71",
+    "revision": "f7f088b49d58",
+    "licence": "Apache-2.0",
+    "access_date": "2026-10-02",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": "8fd48d1a27afe61a81859d653469d4c3c5ae514b3f877a2d44a1f6105f23953a",
+      "bytes": 520,
+      "pages_cited": []
+    }
+  },
+  "confidence": "single_source",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "pgn": 130816,
+    "pgn_id": "0x1ff000x1ffffManufacturerSpecificFastPacketNonAddressed",
+    "description": "0x1FF00-0x1FFFF: Manufacturer Specific fast-packet non-addressed",
+    "pgn_type": "Fast",
+    "priority": null,
+    "interval_ms": null,
+    "fields": [
+      {
+        "field_id": "data",
+        "name": "Data",
+        "spn": null,
+        "bits": 1784,
+        "unit": null,
+        "resolution": null,
+        "description": null
+      }
+    ],
+    "upstream_keys": [
+      "explanation",
+      "fallback",
+      "missing"
+    ],
+    "source_file": "database/j1939/pgns/130816-0x1ff000x1ffffManufacturerSpecificFastPacketNonAddressed.yaml"
+  },
+  "notes": "Verbatim field layout from the pinned CANboat commit; staged for review, NOT merged into data/diagnostics/canboat_pgn_reference.json. SPN numbers are copied from the upstream 'description' text only — nothing is inferred."
+}

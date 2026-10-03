@@ -1,0 +1,206 @@
+{
+  "schema_version": 1,
+  "intake_id": "canboat-pgn-64914-engineoperatinginformation",
+  "record_type": "pgn_layout",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "automated",
+    "id": "scripts/intake_scan_sources.py",
+    "role": "author"
+  },
+  "source": {
+    "title": "CANboat J1939 PGN 64914 (engineOperatingInformation) field layout",
+    "path": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/064914-engineOperatingInformation.yaml",
+    "type": "standard",
+    "publisher": "CANboat (Kees Verruijt); layout per SAE J1939-71",
+    "revision": "f7f088b49d58",
+    "licence": "Apache-2.0",
+    "access_date": "2026-10-02",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": "290a766e5734240fa37c11f052277bdbb077c64b1de871e61616db3179bb775f",
+      "bytes": 2596,
+      "pages_cited": []
+    }
+  },
+  "confidence": "single_source",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "pgn": 64914,
+    "pgn_id": "engineOperatingInformation",
+    "description": "Engine Operating Information",
+    "pgn_type": "Single",
+    "priority": 6,
+    "interval_ms": 1000,
+    "fields": [
+      {
+        "field_id": "engineOperatingState",
+        "name": "Engine Operating State",
+        "spn": 3543,
+        "bits": 4,
+        "unit": null,
+        "resolution": null,
+        "description": "SPN 3543"
+      },
+      {
+        "field_id": "fuelPumpPrimerControl",
+        "name": "Fuel Pump Primer Control",
+        "spn": 4082,
+        "bits": 2,
+        "unit": null,
+        "resolution": null,
+        "description": "SPN 4082"
+      },
+      {
+        "field_id": "engineAutomaticStartEnableStatus",
+        "name": "Engine Automatic Start Enable Status",
+        "spn": 6385,
+        "bits": 2,
+        "unit": null,
+        "resolution": null,
+        "description": "SPN 6385"
+      },
+      {
+        "field_id": "timeRemainingInEngineOperatingState",
+        "name": "Time Remaining in Engine Operating State",
+        "spn": 3544,
+        "bits": null,
+        "unit": null,
+        "resolution": null,
+        "description": "SPN 3544"
+      },
+      {
+        "field_id": "engineFuelShutoffVentControl",
+        "name": "Engine Fuel Shutoff Vent Control",
+        "spn": 3608,
+        "bits": 2,
+        "unit": null,
+        "resolution": null,
+        "description": "SPN 3608"
+      },
+      {
+        "field_id": "engineFuelShutoff1Control",
+        "name": "Engine Fuel Shutoff 1 Control",
+        "spn": 632,
+        "bits": 2,
+        "unit": null,
+        "resolution": null,
+        "description": "SPN 632"
+      },
+      {
+        "field_id": "engineFuelShutoff2Control",
+        "name": "Engine Fuel Shutoff 2 Control",
+        "spn": 2807,
+        "bits": 2,
+        "unit": null,
+        "resolution": null,
+        "description": "SPN 2807"
+      },
+      {
+        "field_id": "engineFuelShutoffValveLeakTestControl",
+        "name": "Engine Fuel Shutoff Valve Leak Test Control",
+        "spn": 3601,
+        "bits": 2,
+        "unit": null,
+        "resolution": null,
+        "description": "SPN 3601"
+      },
+      {
+        "field_id": "engineOilPrimingPumpControl",
+        "name": "Engine Oil Priming Pump Control",
+        "spn": 3589,
+        "bits": 2,
+        "unit": null,
+        "resolution": null,
+        "description": "SPN 3589"
+      },
+      {
+        "field_id": "engineOilPreheaterControl",
+        "name": "Engine Oil Preheater Control",
+        "spn": 3602,
+        "bits": 2,
+        "unit": null,
+        "resolution": null,
+        "description": "SPN 3602"
+      },
+      {
+        "field_id": "engineElectricalSystemPowerConservationControl",
+        "name": "Engine Electrical System Power Conservation Control",
+        "spn": 3603,
+        "bits": 2,
+        "unit": null,
+        "resolution": null,
+        "description": "SPN 3603"
+      },
+      {
+        "field_id": "engineBlockCoolantPreheaterControl",
+        "name": "Engine Block/Coolant Preheater Control",
+        "spn": 3604,
+        "bits": 2,
+        "unit": null,
+        "resolution": null,
+        "description": "SPN 3604"
+      },
+      {
+        "field_id": "engineCoolantCirculatingPumpControl",
+        "name": "Engine Coolant Circulating Pump Control",
+        "spn": 3605,
+        "bits": 2,
+        "unit": null,
+        "resolution": null,
+        "description": "SPN 3605"
+      },
+      {
+        "field_id": "engineControlledShutdownRequest",
+        "name": "Engine Controlled Shutdown Request",
+        "spn": 3606,
+        "bits": 2,
+        "unit": null,
+        "resolution": null,
+        "description": "SPN 3606"
+      },
+      {
+        "field_id": "engineEmergencyImmediateShutdownIndication",
+        "name": "Engine Emergency (Immediate) Shutdown Indication",
+        "spn": 3607,
+        "bits": 2,
+        "unit": null,
+        "resolution": null,
+        "description": "SPN 3607"
+      },
+      {
+        "field_id": "engineAutomaticStartSafetyInterlockStatus",
+        "name": "Engine Automatic Start Safety Interlock Status",
+        "spn": 6884,
+        "bits": 2,
+        "unit": null,
+        "resolution": null,
+        "description": "SPN 6884"
+      },
+      {
+        "field_id": "engineAutomaticStartEnableTimeRemaining",
+        "name": "Engine Automatic Start Enable Time Remaining",
+        "spn": 6807,
+        "bits": 8,
+        "unit": null,
+        "resolution": null,
+        "description": "SPN 6807"
+      },
+      {
+        "field_id": "engineDerateRequest",
+        "name": "Engine Derate Request",
+        "spn": 3644,
+        "bits": null,
+        "unit": null,
+        "resolution": 0.4,
+        "description": "SPN 3644"
+      }
+    ],
+    "upstream_keys": [
+      "notes"
+    ],
+    "source_file": "database/j1939/pgns/064914-engineOperatingInformation.yaml"
+  },
+  "notes": "Verbatim field layout from the pinned CANboat commit; staged for review, NOT merged into data/diagnostics/canboat_pgn_reference.json. SPN numbers are copied from the upstream 'description' text only — nothing is inferred."
+}

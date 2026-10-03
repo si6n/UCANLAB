@@ -115,6 +115,28 @@ data/traces/marine/*
 !data/traces/marine/project_haris/**
 data/traces/marine/project_haris/raw/
 
+# Copilot intake staging area (data/intake, ADR in data/intake/README.md).
+# Additive allowlist only: the blanket `data/*` rule above is NOT relaxed.
+# Intake holds small, hand-vetted, source-attributed drafts that are NOT
+# bound to the knowledge base. Raw vendor trace containers (BLF/MF4/ASC/…)
+# never enter Git — they are recorded in data/intake/MANIFEST.md by
+# sha256 + location only (enforced by scripts/validate_intake.py).
+!data/intake/
+!data/intake/**
+data/intake/traces/*.blf
+data/intake/traces/*.mf4
+data/intake/traces/*.asc
+data/intake/traces/*.trc
+data/intake/traces/*.casc
+data/intake/traces/*.dat
+data/intake/traces/*.db
+data/intake/traces/*.zip
+data/intake/traces/*.gz
+data/intake/traces/*.zst
+data/intake/**/*.bak
+data/intake/**/*.tmp
+data/intake/**/*.bak_*
+
 # AI Agent Workspaces & Local Prompts
 .agents/
 .agent/

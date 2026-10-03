@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "intake_id": "kbdefect-j1939-source-without-licence",
+  "record_type": "kb_defect",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "automated",
+    "id": "scripts/intake_kb_defects.py",
+    "role": "author"
+  },
+  "source": {
+    "title": "Kendi verimizden ölçüm: 1220/4291 SPN kaydının kaynağı lisansa bağlanamıyor (kaynak alanı yok: 855, lisanssız kaynak: 365); metadata'daki 19 kaynaktan yalnız 2 tanesi lisansını kendisi belirtiyor",
+    "path": "data/diagnostics/j1939_spn_fmi_database.json (repo içi ölçüm; sha256 kayıt altındadır)",
+    "type": "internal_kb",
+    "publisher": "UCanLab intake",
+    "revision": null,
+    "licence": "project-internal",
+    "access_date": "2026-10-02",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": "9dd4bc74b8ece777189d1851a94cc469fe73137909c55eaf114db8a1e2157f91",
+      "bytes": 50247082,
+      "pages_cited": []
+    }
+  },
+  "confidence": "corroborated",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "defect_code": "j1939_source_without_licence",
+    "severity": "high",
+    "summary": "1220/4291 SPN kaydının kaynağı lisansa bağlanamıyor (kaynak alanı yok: 855, lisanssız kaynak: 365); metadata'daki 19 kaynaktan yalnız 2 tanesi lisansını kendisi belirtiyor",
+    "why_it_matters": "data/PROVENANCE.md §1 her kaynak için çözülebilir lisans ister (belirsizse reddedilir) ve §5 ticari/forum kazımasını reddeder. metadata.sources içindeki kaynakların çoğu repair.diesellaptops / 4roadservice / justanswer / j1939hub / dtcdocs gibi lisansı belirtilmemiş ticari-manual sitelerden toplama; attribution bloğu 19 kaynağın 1'ini adlandırıyor. ÖNEMLİ: data/diagnostics/PROVENANCE.md bu hasadın bir kısmını açıkça belgeliyor (dieselaptops, j1939hub, obd-codes) — yani konu gizlenmiş değil, **lisansı çözülemiyor**. Bu hukuki hüküm değil, ölçülmüş bir atıf/lisans çözülebilirliği eksiğidir; karar veri sahibinin.",
+    "target_file": "data/diagnostics/j1939_spn_fmi_database.json",
+    "target_sha256": "9dd4bc74b8ece777189d1851a94cc469fe73137909c55eaf114db8a1e2157f91",
+    "detector_expression": "no record.source, or (source without _source_license* and not a declared licensed source value)",
+    "affected_count": 1220,
+    "examples": [
+      {
+        "key": "SPN_101",
+        "class": "no_source",
+        "name": "Engine Crankcase Pressure 1"
+      },
+      {
+        "key": "SPN_1029",
+        "class": "unlicensed_src",
+        "source": "tier_c_ss_verified",
+        "name": "Trip Average Fuel Rate"
+      },
+      {
+        "key": "SPN_10294",
+        "class": "no_source",
+        "name": "Transmission System Timeout"
+      },
+      {
+        "key": "SPN_1033",
+        "class": "no_source",
+        "name": "Total ECU Run Time"
+      },
+      {
+        "key": "SPN_1037",
+        "class": "unlicensed_src",
+        "source": "tier_b",
+        "name": "Trip Idle Time"
+      }
+    ]
+  },
+  "notes": "Düzeltme intake'ten yapılmaz: bu kayıt yalnız ölçümü ve tespit ifadesini saklar. validate_intake.py her çalıştırmada dedektörü yeniden çalıştırır; sayı değişirse WARN (drift), sıfırlanırsa kapanmış sayılır."
+}

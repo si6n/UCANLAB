@@ -1,0 +1,135 @@
+{
+  "schema_version": 1,
+  "intake_id": "canboat-pgn-60928-isoaddressclaim",
+  "record_type": "pgn_layout",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "automated",
+    "id": "scripts/intake_scan_sources.py",
+    "role": "author"
+  },
+  "source": {
+    "title": "CANboat J1939 PGN 60928 (isoAddressClaim) field layout",
+    "path": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/060928-isoAddressClaim.yaml",
+    "type": "standard",
+    "publisher": "CANboat (Kees Verruijt); layout per SAE J1939-71",
+    "revision": "f7f088b49d58",
+    "licence": "Apache-2.0",
+    "access_date": "2026-10-02",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": "4cd0ac00cbddbe08654e7773e33cf8e6188fe122a491033a83d3b784c6f87c69",
+      "bytes": 2002,
+      "pages_cited": []
+    }
+  },
+  "confidence": "single_source",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "pgn": 60928,
+    "pgn_id": "isoAddressClaim",
+    "description": "ISO Address Claim",
+    "pgn_type": "Single",
+    "priority": null,
+    "interval_ms": null,
+    "fields": [
+      {
+        "field_id": "uniqueNumber",
+        "name": "Unique Number",
+        "spn": null,
+        "bits": 21,
+        "unit": null,
+        "resolution": null,
+        "description": "ISO Identity Number"
+      },
+      {
+        "field_id": "manufacturerCode",
+        "name": "Manufacturer Code",
+        "spn": null,
+        "bits": 11,
+        "unit": null,
+        "resolution": null,
+        "description": null
+      },
+      {
+        "field_id": "deviceInstanceLower",
+        "name": "Device Instance Lower",
+        "spn": null,
+        "bits": 3,
+        "unit": null,
+        "resolution": null,
+        "description": "ISO ECU Instance"
+      },
+      {
+        "field_id": "deviceInstanceUpper",
+        "name": "Device Instance Upper",
+        "spn": null,
+        "bits": 5,
+        "unit": null,
+        "resolution": null,
+        "description": "ISO Function Instance"
+      },
+      {
+        "field_id": "deviceFunction",
+        "name": "Device Function",
+        "spn": null,
+        "bits": 8,
+        "unit": null,
+        "resolution": null,
+        "description": "ISO Function"
+      },
+      {
+        "field_id": "spare",
+        "name": "Spare",
+        "spn": null,
+        "bits": 1,
+        "unit": null,
+        "resolution": null,
+        "description": null
+      },
+      {
+        "field_id": "deviceClass",
+        "name": "Device Class",
+        "spn": null,
+        "bits": 7,
+        "unit": null,
+        "resolution": null,
+        "description": null
+      },
+      {
+        "field_id": "systemInstance",
+        "name": "System Instance",
+        "spn": null,
+        "bits": 4,
+        "unit": null,
+        "resolution": null,
+        "description": "ISO Device Class Instance"
+      },
+      {
+        "field_id": "industryGroup",
+        "name": "Industry Group",
+        "spn": null,
+        "bits": 3,
+        "unit": null,
+        "resolution": null,
+        "description": null
+      },
+      {
+        "field_id": "arbitraryAddressCapable",
+        "name": "Arbitrary address capable",
+        "spn": null,
+        "bits": 1,
+        "unit": null,
+        "resolution": null,
+        "description": "Field indicates whether the device is capable to claim arbitrary source address. Value is 1 for NMEA200 devices. Could be 0 for J1939 device claims"
+      }
+    ],
+    "upstream_keys": [
+      "explanation",
+      "notes"
+    ],
+    "source_file": "database/j1939/pgns/060928-isoAddressClaim.yaml"
+  },
+  "notes": "Verbatim field layout from the pinned CANboat commit; staged for review, NOT merged into data/diagnostics/canboat_pgn_reference.json. SPN numbers are copied from the upstream 'description' text only — nothing is inferred."
+}

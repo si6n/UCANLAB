@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "intake_id": "kbdefect-cause-node-without-evidence-signal",
+  "record_type": "kb_defect",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "automated",
+    "id": "scripts/intake_kb_defects.py",
+    "role": "author"
+  },
+  "source": {
+    "title": "Kendi verimizden ölçüm: 6167/8884 neden düğümü hiç sinyal adı taşımıyor (evidence_signals boş)",
+    "path": "data/diagnostics/root_cause_graph.json (repo içi ölçüm; sha256 kayıt altındadır)",
+    "type": "internal_kb",
+    "publisher": "UCanLab intake",
+    "revision": null,
+    "licence": "project-internal",
+    "access_date": "2026-10-02",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": "d96dd90c74b74b96f30aab0672333655f06b2acd5aba14315008f2e76957fd92",
+      "bytes": 4148182,
+      "pages_cited": []
+    }
+  },
+  "confidence": "corroborated",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "defect_code": "cause_node_without_evidence_signal",
+    "severity": "low",
+    "summary": "6167/8884 neden düğümü hiç sinyal adı taşımıyor (evidence_signals boş)",
+    "why_it_matters": "Bir nedeni doğrulamak için sinyal gerekir; sinyal adı olmayan düğüm yalnız metin düzeyinde kalır, canlı değerle karşılaştırılamaz.",
+    "target_file": "data/diagnostics/root_cause_graph.json",
+    "target_sha256": "d96dd90c74b74b96f30aab0672333655f06b2acd5aba14315008f2e76957fd92",
+    "detector_expression": "not node.get('evidence_signals')",
+    "affected_count": 6167,
+    "examples": [
+      {
+        "id": "accel-pedal-sensor",
+        "title": "Gaz Pedalı Konum Sensörü 1",
+        "expected_dtcs": [
+          "SPN 91"
+        ]
+      },
+      {
+        "id": "alternator-control",
+        "title": "Alternatör kontrol devre arızası",
+        "expected_dtcs": [
+          "P0620"
+        ]
+      },
+      {
+        "id": "b001a-center-frontal-stage-3-deployment-control-devresinde",
+        "title": "Center Frontal Stage 3 Deployment Control devresinde (hava yastığı/SRS) açık devre veya direnç aralığı dışı okuma.",
+        "expected_dtcs": [
+          "B001A"
+        ]
+      },
+      {
+        "id": "b00f0-driver-inflatable-seat-belt-deployment-control-devre",
+        "title": "Driver Inflatable Seat Belt Deployment Control devresinde (hava yastığı/SRS) açık devre veya direnç aralığı dışı okuma.",
+        "expected_dtcs": [
+          "B00F0"
+        ]
+      },
+      {
+        "id": "b00f1-passenger-inflatable-seat-belt-deployment-control-de",
+        "title": "Passenger Inflatable Seat Belt Deployment Control devresinde (hava yastığı/SRS) açık devre veya direnç aralığı dışı okuma.",
+        "expected_dtcs": [
+          "B00F1"
+        ]
+      }
+    ]
+  },
+  "notes": "Düzeltme intake'ten yapılmaz: bu kayıt yalnız ölçümü ve tespit ifadesini saklar. validate_intake.py her çalıştırmada dedektörü yeniden çalıştırır; sayı değişirse WARN (drift), sıfırlanırsa kapanmış sayılır."
+}

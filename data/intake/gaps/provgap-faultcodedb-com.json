@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "intake_id": "provgap-faultcodedb-com",
+  "record_type": "provenance_gap",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "automated",
+    "id": "scripts/intake_kb_defects.py",
+    "role": "author"
+  },
+  "source": {
+    "title": "Kaynak izlenebilirligi boslugu: faultcodedb.com hicbir provenance belgesinde gecmiyor",
+    "path": "data/diagnostics/dtc_database.json (ic alanlarda gecen kaynak degeri)",
+    "type": "internal_kb",
+    "publisher": "UCanLab intake",
+    "revision": null,
+    "licence": "project-internal",
+    "access_date": "2026-10-02",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": null,
+      "bytes": null,
+      "pages_cited": []
+    }
+  },
+  "confidence": "corroborated",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "source_key": "faultcodedb.com",
+    "occurrences": 156,
+    "files": [
+      "dtc_database.json"
+    ],
+    "fields": [
+      "source"
+    ],
+    "sample_values": [
+      "faultcodedb.com"
+    ],
+    "sample_record_keys": [],
+    "documented_in": [],
+    "licence_status": "unresolved"
+  },
+  "notes": "Kanit kaydidir, kusur degil: veri bu kaynagi isaret ediyor ama repoda hicbir provenance belgesi onu adlandirmiyor. Karar veri sahibinin: belgele (lisans + erisim bilgisi), kayda oznelik ekle, ya da alani kaldir. validate_intake.py anahtari yeniden olcer; kapaninca kayit arsivlenir."
+}

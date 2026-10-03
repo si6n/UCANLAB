@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "intake_id": "canboat-pgn-64709-aftertreatment1screxhaustgastemperature2",
+  "record_type": "pgn_layout",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "automated",
+    "id": "scripts/intake_scan_sources.py",
+    "role": "author"
+  },
+  "source": {
+    "title": "CANboat J1939 PGN 64709 (aftertreatment1ScrExhaustGasTemperature2) field layout",
+    "path": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/064709-aftertreatment1ScrExhaustGasTemperature2.yaml",
+    "type": "standard",
+    "publisher": "CANboat (Kees Verruijt); layout per SAE J1939-71",
+    "revision": "f7f088b49d58",
+    "licence": "Apache-2.0",
+    "access_date": "2026-10-02",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": "b25244ad3f52ef4388250df8951311109a5db7ecfbd968efa340d98727890a33",
+      "bytes": 759,
+      "pages_cited": []
+    }
+  },
+  "confidence": "single_source",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "pgn": 64709,
+    "pgn_id": "aftertreatment1ScrExhaustGasTemperature2",
+    "description": "Aftertreatment 1 SCR Exhaust Gas Temperature 2",
+    "pgn_type": "Single",
+    "priority": 6,
+    "interval_ms": 1000,
+    "fields": [
+      {
+        "field_id": "aftertreatment1ScrCatalystIntakeGasTemperature2",
+        "name": "Aftertreatment 1 SCR Catalyst Intake Gas Temperature 2",
+        "spn": 5862,
+        "bits": null,
+        "unit": null,
+        "resolution": null,
+        "description": "SPN 5862"
+      },
+      {
+        "field_id": "aftertreatment1ScrCatalystIntakeGasTemperature2PreliminaryFmi",
+        "name": "Aftertreatment 1 SCR Catalyst Intake Gas Temperature 2 Preliminary FMI",
+        "spn": 5863,
+        "bits": 5,
+        "unit": null,
+        "resolution": null,
+        "description": "SPN 5863"
+      },
+      {
+        "field_id": "reserved",
+        "name": "Reserved",
+        "spn": null,
+        "bits": 43,
+        "unit": null,
+        "resolution": null,
+        "description": null
+      }
+    ],
+    "upstream_keys": [
+      "notes"
+    ],
+    "source_file": "database/j1939/pgns/064709-aftertreatment1ScrExhaustGasTemperature2.yaml"
+  },
+  "notes": "Verbatim field layout from the pinned CANboat commit; staged for review, NOT merged into data/diagnostics/canboat_pgn_reference.json. SPN numbers are copied from the upstream 'description' text only — nothing is inferred."
+}

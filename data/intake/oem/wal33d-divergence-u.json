@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "intake_id": "wal33d-divergence-u",
+  "record_type": "oem_divergence",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "automated",
+    "id": "scripts/intake_scan_sources.py",
+    "role": "author"
+  },
+  "source": {
+    "title": "Wal33D dtc-database source list for U (u_codes.txt)",
+    "path": "https://github.com/Wal33D/dtc-database/blob/04c43d72e7db7197658b6f72fe582c5076d9eee8/data/source-data/u_codes.txt",
+    "type": "web",
+    "publisher": "Wal33D (dtc-database)",
+    "revision": "04c43d72e7db",
+    "licence": "MIT",
+    "access_date": "2026-10-02",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": "07f4b56500ec2038b9b06b4033af300c9a5450d95ff05eb01de36734ed13faae",
+      "bytes": 74623,
+      "pages_cited": []
+    }
+  },
+  "confidence": "single_source",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "make": "U",
+    "source_file": "data/source-data/u_codes.txt",
+    "source_rows": 1230,
+    "divergence_count": 2,
+    "divergences": [
+      {
+        "code": "U1000",
+        "source_description_en": "Manufacturer Controlled DTC",
+        "kb_description_en": "SCP (J1850) Invalid or Missing Data for Primary Id"
+      },
+      {
+        "code": "U2000",
+        "source_description_en": "Manufacturer Controlled DTC",
+        "kb_description_en": "Audio Rear Control Unit is Not Responding"
+      }
+    ]
+  },
+  "notes": "Staged from the pinned Wal33D/dtc-database source list. The per-manufacturer description is upstream evidence; kb_description_en is what the merged OEM layer currently stores for the same code. Nothing here is written to data/diagnostics/."
+}

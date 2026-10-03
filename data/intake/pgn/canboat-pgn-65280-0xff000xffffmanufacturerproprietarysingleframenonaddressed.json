@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "intake_id": "canboat-pgn-65280-0xff000xffffmanufacturerproprietarysingleframenonaddressed",
+  "record_type": "pgn_layout",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "automated",
+    "id": "scripts/intake_scan_sources.py",
+    "role": "author"
+  },
+  "source": {
+    "title": "CANboat J1939 PGN 65280 (0xff000xffffManufacturerProprietarySingleFrameNonAddressed) field layout",
+    "path": "https://github.com/canboat/canboat/blob/f7f088b49d58f5b4a0feb9b29c288b0ae18a7880/database/j1939/pgns/065280-0xff000xffffManufacturerProprietarySingleFrameNonAddressed.yaml",
+    "type": "standard",
+    "publisher": "CANboat (Kees Verruijt); layout per SAE J1939-71",
+    "revision": "f7f088b49d58",
+    "licence": "Apache-2.0",
+    "access_date": "2026-10-02",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": "8ef07682f1252971c5966e5a34d15ed3ed61fd6205ca68642174000ef9d6e589",
+      "bytes": 753,
+      "pages_cited": []
+    }
+  },
+  "confidence": "single_source",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "pgn": 65280,
+    "pgn_id": "0xff000xffffManufacturerProprietarySingleFrameNonAddressed",
+    "description": "0xFF00-0xFFFF: Manufacturer Proprietary single-frame non-addressed",
+    "pgn_type": "Single",
+    "priority": null,
+    "interval_ms": null,
+    "fields": [
+      {
+        "field_id": "manufacturerCode",
+        "name": "Manufacturer Code",
+        "spn": null,
+        "bits": 11,
+        "unit": null,
+        "resolution": null,
+        "description": null
+      },
+      {
+        "field_id": "reserved",
+        "name": "Reserved",
+        "spn": null,
+        "bits": 2,
+        "unit": null,
+        "resolution": null,
+        "description": null
+      },
+      {
+        "field_id": "industryCode",
+        "name": "Industry Code",
+        "spn": null,
+        "bits": 3,
+        "unit": null,
+        "resolution": null,
+        "description": null
+      },
+      {
+        "field_id": "data",
+        "name": "Data",
+        "spn": null,
+        "bits": 48,
+        "unit": null,
+        "resolution": null,
+        "description": null
+      }
+    ],
+    "upstream_keys": [
+      "explanation",
+      "fallback",
+      "missing"
+    ],
+    "source_file": "database/j1939/pgns/065280-0xff000xffffManufacturerProprietarySingleFrameNonAddressed.yaml"
+  },
+  "notes": "Verbatim field layout from the pinned CANboat commit; staged for review, NOT merged into data/diagnostics/canboat_pgn_reference.json. SPN numbers are copied from the upstream 'description' text only — nothing is inferred."
+}

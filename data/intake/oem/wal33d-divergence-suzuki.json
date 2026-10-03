@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "intake_id": "wal33d-divergence-suzuki",
+  "record_type": "oem_divergence",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "automated",
+    "id": "scripts/intake_scan_sources.py",
+    "role": "author"
+  },
+  "source": {
+    "title": "Wal33D dtc-database source list for SUZUKI (suzuki_codes.txt)",
+    "path": "https://github.com/Wal33D/dtc-database/blob/04c43d72e7db7197658b6f72fe582c5076d9eee8/data/source-data/suzuki_codes.txt",
+    "type": "web",
+    "publisher": "Wal33D (dtc-database)",
+    "revision": "04c43d72e7db",
+    "licence": "MIT",
+    "access_date": "2026-10-02",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": "7477d21580142a659b973e2fe41a5db44de5ccf1d71977e4d173683124c8d858",
+      "bytes": 817,
+      "pages_cited": []
+    }
+  },
+  "confidence": "single_source",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "make": "SUZUKI",
+    "source_file": "data/source-data/suzuki_codes.txt",
+    "source_rows": 17,
+    "divergence_count": 12,
+    "divergences": [
+      {
+        "code": "P1250",
+        "source_description_en": "EFE Heater Circuit Fault",
+        "kb_description_en": "Fuel Level Too Low"
+      },
+      {
+        "code": "P1408",
+        "source_description_en": "Maniforld Differential Pressure Sensor Circuit Fault",
+        "kb_description_en": "EGR Temperature Sensor Signal Too High"
+      },
+      {
+        "code": "P1410",
+        "source_description_en": "Fuel Tank Pressure Control Solenoid Circuit Fault",
+        "kb_description_en": "Tank Ventilation Valve Circuit Short To B+"
+      },
+      {
+        "code": "P1450",
+        "source_description_en": "Barometric Pressure Sensor Too Low Or Too High",
+        "kb_description_en": "Secondary Air Injection System Circuit Short To B+"
+      },
+      {
+        "code": "P1451",
+        "source_description_en": "Barometric Pressure Sensor Performance",
+        "kb_description_en": "Secondary Air Injection Circuit Short To Ground"
+      },
+      {
+        "code": "P1460",
+        "source_description_en": "Radiator Fan Control System Fault",
+        "kb_description_en": "Exhaust Gas Temperature Control Bank 2 Limit Attained"
+      },
+      {
+        "code": "P1500",
+        "source_description_en": "Engine Starter Signal Circuit Fault",
+        "kb_description_en": "Fuel Pump Relay Electrical Circuit Malfunction"
+      },
+      {
+        "code": "P1510",
+        "source_description_en": "PCM Backup Power Supply Circuit Fault",
+        "kb_description_en": "Idle Air Control Circuit Short To B+"
+      },
+      {
+        "code": "P1530",
+        "source_description_en": "Ignition Timing Adjustment Switch Circuit Fault",
+        "kb_description_en": "Intake Camshaft Control Circuit Short To Ground"
+      },
+      {
+        "code": "P1600",
+        "source_description_en": "PCM TCM Serial Communication Circuit Fault",
+        "kb_description_en": "Power Supply Terminal No 15 Low Voltage"
+      },
+      {
+        "code": "P1700",
+        "source_description_en": "TCM Throttle Position Sensor Circuit Fault",
+        "kb_description_en": "Vehicle Speed Sensor 2 Circuit Fault"
+      },
+      {
+        "code": "P1705",
+        "source_description_en": "TCM ECT Sensor Circuit Fault",
+        "kb_description_en": "Direct Clutch Speed Circuit Fault"
+      }
+    ]
+  },
+  "notes": "Staged from the pinned Wal33D/dtc-database source list. The per-manufacturer description is upstream evidence; kb_description_en is what the merged OEM layer currently stores for the same code. Nothing here is written to data/diagnostics/."
+}
