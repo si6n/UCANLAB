@@ -189,3 +189,8 @@ Kaynak: `docs/audit/AUDIT_2026-10-03.md`. Kimlikler raporla aynı.
 - **Öneri:** atölye/OEM anahtarlarını uygulama dışında (yönetici adımı, imzalı paket) sabitlenmiş
   bir depoya ekle; `trustedPubkey` yalnız bu depodaki bir anahtarın parmak izi olabilsin; native
   onay penceresi imajın SHA-256'sını ve anahtarın sahibini/parmak izini göstersin.
+
+### B-24 (ORTA) — Geliştirme bağımlılıkları için hash kilidi (S7-01)
+- `requirements-dev.txt` artık üst sınırlı, ama release işi hâlâ hash'siz paket kuruyor.
+- **Öneri:** `scripts/generate_lock.py` ile `requirements-dev.lock` üret, CI'da
+  `--require-hashes` ile kur; release işinde test araçlarını derleme ortamından ayır.
