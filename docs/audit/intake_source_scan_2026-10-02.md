@@ -521,6 +521,51 @@ Dedektör (`uds_oem_did_without_source`) **önceliği politika metninden türeti
 §5 cümlesi kaldırılırsa bulgu "policy breach" değil "attribution gap"
 seviyesine iner. Yani birini suçlamadan, politika değişimini de takip eder.
 
+## 4o. Bağlantı canlılığı: kanıt zinciri çürüyor (ölçüldü)
+
+Araç: `scripts/intake_check_sources.py` (ağ yalnız burada, build-time).
+
+### Kapsam
+
+KB'nin alıntıladığı **9.695 farklı URL** var (DTC veritabanı neredeyse tamamını
+`evidence_url` ile, yani kod başına bir tane; 34'ü ise provenance belgelerinde).
+En çok alıntılanan 40 + uzun kuyruktan **deterministik 160** örnek (tohum sabit)
+→ toplam 200 bağlantı, HEAD isteği.
+
+| Sonuç | Adet | Not |
+|---|---|---|
+| canlı | 134 | — |
+| yönlendirme (3xx) | 34 | **ölü değil**: urllib 308'i izlemiyor (3.11+ özelliği) — ölçüm sınırı, kaynağın durumu değil |
+| doğrulanamayan (403/405/429) | 18 | engelli/HEAD desteklemiyor — ölü demek değil |
+| **ölü (404/500/DNS)** | **13** | gerçek ölü bağlantı |
+
+Dürüstlük notu: ilk çalıştırmada 34 adet 308'i "ölü" saydım — bu **yanlış
+pozitif** olurdu (yönlendirme ölü demek değil). Araç artık 3xx'i ayrı bir sınıf
+olarak işaretliyor. Sınıflandırmadaki bu düzeltme ölü sayısını 47'den 13'e
+düşürdü; ikisi de "bulgu" değildi, ikisi de ölçüm aracının sınırıydı.
+
+### Ölü bağlantılar nereden?
+
+| Host | Ölü bağlantı (örneklemde) | KB'de alıntı sayısı | `provenance_gap` durumu |
+|---|---|---|---|
+| `carberry.pro` | 10 | 473 | **belgelenmemiş** |
+| `j1939hub.com` | 2 | 224 | belgelenmemiş (T3-3'te anılıyor) |
+| `www.nmea.org` | 1 | 3 | belgelenmemiş |
+
+**Ölü bağlantıların 10/13'ü `provenance_gap` kuyruğundaki bir kaynağa ait** ve
+ölü+yönlendirme kümesinin 43/66'sı yine belgelenmemiş host'larda. Örneklem küçük
+ve birkaç host'ta yoğunlaşıyor (per-host oran iddiası yapılmıyor), ama yön
+belirgin: **belgelenmemiş kaynaklar aynı zamanda çürüyen kaynaklar.** Yani 4g'deki
+"belgele ya da alanı kaldır" önerisi, bakım yüküyle de destekleniyor — belgelenen
+kaynakların bağlantısı da izlenebilir olur.
+
+Tam rapor: `docs/audit/source_links_2026-10-03.md`. Tarama yeniden üretilebilir:
+
+```bash
+python scripts/intake_check_sources.py --limit 40 --sample 160 \
+    --report docs/audit/source_links_2026-10-03.md
+```
+
 ### Hangi üreticinin metni hayatta kaldı? (ölçüm)
 
 Katmandaki metnin **her kod için** tam olarak bir kaynak satırına eşit olduğu
