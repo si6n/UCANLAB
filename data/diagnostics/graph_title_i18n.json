@@ -231,6 +231,21 @@
   "p0017-chevrolet-faulty-exhaust-b-camshaft-position-cmp-sen": {
    "tr": "[Chevrolet] Egzoz ('B') eksantrik konum (CMP) sensörü arızalı"
   },
+  "p0030-failed-or-damaged-heater-circuit-element-inside-the": {
+   "tr": "Oksijen sensörü (HO2S) içindeki ısıtıcı elemanı arızalı veya hasarlı"
+  },
+  "p0030-open-on-the-o2-sensor-heater-s-ground-circuit": {
+   "tr": "O2 sensörü ısıtıcısının şase devresinde kopukluk"
+  },
+  "p0030-open-or-short-on-o2-sensor-heater-s-b-battery-feed-o": {
+   "tr": "O2 sensörü ısıtıcısının B+ akü beslemesinde kopukluk veya kısa devre"
+  },
+  "p0036-open-circuit-inside-oxygen-sensor-or-open-power-or-g": {
+   "tr": "Oksijen sensörü içinde veya besleme/şase kablolarında kopukluk"
+  },
+  "p0036-pcm-ecm-or-oxygen-sensor-heater-circuit-wiring-has-f": {
+   "tr": "PCM/ECM veya oksijen sensörü ısıtıcı devresi kablosu arızalı"
+  },
   "p0088-defective-fuel-pressure-regulator": {
    "tr": "Arızalı yakıt basınç regülatörü"
   },
@@ -298,11 +313,32 @@
   "p0117-wiring-harness-damaged": {
    "tr": "Kablo demeti hasarlı (ECT devresi)"
   },
+  "p0118-a-bad-connection-at-the-sensor": {
+   "tr": "Sensörde kötü bağlantı"
+  },
+  "p0118-a-bad-temperature-sensor-shorted-internally": {
+   "tr": "Arızalı sıcaklık sensörü (içten kısa devre)"
+  },
+  "p0118-a-short-in-the-voltage-feed-between-the-sensor-and-t": {
+   "tr": "Sensör ile PCM arasındaki gerilim beslemesinde kısa devre"
+  },
+  "p0118-an-open-in-the-ground-circuit-between-the-ect-sensor": {
+   "tr": "ECT sensörü ile PCM arasındaki şase devresinde kopukluk"
+  },
   "p0128-motor-sogutma-suyu-sicaklik-ect-sensoru-direnc-kayma": {
    "en": "Engine coolant temperature (ECT) sensor resistance drift"
   },
   "p0128-radyator-sogutma-fani-motor-sogukken-dahi-surekli-de": {
    "en": "Radiator fan runs continuously even with a cold engine"
+  },
+  "p0131-faulty-o2-oxygen-sensor": {
+   "tr": "Arızalı O2 (oksijen) sensörü"
+  },
+  "p0132-the-oxygen-sensor-heater-circuit-is-shorted-out": {
+   "tr": "Oksijen sensörü ısıtıcı devresinde kısa devre"
+  },
+  "p0132-the-wiring-to-the-sensor-is-broken-frayed-less-likel": {
+   "tr": "Sensör kablosu kopuk / yıpranmış (daha az olası)"
   },
   "p0133-the-oxygen-sensor-is-faulty": {
    "tr": "Oksijen sensörü arızalı"
@@ -315,6 +351,30 @@
   },
   "p0135-o2-heater-element-resistance-is-high": {
    "tr": "O2 ısıtıcı elemanı direnci yüksek"
+  },
+  "p0136-faulty-o2-sensor-leak-in-exhaust-close-to-o2-sensor": {
+   "tr": "Arızalı O2 sensörü veya O2 sensörüne yakın egzoz kaçağı"
+  },
+  "p0136-open-in-circuit-resistance-caused-by-corrosion-in-co": {
+   "tr": "Konnektördeki korozyon kaynaklı devre direnci / kopukluk"
+  },
+  "p0136-short-to-voltage-on-o2-signal-circuit": {
+   "tr": "O2 sinyal devresinde gerilime kısa devre"
+  },
+  "p0143-air-leaks-in-exhaust-in-front-of-o2-sensor-giving-fa": {
+   "tr": "O2 sensörü önündeki egzoz hava kaçağı sahte okuma veriyor"
+  },
+  "p0143-o2-sensor-ground-circuit-is-open": {
+   "tr": "O2 sensörü şase devresi kopuk"
+  },
+  "p0143-o2-sensor-signal-circuit-is-shorted-to-ground": {
+   "tr": "O2 sensörü sinyal devresi şasiye kısa devre"
+  },
+  "p0151-high-resistance-or-open-on-o2-signal-circuit": {
+   "tr": "O2 sinyal devresinde yüksek direnç veya kopukluk"
+  },
+  "p0157-o2-sensor-connector-damaged-corroded": {
+   "tr": "O2 sensörü konnektörü hasarlı/korozyonlu"
   },
   "p0174-fuel-problem-rail-injectors-pump-regulator": {
    "tr": "Yakıt sorunu (ray/enjektörler/pompa/regülatör)"
@@ -335,6 +395,12 @@
   },
   "p0175-there-could-be-a-vacuum-leak": {
    "tr": "Vakum kaçağı olabilir"
+  },
+  "p0190-damaged-frp-sensor": {
+   "tr": "Hasarlı yakıt rayı basınç (FRP) sensörü"
+  },
+  "p0190-excessive-resistance-in-the-vref-circuit": {
+   "tr": "Referans gerilim (VREF) devresinde aşırı direnç"
   },
   "p0197-faulty-engine-oil-temperature-sensor": {
    "tr": "Arızalı motor yağ sıcaklık sensörü"
@@ -395,6 +461,9 @@
   "p0326-knock-sensor-has-failed": {
    "tr": "Vuruntu sensörü arızalı"
   },
+  "p0327-there-is-a-wiring-open-short-fault-in-the-knock-sens": {
+   "tr": "Vuruntu sensörü devresinde kablo kopukluğu/kısa devresi"
+  },
   "p0328-loose-knock-sensor": {
    "tr": "Vuruntu sensörü gevşek"
   },
@@ -415,6 +484,9 @@
   "p0442-yakit-deposu-basinc-sensoru-ftp-kalibrasyon-hatasi": {
    "en": "Fuel tank pressure (FTP) sensor calibration error"
   },
+  "p0500-sanziman-cikis-milindeki-arac-hiz-sensoru-vss-mekani": {
+   "en": "Vehicle speed sensor (VSS) on the transmission output shaft: stripped drive gear or electrical fault"
+  },
   "p0700-sanziman-kontrol-modulunde-tcm-aktif-bir-mekanik-vey": {
    "en": "An active mechanical or hydraulic fault code stored in the TCM"
   },
@@ -427,8 +499,60 @@
   "p0a7d-hv-battery-pack-fans-not-working-properly": {
    "tr": "HV batarya paketi fanları düzgün çalışmıyor"
   },
+  "p2101-failed-throttle-actuator-inoperative-mechanically-or": {
+   "tr": "Gaz kelebeği aktüatörü arızalı - çalışmıyor (mekanik veya elektriksel)",
+   "en": "Failed throttle actuator - inoperative (mechanically or electrically)"
+  },
+  "p2101-open-or-short-in-the-circuit-to-the-throttle-actuato": {
+   "tr": "Gaz kelebeği aktüatörü devresinde kopukluk veya kısa devre",
+   "en": "Open or short in the throttle actuator circuit"
+  },
+  "p2136-it-s-been-my-experience-that-the-wiring-connector-or": {
+   "tr": "Gaz kelebeği gövdesi konnektöründe (pig tail) zayıf bağlantı",
+   "en": "Poor connection at the throttle body connector (pigtail)"
+  },
+  "p2136-the-accelerator-pedal-sensor-or-its-wiring-failed": {
+   "tr": "Gaz pedalı sensörü veya kablosu arızalı"
+  },
+  "p2136-the-electronic-throttle-body-is-faulty": {
+   "tr": "Elektronik gaz kelebeği gövdesi arızalı"
+  },
+  "p2138-a-faulty-throttle-position-sensor": {
+   "tr": "Arızalı gaz kelebeği konum sensörü"
+  },
+  "p2138-damaged-wiring-or-sensor-of-the-accelerator-pedal": {
+   "tr": "Gaz pedalı sensörü veya kablosu hasarlı",
+   "en": "Damaged accelerator pedal sensor or wiring"
+  },
+  "p2138-the-electronic-throttle-body-is-damaged": {
+   "tr": "Elektronik gaz kelebeği gövdesi hasarlı"
+  },
+  "p2177-faulty-air-fuel-ratio-sensor-oxygen-sensor-afr-o2": {
+   "tr": "Arızalı hava/yakıt oranı (AFR/O2) sensörü"
+  },
+  "p2177-faulty-mass-airflow-sensor-maf": {
+   "tr": "Arızalı hava akış (MAF) sensörü"
+  },
+  "p2177-rarely-faulty-powertrain-control-module-pcm": {
+   "tr": "Nadiren: arızalı motor kontrol modülü (PCM)"
+  },
+  "p2187-faulty-gas-cap-seal": {
+   "tr": "Arızalı depo kapağı contası"
+  },
+  "p2187-faulty-o2-sensor-front": {
+   "tr": "Arızalı ön O2 sensörü"
+  },
+  "p2187-leaky-or-loose-oil-filler-cap": {
+   "tr": "Kaçıran veya gevşek yağ doldurma kapağı"
+  },
   "p2263-the-boost-pressure-sensor-may-have-failed": {
    "tr": "Turbo basınç sensörü arızalanmış olabilir"
+  },
+  "p2279-intake-manifold-crack-or-leak": {
+   "tr": "Emme manifoldunda çatlak veya kaçak"
+  },
+  "p2279-leak-at-intake-air-temperature-sensor": {
+   "tr": "Emme havası sıcaklık sensöründe kaçak"
   },
   "rail-pressure-sensor": {
    "en": "Common rail pressure sensor / data"

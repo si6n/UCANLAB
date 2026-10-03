@@ -178,7 +178,7 @@ neden düğümü taşıyorsa (P0171+P0174 "iki bankta fakir") kural eklenmez.
 | `canonical_symptoms` | 152 semptom | Şikâyet → aday kod, ilk kontroller |
 | `symptom_lexicon` (yeni) | 34 kayıt, 301 TR/EN ifade + güvenlik terimleri | Gündelik ifadeler |
 | `reasoning_rules` (yeni) | 6 ortak kök neden kuralı | Birden çok kodu tek nedenle açıklama (§3.1.2) |
-| `graph_title_i18n` (yeni) | 144 graf düğümü | Graf başlıklarının TR/EN gösterimi: sık ulaşılan düğümler küratörlü, OEM etiketli kalıplar ("[Kia] Faulty X") bileşen sözlüğüyle |
+| `graph_title_i18n` (yeni) | 184 graf düğümü | Graf başlıklarının TR/EN gösterimi: sık ulaşılan düğümler küratörlü, OEM etiketli kalıplar ("[Kia] Faulty X") bileşen sözlüğüyle |
 | `subsystem_labels_en` (yeni) | 315 alt sistem etiketi | İngilizce cevapta `area` satırlarının adı (yalnız etiket çevirisi) |
 | `symptom_checks` (yeni) | 147 semptom, 270 soru | Soru cevaplarının küratörlü etkileri (§3.1.1) |
 | `root_cause_graph` | 8.884 düğüm | Kök neden adayları, kanıt/çelişen sinyaller |
