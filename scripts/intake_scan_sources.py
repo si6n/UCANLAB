@@ -579,6 +579,7 @@ def build_oem_divergence_records(wal33d_tree: Path, repo_root: Path) -> list[dic
     stored = _oem_layer_codes(repo_root)
     source_dir = wal33d_tree / WAL33D_PREFIX
     records: list[dict[str, Any]] = []
+    clean_lists: list[str] = []
     for path in sorted(source_dir.glob("*_codes.txt")):
         make = path.stem.replace("_codes", "").upper()
         rows = parse_oem_listing(path.read_text(encoding="utf-8", errors="replace"))
@@ -592,6 +593,11 @@ def build_oem_divergence_records(wal33d_tree: Path, repo_root: Path) -> list[dic
                 divergences.append({"code": code, "source_description_en": description,
                                     "kb_description_en": current})
         rel_source = path.relative_to(wal33d_tree).as_posix()
+        if not divergences:
+            # Every wording in this list already matches the merged layer: there
+            # is nothing to review, so an empty record would be noise.
+            clean_lists.append(make)
+            continue
         records.append({
             "schema_version": 1,
             "intake_id": f"wal33d-divergence-{make.lower()}",
@@ -625,6 +631,7 @@ def build_oem_divergence_records(wal33d_tree: Path, repo_root: Path) -> list[dic
             },
             "notes": DIVERGENCE_NOTE,
         })
+    build_oem_divergence_records.clean_lists = clean_lists  # type: ignore[attr-defined]
     return records
 
 

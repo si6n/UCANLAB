@@ -683,6 +683,10 @@ def _validate_payload_oem_divergence(payload: dict[str, Any], where: str, rep: R
     if not isinstance(rows, list):
         rep.fail("schema", f"{where}.divergences must be an array")
         return
+    if not rows:
+        # A manufacturer whose wording already matches the layer has nothing to
+        # review: staging an empty record would pad the queue with a non-finding.
+        rep.fail("schema", f"{where}.divergences must not be empty — incelenebilecek ayrışma yok")
     if rows and payload.get("divergence_count") != len(rows):
         rep.fail("schema", f"{where}.divergence_count {payload.get('divergence_count')} != "
                            f"{len(rows)} rows")
@@ -1667,6 +1671,81 @@ def check_quarantine_invariants(repo_root: Path, rep: Report) -> None:
 
 
 # --------------------------------------------------------------------------- #
+# promotion readiness: what can actually be merged this week
+# --------------------------------------------------------------------------- #
+def _spn_reference_ready(payload: dict[str, Any]) -> bool:
+    """Name + unit + two independent sources: enough to write an SPN record."""
+    return bool(payload.get("names_en")) and bool(payload.get("units")) and len(payload.get("sources") or []) >= 2
+
+
+def _pgn_layout_ready(payload: dict[str, Any]) -> bool:
+    """Every field carries a name and either an SPN reference or a bit length."""
+    fields = payload.get("fields") or []
+    return bool(fields) and all(
+        isinstance(f, dict) and str(f.get("name") or "").strip() and (f.get("spn") or f.get("bits"))
+        for f in fields
+    )
+
+
+def _oem_divergence_ready(payload: dict[str, Any]) -> bool:
+    """Both wordings present: the divergence is stated, not implied."""
+    rows = payload.get("divergences") or []
+    return bool(rows) and all(
+        isinstance(r, dict) and str(r.get("source_description_en") or "").strip()
+        and str(r.get("kb_description_en") or "").strip() for r in rows
+    )
+
+
+def report_promotion_readiness(records: list[Record], rep: Report) -> None:
+    """Split the queue into "mergeable now" and "needs more evidence".
+
+    A discovery queue that does not say what is actionable is a backlog, not a
+    plan. The split is mechanical, so it cannot flatter the numbers:
+
+    * ``spn_reference`` — ready = parameter name **and** unit **and** two sources;
+      only KB-absent entries can ever become new records (the rest are
+      cross-checks of what we already ship).
+    * ``pgn_layout`` — ready = every field has a name plus an SPN or a bit length.
+    * ``oem_divergence`` / ``provenance_gap`` / ``kb_defect`` — evidence for a
+      decision, never mergeable as data; counted separately.
+    """
+    spn_ready = spn_wait = 0
+    pgn_ready = pgn_wait = 0
+    oem_ready = oem_wait = 0
+    decisions = 0
+    for record in records:
+        payload = record.payload
+        if record.record_type == "spn_reference":
+            if payload.get("kb_state") != "absent":
+                continue
+            if _spn_reference_ready(payload):
+                spn_ready += 1
+            else:
+                spn_wait += 1
+        elif record.record_type == "pgn_layout":
+            if _pgn_layout_ready(payload):
+                pgn_ready += 1
+            else:
+                pgn_wait += 1
+        elif record.record_type == "oem_divergence":
+            if _oem_divergence_ready(payload):
+                oem_ready += 1
+            else:
+                oem_wait += 1
+        elif record.record_type in {"provenance_gap", "kb_defect"}:
+            decisions += 1
+    rep.metrics["promotable_spn_reference"] = spn_ready
+    rep.metrics["waiting_evidence_spn_reference"] = spn_wait
+    rep.metrics["promotable_pgn_layout"] = pgn_ready
+    rep.metrics["waiting_evidence_pgn_layout"] = pgn_wait
+    rep.metrics["promotable_oem_divergence"] = oem_ready
+    rep.metrics["decision_records"] = decisions
+    rep.add("INFO", "readiness",
+            f"terfiye hazır: SPN {spn_ready} · PGN {pgn_ready} · OEM ayrışma {oem_ready} · "
+            f"kanıt bekleyen: SPN {spn_wait} · PGN {pgn_wait} · karar bekleyen {decisions} kayıt")
+
+
+# --------------------------------------------------------------------------- #
 # MANIFEST sync (the only writer inside data/intake/)
 # --------------------------------------------------------------------------- #
 MANIFEST_HEADER = """# MANIFEST — `data/intake/` kaynak kaydı
@@ -1779,6 +1858,7 @@ def run(root: Path | None = None, intake_dir: Path | None = None, report_path: s
 
     check_manifest_against_files(records, target, manifest, rep)
     report_conflicts(records, repo_root, rep)
+    report_promotion_readiness(records, rep)
     check_quarantine_invariants(repo_root, rep)
 
     total_bytes = sum(p.stat().st_size for p in target.rglob("*") if p.is_file())

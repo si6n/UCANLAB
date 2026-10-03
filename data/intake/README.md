@@ -312,6 +312,20 @@ disiplin):
 
 FAIL varsa çıkış kodu `1`'dir; WARN/INFO yalnızca raporlanır.
 
+### Terfiye hazırlık (kuyruk ne kadar aksiyona dönük?)
+
+Kapı her koşuda kuyruğu ikiye ayırır: **terfiye hazır** ve **kanıt bekleyen**.
+
+| Aile | Kural | Metrikler |
+|---|---|---|
+| `spn_reference` (yalnız `kb_state: absent`) | ad + birim + iki bağımsız kaynak | `promotable_spn_reference` / `waiting_evidence_spn_reference` |
+| `pgn_layout` | her alanda ad + (SPN veya bit genişliği) | `promotable_pgn_layout` / `waiting_evidence_pgn_layout` |
+| `oem_divergence` | her satırda iki metin de var (boş liste kabul edilmez) | `promotable_oem_divergence` |
+| `provenance_gap`, `kb_defect` | veri değil, karar kanıtı | `decision_records` |
+
+Ölçüm mekaniktir, yani sayıyı şişirmez: upstream birim vermediyse alan boş
+kalır ve kayıt "kanıt bekliyor" sayılır — birim **uydurulmaz**.
+
 > **CI bağlantısı notu:** bu kapı şu an repo kapılarından ayrı çalışır
 > (`scripts/validate_copilot_data.py` intake'i tarar çünkü `data/diagnostics`,
 > `data/knowledge` ve `data/golden_traces` ile sınırlıdır). `ci.yml`'e

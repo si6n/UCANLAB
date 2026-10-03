@@ -397,3 +397,26 @@ def test_quarantine_gate_catches_a_reintroduced_llm_block(tmp_path: Path) -> Non
     rep = Report()
     check_quarantine_invariants(root, rep)
     assert any("blok özeti" in d for lv, _c, d in rep.rows if lv == "FAIL")
+
+
+# --------------------------------------------------------------------------- #
+# promotion readiness (what can be merged this week)
+# --------------------------------------------------------------------------- #
+def test_readiness_split_is_consistent() -> None:
+    """ready + waiting must equal the queue for every promotable family."""
+    rep = run(root=ROOT, quiet=True)
+    assert rep.count("FAIL") == 0, [d for lv, _c, d in rep.rows if lv == "FAIL"]
+    m = rep.metrics
+    assert m["promotable_spn_reference"] + m["waiting_evidence_spn_reference"] > 0
+    assert m["promotable_pgn_layout"] + m["waiting_evidence_pgn_layout"] > 0
+    assert m["promotable_oem_divergence"] > 0
+    assert m["decision_records"] > 0
+    assert any(check == "readiness" for _lv, check, _d in rep.rows)
+
+
+def test_every_staged_oem_divergence_has_rows() -> None:
+    """An empty divergence list is a non-finding and must not sit in the queue."""
+    for path in (ROOT / "data" / "intake" / "oem").glob("*.json"):
+        payload = json.loads(path.read_text(encoding="utf-8"))["payload"]
+        assert payload["divergences"], f"{path.name} has no divergence to review"
+        assert payload["divergence_count"] == len(payload["divergences"])

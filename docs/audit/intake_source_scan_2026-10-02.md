@@ -13,7 +13,7 @@ Dal: `ccr-intake`. Bu rapor **keşif kanıtıdır**; `data/diagnostics` ve
 | Hash uyuşmazlığı | **0** |
 | Vendor edilmemiş (yeni bulunan) | **84** (64.461 bayt) |
 | Intake'e sahaya alınan `pgn_layout` kaydı | **84** |
-| Intake'e sahaya alınan `oem_divergence` kaydı | **37** (5.922 ayrışma satırı) |
+| Intake'e sahaya alınan `oem_divergence` kaydı | **35** (5.922 ayrışma satırı; 2 listede ayrışma yok) |
 | Intake'e sahaya alınan `spn_reference` kaydı | **174** (69 terfi adayı + 105 uzlaştırma; 168'i çapraz doğrulanmış) |
 | Intake'e sahaya alınan `kb_defect` kaydı | **13** (kendi verimizden ölçülmüş kusur) |
 | Intake'e sahaya alınan `provenance_gap` kaydı | **26** (kaynak başına izlenebilirlik kanıtı) |
@@ -420,6 +420,36 @@ Sonuç iki yönlü:
 Doğrulayıcı bu iddiayı zorunlu kılar: iki kaynak alıntılanan bir kayıt
 `corroborated` demiyorsa **FAIL** alır — çapraz doğrulama beyanı kanıtlanmadan
 ilerletilemez.
+
+## 4l. Kuyruk ne kadar aksiyona dönük? (terfiye hazırlık ölçümü)
+
+Keşif kuyruğu "bir backlog" olmaktan çıkıp "bir plan" olmak için, kayanın ne
+kadarının **bugün** birleştirilebileceğini ölçtük. Bölme mekaniktir, yani
+sayıyı pohpohlamaz:
+
+| Aile | Terfiye hazır | Kanıt bekleyen | Hazır olma kuralı |
+|---|---|---|---|
+| `spn_reference` (yalnız `kb_state: absent` olanlar) | **9** | **60** | parametre adı **ve** birim **ve** iki bağımsız kaynak |
+| `pgn_layout` | **44** | **40** | her alanda ad + (SPN **veya** bit genişliği) |
+| `oem_divergence` | **35** | 0 | her satırda hem upstream hem katman metni |
+| `provenance_gap` + `kb_defect` | — | **39** karar kaydı | veri değil, karar kanıtı |
+
+60 SPN adayının birimi yok çünkü upstream metni birim vermiyor (ör. SPN 5925
+"Engine Oil Temperature 3" — yalnız ad). Bu **uydurulacak** bir alan: terfi
+kuralı, birimi upstream vermiyorsa boş bırakılmasını şart koşuyor.
+
+Ölçüm `validate_intake.py` içinde her koşuda üretilir
+(`promotable_*`, `waiting_evidence_*`, `decision_records` metrikleri +
+`INFO readiness` satırı). Yani kuyruk büyüdükçe "ne yapılabilir" sorusunun
+cevabı da otomatik güncellenir.
+
+Bu ölçüm bir de **küçük bir hatayı yakaladı**: Wal33D'nin `b_codes.txt` ve
+`volkswagen_codes.txt` listelerinde **hiç ayrışma yok** (tüm ifadeler katmanla
+aynı). Boş bir `oem_divergence` kaydı "bir bulgu yok" demek olduğu için
+kuyruğa yanlışlıkla girmişti: kayıtlar temizlendi, stager artık ayrışması
+olmayan listeyi hiç sahalamıyor ve doğrulayıcı boş `divergences` dizisini FAIL
+ile reddediyor. (Ayrıca not: "katmanda saklanan metin = VOLKSWAGEN'inki" —
+yani DB'nin hayatta kalan metni çoğunlukla VW listesinden geliyor. 4b.)
 
 ### Hangi üreticinin metni hayatta kaldı? (ölçüm)
 
