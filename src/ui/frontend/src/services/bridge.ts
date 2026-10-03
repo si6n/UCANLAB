@@ -605,6 +605,7 @@ declare global {
           query: string,
           language?: string | null,
           answers?: Record<string, CopilotAnswerValue> | null,
+          context?: string | null,
         ) => Promise<{ success: boolean; error?: string; simulated?: boolean; answer?: CopilotStructuredAnswer }>;
         record_technician_feedback?: (dtc: string, resolved: boolean, notes?: string) => Promise<Record<string, unknown>>;
         export_session_report?: () => Promise<{ success: boolean; path?: string; report_length?: number; error?: string }>;
@@ -1212,10 +1213,11 @@ export class DesktopBridge {
     query: string,
     language: 'tr' | 'en',
     answers: Record<string, CopilotAnswerValue> = {},
+    context = '',
   ): Promise<{ success: boolean; error?: string; simulated?: boolean; answer?: CopilotStructuredAnswer }> {
     const m = this.apiMethod('ask_copilot_structured');
     if (this.isNative() && m) {
-      return await m(query, language, answers);
+      return await m(query, language, answers, context);
     }
     this.requireCapability('ask_copilot_structured', 'ask Copilot');
     this.requireNativeOrDev();

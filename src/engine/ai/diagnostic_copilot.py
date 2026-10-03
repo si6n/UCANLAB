@@ -6898,6 +6898,7 @@ class AiDiagnosticCopilot:
         language: str | None = None,
         options: Any = None,
         answers: dict[str, Any] | None = None,
+        context_text: str = "",
     ) -> Any:
         """Six-section structured answer (``copilot_answer.answer_query``).
 
@@ -6908,7 +6909,8 @@ class AiDiagnosticCopilot:
         from src.engine.ai.copilot_answer import answer_query
 
         return answer_query(text, dtcs=dtcs, telemetry=telemetry, dm1=dm1, vehicle_make=vehicle_make,
-                            vehicle_model=vehicle_model, language=language, options=options, answers=answers)
+                            vehicle_model=vehicle_model, language=language, options=options, answers=answers,
+                            context_text=context_text)
 
     def analyze_session(
         self,

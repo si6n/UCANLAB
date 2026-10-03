@@ -197,6 +197,15 @@ kaynağı tutulur (`EngineSpeed=750`, `text:rolantide`).
   arızanın görüldüğü koşulda (ör. rölantide) test edin; kod geri gelirse
   sonraki adaya geçin".
 
+### 3.1.5 Devam sorusu (konuşma bağlamı)
+
+`answer_query(text, context_text=<önceki soru>)` (köprü: `ask_copilot_structured(query,
+language, answers, context)`). Yeni mesaj kendi kodunu veya şikâyetini içermiyorsa
+("rölantide 106 derece") önceki soruyla birlikte okunur ve özet "(Önceki soruyla
+birlikte değerlendirildi.)" diye başlar; kendi şikâyeti varsa ("klima çalışmıyor")
+yeni konu sayılır. Arayüz konuşmayı biriktirir; "Yeni konu" düğmesi sıfırlar.
+"rölanti" tek başına artık bir şikâyet değil, durum kelimesidir.
+
 ### 3.2 Aciliyet ve güvenlik
 
 * Aciliyet: kod ciddiyeti `drive_safety_policy.decide_risk` ile (tek otorite),

@@ -303,14 +303,19 @@ export const CopilotAskCard: React.FC<{ sessionAnswer?: CopilotStructuredAnswer 
   const [answers, setAnswers] = useState<Record<string, CopilotAnswerValue>>({});
   const [refining, setRefining] = useState(false);
 
-  const run = async (text: string, given: Record<string, CopilotAnswerValue>) => {
+  // The conversation so far: a follow-up without its own complaint is read with it.
+  const [topic, setTopic] = useState('');
+  const [askedContext, setAskedContext] = useState('');
+
+  const run = async (text: string, given: Record<string, CopilotAnswerValue>, context = '') => {
     setBusy(true);
     setError(null);
     try {
-      const res = await DesktopBridge.askCopilotStructured(text, lang(), given);
+      const res = await DesktopBridge.askCopilotStructured(text, lang(), given, context);
       if (res.success && res.answer) {
         setAnswer(res.answer);
         setAsked(text);
+        setAskedContext(context);
         setAnswers(given);
       } else setError(res.error ?? L('Cevap oluşturulamadı.', 'No answer could be produced.'));
     } finally {
@@ -319,10 +324,20 @@ export const CopilotAskCard: React.FC<{ sessionAnswer?: CopilotStructuredAnswer 
     }
   };
 
-  // A new question starts a fresh set of answers.
+  // A new question starts a fresh set of answers; it carries the previous topic as context.
   const ask = async () => {
     if (!query.trim()) return;
-    await run(query.trim(), {});
+    const text = query.trim();
+    await run(text, {}, topic);
+    setTopic((prev) => (prev ? `${prev}. ${text}` : text).slice(-1500));
+    setQuery('');
+  };
+
+  const newTopic = () => {
+    setTopic('');
+    setAnswer(null);
+    setAsked(null);
+    setAnswers({});
   };
 
   // An answer to a check re-asks the SAME question with the answer added. On the
@@ -331,7 +346,7 @@ export const CopilotAskCard: React.FC<{ sessionAnswer?: CopilotStructuredAnswer 
     const text = asked ?? (sessionAnswer ? '' : null);
     if (text === null) return;
     setRefining(true);
-    void run(text, { ...answers, [key]: value });
+    void run(text, { ...answers, [key]: value }, askedContext);
   };
 
   // While a new question is in flight the previous answer is hidden, so a stale
@@ -367,6 +382,11 @@ export const CopilotAskCard: React.FC<{ sessionAnswer?: CopilotStructuredAnswer 
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             {L('Sor', 'Ask')}
           </button>
+          {topic && (
+            <button type="button" className={BTN_GHOST} onClick={newTopic} disabled={busy} data-testid="copilot-new-topic">
+              {L('Yeni konu', 'New topic')}
+            </button>
+          )}
         </form>
         {error && <p className="text-[13px] text-del">{error}</p>}
         {shown && <CopilotAnswerView answer={shown} onAnswer={answerCheck} busy={busy} />}

@@ -410,6 +410,23 @@ def test_copilot_session_answer_questions_are_answerable(wb: Any) -> None:
     assert not app.supervisor.is_tx_permitted
 
 
+def test_copilot_followup_question_keeps_the_topic(wb: Any) -> None:
+    """A follow-up without its own complaint is read with the previous question; "New topic" resets."""
+    page, _app_ = wb
+    page.click("[data-testid=nav-assistant]")
+    page.wait_for_selector("[data-testid=copilot-card]", timeout=20000)
+    page.fill("[data-testid=copilot-query]", "motor hararet yapıyor")
+    page.click("[data-testid=copilot-ask]")
+    page.wait_for_selector("[data-testid=copilot-summary]", timeout=20000)
+    page.fill("[data-testid=copilot-query]", "rölantide su sıcaklığı 106 derece")
+    page.click("[data-testid=copilot-ask]")
+    page.wait_for_function(
+        "document.querySelector('[data-testid=copilot-summary]')?.textContent.includes('Önceki soruyla')", timeout=20000)
+    assert "rölantide" in page.text_content("[data-testid=copilot-state]")
+    page.click("[data-testid=copilot-new-topic]")
+    assert page.locator("[data-testid=copilot-new-topic]").count() == 0
+
+
 def test_ecu_dry_run_on_the_simulator_sends_nothing(wb: Any) -> None:
     page, app = wb
     page.select_option("[data-testid=sim-type]", "truck")

@@ -157,3 +157,10 @@ def test_session_codes_keep_their_strongest_status() -> None:
     assert answer is not None
     statuses = {c["code"]: c["status"] for c in answer["understood"]["dtcs"]}
     assert statuses == {"P0301": "ACTIVE", "P0420": "HISTORY"}
+
+
+def test_bridge_passes_the_conversation_context() -> None:
+    res = DesktopApiBridge(_app()).ask_copilot_structured("rölantide 106 derece", "tr", None, "motor hararet yapıyor")
+    assert res["success"] is True and res["answer"]["summary"].startswith("(Önceki soruyla")
+    bad = DesktopApiBridge(_app()).ask_copilot_structured("x", "tr", None, "y" * 9000)
+    assert bad["code"] == "INVALID_COPILOT_QUERY"

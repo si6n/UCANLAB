@@ -124,3 +124,20 @@ def test_every_code_answer_ends_with_repair_verification_in_the_fault_state() ->
     assert d["steps"][-1]["refs"] == ["template:verify_repair"]
     assert "(rölantide)" in d["steps"][-1]["text"]
     assert answer_query("akü bitiyor", language="tr").to_dict()["steps"][-1]["refs"] != ["template:verify_repair"]
+
+
+def test_followup_without_its_own_complaint_is_read_with_the_previous_question() -> None:
+    d = answer_query("rölantide su sıcaklığı 106 derece", context_text="motor hararet yapıyor", language="tr").to_dict()
+    assert d["summary"].startswith("(Önceki soruyla birlikte değerlendirildi.)")
+    assert [s["id"] for s in d["understood"]["symptoms"]] == ["engine-overheating"]
+    assert d["causes"][0]["title"].startswith("Rölantide hararet")
+
+
+def test_followup_with_a_new_complaint_starts_a_new_topic() -> None:
+    d = answer_query("klima çalışmıyor", context_text="motor hararet yapıyor", language="tr").to_dict()
+    assert "Önceki soruyla" not in d["summary"]
+    assert [s["id"] for s in d["understood"]["symptoms"]] == ["ac-refrigerant-pressure-low"]
+
+
+def test_idle_word_alone_is_a_state_not_a_rough_idle_complaint() -> None:
+    assert parse_query("rölantide su sıcaklığı 106 derece").symptoms == []

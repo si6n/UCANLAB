@@ -765,12 +765,25 @@ def answer_query(
     answers: Mapping[str, Any] | None = None,
     options: CopilotOptions | None = None,
     kb: KnowledgeBase | None = None,
+    context_text: str = "",
 ) -> StructuredAnswer:
-    """Answer one copilot request with the six-section structured format."""
+    """Answer one copilot request with the six-section structured format.
+
+    ``context_text`` is the previous question of the same conversation. A
+    follow-up that names no code and no complaint of its own ("rölantide 106
+    derece") is read together with it; a follow-up with its own complaint or
+    code starts a new topic.
+    """
     opts = options or CopilotOptions()
     kb = kb or get_knowledge_base()
     parsed = parse_query(text, dtcs=dtcs, telemetry=telemetry, dm1=dm1, vehicle_make=vehicle_make,
                          vehicle_model=vehicle_model, language=language, answers=answers, kb=kb)
+    context_text = str(context_text or "")[:2000].strip()
+    if context_text and text.strip() and not (parsed.dtcs or parsed.spns or parsed.symptoms):
+        parsed = parse_query(f"{context_text}. {text}", dtcs=dtcs, telemetry=telemetry, dm1=dm1,
+                             vehicle_make=vehicle_make, vehicle_model=vehicle_model, language=language or parsed.language,
+                             answers=answers, kb=kb)
+        parsed.notes.append("followup_merged")
     r = reason(parsed, kb, include_recalls=opts.include_recalls)
     lang = parsed.language
 
@@ -788,6 +801,9 @@ def answer_query(
     ans = StructuredAnswer(language=lang)
     ans.safety_banners = [{"category": c, "text": _BANNERS[c][lang]} for c in r.safety]
     ans.summary = _summary(r, lang, kb)
+    if "followup_merged" in parsed.notes:
+        ans.summary = ("(Önceki soruyla birlikte değerlendirildi.) " if lang == "tr"
+                       else "(Read together with the previous question.) ") + ans.summary
     ans.urgency = _urgency(r, lang, kb)
     ans.causes = [_cause_dict(h, i, lang, kb) for i, h in enumerate(r.hypotheses[: opts.max_causes], 1)]
     ans.steps = _steps(r, lang, opts.max_steps, kb)

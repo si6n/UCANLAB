@@ -847,7 +847,8 @@ class DesktopApiBridge:
         return self.app.query_copilot(query)
 
     def ask_copilot_structured(
-        self, query: str, language: str | None = None, answers: dict[str, Any] | None = None
+        self, query: str, language: str | None = None, answers: dict[str, Any] | None = None,
+        context: str | None = None,
     ) -> dict[str, Any]:
         """Six-section structured copilot answer for a free-text complaint (read-only).
 
@@ -861,12 +862,13 @@ class DesktopApiBridge:
         # questions of the live-session answer (codes read, no sentence typed).
         problem = _validate_bridge_text(query, field="query", max_chars=COPILOT_QUERY_MAX_CHARS,
                                         allow_empty=bool(answers)) \
-            or _validate_copilot_answers(answers)
+            or _validate_copilot_answers(answers) \
+            or _validate_bridge_text(context, field="context", max_chars=COPILOT_QUERY_MAX_CHARS, allow_empty=True)
         if problem is not None:
             logger.warning("ask_copilot_structured rejected input", extra={"reason": problem})
             return {"success": False, "error": problem, "code": "INVALID_COPILOT_QUERY"}
         lang = language if language in ("tr", "en") else None
-        return self.app.query_copilot_structured(query or "", lang, answers)
+        return self.app.query_copilot_structured(query or "", lang, answers, context or "")
 
     # ------------------------------------------------------------------
     # Diagnostic session bridge (FAZ 1/5/6) — TS side never re-implements
@@ -3235,7 +3237,7 @@ class UniversalCanDesktopApp:
 
     def _structured_answer_for(
         self, session: VehicleSession | None, live_telemetry: dict[str, Any], text: str, language: str | None = None,
-        answers: dict[str, Any] | None = None,
+        answers: dict[str, Any] | None = None, context: str = "",
     ) -> dict[str, Any] | None:
         """Structured copilot answer for the session's ACTIVE codes + measured telemetry.
 
@@ -3259,10 +3261,11 @@ class UniversalCanDesktopApp:
                     codes = [c if st == "ACTIVE" else {"code": c, "status": st} for c, st in best.items()]
                     make, model = session.make, session.model
             answer = self.copilot.answer(text, dtcs=codes, telemetry=live_telemetry, vehicle_make=make,
-                                         vehicle_model=model, language=language, answers=answers) \
+                                         vehicle_model=model, language=language, answers=answers,
+                                         context_text=context) \
                 if hasattr(self.copilot, "answer") \
                 else answer_query(text, dtcs=codes, telemetry=live_telemetry, vehicle_make=make,
-                                  vehicle_model=model, language=language, answers=answers)
+                                  vehicle_model=model, language=language, answers=answers, context_text=context)
             payload = answer.to_dict()
             payload["markdown"] = answer.to_markdown()
             return payload
@@ -3271,12 +3274,12 @@ class UniversalCanDesktopApp:
             return None
 
     def query_copilot_structured(
-        self, query: str, language: str | None = None, answers: dict[str, Any] | None = None
+        self, query: str, language: str | None = None, answers: dict[str, Any] | None = None, context: str = ""
     ) -> dict[str, Any]:
         """Free-text complaint + live evidence (+ answers to its questions) -> six-section answer (bridge)."""
         session, simulated = self._assistant_session()
         telemetry = {} if simulated else self._live_telemetry_snapshot()
-        answer = self._structured_answer_for(session, telemetry, query, language, answers)
+        answer = self._structured_answer_for(session, telemetry, query, language, answers, context)
         if answer is None:
             return {"success": False, "error": "Copilot cevabı oluşturulamadı"}
         return {"success": True, "simulated": simulated, "answer": answer}

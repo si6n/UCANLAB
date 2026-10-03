@@ -102,7 +102,7 @@ BASE_PROFILES: list[dict[str, Any]] = [
         "domain": "ALL",
         "observable": True,
         "operator_reported": True,
-        "keywords_tr": ["titreme", "rolanti", "rolantide dalgalanma", "tekleme", "silkeleme"],
+        "keywords_tr": ["titreme", "rolanti bozuk", "rolantide dalgalanma", "tekleme", "silkeleme"],
         "keywords_en": ["rough idle", "engine vibration", "shuddering", "idle hunting"],
         "subsystems": ["Ateşleme Sistemi (Buji/Bobin)", "Yakıt Enjektörleri", "Vaküm Kaçağı"],
         "candidate_dtcs": ["P0300", "P0171", "P0505", "SPN 651"],
