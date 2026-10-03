@@ -19,7 +19,7 @@ def prov(sid):
         "confidence": "single_source",
     }
 E = [
- ("engine-overheating", ["motor isiniyor","motor ısınıyor","hararet yapiyor","hararet yapıyor","su sicakligi yuksek","su sıcaklığı yükseldi","motor sicak","motor kaynadi","hararet lambasi","harareti var","radyator kaynatiyor"], ["overheating","engine running hot","temperature gauge high","engine overheat","coolant temperature high","coolant keeps dropping","losing coolant","coolant loss"]),
+ ("engine-overheating", ["motor isiniyor","motor ısınıyor","hararet yapiyor","hararet yapıyor","su sicakligi yuksek","su sıcaklığı yükseldi","motor kaynadi","hararet lambasi","harareti var","radyator kaynatiyor"], ["overheating","engine running hot","temperature gauge high","engine overheat","coolant temperature high","coolant keeps dropping","losing coolant","coolant loss"]),
  ("dpf-regeneration-failed", ["dpf lambasi","dpf lambası yandı","dpf isigi","partikul filtresi","partikül filtresi doldu","dizel partikul filtresi","dpf doldu","dpf tikali","rejenerasyon yapmiyor"], ["dpf light","dpf warning","particulate filter","diesel particulate filter","dpf full","regen failed"]),
  ("def-scr-adblue-warning", ["adblue lambasi","adblue uyarisi","adblue bitti","ure lambasi","scr arizasi","nox sensoru"], ["adblue light","def warning","def fluid low","scr warning","nox sensor fault"]),
  ("low-oil-pressure", ["yag lambasi yandi","yağ lambası yandı","yag ikaz lambasi","yag basinci yok","yag basinci dustu"], ["oil pressure low","oil warning light","low oil pressure light"]),

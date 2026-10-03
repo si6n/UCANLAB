@@ -56,6 +56,7 @@ _S: dict[str, dict[str, str]] = {
     "conf.low": {"tr": "düşük", "en": "low"},
     "kind.graph": {"tr": "kök neden grafiği", "en": "root-cause graph"},
     "kind.record": {"tr": "kod kaydındaki olası neden", "en": "possible cause listed in the code record"},
+    "kind.scenario": {"tr": "ölçümün çalışma durumuna göre yorumu", "en": "reading interpreted in its operating state"},
     "kind.pattern": {"tr": "birden çok kodu tek nedenle açıklayan ortak kök neden", "en": "one shared cause explaining several codes"},
     "kind.area": {"tr": "şikâyetin işaret ettiği alt sistem (kesin neden değil; kontrol edilecek bölge)",
                   "en": "subsystem the complaint points at (not a specific cause; area to inspect)"},
@@ -258,6 +259,10 @@ class StructuredAnswer:
         for m in self.missing_data:
             lines.append(f"- **{m['what']}** {m['how']}")
         lines += ["", f"<details><summary>{_t('h.technical', lang)}</summary>", ""]
+        if self.technical.get("state"):
+            st = self.technical["state"]
+            lines.append(f"- {'Çalışma durumu' if lang == 'tr' else 'Operating state'}: {st['text']} "
+                         f"_({', '.join(st['sources'])})_")
         for code in self.technical.get("codes", []):
             lines.append(f"- **{code['key']}** — {code.get('title') or '—'}")
             for label, key in (("FMI", "fmi_text"), ("PGN", "pgn_text"), ("Severity", "severity"),
@@ -292,6 +297,20 @@ class StructuredAnswer:
 
 
 # --------------------------------------------------------------- render
+_ENGINE_WORDS = {
+    "off": ("motor dururken", "engine off"), "cranking": ("marş sırasında", "while cranking"),
+    "idle": ("rölantide", "at idle"), "running": ("motor çalışırken", "engine running"),
+    "load": ("yük altında", "under load"),
+}
+_THERMAL_WORDS = {"cold": ("soğuk motor", "cold engine"), "warm": ("sıcak motor", "warm engine")}
+
+
+def _state_words(engine: str, thermal: str, lang: str) -> str:
+    i = 0 if lang == "tr" else 1
+    bits = [w[i] for w in (_ENGINE_WORDS.get(engine), _THERMAL_WORDS.get(thermal)) if w]
+    return ", ".join(bits) or ("durum bilinmiyor" if lang == "tr" else "state unknown")
+
+
 def _evidence_text(marker: str, lang: str, kb: KnowledgeBase) -> str:
     kind, _, payload = marker.partition(":")
     if kind == "code":
@@ -332,6 +351,13 @@ def _evidence_text(marker: str, lang: str, kb: KnowledgeBase) -> str:
         name = rec.get("name_tr") if lang == "tr" else rec.get("name_en")
         return (f"şikâyet: {name or payload} — motor çalıştırılmaya devam ederse kalıcı hasar görebilir"
                 if lang == "tr" else f"complaint: {name or payload} — running the engine on can cause permanent damage")
+    if kind == "scenario":
+        sid, engine, thermal, sig, value, unit = (payload.split("|") + [""] * 6)[:6]
+        sc = kb.operating_scenario(sid) or {}
+        why = str(sc.get("rationale_tr" if lang == "tr" else "rationale_en") or "")
+        where = _state_words(engine, thermal, lang)
+        return (f"{where}: {sig} = {value} {unit} — {why}" if lang == "tr"
+                else f"{where}: {sig} = {value} {unit} — {why}")
     if kind == "pattern":
         rid, _, n = payload.partition("|")
         rule = kb.reasoning_rule(rid) or {}
@@ -384,6 +410,9 @@ def _title(h: Hypothesis, lang: str, kb: KnowledgeBase) -> str:
     if h.kind == "pattern":
         rule = kb.reasoning_rule(h.id.partition("#")[2]) or {}
         return str(rule.get("title_en" if lang == "en" else "title_tr") or h.title)
+    if h.kind == "scenario":
+        sc = kb.operating_scenario(h.id.partition("#")[2]) or {}
+        return str(sc.get("title_en" if lang == "en" else "title_tr") or h.title)
     if h.kind in ("graph", "suspected"):
         return kb.graph_title(h.id, lang) or h.title  # graph titles mix TR and EN in the data
     return h.title
@@ -521,6 +550,12 @@ def _steps(r: Reasoning, lang: str, max_steps: int, kb: KnowledgeBase) -> list[d
         if h.kind == "pattern":
             rule = kb.reasoning_rule(h.id.partition("#")[2]) or {}
             step = str(rule.get("step_tr" if lang == "tr" else "step_en") or "")
+            if step:
+                add(step, "", [h.id])
+    for h in r.hypotheses[:3]:
+        if h.kind == "scenario":
+            sc = kb.operating_scenario(h.id.partition("#")[2]) or {}
+            step = str(sc.get("step_tr" if lang == "tr" else "step_en") or "")
             if step:
                 add(step, "", [h.id])
     # What the operator's answers concluded is the next thing to do.
@@ -729,7 +764,26 @@ def answer_query(
         "key": m.key, "what": m.what_tr if lang == "tr" else m.what_en,
         "how": m.how_tr if lang == "tr" else m.how_en, "refs": list(m.refs),
     } for m in r.missing]
+    for sid in r.scenario_notes:  # a reading that does not show what it seems to (e.g. surface charge)
+        sc = kb.operating_scenario(sid) or {}
+        ans.missing_data.append({"key": f"scenario:{sid}", "what": str(sc.get("rationale_tr" if lang == "tr" else "rationale_en") or ""),
+                                 "how": "", "refs": [f"operating_scenarios#{sid}"]})
+    if any(f.status == "needs_context" and f.signal == "BatteryVoltage" for f in r.findings):
+        ans.missing_data.append({
+            "key": "state:engine",
+            "what": "Akü gerilimi motor çalışırken mi, dururken mi ölçüldü bilinmiyor." if lang == "tr"
+            else "It is not known whether the battery voltage was measured with the engine running or off.",
+            "how": "Ölçümü 'motor çalışırken' veya 'kontak kapalı' diye belirtin ya da devri (rpm) de gönderin." if lang == "tr"
+            else "Say 'engine running' or 'engine off' with the reading, or also send the engine speed (rpm).",
+            "refs": ["operating_scenarios#battery_voltage"]})
     ans.technical = _technical(r, lang, kb, similar)
+    if r.state.known:
+        ans.technical["state"] = {
+            "engine": r.state.engine, "thermal": r.state.thermal, "system_voltage": r.state.system_voltage,
+            "text": _state_words(r.state.engine, r.state.thermal, lang)
+            + (f", {r.state.system_voltage} V" if r.state.system_voltage else ""),
+            "sources": list(r.state.sources),
+        }
     if r.recalls or r.complaints:
         complaints = None
         if r.complaints:

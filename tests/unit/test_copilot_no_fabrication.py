@@ -82,6 +82,10 @@ def _record_text(ref: str) -> str:
         return json.dumps(kb.dtc_oem(key).record, ensure_ascii=False)
     if source == "copilot_glossary":
         return json.dumps(kb.glossary().get(key), ensure_ascii=False)
+    if source == "operating_scenarios":
+        data = kb.operating_scenarios()
+        return json.dumps(data.get("battery_voltage") if key == "battery_voltage" else kb.operating_scenario(key),
+                          ensure_ascii=False)
     if source == "reasoning_rules":
         return json.dumps(kb.reasoning_rule(key), ensure_ascii=False)
     if source == "symptom_checks":

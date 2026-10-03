@@ -42,7 +42,7 @@ D = DATA / "diagnostics"
 
 COPILOT_FILES = ("symptom_lexicon.json", "signal_measurement_map.json", "copilot_glossary.json", "symptom_checks.json",
                  "subsystem_labels_en.json", "graph_title_i18n.json",
-                 "reasoning_rules.json")
+                 "reasoning_rules.json", "operating_scenarios.json")
 SPECIAL_CODE_RE = re.compile(r"^(N2K_|CAN_)")
 
 
@@ -110,6 +110,10 @@ def check_provenance(rep: Report) -> None:
     validate(_load(D / "graph_title_i18n.json").get("provenance"), "graph_title_i18n")
     for rule in _load(D / "reasoning_rules.json").get("rules", []):
         validate(rule.get("provenance"), f"reasoning_rules[{rule.get('id')}]")
+    ops = _load(D / "operating_scenarios.json")
+    validate(ops.get("battery_voltage", {}).get("provenance"), "operating_scenarios.battery_voltage")
+    for sc in ops.get("scenarios", []):
+        validate(sc.get("provenance"), f"operating_scenarios[{sc.get('id')}]")
     for s in _load(D / "signal_measurement_map.json").get("signals", []):
         validate(s.get("provenance"), f"signal_measurement_map[{s.get('canonical')}]")
     for term, rec in _load(D / "copilot_glossary.json").get("terms", {}).items():

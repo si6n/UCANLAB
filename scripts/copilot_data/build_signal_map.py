@@ -28,7 +28,7 @@ S = [
  ("EngineSpeed", "rpm", ["RPM"], ["motor devri", "devir"], ["engine speed", "rpm"], "EngineSpeed", 190, ("01", "0C")),
  ("EngineOilPressure", "bar", ["OilPressure", "oil_pressure"], ["yag basinci"], ["oil pressure"], "EngineOilPressure", 100, None),
  ("BoostPressure", "bar", ["TurboBoost", "Boost"], ["turbo basinci", "takviye basinci", "boost basinci"], ["boost pressure", "turbo pressure", "boost"], "TurboBoost", 102, ("01", "0B")),
- ("BatteryVoltage", "V", ["SystemVoltage", "ModuleVoltage"], ["aku voltaji", "aku gerilimi", "sarj voltaji", "sistem voltaji"], ["battery voltage", "system voltage", "charging voltage"], None, 168, ("01", "42")),
+ ("BatteryVoltage", "V", ["SystemVoltage", "ModuleVoltage"], ["aku voltaji", "aku gerilimi", "sarj voltaji", "sistem voltaji", "aku"], ["battery voltage", "system voltage", "charging voltage"], None, 168, ("01", "42")),
  ("VehicleSpeed", "km/h", ["VSS"], ["arac hizi"], ["vehicle speed"], "VehicleSpeed", 84, ("01", "0D")),
  ("EngineLoad", "%", ["EngineLoadPct"], ["motor yuku"], ["engine load"], "EngineLoad", 92, ("01", "04")),
  ("EngineTorque", "%", ["EngineTorquePct"], ["motor torku"], ["engine torque"], "EngineTorque", 513, None),

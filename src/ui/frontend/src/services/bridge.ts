@@ -370,6 +370,8 @@ export interface CopilotStructuredAnswer {
     glossary: Array<{ term: string; text: string; ref: string }>;
     similar_records: Array<{ title: string; ref: string }>;
     sources: string[];
+    /** Operating state the readings were judged in (engine / thermal / system voltage). */
+    state?: { engine: string; thermal: string; system_voltage: number | null; text: string; sources: string[] };
   };
   recalls: { note?: string; items?: Array<{ campaign: string; component: string; ref: string }>; complaints?: CopilotEvidence | null };
   /** Answerable questions; an answer is sent back with the same query and narrows the causes. */

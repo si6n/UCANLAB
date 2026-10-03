@@ -129,6 +129,11 @@ export const CopilotAnswerView: React.FC<{ answer: CopilotStructuredAnswer; onAn
         <h3 className="text-[12px] font-semibold uppercase tracking-wide text-text-low">{L('2. Acil mi?', '2. Is it urgent?')}</h3>
         <div className="mt-1 flex flex-wrap items-center gap-2">
           <Chip tone={tone} testId="copilot-urgency">{answer.urgency.label}</Chip>
+          {answer.technical.state && (
+            <Chip testId="copilot-state">
+              {L('Durum', 'State')}: {answer.technical.state.text}
+            </Chip>
+          )}
         </div>
         <ul className="mt-1 text-[13px] text-text-body">
           {answer.urgency.advice.map((a) => (

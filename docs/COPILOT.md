@@ -146,6 +146,40 @@ neden düğümü taşıyorsa (P0171+P0174 "iki bankta fakir") kural eklenmez.
 * `signal_low` alanı (düşük akü gerilimi okuması) eşiği olan sinyallerde çalışır;
   `BatteryVoltage` için henüz eşik kaydı yok, bu yüzden şimdilik yalnız P0562 ile tetiklenir.
 
+### 3.1.3 Çalışma durumu ve senaryolar (`operating_state.py`, `operating_scenarios`)
+
+Aynı ölçüm, alındığı durumda anlam kazanır: 12.3 V dinlenmiş aküde normale
+yakın, çalışan motorda "alternatör şarj etmiyor"dur; 8 kPa DPF fark basıncı
+rölantide tıkanma, tam yükte normaldir. `operating_state.infer_state` durumu
+istekten çıkarır, ölçüm sözden önce gelir, kanıt yoksa "unknown" kalır:
+
+* motor: `off` (<50 rpm) · `cranking` (<400) · `idle` (≤1100) · `running` · `load`
+  (yük ≥%70 veya "yükte / tam gaz / yokuşta"); metin ipuçları: "rölantide",
+  "kontak kapalı", "marşta", "seyir halinde"…
+* ısıl: `cold` / `warm` ("soğukken", "sıcakken" veya soğutma suyu ≥70 °C);
+* sistem gerilimi: 12 / 24 V (metinde "24V sistem" veya akü okuması >18 V).
+
+Durum cevapta görünür (`technical.state`, arayüzde "Durum" çipi) ve her kararın
+kaynağı tutulur (`EngineSpeed=750`, `text:rolantide`).
+
+* **Akü gerilimi** (operatör onaylı bantlar, 2026-10-03; 24 V = 2×12 V):
+  motor çalışırken normal 13.8–14.4 V (<13.2 düşük, <12.0 kritik, >15.0 yüksek,
+  ≥15.5 kritik); dururken normal 12.4–12.9 V (<12.4 zayıf, <12.0 düşük, <10.5
+  kritik, >12.9 yüzey şarjı); marşta ≥9.6 V. Motor durumu bilinmezse ≥13.2 V
+  "çalışıyor", <12.0 V her durumda düşük, arası `needs_context` ve eksik veri
+  "motor çalışırken mi, dururken mi?". Akü arızası tek başına KIRMIZI yapmaz (SARI).
+* **Turbo** tam yük bandı yalnız yükte uygulanır; rölantide düşük basınç normal,
+  durum bilinmezse `needs_context`.
+* **Yağ basıncı** metinde "rölantide" varsa devir verilmeden rölanti bandıyla değerlendirilir.
+* **Senaryolar** (11): alternatör şarj etmiyor, regülatör aşırı şarj, marşta
+  zayıf akü, dinlenmede boş akü, yüzey şarjı (yalnız not), rölantide dolu DPF,
+  yükte düşük turbo, ısınmış motorda açık termostat, rölantide hararet (fan/hava
+  akışı), yükte hararet (radyatör/pompa/termostat), motor dururken yağ basıncı
+  (sensör güvenilmez). Tetiklenen senaryo `kind=scenario` aday ekler; kanıt
+  satırı durumu ve değeri yazar, ilk kontrolü "Ne yapmalı"ya gelir.
+* Ölçüm şikâyetle çelişirse ölçüm kazanır: "hararet" denip su 62 °C ölçülürse
+  aciliyet KIRMIZI'ya çekilmez.
+
 ### 3.2 Aciliyet ve güvenlik
 
 * Aciliyet: kod ciddiyeti `drive_safety_policy.decide_risk` ile (tek otorite),
@@ -177,6 +211,7 @@ neden düğümü taşıyorsa (P0171+P0174 "iki bankta fakir") kural eklenmez.
 | `obd_mode06`, `uds_did` | Mode 06 / UDS DID | KB üzerinden erişilebilir (eski paket açıklama yolu) |
 | `canonical_symptoms` | 152 semptom | Şikâyet → aday kod, ilk kontroller |
 | `symptom_lexicon` (yeni) | 34 kayıt, 301 TR/EN ifade + güvenlik terimleri | Gündelik ifadeler |
+| `operating_scenarios` (yeni) | Akü bantları (12/24 V × durum) + 11 senaryo | Durum-bilinçli yorum (§3.1.3) |
 | `reasoning_rules` (yeni) | 6 ortak kök neden kuralı | Birden çok kodu tek nedenle açıklama (§3.1.2) |
 | `graph_title_i18n` (yeni) | 184 graf düğümü | Graf başlıklarının TR/EN gösterimi: sık ulaşılan düğümler küratörlü, OEM etiketli kalıplar ("[Kia] Faulty X") bileşen sözlüğüyle |
 | `subsystem_labels_en` (yeni) | 315 alt sistem etiketi | İngilizce cevapta `area` satırlarının adı (yalnız etiket çevirisi) |
@@ -224,10 +259,11 @@ python -m pytest tests/unit/test_copilot_*.py tests/safety/test_ai_tx_isolation.
 
 | Dosya | İçerik |
 |---|---|
-| `test_copilot_golden_scenarios.py` | 61 altın senaryo (ortak kök neden, soru cevapları, gündelik ifadeler, DTC, SPN/FMI, DM1, semptom, gösterge değeri, olumsuzluk, telemetri+kod, çelişkili kanıt, veri yok, EV/HV, fren/direksiyon, çoklu kod, yazım hatası, TR/EN, NHTSA, PGN) + 6 bölüm/ilk satır güvenlik kontrolü |
+| `test_copilot_golden_scenarios.py` | 69 altın senaryo (çalışma durumu, akü, ortak kök neden, soru cevapları, gündelik ifadeler, DTC, SPN/FMI, DM1, semptom, gösterge değeri, olumsuzluk, telemetri+kod, çelişkili kanıt, veri yok, EV/HV, fren/direksiyon, çoklu kod, yazım hatası, TR/EN, NHTSA, PGN) + 6 bölüm/ilk satır güvenlik kontrolü |
 | `test_copilot_no_fabrication.py` | Her küratörlü sorunun her cevabı (424 durum) için atıf çözümü ve sayı izlenebilirliği; atıf çözümü, sayı izlenebilirliği, yalnız verilen sinyallerde bulgu, bilinmeyen koda anlam verilmemesi, NaN/birim reddi, determinizm, yazma/TX yokluğu |
 | `test_copilot_knowledge_and_parsing.py` | KB tembelliği, indeksler, kaçırma nedenleri, ayrıştırıcı birim testleri |
 | `test_copilot_performance.py` | Kurulum < 10 ms, sıcak sorgu ort. < 150 ms (ölçülen 2–13 ms), bellek < 8 MB, arama katmanı aç/kapa |
+| `test_copilot_operating_state.py` | Durum çıkarımı, akü gerilimi duruma göre, 24 V, DPF/turbo/hararet senaryoları, yüzey şarjı |
 | `test_copilot_checks.py` | Soru hedeflerinin semptoma aitliği, bant sürekliliği, cevapla öne alma/geri itme, metinden ölçüm, etkisiz cevaplar, TR/EN |
 | `test_copilot_bridge_and_data.py` | Köprü uç noktası, `answers` doğrulaması, ek analiz anahtarı, veri kapısı, üreticilerin bayt-eşdeğerliği |
 | `tests/ui_e2e/test_workbench_ui.py::test_assistant_copilot_card_answers_free_text_read_only` | Gerçek tarayıcıda kart, güvenlik bandı, salt okuma; `test_copilot_check_answers_narrow_the_causes`, `test_copilot_session_answer_questions_are_answerable`: soru cevaplama akışı |

@@ -42,6 +42,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from src.engine.ai.knowledge_base import KnowledgeBase, fold_text
+from src.engine.ai.operating_state import OperatingState, infer_state
 from src.engine.ai.query_understanding import _SYMPTOM_SIGNAL, ParsedQuery, Reading, code_check_symptoms
 
 __all__ = [
@@ -176,7 +177,7 @@ class Hypothesis:
     id: str
     title: str
     score: float
-    kind: str                       # graph | record | suspected | area | pattern
+    kind: str                       # graph | record | suspected | area | pattern | scenario
     codes: list[str] = field(default_factory=list)
     support: list[tuple[str, str]] = field(default_factory=list)       # (text, ref)
     against: list[tuple[str, str]] = field(default_factory=list)
@@ -229,6 +230,8 @@ class Reasoning:
     check_results: list[CheckResult] = field(default_factory=list)
     # symptoms an active code points at, kept only for their questions (not "understood" complaints)
     code_symptoms: list[tuple[str, dict[str, Any]]] = field(default_factory=list)
+    state: OperatingState = field(default_factory=OperatingState)
+    scenario_notes: list[str] = field(default_factory=list)   # note-only scenario ids that fired
 
 
 # ---------------------------------------------------------------- helpers
@@ -413,7 +416,57 @@ def _fmt(v: float) -> str:
     return f"{v:g}"
 
 
-def _judge_reading(kb: KnowledgeBase, reading: Reading, rpm: float | None) -> TelemetryFinding:
+_BATTERY_STATE = {"idle": "running", "running": "running", "load": "running", "off": "off", "cranking": "cranking"}
+_STATE_TR = {"running": "motor çalışırken", "off": "motor dururken", "cranking": "marş sırasında"}
+_STATE_EN = {"running": "engine running", "off": "engine off", "cranking": "while cranking"}
+
+
+def _judge_battery(kb: KnowledgeBase, reading: Reading, state: OperatingState) -> TelemetryFinding:
+    """BatteryVoltage judged by system voltage and engine state (operator-approved bands)."""
+    base = TelemetryFinding(reading.canonical, reading.value, reading.unit, "no_threshold", reading.origin,
+                            unit_assumed=reading.unit_assumed)
+    spec = kb.operating_scenarios().get("battery_voltage") or {}
+    system = state.system_voltage or (24 if reading.value > 18 else 12)
+    bands_all = spec.get("bands_24v" if system == 24 else "bands_12v") or {}
+    if not bands_all or reading.unit not in ("V", ""):
+        return base
+    factor = 2.0 if system == 24 else 1.0
+    v12 = reading.value / factor  # only for the state guess below; bands are compared in the system's own volts
+    mode = _BATTERY_STATE.get(state.engine)
+    if mode is None:
+        # Engine state unknown: a charging-level voltage proves the engine runs; a very
+        # low one is low in every state; anything between needs the engine state.
+        if v12 >= 13.2:
+            mode = "running"
+        elif v12 < 12.0:
+            mode = "off"
+        else:
+            base.status, base.ref = "needs_context", "operating_scenarios#battery_voltage"
+            base.reference = f"{system} V: motor durumu bilinmiyor"
+            return base
+    bands = bands_all.get(mode) or []
+    v = reading.value
+    for lo, hi, status in bands:
+        if (lo is None or v >= lo) and (hi is None or v < hi):
+            base.status = status
+            break
+    normal = next(((lo, hi) for lo, hi, st in bands if st == "normal"), None)
+    rng = ""
+    if normal:
+        lo, hi = normal
+        rng = (f"normal {lo:g}–{hi:g} V" if hi is not None else f"normal ≥{lo:g} V")
+    base.ref = "operating_scenarios#battery_voltage"
+    base.reference = f"{system} V, {_STATE_TR[mode]}: {rng}".strip()
+    return base
+
+
+def _judge_reading(kb: KnowledgeBase, reading: Reading, rpm: float | None,
+                   state: OperatingState | None = None) -> TelemetryFinding:
+    state = state or OperatingState()
+    if reading.canonical == "BatteryVoltage":
+        return _judge_battery(kb, reading, state)
+    if rpm is None and state.engine == "idle" and reading.canonical == "EngineOilPressure":
+        rpm = 750.0  # "at idle" in the text selects the idle band (0-800 rpm) of the oil pressure table
     base = TelemetryFinding(reading.canonical, reading.value, reading.unit, "no_threshold", reading.origin,
                             unit_assumed=reading.unit_assumed)
     mapping = kb.signal_measurement(reading.canonical).record or {}
@@ -478,6 +531,9 @@ def _judge_reading(kb: KnowledgeBase, reading: Reading, rpm: float | None) -> Te
             else:
                 base.status = "normal"
     base.reference = "; ".join(parts) + (f" {rec.get('unit')}" if rec.get("unit") else "")
+    # Full-load boost bands say nothing at idle: below them is low only under load.
+    if reading.canonical == "BoostPressure" and base.status == "below_nominal" and state.engine != "load":
+        base.status = "needs_context" if state.engine == "unknown" else "normal"
     return base
 
 
@@ -679,6 +735,36 @@ def _common_causes(kb: KnowledgeBase, r: Reasoning, active: dict[str, CodeFact],
         hyps[ref] = h
 
 
+def _scenarios(kb: KnowledgeBase, r: Reasoning, hyps: dict[str, Hypothesis]) -> None:
+    """State-aware rules: in state S, signal X above/below V means Y (operating_scenarios.json)."""
+    st = r.state
+    if not st.known:
+        return
+    by_signal = {f.signal: f for f in r.findings}
+    for sc in kb.operating_scenarios().get("scenarios") or []:
+        when = sc.get("when") or {}
+        if when.get("engine") and st.engine not in when["engine"]:
+            continue
+        if when.get("thermal") and st.thermal not in when["thermal"]:
+            continue
+        f = by_signal.get(str(when.get("signal") or ""))
+        if f is None or f.status == "implausible":
+            continue
+        value = f.value
+        if when.get("per_12v") and (st.system_voltage or (24 if value > 18 else 12)) == 24:
+            value = value / 2.0
+        if ("lt" in when and not value < float(when["lt"])) or ("gt" in when and not value > float(when["gt"])):
+            continue
+        ref = f"operating_scenarios#{sc['id']}"
+        if sc.get("note_only"):
+            r.scenario_notes.append(str(sc["id"]))
+            continue
+        marker = f"scenario:{sc['id']}|{st.engine}|{st.thermal}|{f.signal}|{_fmt(f.value)}|{f.unit}"
+        h = Hypothesis(ref, str(sc.get("title_tr") or sc["id"]), 3.0 + (0.5 if f.abnormal else 0.0), "scenario",
+                       support=[(marker, ref)], refs=[ref])
+        hyps[ref] = h
+
+
 def _build_hypotheses(kb: KnowledgeBase, r: Reasoning) -> None:
     by_signal = {f.signal: f for f in r.findings}
     hyps: dict[str, Hypothesis] = {}
@@ -747,6 +833,9 @@ def _build_hypotheses(kb: KnowledgeBase, r: Reasoning) -> None:
                 h.score += 0.5
                 h.support.append((f"complaint_signal:{sid}|{implied}", f"root_cause_graph#{node.id}"))
 
+    # (3a) what the readings mean in the operating state they were taken in
+    _scenarios(kb, r, hyps)
+
     # (3b) several active codes explained by one shared fault
     if len(active) >= 1:
         _common_causes(kb, r, active, hyps)
@@ -797,7 +886,7 @@ def _build_hypotheses(kb: KnowledgeBase, r: Reasoning) -> None:
             h.likelihood = round(e / total, 3) if h.kind != "area" and informative else 0.0
             has_code = any(s.startswith("code:") for s, _ in h.support)
             has_signal = any(s.startswith("signal:") for s, _ in h.support)
-            has_check = any(s.startswith("check:") for s, _ in h.support)
+            has_check = any(s.startswith(("check:", "scenario:")) for s, _ in h.support)
             if has_code and has_signal and not h.against:
                 h.confidence = "high"
             elif (has_code and h.kind in ("graph", "pattern") and not h.against) or ((has_signal or has_check) and not h.against):
@@ -902,12 +991,13 @@ def reason(parsed: ParsedQuery, kb: KnowledgeBase, *, include_recalls: bool = Tr
     # telemetry
     rpm_reading = next((x for x in parsed.readings if x.canonical == "EngineSpeed"), None)
     rpm = rpm_reading.value if rpm_reading else None
+    r.state = infer_state(parsed)
     for reading in parsed.readings:
         if reading.canonical in HV_SIGNALS:
             r.findings.append(TelemetryFinding(reading.canonical, reading.value, reading.unit, "no_threshold",
                                                reading.origin, unit_assumed=reading.unit_assumed))
             continue
-        r.findings.append(_judge_reading(kb, reading, rpm))
+        r.findings.append(_judge_reading(kb, reading, rpm, r.state))
     hv = _hv_isolation_finding(kb, {x.canonical: x for x in parsed.readings})
     if hv is not None:
         r.findings.append(hv)
@@ -929,6 +1019,10 @@ def reason(parsed: ParsedQuery, kb: KnowledgeBase, *, include_recalls: bool = Tr
     for f in r.findings:
         if f.signal in BRAKE_AIR_SIGNALS and f.status in ("low", "critical_low"):
             risk = "RED"
+            r.risk_reasons.append((f"signal:{f.signal}|{_fmt(f.value)}|{f.unit}|{f.status}", f.ref))
+        elif f.signal == "BatteryVoltage" and f.abnormal:
+            # a battery/charging fault strands the vehicle but is not a stop-now hazard by itself
+            risk = _raise_risk(risk, "YELLOW")
             r.risk_reasons.append((f"signal:{f.signal}|{_fmt(f.value)}|{f.unit}|{f.status}", f.ref))
         elif f.status in ("critical_high", "critical_low"):
             risk = "RED"
@@ -989,7 +1083,9 @@ def reason(parsed: ParsedQuery, kb: KnowledgeBase, *, include_recalls: bool = Tr
             r.risk_reasons.append((f"stop_safety:{cat}", "symptom_lexicon#safety_terms"))
     measured = {f.signal: f.status for f in r.findings}
     for sid in sorted(sids & STOP_SYMPTOMS):
-        if measured.get(_SYMPTOM_SIGNAL.get(sid, "")) in ("normal", "above_nominal"):
+        status = measured.get(_SYMPTOM_SIGNAL.get(sid, ""))
+        # a measured value that contradicts the complaint (a cool engine said to be overheating) wins
+        if status in ("normal", "above_nominal") or (sid == "engine-overheating" and status in ("below_nominal", "low")):
             continue
         risk = "RED"
         r.risk_reasons.append((f"stop_complaint:{sid}", f"canonical_symptoms#{sid}"))

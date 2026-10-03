@@ -93,8 +93,19 @@ SCENARIOS: list[tuple[str, dict[str, Any], dict[str, Any]]] = [
     ("nodata_gibberish", {"text": "asdf qwerty"}, {"risk": "GRAY", "no_causes": True}),
     ("nodata_unknown_dtc", {"text": "B3FFF"}, {"risk": "GRAY", "no_causes": True, "summary": "veritabaninda yok"}),
     ("nodata_unknown_signal", {"text": "", "telemetry": {"FluxCapacitor": 1.21}}, {"no_causes": True, "missing": ["unknown:FluxCapacitor"]}),
-    ("nodata_battery_no_threshold", {"text": "akü voltajı 11.8V"},
-     {"finding": ("BatteryVoltage", "no_threshold"), "no_causes": True, "summary": "11.8"}),
+    ("battery_low_any_state", {"text": "akü voltajı 11.8V"},
+     {"finding": ("BatteryVoltage", "low"), "no_causes": True, "summary": "11.8"}),
+    ("battery_running_not_charging", {"text": "motor çalışırken akü voltajı 12.3 V"},
+     {"finding": ("BatteryVoltage", "low"), "top": "alternator sarj etmiyor", "risk": "YELLOW"}),
+    ("battery_rest_healthy", {"text": "kontak kapalı akü voltajı 12.6 V"},
+     {"finding": ("BatteryVoltage", "normal"), "no_causes": True}),
+    ("battery_24v_running", {"telemetry": {"BatteryVoltage": 28.2, "EngineSpeed": 700}},
+     {"finding": ("BatteryVoltage", "normal")}),
+    ("battery_state_unknown", {"text": "akü voltajı 12.5 V"},
+     {"finding": ("BatteryVoltage", "needs_context"), "missing": ["state:engine"]}),
+    ("scenario_dpf_idle", {"text": "rölantide dpf fark basıncı 8 kPa"}, {"top": "dpf dolu"}),
+    ("scenario_dpf_load", {"text": "tam gazda dpf fark basıncı 8 kPa"},
+     {"finding": ("DPFDiffPressure", "normal"), "not_top": "dpf dolu"}),
     # ---- EV / HV safety --------------------------------------------------
     ("ev_p0aa6_code", {"dtcs": ["P0AA6"]}, {"risk": "RED", "safety": ["high_voltage"], "top": "izolasyon"}),
     ("ev_isolation_complaint", {"text": "izolasyon arızası"}, {"safety": ["high_voltage"], "risk": "YELLOW"}),
@@ -118,7 +129,10 @@ SCENARIOS: list[tuple[str, dict[str, Any], dict[str, Any]]] = [
     ("typo_en", {"text": "engine overheting"}, {"lang": "en", "symptoms": ["engine-overheating"], "corrected": True}),
     # ---- Turkish free text with a value ---------------------------------
     ("tr_power_loss_boost", {"text": "motor çekmiyor, turbo basıncı 1.2 bar"},
-     {"symptoms": ["turbo-underboost-power-loss"], "finding": ("BoostPressure", "below_nominal")}),
+     {"symptoms": ["turbo-underboost-power-loss"], "finding": ("BoostPressure", "needs_context"),
+      "missing": ["signal:EngineSpeed"]}),
+    ("tr_power_loss_boost_load", {"text": "yükte motor çekmiyor, turbo basıncı 1.2 bar"},
+     {"finding": ("BoostPressure", "below_nominal"), "top": "yukte turbo basinci dusuk"}),
     # ---- recall section / PGN -------------------------------------------
     ("recall_ford_brakes", {"text": "Ford Escape fren tutmuyor"}, {"safety": ["brakes"], "recalls": True}),
     ("pgn_lookup", {"text": "PGN 65262 nedir"}, {"pgn": 65262}),
@@ -168,6 +182,8 @@ def test_golden_scenario(sid: str, kwargs: dict[str, Any], exp: dict[str, Any], 
     if "top" in exp:
         assert causes, "expected a leading cause"
         assert exp["top"] in fold_text(causes[0]["title"]), causes[0]["title"]
+    if "not_top" in exp:
+        assert not causes or exp["not_top"] not in fold_text(causes[0]["title"]), causes[0]["title"]
     if "conf" in exp:
         assert causes and causes[0]["confidence"] in exp["conf"], causes[0]["confidence"] if causes else None
     if exp.get("top_has_against"):

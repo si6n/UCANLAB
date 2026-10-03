@@ -73,6 +73,7 @@ SOURCE_FILES: dict[str, str] = {
     "subsystem_labels_en": "diagnostics/subsystem_labels_en.json",
     "graph_title_i18n": "diagnostics/graph_title_i18n.json",
     "reasoning_rules": "diagnostics/reasoning_rules.json",
+    "operating_scenarios": "diagnostics/operating_scenarios.json",
     "root_cause_graph": "diagnostics/root_cause_graph.json",
     "signal_aliases": "diagnostics/signal_aliases.json",
     "signal_measurement_map": "diagnostics/signal_measurement_map.json",
@@ -484,6 +485,15 @@ class KnowledgeBase:
             return Lookup.miss("canonical_symptoms", symptom_id)
         return Lookup(True, "canonical_symptoms", symptom_id, rec)
 
+    def operating_scenarios(self) -> dict[str, Any]:
+        """State-aware judgement data: battery bands per state + scenario rules (``{}`` when absent)."""
+        data = self._json_source("operating_scenarios")
+        return data if isinstance(data, dict) else {}
+
+    def operating_scenario(self, scenario_id: str) -> dict[str, Any] | None:
+        return next((s for s in self.operating_scenarios().get("scenarios") or []
+                     if isinstance(s, dict) and s.get("id") == scenario_id), None)
+
     def reasoning_rules(self) -> list[dict[str, Any]]:
         """Curated common-cause rules over several active codes (``[]`` when absent)."""
         data = self._json_source("reasoning_rules")
@@ -810,6 +820,9 @@ class KnowledgeBase:
         if source == "symptom_lexicon":
             lex = self._json_source("symptom_lexicon")
             return (key == "safety_terms" and isinstance(lex, dict) and "safety_terms" in lex) or self.symptom(key).found
+        if source == "operating_scenarios":
+            return key == "battery_voltage" and bool(self.operating_scenarios().get("battery_voltage")) \
+                or self.operating_scenario(key) is not None
         if source == "reasoning_rules":
             return self.reasoning_rule(key) is not None
         if source == "graph_title_i18n":
