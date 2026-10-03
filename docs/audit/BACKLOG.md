@@ -178,3 +178,7 @@ Kaynak: `docs/audit/AUDIT_2026-10-03.md`. Kimlikler raporla aynı.
   yönlendir; `CausalBayesianInferenceEngine` sorgu-anahtar kelimesinden DTC uydurmasın.
 - S4-03: "ölçülmedi" ile "ölçülen 0 / eksi değer"i ayrı tut (`_live_telemetry_snapshot`).
 - S4-04: kara kutu parçalarına sıra numarası ve önceki parçanın MAC'iyle zincir.
+
+### B-22 (DÜŞÜK) — Çekirdek adlandırma ve sabitler (S5-02, S5-03)
+- `src/core/exceptions.py` → `src/core/transport_errors.py` (eski adı uyumluluk için yeniden dışa aktararak).
+- Bulut User-Agent'ını `__version__`'dan üret (sunucu UA kontrolü yapmıyorsa).
