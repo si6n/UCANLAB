@@ -235,6 +235,12 @@ yapabildikleri):
 | `cause_node_without_evidence_signal` | 6.167 düğüm (%69,4) | Doğrulanacak sinyal adı yok → yalnız metin |
 | `measurement_signal_without_threshold` | 17 / 24 sinyal | Sinyal çözülüyor ama "iyi mi kötü mü" cevaplanamıyor |
 
+Staged düzenler ayrıca vendor DBC ile **yapı düzeyinde** çapraz doğrulanır
+(`pgn_layout_dbc_corroborated` / `pgn_layout_dbc_mismatch`). Karşılaştırma
+**PGN başına** yapılır: canboat TP.CM (60416) gibi mesajlar için birden çok YAML
+düzeni yayımlar, DBC ise birleşik tek mesaj tutar — kayıt başına sayım yanlış
+alarm üretir.
+
 Çapraz referans tamlığı ise **temiz**: grafikteki 5.589 DTC ve 1.590 SPN
 referansının tamamı DB'de karşılık buluyor (0 sarkan referans) — test bunu
 kapı olarak sabitler.

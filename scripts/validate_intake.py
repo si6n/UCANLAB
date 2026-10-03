@@ -1671,11 +1671,101 @@ def check_quarantine_invariants(repo_root: Path, rep: Report) -> None:
 
 
 # --------------------------------------------------------------------------- #
-# promotion readiness: what can actually be merged this week
+# staged PGN layouts vs the vendored DBC (independent cross-check)
 # --------------------------------------------------------------------------- #
+DBC_MESSAGE_RE = re.compile(r"^BO_\s+(\d+)\s+(\S+)\s*:\s*(\d+)\s+(\S+)", re.MULTILINE)
+DBC_SIGNAL_RE = re.compile(r"^\s+SG_\s+(\S+)\s*:", re.MULTILINE)
+
+
+def _dbc_pgn(can_id: int) -> int:
+    """J1939/NMEA-2000 PGN from a DBC message id (PDU1 destination byte excluded)."""
+    if can_id <= 0x7FF:
+        return can_id
+    pgn = (can_id >> 8) & 0x3FFFF
+    return pgn & 0x3FF00 if ((can_id >> 16) & 0xFF) < 240 else pgn
+
+
+def dbc_message_signals(dbc_path: Path) -> dict[int, list[str]]:
+    """``{pgn: [signal names]}`` for one vendored DBC file."""
+    text = dbc_path.read_text(encoding="utf-8", errors="replace")
+    signals: dict[int, list[str]] = {}
+    current: int | None = None
+    for line in text.splitlines():
+        message = DBC_MESSAGE_RE.match(line)
+        if message:
+            current = _dbc_pgn(int(message.group(1)))
+            signals.setdefault(current, [])
+            continue
+        signal = DBC_SIGNAL_RE.match(line)
+        if signal and current is not None:
+            signals[current].append(signal.group(1))
+    return signals
+
+
+def check_pgn_layout_consistency(records: list[Record], repo_root: Path, rep: Report) -> None:
+    """Compare staged layouts with the DBC message that decodes them.
+
+    Two independent vendored representations of the same upstream statement: the
+    YAML layout (staged here) and ``data/dbc/heavy_duty/j1939_canboat.dbc``. Where
+    both exist they must not disagree about how many signals the message carries.
+
+    Granularity differs between them and that matters: canboat ships one YAML
+    layout per (PGN, sub-function/variant) — TP.CM (60416) has five — while the
+    DBC models one message per PGN holding the union of them. Counting per record
+    reports five phantom mismatches, so the comparison is per PGN over all staged
+    layouts for that PGN. A PGN with no DBC message is reported, not failed: the
+    layout is still legitimate upstream text (a "not yet reverse engineered"
+    placeholder or a proprietary range with no public definition).
+    """
+    dbc_path = repo_root / Path("data") / "dbc" / "heavy_duty" / "j1939_canboat.dbc"
+    if not dbc_path.is_file():
+        rep.add("INFO", "pgn_consistency", "vendor DBC yok — düzen karşılaştırması atlandı")
+        return
+    signals = dbc_message_signals(dbc_path)
+    per_pgn: dict[int, list[tuple[str, int]]] = {}
+    for record in records:
+        if record.record_type != "pgn_layout":
+            continue
+        pgn = record.payload.get("pgn")
+        if not isinstance(pgn, int):
+            continue
+        per_pgn.setdefault(pgn, []).append((record.rel_path, len(record.payload.get("fields") or [])))
+    corroborated = mismatch = without = 0
+    for pgn, layouts in sorted(per_pgn.items()):
+        total_fields = sum(count for _rel, count in layouts)
+        dbc_signals = signals.get(pgn)
+        if not dbc_signals:
+            without += len(layouts)
+            for rel, count in layouts:
+                rep.add("WARN", "pgn_layout_without_dbc",
+                        f"{rel}: PGN {pgn} için DBC'de mesaj yok ({count} alan) — "
+                        f"placeholder ya da proprietary aralık")
+            continue
+        delta = abs(len(dbc_signals) - total_fields)
+        if delta > max(2, 0.4 * max(len(dbc_signals), total_fields)):
+            mismatch += len(layouts)
+            for rel, count in layouts:
+                rep.add("WARN", "pgn_layout_dbc_mismatch",
+                        f"{rel}: PGN {pgn} düzenleri toplam {total_fields} alan, DBC "
+                        f"{len(dbc_signals)} sinyal — iki temsil ayrışıyor")
+        else:
+            corroborated += len(layouts)
+            if len(layouts) > 1:
+                rep.metrics["pgn_layout_variant_groups"] = (
+                    rep.metrics.get("pgn_layout_variant_groups", 0) + 1
+                )
+    rep.metrics["pgn_layout_dbc_corroborated"] = corroborated
+    rep.metrics["pgn_layout_dbc_mismatch"] = mismatch
+    rep.metrics["pgn_layout_without_dbc"] = without
+    rep.add("INFO", "pgn_consistency",
+            f"PGN düzeni ↔ DBC: {corroborated} çapraz doğrulandı, {mismatch} ayrışma, "
+            f"{without} DBC'de karşılığı yok")
+
+
 def _spn_reference_ready(payload: dict[str, Any]) -> bool:
     """Name + unit + two independent sources: enough to write an SPN record."""
-    return bool(payload.get("names_en")) and bool(payload.get("units")) and len(payload.get("sources") or []) >= 2
+    return bool(payload.get("names_en")) and bool(payload.get("units")) \
+        and len(payload.get("sources") or []) >= 2
 
 
 def _pgn_layout_ready(payload: dict[str, Any]) -> bool:
@@ -1858,6 +1948,7 @@ def run(root: Path | None = None, intake_dir: Path | None = None, report_path: s
 
     check_manifest_against_files(records, target, manifest, rep)
     report_conflicts(records, repo_root, rep)
+    check_pgn_layout_consistency(records, repo_root, rep)
     report_promotion_readiness(records, rep)
     check_quarantine_invariants(repo_root, rep)
 

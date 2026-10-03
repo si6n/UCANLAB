@@ -522,3 +522,26 @@ def test_validator_rejects_two_sources_without_corroborated_confidence() -> None
     rep = _Report()
     validate_envelope(record, "spn_ref/x.json", rep)
     assert any("corroborated" in d for lv, _c, d in rep.rows if lv == "FAIL")
+
+
+def test_staged_layouts_are_corroborated_by_the_vendored_dbc() -> None:
+    """Third cross-check: the YAML layouts must agree with the DBC that decodes them."""
+    rep = run(root=ROOT, quiet=True)
+    assert rep.count("FAIL") == 0, [d for lv, _c, d in rep.rows if lv == "FAIL"]
+    assert rep.metrics.get("pgn_layout_dbc_corroborated", 0) > 0
+    assert rep.metrics.get("pgn_layout_dbc_mismatch", 0) == 0, \
+        [d for _lv, check, d in rep.rows if check == "pgn_layout_dbc_mismatch"]
+    # canboat ships one YAML layout per (PGN, variant); those groups are expected.
+    assert rep.metrics.get("pgn_layout_variant_groups", 0) >= 1
+    assert any(check == "pgn_consistency" for _lv, check, _d in rep.rows)
+
+
+def test_dbc_pgn_derivation_excludes_pdu1_destination_byte() -> None:
+    """PDU1 (PF < 240) carries a destination byte that is not part of the PGN."""
+    from scripts.validate_intake import dbc_message_signals
+
+    signals = dbc_message_signals(ROOT / "data" / "dbc" / "heavy_duty" / "j1939_canboat.dbc")
+    assert signals, "the vendored DBC must parse"
+    assert 65226 in signals, "DM1 (PGN 65226) must be found"
+    # ISO Address Claim (60928) is PDU1: 0x18EEFF28 and 0x09EEFF28 are the same PGN
+    assert 60928 in signals

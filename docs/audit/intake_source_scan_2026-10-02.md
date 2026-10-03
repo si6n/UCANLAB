@@ -451,6 +451,32 @@ olmayan listeyi hiç sahalamıyor ve doğrulayıcı boş `divergences` dizisini 
 ile reddediyor. (Ayrıca not: "katmanda saklanan metin = VOLKSWAGEN'inki" —
 yani DB'nin hayatta kalan metni çoğunlukla VW listesinden geliyor. 4b.)
 
+## 4m. Üçüncü çapraz doğrulama: staged düzenler ↔ vendor DBC
+
+4k'de SPN referanslarını iki temsille doğruladık. Aynı mantığı **yapı düzeyinde**
+uyguladık: `data/dbc/heavy_duty/j1939_canboat.dbc` her mesaj için sinyal
+listesi taşıyor, staged `pgn_layout` kayıtları ise alan listesi. Karşılaştırma
+sonucu:
+
+| Ölçüm | Değer |
+|---|---|
+| Staged PGN düzeni | 84 kayıt / 79 ayrı PGN |
+| DBC'deki J1939 mesaj | 81 |
+| **Çapraz doğrulanan** | **84** (0 ayrışma) |
+| Varyant grubu (aynı PGN'in birden çok YAML düzeni) | 2 (PGN 59392, PGN 60416) |
+
+Bu kontrol ilk çalıştırmada **6 yanlış alarm** üretti ve bu bir hataydı, veri
+hatası değil: canboat TP.CM (PGN 60416) için **beş ayrı YAML düzeni** yayımlar
+(her alt-fonksiyon için), DBC ise PGN başına **tek mesaj** tutar (tüm alt
+fonksiyonların birleşimi). Kayıt başına sayım beş hayalet uyuşmazlık
+üretiyordu. Doğru karşılaştırma **PGN başına, o PGN'in tüm staged düzenlerinin
+toplamı** üzerinden yapılıyor; kural kalıcı olarak böyle yazıldı ve testlerde
+sabitlendi.
+
+Kapı artık üç bağımsız temsili çapraz denetliyor: YAML alan düzeni ↔ DBC sinyal
+listesi (yapı), YAML metni ↔ DBC `CM_ SG_` yorumu (ad/SPN) ve upstream ↔ KB
+(çakışma raporu).
+
 ### Hangi üreticinin metni hayatta kaldı? (ölçüm)
 
 Katmandaki metnin **her kod için** tam olarak bir kaynak satırına eşit olduğu
