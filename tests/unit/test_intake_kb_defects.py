@@ -275,3 +275,50 @@ def test_every_detector_is_registered_and_runs() -> None:
     codes = {f["code"] for f in measure(ROOT)}
     assert codes == set(DETECTORS), "a detector missing from the registry never reaches the gate"
     assert len(codes) >= 10
+
+
+# --------------------------------------------------------------------------- #
+# capability detectors (graph coverage, evidence signals, thresholds)
+# --------------------------------------------------------------------------- #
+def test_graph_coverage_detector_measures_by_reference_not_node_count() -> None:
+    finding = DETECTORS["root_cause_graph_dtc_coverage"](ROOT)
+    assert finding["severity"] == "medium"
+    assert finding["affected_count"] > 0
+    assert "/" in finding["summary"] and "%" in finding["summary"]
+    # every DTC reference the graph makes must exist (no dangling refs)
+    assert finding.get("spn_references_checked", 0) > 0
+    assert all({"code"} <= set(e) for e in finding["examples"])
+
+
+def test_evidence_signal_detector_counts_empty_nodes() -> None:
+    finding = DETECTORS["cause_node_without_evidence_signal"](ROOT)
+    assert finding["severity"] == "low"
+    assert finding["affected_count"] > 0
+    assert all({"id", "title"} <= set(e) for e in finding["examples"])
+
+
+def test_threshold_detector_lists_signals_without_thresholds() -> None:
+    finding = DETECTORS["measurement_signal_without_threshold"](ROOT)
+    assert finding["severity"] == "medium"
+    assert finding["affected_count"] > 0
+    assert all({"canonical", "unit"} <= set(e) for e in finding["examples"])
+
+
+def test_no_detector_reports_a_dangling_cross_reference() -> None:
+    """Cross-references the repo can walk must all resolve — that is a hard gate."""
+    import json as _json
+
+    graph = _json.loads((ROOT / "data" / "diagnostics" / "root_cause_graph.json").read_text(encoding="utf-8"))
+    codes = set(_json.loads((ROOT / "data" / "diagnostics" / "dtc_database.json").read_text(encoding="utf-8")))
+    spns = set(_json.loads((ROOT / "data" / "diagnostics" / "j1939_spn_fmi_database.json")
+                           .read_text(encoding="utf-8"))["spns"])
+    import re as _re
+
+    for node in graph["nodes"]:
+        for ref in node.get("expected_dtcs") or []:
+            text = str(ref).strip()
+            if _re.fullmatch(r"[PBCU][0-9A-F]{4}", text):
+                assert text in codes, text
+            match = _re.fullmatch(r"SPN\s+(\d+)", text)
+            if match:
+                assert f"SPN_{match.group(1)}" in spns, text

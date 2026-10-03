@@ -196,7 +196,7 @@ python scripts/intake_kb_defects.py --stage-gaps --apply   # kaynak başına bo�
 python scripts/intake_scan_sources.py --stage-spn --apply   # SPN referansları
 ```
 
-**10 dedektor** (2026-10-02 ölçümü) — kanıt zinciri:
+**13 dedektor** (2026-10-02 ölçümü) — kanıt zinciri:
 
 | Dedektor | Etkilenen | Öncelik |
 |---|---|---|
@@ -210,10 +210,25 @@ python scripts/intake_scan_sources.py --stage-spn --apply   # SPN referansları
 | `dtc_severity_unknown_and_unclassed` | 1.756 | medium |
 | `dtc_missing_title_tr` | 13.971 | low (bilinen kapsam eksiği) |
 | `dtc_missing_symptoms` | 13.209 | low (bilgi eksiği) |
+| `root_cause_graph_dtc_coverage` | 8.895 | medium (neden zinciri yok) |
+| `cause_node_without_evidence_signal` | 6.167 | low (doğrulanabilir sinyal yok) |
+| `measurement_signal_without_threshold` | 17 | medium (eşik tanımı yok) |
 
-Son iki dedektor **ürünün neyi cevaplayabildiğini** ölçer: 1.756 kod sınıflandırma
-ve şiddet geçişinde atlanmış (hepsi `UNKNOWN` + `NoClass`, yani rastgele değil
-sistematik), 13.209 kodun semptom metni yok (semptom→DTC eşleştirici için boş).
+Ölçüm iki aileden oluşur: **kanıt zinciri** (lisans/izlenebilirlik, kayıt alanı
+kalitesi, çapraz referans bütünlüğü) ve **yetkinlik** (copilotun gerçekte
+yapabildikleri):
+
+| Yetkinlik ölçümü | Değer | Anlamı |
+|---|---|---|
+| `dtc_severity_unknown_and_unclassed` | 1.756 (%12,1) | Şiddet ve sınıf aynı kayıtlarda placeholder → **sistematik** atlanmış küme |
+| `dtc_missing_symptoms` | 13.209 (%91,2) | Semptom→DTC eşleştiricinin metni yok |
+| `root_cause_graph_dtc_coverage` | 8.895 (%61,4) | Neden zinciri kurulamayan kod |
+| `cause_node_without_evidence_signal` | 6.167 düğüm (%69,4) | Doğrulanacak sinyal adı yok → yalnız metin |
+| `measurement_signal_without_threshold` | 17 / 24 sinyal | Sinyal çözülüyor ama "iyi mi kötü mü" cevaplanamıyor |
+
+Çapraz referans tamlığı ise **temiz**: grafikteki 5.589 DTC ve 1.590 SPN
+referansının tamamı DB'de karşılık buluyor (0 sarkan referans) — test bunu
+kapı olarak sabitler.
 
 `--stage` **kaydı asla sessizce ezmaz**: ölçüm değiştiyse hata verir ve
 `--refresh` ile bilinçli kabul gerekir. Ölçümler girdi dosyalarının

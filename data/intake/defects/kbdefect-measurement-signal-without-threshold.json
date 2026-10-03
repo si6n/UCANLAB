@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "intake_id": "kbdefect-measurement-signal-without-threshold",
+  "record_type": "kb_defect",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "automated",
+    "id": "scripts/intake_kb_defects.py",
+    "role": "author"
+  },
+  "source": {
+    "title": "Kendi verimizden ölçüm: 17/24 ölçüm sinyali için eşik tanımı yok (telemetry_thresholds.json'da 7 sinyal var)",
+    "path": "data/diagnostics/signal_measurement_map.json (repo içi ölçüm; sha256 kayıt altındadır)",
+    "type": "internal_kb",
+    "publisher": "UCanLab intake",
+    "revision": null,
+    "licence": "project-internal",
+    "access_date": "2026-10-02",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": "e43fb6a3cad21f94a131fa9889149b8aedc698681b7c77b790e376d9ba2e0a3d",
+      "bytes": 31850,
+      "pages_cited": []
+    }
+  },
+  "confidence": "corroborated",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "defect_code": "measurement_signal_without_threshold",
+    "severity": "medium",
+    "summary": "17/24 ölçüm sinyali için eşik tanımı yok (telemetry_thresholds.json'da 7 sinyal var)",
+    "why_it_matters": "Sinyal çözülüyor ama 'iyi mi kötü mü' sorusu cevaplanamıyor: eşik olmadan canlı değer değerlendirilemez. İsim uyumu ayrıca kontrol edilir: eşik anahtarı ölçüm sözlüğündeki kanonik adla eşleşmeli.",
+    "target_file": "data/diagnostics/signal_measurement_map.json",
+    "target_sha256": "e43fb6a3cad21f94a131fa9889149b8aedc698681b7c77b790e376d9ba2e0a3d",
+    "detector_expression": "not signal.get('threshold_key') or threshold_key not in telemetry_thresholds",
+    "affected_count": 17,
+    "examples": [
+      {
+        "canonical": "BatteryVoltage",
+        "unit": "V",
+        "aliases": [
+          "SystemVoltage",
+          "ModuleVoltage"
+        ]
+      },
+      {
+        "canonical": "FuelPressure",
+        "unit": "kPa",
+        "aliases": [
+          "FuelRailPressure",
+          "RailPressure"
+        ]
+      },
+      {
+        "canonical": "DPFDiffPressure",
+        "unit": "kPa",
+        "aliases": [
+          "DPFPressure"
+        ]
+      },
+      {
+        "canonical": "DPFSootLoad",
+        "unit": "%",
+        "aliases": [
+          "SootLoad"
+        ]
+      },
+      {
+        "canonical": "EngineOilTemp",
+        "unit": "°C",
+        "aliases": [
+          "OilTemp"
+        ]
+      }
+    ]
+  },
+  "notes": "Düzeltme intake'ten yapılmaz: bu kayıt yalnız ölçümü ve tespit ifadesini saklar. validate_intake.py her çalıştırmada dedektörü yeniden çalıştırır; sayı değişirse WARN (drift), sıfırlanırsa kapanmış sayılır."
+}

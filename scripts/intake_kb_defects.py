@@ -605,9 +605,98 @@ def detect_dtc_missing_symptoms(root: Path = ROOT) -> dict[str, Any]:
     }
 
 
+ROOT_CAUSE_GRAPH = Path("data") / "diagnostics" / "root_cause_graph.json"
+MEASUREMENT_MAP_FILE = Path("data") / "diagnostics" / "signal_measurement_map.json"
+TELEMETRY_FILE = Path("data") / "diagnostics" / "telemetry_thresholds.json"
+DTC_CODE_FULL_RE = re.compile(r"^[PBCU][0-9A-F]{4}$")
+
+
+def detect_root_cause_graph_dtc_coverage(root: Path = ROOT) -> dict[str, Any]:
+    """DTC codes that no cause node references: no chain for the copilot to walk.
+
+    The graph is cause-keyed (nodes point at ``expected_dtcs``), so coverage has to
+    be measured by walking the references — not by counting nodes.
+    """
+    nodes = _load(root / ROOT_CAUSE_GRAPH).get("nodes") or []
+    dtc_codes = set(_load(root / DTC_DB))
+    referenced: set[str] = set()
+    spn_refs: set[int] = set()
+    for node in nodes:
+        if not isinstance(node, dict):
+            continue
+        for ref in node.get("expected_dtcs") or []:
+            text = str(ref).strip()
+            if DTC_CODE_FULL_RE.match(text):
+                referenced.add(text)
+            match = re.fullmatch(r"SPN\s+(\d+)", text)
+            if match:
+                spn_refs.add(int(match.group(1)))
+    uncovered = sorted(dtc_codes - referenced)
+    return {
+        "code": "root_cause_graph_dtc_coverage",
+        "severity": "medium",
+        "summary": (f"{len(referenced)}/{len(dtc_codes)} DTC kodu bir neden düğümünde "
+                    f"referans veriyor (%{round(100 * len(referenced) / max(len(dtc_codes), 1), 1)}); "
+                    f"{len(uncovered)} kod için neden zinciri yok ({len(nodes)} düğüm)"),
+        "why_it_matters": ("Kök neden zinciri yalnız referans verilen kodlarda kurulabilir. "
+                           "Kapsanmayan kodlarda copilot yalnız metin yanıtlar; 'neden olur' "
+                           "sorusunda zincir kurulamaz. Ölçüm referans taramasıyla yapılır "
+                           "(düğüm sayısı kapsam değildir) ve referansların tamamı DB'de "
+                           "karşılık bulur — yani eksiklik üretim değil, kapsam eksiğidir."),
+        "expression": "DTC codes absent from every node's expected_dtcs",
+        **_target(DTC_DB),
+        "affected_count": len(uncovered),
+        "examples": [{"code": code} for code in uncovered[:EXAMPLE_LIMIT]],
+        "spn_references_checked": len(spn_refs),
+    }
+
+
+def detect_cause_node_without_evidence_signal(root: Path = ROOT) -> dict[str, Any]:
+    """Cause nodes that name no signal: the copilot has nothing to check against."""
+    nodes = _load(root / ROOT_CAUSE_GRAPH).get("nodes") or []
+    empty = [n for n in nodes if isinstance(n, dict) and not (n.get("evidence_signals") or [])]
+    return {
+        "code": "cause_node_without_evidence_signal",
+        "severity": "low",
+        "summary": f"{len(empty)}/{len(nodes)} neden düğümü hiç sinyal adı taşımıyor "
+                   f"(evidence_signals boş)",
+        "why_it_matters": ("Bir nedeni doğrulamak için sinyal gerekir; sinyal adı olmayan "
+                           "düğüm yalnız metin düzeyinde kalır, canlı değerle karşılaştırılamaz."),
+        "expression": "not node.get('evidence_signals')",
+        **_target(ROOT_CAUSE_GRAPH),
+        "affected_count": len(empty),
+        "examples": [{"id": n.get("id"), "title": n.get("title"),
+                      "expected_dtcs": (n.get("expected_dtcs") or [])[:3]} for n in empty[:EXAMPLE_LIMIT]],
+    }
+
+
+def detect_measurement_signal_without_threshold(root: Path = ROOT) -> dict[str, Any]:
+    """Signals the copilot knows but cannot judge: no telemetry threshold."""
+    signals = _load(root / MEASUREMENT_MAP_FILE).get("signals") or []
+    thresholds = set((_load(root / TELEMETRY_FILE).get("signals") or {}))
+    without = [s for s in signals if not s.get("threshold_key") or s["threshold_key"] not in thresholds]
+    return {
+        "code": "measurement_signal_without_threshold",
+        "severity": "medium",
+        "summary": f"{len(without)}/{len(signals)} ölçüm sinyali için eşik tanımı yok "
+                   f"(telemetry_thresholds.json'da {len(thresholds)} sinyal var)",
+        "why_it_matters": ("Sinyal çözülüyor ama 'iyi mi kötü mü' sorusu cevaplanamıyor: eşik "
+                           "olmadan canlı değer değerlendirilemez. İsim uyumu ayrıca kontrol "
+                           "edilir: eşik anahtarı ölçüm sözlüğündeki kanonik adla eşleşmeli."),
+        "expression": "not signal.get('threshold_key') or threshold_key not in telemetry_thresholds",
+        **_target(MEASUREMENT_MAP_FILE),
+        "affected_count": len(without),
+        "examples": [{"canonical": s.get("canonical"), "unit": s.get("unit"),
+                      "aliases": (s.get("aliases") or [])[:3]} for s in without[:EXAMPLE_LIMIT]],
+    }
+
+
 Detector = Callable[[Path], dict[str, Any]]
 DETECTORS: dict[str, Detector] = {
+    "cause_node_without_evidence_signal": detect_cause_node_without_evidence_signal,
     "dtc_missing_symptoms": detect_dtc_missing_symptoms,
+    "measurement_signal_without_threshold": detect_measurement_signal_without_threshold,
+    "root_cause_graph_dtc_coverage": detect_root_cause_graph_dtc_coverage,
     "dtc_severity_unknown_and_unclassed": detect_dtc_severity_unknown_and_unclassed,
     "kb_source_value_not_in_provenance_doc": detect_kb_source_value_not_in_provenance_doc,
     "j1939_source_without_licence": detect_j1939_source_without_licence,

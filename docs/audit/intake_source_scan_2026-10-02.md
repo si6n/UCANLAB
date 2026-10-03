@@ -15,7 +15,7 @@ Dal: `ccr-intake`. Bu rapor **keşif kanıtıdır**; `data/diagnostics` ve
 | Intake'e sahaya alınan `pgn_layout` kaydı | **84** |
 | Intake'e sahaya alınan `oem_divergence` kaydı | **37** (5.922 ayrışma satırı) |
 | Intake'e sahaya alınan `spn_reference` kaydı | **168** (66 terfi adayı + 102 uzlaştırma) |
-| Intake'e sahaya alınan `kb_defect` kaydı | **10** (kendi verimizden ölçülmüş kusur) |
+| Intake'e sahaya alınan `kb_defect` kaydı | **13** (kendi verimizden ölçülmüş kusur) |
 | Intake'e sahaya alınan `provenance_gap` kaydı | **26** (kaynak başına izlenebilirlik kanıtı) |
 | Kopyalanan PGN alanı | **378** |
 | Kopyalanan SPN referansı | **171** (168 ayrı SPN) |
@@ -329,6 +329,30 @@ büyük ölçüde İngilizce; bu bilinen çeviri kapsamı eksiği (severity low)
 
 Bu üçü de `data/diagnostics/` dosyalarına dokunmadan, yalnız ölçüm olarak
 kayıt altındadır; düzeltme intake'ten yapılmaz.
+
+## 4i. Yetkinlik: kök neden zinciri ve eşik kapsamı
+
+Aynı yaklaşım iki tabloya daha uygulandı — "bu veriyle ne yapılabilir?":
+
+| Ölçüm | Değer | Anlamı |
+|---|---|---|
+| Neden düğümü (`root_cause_graph.json`) | 8.884 | neden anahtarıyla kurulmuş, DTC anahtarıyla değil |
+| Bu düğümlerin referans verdiği ayrı DTC | **5.589** / 14.484 (%38,6) | Zincir kurulabilen kod |
+| **Zinciri olmayan kod** | **8.895** (%61,4) | Bu kodlarda "neden olur" zinciri kurulamaz |
+| Referansların DB'de karşılığı | 5.589/5.589 DTC · 1.590/1.590 SPN | **sarkan referans 0** |
+| Kanıt sinyali olmayan düğüm | **6.167** / 8.884 (%69,4) | Nedeni canlı değerle doğrulayacak sinyal yok |
+| Eşiği olmayan ölçüm sinyali | **17** / 24 | Sinyal çözülüyor, "iyi mi kötü mi" cevaplanamıyor |
+
+Kapsam ölçümü yanıltıcı olmasın diye **düğüm sayısıyla değil referans taramasıyla**
+yapıldı: grafik neden odaklı olduğu için 8.884 düğüm %61,4 kod kapsamı anlamına
+gelmiyor. Test, grafikteki her DTC/SPN referansının DB'de karşılık bulmasını
+zorunlu kılar (bugün 0 sarkan referans var; bir referans bozulursa kırmızı).
+
+Ayrıca not: `telemetry_thresholds.json` 7 sinyal için eşik tanımlıyor ve eşik
+anahtarları ölçüm sözlüğündeki kanonik adlardan **farklı**
+(`EngineCoolantTemp` ↔ `CoolantTemp`). Dedektör yalnız `threshold_key` eşleşmesini
+denetler; isim uyumu `data/diagnostics/PROVENANCE.md` P0-2 uzlaştırmasında
+kayıtlıdır.
 
 ### Hangi üreticinin metni hayatta kaldı? (ölçüm)
 
