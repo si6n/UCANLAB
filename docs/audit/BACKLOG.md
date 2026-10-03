@@ -152,3 +152,23 @@ Kaynak: `docs/audit/AUDIT_2026-10-03.md`. Kimlikler raporla aynı.
   `LicenseFlow`'un fail-closed HWM kurallarına eşitle.
 - S2-06: HWM'ye artan sayaç; mümkünse sunucu tarafı son görülme zamanı.
 - S2-08: TX/flash yeteneklerini lisans katmanına (tier/feature) bağlama kararı.
+
+### B-19 (KRİTİK) — RP1210 mesaj biçimini RP1210C'ye göre yeniden yaz (S3-04)
+- **Kanıt:** `src/hal/rp1210/bus.py:397-403` (TX), `:560-654` (RX). Standart biçim için
+  bağımsız referans: `github.com/dfieschko/RP1210` `RP1210/J1939.py`.
+- **Şu anki durum:** frozen sürüm RP1210'u reddediyor (`RP1210_WIRE_FORMAT_UNVERIFIED`);
+  kaynak kod koşumunda eski davranış (testler için) sürüyor.
+- **Öneri:** J1939 protokolünde 29-bit ID ↔ (PGN, öncelik, SA, DA) dönüşümü; okuma tarafında
+  4 bayt zaman damgası + echo; CAN protokolünde tip + big-endian ID. J1939 modunda adaptörün
+  kendisi TP yapar ve adres koruma (`Protect J1939 Address` komutu) ister — uygulamanın kendi
+  TP/adres-talebi katmanıyla çakışmayı tasarla. `tests/unit/test_rp1210.py` ve ilgili testler
+  yeni biçime göre güncellenmeli; `docs/product/HARDWARE_TEST_CHECKLIST.md` ile gerçek
+  adaptörde doğrulanmadan frozen engeli kaldırılmamalı.
+
+### B-20 (DÜŞÜK) — HAL/protokol gizli kusurları (S3-06…S3-11)
+- S3-06: aracın J1939 NAME işlev kodunu J1939 Ek B'ye göre seç (teşhis aracı, motor değil).
+- S3-07: sıfır seed → anahtar gönderme, "zaten açık" diye devam et.
+- S3-08: kurtarmada `0x10 0x01` için de token bas.
+- S3-09: ayrılmış STmin için 127 ms (ISO 15765-2:2016 §9.6.5.5); testlerle birlikte.
+- S3-10: replay filtresinin J1939 kümelerini `criticality.py`'den türet.
+- S3-11: `send_functional` çok çerçeveli yükü reddetsin.
