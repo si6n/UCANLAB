@@ -1001,6 +1001,30 @@ class EStopResetAuthority:
         """The bound SecretProvider instance."""
         return self._secret_provider
 
+    def sign_challenge(self, challenge: EStopChallenge) -> EmergencyStopToken:
+        """Sign a challenge relayed out of band (field tool, R2-E1).
+
+        AUDIT 2026-10-03 (S7-02): ``scripts/estop_reset_tool.py`` runs in a
+        different process (possibly a different machine) than the latched
+        E-Stop, so it has no live challenge of its own. It used to fake one by
+        writing private fields of a local ``EmergencyStopSystem`` that shared
+        the authority's provider — which the P4 independence check refuses,
+        so the tool could never mint a token. This signs exactly the relayed
+        challenge; the enforcement object still checks epoch, nonce, TTL and
+        replay when the token is submitted.
+        """
+        if challenge.action not in ALLOWED_TOKEN_ACTIONS:
+            raise SafetyError(f"Challenge action not allowlisted: {challenge.action!r}", code="ESTOP_MINT_DENIED")
+        secret = self._secret_provider.get_secret(self._key_name)
+        sig = hmac.new(secret, challenge.serialize_for_signature(), hashlib.sha256).hexdigest()
+        return EmergencyStopToken(
+            epoch=challenge.epoch,
+            nonce=challenge.nonce.hex(),
+            timestamp_monotonic_ns=challenge.timestamp_monotonic_ns,
+            action=challenge.action,
+            signature=sig,
+        )
+
     def mint_reset_token(self) -> EmergencyStopToken | None:
         """Mint a fresh, signed reset token for the active challenge.
 

@@ -621,12 +621,34 @@ def test_desktop_composition_root_shares_provider_with_estop() -> None:
     )
 
 
-def test_estop_reset_tool_passes_provider() -> None:
-    """The out-of-band tool must bind the same provider it mints with."""
+def test_estop_reset_tool_passes_provider(monkeypatch, capsys) -> None:  # type: ignore[no-untyped-def]
+    """The out-of-band tool must sign with the secret store the app verifies with.
+
+    AUDIT 2026-10-03 (S7-02): this used to grep the tool's source for
+    ``EmergencyStopSystem(secret_provider=provider)`` — exactly the wiring the
+    P4 independence check refuses, so the tool could never mint a token while
+    this test stayed green. It now runs the tool end to end.
+    """
+    import importlib.util
     from pathlib import Path
 
-    tool = Path(__file__).resolve().parents[2] / "scripts" / "estop_reset_tool.py"
-    text = tool.read_text(encoding="utf-8")
-    assert "EmergencyStopSystem(secret_provider=provider)" in text, (
-        "reset tool must inject the provider it signed the challenge with"
-    )
+    from src.safety.estop import EmergencyStopSystem, EStopTriggerSource
+    from src.safety.secret_provider import get_default_secret_provider
+
+    monkeypatch.setenv("UNIVERSAL_CAN_EPHEMERAL_SECRETS", "1")
+    app_estop = EmergencyStopSystem(secret_provider=get_default_secret_provider())
+    app_estop.trigger(EStopTriggerSource.USER_UI_BUTTON, "test")
+    challenge = app_estop.active_challenge
+    assert challenge is not None
+
+    tool_path = Path(__file__).resolve().parents[2] / "scripts" / "estop_reset_tool.py"
+    spec = importlib.util.spec_from_file_location("estop_reset_tool", tool_path)
+    assert spec is not None and spec.loader is not None
+    tool = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(tool)
+    argv = ["--epoch", str(challenge.epoch), "--nonce", challenge.nonce.hex(),
+            "--timestamp-ns", str(challenge.timestamp_monotonic_ns), "--yes"]
+    assert tool.main(argv) == 0
+    token = next(line[len("TOKEN:"):] for line in capsys.readouterr().out.splitlines() if line.startswith("TOKEN:"))
+    app_estop.reset(token)
+    assert app_estop.is_engaged is False

@@ -59,35 +59,23 @@ def main(argv: list[str] | None = None) -> int:
 
     _confirm_operator(args)
 
+    import os
+
     from src.safety.secret_provider import get_default_secret_provider
 
     provider = get_default_secret_provider()
-
-    # Bind the authority to a throwaway enforcement object: minting needs the
-    # challenge, verification of independence needs a distinct provider. The
-    # enforcement object here is never engaged; it only carries the challenge.
-    # S1-P2-5: inject the SAME provider instance used for minting. Letting
-    # `EmergencyStopSystem()` self-instantiate risked a second, divergent
-    # provider (notably with EphemeralSecretBackend) whose ESTOP_HMAC_SECRET
-    # differed from the one this tool signs with.
-    estop = EmergencyStopSystem(secret_provider=provider)
-    authority = EStopResetAuthority(estop=estop, secret_provider=provider, key_name=args.key_name)
-
+    # AUDIT 2026-10-03 (S7-02): the authority must not share the enforcement
+    # object's provider (P4 / E-1), and this process has no latched E-Stop of
+    # its own — a throw-away local enforcement object only satisfies the
+    # authority's constructor; the relayed challenge is signed directly.
+    local_estop = EmergencyStopSystem(reset_secret=os.urandom(32))
+    authority = EStopResetAuthority(estop=local_estop, secret_provider=provider, key_name=args.key_name)
     challenge = EStopChallenge(
         epoch=args.epoch,
         nonce=bytes.fromhex(args.nonce),
         timestamp_monotonic_ns=args.timestamp_ns,
     )
-    # Inject the out-of-band challenge as the active one for signing.
-    with estop._lock:  # noqa: SLF001 - field tool wiring
-        estop._is_engaged = True
-        estop._epoch = args.epoch
-        estop._active_challenge = challenge
-
-    token = authority.mint_reset_token()
-    if token is None:
-        print("No active challenge — nothing minted.")
-        return 1
+    token = authority.sign_challenge(challenge)
     print("TOKEN:" + token.to_token_string())
     print("Submit within TTL via estop_submit_reset_token. Audit: "
           f"user={getpass.getuser()} epoch={args.epoch}")

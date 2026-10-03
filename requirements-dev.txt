@@ -1,28 +1,33 @@
 # Universal CAN-Bus Diagnostic & Telemetry Platform
 # Development, Testing & Build Dependencies
+#
+# AUDIT 2026-10-03 (S7-01): these were unbounded (`>=` only). CI and the
+# release job install this file into the environment that builds the EXE, so
+# an unbounded tool release changed the build toolchain silently. Upper bounds
+# follow the requirements.txt convention; a hash lock is BACKLOG B-24.
 
 -r requirements.txt
 
 # Testing & Property-Based Verification
-pytest>=8.0.0
-pytest-asyncio>=0.23.0
-pytest-cov>=4.1.0
-hypothesis>=6.98.0
+pytest>=8.0.0,<10  # pinned upper bound (supply-chain)
+pytest-asyncio>=0.23.0,<2  # pinned upper bound (supply-chain)
+pytest-cov>=4.1.0,<8  # pinned upper bound (supply-chain)
+hypothesis>=6.98.0,<7  # pinned upper bound (supply-chain)
 # JSON Schema validation for tests/unit/test_provenance_schema.py and
 # test_data_integrity.py. It was imported by those modules but declared
 # NOWHERE, so a clean CI install had no jsonschema and pytest aborted the
 # whole run during COLLECTION ("Interrupted: 1 error during collection") —
 # a developer machine that happened to have it installed never noticed.
 # `referencing` comes in as its own dependency.
-jsonschema>=4.26.0
+jsonschema>=4.26.0,<5  # pinned upper bound (supply-chain)
 
 # Code Quality & Security Scanning
-ruff>=0.3.0
-mypy>=1.9.0
-bandit>=1.7.8
-pip-audit>=2.7.3
+ruff>=0.3.0,<0.17  # pinned upper bound: a new ruff minor adds rules and turns CI red
+mypy>=1.9.0,<3  # pinned upper bound (supply-chain)
+bandit>=1.7.8,<2  # pinned upper bound (supply-chain)
+pip-audit>=2.7.3,<3  # pinned upper bound (supply-chain)
 
 # Standalone C++ Compilation
-Nuitka>=2.1.0
-ordered-set>=4.1.0
-zstandard>=0.22.0
+Nuitka>=2.1.0,<5  # pinned upper bound (supply-chain: release build tool)
+ordered-set>=4.1.0,<5  # pinned upper bound (supply-chain)
+zstandard>=0.22.0,<1  # pinned upper bound (supply-chain)
