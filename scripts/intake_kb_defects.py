@@ -541,8 +541,74 @@ def detect_kb_source_value_not_in_provenance_doc(root: Path = ROOT) -> dict[str,
     }
 
 
+def detect_dtc_severity_unknown_and_unclassed(root: Path = ROOT) -> dict[str, Any]:
+    """Codes the classing and severity passes skipped (severity UNKNOWN + NoClass).
+
+    Both fields are left at their placeholder for the same records, which makes
+    the gap systematic rather than random: for these codes the copilot cannot
+    triage severity and cannot group them by class.
+    """
+    blob = _load(root / DTC_DB)
+    hits = []
+    namespaces: dict[str, int] = {}
+    for code, record in sorted(blob.items()):
+        record = record or {}
+        if str(record.get("severity")) == "UNKNOWN" and str(record.get("dtc_class")) == "NoClass":
+            hits.append({"code": code, "title": record.get("title"),
+                         "dtc_namespace": record.get("dtc_namespace"),
+                         "subsystem": record.get("subsystem")})
+            key = str(record.get("dtc_namespace"))
+            namespaces[key] = namespaces.get(key, 0) + 1
+    total = len(blob)
+    return {
+        "code": "dtc_severity_unknown_and_unclassed",
+        "severity": "medium",
+        "summary": (f"{len(hits)}/{total} DTC kodu sınıflandırma ve şiddet geçişinde atlanmış "
+                    f"(severity=UNKNOWN, dtc_class=NoClass) — "
+                    f"{', '.join(f'{k}: {v}' for k, v in sorted(namespaces.items()))}"),
+        "why_it_matters": ("Copilot bu kodlarda şiddet sıralaması yapamaz (tümü UNKNOWN) ve "
+                           "sınıf gruplamasına katamaz. Aynı iki alan aynı kayıtlarda boş olduğu "
+                           "için eksiklik rastgele değil, iki geçişin ortak atladığı bir küme."),
+        "expression": "severity == 'UNKNOWN' and dtc_class == 'NoClass'",
+        **_target(DTC_DB),
+        "affected_count": len(hits),
+        "examples": hits[:EXAMPLE_LIMIT],
+    }
+
+
+def detect_dtc_missing_symptoms(root: Path = ROOT) -> dict[str, Any]:
+    """Codes with no symptom text at all: nothing for the matcher to match on."""
+    blob = _load(root / DTC_DB)
+    missing = 0
+    hits = []
+    for code, record in sorted(blob.items()):
+        record = record or {}
+        symptoms = record.get("symptoms")
+        empty = (not symptoms) if isinstance(symptoms, list) else not str(symptoms or "").strip()
+        if empty:
+            missing += 1
+            if len(hits) < EXAMPLE_LIMIT:
+                hits.append({"code": code, "title": record.get("title"),
+                             "subsystem": record.get("subsystem")})
+    total = len(blob)
+    return {
+        "code": "dtc_missing_symptoms",
+        "severity": "low",
+        "summary": f"{missing}/{total} DTC kodunda semptom metni yok (semptom eşleştirici için boş)",
+        "why_it_matters": ("Semptom→DTC eşleşmesi semptom metnine dayanır; kodun %90'ında metin "
+                           "olmadığı için kullanıcı 'aracım titriyor' dediğinde bu kodlar eşleşemez. "
+                           "Bu bilgi eksiğidir, hata değil."),
+        "expression": "not record.get('symptoms')",
+        **_target(DTC_DB),
+        "affected_count": missing,
+        "examples": hits,
+    }
+
+
 Detector = Callable[[Path], dict[str, Any]]
 DETECTORS: dict[str, Detector] = {
+    "dtc_missing_symptoms": detect_dtc_missing_symptoms,
+    "dtc_severity_unknown_and_unclassed": detect_dtc_severity_unknown_and_unclassed,
     "kb_source_value_not_in_provenance_doc": detect_kb_source_value_not_in_provenance_doc,
     "j1939_source_without_licence": detect_j1939_source_without_licence,
     "spn_parameter_name_not_in_alias_map": detect_spn_parameter_name_not_in_alias_map,

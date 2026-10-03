@@ -196,11 +196,24 @@ python scripts/intake_kb_defects.py --stage-gaps --apply   # kaynak başına bo�
 python scripts/intake_scan_sources.py --stage-spn --apply   # SPN referansları
 ```
 
-**8 dedektor** (2026-10-02 ölçümü): `j1939_source_without_licence` 1.220 ·
-`kb_source_value_not_in_provenance_doc` 8.918 · `spn_name_is_fmi_sentence` 23 ·
-`spn_name_embeds_spn_fmi_token` 148 · `spn_unit_placeholder` 4.202 ·
-`spn_without_fault_matrix` 64 · `spn_parameter_name_not_in_alias_map` 155 ·
-`dtc_missing_title_tr` 13.971 (bilinen kapsam eksiği).
+**10 dedektor** (2026-10-02 ölçümü) — kanıt zinciri:
+
+| Dedektor | Etkilenen | Öncelik |
+|---|---|---|
+| `kb_source_value_not_in_provenance_doc` | 8.918 | high |
+| `j1939_source_without_licence` | 1.220 | high |
+| `spn_unit_placeholder` | 4.202 | medium |
+| `spn_name_embeds_spn_fmi_token` | 148 | medium |
+| `spn_parameter_name_not_in_alias_map` | 155 | medium |
+| `spn_name_is_fmi_sentence` | 23 | high |
+| `spn_without_fault_matrix` | 64 | medium |
+| `dtc_severity_unknown_and_unclassed` | 1.756 | medium |
+| `dtc_missing_title_tr` | 13.971 | low (bilinen kapsam eksiği) |
+| `dtc_missing_symptoms` | 13.209 | low (bilgi eksiği) |
+
+Son iki dedektor **ürünün neyi cevaplayabildiğini** ölçer: 1.756 kod sınıflandırma
+ve şiddet geçişinde atlanmış (hepsi `UNKNOWN` + `NoClass`, yani rastgele değil
+sistematik), 13.209 kodun semptom metni yok (semptom→DTC eşleştirici için boş).
 
 `--stage` **kaydı asla sessizce ezmaz**: ölçüm değiştiyse hata verir ve
 `--refresh` ile bilinçli kabul gerekir. Ölçümler girdi dosyalarının

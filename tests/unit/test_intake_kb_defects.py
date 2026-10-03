@@ -248,3 +248,30 @@ def test_gate_re_measures_gap_occurrences() -> None:
     assert rep.metrics.get("records_provenance_gap") == staged
     assert rep.metrics.get("provenance_gap_occurrences", 0) > 0
     assert sum(1 for _lv, check, _d in rep.rows if check == "provenance_open") == staged
+
+
+# --------------------------------------------------------------------------- #
+# product-capability detectors (what the copilot can actually answer)
+# --------------------------------------------------------------------------- #
+def test_severity_detector_measures_a_systematic_gap() -> None:
+    finding = DETECTORS["dtc_severity_unknown_and_unclassed"](ROOT)
+    assert finding["severity"] == "medium"
+    assert finding["affected_count"] > 0
+    assert "UNKNOWN" in finding["summary"] and "NoClass" in finding["summary"]
+    # the gap must be systematic: both placeholders move together
+    assert all(e["dtc_namespace"] in {"SAE_J2012", "OEM"} for e in finding["examples"])
+
+
+def test_symptom_detector_measures_matchability() -> None:
+    finding = DETECTORS["dtc_missing_symptoms"](ROOT)
+    assert finding["severity"] == "low"
+    assert finding["affected_count"] > 0
+    assert all("code" in e for e in finding["examples"])
+
+
+def test_every_detector_is_registered_and_runs() -> None:
+    from scripts.intake_kb_defects import measure
+
+    codes = {f["code"] for f in measure(ROOT)}
+    assert codes == set(DETECTORS), "a detector missing from the registry never reaches the gate"
+    assert len(codes) >= 10

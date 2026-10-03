@@ -23,7 +23,9 @@ Kurallar ve terfi adımları: `data/intake/README.md`.
 
 | intake_id | path | kind | bytes | sha256 | licence | source |
 |---|---|---|---|---|---|---|
+| kbdefect-dtc-missing-symptoms | `data/intake/defects/kbdefect-dtc-missing-symptoms.json` | kb_defect | 2487 | `8e699257c2dfdf2e6290a7cf48430bd652c730aa9c633b94fd01ece90181571f` | project-internal | `data/diagnostics/dtc_database.json (repo içi ölçüm; sha256 kayıt altındadır)` |
 | kbdefect-dtc-missing-title-tr | `data/intake/defects/kbdefect-dtc-missing-title-tr.json` | kb_defect | 2147 | `09f4c39bf37d9dcc768104a2ddf52615b734d23f0f92c33c53b4d10c2233e988` | project-internal | `data/diagnostics/dtc_database.json (repo içi ölçüm; sha256 kayıt altındadır)` |
+| kbdefect-dtc-severity-unknown-and-unclassed | `data/intake/defects/kbdefect-dtc-severity-unknown-and-unclassed.json` | kb_defect | 3117 | `13252fa17ec4c4ae94bccabb1e77b8e9421ea16d3e61bcf36d718a95c8827132` | project-internal | `data/diagnostics/dtc_database.json (repo içi ölçüm; sha256 kayıt altındadır)` |
 | kbdefect-j1939-source-without-licence | `data/intake/defects/kbdefect-j1939-source-without-licence.json` | kb_defect | 3243 | `ab7b539fd9fbeaf4aa97781d57d5ac6e23eee7c8ce239e1a3a472eae02f56715` | project-internal | `data/diagnostics/j1939_spn_fmi_database.json (repo içi ölçüm; sha256 kayıt altındadır)` |
 | kbdefect-kb-source-value-not-in-provenance-doc | `data/intake/defects/kbdefect-kb-source-value-not-in-provenance-doc.json` | kb_defect | 3215 | `3239e6492d411785d4752842179b1664c8b230daf4740da8f513a62ef80d5fb6` | project-internal | `data/diagnostics/dtc_database.json (repo içi ölçüm; sha256 kayıt altındadır)` |
 | kbdefect-spn-name-embeds-spn-fmi-token | `data/intake/defects/kbdefect-spn-name-embeds-spn-fmi-token.json` | kb_defect | 2384 | `a32864327f7f278f864ef6c0bcc5671061400703e9b517a244d1b5291eb81a19` | project-internal | `data/diagnostics/j1939_spn_fmi_database.json (repo içi ölçüm; sha256 kayıt altındadır)` |

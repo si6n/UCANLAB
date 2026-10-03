@@ -15,7 +15,7 @@ Dal: `ccr-intake`. Bu rapor **keşif kanıtıdır**; `data/diagnostics` ve
 | Intake'e sahaya alınan `pgn_layout` kaydı | **84** |
 | Intake'e sahaya alınan `oem_divergence` kaydı | **37** (5.922 ayrışma satırı) |
 | Intake'e sahaya alınan `spn_reference` kaydı | **168** (66 terfi adayı + 102 uzlaştırma) |
-| Intake'e sahaya alınan `kb_defect` kaydı | **8** (kendi verimizden ölçülmüş kusur) |
+| Intake'e sahaya alınan `kb_defect` kaydı | **10** (kendi verimizden ölçülmüş kusur) |
 | Intake'e sahaya alınan `provenance_gap` kaydı | **26** (kaynak başına izlenebilirlik kanıtı) |
 | Kopyalanan PGN alanı | **378** |
 | Kopyalanan SPN referansı | **171** (168 ayrı SPN) |
@@ -310,6 +310,25 @@ Bu, "belgele / öznitelik ekle / alanı kaldır" kararını **kaynak kaynak**
 verilebilir kılar. `licence_status` şemada yalnız `unresolved` kabul eder:
 lisans çözülürse kayıt arşivlenmek üzere işaretlenir, uydurma "MIT" yazılamaz.
 Doğrulayıcı her koşuda anahtarı yeniden ölçer (open / closed / drift).
+
+## 4h. Ürünün cevaplayabileceği alanı ölçmek
+
+Son iki dedektor, veri kalitesi yerine **yetkinliği** ölçüyor: copilot bu
+kodlarla ne yapamaz?
+
+| Ölçüm | Değer | Anlamı |
+|---|---|---|
+| `severity=UNKNOWN` **ve** `dtc_class=NoClass` | **1.756** / 14.484 (%12,1) | Şiddet sıralaması ve sınıf gruplaması yok — iki alan aynı kayıtlarda placeholder kaldığı için **sistematik** atlanmış küme |
+| — bunların namespace dağılımı | SAE_J2012 1.201 · OEM 555 | |
+| `symptoms` metni yok | **13.209** / 14.484 (%91,2) | Semptom→DTC eşleştiricinin göreceği metin yok; "aracım titriyor" diyen kullanıcı bu kodlara ulaşamaz |
+| `steps` dolu | 14.349 (%99,1) | iyi durumda |
+| `causes` dolu | 14.481 (%99,98) | iyi durumda |
+
+Ek olarak: `dtc_missing_title_tr` 13.971 (%96,5) — arayüz Türkçe ama başlıklar
+büyük ölçüde İngilizce; bu bilinen çeviri kapsamı eksiği (severity low).
+
+Bu üçü de `data/diagnostics/` dosyalarına dokunmadan, yalnız ölçüm olarak
+kayıt altındadır; düzeltme intake'ten yapılmaz.
 
 ### Hangi üreticinin metni hayatta kaldı? (ölçüm)
 
