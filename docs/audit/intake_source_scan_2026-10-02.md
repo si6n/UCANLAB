@@ -297,7 +297,18 @@ gelir:
 | Alan | Ölçüm |
 |---|---|
 | Belgelenmemiş kaynak anahtarı | **26** |
+| — bunlardan politika §5'in **tür olarak** yasakladığı | **1** (`justanswer` — "herkese açık forumlar") |
+| — adıyla yasaklanmayan (yalnız belgelenmemiş) | **25** |
 | Toplam alan | 8.918 |
+
+**Öncelik düzeltmesi (dürüstlük notu):** bu bulgu ilk yazıldığında `severity: high`
+ile kaydedilmişti, oysa ölçüm bunun çoğunu desteklemiyordu — 26 kaynağın 25'i
+politika §5'te **adıyla geçmiyor**. Artık öncelik ölçülüyor (`classify_source()`):
+politika kaynağı adıyla yasakladıysa ya da tür olarak yasaklıyorsa ("herkese açık
+forumlar" → `justanswer`, `reddit`, `forum …`) `policy_breach`, aksi halde
+`unattested`. Ölçüm sonucu: yalnız **`justanswer`** §5'in forum yasağına giriyor;
+kalan 25 kaynak yalnızca **belgelenmemiş** — yani atıf eksiği. Her kayıt artık
+`policy_class` taşıyor. Sayılar değişmedi, gerekçe sadeleşti.
 | Kayıt sayısı | 26 (`data/intake/gaps/`) |
 | En büyük | `obd2.com` 3.960 (yalnız `dtc_database.json`, `source`) |
 | Sonrakiler | `openlaborproject.com` 1.202 · `autofaultcodes.com` 621 · `geekobd.com` 596 · `obd2hub.com` 566 · `theerrorcodes.com` 540 · `carberry.pro` 473 · `tuningbot.com` 413 · `faultcodedb.com` 156 |
