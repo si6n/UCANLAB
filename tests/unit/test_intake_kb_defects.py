@@ -160,3 +160,36 @@ def test_gate_never_writes_the_measured_files() -> None:
     run(root=ROOT, quiet=True)
     for path, blob in before.items():
         assert path.read_bytes() == blob, f"{path} must stay read-only"
+
+
+def test_provenance_matcher_recognises_documented_sources() -> None:
+    """A traceability detector is only useful if it does not cry wolf."""
+    from scripts.intake_kb_defects import _is_documented, _provenance_corpus
+
+    corpus = _provenance_corpus(ROOT)
+    assert corpus, "provenance documents must be readable"
+    for value in ("https://github.com/foerbsnavi/OBDex/blob/bc58b0eb",
+                  "sitrak_ccby4", "obdex_p0xxx", "troublecodes.net",
+                  "https://www.j1939hub.com/spn/190", "internal://copilot/notes"):
+        assert _is_documented(value, corpus), value
+    for value in ("obd2.com", "openlaborproject.com"):
+        assert not _is_documented(value, corpus), value
+
+
+def test_traceability_detector_reports_the_big_files() -> None:
+    finding = DETECTORS["kb_source_value_not_in_provenance_doc"](ROOT)
+    assert finding["severity"] == "high"
+    assert finding["affected_count"] > 0
+    files = {e.get("file") for e in finding["examples"]}
+    assert "dtc_database.json" in files
+    assert all("count" in str(e) or "occurrences" in e for e in finding["examples"])
+
+
+def test_j1939_licence_detector_separates_the_two_classes() -> None:
+    finding = DETECTORS["j1939_source_without_licence"](ROOT)
+    classes = {e.get("class") for e in finding["examples"]}
+    assert classes == {"no_source", "unlicensed_src"}
+    assert finding["affected_count"] > 0
+    # The wording must not claim the harvest is undocumented: the diagnostics
+    # provenance log documents part of it. That distinction is load-bearing.
+    assert "lisansı çözülemiyor" in finding["why_it_matters"]

@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "intake_id": "kbdefect-kb-source-value-not-in-provenance-doc",
+  "record_type": "kb_defect",
+  "submitted_at": "2026-10-02",
+  "submitter": {
+    "type": "automated",
+    "id": "scripts/intake_kb_defects.py",
+    "role": "author"
+  },
+  "source": {
+    "title": "Kendi verimizden ölçüm: 8918 kaynak alanı değeri hiçbir provenance belgesinde geçmiyor (dtc_database.json: 8656, j1939_spn_fmi_database.json: 247, extended_pid_database.json: 15)",
+    "path": "data/diagnostics/dtc_database.json (repo içi ölçüm; sha256 kayıt altındadır)",
+    "type": "internal_kb",
+    "publisher": "UCanLab intake",
+    "revision": null,
+    "licence": "project-internal",
+    "access_date": "2026-10-02",
+    "snapshot": {
+      "archive_url": null,
+      "sha256": "d39b5582ec84686ae7ac710941a3dcf56e8b83ab43e062b829576491d4658eb7",
+      "bytes": 54452139,
+      "pages_cited": []
+    }
+  },
+  "confidence": "corroborated",
+  "draft": true,
+  "knowledge_base": null,
+  "payload": {
+    "defect_code": "kb_source_value_not_in_provenance_doc",
+    "severity": "high",
+    "summary": "8918 kaynak alanı değeri hiçbir provenance belgesinde geçmiyor (dtc_database.json: 8656, j1939_spn_fmi_database.json: 247, extended_pid_database.json: 15)",
+    "why_it_matters": "Veri, kökeni repo'da hiç yazılmamış bir kaynağı işaret ediyor: data/PROVENANCE.md (13 satırlık hash kanıtı) ve data/diagnostics/PROVENANCE.md (hasat günlüğü) bu değerleri içermiyor. Böyle bir alan kanıt zinciri yürütülemeyen bir iddiadır. Çözüm ikisinden biri: kaynağı belgele ya da alanı kaldır. En büyük dosya dtc_database.json (obd2.com, openlaborproject.com, autofaultcodes.com …).",
+    "target_file": "data/diagnostics/dtc_database.json",
+    "target_sha256": "d39b5582ec84686ae7ac710941a3dcf56e8b83ab43e062b829576491d4658eb7",
+    "detector_expression": "token(source-ish field) not found in data/PROVENANCE.md + data/diagnostics/PROVENANCE.md",
+    "affected_count": 8918,
+    "examples": [
+      {
+        "file": "dtc_database.json",
+        "value": "obd2.com",
+        "occurrences": 3960
+      },
+      {
+        "file": "dtc_database.json",
+        "value": "openlaborproject.com",
+        "occurrences": 1202
+      },
+      {
+        "file": "j1939_spn_fmi_database.json",
+        "value": "detroitdieselengines.info",
+        "occurrences": 72
+      },
+      {
+        "file": "j1939_spn_fmi_database.json",
+        "value": "T66 procarmanuals.com",
+        "occurrences": 61
+      },
+      {
+        "file": "extended_pid_database.json",
+        "value": "ForScan community",
+        "occurrences": 6
+      }
+    ]
+  },
+  "notes": "Düzeltme intake'ten yapılmaz: bu kayıt yalnız ölçümü ve tespit ifadesini saklar. validate_intake.py her çalıştırmada dedektörü yeniden çalıştırır; sayı değişirse WARN (drift), sıfırlanırsa kapanmış sayılır."
+}

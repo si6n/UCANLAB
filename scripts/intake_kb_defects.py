@@ -47,6 +47,8 @@ import json
 import re
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
+from collections import Counter
 from typing import Any, Callable
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -330,8 +332,10 @@ def detect_j1939_source_without_licence(root: Path = ROOT) -> dict[str, Any]:
                            "metadata.sources içindeki kaynakların çoğu repair.diesellaptops / "
                            "4roadservice / justanswer / j1939hub / dtcdocs gibi lisansı belirtilmemiş "
                            "ticari-manual sitelerden toplama; attribution bloğu 19 kaynağın 1'ini "
-                           "adlandırıyor. Bu hukuki risk değil, kanıtlanmış bir atıf/lisans "
-                           "çözülebilirliği eksiği — karar veri sahibinin."),
+                           "adlandırıyor. ÖNEMLİ: data/diagnostics/PROVENANCE.md bu hasadın bir kısmını "
+                           "açıkça belgeliyor (dieselaptops, j1939hub, obd-codes) — yani konu "
+                           "gizlenmiş değil, **lisansı çözülemiyor**. Bu hukuki hüküm değil, "
+                           "ölçülmüş bir atıf/lisans çözülebilirliği eksiğidir; karar veri sahibinin."),
         "expression": ("no record.source, or (source without _source_license* and not a declared "
                        "licensed source value)"),
         **_target(SPN_DB),
@@ -340,8 +344,90 @@ def detect_j1939_source_without_licence(root: Path = ROOT) -> dict[str, Any]:
     }
 
 
+PROVENANCE_DOCS = (Path("data") / "PROVENANCE.md", Path("data") / "diagnostics" / "PROVENANCE.md")
+SOURCE_FIELDS = ("_source_ref", "_source_ref_sitrak", "source", "evidence_url", "url", "_source",
+                 "description_en_source", "causes_source")
+
+
+def _provenance_corpus(root: Path) -> str:
+    parts = []
+    for relative in PROVENANCE_DOCS:
+        path = root / relative
+        if path.is_file():
+            parts.append(path.read_text(encoding="utf-8").lower())
+    return "\n".join(parts)
+
+
+def _is_documented(value: str, corpus: str) -> bool:
+    """True when any meaningful token of ``value`` occurs in a provenance doc."""
+    low = value.lower()
+    host = urlparse(low if "//" in low else "//" + low).netloc or low
+    tokens = [t for t in re.split(r"[^a-z0-9]+", host) if len(t) > 3]
+    tokens += [t for t in re.split(r"[^a-z0-9]+", low) if len(t) > 3]
+    return any(token in corpus for token in tokens)
+
+
+def detect_kb_source_value_not_in_provenance_doc(root: Path = ROOT) -> dict[str, Any]:
+    """Shipped records point at sources that neither provenance document records.
+
+    This is a *traceability* measurement, not a legal claim: the data asserts a
+    provenance value and no repository document mentions it, so the chain cannot
+    be walked. It is the cheapest class of finding to fix (document or drop) and
+    the most embarrassing one to be asked about.
+    """
+    corpus = _provenance_corpus(root)
+    per_file: dict[str, int] = {}
+    examples: dict[str, Counter] = {}
+    total = 0
+    for path in sorted((root / "data" / "diagnostics").rglob("*.json")):
+        if "quarantine" in path.parts:
+            continue
+        try:
+            blob = _load(path)
+        except (OSError, ValueError):
+            continue
+        stack: list[Any] = [blob]
+        while stack:
+            node = stack.pop()
+            if isinstance(node, dict):
+                for field in SOURCE_FIELDS:
+                    value = node.get(field)
+                    if isinstance(value, str) and value.strip() and not _is_documented(value, corpus):
+                        per_file[path.name] = per_file.get(path.name, 0) + 1
+                        counter = examples.setdefault(path.name, Counter())
+                        counter[value.strip()[:70]] += 1
+                        total += 1
+                stack.extend(node.values())
+            elif isinstance(node, list):
+                stack.extend(node)
+    ranked = sorted(per_file.items(), key=lambda kv: -kv[1])
+    sample_examples: list[dict[str, Any]] = []
+    for name, _count in ranked[:3]:
+        sample_examples.extend(
+            {"file": name, "value": value, "occurrences": occurrences}
+            for value, occurrences in examples.get(name, Counter()).most_common(2)
+        )
+    return {
+        "code": "kb_source_value_not_in_provenance_doc",
+        "severity": "high",
+        "summary": (f"{total} kaynak alanı değeri hiçbir provenance belgesinde geçmiyor "
+                    f"({', '.join(f'{name}: {count}' for name, count in ranked[:3])})"),
+        "why_it_matters": ("Veri, kökeni repo'da hiç yazılmamış bir kaynağı işaret ediyor: "
+                           "data/PROVENANCE.md (13 satırlık hash kanıtı) ve "
+                           "data/diagnostics/PROVENANCE.md (hasat günlüğü) bu değerleri içermiyor. "
+                           "Böyle bir alan kanıt zinciri yürütülemeyen bir iddiadır. Çözüm ikisinden "
+                           "biri: kaynağı belgele ya da alanı kaldır. En büyük dosya "
+                           "dtc_database.json (obd2.com, openlaborproject.com, autofaultcodes.com …)."),
+        "expression": "token(source-ish field) not found in data/PROVENANCE.md + data/diagnostics/PROVENANCE.md",
+        **_target(DTC_DB),
+        "affected_count": total,
+        "examples": sample_examples[:EXAMPLE_LIMIT],
+    }
+
+
 Detector = Callable[[Path], dict[str, Any]]
 DETECTORS: dict[str, Detector] = {
+    "kb_source_value_not_in_provenance_doc": detect_kb_source_value_not_in_provenance_doc,
     "j1939_source_without_licence": detect_j1939_source_without_licence,
     "spn_parameter_name_not_in_alias_map": detect_spn_parameter_name_not_in_alias_map,
     "spn_name_is_fmi_sentence": detect_spn_name_is_fmi_sentence,
@@ -352,9 +438,41 @@ DETECTORS: dict[str, Detector] = {
 }
 
 
-def measure(root: Path = ROOT) -> list[dict[str, Any]]:
+# Detectors re-read a few MB of vendored data. The gate runs them on every
+# invocation and the test suite runs the gate many times, so results are cached
+# per (root signature). The signature is the identity of every input file the
+# detectors touch, so a changed file can never serve a stale answer.
+_CACHE: dict[str, tuple[tuple[Any, ...], list[dict[str, Any]]]] = {}
+
+
+def _signature(root: Path) -> tuple[Any, ...]:
+    parts: list[Any] = []
+    for directory in (root / "data" / "diagnostics", root / "data" / "intake" / "spn_ref"):
+        if not directory.is_dir():
+            continue
+        for path in sorted(directory.rglob("*.json")):
+            try:
+                stat = path.stat()
+            except OSError:
+                continue
+            parts.append((path.relative_to(root).as_posix(), stat.st_mtime_ns, stat.st_size))
+    for relative in PROVENANCE_DOCS:
+        path = root / relative
+        if path.is_file():
+            stat = path.stat()
+            parts.append((relative, stat.st_mtime_ns, stat.st_size))
+    return tuple(parts)
+
+
+def measure(root: Path = ROOT, use_cache: bool = True) -> list[dict[str, Any]]:
     """Run every detector; returns the findings in a stable order."""
-    return [DETECTORS[name](root) for name in sorted(DETECTORS)]
+    key = str(root)
+    signature = _signature(root)
+    if use_cache and _CACHE.get(key, (None, None))[0] == signature:
+        return _CACHE[key][1]
+    findings = [DETECTORS[name](root) for name in sorted(DETECTORS)]
+    _CACHE[key] = (signature, findings)
+    return findings
 
 
 # --------------------------------------------------------------------------- #
@@ -403,9 +521,16 @@ def build_record(finding: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def stage(root: Path = ROOT, intake_dir: Path = INTAKE, apply: bool = False) -> tuple[int, list[str]]:
+def stage(root: Path = ROOT, intake_dir: Path = INTAKE, apply: bool = False,
+          refresh: bool = False) -> tuple[int, list[str]]:
+    """Write (or verify) one record per detector finding.
+
+    By default an existing record that no longer matches the measurement is a
+    **problem**, never a silent overwrite: a changed number means a reviewer has
+    to look. ``refresh`` is the explicit, auditable way to accept the new value.
+    """
     target = intake_dir / DEFECT_SUBDIR
-    if apply:
+    if apply or refresh:
         target.mkdir(parents=True, exist_ok=True)
     problems: list[str] = []
     written = 0
@@ -416,8 +541,13 @@ def stage(root: Path = ROOT, intake_dir: Path = INTAKE, apply: bool = False) -> 
         payload = json.dumps(record, ensure_ascii=False, indent=2) + "\n"
         if out.exists():
             if out.read_text(encoding="utf-8") != payload:
-                problems.append(f"{rel}: staged result differs from the current measurement "
-                                f"(detector ya da veri değişti — kaydı gözden geçir)")
+                if refresh:
+                    out.write_text(payload, encoding="utf-8")
+                    written += 1
+                else:
+                    problems.append(f"{rel}: staged result differs from the current measurement "
+                                    f"(dedektör ya da veri değişti — kaydı gözden geçir, "
+                                    f"sonra --refresh)")
             continue
         if apply:
             out.write_text(payload, encoding="utf-8")
@@ -446,6 +576,8 @@ def main() -> int:
     ap.add_argument("--report")
     ap.add_argument("--stage", action="store_true", help="verify staged defect records")
     ap.add_argument("--apply", action="store_true", help="with --stage: write them")
+    ap.add_argument("--refresh", action="store_true",
+                    help="accept a changed measurement for existing records (explicit rewrite)")
     args = ap.parse_args()
     root = Path(args.root).resolve()
 
@@ -461,7 +593,7 @@ def main() -> int:
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(render(findings), encoding="utf-8")
     if args.stage:
-        written, problems = stage(root, INTAKE, apply=args.apply)
+        written, problems = stage(root, INTAKE, apply=args.apply, refresh=args.refresh)
         for problem in problems:
             print(f"[!] {problem}")
         print(f"[*] kb_defect records: {written} ({'written' if args.apply else 'verify only'})")

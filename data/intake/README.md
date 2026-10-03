@@ -178,10 +178,22 @@ Kendi verimizdeki kusurları ölçer ve intake'e kaydeder:
 
 ```bash
 python scripts/intake_kb_defects.py                     # ölç ve raporla
-python scripts/intake_kb_defects.py --stage            # kayıtları doğrula
-python scripts/intake_kb_defects.py --stage --apply    # ölçümü sahalama
+python scripts/intake_kb_defects.py --stage             # kayıtları doğrula
+python scripts/intake_kb_defects.py --stage --apply     # yeni ölçümü sahalama
+python scripts/intake_kb_defects.py --stage --refresh   # değişen ölçümü kabul et (bilinçli)
 python scripts/intake_scan_sources.py --stage-spn --apply   # SPN referansları
 ```
+
+**8 dedektor** (2026-10-02 ölçümü): `j1939_source_without_licence` 1.220 ·
+`kb_source_value_not_in_provenance_doc` 8.918 · `spn_name_is_fmi_sentence` 23 ·
+`spn_name_embeds_spn_fmi_token` 148 · `spn_unit_placeholder` 4.202 ·
+`spn_without_fault_matrix` 64 · `spn_parameter_name_not_in_alias_map` 155 ·
+`dtc_missing_title_tr` 13.971 (bilinen kapsam eksiği).
+
+`--stage` **kaydı asla sessizce ezmaz**: ölçüm değiştiyse hata verir ve
+`--refresh` ile bilinçli kabul gerekir. Ölçümler girdi dosyalarının
+`(path, mtime, size)` imzasına göre önbelleklenir — test paketi kapıyı onlarca
+kez çalıştırdığı için bu, doğruluk değişmeden hız kazandırır.
 
 Taranan dört kaynak: OBDex (CC0-1.0), canboat (Apache-2.0), Wal33D/dtc-database
 (MIT) ve (referans için) SITRAK (CC-BY-4.0). `--stage` canboat J1939 PGN

@@ -15,7 +15,7 @@ Dal: `ccr-intake`. Bu rapor **keşif kanıtıdır**; `data/diagnostics` ve
 | Intake'e sahaya alınan `pgn_layout` kaydı | **84** |
 | Intake'e sahaya alınan `oem_divergence` kaydı | **37** (5.922 ayrışma satırı) |
 | Intake'e sahaya alınan `spn_reference` kaydı | **168** (66 terfi adayı + 102 uzlaştırma) |
-| Intake'e sahaya alınan `kb_defect` kaydı | **7** (kendi verimizden ölçülmüş kusur) |
+| Intake'e sahaya alınan `kb_defect` kaydı | **8** (kendi verimizden ölçülmüş kusur) |
 | Kopyalanan PGN alanı | **378** |
 | Kopyalanan SPN referansı | **171** (168 ayrı SPN) |
 | KB'de **olmayan** SPN referansı | **66** |
@@ -256,6 +256,36 @@ sayaç düşer, kayıt kapanır; yeni lisanssız kaynak eklirse sayaç artar.
 Aynı dosyanın diğer kusurları (`spn_name_is_fmi_sentence`,
 `spn_unit_placeholder`) da aynı dosyada ölçülüyor — yani tek bir veri dosyası
 üç ayrı, birbirinden bağımsız kanıt zinciri sorunu taşıyor.
+
+## 4f. İzlenebilirlik: 8.918 kaynak alanı hiçbir provenance belgesinde yok
+
+4e'de *lisans* eksikliği ölçüldü. Bu turda daha zayıf ama daha ucuz düzeltilebilir
+sınıf ölçüldü: **verinin işaret ettiği ama repoda hiç yazılmamış kaynaklar**.
+
+Yöntem: `data/diagnostics/**.json` içindeki kaynak taşıyan alanlar
+(`source`, `_source_ref`, `evidence_url`, `url`, `*_source`) tarandı; her değerin
+anlamlı token'ı `data/PROVENANCE.md` **ve** `data/diagnostics/PROVENANCE.md`
+korpusunda arandı. Eşleşme yoksa "belgelenmemiş" sayıldı.
+Doğrulayıcı kalibrasyonu: OBDex/canboat/SITRAK/Wal33D/troublecodes.net/
+j1939hub/GM/ISO değerleri **belgelenmiş** olarak sınıflanıyor (yanlış-pozitif
+kontrolü testte sabit).
+
+| Dosya | Belgelenmemiş kaynak alanı | En sık değerler |
+|---|---|---|
+| `dtc_database.json` | **8.656** | `obd2.com` (3.960), `openlaborproject.com` (1.202), `autofaultcodes.com` (621), `geekobd.com`, `obd2hub.com`, `theerrorcodes.com` |
+| `j1939_spn_fmi_database.json` | **247** | `detroitdieselengines.info` (72), `T66 procarmanuals.com` (61), `dtcdocs.com` (39) |
+| `extended_pid_database.json` | **15** | `ForScan community`, `ISTA/BimmerLink community`, `VCDS/OBD11 community` |
+
+Toplam **8918**.
+
+Neden önemli: copilotun **ana** bilgi tabanı (`dtc_database.json`, 14.484 kod)
+kaynak alanlarının büyük kısmını, repo'da hiç geçmeyen ticari DTC sitelerine
+işaret ediyor. Bu gizli bir veri değil — `data/diagnostics/PROVENANCE.md` T45/T54
+hasat günlüğünü açıkça tutuyor — ama **bu alanlar için** zincir yürütülemez.
+En ucuz düzeltme: ya belgele (satır düzeyinde kaynak + lisans) ya da alanı kaldır.
+
+Ölçüm `kb_source_value_not_in_provenance_doc` dedektörü olarak yaşıyor
+(`severity: high`): kaynaklar belgelendikçe sayaç düşer ve kayıt kapanır.
 
 ### Hangi üreticinin metni hayatta kaldı? (ölçüm)
 
