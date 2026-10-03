@@ -4013,6 +4013,9 @@ _TELEMETRY_TO_THRESHOLD_KEY: dict[str, str] = {
     "VehicleSpeed": "VehicleSpeed",
     "EngineLoad": "EngineLoad",
     "EngineTorque": "EngineTorque",
+    "DPFDiffPressure": "DPFDiffPressure",
+    "AirPressureCircuit1": "AirPressureCircuit1",
+    "AirPressureCircuit2": "AirPressureCircuit2",
 }
 
 #: Extra spellings accepted for the same physical quantity (source forms taken
@@ -5347,6 +5350,9 @@ class CausalBayesianInferenceEngine:
         "SPN190": ("EngineSpeed", "EngineSpeed", "Motor devri", "rpm"),
         "P0335": ("EngineSpeed", "EngineSpeed", "Motor devri", "rpm"),
         "P0336": ("EngineSpeed", "EngineSpeed", "Motor devri", "rpm"),
+        "SPN3251": ("DPFDiffPressure", "DPFDiffPressure", "DPF fark basıncı", "kPa"),
+        "SPN1087": ("AirPressureCircuit1", "AirPressureCircuit1", "Fren hava basıncı (devre 1)", "kPa"),
+        "SPN1088": ("AirPressureCircuit2", "AirPressureCircuit2", "Fren hava basıncı (devre 2)", "kPa"),
         "SPN84": ("VehicleSpeed", "VehicleSpeed", "Araç hızı", "km/h"),
         "P0500": ("VehicleSpeed", "VehicleSpeed", "Araç hızı", "km/h"),
         "P0501": ("VehicleSpeed", "VehicleSpeed", "Araç hızı", "km/h"),

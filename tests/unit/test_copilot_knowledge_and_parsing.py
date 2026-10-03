@@ -336,3 +336,21 @@ def test_graph_titles_are_shown_in_the_answer_language() -> None:
     en = [c["title"] for c in answer_query("engine overheating", language="en").to_dict()["causes"]]
     assert "Soğutma sistemindeki kaçak nedeniyle soğutma suyu eksik" in tr and "Low coolant due to leak in cooling system" not in tr
     assert "Engine overheating" in en and "Motor aşırı sıcaklık" not in en
+
+
+@pytest.mark.parametrize("telemetry,status,risk", [
+    ({"DPFDiffPressure": 30}, "critical_high", "RED"),       # clogged limit >25 kPa
+    ({"DPFDiffPressure": 15}, "above_nominal", "GRAY"),      # above the 12 kPa full-load band
+    ({"DPFDiffPressure": 3}, "normal", "GRAY"),
+    ({"AirPressureCircuit1": 420}, "low", "RED"),            # below the 5.5 bar red warning
+    ({"AirPressureCircuit2": 800}, "below_nominal", "GRAY"),
+    ({"AirPressureCircuit1": 1100}, "normal", "GRAY"),
+])
+def test_sourced_dpf_and_brake_air_thresholds(telemetry: dict, status: str, risk: str) -> None:
+    from src.engine.ai.copilot_answer import answer_query
+
+    d = answer_query("", telemetry=telemetry, language="tr").to_dict()
+    assert d["technical"]["telemetry"][0]["status"] == status
+    assert d["urgency"]["level"] == risk
+    if status == "low":
+        assert "brakes" in [b["category"] for b in d["safety_banners"]]

@@ -115,6 +115,8 @@ _SAFETY_LAMP_SYMPTOMS: dict[str, frozenset[str]] = {
 }
 _SAFETY_LAMP_TERMS = frozenset({"abs"})
 HV_SIGNALS = frozenset({"IsolationResistance", "HVPackVoltage"})
+# Service-brake air below the red warning threshold: the spring brakes may apply.
+BRAKE_AIR_SIGNALS = frozenset({"AirPressureCircuit1", "AirPressureCircuit2"})
 
 
 @dataclass(slots=True)
@@ -450,8 +452,11 @@ def _judge_reading(kb: KnowledgeBase, reading: Reading, rpm: float | None) -> Te
                 f"min {_fmt(float(r['min']))} @ {r.get('min_rpm')}–{r.get('max_rpm') if r.get('max_rpm') is not None else '∞'} rpm"
                 for r in mins)
             lowest = min(float(r["min"]) for r in mins)
+            all_rpm = all((r.get("min_rpm") or 0) == 0 and r.get("max_rpm") is None for r in mins)
             if v < lowest:
                 base.status = "low"
+            elif all_rpm:  # one floor for every engine speed: no rpm context needed
+                base.status = "below_nominal" if nmin is not None and v < float(nmin) else "normal"
             elif rpm is None:
                 base.status = "needs_context"
             else:
@@ -922,7 +927,10 @@ def reason(parsed: ParsedQuery, kb: KnowledgeBase, *, include_recalls: bool = Tr
             risk = "RED"
             r.risk_reasons.append((f"ev:{cf.key}", cf.refs[0] if cf.refs else ""))
     for f in r.findings:
-        if f.status in ("critical_high", "critical_low"):
+        if f.signal in BRAKE_AIR_SIGNALS and f.status in ("low", "critical_low"):
+            risk = "RED"
+            r.risk_reasons.append((f"signal:{f.signal}|{_fmt(f.value)}|{f.unit}|{f.status}", f.ref))
+        elif f.status in ("critical_high", "critical_low"):
             risk = "RED"
             r.risk_reasons.append((f"signal:{f.signal}|{_fmt(f.value)}|{f.unit}|{f.status}", f.ref))
         elif f.status in ("high", "low"):
@@ -963,6 +971,8 @@ def reason(parsed: ParsedQuery, kb: KnowledgeBase, *, include_recalls: bool = Tr
             add("steering")
     if any(x.canonical in HV_SIGNALS for x in parsed.readings):
         add("high_voltage")
+    if any(f.signal in BRAKE_AIR_SIGNALS and f.abnormal for f in r.findings):
+        add("brakes")
     order = ("fire", "high_voltage", "brakes", "steering")
     r.safety = sorted(safety, key=lambda s: order.index(s) if s in order else 99)
     if "fire" in r.safety or ("high_voltage" in r.safety and any(sid in FIRE_SYMPTOMS for sid, _ in r.symptom_records)):

@@ -98,6 +98,49 @@
     }
    ],
    "source_ref": "j1939_spn_fmi_database.json SPN_513 Actual Engine Percent Torque range -125.0-125.0 % (bütünlük bandı)"
+  },
+  "DPFDiffPressure": {
+   "unit": "kPa",
+   "ranges": [
+    {
+     "min_rpm": 0,
+     "max_rpm": null,
+     "min": 0.0,
+     "max": null
+    }
+   ],
+   "source_ref": "diagnostic_copilot.py SPN3251 measurement: 'Temiz DPF Rölanti Basıncı: 0.5 - 2.0 kPa | Tam Yük: 5.0 - 12.0 kPa | Tıkalı Limit: >25.0 kPa.'",
+   "nominal_min": 0.5,
+   "nominal_max": 12.0,
+   "critical_max": 25.0
+  },
+  "AirPressureCircuit1": {
+   "unit": "kPa",
+   "ranges": [
+    {
+     "min_rpm": 0,
+     "max_rpm": null,
+     "min": 550.0,
+     "max": null
+    }
+   ],
+   "source_ref": "diagnostic_copilot.py SPN1087 measurement: 'Nominal Devre Basıncı: 10.0 - 12.5 Bar | Kırmızı İkaz & İmdat Eşiği: <5.5 Bar.' (bar x 100 = kPa; devre 2 aynı EBS kaydının ikiz devresi)",
+   "nominal_min": 1000.0,
+   "nominal_max": 1250.0
+  },
+  "AirPressureCircuit2": {
+   "unit": "kPa",
+   "ranges": [
+    {
+     "min_rpm": 0,
+     "max_rpm": null,
+     "min": 550.0,
+     "max": null
+    }
+   ],
+   "source_ref": "diagnostic_copilot.py SPN1087 measurement: 'Nominal Devre Basıncı: 10.0 - 12.5 Bar | Kırmızı İkaz & İmdat Eşiği: <5.5 Bar.' (bar x 100 = kPa; devre 2 aynı EBS kaydının ikiz devresi)",
+   "nominal_min": 1000.0,
+   "nominal_max": 1250.0
   }
  },
  "_p0_2_reconciliation": "2026-09-21 derin-kesif denetimi: TurboBoost.max 2.5 bar, KB'nin AYNI senaryodaki 'Maksimum Guvenlik Limiti: 3.6 Bar (Abs)' metniyle CELISIYORDU; saglikli Euro-VI motor tam yukte (2.6 bar) yanlis-pozitif P0234 Overboost uretiyordu (canli dogrulandi). Deger KB metninden turetilen gercek limite cekildi. Ayni sekilde EngineCoolantTemp icin uyari/kirmizi bantlari KB'nin 'Uyari (AWL): >103C | Kirmizi Lamba (RSL Derate): >108C' satirindan eklendi. TEK DOGRULUK KAYNAGI KB metnidir; bu dosya ondan uretilir."

@@ -526,6 +526,7 @@
     "dpf differential pressure",
     "dpf pressure"
    ],
+   "threshold_key": "DPFDiffPressure",
    "label_tr": "DPF Partikül Filtresi Fark Basıncı",
    "label_en": "Aftertreatment 1 Diesel Particulate Filter Differential Pressure",
    "j1939": {
@@ -987,6 +988,7 @@
    "phrases_en": [
     "brake air pressure circuit 1"
    ],
+   "threshold_key": "AirPressureCircuit1",
    "label_tr": "Pnömatik Fren Hava Basıncı - Devre 1",
    "label_en": "Service Brake Air Pressure Circuit 1",
    "j1939": {
@@ -1035,6 +1037,7 @@
    "phrases_en": [
     "brake air pressure circuit 2"
    ],
+   "threshold_key": "AirPressureCircuit2",
    "label_tr": "Pnömatik Fren Hava Basıncı - Devre 2",
    "label_en": "Service Brake Air Pressure Circuit 2",
    "j1939": {

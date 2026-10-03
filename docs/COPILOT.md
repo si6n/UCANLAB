@@ -184,7 +184,7 @@ neden düğümü taşıyorsa (P0171+P0174 "iki bankta fakir") kural eklenmez.
 | `root_cause_graph` | 8.884 düğüm | Kök neden adayları, kanıt/çelişen sinyaller |
 | `signal_aliases` + `signal_measurement_map` (yeni, 24 sinyal) | | Sinyal adı birleştirme; eksik ölçüm için SPN/PGN/PID rehberi |
 | `system_taxonomy` | 26 sistem | Fren/direksiyon güvenlik tespiti |
-| `telemetry_thresholds` | 7 sinyal | Nominal/uyarı/kritik değerlendirme |
+| `telemetry_thresholds` | 10 sinyal (soğutma suyu, turbo, yağ basıncı devre bantlı, devir, hız, yük, tork; DPF fark basıncı, fren hava devre 1/2 — kaynak: KB ölçüm metinleri) | Nominal/uyarı/kritik değerlendirme; fren havası kırmızı eşik altındaysa KIRMIZI + fren bandı |
 | `hv_safety_thresholds` | UN R100 vb. | İzolasyon direnci Ω/V kontrolü (HV-ISO-001) |
 | `dtc_severity_rules` | SAE J2012 kural tablosu | Kod ciddiyeti |
 | `nhtsa_recalls`, `nhtsa_complaints` | 282 kampanya, 4.459 şikâyet | Ayrı ve açıkça etiketli "NHTSA" bölümü (VIN doğrulaması yok) |
