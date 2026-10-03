@@ -172,3 +172,9 @@ Kaynak: `docs/audit/AUDIT_2026-10-03.md`. Kimlikler raporla aynı.
 - S3-09: ayrılmış STmin için 127 ms (ISO 15765-2:2016 §9.6.5.5); testlerle birlikte.
 - S3-10: replay filtresinin J1939 kümelerini `criticality.py`'den türet.
 - S3-11: `send_functional` çok çerçeveli yükü reddetsin.
+
+### B-21 (ORTA) — Copilot/engine kalan kusurları (S4-02…S4-04)
+- S4-02: eski `ask_copilot` köprü uç noktasını kaldır ya da `query_copilot_structured`'a
+  yönlendir; `CausalBayesianInferenceEngine` sorgu-anahtar kelimesinden DTC uydurmasın.
+- S4-03: "ölçülmedi" ile "ölçülen 0 / eksi değer"i ayrı tut (`_live_telemetry_snapshot`).
+- S4-04: kara kutu parçalarına sıra numarası ve önceki parçanın MAC'iyle zincir.
