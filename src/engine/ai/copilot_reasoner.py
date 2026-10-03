@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import math
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -147,6 +148,14 @@ class CodeFact:
     steps: list[tuple[str, str, str]] = field(default_factory=list)     # (action, difficulty, ref)
     oem_makes: list[str] = field(default_factory=list)
     oem_text: str = ""
+    # OEM code whose meaning differs per make (dtc_oem_meanings): the meaning for this
+    # vehicle's make; a conflict with the generic record drops that record's causes/steps.
+    oem_meaning: str = ""
+    oem_meaning_make: str = ""
+    oem_meaning_ref: str = ""
+    oem_conflict: bool = False
+    # Make unknown (or not listed): the distinct meanings, [(text, [makes], ref)]
+    oem_variants: list[tuple[str, list[str], str]] = field(default_factory=list)
     occurrence_count: int | None = None
     notice: str = ""
     refs: list[str] = field(default_factory=list)
@@ -295,7 +304,62 @@ def _difficulty_rank(label: str) -> int:
 
 
 # ------------------------------------------------------------ code facts
-def _dtc_fact(kb: KnowledgeBase, code: str, origin: str) -> CodeFact:
+_OEM_STOP = frozenset({"sensor", "circuit", "malfunction", "the", "and", "for", "fault", "signal", "system",
+                       "bank", "with", "not", "too"})
+
+
+def _content_tokens(text: str) -> set[str]:
+    return {t for t in fold_text(text).split() if len(t) > 2 and t not in _OEM_STOP}
+
+
+def _same_meaning(meaning: str, titles: Iterable[str]) -> bool:
+    """True when the make's meaning is the generic record's meaning reworded (token containment >= 0.5)."""
+    a = _content_tokens(meaning)
+    if not a:
+        return True  # nothing to compare: no evidence of a conflict
+    for title in titles:
+        b = _content_tokens(title)
+        if b and len(a & b) / min(len(a), len(b)) >= 0.5:
+            return True
+    return False
+
+
+def _apply_oem_meaning(kb: KnowledgeBase, fact: CodeFact, code: str, make: str | None,
+                       titles: list[str]) -> None:
+    """Pick the vehicle make's meaning of an OEM code whose meaning differs per make.
+
+    Same meaning as the generic record: only noted. Different meaning: the
+    generic record describes another make's fault, so its causes, steps,
+    symptoms, reference and severity are dropped rather than served for the
+    wrong component, and the code is kept out of the root-cause graph. Make
+    unknown or not listed: the distinct meanings are listed and the make is
+    asked for.
+    """
+    meanings = kb.dtc_oem_meanings(code)
+    if not meanings:
+        return
+    look = kb.dtc_oem_meaning(code, make)
+    if look.found:
+        fact.oem_meaning, fact.oem_meaning_make = str(look.record["text"]), str(look.record["make"])
+        fact.oem_meaning_ref = look.ref
+        fact.refs.append(look.ref)
+        if fact.found and not _same_meaning(fact.oem_meaning, titles):
+            fact.oem_conflict = True
+            fact.title_tr = fact.title_en = f"{fact.oem_meaning} ({fact.oem_meaning_make.title()})"
+            fact.description = fact.reference_values = ""
+            fact.clean_causes, fact.steps, fact.record_symptoms = [], [], []
+            fact.severity, fact.severity_ref = "UNKNOWN", ""
+        return
+    groups: dict[str, tuple[str, list[str]]] = {}
+    for name, text in sorted(meanings.items()):
+        key = " ".join(sorted(_content_tokens(text))) or fold_text(text)
+        groups.setdefault(key, (text, []))[1].append(name)
+    if len(groups) >= 2:
+        ranked = sorted(groups.values(), key=lambda g: (-len(g[1]), g[1][0]))
+        fact.oem_variants = [(text, names, f"dtc_oem_meanings#{code}.{names[0]}") for text, names in ranked[:4]]
+
+
+def _dtc_fact(kb: KnowledgeBase, code: str, origin: str, make: str | None = None) -> CodeFact:
     look = kb.dtc(code)
     fact = CodeFact(code, "dtc", origin, look.found)
     if not look.found:
@@ -348,6 +412,7 @@ def _dtc_fact(kb: KnowledgeBase, code: str, origin: str) -> CodeFact:
     oem = kb.dtc_oem(code)
     if oem.found:
         fact.oem_makes = list(oem.record.get("makes") or [])
+    _apply_oem_meaning(kb, fact, code, make, [str(rec.get("title") or ""), fact.title_en, title])
     return fact
 
 
@@ -888,7 +953,8 @@ def _monitor_candidates(kb: KnowledgeBase, r: Reasoning, hyps: dict[str, Hypothe
 def _build_hypotheses(kb: KnowledgeBase, r: Reasoning) -> None:
     by_signal = {f.signal: f for f in r.findings}
     hyps: dict[str, Hypothesis] = {}
-    active: dict[str, CodeFact] = {c.graph_key: c for c in r.codes if c.found}
+    # A code whose generic record means another make's fault has no graph causes for this vehicle.
+    active: dict[str, CodeFact] = {c.graph_key: c for c in r.codes if c.found and not c.oem_conflict}
     complaint_codes: dict[str, str] = {}
     for sid, rec in r.symptom_records:
         for code in rec.get("candidate_dtcs") or []:
@@ -1068,6 +1134,15 @@ def _missing(kb: KnowledgeBase, r: Reasoning) -> None:
             "Sinyali bilinen bir adla gönderin (ör. CoolantTemp, BatteryVoltage).",
             "Send it under a known name (e.g. CoolantTemp, BatteryVoltage).", [])
     for c in r.codes:
+        if c.oem_variants:
+            listing = "; ".join(f"{'/'.join(n.title() for n in names[:3])}: {text}" for text, names, _ref in c.oem_variants)
+            out[f"make:{c.key}"] = MissingData(
+                f"make:{c.key}",
+                f"{c.key} üreticiye özel bir koddur ve anlamı markaya göre değişir — {listing}.",
+                f"{c.key} is a manufacturer code whose meaning depends on the make — {listing}.",
+                "Aracın markasını seçin ya da VIN okutun; copilot o markanın anlamını kullanır.",
+                "Select the vehicle's make or read the VIN; the copilot then uses that make's meaning.",
+                [ref for _t, _n, ref in c.oem_variants])
         if c.kind == "spn" and c.fmi is None and c.found:
             out[f"fmi:{c.key}"] = MissingData(
                 f"fmi:{c.key}", f"{c.key} için FMI (arıza tipi) bilinmiyor.", f"FMI (failure mode) of {c.key} is unknown.",
@@ -1100,7 +1175,7 @@ def _how_to(rec: dict[str, Any]) -> tuple[str, str]:
 def reason(parsed: ParsedQuery, kb: KnowledgeBase, *, include_recalls: bool = True) -> Reasoning:
     r = Reasoning(parsed=parsed)
     for dm in parsed.dtcs:
-        r.codes.append(_dtc_fact(kb, dm.code, dm.origin))
+        r.codes.append(_dtc_fact(kb, dm.code, dm.origin, parsed.vehicle_make))
         r.codes[-1].status = dm.status
     for sm in parsed.spns:
         r.codes.append(_spn_fact(kb, sm.spn, sm.fmi, sm.origin, sm.occurrence_count))
@@ -1110,7 +1185,7 @@ def reason(parsed: ParsedQuery, kb: KnowledgeBase, *, include_recalls: bool = Tr
         if look.found:
             r.symptom_records.append((sym.symptom_id, look.record))
     known = {sid for sid, _ in r.symptom_records}
-    for sid in code_check_symptoms([c.key.split(" FMI")[0] for c in r.codes if c.found], kb):
+    for sid in code_check_symptoms([c.key.split(" FMI")[0] for c in r.codes if c.found and not c.oem_conflict], kb):
         if sid not in known:
             r.code_symptoms.append((sid, kb.symptom(sid).record))
 

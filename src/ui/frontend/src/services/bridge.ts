@@ -364,6 +364,10 @@ export interface CopilotStructuredAnswer {
       severity: string;
       reference_values: string;
       oem_text: string;
+      /** The generic record means another make's fault; the make's own meaning is used. */
+      oem_conflict?: boolean;
+      /** Make unknown: the code's distinct meanings per make. */
+      oem_variants?: Array<{ text: string; makes: string[]; ref: string }>;
       refs: string[];
     }>;
     telemetry: Array<{ signal: string; value: number; unit: string; status_text: string; reference: string; ref: string }>;

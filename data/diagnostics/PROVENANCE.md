@@ -95,6 +95,7 @@ Bağımsız decode doğrulaması (5 pass / 0 fail): `tools/data_ingest/verificat
 | `extended_pid_database.json` | 112 | **226** | OBDex Mode 01/09 (132; 18 zaten vardı) | CC0-1.0 |
 | `j1939_spn_fmi_database.json` | 4.253 SPN | **4.253 SPN** / **3.399 sitrak etiketli** / 7.981 FMI | SITRAK 8.042 kayıt | CC-BY-4.0 |
 | `dtc_database_oem_layer.json` | (yok) | **YENİ** 12.128 kod / 9.390 OEM / 33 üretici | Wal33D 18.805 satır | MIT |
+| `dtc_oem_meanings.json` | (yok) | **YENİ** 694 kodun üretici başına anlamı | Wal33D üretici listeleri (`data/intake/oem/`, sha256'lı) + OEM katmanı; `scripts/build_dtc_oem_meanings.py` | MIT |
 | `canboat_pgn_reference.json` | (yok) | **YENİ** 628 N2K PGN + DM1 (65226) | canboat | Apache-2.0 |
 
 **Katmanlılık kanıtı:** `--verify-idempotent` → "hicbir mevcut deger silinmedi/degismedi".

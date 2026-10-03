@@ -683,6 +683,15 @@ def _steps(r: Reasoning, lang: str, max_steps: int, kb: KnowledgeBase) -> list[d
              "sürüş döngüsü tamamlayın, sonra kodları yeniden okuyun.") if lang == "tr"
             else ("Pending code (" + ", ".join(pending[:3]) + "): complete one drive cycle in the conditions the fault "
                   "appeared in, then re-read the codes."), "", ["template:pending"])
+    # An OEM code whose generic record means another make's fault: say so and point to the make's own flow.
+    for c in r.codes:
+        if c.oem_conflict:
+            add((f"{c.key}: {c.oem_meaning_make.title()} araçlarda bu kodun anlamı \"{c.oem_meaning}\". Genel kayıttaki "
+                 "neden ve adımlar başka bir üreticinin anlamına ait olduğu için gösterilmedi; teşhis için bu "
+                 "üreticinin servis bilgisindeki akışı izleyin.") if lang == "tr" else
+                (f"{c.key}: on {c.oem_meaning_make.title()} vehicles this code means \"{c.oem_meaning}\". The generic "
+                 "record's causes and steps belong to another make's meaning and are not shown; follow this "
+                 "manufacturer's service flow."), "", [c.oem_meaning_ref])
     # A known calibration lets the mechanic check for a software fix before replacing parts.
     ident = r.parsed.identity
     if ident is not None and ident.calibrations and any(c.found for c in r.codes):
@@ -779,7 +788,11 @@ def _technical(r: Reasoning, lang: str, kb: KnowledgeBase, similar: list[Any]) -
             "fmi_text": fmi_text, "pgn_text": pgn_text, "severity": sev if c.found else "",
             "reference_values": (("Kayıttaki referans (ölçüm değil): " if lang == "tr" else "Reference from record (not a measurement): ")
                                  + c.reference_values) if c.reference_values else "",
-            "oem_text": (", ".join(c.oem_makes[:8]) + (f" — {c.oem_text}" if c.oem_text else "")) if (c.oem_makes or c.oem_text) else "",
+            "oem_text": (f"{c.oem_meaning_make.title()} — {c.oem_meaning}" if c.oem_meaning else
+                         (", ".join(c.oem_makes[:8]) + (f" — {c.oem_text}" if c.oem_text else ""))
+                         if (c.oem_makes or c.oem_text) else ""),
+            "oem_conflict": c.oem_conflict,
+            "oem_variants": [{"text": t, "makes": n, "ref": ref} for t, n, ref in c.oem_variants],
             "occurrence_count": c.occurrence_count,
             "notice": c.notice,
             "refs": list(c.refs),
@@ -956,6 +969,17 @@ def answer_query(
         if bits:
             label = " / ".join(sorted({x["protocol"] for x in rows}, key=lambda p: p != "Mode 06"))
             ans.summary += (f" ECU testleri ({label}): " if lang == "tr" else f" ECU tests ({label}): ") + "; ".join(bits) + "."
+    for c in r.codes:
+        if c.oem_conflict:
+            ans.summary += (f" {c.key} bu markada ({c.oem_meaning_make.title()}) genel kayıttan farklı bir arızayı "
+                            "gösterir; üreticiye özel anlam kullanıldı." if lang == "tr" else
+                            f" {c.key} means a different fault on this make ({c.oem_meaning_make.title()}) than the "
+                            "generic record; the manufacturer's meaning is used.")
+        elif c.oem_variants:
+            ans.summary += (f" Dikkat: {c.key} üreticiye özeldir ve anlamı markaya göre değişir; marka bilinmeden "
+                            "yorum kesin değildir." if lang == "tr" else
+                            f" Note: {c.key} is manufacturer-specific and its meaning depends on the make; without "
+                            "the make the reading is not certain.")
     ident = parsed.identity
     if ident is not None:
         ans.technical["identity"] = ident.to_dict()

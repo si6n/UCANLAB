@@ -63,6 +63,7 @@ __all__ = [
 SOURCE_FILES: dict[str, str] = {
     "dtc_database": "diagnostics/dtc_database.json",
     "dtc_oem_layer": "diagnostics/dtc_database_oem_layer.json",
+    "dtc_oem_meanings": "diagnostics/dtc_oem_meanings.json",
     "j1939_spn_fmi": "diagnostics/j1939_spn_fmi_database.json",
     "extended_pid": "diagnostics/extended_pid_database.json",
     "obd_mode06": "diagnostics/obd_mode06_database.json",
@@ -291,6 +292,39 @@ class KnowledgeBase:
         if entry is None and not makes:
             return Lookup.miss("dtc_oem_layer", code)
         return Lookup(True, "dtc_oem_layer", code, {"entry": entry or {}, "makes": list(makes)})
+
+    def dtc_oem_meanings(self, raw_code: str) -> dict[str, str]:
+        """{Wal33D make list: verbatim meaning} for a code whose meaning differs per make, else {}."""
+        code = normalize_dtc_code(raw_code)
+        data = self._json_source("dtc_oem_meanings")
+        if code is None or not isinstance(data, dict):
+            return {}
+        entry = (data.get("codes") or {}).get(code)
+        return {str(k): str(v) for k, v in entry.items() if v} if isinstance(entry, dict) else {}
+
+    def dtc_oem_meaning(self, raw_code: str, make: str | None) -> Lookup:
+        """The meaning of an OEM code for one make (any label: "Toyota", "volkswagen", "GM").
+
+        Every word of the folded label is looked up in ``make_aliases``; the
+        first alias list with a meaning wins (a GM division falls back to the
+        shared GM list). A miss means "not known for this make", never a guess.
+        """
+        code = normalize_dtc_code(raw_code)
+        meanings = self.dtc_oem_meanings(raw_code)
+        data = self._json_source("dtc_oem_meanings")
+        if code is None or not meanings or not make or not isinstance(data, dict):
+            return Lookup.miss("dtc_oem_meanings", str(raw_code))
+        aliases = data.get("make_aliases") or {}
+        words = fold_text(make).split()
+        others = set(data.get("other_make_words") or [])
+        named = {tuple(aliases[w]) if w in aliases else (w,) for w in words if w in aliases or w in others}
+        if len(named) > 1:
+            return Lookup.miss("dtc_oem_meanings", f"{code}.{make}", "brand_group")  # "Hyundai-Kia": which one?
+        for word in words:
+            for name in aliases.get(word) or []:
+                if name in meanings:
+                    return Lookup(True, "dtc_oem_meanings", f"{code}.{name}", {"make": name, "text": meanings[name]})
+        return Lookup.miss("dtc_oem_meanings", f"{code}.{make}")
 
     def dtc_count(self) -> int:
         table = self._dtc_map()
@@ -912,6 +946,9 @@ class KnowledgeBase:
             return self.pid(pid, service).found
         if source == "dtc_oem_layer":
             return self.dtc_oem(key).found
+        if source == "dtc_oem_meanings":
+            code, _, name = key.partition(".")
+            return name in self.dtc_oem_meanings(code)
         if source == "copilot_glossary":
             return key in self.glossary()
         if source == "system_taxonomy":

@@ -337,6 +337,33 @@ Copilot'ta:
 * Simülatör VIN'leri sentetiktir (VW ve Volvo Trucks WMI'li, gerçek araç
   değil).
 
+### 3.1.10 Üreticiye özel kodun markaya göre anlamı
+
+Wal33D OEM katmanı kod başına tek açıklama tutuyordu ("son yazan kazanır").
+Oysa birçok üretici kodu markaya göre başka arıza demektir: P1106 GM'de MAP
+sensörü, Honda'da BARO devresi; P1101 Ford'da hava debimetresi, VW metninde
+oksijen sensörü. Intake taraması (`docs/audit/intake_source_scan_2026-10-02.md`
+§4b, §4o) üretici başına metni sahaya almıştı.
+
+* `scripts/build_dtc_oem_meanings.py`, `data/intake/oem/` kayıtları ve OEM
+  katmanından `dtc_oem_meanings.json`'u üretir: anlamı markalar arasında
+  farklı olan 694 kod, metin upstream'den birebir. Genel listeler
+  (other/p/c/u) marka sayılmaz.
+* `KnowledgeBase.dtc_oem_meaning(code, make)` herhangi bir marka etiketini
+  (`Honda`, `volkswagen`, `Volkswagen Group`) `make_aliases` ile Wal33D
+  listesine çevirir. GM markaları ortak GM listesine düşer. İki marka içeren
+  etiket ("Hyundai-Kia") marka grubudur ve sonuç vermez.
+* Marka biliniyorsa (seçilen araç, VIN veya metin) o markanın anlamı
+  kullanılır:
+  * Anlam genel kayıtla aynıysa (içerik kelimelerinin en az yarısı ortak)
+    yalnız not edilir.
+  * Farklıysa genel kayıt başka markanın arızasını anlatıyordur: o kaydın
+    neden, adım, semptom, referans ve şiddeti atılır, kod kök neden
+    grafiğine sokulmaz. Başlık markanın anlamı olur ve "bu üreticinin servis
+    akışını izleyin" adımı eklenir (`dtc_oem_meanings#<kod>.<MARKA>`).
+* Marka bilinmiyorsa farklı anlamlar eksik veri olarak listelenir ve marka
+  istenir; özet "yorum kesin değil" der.
+
 ### 3.2 Aciliyet ve güvenlik
 
 * Aciliyet: kod ciddiyeti `drive_safety_policy.decide_risk` ile (tek otorite),
@@ -363,6 +390,7 @@ Copilot'ta:
 |---|---|---|
 | `dtc_database` | `diagnostics/dtc_database.json` (14.484) | Başlık, alt sistem, temiz nedenler, adımlar, referans değerler |
 | `dtc_oem_layer` | `diagnostics/dtc_database_oem_layer.json` | OEM marka listesi, kayıt dışı kodların genel tanımı |
+| `dtc_oem_meanings` | `diagnostics/dtc_oem_meanings.json` | Anlamı markaya göre değişen 694 üretici kodunun marka başına metni (§3.1.10) |
 | `j1939_spn_fmi` | `diagnostics/j1939_spn_fmi_database.json` (4.291 SPN, 32 FMI) | SPN adı, FMI anlamı + ciddiyeti, PGN, nedenler, adımlar |
 | `extended_pid` | `diagnostics/extended_pid_database.json` (244) | PID açıklaması, ölçüm rehberi |
 | `obd_mode06`, `uds_did` | Mode 06 / UDS DID | KB üzerinden erişilebilir (eski paket açıklama yolu) |
