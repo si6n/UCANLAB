@@ -135,3 +135,20 @@ Kaynak: `docs/audit/AUDIT_2026-10-03.md`. Kimlikler raporla aynı.
 - S1-09: AUTOSAR E2E P1 varyant eşlemesini spesifikasyonla doğrula (şüpheli).
 - S1-10: reset yetkisini ayrı süreçten (araç/servis) sağla; `reset_authority_provider` belgeli istisna.
 - S1-11: onay ve arm token TTL'ine üst sınır (ör. 120 s).
+
+### B-17 (YÜKSEK) — Kod imzalama anahtarı lisans anahtarından ayrılmalı (S2-01, S2-07)
+- **Kanıt:** `src/launcher/app.py:178,193-201` güncelleme ikilisini ve manifesti
+  `DEFAULT_EMBEDDED_CLOUD_PUBLIC_KEY_B64` / `TRUSTED_CLOUD_PUBLIC_KEYS_B64` ile doğruluyor;
+  aynı halka lisans ticket'larını doğruluyor. Bulutta özel anahtar API sürecinin ortam
+  değişkeninde (`backend/app/core/config.py:32`).
+- **Öneri:** çevrim dışı tutulan ayrı bir kod imzalama anahtarı ve ayrı bir gömülü halka;
+  bulutta `/updates/latest` ucu (şu an yok) bu anahtarla önceden imzalanmış manifesti
+  yalnız servis etsin. Bulut sözleşmesi değişir, iki repo birlikte ele alınmalı.
+
+### B-18 (DÜŞÜK) — Launcher/lisans gizli kusurları (S2-03…S2-06, S2-08)
+- S2-03: hedef ikiliyi yazma-paylaşımsız tutamaçla doğrula ve çalıştır.
+- S2-04: manifeste `expires_at` / artan `sequence` ekle (bulut sözleşmesi).
+- S2-05: ölü `LicenseValidator`, knowledge pack ve evidence chain kodunu kaldır ya da
+  `LicenseFlow`'un fail-closed HWM kurallarına eşitle.
+- S2-06: HWM'ye artan sayaç; mümkünse sunucu tarafı son görülme zamanı.
+- S2-08: TX/flash yeteneklerini lisans katmanına (tier/feature) bağlama kararı.
