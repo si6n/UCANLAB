@@ -16,6 +16,7 @@ Dal: `ccr-intake`. Bu rapor **keşif kanıtıdır**; `data/diagnostics` ve
 | Intake'e sahaya alınan `oem_divergence` kaydı | **37** (5.922 ayrışma satırı) |
 | Intake'e sahaya alınan `spn_reference` kaydı | **168** (66 terfi adayı + 102 uzlaştırma) |
 | Intake'e sahaya alınan `kb_defect` kaydı | **8** (kendi verimizden ölçülmüş kusur) |
+| Intake'e sahaya alınan `provenance_gap` kaydı | **26** (kaynak başına izlenebilirlik kanıtı) |
 | Kopyalanan PGN alanı | **378** |
 | Kopyalanan SPN referansı | **171** (168 ayrı SPN) |
 | KB'de **olmayan** SPN referansı | **66** |
@@ -287,6 +288,29 @@ En ucuz düzeltme: ya belgele (satır düzeyinde kaynak + lisans) ya da alanı k
 Ölçüm `kb_source_value_not_in_provenance_doc` dedektörü olarak yaşıyor
 (`severity: high`): kaynaklar belgelendikçe sayaç düşer ve kayıt kapanır.
 
+## 4g. İzlenebilirliği kaynak başına kanıtlaştırma (26 kayıt)
+
+4f'deki 8.918 alan tek bir sayı olarak okunmaz bulgu. Aynı ölçüm **ayrı kaynak
+anahtarı** başına ayrıldığında 26 kayda iner ve her biri karar verilebilir hale
+gelir:
+
+| Alan | Ölçüm |
+|---|---|
+| Belgelenmemiş kaynak anahtarı | **26** |
+| Toplam alan | 8.918 |
+| Kayıt sayısı | 26 (`data/intake/gaps/`) |
+| En büyük | `obd2.com` 3.960 (yalnız `dtc_database.json`, `source`) |
+| Sonrakiler | `openlaborproject.com` 1.202 · `autofaultcodes.com` 621 · `geekobd.com` 596 · `obd2hub.com` 566 · `theerrorcodes.com` 540 · `carberry.pro` 473 · `tuningbot.com` 413 · `faultcodedb.com` 156 |
+
+Her kayıt şunları taşır: `source_key`, `occurrences`, `files`, `fields`,
+`sample_values`, `sample_record_keys`, `documented_in: []` ve
+`licence_status: "unresolved"`.
+
+Bu, "belgele / öznitelik ekle / alanı kaldır" kararını **kaynak kaynak**
+verilebilir kılar. `licence_status` şemada yalnız `unresolved` kabul eder:
+lisans çözülürse kayıt arşivlenmek üzere işaretlenir, uydurma "MIT" yazılamaz.
+Doğrulayıcı her koşuda anahtarı yeniden ölçer (open / closed / drift).
+
 ### Hangi üreticinin metni hayatta kaldı? (ölçüm)
 
 Katmandaki metnin **her kod için** tam olarak bir kaynak satırına eşit olduğu
@@ -345,6 +369,7 @@ python scripts/intake_scan_sources.py --stage --apply    # intake'e yaz
 python scripts/intake_scan_sources.py --stage-oem --apply
 python scripts/intake_scan_sources.py --stage-spn --apply
 python scripts/intake_kb_defects.py --stage --apply
+python scripts/intake_kb_defects.py --stage-gaps --apply
 python scripts/validate_intake.py --sync-manifest --apply
 python scripts/validate_intake.py --sync-manifest --apply
 python scripts/validate_intake.py                       # FAIL=0 beklenir

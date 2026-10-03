@@ -37,6 +37,11 @@ Usage::
     python scripts/intake_kb_defects.py --json /tmp/kb_defects.json
     python scripts/intake_kb_defects.py --stage           # verify staged records
     python scripts/intake_kb_defects.py --stage --apply   # stage them
+    python scripts/intake_kb_defects.py --stage-gaps --apply
+
+``--stage-gaps`` writes one ``provenance_gap`` record per **distinct** source key
+(26 keys, 8,918 occurrences), so the finding is reviewable source by source
+instead of as an unreadable pile of identical rows.
 """
 
 from __future__ import annotations
@@ -367,18 +372,20 @@ def _is_documented(value: str, corpus: str) -> bool:
     return any(token in corpus for token in tokens)
 
 
-def detect_kb_source_value_not_in_provenance_doc(root: Path = ROOT) -> dict[str, Any]:
-    """Shipped records point at sources that neither provenance document records.
+GAPS_SUBDIR = "gaps"
+GAP_KEY_LIMIT = 4
 
-    This is a *traceability* measurement, not a legal claim: the data asserts a
-    provenance value and no repository document mentions it, so the chain cannot
-    be walked. It is the cheapest class of finding to fix (document or drop) and
-    the most embarrassing one to be asked about.
+
+def measure_provenance_gaps(root: Path = ROOT) -> dict[str, dict[str, Any]]:
+    """Per-source occurrence of values that no provenance document records.
+
+    Keyed by a normalised source key (URL host, or the leading token of a free
+    text value). One record per key is reviewable: the data owner can decide
+    document / attribute / drop source by source, instead of staring at 8,918
+    identical-shaped fields.
     """
     corpus = _provenance_corpus(root)
-    per_file: dict[str, int] = {}
-    examples: dict[str, Counter] = {}
-    total = 0
+    gaps: dict[str, dict[str, Any]] = {}
     for path in sorted((root / "data" / "diagnostics").rglob("*.json")):
         if "quarantine" in path.parts:
             continue
@@ -392,21 +399,130 @@ def detect_kb_source_value_not_in_provenance_doc(root: Path = ROOT) -> dict[str,
             if isinstance(node, dict):
                 for field in SOURCE_FIELDS:
                     value = node.get(field)
-                    if isinstance(value, str) and value.strip() and not _is_documented(value, corpus):
-                        per_file[path.name] = per_file.get(path.name, 0) + 1
-                        counter = examples.setdefault(path.name, Counter())
-                        counter[value.strip()[:70]] += 1
-                        total += 1
+                    if not isinstance(value, str) or not value.strip():
+                        continue
+                    if _is_documented(value, corpus):
+                        continue
+                    low = value.strip().lower()
+                    host = urlparse(low if "//" in low else "//" + low).netloc or low
+                    key = host or low.split()[0]
+                    entry = gaps.setdefault(key, {
+                        "occurrences": 0, "files": [], "sample_values": [],
+                        "sample_record_keys": [], "fields": [],
+                    })
+                    entry["occurrences"] += 1
+                    if path.name not in entry["files"]:
+                        entry["files"].append(path.name)
+                    if field not in entry["fields"]:
+                        entry["fields"].append(field)
+                    if len(entry["sample_values"]) < 3 and value.strip()[:80] not in entry["sample_values"]:
+                        entry["sample_values"].append(value.strip()[:80])
+                    for record_key in (node.get("code"), node.get("spn")):
+                        if isinstance(record_key, (str, int)) and len(entry["sample_record_keys"]) < GAP_KEY_LIMIT:
+                            rendered = str(record_key)
+                            if rendered not in entry["sample_record_keys"]:
+                                entry["sample_record_keys"].append(rendered)
+                            break
                 stack.extend(node.values())
             elif isinstance(node, list):
                 stack.extend(node)
+    return gaps
+
+
+def build_gap_records(root: Path = ROOT) -> list[dict[str, Any]]:
+    """One ``provenance_gap`` intake record per undocumented source key."""
+    gaps = measure_provenance_gaps(root)
+    records: list[dict[str, Any]] = []
+    for key in sorted(gaps):
+        entry = gaps[key]
+        payload_file = Path("data") / "diagnostics" / entry["files"][0]
+        records.append({
+            "schema_version": 1,
+            "intake_id": "provgap-" + re.sub(r"[^a-z0-9]+", "-", key.lower()).strip("-"),
+            "record_type": "provenance_gap",
+            "submitted_at": MEASURED_AT,
+            "submitter": {"type": "automated", "id": "scripts/intake_kb_defects.py", "role": "author"},
+            "source": {
+                "title": f"Kaynak izlenebilirligi boslugu: {key} hicbir provenance belgesinde gecmiyor",
+                "path": f"{payload_file.as_posix()} (ic alanlarda gecen kaynak degeri)",
+                "type": "internal_kb",
+                "publisher": "UCanLab intake",
+                "revision": None,
+                "licence": "project-internal",
+                "access_date": MEASURED_AT,
+                "snapshot": {"archive_url": None, "sha256": None, "bytes": None, "pages_cited": []},
+            },
+            "confidence": "corroborated",
+            "draft": True,
+            "knowledge_base": None,
+            "payload": {
+                "source_key": key,
+                "occurrences": entry["occurrences"],
+                "files": entry["files"],
+                "fields": entry["fields"],
+                "sample_values": entry["sample_values"],
+                "sample_record_keys": entry["sample_record_keys"],
+                "documented_in": [],
+                "licence_status": "unresolved",
+            },
+            "notes": ("Kanit kaydidir, kusur degil: veri bu kaynagi isaret ediyor ama repoda hicbir "
+                      "provenance belgesi onu adlandirmiyor. Karar veri sahibinin: belgele (lisans + "
+                      "erisim bilgisi), kayda oznelik ekle, ya da alani kaldir. validate_intake.py "
+                      "anahtari yeniden olcer; kapaninca kayit arsivlenir."),
+        })
+    return records
+
+
+def stage_gaps(root: Path = ROOT, intake_dir: Path = INTAKE, apply: bool = False,
+               refresh: bool = False) -> tuple[int, list[str]]:
+    """Write (or verify) one record per undocumented source key."""
+    target = intake_dir / GAPS_SUBDIR
+    if apply or refresh:
+        target.mkdir(parents=True, exist_ok=True)
+    problems: list[str] = []
+    written = 0
+    for record in build_gap_records(root):
+        rel = f"{GAPS_SUBDIR}/{record['intake_id']}.json"
+        out = intake_dir / rel
+        payload = json.dumps(record, ensure_ascii=False, indent=2) + "\n"
+        if out.exists():
+            if out.read_text(encoding="utf-8") != payload:
+                if refresh:
+                    out.write_text(payload, encoding="utf-8")
+                    written += 1
+                else:
+                    problems.append(f"{rel}: differs from the current measurement (--refresh after review)")
+            continue
+        if apply:
+            out.write_text(payload, encoding="utf-8")
+        else:
+            problems.append(f"{rel}: missing (run with --apply)")
+        written += 1
+    return written, problems
+
+
+def detect_kb_source_value_not_in_provenance_doc(root: Path = ROOT) -> dict[str, Any]:
+    """Shipped records point at sources that neither provenance document records.
+
+    This is a *traceability* measurement, not a legal claim: the data asserts a
+    provenance value and no repository document mentions it, so the chain cannot
+    be walked. It is the cheapest class of finding to fix (document or drop) and
+    the most embarrassing one to be asked about.
+    """
+    gaps = measure_provenance_gaps(root)
+    per_file: dict[str, int] = {}
+    total = 0
+    for entry in gaps.values():
+        total += entry["occurrences"]
+        for name in entry["files"]:
+            per_file[name] = per_file.get(name, 0) + entry["occurrences"]
     ranked = sorted(per_file.items(), key=lambda kv: -kv[1])
     sample_examples: list[dict[str, Any]] = []
-    for name, _count in ranked[:3]:
-        sample_examples.extend(
-            {"file": name, "value": value, "occurrences": occurrences}
-            for value, occurrences in examples.get(name, Counter()).most_common(2)
-        )
+    for key in sorted(gaps, key=lambda k: -gaps[k]["occurrences"])[:EXAMPLE_LIMIT]:
+        entry = gaps[key]
+        sample_examples.append({"source_key": key, "occurrences": entry["occurrences"],
+                                "files": entry["files"],
+                                "sample_value": (entry["sample_values"] or [""])[0]})
     return {
         "code": "kb_source_value_not_in_provenance_doc",
         "severity": "high",
@@ -575,6 +691,8 @@ def main() -> int:
     ap.add_argument("--json", dest="json_out")
     ap.add_argument("--report")
     ap.add_argument("--stage", action="store_true", help="verify staged defect records")
+    ap.add_argument("--stage-gaps", action="store_true",
+                    help="stage one provenance-gap record per undocumented source key")
     ap.add_argument("--apply", action="store_true", help="with --stage: write them")
     ap.add_argument("--refresh", action="store_true",
                     help="accept a changed measurement for existing records (explicit rewrite)")
@@ -592,6 +710,13 @@ def main() -> int:
         out = Path(args.report)
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(render(findings), encoding="utf-8")
+    if args.stage_gaps:
+        written, problems = stage_gaps(root, INTAKE, apply=args.apply, refresh=args.refresh)
+        for problem in problems:
+            print(f"[!] {problem}")
+        print(f"[*] provenance_gap records: {written} "
+              f"({'written' if args.apply or args.refresh else 'verify only'})")
+        return 1 if problems else 0
     if args.stage:
         written, problems = stage(root, INTAKE, apply=args.apply, refresh=args.refresh)
         for problem in problems:

@@ -37,29 +37,44 @@
     "affected_count": 8918,
     "examples": [
       {
-        "file": "dtc_database.json",
-        "value": "obd2.com",
-        "occurrences": 3960
+        "source_key": "obd2.com",
+        "occurrences": 3960,
+        "files": [
+          "dtc_database.json"
+        ],
+        "sample_value": "obd2.com"
       },
       {
-        "file": "dtc_database.json",
-        "value": "openlaborproject.com",
-        "occurrences": 1202
+        "source_key": "openlaborproject.com",
+        "occurrences": 1202,
+        "files": [
+          "dtc_database.json"
+        ],
+        "sample_value": "openlaborproject.com"
       },
       {
-        "file": "j1939_spn_fmi_database.json",
-        "value": "detroitdieselengines.info",
-        "occurrences": 72
+        "source_key": "autofaultcodes.com",
+        "occurrences": 621,
+        "files": [
+          "dtc_database.json"
+        ],
+        "sample_value": "autofaultcodes.com"
       },
       {
-        "file": "j1939_spn_fmi_database.json",
-        "value": "T66 procarmanuals.com",
-        "occurrences": 61
+        "source_key": "geekobd.com",
+        "occurrences": 596,
+        "files": [
+          "dtc_database.json"
+        ],
+        "sample_value": "geekobd.com"
       },
       {
-        "file": "extended_pid_database.json",
-        "value": "ForScan community",
-        "occurrences": 6
+        "source_key": "obd2hub.com",
+        "occurrences": 566,
+        "files": [
+          "dtc_database.json"
+        ],
+        "sample_value": "obd2hub.com"
       }
     ]
   },

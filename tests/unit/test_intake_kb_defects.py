@@ -180,9 +180,11 @@ def test_traceability_detector_reports_the_big_files() -> None:
     finding = DETECTORS["kb_source_value_not_in_provenance_doc"](ROOT)
     assert finding["severity"] == "high"
     assert finding["affected_count"] > 0
-    files = {e.get("file") for e in finding["examples"]}
-    assert "dtc_database.json" in files
-    assert all("count" in str(e) or "occurrences" in e for e in finding["examples"])
+    # examples are per source key and the summary must name the worst file:
+    # an unreadable aggregate is not a reviewable finding.
+    assert all({"source_key", "occurrences", "files"} <= set(e) for e in finding["examples"])
+    assert "dtc_database.json" in finding["summary"]
+    assert finding["examples"][0]["source_key"] == "obd2.com"
 
 
 def test_j1939_licence_detector_separates_the_two_classes() -> None:
@@ -193,3 +195,56 @@ def test_j1939_licence_detector_separates_the_two_classes() -> None:
     # The wording must not claim the harvest is undocumented: the diagnostics
     # provenance log documents part of it. That distinction is load-bearing.
     assert "lisansı çözülemiyor" in finding["why_it_matters"]
+
+
+# --------------------------------------------------------------------------- #
+# per-source provenance gaps
+# --------------------------------------------------------------------------- #
+GAPS_DIR = ROOT / "data" / "intake" / "gaps"
+
+
+def test_gap_records_cover_every_undocumented_source_key() -> None:
+    from scripts.intake_kb_defects import GAPS_SUBDIR, build_gap_records, measure_provenance_gaps
+
+    measured = measure_provenance_gaps(ROOT)
+    assert measured, "the traceability gap must not be silently empty"
+    staged = {json.loads(p.read_text(encoding="utf-8"))["payload"]["source_key"]
+              for p in (ROOT / "data" / "intake" / GAPS_SUBDIR).glob("*.json")}
+    assert staged == set(measured), "a source key without a staged record would be invisible"
+    assert len(build_gap_records(ROOT)) == len(measured)
+
+
+def test_gap_records_are_shape_valid() -> None:
+    from scripts.validate_intake import validate_envelope as _validate
+
+    for path in sorted(GAPS_DIR.glob("*.json")):
+        record = json.loads(path.read_text(encoding="utf-8"))
+        assert record["record_type"] == "provenance_gap"
+        assert record["draft"] is True and record["knowledge_base"] is None
+        payload = record["payload"]
+        assert payload["occurrences"] > 0
+        assert payload["files"] and payload["source_key"]
+        assert payload["licence_status"] == "unresolved"
+        rep = Report()
+        _validate(record, f"gaps/{path.name}", rep)
+        assert rep.count("FAIL") == 0, [d for lv, _c, d in rep.rows if lv == "FAIL"]
+
+
+def test_gap_record_rejects_a_resolved_licence() -> None:
+    """A closed gap must be archived, not kept with a fake 'resolved' status."""
+    from scripts.validate_intake import validate_envelope as _validate
+
+    record = json.loads(next(GAPS_DIR.glob("*.json")).read_text(encoding="utf-8"))
+    record["payload"]["licence_status"] = "MIT"
+    rep = Report()
+    _validate(record, "gaps/x.json", rep)
+    assert any("licence_status" in d for lv, _c, d in rep.rows if lv == "FAIL")
+
+
+def test_gate_re_measures_gap_occurrences() -> None:
+    rep = run(root=ROOT, quiet=True)
+    assert rep.count("FAIL") == 0, [d for lv, _c, d in rep.rows if lv == "FAIL"]
+    staged = len(list(GAPS_DIR.glob("*.json")))
+    assert rep.metrics.get("records_provenance_gap") == staged
+    assert rep.metrics.get("provenance_gap_occurrences", 0) > 0
+    assert sum(1 for _lv, check, _d in rep.rows if check == "provenance_open") == staged

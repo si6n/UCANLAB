@@ -24,6 +24,7 @@ geçirmeyle olur; aşağıdaki "Entegrasyon adımları" bölümü tek yol harita
 | `oem/` | üreticiye özgü açıklama ayrışması — `oem_divergence` | `<intake-id>.json` |
 | `defects/` | kendi verimizden **ölçülmüş** kusur — `kb_defect` | `<intake-id>.json` |
 | `spn_ref/` | PGN düzenlerinden toplanan SPN referansı — `spn_reference` | `<intake-id>.json` |
+| `gaps/` | hiçbir provenance belgesinde olmayan kaynak — `provenance_gap` | `<intake-id>.json` |
 | `traces/` | ham yakalama (kare dosyası + yan kenar dosyası) | `<id>.json`/`.jsonl` + `<id>.meta.json` |
 | `cases/` | vaka taslağı — **her zaman `draft: true`** | `<intake-id>.json` |
 | `oem_notes/` | OEM/üretici notu | `<intake-id>.md` (üstte JSON meta bloğu) |
@@ -122,6 +123,7 @@ yapılır (§ Entegrasyon adımları).
 | `oem_note` | `oem_notes/` | `make/model/year`, `oem_code`, `system`, `evidence_refs[]`, `related_dtcs[]`, `vin_masked` (gövde markdown dosyanın altında) |
 | `oem_divergence` | `oem/` | `make`, `source_file`, `source_rows`, `divergence_count`, `divergences[]` |
 | `spn_reference` | `spn_ref/` | `spn`, `names_en[]`, `units[]`, `resolutions[]`, `bit_lengths[]`, `evidence_pgns[]`, `evidence_text[]`, `sources[]`, `kb_state`, `kb_name`, `kb_unit` |
+| `provenance_gap` | `gaps/` | `source_key`, `occurrences`, `files[]`, `fields[]`, `sample_values[]`, `sample_record_keys[]`, `documented_in[]`, `licence_status` |
 | `kb_defect` | `defects/` | `defect_code`, `severity`, `summary`, `why_it_matters`, `target_file`, `target_sha256`, `detector_expression`, `affected_count`, `examples[]` |
 | `trace` | `traces/` | `frame_file`, `frame_file_sha256`, `frame_file_bytes`, `format`, `in_git`, `external_location`, `started_at`, `duration_s`, `channel_count`, `frame_count`, `bus`, `vin_masked` |
 
@@ -134,6 +136,15 @@ adı kullanır: "Engine Coolant Temp" ↔ KB "Engine Coolant Temperature") kusur
 sayılmaz, `spn_name_variant` metriğiyle **sayılır**; yalnız *birim çelişkisi*
 (`kb_unit_conflict`) veya KB adının bir tanım cümlesi olması (`kb_name_defect`)
 kayda değer INFO üretir.
+
+`provenance_gap` kayıtları **kaynak başına** izlenebilirlik kanıtıdır: veri bir
+kaynağı işaret ediyor ama ne `data/PROVENANCE.md` ne de
+`data/diagnostics/PROVENANCE.md` onu adlandırmıyor. Alan sayısı (8.918) okunamaz
+bir yığın olduğu için her **ayrı kaynak anahtarı** için bir kayıt tutulur (26
+kayıt): `occurrences`, hangi dosyada, hangi alanda, örnek değerler ve kayıt
+anahtarları. `licence_status` yalnız `unresolved` olabilir — lisans çözülürse
+kayıt arşivlenir. Doğrulayıcı her çalıştırmada anahtarı yeniden ölçer:
+`provenance_open` / `provenance_closed` / `WARN provenance_drift`.
 
 `kb_defect` kayıtları **kendi verimizdeki** kusurları ölçümle kayda geçirir:
 `detector_expression` (kusuru tanımlayan ifade), `affected_count` (bugünkü sayı),
@@ -181,6 +192,7 @@ python scripts/intake_kb_defects.py                     # ölç ve raporla
 python scripts/intake_kb_defects.py --stage             # kayıtları doğrula
 python scripts/intake_kb_defects.py --stage --apply     # yeni ölçümü sahalama
 python scripts/intake_kb_defects.py --stage --refresh   # değişen ölçümü kabul et (bilinçli)
+python scripts/intake_kb_defects.py --stage-gaps --apply   # kaynak başına boşluk kayıtları
 python scripts/intake_scan_sources.py --stage-spn --apply   # SPN referansları
 ```
 
@@ -385,6 +397,7 @@ belirsiz bir satırı "sonra düzeliriz" diye bırakmak.
 | `_templates/case.template.json` | vaka taslağı (`draft: true`) |
 | `_templates/pgn_layout.template.json` | PGN alan düzeni |
 | `_templates/spn_reference.template.json` | SPN referansı |
+| `_templates/provenance_gap.template.json` | kaynak izlenebilirliği boşluğu |
 | `_templates/kb_defect.template.json` | ölçülmüş kusur |
 | `_templates/oem_divergence.template.json` | OEM açıklama ayrışması |
 | `_templates/trace.frames.template.json` + `_templates/trace.meta.template.json` | kare dosyası + kanadı |

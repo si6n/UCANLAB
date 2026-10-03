@@ -78,6 +78,7 @@ RECORD_DIRS: dict[str, str] = {
     "oem_divergence": "oem",
     "kb_defect": "defects",
     "spn_reference": "spn_ref",
+    "provenance_gap": "gaps",
     "trace": "traces",
     "case": "cases",
     "oem_note": "oem_notes",
@@ -145,6 +146,10 @@ PAYLOAD_FIELDS: dict[str, frozenset[str]] = {
     "spn_reference": frozenset({
         "spn", "names_en", "units", "resolutions", "bit_lengths", "evidence_pgns",
         "evidence_text", "sources", "kb_state", "kb_name", "kb_unit",
+    }),
+    "provenance_gap": frozenset({
+        "source_key", "occurrences", "files", "fields", "sample_values",
+        "sample_record_keys", "documented_in", "licence_status",
     }),
     "case": frozenset({
         "case_id", "domain", "make", "model", "year", "symptom", "dtcs",
@@ -791,9 +796,34 @@ def _validate_payload_spn_reference(payload: dict[str, Any], where: str, rep: Re
                     f"{where}: SPN {spn} kaynak metinlerinde görünmüyor — türetilmiş olabilir")
 
 
+def _validate_payload_provenance_gap(payload: dict[str, Any], where: str, rep: Report) -> None:
+    """A source that shipped data points at but no provenance document records."""
+    _check_exact_fields(payload, PAYLOAD_FIELDS["provenance_gap"], where,
+                        PAYLOAD_FIELDS["provenance_gap"], rep)
+    key = payload.get("source_key")
+    if not isinstance(key, str) or not key.strip():
+        rep.fail("schema", f"{where}.source_key must be a non-empty string")
+    count = payload.get("occurrences")
+    if not isinstance(count, int) or isinstance(count, bool) or count <= 0:
+        rep.fail("schema", f"{where}.occurrences must be a positive integer")
+    for field in ("files", "fields", "sample_values", "sample_record_keys", "documented_in"):
+        value = payload.get(field)
+        if not isinstance(value, list) or not all(isinstance(item, str) and item.strip() for item in value):
+            rep.fail("schema", f"{where}.{field} must be a list of non-empty strings")
+    if not payload.get("files"):
+        rep.fail("schema", f"{where}.files must not be empty (which KB file carries the gap?)")
+    if payload.get("licence_status") != "unresolved":
+        rep.fail("schema", f"{where}.licence_status must be 'unresolved' — a resolved licence means "
+                           f"the gap is closed and the record should be archived")
+    if payload.get("documented_in"):
+        rep.add("WARN", "provenance_gap",
+                f"{where}: documented_in boş değil — kaynak belgelenmiş, kayıt arşivlenebilir")
+
+
 PAYLOAD_VALIDATORS = {
     "dtc": _validate_payload_dtc,
     "kb_defect": _validate_payload_kb_defect,
+    "provenance_gap": _validate_payload_provenance_gap,
     "spn_reference": _validate_payload_spn_reference,
     "spn_fmi": _validate_payload_spn,
     "pgn_layout": _validate_payload_pgn_layout,
@@ -1211,6 +1241,18 @@ def _register(records: list[Record], seen_ids: dict[str, str], record: Record, r
 # --------------------------------------------------------------------------- #
 # conflict report (read-only)
 # --------------------------------------------------------------------------- #
+def _provenance_gaps(repo_root: Path) -> dict[str, Any] | None:
+    """Per-source traceability measurement, if the sibling tool is importable."""
+    try:
+        from scripts.intake_kb_defects import measure_provenance_gaps  # type: ignore[import-not-found]
+    except ImportError:
+        try:
+            from intake_kb_defects import measure_provenance_gaps  # type: ignore[import-not-found]
+        except ImportError:
+            return None
+    return measure_provenance_gaps(repo_root)
+
+
 def _kb_detectors() -> dict[str, Any]:
     """The defect detectors, if the sibling tool is importable (else: none)."""
     try:
@@ -1243,6 +1285,9 @@ def report_conflicts(records: list[Record], repo_root: Path, rep: Report) -> Non
         oem_codes = oem.get("codes", {}) if isinstance(oem, dict) else {}
     golden_ids = {p.stem for p in golden_dir.glob("*.json")} if golden_dir.is_dir() else set()
     oem_layer_payload = _load_json(oem_layer) if oem_layer.is_file() else {}
+    # Measured once per run: this walks every KB JSON file, and the staged gap
+    # records must not turn a single gate run into dozens of full scans.
+    provenance_gaps = _provenance_gaps(repo_root)
 
     overlaps = 0
     candidates = 0
@@ -1320,6 +1365,33 @@ def report_conflicts(records: list[Record], repo_root: Path, rep: Report) -> Non
                 if FMI_SENTENCE_IN_NAME.search(str(current.get("name") or "")):
                     rep.add("INFO", "kb_name_defect",
                             f"{where}: SPN {spn} KB adı bir tanım cümlesi (bkz. defects/ kaydı)")
+
+    def check_provenance_gap(record: Record) -> None:
+        """Re-measure one undocumented source key against the live data."""
+        nonlocal overlaps, candidates
+        where = record.rel_path
+        key = record.payload.get("source_key")
+        if not isinstance(key, str):
+            return
+        if provenance_gaps is None:
+            rep.add("INFO", "provenance_gap", f"{where}: gap ölçüm aracı yok, yeniden ölçülemedi")
+            return
+        entry = provenance_gaps.get(key)
+        staged = record.payload.get("occurrences")
+        current = entry["occurrences"] if entry else 0
+        rep.metrics["provenance_gap_occurrences"] = rep.metrics.get("provenance_gap_occurrences", 0) + current
+        if current == 0:
+            overlaps += 1
+            rep.add("INFO", "provenance_closed",
+                    f"{where}: '{key}' artık hiçbir provenance belgesinde olmayan bir alanda geçmiyor — "
+                    f"kaynak belgelenmiş veya alan kaldırılmış, kayıt arşivlenebilir")
+        elif current == staged:
+            candidates += 1
+            rep.add("INFO", "provenance_open",
+                    f"{where}: '{key}' hâlâ {current} yerde belgelenmemiş olarak işaret ediliyor")
+        else:
+            rep.add("WARN", "provenance_drift",
+                    f"{where}: '{key}' ölçümü {staged} → {current} (kaynak eklendi ya da alan kaldırıldı)")
 
     def check_kb_defect(record: Record) -> None:
         """Re-run the staged detector and compare with the recorded measurement."""
@@ -1461,6 +1533,8 @@ def report_conflicts(records: list[Record], repo_root: Path, rep: Report) -> Non
             check_kb_defect(record)
         elif record.record_type == "spn_reference":
             check_spn_reference(record)
+        elif record.record_type == "provenance_gap":
+            check_provenance_gap(record)
     # A detector that found something but has no staged record would silently
     # vanish from the queue: report it so the register stays honest.
     detectors = _kb_detectors()
@@ -1561,8 +1635,8 @@ burada bırakılır.
 KIND_BY_TYPE: dict[str, str] = {
     "dtc": "dtc", "spn_fmi": "spn_fmi", "pgn_layout": "pgn_layout",
     "oem_divergence": "oem_divergence", "kb_defect": "kb_defect",
-    "spn_reference": "spn_reference", "case": "case", "oem_note": "oem_note",
-    "trace": "trace",
+    "spn_reference": "spn_reference", "provenance_gap": "provenance_gap",
+    "case": "case", "oem_note": "oem_note", "trace": "trace",
 }
 
 
