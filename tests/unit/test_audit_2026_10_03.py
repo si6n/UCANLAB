@@ -220,3 +220,22 @@ def test_s1_06_machine_seed_is_never_overwritten(tmp_path: Any, monkeypatch: pyt
     monkeypatch.setattr(os, "open", racing_open)
     assert backend._get_machine_seed() == winner
     assert seed_file.read_bytes() == winner
+
+
+# ---------------------------------------------------------------------------
+# S2-02 (DÜŞÜK): the launcher accepted a .py target without any hash check in
+# a frozen build too, where no .py payload is ever shipped.
+# ---------------------------------------------------------------------------
+
+
+def test_s2_02_frozen_launcher_refuses_a_python_target(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    import sys
+
+    from src.launcher.app import UniversalCanLauncher
+
+    planted = tmp_path / "main.py"
+    planted.write_text("print('planted')\n", encoding="utf-8")
+    assert UniversalCanLauncher.verify_resolved_target(planted) is True  # source checkout
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    with pytest.raises(RuntimeError):
+        UniversalCanLauncher.verify_resolved_target(planted)

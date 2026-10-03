@@ -674,6 +674,11 @@ class UniversalCanLauncher:
         fallback and is allowed without a manifest.
         """
         if target.suffix.lower() == ".py":
+            # AUDIT 2026-10-03 (S2-02): the unhashed Python fallback is a
+            # source-checkout convenience only. A frozen build ships no .py
+            # payload, so a .py target there is a planted file — refuse it.
+            if launcher_paths.is_frozen():
+                raise RuntimeError(f"Python entry point refused in a frozen build: {target}")
             return True
 
         expected = _load_target_manifest()  # raises RuntimeError if absent
