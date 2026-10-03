@@ -96,6 +96,11 @@ _TR_FOLD = str.maketrans({
     "ü": "u", "Ü": "u", "ö": "o", "Ö": "o", "ç": "c", "Ç": "c",
 })
 _NON_WORD_RE = re.compile(r"[^0-9a-z]+")
+# A signal named by its protocol identifier instead of a name, as bus tools and
+# exported logs often do: "SPN 110", "SPN_190", "J1939 SPN 102", "PID 0C",
+# "PID 0x05", "01 PID 0C". Matched on fold_text() output.
+_SPN_KEY_RE = re.compile(r"^(?:j1939 )?spn ?(\d{1,6})$")
+_PID_KEY_RE = re.compile(r"^(?:obd )?(?:(?:mode |service )?0?1 )?pid ?(?:0x)?([0-9a-f]{1,2})$")
 
 
 def fold_text(text: str) -> str:
@@ -638,7 +643,57 @@ class KnowledgeBase:
         index = self._load("_idx_signal_alias", self._build_alias_index)
         if not isinstance(index, dict):
             return name
+        protocol = self.protocol_signal(name)
+        if protocol:
+            return protocol[0]
         return str(index.get(fold_text(name).replace(" ", ""), name))
+
+    def protocol_signal(self, name: str) -> tuple[str, str] | None:
+        """(canonical signal, native unit) for an SPN/PID-named key, else None.
+
+        Canonical parameter layer.
+
+        One physical quantity has a different identifier per protocol (engine
+        speed = SPN 190 = Mode 01 PID 0x0C). ``signal_measurement_map`` already
+        carries both identifiers per canonical signal, copied from the shipped
+        J1939 and OBD databases, so a reading keyed by either identifier lands on
+        the same canonical signal, thresholds and plausibility range. An
+        identifier claimed by two canonical signals is ambiguous and resolves to
+        nothing. The native unit is the protocol's own (SPN 100 is kPa, while the
+        canonical oil pressure is bar): a unit-less value keyed "SPN 100" is in
+        kPa and must be converted, never read as bar.
+        """
+        folded = fold_text(name)
+        m = _SPN_KEY_RE.match(folded)
+        key = f"spn:{int(m.group(1))}" if m else ""
+        if not key:
+            m = _PID_KEY_RE.match(folded)
+            key = f"pid:{int(m.group(1), 16):02X}" if m else ""
+        if not key:
+            return None
+        index = self._load("_idx_signal_protocol", self._build_protocol_index)
+        hit = index.get(key) if isinstance(index, dict) else None
+        return hit if isinstance(hit, tuple) else None
+
+    def _build_protocol_index(self) -> dict[str, tuple[str, str]]:
+        mmap = self._json_source("signal_measurement_map")
+        claims: dict[str, set[tuple[str, str]]] = {}
+        for rec in (mmap or {}).get("signals", []) if isinstance(mmap, dict) else []:
+            if not isinstance(rec, dict) or not rec.get("canonical"):
+                continue
+            canonical = str(rec["canonical"])
+            j1939 = rec.get("j1939")
+            spn = j1939.get("spn") if isinstance(j1939, dict) else None
+            if isinstance(spn, int) and not isinstance(spn, bool):
+                claims.setdefault(f"spn:{spn}", set()).add((canonical, str(j1939.get("unit") or "")))
+            obd = rec.get("obd")
+            if isinstance(obd, dict) and str(obd.get("service") or "") == "01":
+                try:
+                    pid = int(str(obd.get("pid") or ""), 16)
+                except ValueError:
+                    continue
+                claims.setdefault(f"pid:{pid:02X}", set()).add((canonical, str(obd.get("unit") or "")))
+        return {key: next(iter(hits)) for key, hits in claims.items() if len(hits) == 1}
 
     def _build_alias_index(self) -> dict[str, str]:
         data = self._json_source("signal_aliases")

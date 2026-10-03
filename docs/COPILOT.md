@@ -277,6 +277,29 @@ J1939 karşılığı ise yalnız istenince verilir:
 * Sınır: yalnız simülatörle doğrulandı; gerçek ECU'larda DM4/DM30 desteği
   ve DM7'ye hedefli/global cevap biçimi üreticiye göre değişir.
 
+### 3.1.8 Kanonik parametre: SPN/PID adlı okumalar
+
+Aynı fiziksel büyüklük protokole göre farklı kimlik taşır (motor devri =
+SPN 190 = Mode 01 PID 0x0C). Bus araçları ve dışa aktarılmış kayıtlar
+okumayı çoğu zaman ad yerine bu kimlikle verir: `{"SPN 110": 104}`,
+`{"PID 0C": 1450}`.
+
+* `KnowledgeBase.protocol_signal(name)` bu anahtarı (`SPN 110`, `SPN_190`,
+  `J1939 SPN 102`, `PID 0C`, `PID 0x05`, `01 PID 0C`) kanonik sinyale ve
+  protokolün kendi birimine çevirir. Kaynak `signal_measurement_map`'teki
+  `j1939.spn` / `obd.pid` alanlarıdır; bunlar sevk edilen J1939 ve OBD
+  veritabanlarından kopyalanmıştır. Yeni eşleme uydurulmaz.
+* `canonical_signal()` önce bu katmana bakar. Böylece SPN/PID adlı okuma,
+  adıyla gelen okumayla aynı eşiğe, makul aralığa ve senaryoya bağlanır.
+* Birimsiz değer protokolün kendi birimindedir ve dönüştürülür:
+  `"SPN 100": 350` = 350 kPa = 3.5 bar (kanonik yağ basıncı bar'dır).
+  Dönüşümü olmayan birim (ör. SPN 27 "-") okumayı bilinmeyen anahtara
+  düşürür; değer zorla yorumlanmaz.
+* İki kanonik sinyalin paylaştığı kimlik belirsizdir ve hiçbir şeye
+  çevrilmez.
+* Metin içindeki "SPN 110" arıza kodu olarak kalır; bu katman yalnız
+  telemetri / freeze frame anahtarlarına uygulanır.
+
 ### 3.2 Aciliyet ve güvenlik
 
 * Aciliyet: kod ciddiyeti `drive_safety_policy.decide_risk` ile (tek otorite),

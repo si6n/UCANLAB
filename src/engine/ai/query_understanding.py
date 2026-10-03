@@ -425,7 +425,7 @@ _UNIT_ALIASES: dict[str, str] = {
     "v": "V", "volt": "V", "vdc": "V", "rpm": "rpm", "d/dk": "rpm", "dev/dk": "rpm",
     "km/h": "km/h", "kmh": "km/h", "km/s": "km/h", "%": "%", "yuzde": "%", "percent": "%",
     "kohm": "kΩ", "kω": "kΩ", "k": "kΩ", "mohm": "MΩ", "mω": "MΩ", "ohm": "Ω", "ω": "Ω",
-    "g/s": "g/s", "a": "A", "amp": "A", "mv": "mV",
+    "g/s": "g/s", "kg/h": "kg/h", "a": "A", "amp": "A", "mv": "mV",
 }
 _NUM_UNIT_RE = re.compile(
     r"^\s*(?:[:=]|is|=|degeri|olarak|su an|şu an)?\s*(-?\d+(?:[.,]\d+)?)\s*"
@@ -443,6 +443,7 @@ _CONVERT: dict[tuple[str, str], Any] = {
     ("MΩ", "kΩ"): lambda v: v * 1000.0,
     ("Ω", "kΩ"): lambda v: v / 1000.0,
     ("mV", "V"): lambda v: v / 1000.0,
+    ("kg/h", "g/s"): lambda v: v / 3.6,
 }
 
 
@@ -559,6 +560,11 @@ def _input_readings(telemetry: Mapping[str, Any], kb: KnowledgeBase) -> tuple[li
             unknown.append(str(key))  # NaN/Inf is not a measurement
             continue
         canonical = kb.canonical_signal(str(key))
+        protocol = kb.protocol_signal(str(key))
+        if protocol and not unit:
+            # "SPN 100": 350 is in the protocol's own unit (kPa), not the canonical one.
+            native = protocol[1]
+            unit = _UNIT_ALIASES.get(native.lower(), native)
         if not kb.signal_measurement(canonical).found and not kb.telemetry_threshold(canonical).found:
             unknown.append(str(key))
             continue
