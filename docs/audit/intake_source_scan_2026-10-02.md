@@ -15,7 +15,7 @@ Dal: `ccr-intake`. Bu rapor **keşif kanıtıdır**; `data/diagnostics` ve
 | Intake'e sahaya alınan `pgn_layout` kaydı | **84** |
 | Intake'e sahaya alınan `oem_divergence` kaydı | **35** (5.922 ayrışma satırı; 2 listede ayrışma yok) |
 | Intake'e sahaya alınan `spn_reference` kaydı | **174** (69 terfi adayı + 105 uzlaştırma; 168'i çapraz doğrulanmış) |
-| Intake'e sahaya alınan `kb_defect` kaydı | **13** (kendi verimizden ölçülmüş kusur) |
+| Intake'e sahaya alınan `kb_defect` kaydı | **14** (kendi verimizden ölçülmüş kusur) |
 | Intake'e sahaya alınan `provenance_gap` kaydı | **26** (kaynak başına izlenebilirlik kanıtı) |
 | Kopyalanan PGN alanı | **378** |
 | Kopyalanan SPN referansı | **171** (168 ayrı SPN) |
@@ -477,6 +477,39 @@ Kapı artık üç bağımsız temsili çapraz denetliyor: YAML alan düzeni ↔ 
 listesi (yapı), YAML metni ↔ DBC `CM_ SG_` yorumu (ad/SPN) ve upstream ↔ KB
 (çakışma raporu).
 
+## 4n. UDS DID tablosu: politika ile veri çelişiyor (36/68 kaynaksız)
+
+`data/diagnostics/uds_did_database.json` 68 DID içeriyor; **36'sı (%53) hiçbir
+kaynak alanı taşımıyor** (yalnız 32 ISO 14229 satırı `source` belirtiyor).
+Üretici dağılımı: VAG 10, Tesla 6, BMW 6, Mercedes-Benz 4, Toyota 4, Ford 3,
+Hyundai-Kia 3.
+
+Bu, `data/PROVENANCE.md` §5'in bu tablo için yazdığı ilkeyle doğrudan çelişiyor:
+
+> "UDS DID / Mode 06 veri tabloları (açık yeniden-dağıtılabilir kaynak YOK —
+> uydurulmaz)"
+
+Kaynaksız satırlar yine de `byte_length`, `scaling`, `offset` ve `unit`
+taşıyor — yani teknik öznitelikler bir yerde üretilmiş, kaynağı yazılmamış.
+
+### Doğrulanmış kısım ve dürüst sınırı
+
+32 ISO satırının kaynak dizesi "ISO 14229:2006 Annex F (via python-udsoncan
+DataIdentifier, MIT)". Bunu **gerçekten kontrol ettik** (2026-10-03):
+
+| İddia | Doğrulama | Sonuç |
+|---|---|---|
+| python-udsoncan MIT lisanslı | `LICENSE`: "MIT License, Copyright (c) 2017 Pier-Yves Lessard" | ✅ doğru |
+| ISO DID numaraları orada | `udsoncan/common/dids.py`: `BootSoftwareIdentification = 0xF180` … | ✅ doğru |
+| Ölçek/birim/bayt uzunluğu orada | dosya yalnız sabit numara + sabit adı tanımlıyor | ❌ **yok** |
+
+Yani kaynak dizesi, dosyanın kapsamından biraz geniş bir atıf yapıyor: kimlik
+(DID + ad) izlenebilir, öznitelikler (ölçek/birim/bayt) izlenebilir değil.
+
+Dedektör (`uds_oem_did_without_source`) **önceliği politika metninden türetir**:
+§5 cümlesi kaldırılırsa bulgu "policy breach" değil "attribution gap"
+seviyesine iner. Yani birini suçlamadan, politika değişimini de takip eder.
+
 ### Hangi üreticinin metni hayatta kaldı? (ölçüm)
 
 Katmandaki metnin **her kod için** tam olarak bir kaynak satırına eşit olduğu
@@ -536,6 +569,8 @@ python scripts/intake_scan_sources.py --stage-oem --apply
 python scripts/intake_scan_sources.py --stage-spn --apply
 python scripts/intake_kb_defects.py --stage --apply
 python scripts/intake_kb_defects.py --stage-gaps --apply
+# python-udsoncan (MIT) kaynak iddiasının doğrulaması:
+#   curl -sSL https://codeload.github.com/pylessard/python-udsoncan/tar.gz/refs/heads/master
 python scripts/validate_intake.py --sync-manifest --apply
 python scripts/validate_intake.py --sync-manifest --apply
 python scripts/validate_intake.py                       # FAIL=0 beklenir
