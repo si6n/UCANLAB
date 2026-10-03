@@ -182,3 +182,10 @@ Kaynak: `docs/audit/AUDIT_2026-10-03.md`. Kimlikler raporla aynı.
 ### B-22 (DÜŞÜK) — Çekirdek adlandırma ve sabitler (S5-02, S5-03)
 - `src/core/exceptions.py` → `src/core/transport_errors.py` (eski adı uyumluluk için yeniden dışa aktararak).
 - Bulut User-Agent'ını `__version__`'dan üret (sunucu UA kontrolü yapmıyorsa).
+
+### B-23 (YÜKSEK) — Flash güven çapası kullanıcıdan gelmemeli (S6-02)
+- **Kanıt:** `src/ui/desktop_app.py:5233-5242` (`_parse_flash_pubkey` köprü yapılandırmasından),
+  `src/ui/frontend/src/components/workbench/EcuView.tsx:133-134`.
+- **Öneri:** atölye/OEM anahtarlarını uygulama dışında (yönetici adımı, imzalı paket) sabitlenmiş
+  bir depoya ekle; `trustedPubkey` yalnız bu depodaki bir anahtarın parmak izi olabilsin; native
+  onay penceresi imajın SHA-256'sını ve anahtarın sahibini/parmak izini göstersin.
