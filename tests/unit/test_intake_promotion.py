@@ -20,7 +20,7 @@ def test_promoted_spns_resolve_with_their_canboat_source() -> None:
 def test_promoted_j1939_pgn_layout_is_found() -> None:
     look = KB.pgn(65262)
     assert look.found
-    assert not (INTAKE / "pgn").glob("*065262*") or not list((INTAKE / "pgn").glob("*065262*"))
+    assert not list((INTAKE / "pgn").glob("canboat-pgn-65262-*"))
 
 
 def test_j1939_parameter_names_resolve_to_canonical_signals() -> None:
