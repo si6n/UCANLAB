@@ -174,7 +174,7 @@ class Hypothesis:
     id: str
     title: str
     score: float
-    kind: str                       # graph | record | suspected | area
+    kind: str                       # graph | record | suspected | area | pattern
     codes: list[str] = field(default_factory=list)
     support: list[tuple[str, str]] = field(default_factory=list)       # (text, ref)
     against: list[tuple[str, str]] = field(default_factory=list)
@@ -632,6 +632,48 @@ def _apply_answers(kb: KnowledgeBase, r: Reasoning, hyps: dict[str, Hypothesis])
                     (result.favor if sign > 0 else result.rule_out).append(h.title)
 
 
+def _common_causes(kb: KnowledgeBase, r: Reasoning, active: dict[str, CodeFact],
+                   hyps: dict[str, Hypothesis]) -> None:
+    """Several active codes, one shared fault: a curated rule adds the candidate
+    that explains them all (parsimony). Its score grows with every code it
+    explains, so it outranks the per-code causes only when it explains more."""
+    facts = list(active.values())
+    by_signal = {f.signal: f for f in r.findings}
+    for rule in kb.reasoning_rules():
+        spec = rule.get("match") or {}
+        codes_re = re.compile(str(spec["codes_regex"])) if spec.get("codes_regex") else None
+        title_re = re.compile(str(spec["title_regex"])) if spec.get("title_regex") else None
+        matched = [f.key for f in facts
+                   if (codes_re is None or codes_re.search(f.key))
+                   and (title_re is None or title_re.search(fold_text(f"{f.title_tr} {f.title_en}")))]
+        required = [str(c) for c in spec.get("required") or []]
+        low_sig = by_signal.get(str(spec.get("signal_low") or ""))
+        signal_hit = low_sig is not None and low_sig.status in ("low", "critical_low")
+        if required and not set(required) <= set(active) and not signal_hit:
+            continue
+        if required and not spec.get("explains_all") and not (codes_re or title_re):
+            matched = [c for c in matched if c in required]
+        units = len(set(matched)) + (1 if signal_hit else 0)
+        if units < int(spec.get("min_codes") or 2) or not matched:
+            continue
+        ref = f"reasoning_rules#{rule['id']}"
+        # A graph node linked to each of these codes collects their points one by
+        # one ("plug/coil" for three misfiring cylinders); the shared cause that
+        # explains the same codes is checked before it.
+        joint = [g.score for g in hyps.values() if g.kind == "graph" and len(set(g.codes) & set(matched)) >= 2]
+        score = max([3.0 + 1.0 * (units - 1)] + [x + 0.5 for x in joint])
+        h = Hypothesis(ref, str(rule.get("title_tr") or rule["id"]), score, "pattern",
+                       codes=sorted(set(matched)), refs=[ref])
+        h.support.append((f"pattern:{rule['id']}|{units}", ref))
+        h.support += [(f"code:{c}", active[c].refs[0] if active[c].refs else ref) for c in sorted(set(matched))]
+        if signal_hit and low_sig is not None:
+            h.support.append((f"signal:{low_sig.signal}|{_fmt(low_sig.value)}|{low_sig.unit}|{low_sig.status}",
+                              low_sig.ref or "input"))
+        h.severity_rank = max((_SEVERITY_ORDER.index(active[c].severity) for c in matched
+                               if active[c].severity in _SEVERITY_ORDER), default=0)
+        hyps[ref] = h
+
+
 def _build_hypotheses(kb: KnowledgeBase, r: Reasoning) -> None:
     by_signal = {f.signal: f for f in r.findings}
     hyps: dict[str, Hypothesis] = {}
@@ -700,6 +742,10 @@ def _build_hypotheses(kb: KnowledgeBase, r: Reasoning) -> None:
                 h.score += 0.5
                 h.support.append((f"complaint_signal:{sid}|{implied}", f"root_cause_graph#{node.id}"))
 
+    # (3b) several active codes explained by one shared fault
+    if len(active) >= 1:
+        _common_causes(kb, r, active, hyps)
+
     # (4) no cause the graph knows: name the subsystems to inspect, never a cause.
     # A complaint with no code read and fewer than three candidates also lists
     # the symptom's own subsystems, so a lone off-target node never stands alone.
@@ -749,7 +795,7 @@ def _build_hypotheses(kb: KnowledgeBase, r: Reasoning) -> None:
             has_check = any(s.startswith("check:") for s, _ in h.support)
             if has_code and has_signal and not h.against:
                 h.confidence = "high"
-            elif (has_code and h.kind == "graph" and not h.against) or ((has_signal or has_check) and not h.against):
+            elif (has_code and h.kind in ("graph", "pattern") and not h.against) or ((has_signal or has_check) and not h.against):
                 h.confidence = "medium"
             else:
                 h.confidence = "low"

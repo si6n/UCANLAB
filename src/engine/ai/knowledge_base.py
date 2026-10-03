@@ -72,6 +72,7 @@ SOURCE_FILES: dict[str, str] = {
     "symptom_checks": "diagnostics/symptom_checks.json",
     "subsystem_labels_en": "diagnostics/subsystem_labels_en.json",
     "graph_title_i18n": "diagnostics/graph_title_i18n.json",
+    "reasoning_rules": "diagnostics/reasoning_rules.json",
     "root_cause_graph": "diagnostics/root_cause_graph.json",
     "signal_aliases": "diagnostics/signal_aliases.json",
     "signal_measurement_map": "diagnostics/signal_measurement_map.json",
@@ -483,6 +484,15 @@ class KnowledgeBase:
             return Lookup.miss("canonical_symptoms", symptom_id)
         return Lookup(True, "canonical_symptoms", symptom_id, rec)
 
+    def reasoning_rules(self) -> list[dict[str, Any]]:
+        """Curated common-cause rules over several active codes (``[]`` when absent)."""
+        data = self._json_source("reasoning_rules")
+        rules = data.get("rules") if isinstance(data, dict) else None
+        return [r for r in rules if isinstance(r, dict) and r.get("id")] if isinstance(rules, list) else []
+
+    def reasoning_rule(self, rule_id: str) -> dict[str, Any] | None:
+        return next((r for r in self.reasoning_rules() if r.get("id") == rule_id), None)
+
     def graph_title(self, node_id: str, lang: str) -> str | None:
         """Display title of a graph node in ``lang`` when a translation exists (else ``None``)."""
         data = self._json_source("graph_title_i18n")
@@ -800,6 +810,8 @@ class KnowledgeBase:
         if source == "symptom_lexicon":
             lex = self._json_source("symptom_lexicon")
             return (key == "safety_terms" and isinstance(lex, dict) and "safety_terms" in lex) or self.symptom(key).found
+        if source == "reasoning_rules":
+            return self.reasoning_rule(key) is not None
         if source == "graph_title_i18n":
             return self.graph_title(key, "tr") is not None or self.graph_title(key, "en") is not None
         if source == "subsystem_labels_en":

@@ -56,3 +56,18 @@ def test_the_named_next_question_is_listed_first() -> None:
 def test_ties_follow_the_best_matched_complaint() -> None:
     d = answer_query("dpf doldu güç kısıtlaması var", language="tr").to_dict()
     assert d["causes"][0]["title"].startswith("DPF"), [c["title"] for c in d["causes"]]
+
+
+def test_shared_cause_explains_several_codes_and_leads_the_steps() -> None:
+    d = answer_query("", dtcs=["P0107", "P0122", "P0117"], language="tr").to_dict()
+    top = d["causes"][0]
+    assert top["kind"] == "pattern" and set(top["codes"]) == {"P0107", "P0122", "P0117"}
+    assert any("3 bulgu aynı ortak nedeni" in e["text"] for e in top["support"])
+    assert d["steps"][0]["refs"] == ["reasoning_rules#shared-sensor-reference"]
+    en = answer_query("", dtcs=["P0107", "P0122", "P0117"], language="en").to_dict()
+    assert en["causes"][0]["title"].startswith("Shared 5 V sensor reference")
+
+
+def test_unrelated_codes_trigger_no_shared_cause() -> None:
+    d = answer_query("", dtcs=["P0300", "P0420"], language="tr").to_dict()
+    assert "pattern" not in {c["kind"] for c in d["causes"]}

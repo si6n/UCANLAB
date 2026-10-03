@@ -56,6 +56,7 @@ _S: dict[str, dict[str, str]] = {
     "conf.low": {"tr": "düşük", "en": "low"},
     "kind.graph": {"tr": "kök neden grafiği", "en": "root-cause graph"},
     "kind.record": {"tr": "kod kaydındaki olası neden", "en": "possible cause listed in the code record"},
+    "kind.pattern": {"tr": "birden çok kodu tek nedenle açıklayan ortak kök neden", "en": "one shared cause explaining several codes"},
     "kind.area": {"tr": "şikâyetin işaret ettiği alt sistem (kesin neden değil; kontrol edilecek bölge)",
                   "en": "subsystem the complaint points at (not a specific cause; area to inspect)"},
     "h.checks": {"tr": "Sorular — cevaplarınız teşhisi daraltır", "en": "Questions — your answers narrow the diagnosis"},
@@ -331,6 +332,12 @@ def _evidence_text(marker: str, lang: str, kb: KnowledgeBase) -> str:
         name = rec.get("name_tr") if lang == "tr" else rec.get("name_en")
         return (f"şikâyet: {name or payload} — motor çalıştırılmaya devam ederse kalıcı hasar görebilir"
                 if lang == "tr" else f"complaint: {name or payload} — running the engine on can cause permanent damage")
+    if kind == "pattern":
+        rid, _, n = payload.partition("|")
+        rule = kb.reasoning_rule(rid) or {}
+        why = str(rule.get("rationale_tr" if lang == "tr" else "rationale_en") or "")
+        return (f"{n} bulgu aynı ortak nedeni işaret ediyor: {why}" if lang == "tr"
+                else f"{n} findings point to the same shared cause: {why}")
     if kind == "complaint_signal":
         sid, _, sig = payload.partition("|")
         rec = kb.symptom(sid).record or {}
@@ -374,6 +381,9 @@ def _title(h: Hypothesis, lang: str, kb: KnowledgeBase) -> str:
     """Display title: an area row (a symptom subsystem, Turkish in the data) gets its English name in English."""
     if h.kind == "area":
         return (kb.subsystem_label_en(h.title) or h.title) if lang == "en" else h.title
+    if h.kind == "pattern":
+        rule = kb.reasoning_rule(h.id.partition("#")[2]) or {}
+        return str(rule.get("title_en" if lang == "en" else "title_tr") or h.title)
     if h.kind in ("graph", "suspected"):
         return kb.graph_title(h.id, lang) or h.title  # graph titles mix TR and EN in the data
     return h.title
@@ -506,6 +516,13 @@ def _steps(r: Reasoning, lang: str, max_steps: int, kb: KnowledgeBase) -> list[d
     if r.risk == "RED" and not r.safety:
         add("Motoru çalıştırmaya devam etmeyin; önce aşağıdaki kontrolleri yapın." if lang == "tr"
             else "Do not keep the engine running; do the checks below first.", "", ["template:risk.RED"])
+    # A shared cause that explains several codes is checked before the per-code steps.
+    for h in r.hypotheses[:2]:
+        if h.kind == "pattern":
+            rule = kb.reasoning_rule(h.id.partition("#")[2]) or {}
+            step = str(rule.get("step_tr" if lang == "tr" else "step_en") or "")
+            if step:
+                add(step, "", [h.id])
     # What the operator's answers concluded is the next thing to do.
     for res in r.check_results:
         note = res.note_tr if lang == "tr" else res.note_en

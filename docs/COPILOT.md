@@ -125,6 +125,27 @@ Bilmiyorum düğmeleri ve ölçüm alanı gösterir. Canlı oturum cevabında (k
   hiçbir şeyi değiştirmez (`answer_ignored:<key>` notu). Cevaplar aciliyeti
   düşürmez.
 
+### 3.1.2 Ortak kök neden (`reasoning_rules`)
+
+Birden çok kod aynı anda aktifse, hepsini tek bir ortak arıza açıklayabilir
+(tutumluluk ilkesi): kısa devre yapan ortak 5 V referans her sensörün "devre
+düşük" kodunu, CAN omurga arızası her "iletişim kaybı" kodunu üretir.
+`scripts/copilot_data/build_reasoning_rules.py` → `data/diagnostics/reasoning_rules.json`
+(6 kural: ortak sensör referansı, ortak sensör şasesi, CAN omurgası, düşük besleme
+gerilimi, çoklu silindir teklemesi, krank+eksantrik birlikte). Graf zaten bir ortak
+neden düğümü taşıyorsa (P0171+P0174 "iki bankta fakir") kural eklenmez.
+
+* Eşleşme: aktif ve bilinen kodlar üzerinde kod kalıbı (`codes_regex`), başlık
+  kalıbı (`title_regex`, TR+EN katlanmış), en az kod sayısı, zorunlu kodlar.
+* Aday `kind=pattern`, puan `3.0 + (açıklanan kod − 1)`; aynı kodları tek tek
+  toplayan bir graf düğümü varsa (üç silindir için "buji/bobin") onun 0.5 üstü.
+  Destek satırı "N bulgu aynı ortak nedeni işaret ediyor: …" ve her kod.
+* Kuralın ilk kontrol adımı "Ne yapmalı"nın başına (güvenlik satırlarından sonra)
+  gelir: ör. "sensör soketlerinde 5 V referansı ölçün; sensörleri tek tek ayırın".
+* Tek kod veya ilgisiz kodlar kural tetiklemez.
+* `signal_low` alanı (düşük akü gerilimi okuması) eşiği olan sinyallerde çalışır;
+  `BatteryVoltage` için henüz eşik kaydı yok, bu yüzden şimdilik yalnız P0562 ile tetiklenir.
+
 ### 3.2 Aciliyet ve güvenlik
 
 * Aciliyet: kod ciddiyeti `drive_safety_policy.decide_risk` ile (tek otorite),
@@ -156,6 +177,7 @@ Bilmiyorum düğmeleri ve ölçüm alanı gösterir. Canlı oturum cevabında (k
 | `obd_mode06`, `uds_did` | Mode 06 / UDS DID | KB üzerinden erişilebilir (eski paket açıklama yolu) |
 | `canonical_symptoms` | 152 semptom | Şikâyet → aday kod, ilk kontroller |
 | `symptom_lexicon` (yeni) | 34 kayıt, 301 TR/EN ifade + güvenlik terimleri | Gündelik ifadeler |
+| `reasoning_rules` (yeni) | 6 ortak kök neden kuralı | Birden çok kodu tek nedenle açıklama (§3.1.2) |
 | `graph_title_i18n` (yeni) | 144 graf düğümü | Graf başlıklarının TR/EN gösterimi: sık ulaşılan düğümler küratörlü, OEM etiketli kalıplar ("[Kia] Faulty X") bileşen sözlüğüyle |
 | `subsystem_labels_en` (yeni) | 315 alt sistem etiketi | İngilizce cevapta `area` satırlarının adı (yalnız etiket çevirisi) |
 | `symptom_checks` (yeni) | 147 semptom, 270 soru | Soru cevaplarının küratörlü etkileri (§3.1.1) |
@@ -202,7 +224,7 @@ python -m pytest tests/unit/test_copilot_*.py tests/safety/test_ai_tx_isolation.
 
 | Dosya | İçerik |
 |---|---|
-| `test_copilot_golden_scenarios.py` | 56 altın senaryo (soru cevapları, gündelik ifadeler, DTC, SPN/FMI, DM1, semptom, gösterge değeri, olumsuzluk, telemetri+kod, çelişkili kanıt, veri yok, EV/HV, fren/direksiyon, çoklu kod, yazım hatası, TR/EN, NHTSA, PGN) + 6 bölüm/ilk satır güvenlik kontrolü |
+| `test_copilot_golden_scenarios.py` | 61 altın senaryo (ortak kök neden, soru cevapları, gündelik ifadeler, DTC, SPN/FMI, DM1, semptom, gösterge değeri, olumsuzluk, telemetri+kod, çelişkili kanıt, veri yok, EV/HV, fren/direksiyon, çoklu kod, yazım hatası, TR/EN, NHTSA, PGN) + 6 bölüm/ilk satır güvenlik kontrolü |
 | `test_copilot_no_fabrication.py` | Her küratörlü sorunun her cevabı (424 durum) için atıf çözümü ve sayı izlenebilirliği; atıf çözümü, sayı izlenebilirliği, yalnız verilen sinyallerde bulgu, bilinmeyen koda anlam verilmemesi, NaN/birim reddi, determinizm, yazma/TX yokluğu |
 | `test_copilot_knowledge_and_parsing.py` | KB tembelliği, indeksler, kaçırma nedenleri, ayrıştırıcı birim testleri |
 | `test_copilot_performance.py` | Kurulum < 10 ms, sıcak sorgu ort. < 150 ms (ölçülen 2–13 ms), bellek < 8 MB, arama katmanı aç/kapa |

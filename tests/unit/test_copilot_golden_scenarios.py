@@ -44,6 +44,12 @@ SCENARIOS: list[tuple[str, dict[str, Any], dict[str, Any]]] = [
      {"symptoms": ["crank-no-start"], "not_symptoms": ["starter-relay-circuit-open"]}),
     ("sym_numbered_cylinder", {"text": "3. silindir tekleme yapıyor"},
      {"symptoms": ["misfire-cylinder-3"], "not_symptoms": ["misfire-random-multiple", "rough-idle-vibration"]}),
+    # ---- several codes, one shared cause (reasoning_rules.json) ---------
+    ("rule_sensor_reference", {"dtcs": ["P0107", "P0122", "P0117"]}, {"top": "5 v sensor referans", "conf": {"medium"}}),
+    ("rule_network", {"dtcs": ["U0100", "U0121", "U0140"]}, {"top": "ortak can hatti"}),
+    ("rule_low_voltage", {"dtcs": ["P0562", "P0300", "U0121"]}, {"top": "dusuk besleme gerilimi"}),
+    ("rule_multi_misfire", {"dtcs": ["P0301", "P0302", "P0304"]}, {"top": "birden cok silindirde tekleme"}),
+    ("rule_single_code_no_pattern", {"dtcs": ["P0301"]}, {"top": "buji bobin"}),
     # ---- everyday phrasings: the specific phrase wins, generic words do not pull ----
     ("sym_battery_not_ev", {"text": "akü şarj olmuyor"},
      {"symptoms": ["battery-drain-parasitic"], "not_symptoms": ["ev-charging-interlock-fault", "ev-hv-isolation-warning"]}),
