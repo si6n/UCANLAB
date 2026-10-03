@@ -420,3 +420,28 @@ def test_every_staged_oem_divergence_has_rows() -> None:
         payload = json.loads(path.read_text(encoding="utf-8"))["payload"]
         assert payload["divergences"], f"{path.name} has no divergence to review"
         assert payload["divergence_count"] == len(payload["divergences"])
+
+
+# --------------------------------------------------------------------------- #
+# UDS DID attribution (policy-driven severity)
+# --------------------------------------------------------------------------- #
+def test_uds_did_detector_counts_sourceless_oem_rows() -> None:
+    finding = DETECTORS["uds_oem_did_without_source"](ROOT)
+    assert finding["affected_count"] > 0
+    assert finding["severity"] in {"high", "medium"}
+    # severity is policy driven: data/PROVENANCE.md §5 names this table
+    policy = (ROOT / "data" / "PROVENANCE.md").read_text(encoding="utf-8")
+    expected = "high" if "UDS DID / Mode 06" in policy else "medium"
+    assert finding["severity"] == expected, "severity must follow the documented policy"
+    for example in finding["examples"]:
+        assert {"did", "oem", "name"} <= set(example)
+
+
+def test_uds_did_examples_are_verbatim_sourceless_rows() -> None:
+    finding = DETECTORS["uds_oem_did_without_source"](ROOT)
+    dids = json.loads((ROOT / "data" / "diagnostics" / "uds_did_database.json")
+                      .read_text(encoding="utf-8"))["dids"]
+    for example in finding["examples"]:
+        record = dids[example["did"]]
+        assert record.get("name") == example["name"]
+        assert not str(record.get("source") or "").strip(), "example must be a sourceless row"
