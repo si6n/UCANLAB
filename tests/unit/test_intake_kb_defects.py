@@ -322,3 +322,78 @@ def test_no_detector_reports_a_dangling_cross_reference() -> None:
             match = _re.fullmatch(r"SPN\s+(\d+)", text)
             if match:
                 assert f"SPN_{match.group(1)}" in spns, text
+
+
+# --------------------------------------------------------------------------- #
+# quarantine self-consistency gate
+# --------------------------------------------------------------------------- #
+def test_quarantine_invariants_hold_on_the_real_data() -> None:
+    from scripts.validate_intake import check_quarantine_invariants
+
+    rep = Report()
+    check_quarantine_invariants(ROOT, rep)
+    assert rep.count("FAIL") == 0, [d for lv, _c, d in rep.rows if lv == "FAIL"]
+    assert rep.metrics.get("quarantine_invariants_checked", 0) > 0
+
+
+def _mini_repo(tmp_path: Path) -> tuple[Path, Path]:
+    """A tiny stand-in for the repo: real quarantine audits, synthetic DB/graph."""
+    import shutil
+
+    src = ROOT / "data" / "diagnostics"
+    diag = tmp_path / "data" / "diagnostics"
+    quarantine = diag / "quarantine"
+    quarantine.mkdir(parents=True)
+    shutil.copy(src / "j1939_spn_fmi_database.json", diag / "j1939_spn_fmi_database.json")
+    for name in ("t2_4_sitrak_shell_rows.json", "dtcdocs_llm_blocks.json"):
+        shutil.copy(src / "quarantine" / name, quarantine / name)
+    return tmp_path, diag
+
+
+def test_quarantine_gate_catches_a_reintroduced_seed_node(tmp_path: Path) -> None:
+    """A node the audit recorded as 'not_recovered' must not reappear in the graph."""
+    from scripts.validate_intake import check_quarantine_invariants
+
+    root, diag = _mini_repo(tmp_path)
+    (diag / "root_cause_graph.json").write_text(
+        json.dumps({"nodes": [{"id": "leaked-node"}]}), encoding="utf-8")
+    (diag / "quarantine" / "t21_seed_audit.json").write_text(
+        json.dumps({"nodes": [{"id": "leaked-node", "verdict": "not_recovered"},
+                              {"id": "missing-node", "verdict": "already_in_graph"}]}),
+        encoding="utf-8")
+    rep = Report()
+    check_quarantine_invariants(root, rep)
+    failures = " | ".join(d for lv, _c, d in rep.rows if lv == "FAIL")
+    assert "not_recovered" in failures, failures
+    assert "missing-node" in failures, failures
+
+
+def test_quarantine_gate_catches_a_reintroduced_shell_row(tmp_path: Path) -> None:
+    from scripts.validate_intake import check_quarantine_invariants
+
+    root, diag = _mini_repo(tmp_path)
+    (diag / "root_cause_graph.json").write_text(json.dumps({"nodes": []}), encoding="utf-8")
+    shell = json.loads((diag / "quarantine" / "t2_4_sitrak_shell_rows.json").read_text(encoding="utf-8"))
+    key = next(iter(shell["records"]))
+    blob = json.loads((diag / "j1939_spn_fmi_database.json").read_text(encoding="utf-8"))
+    blob["spns"][key] = {"spn": 1, "name": "leaked"}
+    (diag / "j1939_spn_fmi_database.json").write_text(json.dumps(blob), encoding="utf-8")
+    rep = Report()
+    check_quarantine_invariants(root, rep)
+    assert any("kabuk satırı" in d for lv, _c, d in rep.rows if lv == "FAIL")
+
+
+def test_quarantine_gate_catches_a_reintroduced_llm_block(tmp_path: Path) -> None:
+    """A quarantined LLM block's sha256 must not reappear in the shipped DB text."""
+    from scripts.validate_intake import check_quarantine_invariants
+
+    root, diag = _mini_repo(tmp_path)
+    (diag / "root_cause_graph.json").write_text(json.dumps({"nodes": []}), encoding="utf-8")
+    blocks = json.loads((diag / "quarantine" / "dtcdocs_llm_blocks.json").read_text(encoding="utf-8"))
+    digest = blocks["records"][0]["block_sha256"]
+    blob = json.loads((diag / "j1939_spn_fmi_database.json").read_text(encoding="utf-8"))
+    blob["spns"]["SPN_999999"] = {"spn": 999999, "name": "leaked", "evidence_url": digest}
+    (diag / "j1939_spn_fmi_database.json").write_text(json.dumps(blob), encoding="utf-8")
+    rep = Report()
+    check_quarantine_invariants(root, rep)
+    assert any("blok özeti" in d for lv, _c, d in rep.rows if lv == "FAIL")

@@ -285,7 +285,14 @@ disiplin):
    `intake_id` **kayıt düzeyinde** tekildir (bir trace'in kare dosyası sahibiyle
    aynı `intake_id`'yi taşır); iki ayrı kayıt aynı `intake_id`'yi kullanamaz.
 7. **Draft kuralı** — §4.
-8. **Çakışma raporu (yalnız rapor)** — mevcut `data/diagnostics/dtc_database.json`,
+8. **Karantina değişmezleri** — `data/diagnostics/quarantine/` içindeki denetim
+   iddiaları her koşuda yeniden doğrulanır: `already_in_graph` denilen 38 tohum
+   düğümün hâlâ grafta olması, `not_recovered` denilen 15 düğümün grafta
+   **olmaması**, 13 karantina kabuk satırı anahtarının DB'de bulunmaması ve
+   karantina edilen LLM blok özetlerinin DB metninde geçmemesi. Bu bir *bulgu*
+   değil bir **kapıdır**: sonraki bir merge eski temizliği sessizce geri
+   getirirse FAIL verir.
+9. **Çakışma raporu (yalnız rapor)** — mevcut `data/diagnostics/dtc_database.json`,
    `dtc_database_oem_layer.json`, `j1939_spn_fmi_database.json`,
    `canboat_pgn_reference.json` ve `data/golden_traces/cases/` ile
    karşılaştırılır. `pgn_layout` alanlarının SPN referansları da KB'de aranır:

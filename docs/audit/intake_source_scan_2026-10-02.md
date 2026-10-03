@@ -354,6 +354,42 @@ anahtarları ölçüm sözlüğündeki kanonik adlardan **farklı**
 denetler; isim uyumu `data/diagnostics/PROVENANCE.md` P0-2 uzlaştırmasında
 kayıtlıdır.
 
+## 4j. Önceki temizlik çalışmalarının doğrulanması + iki kaydın birleştirilmesi
+
+### 4j-1. Karantina iddiaları bugün de doğru
+
+`data/diagnostics/quarantine/` içindeki dört denetim düğümden okunup
+**yeniden doğrulandı**:
+
+| Denetim | İddia | Ölçüm (2026-10-02) |
+|---|---|---|
+| `t21_seed_audit.json` | 38 tohum düğüm grafta (`already_in_graph`) | **38/38 var** |
+| `t21_seed_audit.json` | 15 düğüm kurtarılmadı (`not_recovered`) | **0/15 grafta** (yanlışlıkla yok) |
+| `t2_4_sitrak_shell_rows.json` | 13 kabuk satırı anahtarı kaldırıldı | **0/13 sızıntı** |
+| `dtcdocs_llm_blocks.json` | 19 karantina LLM bloğu DB'den çıkarıldı | **0/19 blok özeti DB metninde** |
+
+Bu artık bir not değil, kapı: `validate_intake.py` her koşuda yeniden ölçüyor
+(`quarantine_invariants_checked=85`, geri gelen iz yok). Regresyon olursa FAIL.
+
+### 4j-2. T3-3 zaten kaynak başına envanter tutuyor
+
+`quarantine/t3_3_junk_causes.json` **aynı opak kaynak etiketlerini** kullanıyor
+(`sitrak_ccby4`, `tur23_j1939hub`, `tier_b`, `tier_c_ss_verified`) ve kaynak
+başında ölçüm tablosu tutuyor: 7.713 neden kaydı, 142'si (%1,84) kirli;
+`detroitdieselengines.info` toptan kirli **değil** (320 nedenin 17'si).
+
+Yani iki çalışma birbirinin değil **tamamlayıcısı**:
+
+| Boyut | Sonuç | Nerede |
+|---|---|---|
+| **İçerik** (kirli metin) | ölçülmüş, %1,84, toplu karantina yapılmamış | T3-3 (mevcut) |
+| **Lisans/izlenebilirlik** | 26 kaynak anahtarı hiçbir provenance belgesinde yok | 4f/4g (bu tur) |
+
+Aynı `source` anahtarı üzerinden iki envanter birleştirilebilir: T3-3 tablosu
+"bu kaynaktan gelen metin kirli mi?" sorusuna, bu turun kayıtları "bu kaynağın
+lisansı/izlenebilirliği ne?" sorusuna yanıt veriyor. Veri sahibinin kararı
+üçlü: **belgele + etiketle**, **sadece etiketle**, **çıkar**.
+
 ### Hangi üreticinin metni hayatta kaldı? (ölçüm)
 
 Katmandaki metnin **her kod için** tam olarak bir kaynak satırına eşit olduğu

@@ -1584,6 +1584,73 @@ def trace_meta_fields(frame_path: Path) -> dict[str, Any]:
 
 
 # --------------------------------------------------------------------------- #
+# quarantine self-consistency (protects previous cleanup work from regressing)
+# --------------------------------------------------------------------------- #
+QUARANTINE_DIR = DIAGNOSTICS / "quarantine"
+
+
+def check_quarantine_invariants(repo_root: Path, rep: Report) -> None:
+    """Re-verify the repo's own quarantine audits against the shipped data.
+
+    ``data/diagnostics/quarantine/`` holds four audits whose claims are
+    checkable: nodes that were recovered into the root-cause graph, SPN shell
+    rows that were removed, and LLM-derived blocks whose sha256 must not appear
+    in the shipped database. A later merge that reintroduces any of them is a
+    regression nobody would notice by reading prose, so it is a gate.
+    """
+    quarantine = repo_root / QUARANTINE_DIR
+    graph_file = repo_root / DIAGNOSTICS / "root_cause_graph.json"
+    spn_file = repo_root / DIAGNOSTICS / "j1939_spn_fmi_database.json"
+    if not quarantine.is_dir() or not graph_file.is_file() or not spn_file.is_file():
+        rep.add("INFO", "quarantine", "karantina/graf/SPN dosyaları yok — değişmez denetimi atlandı")
+        return
+    graph_ids = {node.get("id") for node in (_load_json(graph_file).get("nodes") or [])
+                 if isinstance(node, dict)}
+    spns = set(_load_json(spn_file).get("spns") or {})
+    checked = 0
+
+    seed_audit = quarantine / "t21_seed_audit.json"
+    if seed_audit.is_file():
+        nodes = (_load_json(seed_audit).get("nodes") or [])
+        expected = [n.get("id") for n in nodes if n.get("verdict") == "already_in_graph"]
+        unexpected = [n.get("id") for n in nodes if n.get("verdict") == "not_recovered"]
+        checked += len(nodes)
+        missing = [i for i in expected if i not in graph_ids]
+        leaked = [i for i in unexpected if i in graph_ids]
+        if missing:
+            rep.fail("quarantine", f"{len(missing)} tohum düğüm kayıtta 'already_in_graph' ama grafta yok: "
+                                   f"{missing[:5]}")
+        if leaked:
+            rep.fail("quarantine", f"{len(leaked)} düğüm kayıtta 'not_recovered' ama grafta var: "
+                                   f"{leaked[:5]}")
+
+    shell = quarantine / "t2_4_sitrak_shell_rows.json"
+    if shell.is_file():
+        keys = list((_load_json(shell).get("records") or {}))
+        checked += len(keys)
+        leaked = [k for k in keys if k in spns]
+        if leaked:
+            rep.fail("quarantine", f"{len(leaked)} karantina edilen kabuk satırı anahtarı DB'de geri gelmiş: "
+                                   f"{leaked[:5]}")
+
+    blocks = quarantine / "dtcdocs_llm_blocks.json"
+    if blocks.is_file():
+        digests = [r.get("block_sha256") for r in (_load_json(blocks).get("records") or [])
+                   if isinstance(r, dict) and r.get("block_sha256")]
+        checked += len(digests)
+        if digests:
+            db_text = spn_file.read_text(encoding="utf-8", errors="replace")
+            leaked = [d for d in digests if d in db_text]
+            if leaked:
+                rep.fail("quarantine", f"{len(leaked)} karantina edilen blok özeti DB metninde bulundu: "
+                                       f"{leaked[:3]}")
+
+    rep.metrics["quarantine_invariants_checked"] = checked
+    rep.add("INFO", "quarantine", f"{checked} karantina iddiası yeniden doğrulandı — "
+                                 f"geri gelen temizlik izi yok")
+
+
+# --------------------------------------------------------------------------- #
 # MANIFEST sync (the only writer inside data/intake/)
 # --------------------------------------------------------------------------- #
 MANIFEST_HEADER = """# MANIFEST — `data/intake/` kaynak kaydı
@@ -1696,6 +1763,7 @@ def run(root: Path | None = None, intake_dir: Path | None = None, report_path: s
 
     check_manifest_against_files(records, target, manifest, rep)
     report_conflicts(records, repo_root, rep)
+    check_quarantine_invariants(repo_root, rep)
 
     total_bytes = sum(p.stat().st_size for p in target.rglob("*") if p.is_file())
     if total_bytes > DEFAULT_MAX_INTAKE_BYTES:
