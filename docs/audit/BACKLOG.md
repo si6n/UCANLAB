@@ -1,4 +1,4 @@
-# Denetim Backlog'u — 2026-10-01
+# Denetim Backlog'u — 2026-10-01 (+ 2026-10-03 aşamalı denetim)
 
 Bu dosya, `docs/audit/AUDIT_REPORT.md` denetiminde bulunup bu dalda **düzeltilmeyen**
 maddeleri listeler. Her madde için kanıt ve önerilen düzeltme verilir. Öncelik sırası:
@@ -99,3 +99,39 @@ Açık YÜKSEK madde yok. Bulunan YÜKSEK bulguların hepsi düzeltildi (raporda
   (`src/protocols/uds/client.py`). Geçit (gateway) 0x31'i içerikten kritik sayıyor; üretim
   geçidinde operatör onayı olmadan reddedilir (güvenli yön). Şu an uygulamada çağıran yok.
 - **Öneri:** Kullanılacaksa `start_routine` ile aynı token parametrelerini ekleyin.
+
+## 2026-10-03 aşamalı denetimden ertelenenler
+
+Kaynak: `docs/audit/AUDIT_2026-10-03.md`. Kimlikler raporla aynı.
+
+### B-14 (YÜKSEK) — Terfiden sonra kırmızı kalan 13 test (B0-09)
+- **Kanıt:** `29a4465` 9 SPN ekledi (4291 → 4300) ve intake'teki Wal33D OEM ile SPN referans
+  kayıtlarını emekliye ayırdı. Kırmızı testler:
+  `test_t48_t44_recovery.py::TestProductionDatabase::test_spn_count_frozen`,
+  `test_t80k_j1939_desc_source.py::TestDescriptionProvenance::test_spn_count_frozen`,
+  `test_benchmark_ai_copilot.py::TestCatalogShape::test_production_catalog_sizes_match_contract`,
+  `tests/safety/test_e2e_safety_audit.py::test_audit_database_integrity_and_scale`,
+  `test_j1939_v190_load.py` (`test_cold_load_latency_and_memory`, `test_explicit_path_same_content`,
+  `test_all_spns_have_name_and_title_tr`), `test_intake_kb_defects.py::test_readiness_split_is_consistent`,
+  `test_intake_scan_sources.py` (`test_staged_batch_passes_the_intake_gate_and_never_writes_the_kb`,
+  `test_staged_oem_divergences_are_re_measured_by_the_gate`, `test_oem_divergence_record_rejects_a_count_mismatch`,
+  `test_validator_rejects_two_sources_without_corroborated_confidence`).
+- **Neden ertelendi:** düzeltme ya test beklentisini değiştirmek (sayı 4300, emekliye ayrılmış
+  dosya yerine sahte ağaç/başka kayıt) ya da 9 SPN için Türkçe başlık (`title_tr`) yazmak
+  demek. Bu oturumda test beklentisi değiştirme izni verilmedi.
+- **Öneri:** sahibi sayıyı 4300'e çeksin (mevcut "T_cd363b33: 4282->4291" yorum düzenini izleyerek),
+  9 SPN'e `title_tr` eklesin, intake testlerini emekli kayıtlar yerine `_fake_wal33d` benzeri
+  geçici ağaçlarla kursun.
+
+### B-15 (ORTA) — E-Stop yeniden tetiklenince challenge korunuyor (S1-04)
+- **Kanıt:** `src/safety/estop.py:640-654`; davranış `tests/unit/test_remediation_suite_complete.py:69-73`
+  ile kilitli.
+- **Etki:** ilk arıza için basılmış reset token'ı sonraki arızayı da siler; operatör yeni nedeni görmeden onaylamış olur.
+- **Öneri:** her tetikte yeni challenge (fail-closed). Testin beklentisi sahibinin onayıyla güncellenmeli.
+
+### B-16 (DÜŞÜK) — Safety gizli kusurları (S1-07…S1-11)
+- S1-07: kritiklik türetimine Extended/Mixed ISO-TP adresleme desteği (ya da bu modlar için TX reddi).
+- S1-08: E2E mühürlemesini kritiklik kontrolünden önce yap ya da mühürlenmiş çerçeveyi yeniden sınıfla.
+- S1-09: AUTOSAR E2E P1 varyant eşlemesini spesifikasyonla doğrula (şüpheli).
+- S1-10: reset yetkisini ayrı süreçten (araç/servis) sağla; `reset_authority_provider` belgeli istisna.
+- S1-11: onay ve arm token TTL'ine üst sınır (ör. 120 s).
