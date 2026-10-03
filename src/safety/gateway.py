@@ -38,7 +38,14 @@ from src.core.models.can_frame import CanFrame
 from src.safety.criticality import (
     CRITICAL_J1939_PGNS,
     CRITICAL_UDS_SIDS,
+    J1939_DM7_PGN,
+    J1939_DM7_REPORT_TIDS,
+    J1939_ETP_CM_PGN,
     J1939_REQUEST_PGN,
+    J1939_TP_ANNOUNCE_CONTROLS,
+    J1939_TP_CM_PGN,
+    j1939_normalize_pgn,
+    j1939_pgn_candidates,
 )
 from src.safety.e2e.packager import E2ESafetyPackager
 from src.safety.e2e.profiles import E2EProfileConfig
@@ -1279,16 +1286,28 @@ class TxSafetyGateway:
             # PGNs (e.g. PGN 65235 on a J1939-framed 0x18FExxxx address),
             # which the branch below still classifies as critical. Keep the
             # two namespaces disjoint.
-            pgn = (frame.arbitration_id >> 8) & 0x3FFFF
-            if pgn in self.CRITICAL_J1939_PGNS:
+            # AUDIT 2026-10-03 (S1-01): PDU1 destination byte masked out, so a
+            # PGN matches whatever ECU it is addressed to.
+            pgns = j1939_pgn_candidates(frame.arbitration_id)
+            if pgns & self.CRITICAL_J1939_PGNS:
                 return True
-            if pgn == self.J1939_REQUEST_PGN:
+            if self.J1939_REQUEST_PGN in pgns:
                 # S1-P1-2: a Request for a writable/actuation PGN is a remote
                 # command. Fail-closed on an unparseable/short payload.
                 requested = self._j1939_requested_pgn(data)
                 if requested is None:
                     return True
-                return requested in self.CRITICAL_J1939_PGNS
+                return j1939_normalize_pgn(requested) in self.CRITICAL_J1939_PGNS
+            if J1939_DM7_PGN in pgns:
+                # S1-02: DM7 commands a test unless it asks for stored results.
+                return data[0] not in J1939_DM7_REPORT_TIDS
+            if pgns & {J1939_TP_CM_PGN, J1939_ETP_CM_PGN} and data[0] in J1939_TP_ANNOUNCE_CONTROLS:
+                # S1-02: a multi-packet announcement inherits the announced
+                # PGN's criticality (Commanded Address is always 9 bytes).
+                if len(data) < 8:
+                    return True
+                announced = j1939_normalize_pgn(int.from_bytes(data[5:8], "little"))
+                return announced in self.CRITICAL_J1939_PGNS or announced == J1939_DM7_PGN
             return False
         except Exception:  # pragma: no cover - defensive: never fail open
             logger.error("Criticality classification failed; treating frame as critical", exc_info=True)
@@ -1768,6 +1787,11 @@ class TxSafetyGateway:
                             self._rate_log_suppressed = 0
                         else:
                             self._rate_log_suppressed += 1
+                    # AUDIT 2026-10-03 (S1-03): a rejected frame never reaches
+                    # the wire, so it must not keep its global-envelope stamp.
+                    # The leaked stamps filled the aggregate window with
+                    # phantom traffic and could escalate to an E-Stop.
+                    self._rollback_tx_reservation(False, False, None, None, total_stamp=total_stamp)
                     raise RateLimitExceededError("Transmission rate limit exceeded (100 msg/s)")
                 self._rate_overload_streak = 0
 
@@ -1788,6 +1812,8 @@ class TxSafetyGateway:
                         "TX budget exhausted",
                         extra={"category": budget_category},
                     )
+                    # AUDIT 2026-10-03 (S1-03): release the envelope stamp too.
+                    self._rollback_tx_reservation(False, False, None, None, total_stamp=total_stamp)
                     raise RateLimitExceededError(
                         f"TX budget '{budget_category}' exhausted (capacity {budget.capacity})",
                     )

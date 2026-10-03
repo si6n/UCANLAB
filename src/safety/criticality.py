@@ -104,8 +104,54 @@ CRITICAL_J1939_PGNS: frozenset[int] = frozenset(
         65240,  # Commanded Address (re-addresses an ECU, J1939-81)
         0,      # TSC1 — Torque/Speed Control 1 (direct drivetrain command)
         1024,   # XBR  — External Brake Request
+        # AUDIT 2026-10-03 (S1-02): J1939-73 messages that mutate ECU state
+        # were missing, so they skipped the speed interlock + dual confirm.
+        49920,  # DM22 — Individual Clear/Reset of active/previously active DTC
+        57088,  # DM13 — Stop/Start Broadcast (silences ECUs, like UDS 0x28)
+        55552,  # DM14 — Memory Access Request (write / erase / boot load)
+        55040,  # DM16 — Binary Data Transfer (memory write payload)
+        54784,  # DM17 — Boot Load Data
+        54272,  # DM18 — Data Security (key exchange, like UDS 0x27)
     }
 )
+
+#: J1939-73 DM7 (Command Non-Continuously Monitored Test). Test identifier
+#: 247 only asks for stored results (answered with DM30); every other test
+#: identifier commands the ECU to RUN a test, so DM7 is critical unless its
+#: first byte is a report identifier.
+J1939_DM7_PGN: int = 58112
+J1939_DM7_REPORT_TIDS: frozenset[int] = frozenset({247})
+
+#: J1939-21 TP.CM and ETP.CM. A multi-packet message announces its PGN in
+#: bytes 5..7 of the RTS (0x10) / BAM (0x20) / ETP RTS (0x14) frame. Commanded
+#: Address (9 bytes) and DM16 always travel this way, so the announcement must
+#: inherit the announced PGN's criticality.
+J1939_TP_CM_PGN: int = 60416
+J1939_ETP_CM_PGN: int = 51200
+J1939_TP_ANNOUNCE_CONTROLS: frozenset[int] = frozenset({0x10, 0x20, 0x14})
+
+_J1939_PDU1_BOUND = 240
+
+
+def j1939_normalize_pgn(pgn: int) -> int:
+    """Drop the destination byte of a PDU1 PGN (PF < 240): it is not part of the PGN."""
+    pf = (pgn >> 8) & 0xFF
+    return pgn & 0x3FF00 if pf < _J1939_PDU1_BOUND else pgn & 0x3FFFF
+
+
+def j1939_pgn_candidates(arbitration_id: int) -> frozenset[int]:
+    """PGNs a 29-bit identifier can mean, fail-closed (AUDIT 2026-10-03, S1-01).
+
+    J1939-21: for PDU1 (PF < 240) the PS byte is the DESTINATION ADDRESS, not
+    part of the PGN. Reading ``(id >> 8) & 0x3FFFF`` raw made XBR to the brake
+    controller (0x0C040B..) PGN 1035 instead of 1024 and a global Request
+    (0x18EAFF..) PGN 60159 instead of 59904, so neither was classified
+    critical. The EDP-masked form is included as well, mirroring the replay
+    filter: an ECU that ignores EDP must not receive a critical PGN unchecked.
+    """
+    raw = (arbitration_id >> 8) & 0x3FFFF
+    candidates = {j1939_normalize_pgn(raw), j1939_normalize_pgn(raw & 0x1FFFF)}
+    return frozenset(candidates)
 
 #: S-03: J1939-73 READ-only diagnostic PGNs. They are legitimate polls an
 #: operator may issue against a live vehicle, so they must NOT force the

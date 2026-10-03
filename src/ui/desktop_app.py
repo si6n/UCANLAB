@@ -3631,7 +3631,11 @@ class UniversalCanDesktopApp:
 
     def close_read_only_session(self, reason: str = "Read-only session finished") -> dict[str, Any]:
         result = self.disarm_tx(reason=reason)
-        self.gateway.clear_read_only_policy()
+        # AUDIT 2026-10-03 (S1-05): the gateway drops the policy itself when
+        # TX authority ends. Clearing it here after a FAILED disarm would leave
+        # TX armed with no read-only restriction (fail-open).
+        if not self.supervisor.is_tx_permitted:
+            self.gateway.clear_read_only_policy()
         return result
 
     def disarm_tx(self, reason: str = "Operator returned system to PASSIVE mode") -> dict[str, Any]:

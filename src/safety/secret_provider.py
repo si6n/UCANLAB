@@ -417,7 +417,13 @@ class LinuxSecretBackend(SecretProvider):
         )
         try:
             seed_file.parent.mkdir(parents=True, exist_ok=True)
-            fd = os.open(seed_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            # AUDIT 2026-10-03 (S1-06): O_EXCL, not O_TRUNC. Two processes that
+            # both saw "no seed" used to overwrite each other's seed; the loser
+            # had already encrypted secrets under a seed that no longer exists.
+            try:
+                fd = os.open(seed_file, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            except FileExistsError:
+                return self._get_machine_seed()  # another writer won: use its seed
             with os.fdopen(fd, "wb") as f:
                 f.write(seed)
             os.chmod(seed_file, 0o600)
