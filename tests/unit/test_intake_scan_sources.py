@@ -452,8 +452,73 @@ def test_gate_reconciles_spn_references_against_the_live_database() -> None:
     assert rep.metrics.get("spn_name_variant", 0) > 0, "name variants must be measured, not assumed"
 
 
-def test_stage_spn_refs_is_idempotent() -> None:
-    """A second --stage must add nothing (records are byte-stable)."""
-    written, problems = stage_spn_refs(Path("/nonexistent"), ROOT / "data" / "intake", ROOT, apply=True)
-    # No source tree: nothing is produced, no crash.
-    assert written == 0 and problems == []
+def test_stage_spn_refs_refuses_to_overwrite_a_changed_record(tmp_path: Path) -> None:
+    """The stager must never silently rewrite a staged SPN reference.
+
+    A synthetic upstream tree still contributes the DBC evidence, so the exact
+    count is not fixed — what matters is: write once, add nothing on a second
+    run, and refuse to overwrite a record that drifted.
+    """
+    import shutil
+
+    tree = tmp_path / "canboat"
+    src = tree / "database" / "j1939" / "pgns"
+    src.mkdir(parents=True)
+    (src / "065201-ecuHistory.yaml").write_text(YAML_FIXTURE, encoding="utf-8")
+    intake = tmp_path / "intake"
+    try:
+        count, problems = stage_spn_refs(tree, intake, ROOT, apply=True)
+        assert count > 0 and not problems
+        staged = intake / "spn_ref" / "canboat-spn-00190.json"
+        assert staged.is_file(), "the fixture's SPN 190 must be staged"
+
+        count, problems = stage_spn_refs(tree, intake, ROOT, apply=True)
+        assert count == 0 and not problems, "a second --apply must add nothing"
+
+        staged.write_text(staged.read_text(encoding="utf-8").replace("SPN 190", "SPN 999"),
+                          encoding="utf-8")
+        count, problems = stage_spn_refs(tree, intake, ROOT, apply=True)
+        assert count == 0 and any("differs from the pinned source" in p for p in problems)
+    finally:
+        shutil.rmtree(tree, ignore_errors=True)
+
+
+def test_dbc_harvest_is_hash_pinned_and_verbatim() -> None:
+    """The second representation must be verified against data/dbc/manifest.json."""
+    from scripts.intake_scan_sources import collect_dbc_spn_evidence, dbc_file_for_spns
+
+    dbc = dbc_file_for_spns(ROOT)
+    assert dbc is not None, "the DBC must verify against its manifest hash"
+    evidence = collect_dbc_spn_evidence(dbc)
+    assert evidence, "CM_ SG_ comments must yield SPN references"
+    for spn, entry in list(evidence.items())[:20]:
+        assert entry["signals"] and entry["comments"]
+        assert any(f"SPN {spn}" in c for c in entry["comments"]), spn
+
+
+def test_two_source_records_declare_corroborated() -> None:
+    """Cross-checked evidence must say so; the validator enforces the rule."""
+    files = sorted(SPN_REF_DIR.glob("*.json"))
+    two_source = 0
+    for path in files:
+        record = json.loads(path.read_text(encoding="utf-8"))
+        sources = record["payload"]["sources"]
+        if len(sources) >= 2:
+            two_source += 1
+            assert record["confidence"] == "corroborated", path.name
+            assert record["payload"]["dbc_signals"], path.name
+            # each cited source is hash pinned
+            for item in sources:
+                assert re.fullmatch(r"[0-9a-f]{64}", item["sha256"])
+    assert two_source > 100, "the corpus should carry cross-verified SPN references"
+
+
+def test_validator_rejects_two_sources_without_corroborated_confidence() -> None:
+    from scripts.validate_intake import Report as _Report, validate_envelope
+
+    record = json.loads((SPN_REF_DIR / "canboat-spn-01032.json").read_text(encoding="utf-8"))
+    assert len(record["payload"]["sources"]) >= 2
+    record["confidence"] = "single_source"
+    rep = _Report()
+    validate_envelope(record, "spn_ref/x.json", rep)
+    assert any("corroborated" in d for lv, _c, d in rep.rows if lv == "FAIL")

@@ -28,6 +28,9 @@
   "knowledge_base": null,
   "payload": {
     "spn": 1032,
+    "dbc_signals": [
+      "Engine_Coolant_Temperature"
+    ],
     "names_en": [
       "Total ECU Distance"
     ],
@@ -57,5 +60,5 @@
     "kb_name": null,
     "kb_unit": null
   },
-  "notes": "SPN number and parameter text are read from the upstream 'description' text verbatim — never derived from the field name, the PGN or the bit layout. kb_state records what data/diagnostics/j1939_spn_fmi_database.json holds today ('absent' = promotion candidate); validate_intake.py re-measures it on every run and reports kb_drift if the state flips. Apache-2.0 NOTICE: data/intake/NOTICE.canboat.md."
+  "notes": "SPN number and parameter text are read from upstream verbatim — never derived from the field name, the PGN or the bit layout. A record citing two independent representations of the same statement (the J1939 layouts and the vendored DBC comments) must declare confidence 'corroborated'; the validator rejects a two-source record that does not. kb_state records what data/diagnostics/j1939_spn_fmi_database.json holds today ('absent' = promotion candidate); validate_intake.py re-measures it on every run and reports kb_drift if the state flips. Apache-2.0 NOTICE: data/intake/NOTICE.canboat.md."
 }
