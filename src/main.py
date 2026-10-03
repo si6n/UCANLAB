@@ -28,6 +28,7 @@ from src.core.logging import get_logger, setup_logging
 from src.hal.base import AbstractBus
 from src.hal.drivers.pcan_kvaser import PythonCanBus
 from src.ui.desktop_app import UniversalCanDesktopApp
+from src.version import __version__
 
 logger = get_logger("app.main")
 
@@ -162,7 +163,7 @@ def main(argv: list[str] | None = None) -> int:
     setup_logging(level=log_level_val)
 
     logger.info(
-        "Starting Universal CAN Platform v13.0",
+        f"Starting Universal CAN Platform v{__version__}",
         extra={"interface": args.interface, "channel": args.channel, "bitrate": args.bitrate},
     )
 

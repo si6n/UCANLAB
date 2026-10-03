@@ -526,7 +526,7 @@ class UpdateManager:
                 f"{dest.name}.tmp-{os.getpid()}-{threading.get_ident()}-{time.monotonic_ns()}"
             )
             try:
-                req = urllib.request.Request(update_info.download_url, headers={"User-Agent": "UniversalCAN-Launcher/13.0"})
+                req = urllib.request.Request(update_info.download_url, headers={"User-Agent": f"UniversalCAN-Launcher/{__version__}"})
                 # E1 (P1-7): opener with redirect following DISABLED — see
                 # _NoRedirectHandler. A 30x raises HTTPError here (fail closed)
                 # instead of silently fetching from wherever it points.

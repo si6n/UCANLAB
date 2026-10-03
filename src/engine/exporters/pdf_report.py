@@ -30,6 +30,7 @@ from pathlib import Path
 from src.core.logging import get_logger
 from src.engine.exporters.path_guard import atomic_write_text, resolve_export_path
 from src.protocols.j1939.diagnostics import DMMessage
+from src.version import __version__
 
 logger = get_logger("engine.exporters.report")
 
@@ -202,7 +203,7 @@ class DiagnosticReportGenerator:
   {stats_html}
   <div class="signature">
     <p>🔒 <strong>Session seal [{seal_label}]:</strong> {report_sha256}</p>
-    <p>Platform: Universal CAN-Bus Diagnostic & Telemetry System v13.0 (SAE J1939 / NMEA 2000 / ISO 14229)</p>
+    <p>Platform: Universal CAN-Bus Diagnostic & Telemetry System v{__version__} (SAE J1939 / NMEA 2000 / ISO 14229)</p>
   </div>
 </body>
 </html>

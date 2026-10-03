@@ -124,6 +124,7 @@ from src.security.cloud.telemetry_uploader import TelemetryUploader, UploadProgr
 from src.security.hwid.collector import generate_hardware_fingerprint
 from src.ui.mechanic_prefs import MODES as MECHANIC_MODES
 from src.ui.mechanic_prefs import MechanicPrefsStore
+from src.version import __version__
 
 logger = get_logger("app.desktop")
 
@@ -7092,7 +7093,7 @@ class UniversalCanDesktopApp:
             frontend_url = self._frontend_server.start()
 
             self._window = webview.create_window(
-                title="Universal CAN-Bus Diagnostic & Telemetry Tool v13.0",
+                title=f"Universal CAN-Bus Diagnostic & Telemetry Tool v{__version__}",
                 url=frontend_url,
                 js_api=api,
                 width=1400,
@@ -7127,7 +7128,7 @@ class UniversalCanDesktopApp:
                                 hwnd = int(native.Handle.ToInt64())
                         if not hwnd:
                             hwnd = ctypes.windll.user32.FindWindowW(
-                                None, "Universal CAN-Bus Diagnostic & Telemetry Tool v13.0"
+                                None, f"Universal CAN-Bus Diagnostic & Telemetry Tool v{__version__}"
                             )
                         if hwnd:
                             dwmapi = ctypes.WinDLL("dwmapi")
