@@ -657,10 +657,13 @@ def stage_oem(wal33d_tree: Path, intake_dir: Path, repo_root: Path, apply: bool,
 # --------------------------------------------------------------------------- #
 SPN_REF_SUBDIR = "spn_ref"
 SPN_REF_NOTE = (
-    "SPN referansi ve parametre metni, canboat'in pinli J1939 PGN alan "
-    "duzenlerinden birebir toplandi. deger kaynagi upstream metnidir; hicbiri "
-    "turetilmemistir. data/diagnostics/j1939_spn_fmi_database.json bu kayitlari "
-    "OKUMAZ - terfi karari intake README'sindeki Adim 3a'ya bagli."
+    "SPN referansi ve parametre metni IKI ayri upstream temsilinden birebir "
+    "toplandi: canboat'in pinli J1939 PGN alan duzenleri (YAML) ve repoda vendor "
+    "edilmis data/dbc/heavy_duty/j1939_canboat.dbc (CM_ SG_ yorumlari, sha256 "
+    "data/dbc/manifest.json ile sabitli). Iki temsil ayni cumleyi soyleyen iki "
+    "bicimdir; hicbir deger TURETILMEMISTIR. "
+    "data/diagnostics/j1939_spn_fmi_database.json bu kayitlari OKUMAZ - terfi "
+    "karari intake README'sindeki Adim 3a'ya bagli."
 )
 
 
@@ -711,21 +714,113 @@ def _kb_spn_db(repo_root: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8")).get("spns", {})
 
 
+DBC_SPN_RE = re.compile(r'CM_\s+SG_\s+(\d+)\s+(\S+)\s+"(SPN\s+(\d+)[^"]*)"')
+
+
+def _pgn_of_can_id(can_id: int) -> int:
+    """J1939/NMEA-2000 PGN from a DBC message id (PDU1 destination byte excluded)."""
+    if can_id <= 0x7FF:
+        return can_id
+    pgn = (can_id >> 8) & 0x3FFFF
+    if ((can_id >> 16) & 0xFF) < 240:  # PDU1
+        pgn &= 0x3FF00
+    return pgn
+
+
+def collect_dbc_spn_evidence(dbc_path: Path) -> dict[int, dict[str, Any]]:
+    """SPN references carried by a vendored DBC's ``CM_ SG_`` comments.
+
+    canboat's DBC comments look like ``"SPN 190; canboat type: NUMBER"``: the
+    number is read verbatim and the signal name is kept verbatim, so this is a
+    second *independent representation* of the same upstream statement (the YAML
+    layouts say it in prose). Two representations agreeing is what lets a staged
+    SPN reference claim ``corroborated`` instead of ``single_source``.
+    """
+    evidence: dict[int, dict[str, Any]] = {}
+    text = dbc_path.read_text(encoding="utf-8", errors="replace")
+    for match in DBC_SPN_RE.finditer(text):
+        can_id, signal, comment, spn = match.group(1), match.group(2), match.group(3), int(match.group(4))
+        entry = evidence.setdefault(spn, {"signals": [], "comments": [], "pgns": []})
+        if signal not in entry["signals"]:
+            entry["signals"].append(signal)
+        if comment not in entry["comments"]:
+            entry["comments"].append(comment)
+        pgn = _pgn_of_can_id(int(can_id))
+        if pgn not in entry["pgns"]:
+            entry["pgns"].append(pgn)
+    return evidence
+
+
+def dbc_file_for_spns(repo_root: Path) -> Path | None:
+    """The vendored canboat heavy-duty DBC, verified against data/dbc/manifest.json."""
+    manifest_path = repo_root / "data" / "dbc" / "manifest.json"
+    if not manifest_path.is_file():
+        return None
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except ValueError:
+        return None
+    entries: list[dict[str, Any]] = []
+
+    def walk(node: Any) -> None:
+        if isinstance(node, dict):
+            if isinstance(node.get("filename"), str):
+                entries.append(node)
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, list):
+            for value in node:
+                walk(value)
+
+    walk(manifest)
+    for entry in entries:
+        if entry["filename"] != "j1939_canboat.dbc":
+            continue
+        candidate = repo_root / "data" / "dbc" / "heavy_duty" / entry["filename"]
+        if candidate.is_file() and sha256_file(candidate) == entry.get("sha256"):
+            return candidate
+    return None
+
+
 def build_spn_reference_records(canboat_tree: Path, repo_root: Path) -> list[dict[str, Any]]:
     """One record per SPN seen in the layouts, with the KB's current state."""
     evidence = collect_spn_evidence(canboat_tree)
     spns = _kb_spn_db(repo_root)
     files_hash: dict[str, tuple[str, int]] = {}
     src = canboat_tree / "database" / "j1939" / "pgns"
+    # Second, independent in-repo representation of the same upstream statement.
+    dbc_path = dbc_file_for_spns(repo_root)
+    dbc_evidence = collect_dbc_spn_evidence(dbc_path) if dbc_path else {}
+    dbc_rel = "data/dbc/heavy_duty/j1939_canboat.dbc"
+    dbc_hash = sha256_file(dbc_path) if dbc_path else None
+    dbc_bytes = dbc_path.stat().st_size if dbc_path else None
     records: list[dict[str, Any]] = []
-    for spn in sorted(evidence):
-        entry = evidence[spn]
+    for spn in sorted(set(evidence) | set(dbc_evidence)):
+        entry = evidence.get(spn) or {"names": [], "units": [], "resolutions": [], "bit_lengths": [],
+                                       "evidence": [], "files": [], "pgns": []}
+        dbc = dbc_evidence.get(spn)
+        if dbc and not entry["files"]:
+            # DBC-only reference: real upstream text, staged from the vendored DBC.
+            entry["names"] = list(dbc["signals"])
+            entry["evidence"] = list(dbc["comments"])
         cited = []
         for rel in entry["files"]:
             if rel not in files_hash:
                 files_hash[rel] = (sha256_file(src / Path(rel).name), (src / Path(rel).name).stat().st_size)
             cited.append({"source_file": rel, "sha256": files_hash[rel][0], "bytes": files_hash[rel][1]})
+        if dbc and dbc_hash:
+            cited.append({"source_file": dbc_rel, "sha256": dbc_hash, "bytes": dbc_bytes})
         current = spns.get(f"SPN_{spn}") or {}
+        if entry["files"]:
+            source_path = f"{CANBOAT_REPO}/blob/{CANBOAT_COMMIT}/{entry['files'][0]}"
+            source_title = f"CANboat J1939 PGN alan düzenlerinden SPN {spn} referansı"
+            source_publisher = "CANboat (Kees Verruijt); layout per SAE J1939-71"
+            source_revision = CANBOAT_COMMIT[:12]
+        else:
+            source_path = dbc_rel
+            source_title = f"Vendor DBC yorumundan SPN {spn} referansı"
+            source_publisher = "CANboat (Kees Verruijt) via data/dbc/manifest.json"
+            source_revision = None
         records.append({
             "schema_version": 1,
             "intake_id": f"canboat-spn-{spn:05d}",
@@ -742,16 +837,18 @@ def build_spn_reference_records(canboat_tree: Path, repo_root: Path) -> list[dic
                 "access_date": SCAN_DATE,
                 "snapshot": {"archive_url": None, "sha256": None, "bytes": None, "pages_cited": []},
             },
-            "confidence": "single_source",
+            # Two independent representations of one statement -> cross-checked.
+            "confidence": "corroborated" if len(cited) >= 2 else "single_source",
             "draft": True,
             "knowledge_base": None,
             "payload": {
                 "spn": spn,
+                "dbc_signals": (dbc or {}).get("signals", []),
                 "names_en": entry["names"],
                 "units": entry["units"],
                 "resolutions": entry["resolutions"],
                 "bit_lengths": entry["bit_lengths"],
-                "evidence_pgns": sorted(entry.get("pgns", [])),
+                "evidence_pgns": sorted(set(entry.get("pgns", [])) | set((dbc or {}).get("pgns", []))),
                 "evidence_text": entry["evidence"],
                 "sources": cited,
                 "kb_state": "present" if current else "absent",

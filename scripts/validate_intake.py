@@ -145,7 +145,7 @@ PAYLOAD_FIELDS: dict[str, frozenset[str]] = {
     }),
     "spn_reference": frozenset({
         "spn", "names_en", "units", "resolutions", "bit_lengths", "evidence_pgns",
-        "evidence_text", "sources", "kb_state", "kb_name", "kb_unit",
+        "evidence_text", "sources", "kb_state", "kb_name", "kb_unit", "dbc_signals",
     }),
     "provenance_gap": frozenset({
         "source_key", "occurrences", "files", "fields", "sample_values",
@@ -737,7 +737,8 @@ def _validate_payload_kb_defect(payload: dict[str, Any], where: str, rep: Report
 SPN_REF_SOURCE_FIELDS: frozenset[str] = frozenset({"source_file", "sha256", "bytes"})
 
 
-def _validate_payload_spn_reference(payload: dict[str, Any], where: str, rep: Report) -> None:
+def _validate_payload_spn_reference(payload: dict[str, Any], where: str, rep: Report,
+                                    confidence: Any = None) -> None:
     """An SPN mentioned in a PGN layout, with the evidence it was read from."""
     _check_exact_fields(payload, PAYLOAD_FIELDS["spn_reference"], where,
                         PAYLOAD_FIELDS["spn_reference"], rep)
@@ -781,6 +782,11 @@ def _validate_payload_spn_reference(payload: dict[str, Any], where: str, rep: Re
     for i, pgn in enumerate(pgns):
         if not isinstance(pgn, int) or isinstance(pgn, bool) or not 0 <= pgn <= 262_143:
             rep.fail("schema", f"{where}.evidence_pgns[{i}] must be an integer in [0, 262143]")
+    dbc_signals = payload.get("dbc_signals")
+    if not isinstance(dbc_signals, list) or not all(
+        isinstance(item, str) and item.strip() for item in dbc_signals
+    ):
+        rep.fail("schema", f"{where}.dbc_signals must be a list of non-empty strings")
     for key in ("kb_state", "kb_name", "kb_unit"):
         value = payload.get(key)
         if key == "kb_state":
@@ -794,6 +800,11 @@ def _validate_payload_spn_reference(payload: dict[str, Any], where: str, rep: Re
         if not mentioned:
             rep.add("WARN", "spn_evidence",
                     f"{where}: SPN {spn} kaynak metinlerinde görünmüyor — türetilmiş olabilir")
+    # Two cited sources are a cross-checked statement, so the envelope must say so.
+    sources = payload.get("sources")
+    if isinstance(sources, list) and len(sources) >= 2 and confidence != "corroborated":
+        rep.fail("provenance", f"{where}: {len(sources)} kaynak alıntılanmış ama confidence "
+                               f"{confidence!r} — iki temsilli kayıt 'corroborated' olmalı")
 
 
 def _validate_payload_provenance_gap(payload: dict[str, Any], where: str, rep: Report) -> None:
@@ -886,7 +897,12 @@ def validate_envelope(payload: Any, where: str, rep: Report) -> Record | None:
     if record_type == "case" and draft is not True:
         rep.fail("draft", f"{where}: data/intake/cases/* is always draft: true — an unverified case "
                           f"may not claim to be verified")
-    PAYLOAD_VALIDATORS[record_type](body_payload, f"{where}.payload", rep)
+    validator = PAYLOAD_VALIDATORS[record_type]
+    if record_type == "spn_reference":
+        # The corroboration rule needs the envelope's confidence, not the payload's.
+        validator(body_payload, f"{where}.payload", rep, confidence=payload.get("confidence"))
+    else:
+        validator(body_payload, f"{where}.payload", rep)
     scan_text(json.dumps(payload, ensure_ascii=False), where, rep)
     if source is None or not isinstance(intake_id, str) or not isinstance(draft, bool):
         return None
